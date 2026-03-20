@@ -1,4 +1,4 @@
-# NanoApp Studio (Orion)
+# Orion
 
 A React + Vite single-page tool that generates mobile-friendly HTML micro apps from natural-language prompts using a Gemini-like API.
 
