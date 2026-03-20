@@ -26,21 +26,27 @@ import {
 // --- API Helper with Exponential Backoff ---
 const generateAppCode = async (prompt, currentCode = null, retryCount = 0) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  const apiKey = ""; // Provided by execution environment
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
   try {
     const userText = currentCode 
       ? `Update the existing mobile web app based on this new request: "${prompt}"\n\nHere is the current complete HTML code. Please return the FULL, updated HTML file, incorporating the new request while keeping the rest of the app functional.\n\n\`\`\`html\n${currentCode}\n\`\`\``
       : `Create a mobile-friendly web app based on this request: ${prompt}`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Orion App Generator",
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: userText }] }],
-        systemInstruction: { 
-          parts: [{ 
-            text: `You are an expert frontend developer and UX designer. 
+        model: "openrouter/free",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert frontend developer and UX designer. 
             Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
             
             CRITICAL RULES:
@@ -51,8 +57,12 @@ const generateAppCode = async (prompt, currentCode = null, retryCount = 0) => {
             5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
             6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
             7. If you are updating an existing app, ensure you return the ENTIRE updated HTML file, not just the changed parts.`
-          }] 
-        }
+          },
+          {
+            role: "user",
+            content: userText
+          }
+        ]
       })
     });
 
@@ -61,18 +71,18 @@ const generateAppCode = async (prompt, currentCode = null, retryCount = 0) => {
     }
 
     const result = await response.json();
-    let text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    let text = result.choices?.[0]?.message?.content || "";
     
     // Sanitize in case the model ignored the "no markdown" rule
     text = text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
     
     return text;
-  } catch {
+  } catch (err) {
     if (retryCount < 5) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return generateAppCode(prompt, currentCode, retryCount + 1);
     }
-    throw new Error("Failed to generate app after multiple attempts. Please try again.");
+    throw new Error(err.message || "Failed to generate app after multiple attempts.");
   }
 };
 
