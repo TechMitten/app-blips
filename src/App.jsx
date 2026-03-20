@@ -9,8 +9,6 @@ import {
   History, 
   Settings, 
   Layout, 
-  Moon, 
-  Sun,
   Download,
   RefreshCw,
   Sparkles,
@@ -23,16 +21,14 @@ import {
   Redo2,
   LogOut,
   User,
-  Save,
   FolderOpen,
   X,
   Copy,
   Check,
-  Search,
   Trash2,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Monitor
 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -47,29 +43,106 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
+import { applySurgicalEdits, parseSurgicalEditResponse } from './utils/surgicalEdits';
 const AuthModal = React.lazy(() => import('./components/AuthModal'));
 
 // --- Constants ---
-const SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
+const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
 
 CRITICAL RULES:
 1. Output ONLY valid, raw HTML code.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
-3. The app MUST be fully responsive and designed specifically to look great on a mobile smartphone screen (375px width).
+3. The app MUST be fully responsive across mobile, tablet, and desktop breakpoints. It should work beautifully on a 375px mobile screen and also expand into a proper desktop layout at larger widths instead of staying in a phone-width column.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. If you are updating an existing app, ensure you return the ENTIRE updated HTML file, not just the changed parts.`;
+7. Use responsive layout techniques such as breakpoint-based grids, multi-column desktop sections, adaptive spacing, and container widths that grow appropriately on larger screens.
+8. Add stable ids or data-orion-key attributes to the major regions, controls, and dynamic containers so future targeted edits can reference them safely.`;
+
+const SURGICAL_EDIT_SYSTEM_PROMPT = `You are editing an existing self-contained HTML micro app.
+
+Return ONLY JSON and prefer surgical edits over a full rewrite.
+
+Allowed JSON responses:
+1. {"mode":"surgical-edit","summary":"short summary","operations":[...]}
+2. {"mode":"full-rewrite","summary":"why surgical edits were unsafe","html":"<!DOCTYPE html>..."}
+
+Allowed operation shapes:
+- {"type":"replace_element","selector":"...","occurrence":0,"html":"<section>...</section>"}
+- {"type":"replace_inner_html","selector":"...","occurrence":0,"html":"..."}
+- {"type":"insert_html","selector":"...","occurrence":0,"position":"beforebegin|afterbegin|beforeend|afterend","html":"..."}
+- {"type":"set_attribute","selector":"...","occurrence":0,"name":"class","value":"..."}
+- {"type":"set_attributes","selector":"...","occurrence":0,"attributes":{"class":"...","data-state":"ready"}}
+- {"type":"remove_attribute","selector":"...","occurrence":0,"name":"disabled"}
+- {"type":"remove_attributes","selector":"...","occurrence":0,"names":["disabled","aria-busy"]}
+- {"type":"set_text","selector":"...","occurrence":0,"text":"..."}
+- {"type":"remove_element","selector":"...","occurrence":0}
+
+Rules:
+1. Do not return markdown fences or commentary.
+2. Prefer the smallest safe set of operations.
+3. Reuse the existing structure, CSS, and JavaScript whenever possible.
+4. Use stable selectors. Prefer ids and data-orion-key attributes when available.
+5. Only use "occurrence" when the selector matches multiple nodes.
+6. For CSS or JS changes, target the existing <style> or <script> tags with replace_inner_html, or insert new tags into <head> or <body>.
+7. Do not rename, restyle, reformat, reorder, or regenerate unrelated parts of the app. Any non-requested difference is a bug.
+8. Do not replace large wrapper containers just to make a small change. Use multiple smaller operations instead.
+9. Preserve unrelated CSS rules, JavaScript logic, text, class names, ids, and markup byte-for-byte whenever possible.
+10. If targeted edits are not safe or would be excessively brittle, return "full-rewrite" with the full updated HTML document.`;
+
+const sanitizeHtmlResponse = (text) => {
+  const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
+  if (htmlBlockMatch) return htmlBlockMatch[1].trim();
+
+  const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) return codeBlockMatch[1].trim();
+
+  const htmlStartMatch = text.match(/(<!DOCTYPE html[\s\S]*)/i) || text.match(/(<html[\s\S]*)/i);
+  if (htmlStartMatch) {
+    const content = htmlStartMatch[0];
+    const endTagMatch = content.match(/<\/html>/i);
+    if (endTagMatch) {
+      const lastIndex = content.toLowerCase().lastIndexOf('</html>');
+      return content.substring(0, lastIndex + 7).trim();
+    }
+    return content.replace(/\n?```$/, '').trim();
+  }
+
+  return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+};
+
+const buildSurgicalUserText = (prompt, currentCode, options = {}) => {
+  const { strict = false, failureReason = '' } = options;
+
+  return `Apply the user's request to the existing responsive web app using surgical edits whenever possible.
+
+User request: "${prompt}"
+
+Current complete HTML:
+\`\`\`html
+${currentCode}
+\`\`\`
+
+Preservation requirements:
+- Keep all unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
+- Any difference not required by the request is a bug.
+- Prefer precise selectors and multiple small operations over replacing a broad parent container.
+- When editing CSS or JS, preserve unrelated rules and functions verbatim.
+${strict ? `- Your previous attempt changed too much or was too broad. Be stricter and narrower on this retry.\n- If you need several operations to avoid drift, use them.\n- Failure reason from the previous attempt: ${failureReason}` : ''}
+
+Prefer targeted edits. Only fall back to "full-rewrite" if a safe patch plan would be brittle or unrealistic.`;
+};
 
 // --- API Helper with Exponential Backoff ---
-const generateAppCode = async (
-  prompt,
-  currentCode = null,
+const requestModelText = async ({
   provider = 'openrouter',
+  systemPrompt,
+  userText,
   onChunk = null,
+  temperature = 0.7,
   retryCount = 0
-) => {
+}) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
   const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -77,10 +150,6 @@ const generateAppCode = async (
   const geminiModel = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash-preview-09-2025';
 
   try {
-    const userText = currentCode 
-      ? `Update the existing mobile web app based on this new request: "${prompt}"\n\nHere is the current complete HTML code. Please return the FULL, updated HTML file.\n\n\`\`\`html\n${currentCode}\n\`\`\``
-      : `Create a mobile-friendly web app based on this request: ${prompt}`;
-
     let endpoint;
     let headers;
     let body;
@@ -91,8 +160,8 @@ const generateAppCode = async (
       headers = { 'Content-Type': 'application/json' };
       body = JSON.stringify({
         contents: [{ parts: [{ text: userText }] }],
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        generationConfig: { temperature: 0.7 }
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { temperature }
       });
     } else {
       if (!openrouterKey) throw new Error('OpenRouter API key is missing.');
@@ -107,9 +176,10 @@ const generateAppCode = async (
         model: openrouterModel,
         stream: !!onChunk,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userText }
-        ]
+        ],
+        temperature
       });
     }
 
@@ -195,30 +265,115 @@ const generateAppCode = async (
         ? result?.candidates?.[0]?.content?.parts?.[0]?.text || '' 
         : result.choices?.[0]?.message?.content || '';
     }
-
-    // Sanitize
-    const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
-    if (htmlBlockMatch) return htmlBlockMatch[1].trim();
-    const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/i);
-    if (codeBlockMatch) return codeBlockMatch[1].trim();
-    const htmlStartMatch = text.match(/(<!DOCTYPE html[\s\S]*)/i) || text.match(/(<html[\s\S]*)/i);
-    if (htmlStartMatch) {
-      let content = htmlStartMatch[0];
-      const endTagMatch = content.match(/<\/html>/i);
-      if (endTagMatch) {
-        const lastIndex = content.toLowerCase().lastIndexOf('</html>');
-        return content.substring(0, lastIndex + 7).trim();
-      }
-      return content.replace(/\n?```$/, '').trim();
-    }
-    return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+    return text;
 
   } catch (err) {
     if (retryCount < 5) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
-      return generateAppCode(prompt, currentCode, provider, onChunk, retryCount + 1);
+      return requestModelText({
+        provider,
+        systemPrompt,
+        userText,
+        onChunk,
+        temperature,
+        retryCount: retryCount + 1
+      });
     }
-    throw new Error(err.message || "Failed to generate app.");
+    throw new Error(err.message || 'Failed to generate app.');
+  }
+};
+
+const generateAppCode = async (
+  prompt,
+  currentCode = null,
+  provider = 'openrouter',
+  onChunk = null
+) => {
+  if (!currentCode) {
+    const rawHtml = await requestModelText({
+      provider,
+      systemPrompt: HTML_SYSTEM_PROMPT,
+      userText: `Create a responsive web app based on this request: ${prompt}. It must look polished on mobile and also present a true desktop layout on larger screens.`,
+      onChunk,
+      temperature: 0.7
+    });
+
+    return {
+      code: sanitizeHtmlResponse(rawHtml),
+      editMode: 'full-generation',
+      editSummary: 'Initial app generation.',
+      editOperationsCount: 0
+    };
+  }
+
+  let lastSurgicalError = 'Unknown surgical edit failure.';
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      if (attempt > 0) {
+        onChunk?.(' Retrying with stricter preservation constraints.');
+      }
+
+      const rawPlan = await requestModelText({
+        provider,
+        systemPrompt: SURGICAL_EDIT_SYSTEM_PROMPT,
+        userText: buildSurgicalUserText(prompt, currentCode, {
+          strict: attempt > 0,
+          failureReason: lastSurgicalError
+        }),
+        onChunk,
+        temperature: 0.15
+      });
+
+      const editPlan = parseSurgicalEditResponse(rawPlan);
+      if (editPlan.mode === 'full-rewrite') {
+        throw new Error(editPlan.summary || 'Model escalated to a full rewrite instead of a surgical edit.');
+      }
+
+      return {
+        code: applySurgicalEdits(currentCode, editPlan),
+        editMode: 'surgical-edit',
+        editSummary: editPlan.summary || 'Applied targeted edits.',
+        editOperationsCount: editPlan.operations.length
+      };
+    } catch (error) {
+      lastSurgicalError = error instanceof Error ? error.message : 'Unknown surgical edit failure.';
+    }
+  }
+
+  try {
+    onChunk?.(' Switching to a full-document rewrite fallback.');
+
+    const rawHtml = await requestModelText({
+      provider,
+      systemPrompt: HTML_SYSTEM_PROMPT,
+      userText: `Update the existing responsive web app based on this new request: "${prompt}". Preserve a strong mobile experience, but also make sure the layout expands appropriately for tablet and desktop screens.
+
+Here is the current complete HTML code. Please return the FULL, updated HTML file.
+
+Critical preservation requirements:
+- Start from the current HTML and keep unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
+- Only modify the smallest necessary fragments to satisfy the request.
+- Any non-requested difference is a bug.
+- Do not rename ids/classes or restyle unrelated elements.
+- Previous surgical-edit attempts failed because they were too broad: ${lastSurgicalError}
+
+\`\`\`html
+${currentCode}
+\`\`\``,
+      onChunk,
+      temperature: 0.5
+    });
+
+    return {
+      code: sanitizeHtmlResponse(rawHtml),
+      editMode: 'full-rewrite',
+      editSummary: `Fallback rewrite after surgical edit failed: ${lastSurgicalError}`,
+      editOperationsCount: 0
+    };
+  } catch (error) {
+    const fallbackReason = error instanceof Error ? error.message : 'Unknown rewrite failure.';
+    throw new Error(`Unable to apply a stable edit: ${fallbackReason}`);
   }
 };
 
@@ -268,6 +423,18 @@ const MARQUEE_MIN_LOOP_LENGTH = 220;
 const MARQUEE_VISIBLE_WINDOW = 180;
 const MARQUEE_TICK_MS = 80;
 const MARQUEE_CHARS_PER_TICK = 6;
+const PREVIEW_MODES = {
+  mobile: {
+    label: 'Mobile',
+    width: 379,
+    height: 800
+  },
+  desktop: {
+    label: 'Desktop',
+    width: 1440,
+    height: 960
+  }
+};
 
 const buildMarqueeLoop = (value) => {
   const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
@@ -291,6 +458,7 @@ export default function App() {
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
+  const [previewMode, setPreviewMode] = useState('mobile');
   const [apiProvider, setApiProvider] = useState(() => localStorage.getItem('orion-api-provider') || 'openrouter');
   const [streamingCode, setStreamingCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -347,9 +515,9 @@ export default function App() {
       const padding = 64; // Slightly more than p-6 (48px) for safety
       const availableHeight = container.clientHeight - padding;
       const availableWidth = container.clientWidth - padding;
-      
-      const baseHeight = 800; // Must match App.css
-      const baseWidth = baseHeight * (9/19);
+      const preset = PREVIEW_MODES[previewMode];
+      const baseHeight = preset.height;
+      const baseWidth = preset.width;
       
       const scaleH = availableHeight / baseHeight;
       const scaleW = availableWidth / baseWidth;
@@ -363,7 +531,7 @@ export default function App() {
     calculateZoom();
     window.addEventListener('resize', calculateZoom);
     return () => window.removeEventListener('resize', calculateZoom);
-  }, [isAutoZoom, activeTab]);
+  }, [isAutoZoom, activeTab, previewMode]);
 
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);
@@ -567,16 +735,19 @@ export default function App() {
     setPrompt(''); // Clear input so user can easily type their next refinement
 
     try {
-      const code = await generateAppCode(currentPrompt, generatedCode, apiProvider, (chunk) => {
+      const generationResult = await generateAppCode(currentPrompt, generatedCode, apiProvider, (chunk) => {
         streamingQueueRef.current = (streamingQueueRef.current + chunk.replace(/\s+/g, ' ')).slice(-4000);
       });
-      setGeneratedCode(code);
+      setGeneratedCode(generationResult.code);
       
       const newVersion = {
         id: Date.now(),
         prompt: currentPrompt,
-        code: code,
-        timestamp: new Date().toLocaleTimeString()
+        code: generationResult.code,
+        timestamp: new Date().toLocaleTimeString(),
+        editMode: generationResult.editMode,
+        editSummary: generationResult.editSummary,
+        editOperationsCount: generationResult.editOperationsCount
       };
       
       // If user goes back in time and generates, truncate the future versions (standard undo behavior)
@@ -1262,6 +1433,16 @@ export default function App() {
                         {idx === 0 && (
                           <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
                         )}
+                        {ver.editMode === 'surgical-edit' && (
+                          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                            Patch {ver.editOperationsCount || 0}
+                          </span>
+                        )}
+                        {ver.editMode === 'full-rewrite' && (
+                          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
+                            Rewrite
+                          </span>
+                        )}
                       </div>
                       <span className="text-sm text-slate-500 font-semibold">
                         {ver.timestamp}
@@ -1273,6 +1454,12 @@ export default function App() {
                     }`}>
                       {ver.prompt}
                     </span>
+
+                    {ver.editSummary && (
+                      <span className="mt-3 text-sm text-slate-500 leading-relaxed">
+                        {ver.editSummary}
+                      </span>
+                    )}
 
                     {isActive && (
                       <div className="mt-4 flex items-center justify-between pt-3 border-t border-indigo-100/50">
@@ -1442,7 +1629,7 @@ export default function App() {
                     activeTab === 'preview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  <Smartphone size={16} className="mr-2" /> Preview
+                  <Play size={16} className="mr-2" /> Preview
                 </button>
                 <button
                   onClick={() => setActiveTab('code')}
@@ -1454,10 +1641,32 @@ export default function App() {
                 </button>
               </div>
 
-              
-              <div className="flex items-center space-x-2">
-                {versions.length > 1 && (
-                  <div className="flex items-center bg-slate-200/50 p-1 rounded-xl mr-3">
+               
+               <div className="flex items-center space-x-2">
+                 {activeTab === 'preview' && (
+                   <div className="flex items-center bg-slate-200/50 p-1 rounded-xl">
+                     <button
+                       onClick={() => setPreviewMode('mobile')}
+                       className={`flex items-center px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                         previewMode === 'mobile' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                       }`}
+                       title="Preview as mobile"
+                     >
+                       <Smartphone size={16} className="mr-2" /> Mobile
+                     </button>
+                     <button
+                       onClick={() => setPreviewMode('desktop')}
+                       className={`flex items-center px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                         previewMode === 'desktop' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                       }`}
+                       title="Preview as desktop"
+                     >
+                       <Monitor size={16} className="mr-2" /> Desktop
+                     </button>
+                   </div>
+                 )}
+                 {versions.length > 1 && (
+                   <div className="flex items-center bg-slate-200/50 p-1 rounded-xl mr-3">
                     <button
                       onClick={handleUndo}
                       disabled={currentVersionIndex <= 0}
@@ -1546,24 +1755,39 @@ export default function App() {
               </div>
 
               {activeTab === 'preview' ? (
-                /* Smartphone Device Mockup */
-                <div 
-                  className="device-smartphone" 
+                /* Device Mockup */
+                <div
+                  className={previewMode === 'mobile' ? 'device-smartphone' : 'device-desktop'}
                   style={{ 
                     transform: `scale(${zoomLevel})`,
                     transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     transformOrigin: 'center center'
                   }}
                 >
-
-                  {/* Notch */}
-                  <div className="absolute top-0 inset-x-0 flex justify-center z-20 pt-2">
-                    <div className="w-28 h-7 bg-[#0f172a] rounded-2xl flex items-center justify-center">
-                       <div className="w-10 h-1 bg-slate-800 rounded-full"></div>
-                       <div className="w-1.5 h-1.5 bg-slate-800 rounded-full ml-2"></div>
+                  {previewMode === 'mobile' ? (
+                    <>
+                      {/* Notch */}
+                      <div className="absolute top-0 inset-x-0 flex justify-center z-20 pt-2">
+                        <div className="w-28 h-7 bg-[#0f172a] rounded-2xl flex items-center justify-center">
+                           <div className="w-10 h-1 bg-slate-800 rounded-full"></div>
+                           <div className="w-1.5 h-1.5 bg-slate-800 rounded-full ml-2"></div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="device-desktop-toolbar">
+                      <div className="device-desktop-lights">
+                        <span className="device-desktop-light device-desktop-light-red"></span>
+                        <span className="device-desktop-light device-desktop-light-amber"></span>
+                        <span className="device-desktop-light device-desktop-light-green"></span>
+                      </div>
+                      <div className="device-desktop-addressbar">
+                        <span className="device-desktop-address-pill"></span>
+                        <span className="device-desktop-address-text">app-preview.local</span>
+                      </div>
                     </div>
-                  </div>
-                  
+                  )}
+                   
                   {/* Screen */}
                   <div className="device-screen">
                     {isGenerating ? (
@@ -1589,25 +1813,39 @@ export default function App() {
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-10 text-center">
                             <div className="w-20 h-20 rounded-[2rem] bg-indigo-50 flex items-center justify-center mb-6 shadow-sm border-2 border-dashed border-indigo-200">
-                               <Smartphone size={32} className="text-indigo-300" />
-                            </div>
-                            <h4 className="font-extrabold text-slate-900 text-lg tracking-tight mb-2">Device Standby</h4>
-                            <p className="text-base text-slate-500 font-medium max-w-xs leading-relaxed">Your generated app will render here automatically.</p>
+                               {previewMode === 'mobile' ? (
+                                 <Smartphone size={32} className="text-indigo-300" />
+                               ) : (
+                                 <Monitor size={32} className="text-indigo-300" />
+                               )}
+                             </div>
+                            <h4 className="font-extrabold text-slate-900 text-lg tracking-tight mb-2">
+                              {previewMode === 'mobile' ? 'Mobile Preview Standby' : 'Desktop Preview Standby'}
+                            </h4>
+                            <p className="text-base text-slate-500 font-medium max-w-xs leading-relaxed">
+                              Your generated app will render here automatically in {PREVIEW_MODES[previewMode].label.toLowerCase()} view.
+                            </p>
                           </div>
                         )}
                       </div>
                     )}
                   </div>
-                  
-                  {/* Side Buttons Visuals */}
-                  <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
-                  <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
-                  <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm"></div>
 
-                  {/* Home Indicator */}
-                  <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
-                    <div className="w-32 h-1.5 bg-slate-200/50 rounded-full backdrop-blur-sm hover:bg-slate-300 transition-colors"></div>
-                  </div>
+                  {previewMode === 'mobile' ? (
+                    <>
+                      {/* Side Buttons Visuals */}
+                      <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
+                      <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
+                      <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm"></div>
+
+                      {/* Home Indicator */}
+                      <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
+                        <div className="w-32 h-1.5 bg-slate-200/50 rounded-full backdrop-blur-sm hover:bg-slate-300 transition-colors"></div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="device-desktop-stand"></div>
+                  )}
                 </div>
 
               ) : (
