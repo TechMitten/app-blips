@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 import { 
   Wand2, 
@@ -20,8 +20,26 @@ import {
   Edit2,
   Clock,
   Undo2,
-  Redo2
+  Redo2,
+  LogOut,
+  User,
+  Save,
+  FolderOpen,
+  X
 } from 'lucide-react';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { 
+  doc, 
+  setDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy,
+  serverTimestamp 
+} from 'firebase/firestore';
+import AuthModal from './components/AuthModal';
 
 // --- Constants ---
 const SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
@@ -218,7 +236,82 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [apiProvider, setApiProvider] = useState(() => localStorage.getItem('orion-api-provider') || 'openrouter');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [projectName, setProjectName] = useState('Untitled App');
+  const [myProjects, setMyProjects] = useState([]);
+  const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
   const iframeRef = useRef(null);
+
+  // --- Auth & Data Effects ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        loadUserProjects(u.uid);
+      } else {
+        setMyProjects([]);
+        setCurrentProjectId(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const loadUserProjects = async (uid) => {
+    try {
+      const q = query(
+        collection(db, 'users', uid, 'projects'),
+        orderBy('lastModified', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const projects = [];
+      querySnapshot.forEach((doc) => {
+        projects.push({ id: doc.id, ...doc.data() });
+      });
+      setMyProjects(projects);
+    } catch (err) {
+      console.error("Error loading projects:", err);
+    }
+  };
+
+  const saveProject = async (forceNewVersions = null) => {
+    if (!user || (!generatedCode && !forceNewVersions)) return;
+    
+    setIsSaving(true);
+    const projectId = currentProjectId || Date.now().toString();
+    const versionsToSave = forceNewVersions || versions;
+
+    try {
+      const projectData = {
+        name: projectName,
+        versions: versionsToSave,
+        currentVersionIndex: currentVersionIndex,
+        lastModified: serverTimestamp()
+      };
+
+      await setDoc(doc(db, 'users', user.uid, 'projects', projectId), projectData);
+      
+      if (!currentProjectId) {
+        setCurrentProjectId(projectId);
+      }
+      loadUserProjects(user.uid);
+    } catch (err) {
+      console.error("Error saving project:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadProject = (project) => {
+    setCurrentProjectId(project.id);
+    setProjectName(project.name);
+    setVersions(project.versions);
+    setCurrentVersionIndex(project.currentVersionIndex);
+    setGeneratedCode(project.versions[project.currentVersionIndex].code);
+    setIsProjectsListOpen(false);
+  };
 
   const suggestedPrompts = [
     "A sleek Pomodoro timer with start, pause, and reset buttons.",
@@ -256,8 +349,15 @@ export default function App() {
       
       // If user goes back in time and generates, truncate the future versions (standard undo behavior)
       const updatedVersions = versions.slice(0, currentVersionIndex + 1);
-      setVersions([...updatedVersions, newVersion]);
+      const finalVersions = [...updatedVersions, newVersion];
+      setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
+      
+      // Auto-save if logged in
+      if (user) {
+        // We pass versions directly because state hasn't updated yet
+        saveProject(finalVersions);
+      }
       
     } catch (err) {
       setError(err.message);
@@ -286,6 +386,8 @@ export default function App() {
     setError(null);
     setVersions([]);
     setCurrentVersionIndex(-1);
+    setCurrentProjectId(null);
+    setProjectName('Untitled App');
   };
 
   const handleUndo = () => {
@@ -307,7 +409,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center space-x-3">
           <div className="bg-indigo-600 p-2 rounded-xl shadow-inner text-white">
             <Sparkles size={24} />
@@ -317,7 +419,17 @@ export default function App() {
             <p className="text-xs text-slate-500 font-medium">AI-Powered Micro App Builder</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
+          {user && (
+            <button
+              onClick={() => setIsProjectsListOpen(true)}
+              className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+            >
+              <FolderOpen size={18} />
+              <span className="hidden sm:inline">My Apps</span>
+            </button>
+          )}
+          
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="text-slate-500 hover:text-slate-900 transition-colors p-2 rounded-full hover:bg-slate-100"
@@ -325,17 +437,38 @@ export default function App() {
           >
             <Settings size={20} />
           </button>
-          <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
-            JS
-          </div>
-          <span className="px-2 py-1 text-xs rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+
+          {user ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+               <div className="h-9 w-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-white shadow-sm ring-1 ring-indigo-100">
+                {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
+              </div>
+              <button 
+                onClick={() => signOut(auth)}
+                className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md shadow-indigo-100"
+            >
+              <User size={18} />
+              <span>Login</span>
+            </button>
+          )}
+
+          <span className="hidden sm:inline px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-slate-100 text-slate-500 border border-slate-200">
             {apiProvider === 'gemini' ? 'Gemini' : 'OpenRouter'}
           </span>
         </div>
       </header>
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">Settings</h2>
@@ -391,6 +524,65 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {isProjectsListOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <FolderOpen className="text-indigo-600" />
+                My Saved Apps
+              </h2>
+              <button
+                onClick={() => setIsProjectsListOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-full hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {myProjects.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                    <History size={32} className="text-slate-300" />
+                  </div>
+                  <h3 className="text-slate-900 font-bold text-lg">No saved apps yet</h3>
+                  <p className="text-slate-500 mt-1">Start building and your projects will appear here.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {myProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => loadProject(project)}
+                      className="text-left p-4 rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all group relative overflow-hidden bg-white"
+                    >
+                      <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <ChevronRight className="text-indigo-600" size={20} />
+                      </div>
+                      <h4 className="font-bold text-slate-900 mb-1 pr-6 truncate">{project.name}</h4>
+                      <p className="text-xs text-slate-400 font-medium mb-3 flex items-center">
+                        <Clock size={12} className="mr-1" />
+                        {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                          {project.versions?.length || 0} Versions
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -453,16 +645,45 @@ export default function App() {
             {/* Scrollable Info Area */}
             <div className="flex-1 overflow-y-auto p-6 lg:p-8">
               <div className="space-y-8">
-                <div className="space-y-2">
-                  <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    {generatedCode ? "Refine your app" : "What do you want to build?"}
-                  </h2>
-                  <p className="text-slate-500 text-base">
-                    {generatedCode 
-                      ? "Tell the AI what to change, add, or fix in your current app."
-                      : "Describe your mini-app in natural language, and AI will generate the code."}
-                  </p>
+                <div className="space-y-4">
+                  {user && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">App Name</label>
+                      <div className="flex gap-2">
+                        <input
+                          id="projectName"
+                          name="projectName"
+                          type="text"
+                          value={projectName}
+                          onChange={(e) => setProjectName(e.target.value)}
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          placeholder="My Awesome App"
+                        />
+                        <button
+                          onClick={() => saveProject()}
+                          disabled={isSaving || !generatedCode}
+                          className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-200 disabled:opacity-50 transition-all shadow-sm"
+                          title="Save Changes"
+                        >
+                          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+                      {generatedCode ? "Refine your app" : "What do you want to build?"}
+                    </h2>
+                    <p className="text-slate-500 text-base">
+                      {generatedCode 
+                        ? "Tell the AI what to change, add, or fix in your current app."
+                        : "Describe your mini-app in natural language, and AI will generate the code."}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Suggestions */}
 
                 {/* Suggestions */}
                 {!generatedCode && (
@@ -506,6 +727,8 @@ export default function App() {
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all">
                 <textarea
+                  id="prompt"
+                  name="prompt"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={generatedCode ? "E.g., Make the background dark blue, add a reset button..." : "E.g., A minimalist task manager..."}
