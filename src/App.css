@@ -184,3 +184,18 @@ body {
   &::before { left: 0; border-left-color: var(--border); }
   &::after { right: 0; border-right-color: var(--border); }
 }
+/* Code terminal-style syntax colors (One Dark inspired) */
+.token-comment { color: #5c6370; font-style: italic; }
+.token-doctype { color: #c678dd; }
+.token-tag-name { color: #e06c75; }
+.token-attr-name { color: #d19a66; }
+.token-string { color: #98c379; }
+.token-keyword { color: #c678dd; }
+.token-punctuation { color: #abb2bf; }
+
+pre code.language-html { 
+  display: block; 
+  color: #abb2bf; /* Neutral base color for code text */
+  background: transparent;
+  padding: 0;
+}

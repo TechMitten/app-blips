@@ -23,47 +23,90 @@ import {
   Redo2
 } from 'lucide-react';
 
+// --- Constants ---
+const SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
+Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
+
+CRITICAL RULES:
+1. Output ONLY valid, raw HTML code.
+2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
+3. The app MUST be fully responsive and designed specifically to look great on a mobile smartphone screen (375px width).
+4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
+5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
+6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
+7. If you are updating an existing app, ensure you return the ENTIRE updated HTML file, not just the changed parts.`;
+
 // --- API Helper with Exponential Backoff ---
-const generateAppCode = async (prompt, currentCode = null, retryCount = 0) => {
+const generateAppCode = async (
+  prompt,
+  currentCode = null,
+  provider = 'openrouter',
+  retryCount = 0
+) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const openrouterModel = import.meta.env.VITE_OPENROUTER_MODEL || 'openrouter/free';
+  const geminiModel = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash-preview-09-2025';
 
   try {
     const userText = currentCode 
       ? `Update the existing mobile web app based on this new request: "${prompt}"\n\nHere is the current complete HTML code. Please return the FULL, updated HTML file, incorporating the new request while keeping the rest of the app functional.\n\n\`\`\`html\n${currentCode}\n\`\`\``
       : `Create a mobile-friendly web app based on this request: ${prompt}`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Orion App Generator",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "openrouter/free",
+    let endpoint;
+    let headers;
+    let body;
+
+    if (provider === 'gemini') {
+      if (!geminiKey) {
+        throw new Error('Gemini API key is missing. Set VITE_GEMINI_API_KEY in .env.');
+      }
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      headers = {
+        'Content-Type': 'application/json'
+      };
+      body = JSON.stringify({
+        contents: [{
+          parts: [{ text: userText }]
+        }],
+        system_instruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
+        generationConfig: {
+          temperature: 0.7,
+        }
+      });
+    } else {
+      if (!openrouterKey) {
+        throw new Error('OpenRouter API key is missing. Set VITE_OPENROUTER_API_KEY in .env.');
+      }
+      endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      headers = {
+        'Authorization': `Bearer ${openrouterKey}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Orion App Generator',
+        'Content-Type': 'application/json'
+      };
+      body = JSON.stringify({
+        model: openrouterModel,
         messages: [
           {
-            role: "system",
-            content: `You are an expert frontend developer and UX designer. 
-            Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
-            
-            CRITICAL RULES:
-            1. Output ONLY valid, raw HTML code.
-            2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
-            3. The app MUST be fully responsive and designed specifically to look great on a mobile smartphone screen (375px width).
-            4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
-            5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
-            6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-            7. If you are updating an existing app, ensure you return the ENTIRE updated HTML file, not just the changed parts.`
+            role: 'system',
+            content: SYSTEM_PROMPT
           },
           {
-            role: "user",
+            role: 'user',
             content: userText
           }
         ]
-      })
+      });
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body
     });
 
     if (!response.ok) {
@@ -71,19 +114,98 @@ const generateAppCode = async (prompt, currentCode = null, retryCount = 0) => {
     }
 
     const result = await response.json();
-    let text = result.choices?.[0]?.message?.content || "";
-    
-    // Sanitize in case the model ignored the "no markdown" rule
+    let text = '';
+
+    if (provider === 'gemini') {
+      text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      text = result.choices?.[0]?.message?.content || '';
+    }
+
+    // Sanitize in case the model ignored the "no markdown" rule or included preamble reasoning
+    // 1. Try to find content between ```html and ``` blocks
+    const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
+    if (htmlBlockMatch) {
+      return htmlBlockMatch[1].trim();
+    }
+
+    // 2. Try to find content between generic ``` blocks
+    const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch) {
+      return codeBlockMatch[1].trim();
+    }
+
+    // 3. Try to find starting from <!DOCTYPE or <html
+    const htmlStartMatch = text.match(/(<!DOCTYPE html[\s\S]*)/i) || text.match(/(<html[\s\S]*)/i);
+    if (htmlStartMatch) {
+      let content = htmlStartMatch[0];
+      // If there's a closing tag, cut off everything after it
+      const endTagMatch = content.match(/<\/html>/i);
+      if (endTagMatch) {
+        const lastIndex = content.toLowerCase().lastIndexOf('</html>');
+        return content.substring(0, lastIndex + 7).trim();
+      }
+      // Otherwise just clean up trailing markdown if it exists
+      return content.replace(/\n?```$/, '').trim();
+    }
+
+    // fallback: remove common prefixes/suffixes if present
     text = text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
     
     return text;
   } catch (err) {
     if (retryCount < 5) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
-      return generateAppCode(prompt, currentCode, retryCount + 1);
+      return generateAppCode(prompt, currentCode, provider, retryCount + 1);
     }
     throw new Error(err.message || "Failed to generate app after multiple attempts.");
   }
+};
+
+
+
+const syntaxHighlightHtml = (code) => {
+  if (!code) return "";
+
+  // 1. Escape basic HTML characters
+  const escape = (str) => {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  let html = escape(code);
+
+  // 2. Comments (HTML)
+  html = html.replace(/&lt;!--([\s\S]*?)--&gt;/g, '<span class="token-comment">&lt;!--$1--&gt;</span>');
+
+  // 3. Doctype
+  html = html.replace(/(&lt;!DOCTYPE[\s\S]*?&gt;)/gi, '<span class="token-doctype">$1</span>');
+
+  // 4. Tags and Attributes
+  // Matches tags like &lt;tag-name attr="val"&gt;
+  html = html.replace(/(&lt;\/?)([\w-:]+)([\s\S]*?)(&gt;)/g, (match, prefix, tagName, attrs, suffix) => {
+    const highlightedTag = `${prefix}<span class="token-tag-name">${tagName}</span>`;
+    
+    // Attributes: key=&quot;value&quot; or key (boolean)
+    const highlightedAttrs = attrs.replace(/\s+([\w-:]+)(?:=(&quot;[\s\S]*?&quot;|&#039;[\s\S]*?&#039;|[\w:-]+))?/g, (m, attrName, attrValue) => {
+      let res = ` <span class="token-attr-name">${attrName}</span>`;
+      if (attrValue) {
+        res += `=<span class="token-string">${attrValue}</span>`;
+      }
+      return res;
+    });
+    
+    return highlightedTag + highlightedAttrs + suffix;
+  });
+
+  // 5. Basic JS/CSS highlighting inside <script>/<style> blocks would be nice,
+  // but let's stick to improving the variety first.
+  
+  return html;
 };
 
 export default function App() {
@@ -94,6 +216,8 @@ export default function App() {
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
+  const [apiProvider, setApiProvider] = useState(() => localStorage.getItem('orion-api-provider') || 'openrouter');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const iframeRef = useRef(null);
 
   const suggestedPrompts = [
@@ -102,6 +226,11 @@ export default function App() {
     "A tip calculator with sliders for bill amount and tip percentage.",
     "A daily habit tracker with checkboxes for 5 custom habits."
   ];
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('orion-api-provider', apiProvider);
+    setIsSettingsOpen(false);
+  };
 
   const handleGenerate = async (e) => {
     e?.preventDefault();
@@ -115,7 +244,7 @@ export default function App() {
     setPrompt(''); // Clear input so user can easily type their next refinement
 
     try {
-      const code = await generateAppCode(currentPrompt, generatedCode);
+      const code = await generateAppCode(currentPrompt, generatedCode, apiProvider);
       setGeneratedCode(code);
       
       const newVersion = {
@@ -189,14 +318,79 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <button className="text-slate-500 hover:text-slate-900 transition-colors p-2 rounded-full hover:bg-slate-100">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="text-slate-500 hover:text-slate-900 transition-colors p-2 rounded-full hover:bg-slate-100"
+            title="Settings"
+          >
             <Settings size={20} />
           </button>
           <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
             JS
           </div>
+          <span className="px-2 py-1 text-xs rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+            {apiProvider === 'gemini' ? 'Gemini' : 'OpenRouter'}
+          </span>
         </div>
       </header>
+
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Settings</h2>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="text-sm font-medium text-slate-700">AI Provider</label>
+                <div className="mt-2 flex gap-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="apiProvider"
+                      value="openrouter"
+                      checked={apiProvider === 'openrouter'}
+                      onChange={(e) => setApiProvider(e.target.value)}
+                    />
+                    OpenRouter
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="apiProvider"
+                      value="gemini"
+                      checked={apiProvider === 'gemini'}
+                      onChange={(e) => setApiProvider(e.target.value)}
+                    />
+                    Gemini
+                  </label>
+                </div>
+              </div>
+
+            </div>
+            <div className="border-t border-slate-100 px-6 py-4 flex justify-end gap-2 bg-slate-50">
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="rounded-lg px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                className="rounded-lg px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -490,8 +684,11 @@ export default function App() {
                          <span>Generating code...</span>
                        </div>
                     ) : generatedCode ? (
-                      <pre className="text-sm font-mono text-slate-300 whitespace-pre-wrap">
-                        <code>{generatedCode}</code>
+                      <pre className="text-sm font-mono text-slate-100 whitespace-pre-wrap">
+                        <code
+                          className="language-html"
+                          dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(generatedCode) }}
+                        />
                       </pre>
                     ) : (
                       <div className="text-slate-600 font-mono text-sm">
