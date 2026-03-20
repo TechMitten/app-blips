@@ -29,6 +29,7 @@ import {
   Copy,
   Check,
   Search,
+  Trash2,
   ZoomIn,
   ZoomOut,
   Maximize2
@@ -37,11 +38,11 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
   doc, 
+  deleteDoc,
   setDoc,
   getDoc,
   collection, 
   query, 
-  where, 
   getDocs, 
   orderBy,
   serverTimestamp 
@@ -157,7 +158,7 @@ const generateAppCode = async (
                   text += textChunk;
                   onChunk(textChunk);
                 }
-              } catch (e) {
+              } catch {
                 // Likely a partial object or not the format we expect
               }
               buffer = buffer.substring(endIdx + 1);
@@ -181,7 +182,9 @@ const generateAppCode = async (
                   text += textChunk;
                   onChunk(textChunk);
                 }
-              } catch (e) {}
+              } catch {
+                // Ignore incomplete SSE payloads between chunks.
+              }
             }
           }
         }
@@ -259,6 +262,26 @@ const syntaxHighlightHtml = (code) => {
   return numberedLines;
 };
 
+const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
+const MARQUEE_SEPARATOR = '  //  ';
+const MARQUEE_MIN_LOOP_LENGTH = 220;
+const MARQUEE_VISIBLE_WINDOW = 180;
+const MARQUEE_TICK_MS = 80;
+const MARQUEE_CHARS_PER_TICK = 6;
+
+const buildMarqueeLoop = (value) => {
+  const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
+  const windowed = normalized.length > MARQUEE_VISIBLE_WINDOW
+    ? normalized.slice(-MARQUEE_VISIBLE_WINDOW)
+    : normalized;
+  let loop = windowed;
+
+  while (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
+    loop += `${MARQUEE_SEPARATOR}${windowed}`;
+  }
+
+  return loop;
+};
 
 export default function App() {
   const [prompt, setPrompt] = useState('');
@@ -273,20 +296,49 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
   const [tempProjectName, setTempProjectName] = useState('');
+  const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [projectName, setProjectName] = useState('Untitled App');
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
+  const [renamingProjectId, setRenamingProjectId] = useState(null);
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const marqueeSegment = buildMarqueeLoop(streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isAutoZoom, setIsAutoZoom] = useState(true);
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
+  const handleGenerateRef = useRef(null);
+  const streamingQueueRef = useRef('');
+  const marqueeBufferRef = useRef('');
 
   // --- Dynamic Zoom Logic ---
+  useEffect(() => {
+    if (!isGenerating) {
+      streamingQueueRef.current = '';
+      marqueeBufferRef.current = '';
+      setStreamingCode('');
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (!streamingQueueRef.current) return;
+
+      const nextChunk = streamingQueueRef.current.slice(0, MARQUEE_CHARS_PER_TICK);
+      streamingQueueRef.current = streamingQueueRef.current.slice(MARQUEE_CHARS_PER_TICK);
+      marqueeBufferRef.current = (marqueeBufferRef.current + nextChunk).slice(-MARQUEE_VISIBLE_WINDOW);
+      setStreamingCode(marqueeBufferRef.current);
+    }, MARQUEE_TICK_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [isGenerating]);
+
   useEffect(() => {
     const calculateZoom = () => {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
@@ -443,7 +495,6 @@ export default function App() {
 
     if (!versionsToSave.length && !params.force) return;
     
-    setIsSaving(true);
     const projectId = idToSave || currentProjectId || Date.now().toString();
 
     try {
@@ -463,8 +514,6 @@ export default function App() {
       loadUserProjects(user.uid);
     } catch (err) {
       console.error("Error saving project:", err);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -502,12 +551,15 @@ export default function App() {
     // Require naming for transition from Untitled or New App
     if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
       setTempProjectName('');
+      setShouldGenerateAfterNaming(true);
       setIsNamingModalOpen(true);
       return;
     }
 
     setIsGenerating(true);
     setStreamingCode('');
+    streamingQueueRef.current = '';
+    marqueeBufferRef.current = '';
     setError(null);
     setActiveTab('preview');
     
@@ -516,10 +568,9 @@ export default function App() {
 
     try {
       const code = await generateAppCode(currentPrompt, generatedCode, apiProvider, (chunk) => {
-        setStreamingCode(prev => (prev + chunk.replace(/\n/g, ' ')).slice(-1000)); // Increased buffer for a better marquee feel
+        streamingQueueRef.current = (streamingQueueRef.current + chunk.replace(/\s+/g, ' ')).slice(-4000);
       });
       setGeneratedCode(code);
-      setStreamingCode('');
       
       const newVersion = {
         id: Date.now(),
@@ -551,6 +602,8 @@ export default function App() {
     }
   };
 
+  handleGenerateRef.current = handleGenerate;
+
   const handleDownload = () => {
     if (!generatedCode) return;
     const blob = new Blob([generatedCode], { type: 'text/html' });
@@ -569,24 +622,43 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
+    setShouldGenerateAfterNaming(false);
     setTempProjectName('');
     setIsNamingModalOpen(true);
   };
 
   const handleConfirmNaming = (e) => {
     e?.preventDefault();
-    if (!tempProjectName.trim()) return;
+    const trimmedName = tempProjectName.trim();
+    if (!trimmedName) return;
 
-    setGeneratedCode('');
-    setPrompt('');
-    setError(null);
-    setVersions([]);
-    setCurrentVersionIndex(-1);
-    setCurrentProjectId(null);
-    setProjectName(tempProjectName.trim());
+    if (!shouldGenerateAfterNaming) {
+      setGeneratedCode('');
+      setPrompt('');
+      setError(null);
+      setVersions([]);
+      setCurrentVersionIndex(-1);
+      setCurrentProjectId(null);
+      localStorage.removeItem('orion-current-project-id');
+    }
+
+    setProjectName(trimmedName);
+    setTempProjectName('');
     localStorage.removeItem('orion-current-project-id');
     setIsNamingModalOpen(false);
   };
+
+  useEffect(() => {
+    if (!shouldGenerateAfterNaming || isNamingModalOpen) return;
+
+    if ((projectName === 'Untitled App' || !projectName.trim()) || !prompt.trim()) {
+      setShouldGenerateAfterNaming(false);
+      return;
+    }
+
+    setShouldGenerateAfterNaming(false);
+    handleGenerateRef.current?.();
+  }, [shouldGenerateAfterNaming, isNamingModalOpen, projectName, prompt]);
 
   const switchVersion = (index) => {
     if (index >= 0 && index < versions.length) {
@@ -621,6 +693,99 @@ export default function App() {
     }
   };
 
+  const resetCurrentWorkspace = () => {
+    setGeneratedCode('');
+    setPrompt('');
+    setError(null);
+    setVersions([]);
+    setCurrentVersionIndex(-1);
+    setCurrentProjectId(null);
+    setTempProjectName('');
+    setShouldGenerateAfterNaming(false);
+    setIsNamingModalOpen(false);
+    setProjectName('Untitled App');
+    localStorage.removeItem('orion-current-project-id');
+  };
+
+  const startProjectRename = (project) => {
+    setEditingProjectId(project.id);
+    setEditingProjectName(project.name || 'Untitled App');
+    setProjectToDelete(null);
+  };
+
+  const cancelProjectRename = () => {
+    setEditingProjectId(null);
+    setEditingProjectName('');
+    setRenamingProjectId(null);
+  };
+
+  const handleProjectRename = async (project) => {
+    if (!user) return;
+
+    const trimmedName = editingProjectName.trim();
+    if (!trimmedName) return;
+
+    if (trimmedName === (project.name || 'Untitled App')) {
+      cancelProjectRename();
+      return;
+    }
+
+    setRenamingProjectId(project.id);
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid, 'projects', project.id),
+        {
+          name: trimmedName,
+          lastModified: serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      setMyProjects(prev => prev.map((p) => (
+        p.id === project.id
+          ? { ...p, name: trimmedName }
+          : p
+      )));
+
+      if (currentProjectId === project.id) {
+        setProjectName(trimmedName);
+      }
+
+      cancelProjectRename();
+      loadUserProjects(user.uid);
+    } catch (err) {
+      console.error('Error renaming project:', err);
+      setRenamingProjectId(null);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!user || !projectToDelete) return;
+
+    const projectId = projectToDelete.id;
+    setDeletingProjectId(projectId);
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'projects', projectId));
+
+      setMyProjects(prev => prev.filter((project) => project.id !== projectId));
+
+      if (editingProjectId === projectId) {
+        cancelProjectRename();
+      }
+
+      if (currentProjectId === projectId) {
+        resetCurrentWorkspace();
+      }
+
+      setProjectToDelete(null);
+      setDeletingProjectId(null);
+      loadUserProjects(user.uid);
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      setDeletingProjectId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Header */}
@@ -631,7 +796,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Orion</h1>
-            <p className="text-xs text-slate-500 font-medium">AI-Powered Micro App Builder</p>
+            <p className="text-sm text-slate-600 font-semibold">AI-Powered Micro App Builder</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -686,7 +851,7 @@ export default function App() {
             </button>
           )}
 
-          <span className="hidden sm:inline px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md bg-slate-100 text-slate-500 border border-slate-200">
+          <span className="hidden sm:inline px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-100 text-slate-600 border border-slate-200">
             {apiProvider === 'gemini' ? 'Gemini' : 'OpenRouter'}
           </span>
         </div>
@@ -694,9 +859,10 @@ export default function App() {
 
       {/* Streaming Marquee - Only visible when generating */}
       {isGenerating && (
-        <div className="marquee-container" id="marquee-container">
-          <div className="marquee-content">
-            {streamingCode || "Initializing generation... Preparing code workspace... Analysing requirements... Writing components..."}
+        <div className="marquee-container" id="marquee-container" aria-live="polite">
+          <div className="marquee-track">
+            <span className="marquee-segment">{marqueeSegment}</span>
+            <span className="marquee-segment" aria-hidden="true">{marqueeSegment}</span>
           </div>
         </div>
       )}
@@ -794,32 +960,115 @@ export default function App() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {myProjects.map((project) => (
-                    <button
-                      key={project.id}
-                      onClick={() => loadProject(project)}
-                      className="text-left p-6 rounded-3xl border border-slate-200 hover:border-indigo-500 hover:shadow-xl transition-all group relative overflow-hidden bg-white hover:-translate-y-1 active:scale-[0.98]"
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                         <ChevronRight className="text-indigo-600" size={24} />
-                      </div>
-                      <h4 className="font-extrabold text-slate-900 mb-2 pr-8 text-lg truncate group-hover:text-indigo-600 transition-colors">{project.name}</h4>
-                      <p className="text-xs text-slate-400 font-bold mb-4 flex items-center tracking-wider uppercase">
-                        <Clock size={14} className="mr-2 text-indigo-400" />
-                        {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <div className="flex -space-x-1.5 overflow-hidden mr-3">
-                           {[...Array(Math.min(3, project.versions?.length || 0))].map((_, i) => (
-                             <div key={i} className="inline-block h-6 w-6 rounded-lg ring-2 ring-white bg-indigo-100 border border-indigo-200 flex items-center justify-center">
-                               <span className="text-[10px] font-bold text-indigo-600">v{i+1}</span>
-                             </div>
-                           ))}
+                    <div
+                          key={project.id}
+                          className="text-left p-6 pr-20 rounded-3xl border border-slate-200 hover:border-indigo-500 hover:shadow-xl transition-all group relative overflow-hidden bg-white hover:-translate-y-1 active:scale-[0.98] min-h-[120px]"
+                        >
+                          <div className="flex items-start">
+                            <div className="flex-1 pr-6">
+                              {editingProjectId === project.id ? (
+                        <div className="space-y-4">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rename App</label>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingProjectName}
+                            onChange={(e) => setEditingProjectName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleProjectRename(project);
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelProjectRename();
+                              }
+                            }}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            placeholder="App name"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleProjectRename(project)}
+                              disabled={!editingProjectName.trim() || renamingProjectId === project.id}
+                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                                !editingProjectName.trim() || renamingProjectId === project.id
+                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              }`}
+                            >
+                              <Check size={14} />
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelProjectRename}
+                              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 bg-slate-100"
+                            >
+                              <X size={14} />
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-[11px] font-extrabold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 uppercase tracking-tighter">
-                          {project.versions?.length || 1} versions
-                        </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => loadProject(project)}
+                              className="w-full text-left"
+                            >
+                              <h4 className="font-extrabold text-slate-900 mb-2 text-lg truncate group-hover:text-indigo-600 transition-colors">{project.name}</h4>
+                              <p className="text-xs text-slate-400 font-bold mb-4 flex items-center tracking-wider uppercase">
+                                <Clock size={14} className="mr-2 text-indigo-400" />
+                                {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
+                              </p>
+                              <div className="flex items-center mt-2">
+                                <div className="flex -space-x-1.5 overflow-hidden mr-3">
+                                   {[...Array(Math.min(3, project.versions?.length || 0))].map((_, i) => (
+                                     <div key={i} className="inline-block h-6 w-6 rounded-lg ring-2 ring-white bg-indigo-100 border border-indigo-200 flex items-center justify-center">
+                                       <span className="text-[10px] font-bold text-indigo-600">v{i+1}</span>
+                                     </div>
+                                   ))}
+                                </div>
+                                <span className="text-[11px] font-extrabold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 uppercase tracking-tighter">
+                                  {project.versions?.length || 1} versions
+                                </span>
+                              </div>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex-shrink-0 ml-4 flex items-start gap-2 flex-wrap">
+                          {editingProjectId !== project.id && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => startProjectRename(project)}
+                                aria-label="Rename app"
+                                title="Rename app"
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setProjectToDelete(project)}
+                                aria-label="Delete app"
+                                title="Delete app"
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 shadow-sm transition-all hover:border-red-200 hover:bg-red-100 hover:text-red-600"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                          {editingProjectId !== project.id && (
+                            <div className="transition-all">
+                              <ChevronRight className="text-indigo-600" size={24} />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -836,6 +1085,58 @@ export default function App() {
         </div>
       )}
 
+      {projectToDelete && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Delete Saved App</h2>
+                <p className="text-sm text-slate-400 font-medium mt-1">This action cannot be undone.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProjectToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-8 space-y-5">
+              <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-slate-600 leading-relaxed">
+                Delete <span className="font-bold text-slate-900">{projectToDelete.name || 'Untitled App'}</span> from your saved applications?
+              </div>
+              {currentProjectId === projectToDelete.id && (
+                <p className="text-xs font-medium text-slate-500">
+                  This app is currently open. Deleting it will clear the current workspace.
+                </p>
+              )}
+            </div>
+            <div className="bg-slate-50 px-8 py-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setProjectToDelete(null)}
+                className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProject}
+                disabled={deletingProjectId === projectToDelete.id}
+                className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold transition-all ${
+                  deletingProjectId === projectToDelete.id
+                    ? 'bg-red-200 text-white cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                <Trash2 size={16} />
+                {deletingProjectId === projectToDelete.id ? 'Deleting...' : 'Delete App'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {isNamingModalOpen && (
         <div className="fixed inset-0 z-[65] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
@@ -843,7 +1144,11 @@ export default function App() {
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">Name Your New App</h2>
               <button
-                onClick={() => setIsNamingModalOpen(false)}
+                onClick={() => {
+                  setShouldGenerateAfterNaming(false);
+                  setTempProjectName('');
+                  setIsNamingModalOpen(false);
+                }}
                 className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
               >
                 <X size={20} />
@@ -870,7 +1175,11 @@ export default function App() {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setIsNamingModalOpen(false)}
+                  onClick={() => {
+                    setShouldGenerateAfterNaming(false);
+                    setTempProjectName('');
+                    setIsNamingModalOpen(false);
+                  }}
                   className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
                 >
                   Cancel
@@ -912,7 +1221,7 @@ export default function App() {
               <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50 flex-shrink-0">
                 <History size={16} />
               </div>
-              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider whitespace-nowrap">
+              <h2 className="text-base font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
                 Version History
               </h2>
             </div>
@@ -925,8 +1234,8 @@ export default function App() {
                 <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100 shadow-inner group">
                   <Clock size={28} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
                 </div>
-                <h3 className="text-slate-900 font-bold text-sm mb-2">No versions yet</h3>
-                <p className="text-slate-400 text-xs font-medium leading-relaxed">Your app development journey will be documented here step by step.</p>
+                <h3 className="text-slate-900 font-bold text-base mb-2">No versions yet</h3>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-[16rem]">Your app development journey will be documented here step by step.</p>
               </div>
             ) : (
 
@@ -954,7 +1263,7 @@ export default function App() {
                           <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
                         )}
                       </div>
-                      <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
+                      <span className="text-sm text-slate-500 font-semibold">
                         {ver.timestamp}
                       </span>
                     </div>
@@ -967,7 +1276,7 @@ export default function App() {
 
                     {isActive && (
                       <div className="mt-4 flex items-center justify-between pt-3 border-t border-indigo-100/50">
-                        <div className="flex items-center text-xs font-black text-indigo-600 uppercase tracking-widest pl-1">
+                        <div className="flex items-center text-sm font-bold text-indigo-700 pl-1">
                           <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
                           Live Version
                         </div>
@@ -995,7 +1304,7 @@ export default function App() {
                 <div className={`space-y-6 ${generatedCode ? 'refine-card mb-4' : ''}`}>
                   {user && (
                     <div className="flex flex-col gap-2.5 max-w-sm mb-4">
-                      <label htmlFor="projectName" className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Project Identity</label>
+                      <label htmlFor="projectName" className="text-sm font-semibold text-slate-600 ml-1">Project Name</label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
                            <Edit2 size={16} />
@@ -1006,7 +1315,7 @@ export default function App() {
                           type="text"
                           value={projectName}
                           onChange={(e) => setProjectName(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-5 py-3.5 text-sm font-extrabold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm group-hover:border-slate-300"
+                          className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-5 py-4 text-base font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm group-hover:border-slate-300"
                           placeholder="My Awesome App"
                         />
                       </div>
@@ -1014,10 +1323,10 @@ export default function App() {
                   )}
                   
                   <div className="space-y-4">
-                    <h2 className="text-4xl lg:text-5xl font-[900] text-slate-900 tracking-tight leading-[1.1]">
+                    <h2 className="text-3xl lg:text-4xl font-[900] text-slate-900 tracking-tight leading-[1.1]">
                       {generatedCode ? "Refine your app" : "What do you want to build?"}
                     </h2>
-                    <p className="text-slate-500 text-lg max-w-lg leading-relaxed font-medium">
+                    <p className="text-slate-600 text-lg max-w-lg leading-relaxed font-medium">
                       {generatedCode 
                         ? "Describe exactly what you want to change, add, or fix in your current application."
                         : "Describe your mini-app in natural language, and Orion will generate the production-ready code in seconds."}
@@ -1039,7 +1348,7 @@ export default function App() {
                 {!generatedCode && (
                   <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.1s' }}>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.1em] flex items-center">
+                      <h3 className="text-sm font-semibold text-slate-600 flex items-center">
                         <Sparkles size={12} className="mr-2 text-amber-500" /> Suggested Starters
                       </h3>
                     </div>
@@ -1055,7 +1364,7 @@ export default function App() {
                             <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all shadow-sm shrink-0">
                                <Plus size={18} />
                             </div>
-                            <span className="text-sm text-slate-600 group-hover:text-slate-900 font-bold leading-tight transition-colors">{suggestion}</span>
+                            <span className="text-base text-slate-700 group-hover:text-slate-900 font-semibold leading-snug transition-colors">{suggestion}</span>
                           </div>
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 transition-all opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0" />
                         </button>
@@ -1089,7 +1398,7 @@ export default function App() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={generatedCode ? "E.g., Make the background dark blue, add a reset button..." : "E.g., A minimalist task manager..."}
-                  className="w-full h-32 p-4 outline-none resize-none text-slate-700 placeholder:text-slate-400 text-base leading-relaxed bg-transparent"
+                  className="w-full h-32 p-5 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[15px] leading-7 bg-transparent"
                   disabled={isGenerating}
                 />
                 <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-between items-center">
@@ -1098,7 +1407,7 @@ export default function App() {
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating || (user && !prompt.trim())}
-                    className={`flex items-center px-5 py-2 rounded-xl font-medium text-white transition-all transform active:scale-95 ${
+                    className={`flex items-center px-5 py-2.5 rounded-xl text-base font-semibold text-white transition-all transform active:scale-95 ${
                       isGenerating || (user && !prompt.trim()) 
                         ? 'bg-slate-300 cursor-not-allowed' 
                         : 'bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg'
@@ -1129,7 +1438,7 @@ export default function App() {
               <div className="flex bg-slate-200/50 p-1 rounded-xl">
                 <button
                   onClick={() => setActiveTab('preview')}
-                  className={`flex items-center px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                     activeTab === 'preview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -1137,7 +1446,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setActiveTab('code')}
-                  className={`flex items-center px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                     activeTab === 'code' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -1202,7 +1511,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={resetZoom}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-indigo-600'
                     }`}
                     title={isAutoZoom ? "Currently Auto-Zoomed" : "Reset to Auto-Zoom"}
@@ -1265,7 +1574,7 @@ export default function App() {
                           <Sparkles className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={32} />
                         </div>
                         <h3 className="text-lg font-extrabold text-slate-900 tracking-tight mb-1">Building Interface...</h3>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-2 animate-pulse">Writing HTML, CSS & JS</p>
+                        <p className="text-sm text-slate-600 font-semibold mt-2 animate-pulse">Writing HTML, CSS, and JavaScript</p>
                       </div>
                     ) : (
                       <div className="w-full h-full relative">
@@ -1283,7 +1592,7 @@ export default function App() {
                                <Smartphone size={32} className="text-indigo-300" />
                             </div>
                             <h4 className="font-extrabold text-slate-900 text-lg tracking-tight mb-2">Device Standby</h4>
-                            <p className="text-sm text-slate-400 font-medium">Your generated app will render here automatically.</p>
+                            <p className="text-base text-slate-500 font-medium max-w-xs leading-relaxed">Your generated app will render here automatically.</p>
                           </div>
                         )}
                       </div>
