@@ -43,7 +43,6 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
-import { applySurgicalEdits, parseSurgicalEditResponse } from './utils/surgicalEdits';
 const AuthModal = React.lazy(() => import('./components/AuthModal'));
 
 // --- Constants ---
@@ -57,39 +56,31 @@ CRITICAL RULES:
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. Use responsive layout techniques such as breakpoint-based grids, multi-column desktop sections, adaptive spacing, and container widths that grow appropriately on larger screens.
-8. Add stable ids or data-orion-key attributes to the major regions, controls, and dynamic containers so future targeted edits can reference them safely.`;
+7. Use responsive layout techniques such as breakpoint-based grids, multi-column desktop sections, adaptive spacing, and container widths that grow appropriately on larger screens.`;
 
-const SURGICAL_EDIT_SYSTEM_PROMPT = `You are editing an existing self-contained HTML micro app.
+const PROVIDER_OPTIONS = [
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    description: 'Multi-model API',
+    icon: Layout
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini',
+    description: 'Google Gemini Flash',
+    icon: Sparkles
+  },
+  {
+    id: 'chutes',
+    label: 'Chutes',
+    description: 'Chutes.ai LLM API',
+    icon: TerminalSquare
+  }
+];
 
-Return ONLY JSON and prefer surgical edits over a full rewrite.
-
-Allowed JSON responses:
-1. {"mode":"surgical-edit","summary":"short summary","operations":[...]}
-2. {"mode":"full-rewrite","summary":"why surgical edits were unsafe","html":"<!DOCTYPE html>..."}
-
-Allowed operation shapes:
-- {"type":"replace_element","selector":"...","occurrence":0,"html":"<section>...</section>"}
-- {"type":"replace_inner_html","selector":"...","occurrence":0,"html":"..."}
-- {"type":"insert_html","selector":"...","occurrence":0,"position":"beforebegin|afterbegin|beforeend|afterend","html":"..."}
-- {"type":"set_attribute","selector":"...","occurrence":0,"name":"class","value":"..."}
-- {"type":"set_attributes","selector":"...","occurrence":0,"attributes":{"class":"...","data-state":"ready"}}
-- {"type":"remove_attribute","selector":"...","occurrence":0,"name":"disabled"}
-- {"type":"remove_attributes","selector":"...","occurrence":0,"names":["disabled","aria-busy"]}
-- {"type":"set_text","selector":"...","occurrence":0,"text":"..."}
-- {"type":"remove_element","selector":"...","occurrence":0}
-
-Rules:
-1. Do not return markdown fences or commentary.
-2. Prefer the smallest safe set of operations.
-3. Reuse the existing structure, CSS, and JavaScript whenever possible.
-4. Use stable selectors. Prefer ids and data-orion-key attributes when available.
-5. Only use "occurrence" when the selector matches multiple nodes.
-6. For CSS or JS changes, target the existing <style> or <script> tags with replace_inner_html, or insert new tags into <head> or <body>.
-7. Do not rename, restyle, reformat, reorder, or regenerate unrelated parts of the app. Any non-requested difference is a bug.
-8. Do not replace large wrapper containers just to make a small change. Use multiple smaller operations instead.
-9. Preserve unrelated CSS rules, JavaScript logic, text, class names, ids, and markup byte-for-byte whenever possible.
-10. If targeted edits are not safe or would be excessively brittle, return "full-rewrite" with the full updated HTML document.`;
+const DEFAULT_PROVIDER = PROVIDER_OPTIONS[0].id;
+const PROVIDER_OPTION_MAP = Object.fromEntries(PROVIDER_OPTIONS.map((option) => [option.id, option]));
 
 const sanitizeHtmlResponse = (text) => {
   const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
@@ -112,28 +103,6 @@ const sanitizeHtmlResponse = (text) => {
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
 };
 
-const buildSurgicalUserText = (prompt, currentCode, options = {}) => {
-  const { strict = false, failureReason = '' } = options;
-
-  return `Apply the user's request to the existing responsive web app using surgical edits whenever possible.
-
-User request: "${prompt}"
-
-Current complete HTML:
-\`\`\`html
-${currentCode}
-\`\`\`
-
-Preservation requirements:
-- Keep all unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
-- Any difference not required by the request is a bug.
-- Prefer precise selectors and multiple small operations over replacing a broad parent container.
-- When editing CSS or JS, preserve unrelated rules and functions verbatim.
-${strict ? `- Your previous attempt changed too much or was too broad. Be stricter and narrower on this retry.\n- If you need several operations to avoid drift, use them.\n- Failure reason from the previous attempt: ${failureReason}` : ''}
-
-Prefer targeted edits. Only fall back to "full-rewrite" if a safe patch plan would be brittle or unrealistic.`;
-};
-
 // --- API Helper with Exponential Backoff ---
 const requestModelText = async ({
   provider = 'openrouter',
@@ -146,8 +115,10 @@ const requestModelText = async ({
   const delays = [1000, 2000, 4000, 8000, 16000];
   const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const chutesKey = import.meta.env.VITE_CHUTES_API_KEY;
   const openrouterModel = import.meta.env.VITE_OPENROUTER_MODEL || 'openrouter/free';
   const geminiModel = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash-preview-09-2025';
+  const chutesModel = import.meta.env.VITE_CHUTES_MODEL || 'deepseek-ai/DeepSeek-V3-0324';
 
   try {
     let endpoint;
@@ -162,6 +133,22 @@ const requestModelText = async ({
         contents: [{ parts: [{ text: userText }] }],
         system_instruction: { parts: [{ text: systemPrompt }] },
         generationConfig: { temperature }
+      });
+    } else if (provider === 'chutes') {
+      if (!chutesKey) throw new Error('Chutes API key is missing.');
+      endpoint = 'https://llm.chutes.ai/v1/chat/completions';
+      headers = {
+        'Authorization': `Bearer ${chutesKey}`,
+        'Content-Type': 'application/json'
+      };
+      body = JSON.stringify({
+        model: chutesModel,
+        stream: !!onChunk,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userText }
+        ],
+        temperature
       });
     } else {
       if (!openrouterKey) throw new Error('OpenRouter API key is missing.');
@@ -261,8 +248,8 @@ const requestModelText = async ({
       }
     } else {
       const result = await response.json();
-      text = provider === 'gemini' 
-        ? result?.candidates?.[0]?.content?.parts?.[0]?.text || '' 
+      text = provider === 'gemini'
+        ? result?.candidates?.[0]?.content?.parts?.[0]?.text || ''
         : result.choices?.[0]?.message?.content || '';
     }
     return text;
@@ -289,91 +276,38 @@ const generateAppCode = async (
   provider = 'openrouter',
   onChunk = null
 ) => {
-  if (!currentCode) {
-    const rawHtml = await requestModelText({
-      provider,
-      systemPrompt: HTML_SYSTEM_PROMPT,
-      userText: `Create a responsive web app based on this request: ${prompt}. It must look polished on mobile and also present a true desktop layout on larger screens.`,
-      onChunk,
-      temperature: 0.7
-    });
+  const userText = currentCode
+    ? `Update the existing responsive web app based on this new request: "${prompt}". Return the FULL updated HTML document.
 
-    return {
-      code: sanitizeHtmlResponse(rawHtml),
-      editMode: 'full-generation',
-      editSummary: 'Initial app generation.',
-      editOperationsCount: 0
-    };
-  }
-
-  let lastSurgicalError = 'Unknown surgical edit failure.';
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      if (attempt > 0) {
-        onChunk?.(' Retrying with stricter preservation constraints.');
-      }
-
-      const rawPlan = await requestModelText({
-        provider,
-        systemPrompt: SURGICAL_EDIT_SYSTEM_PROMPT,
-        userText: buildSurgicalUserText(prompt, currentCode, {
-          strict: attempt > 0,
-          failureReason: lastSurgicalError
-        }),
-        onChunk,
-        temperature: 0.15
-      });
-
-      const editPlan = parseSurgicalEditResponse(rawPlan);
-      if (editPlan.mode === 'full-rewrite') {
-        throw new Error(editPlan.summary || 'Model escalated to a full rewrite instead of a surgical edit.');
-      }
-
-      return {
-        code: applySurgicalEdits(currentCode, editPlan),
-        editMode: 'surgical-edit',
-        editSummary: editPlan.summary || 'Applied targeted edits.',
-        editOperationsCount: editPlan.operations.length
-      };
-    } catch (error) {
-      lastSurgicalError = error instanceof Error ? error.message : 'Unknown surgical edit failure.';
-    }
-  }
-
-  try {
-    onChunk?.(' Switching to a full-document rewrite fallback.');
-
-    const rawHtml = await requestModelText({
-      provider,
-      systemPrompt: HTML_SYSTEM_PROMPT,
-      userText: `Update the existing responsive web app based on this new request: "${prompt}". Preserve a strong mobile experience, but also make sure the layout expands appropriately for tablet and desktop screens.
-
-Here is the current complete HTML code. Please return the FULL, updated HTML file.
-
-Critical preservation requirements:
+Preservation requirements:
 - Start from the current HTML and keep unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
 - Only modify the smallest necessary fragments to satisfy the request.
 - Any non-requested difference is a bug.
-- Do not rename ids/classes or restyle unrelated elements.
-- Previous surgical-edit attempts failed because they were too broad: ${lastSurgicalError}
+- Do not rename ids/classes or restyle unrelated elements unless the request requires it.
 
+Current complete HTML:
 \`\`\`html
 ${currentCode}
-\`\`\``,
+\`\`\``
+    : `Create a responsive web app based on this request: ${prompt}. It must look polished on mobile and also present a true desktop layout on larger screens.`;
+
+  try {
+    const rawHtml = await requestModelText({
+      provider,
+      systemPrompt: HTML_SYSTEM_PROMPT,
+      userText,
       onChunk,
-      temperature: 0.5
+      temperature: currentCode ? 0.5 : 0.7
     });
 
     return {
       code: sanitizeHtmlResponse(rawHtml),
-      editMode: 'full-rewrite',
-      editSummary: `Fallback rewrite after surgical edit failed: ${lastSurgicalError}`,
-      editOperationsCount: 0
+      editMode: currentCode ? 'full-rewrite' : 'full-generation',
+      editSummary: currentCode ? 'Full rewrite from the current version.' : 'Initial app generation.'
     };
   } catch (error) {
-    const fallbackReason = error instanceof Error ? error.message : 'Unknown rewrite failure.';
-    throw new Error(`Unable to apply a stable edit: ${fallbackReason}`);
+    const generationReason = error instanceof Error ? error.message : 'Unknown generation failure.';
+    throw new Error(`Unable to generate the updated app: ${generationReason}`);
   }
 };
 
@@ -459,7 +393,10 @@ export default function App() {
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [previewMode, setPreviewMode] = useState('mobile');
-  const [apiProvider, setApiProvider] = useState(() => localStorage.getItem('orion-api-provider') || 'openrouter');
+  const [apiProvider, setApiProvider] = useState(() => {
+    const storedProvider = localStorage.getItem('orion-api-provider');
+    return PROVIDER_OPTION_MAP[storedProvider] ? storedProvider : DEFAULT_PROVIDER;
+  });
   const [streamingCode, setStreamingCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -746,8 +683,7 @@ export default function App() {
         code: generationResult.code,
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
-        editSummary: generationResult.editSummary,
-        editOperationsCount: generationResult.editOperationsCount
+        editSummary: generationResult.editSummary
       };
       
       // If user goes back in time and generates, truncate the future versions (standard undo behavior)
@@ -1023,8 +959,8 @@ export default function App() {
           )}
 
           <span className="hidden sm:inline px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-            {apiProvider === 'gemini' ? 'Gemini' : 'OpenRouter'}
-          </span>
+            {PROVIDER_OPTION_MAP[apiProvider]?.label || PROVIDER_OPTION_MAP[DEFAULT_PROVIDER].label}
+            </span>
         </div>
       </header>
 
@@ -1053,30 +989,33 @@ export default function App() {
             <div className="p-8 space-y-6">
               <div className="space-y-4">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select AI Engine</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['openrouter', 'gemini'].map((provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => setApiProvider(provider)}
-                      className={`flex flex-col items-start p-4 rounded-2xl border-2 transition-all ${
-                        apiProvider === provider 
-                          ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' 
-                          : 'border-slate-100 hover:border-slate-200 bg-white'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-xl mb-3 flex items-center justify-center ${
-                         apiProvider === provider ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {provider === 'openrouter' ? <Layout size={18} /> : <Sparkles size={18} />}
-                      </div>
-                      <span className={`text-sm font-bold capitalize ${apiProvider === provider ? 'text-indigo-900' : 'text-slate-700'}`}>
-                        {provider}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {provider === 'openrouter' ? 'Multi-model API' : 'Google Gemini Flash'}
-                      </span>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {PROVIDER_OPTIONS.map((providerOption) => {
+                    const Icon = providerOption.icon;
+                    return (
+                      <button
+                        key={providerOption.id}
+                        onClick={() => setApiProvider(providerOption.id)}
+                        className={`flex flex-col items-start p-4 rounded-2xl border-2 transition-all ${
+                          apiProvider === providerOption.id
+                            ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
+                            : 'border-slate-100 hover:border-slate-200 bg-white'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-xl mb-3 flex items-center justify-center ${
+                          apiProvider === providerOption.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          <Icon size={18} />
+                        </div>
+                        <span className={`text-sm font-bold ${apiProvider === providerOption.id ? 'text-indigo-900' : 'text-slate-700'}`}>
+                          {providerOption.label}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {providerOption.description}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1432,11 +1371,6 @@ export default function App() {
                         </div>
                         {idx === 0 && (
                           <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
-                        )}
-                        {ver.editMode === 'surgical-edit' && (
-                          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                            Patch {ver.editOperationsCount || 0}
-                          </span>
                         )}
                         {ver.editMode === 'full-rewrite' && (
                           <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
