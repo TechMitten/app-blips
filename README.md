@@ -36,13 +36,15 @@ A React + Vite single-page tool that generates mobile-friendly HTML micro apps f
 
 ## API requirement
 
-`src/App.jsx` now supports two providers via a settings UI:
+`src/App.jsx` now supports three providers via a settings UI:
 
 - `openrouter` using `VITE_OPENROUTER_API_KEY`
 - `gemini` using `VITE_GEMINI_API_KEY`
+- `chutes` using `VITE_CHUTES_API_KEY`
 - models set in `.env`:
   - `VITE_OPENROUTER_MODEL` (default: `openrouter/free`)
   - `VITE_GEMINI_MODEL` (default: `gemini-2.5-flash-preview-09-2025`)
+  - `VITE_CHUTES_MODEL` (default: `deepseek-ai/DeepSeek-V3-0324`)
 
 - `https://generativelanguage.googleapis.com/v1beta/models/<your model>:generateContent?key=YOUR_KEY`
 
