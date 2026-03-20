@@ -275,6 +275,8 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
+  const [tempProjectName, setTempProjectName] = useState('');
   const [projectName, setProjectName] = useState('Untitled App');
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
@@ -497,6 +499,13 @@ export default function App() {
       return;
     }
 
+    // Require naming for transition from Untitled or New App
+    if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
+      setTempProjectName('');
+      setIsNamingModalOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
     setStreamingCode('');
     setError(null);
@@ -556,14 +565,27 @@ export default function App() {
   };
 
   const handleNewApp = () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setTempProjectName('');
+    setIsNamingModalOpen(true);
+  };
+
+  const handleConfirmNaming = (e) => {
+    e?.preventDefault();
+    if (!tempProjectName.trim()) return;
+
     setGeneratedCode('');
     setPrompt('');
     setError(null);
     setVersions([]);
     setCurrentVersionIndex(-1);
     setCurrentProjectId(null);
-    setProjectName('Untitled App');
+    setProjectName(tempProjectName.trim());
     localStorage.removeItem('orion-current-project-id');
+    setIsNamingModalOpen(false);
   };
 
   const switchVersion = (index) => {
@@ -613,6 +635,15 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={handleNewApp}
+            className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+            title="Start a new app"
+          >
+            <Plus size={18} />
+            <span className="hidden sm:inline">New App</span>
+          </button>
+
           {user && (
             <button
               onClick={() => setIsProjectsListOpen(true)}
@@ -806,6 +837,62 @@ export default function App() {
       )}
 
 
+      {isNamingModalOpen && (
+        <div className="fixed inset-0 z-[65] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Name Your New App</h2>
+              <button
+                onClick={() => setIsNamingModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleConfirmNaming} className="p-8 space-y-6">
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">App Title</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                    <Edit2 size={18} />
+                  </div>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={tempProjectName}
+                    onChange={(e) => setTempProjectName(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-5 py-4 text-lg font-extrabold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="E.g., Recipe Assistant, Task Master..."
+                  />
+                </div>
+                <p className="text-xs text-slate-500 font-medium">This name will help you find your app in the library later.</p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsNamingModalOpen(false)}
+                  className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!tempProjectName.trim()}
+                  className={`rounded-xl px-8 py-2.5 font-bold shadow-md transition-all active:scale-95 ${
+                    !tempProjectName.trim() 
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'
+                  }`}
+                >
+                  Create App
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+
       <AuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
@@ -813,21 +900,17 @@ export default function App() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-72 bg-white border-r border-slate-200 hidden md:flex flex-col">
-          <div className="px-5 py-6 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10 overflow-hidden">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+        <aside className="w-80 bg-white border-r border-slate-200 hidden md:flex flex-col">
+          <div className="px-6 py-7 border-b border-slate-100 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
+            <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50 flex-shrink-0">
                 <History size={16} />
               </div>
-              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none whitespace-nowrap overflow-hidden text-ellipsis">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider whitespace-nowrap">
                 Version History
               </h2>
             </div>
-            {versions.length > 0 && (
-              <span className="bg-slate-100 text-slate-500 text-[10px] px-2.5 py-1 rounded-lg font-black border border-slate-200/50 min-w-6 text-center shadow-sm flex-shrink-0 ml-2">
-                {versions.length}
-              </span>
-            )}
+
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -856,30 +939,30 @@ export default function App() {
                   >
                     <div className="flex justify-between items-center w-full mb-3">
                       <div className="flex items-center gap-2">
-                        <div className={`h-6 px-2 rounded-lg flex items-center text-[10px] font-black tracking-tighter transition-colors ${
+                        <div className={`h-8 px-3 rounded-lg flex items-center text-sm font-black transition-colors ${
                           isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
                         }`}>
                           V{idx + 1}
                         </div>
                         {idx === 0 && (
-                          <span className="text-[10px] font-bold text-indigo-400/80 uppercase tracking-widest">Initial</span>
+                          <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-400 font-semibold tracking-tight">
+                      <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
                         {ver.timestamp}
                       </span>
                     </div>
                     
-                    <span className={`text-[13px] leading-[1.6] line-clamp-3 transition-colors ${
-                      isActive ? 'text-indigo-950 font-bold' : 'text-slate-600 group-hover:text-slate-900'
+                    <span className={`text-base leading-relaxed transition-colors ${
+                      isActive ? 'text-indigo-950 font-extrabold' : 'text-slate-600 group-hover:text-slate-900 font-medium'
                     }`}>
                       {ver.prompt}
                     </span>
 
                     {isActive && (
                       <div className="mt-4 flex items-center justify-between pt-3 border-t border-indigo-100/50">
-                        <div className="flex items-center text-[9px] font-black text-indigo-500 uppercase tracking-[0.15em]">
-                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>
+                        <div className="flex items-center text-xs font-black text-indigo-600 uppercase tracking-widest pl-1">
+                          <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
                           Live Version
                         </div>
                         <ChevronRight size={14} className="text-indigo-400" />
@@ -904,9 +987,9 @@ export default function App() {
                 
                 {/* Header Section */}
                 <div className={`space-y-6 ${generatedCode ? 'refine-card mb-4' : ''}`}>
-                  {user && !generatedCode && (
-                    <div className="flex flex-col gap-2.5 max-w-sm">
-                      <label htmlFor="projectName" className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] ml-1">Project Identity</label>
+                  {user && (
+                    <div className="flex flex-col gap-2.5 max-w-sm mb-4">
+                      <label htmlFor="projectName" className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Project Identity</label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
                            <Edit2 size={16} />
@@ -922,7 +1005,6 @@ export default function App() {
                         />
                       </div>
                     </div>
-
                   )}
                   
                   <div className="space-y-4">
@@ -951,7 +1033,7 @@ export default function App() {
                 {!generatedCode && (
                   <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.1s' }}>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-[0.1em] flex items-center">
                         <Sparkles size={12} className="mr-2 text-amber-500" /> Suggested Starters
                       </h3>
                     </div>
@@ -1006,14 +1088,6 @@ export default function App() {
                 />
                 <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-between items-center">
                   <div className="flex space-x-2">
-                    {generatedCode && (
-                      <button 
-                        onClick={handleNewApp}
-                        className="flex items-center text-slate-500 hover:text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
-                      >
-                        <Plus size={16} className="mr-1.5" /> New App
-                      </button>
-                    )}
                   </div>
                   <button
                     onClick={handleGenerate}
