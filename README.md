@@ -10,6 +10,8 @@ A React + Vite single-page tool that generates mobile-friendly HTML micro apps f
 - Download generated HTML as a file
 - Tailwind CSS UI + lucide-react icon system
 - Responsive two-pane workspace (prompt + preview)
+- **User Authentication**: Sign up and login using Firebase.
+- **Persistence**: Save and load your generated apps and their full version history to the cloud.
 
 ## Stack
 
@@ -42,9 +44,23 @@ A React + Vite single-page tool that generates mobile-friendly HTML micro apps f
   - `VITE_OPENROUTER_MODEL` (default: `openrouter/free`)
   - `VITE_GEMINI_MODEL` (default: `gemini-2.5-flash-preview-09-2025`)
 
-Example Gemini endpoint:
-
 - `https://generativelanguage.googleapis.com/v1beta/models/<your model>:generateContent?key=YOUR_KEY`
+
+## Firebase Setup
+
+To enable user accounts and cloud saving:
+
+1. Create a Firebase Project at [console.firebase.google.com](https://console.firebase.google.com).
+2. Enable **Authentication** (Email/Password Provider).
+3. Create a **Firestore Database** in test mode or with appropriate security rules.
+4. Add a **Web App** to the project to get your SDK configuration.
+5. Fill in the Firebase variables in your `.env` file:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
 
 ## Scripts
 
