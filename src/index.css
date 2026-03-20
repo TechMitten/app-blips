@@ -74,7 +74,7 @@ code {
   padding: 0.2rem 0.4rem;
   background: var(--code-bg);
   border-radius: 6px;
-  color: var(--accent);
+  color: inherit; /* Allow parent font color by default */
 }
 
 .counter {
