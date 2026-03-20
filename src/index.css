@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* 1. Global Reset & Full Screen Layout */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: #f8fafc;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #1e293b;
+  line-height: 1.5;
+}
+
+/* 2. Updated Design Tokens (Indigo & Slate) */
+:root {
+  --bg-main: #f8fafc;
+  --text: #64748b;
+  --text-h: #0f172a;
+  --border: #e2e8f0;
+  --accent: #4f46e5;
+  --accent-bg: #eef2ff;
+  --accent-border: #c7d2fe;
+  --code-bg: #f1f5f9;
+  --social-bg: #f1f5f9;
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', monospace;
+}
+
+/* 3. Dark Mode Refinement (Optional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-main: #0f172a;
+    --text: #94a3b8;
+    --text-h: #f1f5f9;
+    --border: #1e293b;
+    --code-bg: #1e293b;
+    --accent: #818cf8;
+    --accent-bg: rgba(129, 140, 248, 0.1);
+  }
+}
+
+/* 4. Typography & Elements */
+h1, h2, h3 {
+  font-family: var(--sans);
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+}
+
+h1 {
+  font-size: 3rem;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.025em;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--code-bg);
+  border-radius: 6px;
+  color: var(--accent);
+}
+
+.counter {
+  font-family: var(--sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.counter:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
