@@ -492,6 +492,11 @@ export default function App() {
     e?.preventDefault();
     if (!prompt.trim()) return;
 
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
     setStreamingCode('');
     setError(null);
@@ -808,27 +813,34 @@ export default function App() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
-            <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center">
-              <History size={14} className="mr-2.5 text-indigo-500" /> Version History
-            </h2>
+        <aside className="w-72 bg-white border-r border-slate-200 hidden md:flex flex-col">
+          <div className="px-5 py-6 border-b border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10 overflow-hidden">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50 flex-shrink-0">
+                <History size={16} />
+              </div>
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none whitespace-nowrap overflow-hidden text-ellipsis">
+                Version History
+              </h2>
+            </div>
             {versions.length > 0 && (
-              <span className="bg-indigo-50 text-indigo-600 text-[10px] px-2.5 py-1 rounded-full font-bold border border-indigo-100 shadow-sm">
+              <span className="bg-slate-100 text-slate-500 text-[10px] px-2.5 py-1 rounded-lg font-black border border-slate-200/50 min-w-6 text-center shadow-sm flex-shrink-0 ml-2">
                 {versions.length}
               </span>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {versions.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-slate-100">
-                  <Clock size={20} className="text-slate-300" />
+              <div className="text-center py-20 px-6 flex flex-col items-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100 shadow-inner group">
+                  <Clock size={28} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
                 </div>
-                <p className="text-slate-400 text-sm font-medium leading-relaxed"> No versions yet.<br/>Your building journey starts here.</p>
+                <h3 className="text-slate-900 font-bold text-sm mb-2">No versions yet</h3>
+                <p className="text-slate-400 text-xs font-medium leading-relaxed">Your app development journey will be documented here step by step.</p>
               </div>
             ) : (
+
               [...versions].reverse().map((ver, reversedIdx) => {
                 const idx = versions.length - 1 - reversedIdx;
                 const isActive = currentVersionIndex === idx;
@@ -836,31 +848,45 @@ export default function App() {
                   <button
                     key={ver.id}
                     onClick={() => switchVersion(idx)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all duration-300 group flex flex-col version-item ${
+                    className={`w-full text-left p-4 rounded-3xl border transition-all duration-300 group flex flex-col version-item relative overflow-hidden ${
                       isActive 
-                        ? 'bg-indigo-50/50 border-indigo-200 shadow-sm active' 
-                        : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
+                        ? 'bg-indigo-50/40 border-indigo-200 shadow-sm ring-1 ring-indigo-500/10' 
+                        : 'bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50/50'
                     }`}
                   >
-                    <div className="flex justify-between items-center w-full mb-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
-                        v{idx + 1} {idx === 0 ? '• Initial' : ''}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium opacity-60">
+                    <div className="flex justify-between items-center w-full mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-6 px-2 rounded-lg flex items-center text-[10px] font-black tracking-tighter transition-colors ${
+                          isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                        }`}>
+                          V{idx + 1}
+                        </div>
+                        {idx === 0 && (
+                          <span className="text-[10px] font-bold text-indigo-400/80 uppercase tracking-widest">Initial</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-semibold tracking-tight">
                         {ver.timestamp}
                       </span>
                     </div>
-                    <span className={`text-sm line-clamp-2 leading-snug ${isActive ? 'text-indigo-900 font-bold' : 'text-slate-600'}`}>
+                    
+                    <span className={`text-[13px] leading-[1.6] line-clamp-3 transition-colors ${
+                      isActive ? 'text-indigo-950 font-bold' : 'text-slate-600 group-hover:text-slate-900'
+                    }`}>
                       {ver.prompt}
                     </span>
+
                     {isActive && (
-                      <div className="mt-4 flex items-center text-[10px] font-extrabold text-indigo-500 bg-indigo-50/50 px-3 py-1.5 rounded-xl border border-indigo-100/50 animate-fade-in w-fit">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
-                        CURRENTLY ACTIVE
+                      <div className="mt-4 flex items-center justify-between pt-3 border-t border-indigo-100/50">
+                        <div className="flex items-center text-[9px] font-black text-indigo-500 uppercase tracking-[0.15em]">
+                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>
+                          Live Version
+                        </div>
+                        <ChevronRight size={14} className="text-indigo-400" />
                       </div>
                     )}
-
                   </button>
+
                 );
               })
             )}
@@ -908,28 +934,42 @@ export default function App() {
                         ? "Describe exactly what you want to change, add, or fix in your current application."
                         : "Describe your mini-app in natural language, and Orion will generate the production-ready code in seconds."}
                     </p>
+                    
+                    {!user && (
+                      <div className="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-fade-in">
+                        <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
+                          <User size={16} />
+                        </div>
+                        <p className="text-sm font-bold text-indigo-900">Sign in to generate and save your apps</p>
+                      </div>
+                    )}
                   </div>
 
                 </div>
 
                 {/* Suggestions - Only show when no app is generated */}
                 {!generatedCode && (
-                  <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                    <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center">
-                      <Sparkles size={14} className="mr-2 text-amber-500" /> Suggested Starters
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.1s' }}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
+                        <Sparkles size={12} className="mr-2 text-amber-500" /> Suggested Starters
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
                       {suggestedPrompts.map((suggestion, idx) => (
                         <button
                           key={idx}
                           onClick={() => setPrompt(suggestion)}
-                          className="text-left p-6 bg-slate-50/50 border border-slate-100 rounded-3xl hover:border-indigo-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group flex items-start justify-between shadow-sm relative overflow-hidden"
+                          className="text-left p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-indigo-200 hover:bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all group flex items-center justify-between shadow-sm relative overflow-hidden"
                         >
-                          <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500/10 group-hover:bg-indigo-500 transition-all"></div>
-                          <span className="text-sm text-slate-600 group-hover:text-indigo-950 font-bold leading-relaxed pr-4 transition-colors">{suggestion}</span>
-                          <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-300 group-hover:text-indigo-500 group-hover:border-indigo-100 transition-all shadow-sm">
-                             <Plus size={16} />
+                          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/0 group-hover:bg-indigo-500 transition-all"></div>
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all shadow-sm shrink-0">
+                               <Plus size={18} />
+                            </div>
+                            <span className="text-sm text-slate-600 group-hover:text-slate-900 font-bold leading-tight transition-colors">{suggestion}</span>
                           </div>
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 transition-all opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0" />
                         </button>
                       ))}
                     </div>
@@ -977,9 +1017,9 @@ export default function App() {
                   </div>
                   <button
                     onClick={handleGenerate}
-                    disabled={isGenerating || !prompt.trim()}
+                    disabled={isGenerating || (user && !prompt.trim())}
                     className={`flex items-center px-5 py-2 rounded-xl font-medium text-white transition-all transform active:scale-95 ${
-                      isGenerating || !prompt.trim() 
+                      isGenerating || (user && !prompt.trim()) 
                         ? 'bg-slate-300 cursor-not-allowed' 
                         : 'bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg'
                     }`}
@@ -991,8 +1031,8 @@ export default function App() {
                       </>
                     ) : (
                       <>
-                        {generatedCode ? <Edit2 className="mr-2" size={18} /> : <Wand2 className="mr-2" size={18} />}
-                        {generatedCode ? "Update" : "Build"}
+                        {!user ? <User className="mr-2" size={18} /> : (generatedCode ? <Edit2 className="mr-2" size={18} /> : <Wand2 className="mr-2" size={18} />)}
+                        {!user ? "Login to Build" : (generatedCode ? "Update" : "Build")}
                       </>
                     )}
                   </button>

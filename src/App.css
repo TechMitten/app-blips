@@ -228,24 +228,13 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.version-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--accent);
-  transform: scaleY(0);
-  transition: transform 0.3s ease;
-}
-
-.version-item.active::before {
-  transform: scaleY(1);
-}
-
 .version-item:hover {
-  transform: translateX(4px);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
+}
+
+.version-item:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* --- Refine Section Enhancements --- */
