@@ -310,6 +310,92 @@ body {
   flex-shrink: 0;
 }
 
+.device-desktop {
+  position: relative;
+  width: 1440px;
+  height: 960px; /* Stable base height for scaling */
+  background:
+    linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  border-radius: 32px;
+  padding: 14px 14px 48px;
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.4),
+    0 28px 80px -24px rgba(15, 23, 42, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.device-desktop-toolbar {
+  height: 52px;
+  border-radius: 22px 22px 14px 14px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(226, 232, 240, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 18px;
+}
+
+.device-desktop-lights {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-desktop-light {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.device-desktop-light-red {
+  background: #f87171;
+}
+
+.device-desktop-light-amber {
+  background: #fbbf24;
+}
+
+.device-desktop-light-green {
+  background: #34d399;
+}
+
+.device-desktop-addressbar {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.device-desktop-address-pill {
+  width: 44px;
+  height: 6px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.device-desktop-address-text {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .device-screen {
   position: relative;
   width: 100%;
@@ -332,6 +418,27 @@ body {
   border-radius: 0 38px 38px 0;
   pointer-events: none;
   z-index: 20;
+}
+
+.device-desktop .device-screen {
+  flex: 1;
+  height: auto;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.08),
+    0 18px 40px -24px rgba(15, 23, 42, 0.45);
+}
+
+.device-desktop-stand {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 12px;
+  width: 220px;
+  height: 18px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(226, 232, 240, 0.95), rgba(148, 163, 184, 0.55));
+  box-shadow: 0 14px 28px -16px rgba(15, 23, 42, 0.8);
 }
 
 
