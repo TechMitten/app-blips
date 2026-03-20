@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import './App.css';
 import { 
   Wand2, 
@@ -46,7 +46,7 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
-import AuthModal from './components/AuthModal';
+const AuthModal = React.lazy(() => import('./components/AuthModal'));
 
 // --- Constants ---
 const SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
@@ -893,10 +893,16 @@ export default function App() {
       )}
 
 
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-      />
+      <Suspense fallback={
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl p-4 shadow-xl">Loading authentication...</div>
+        </div>
+      }>
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+        />
+      </Suspense>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
