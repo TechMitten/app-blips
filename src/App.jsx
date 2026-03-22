@@ -52,11 +52,18 @@ Generate a complete, self-contained HTML file (with inline CSS and JS) that impl
 CRITICAL RULES:
 1. Output ONLY valid, raw HTML code.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
-3. The app MUST be fully responsive across mobile, tablet, and desktop breakpoints. It should work beautifully on a 375px mobile screen and also expand into a proper desktop layout at larger widths instead of staying in a phone-width column.
+3. Follow the platform-targeting instructions in the user request exactly. If the request says mobile, optimize for a 375px touch screen. If it says desktop, optimize for a wide desktop layout. If it says both, build a truly responsive experience across mobile, tablet, and desktop breakpoints.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. Use responsive layout techniques such as breakpoint-based grids, multi-column desktop sections, adaptive spacing, and container widths that grow appropriately on larger screens.`;
+7. Match the requested platform focus with appropriate spacing, interaction patterns, typography scale, and layout density.
+8. For any mobile or responsive app, account for phone safe areas so content does not sit beneath notches or home indicators. Include a viewport meta tag with viewport-fit=cover and use CSS env(safe-area-inset-top/right/bottom/left) where edge-aligned UI needs padding.`;
+
+const getSafeAreaInstruction = (layoutTarget) => {
+  if (layoutTarget === 'desktop') return '';
+
+  return ' Respect modern phone safe areas: include a viewport meta tag with viewport-fit=cover and pad edge-aligned headers, footers, and fixed controls with env(safe-area-inset-top/right/bottom/left) so nothing is hidden by a notch or home indicator.';
+};
 
 const PROVIDER_OPTIONS = [
   {
@@ -81,6 +88,23 @@ const PROVIDER_OPTIONS = [
 
 const DEFAULT_PROVIDER = PROVIDER_OPTIONS[0].id;
 const PROVIDER_OPTION_MAP = Object.fromEntries(PROVIDER_OPTIONS.map((option) => [option.id, option]));
+const INITIAL_LAYOUT_OPTIONS = [
+  {
+    id: 'mobile',
+    label: 'Mobile',
+    icon: Smartphone
+  },
+  {
+    id: 'desktop',
+    label: 'Desktop',
+    icon: Monitor
+  },
+  {
+    id: 'both',
+    label: 'Both',
+    icon: Layout
+  }
+];
 
 const sanitizeHtmlResponse = (text) => {
   const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
@@ -101,6 +125,21 @@ const sanitizeHtmlResponse = (text) => {
   }
 
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+};
+
+const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
+  const trimmedPrompt = prompt.trim();
+  const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
+
+  switch (layoutTarget) {
+    case 'mobile':
+      return `Create a mobile-first web app based on this request: ${trimmedPrompt}. Optimize for a polished 375px touch-screen experience with compact spacing, thumb-friendly controls, and a layout that feels native on phones.${safeAreaInstruction}`;
+    case 'desktop':
+      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}. Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
+    case 'both':
+    default:
+      return `Create a responsive web app based on this request: ${trimmedPrompt}. It must look polished on mobile and also present a true desktop layout on larger screens instead of staying in a phone-width column.${safeAreaInstruction}`;
+  }
 };
 
 // --- API Helper with Exponential Backoff ---
@@ -274,10 +313,14 @@ const generateAppCode = async (
   prompt,
   currentCode = null,
   provider = 'openrouter',
-  onChunk = null
+  onChunk = null,
+  layoutTarget = 'both'
 ) => {
+  const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
   const userText = currentCode
-    ? `Update the existing responsive web app based on this new request: "${prompt}". Return the FULL updated HTML document.
+    ? `Update the existing web app based on this new request: "${prompt}". Return the FULL updated HTML document.
+
+If the app is mobile-first or responsive, preserve or add safe-area-aware spacing so visible UI does not sit beneath phone notches or home indicators.${safeAreaInstruction}
 
 Preservation requirements:
 - Start from the current HTML and keep unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
@@ -289,7 +332,7 @@ Current complete HTML:
 \`\`\`html
 ${currentCode}
 \`\`\``
-    : `Create a responsive web app based on this request: ${prompt}. It must look polished on mobile and also present a true desktop layout on larger screens.`;
+    : buildInitialGenerationPrompt(prompt, layoutTarget);
 
   try {
     const rawHtml = await requestModelText({
@@ -354,31 +397,26 @@ const syntaxHighlightHtml = (code) => {
 const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
 const MARQUEE_SEPARATOR = '  //  ';
 const MARQUEE_MIN_LOOP_LENGTH = 220;
-const MARQUEE_VISIBLE_WINDOW = 180;
-const MARQUEE_TICK_MS = 80;
-const MARQUEE_CHARS_PER_TICK = 6;
+const MARQUEE_MAX_BUFFER_LENGTH = 4000;
 const PREVIEW_MODES = {
   mobile: {
     label: 'Mobile',
-    width: 379,
-    height: 800
+    width: 399,
+    height: 820
   },
   desktop: {
     label: 'Desktop',
-    width: 1440,
-    height: 960
+    width: 1468,
+    height: 1022
   }
 };
 
 const buildMarqueeLoop = (value) => {
   const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
-  const windowed = normalized.length > MARQUEE_VISIBLE_WINDOW
-    ? normalized.slice(-MARQUEE_VISIBLE_WINDOW)
-    : normalized;
-  let loop = windowed;
+  let loop = normalized;
 
   while (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
-    loop += `${MARQUEE_SEPARATOR}${windowed}`;
+    loop += `${MARQUEE_SEPARATOR}${normalized}`;
   }
 
   return loop;
@@ -386,6 +424,7 @@ const buildMarqueeLoop = (value) => {
 
 export default function App() {
   const [prompt, setPrompt] = useState('');
+  const [initialLayoutTarget, setInitialLayoutTarget] = useState('both');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [error, setError] = useState(null);
@@ -398,6 +437,7 @@ export default function App() {
     return PROVIDER_OPTION_MAP[storedProvider] ? storedProvider : DEFAULT_PROVIDER;
   });
   const [streamingCode, setStreamingCode] = useState('');
+  const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -420,38 +460,35 @@ export default function App() {
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
-  const streamingQueueRef = useRef('');
-  const marqueeBufferRef = useRef('');
+  const streamingBufferRef = useRef('');
+  const streamingGeneratedCodeRef = useRef('');
+  const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
+  const activePreviewPreset = PREVIEW_MODES[previewMode];
+  const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
+  const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
+
+  const clearStreamingState = () => {
+    setStreamingCode('');
+    setStreamingGeneratedCode('');
+    streamingBufferRef.current = '';
+    streamingGeneratedCodeRef.current = '';
+  };
 
   // --- Dynamic Zoom Logic ---
-  useEffect(() => {
-    if (!isGenerating) {
-      streamingQueueRef.current = '';
-      marqueeBufferRef.current = '';
-      setStreamingCode('');
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      if (!streamingQueueRef.current) return;
-
-      const nextChunk = streamingQueueRef.current.slice(0, MARQUEE_CHARS_PER_TICK);
-      streamingQueueRef.current = streamingQueueRef.current.slice(MARQUEE_CHARS_PER_TICK);
-      marqueeBufferRef.current = (marqueeBufferRef.current + nextChunk).slice(-MARQUEE_VISIBLE_WINDOW);
-      setStreamingCode(marqueeBufferRef.current);
-    }, MARQUEE_TICK_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [isGenerating]);
-
   useEffect(() => {
     const calculateZoom = () => {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
       
       const container = previewContainerRef.current;
-      const padding = 64; // Slightly more than p-6 (48px) for safety
-      const availableHeight = container.clientHeight - padding;
-      const availableWidth = container.clientWidth - padding;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const containerRect = container.getBoundingClientRect();
+      const verticalPadding = previewMode === 'mobile' ? 96 : 64;
+      const horizontalPadding = 64;
+      const visibleHeight = Math.min(container.clientHeight, Math.max(0, viewportHeight - containerRect.top - 24));
+      const visibleWidth = Math.min(container.clientWidth, Math.max(0, viewportWidth - containerRect.left - 24));
+      const availableHeight = Math.max(0, visibleHeight - verticalPadding);
+      const availableWidth = Math.max(0, visibleWidth - horizontalPadding);
       const preset = PREVIEW_MODES[previewMode];
       const baseHeight = preset.height;
       const baseWidth = preset.width;
@@ -552,6 +589,7 @@ export default function App() {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
+        clearStreamingState();
         setProjectName(data.name || 'Untitled App');
         setVersions(data.versions || []);
         setCurrentVersionIndex(data.currentVersionIndex ?? -1);
@@ -623,6 +661,7 @@ export default function App() {
   };
 
   const loadProject = (project) => {
+    clearStreamingState();
     setCurrentProjectId(project.id);
     setProjectName(project.name);
     setVersions(project.versions);
@@ -662,19 +701,19 @@ export default function App() {
     }
 
     setIsGenerating(true);
-    setStreamingCode('');
-    streamingQueueRef.current = '';
-    marqueeBufferRef.current = '';
+    clearStreamingState();
     setError(null);
-    setActiveTab('preview');
     
     const currentPrompt = prompt;
     setPrompt(''); // Clear input so user can easily type their next refinement
 
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, apiProvider, (chunk) => {
-        streamingQueueRef.current = (streamingQueueRef.current + chunk.replace(/\s+/g, ' ')).slice(-4000);
-      });
+        streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
+        setStreamingCode(streamingBufferRef.current.trim());
+        streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
+        setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
+      }, initialLayoutTarget);
       setGeneratedCode(generationResult.code);
       
       const newVersion = {
@@ -706,6 +745,7 @@ export default function App() {
       setPrompt(currentPrompt); // Restore prompt text on error
     } finally {
       setIsGenerating(false);
+      clearStreamingState();
     }
   };
 
@@ -742,6 +782,7 @@ export default function App() {
     if (!shouldGenerateAfterNaming) {
       setGeneratedCode('');
       setPrompt('');
+      setInitialLayoutTarget('both');
       setError(null);
       setVersions([]);
       setCurrentVersionIndex(-1);
@@ -769,6 +810,7 @@ export default function App() {
 
   const switchVersion = (index) => {
     if (index >= 0 && index < versions.length) {
+      clearStreamingState();
       setCurrentVersionIndex(index);
       setGeneratedCode(versions[index].code);
       if (user && currentProjectId) {
@@ -790,9 +832,9 @@ export default function App() {
   };
 
   const handleCopyCode = async () => {
-    if (!generatedCode) return;
+    if (!codePanelCode) return;
     try {
-      await navigator.clipboard.writeText(generatedCode);
+      await navigator.clipboard.writeText(codePanelCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -801,8 +843,10 @@ export default function App() {
   };
 
   const resetCurrentWorkspace = () => {
+    clearStreamingState();
     setGeneratedCode('');
     setPrompt('');
+    setInitialLayoutTarget('both');
     setError(null);
     setVersions([]);
     setCurrentVersionIndex(-1);
@@ -1372,11 +1416,6 @@ export default function App() {
                         {idx === 0 && (
                           <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
                         )}
-                        {ver.editMode === 'full-rewrite' && (
-                          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
-                            Rewrite
-                          </span>
-                        )}
                       </div>
                       <span className="text-sm text-slate-500 font-semibold">
                         {ver.timestamp}
@@ -1418,31 +1457,11 @@ export default function App() {
           {/* Prompt/Chat Sidebar (Left) */}
           <div className="w-full md:w-[380px] lg:w-[450px] flex flex-col bg-white border-r border-slate-200 z-10 flex-shrink-0">
             
-            <div className={`flex-1 overflow-y-auto p-6 lg:p-10 flex flex-col ${generatedCode ? 'justify-end' : 'justify-center'}`}>
+            <div className={`flex-1 overflow-y-auto p-6 lg:p-10 flex flex-col ${generatedCode ? 'justify-end' : 'justify-start pt-10 lg:pt-14'}`}>
               <div className="max-w-2xl w-full mx-auto space-y-10 animate-fade-in">
                 
                 {/* Header Section */}
                 <div className={`space-y-6 ${generatedCode ? 'refine-card mb-4' : ''}`}>
-                  {user && (
-                    <div className="flex flex-col gap-2.5 max-w-sm mb-4">
-                      <label htmlFor="projectName" className="text-sm font-semibold text-slate-600 ml-1">Project Name</label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                           <Edit2 size={16} />
-                        </div>
-                        <input
-                          id="projectName"
-                          name="projectName"
-                          type="text"
-                          value={projectName}
-                          onChange={(e) => setProjectName(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-5 py-4 text-base font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm group-hover:border-slate-300"
-                          placeholder="My Awesome App"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
                   <div className="space-y-4">
                     <h2 className="text-3xl lg:text-4xl font-[900] text-slate-900 tracking-tight leading-[1.1]">
                       {generatedCode ? "Refine your app" : "What do you want to build?"}
@@ -1522,6 +1541,49 @@ export default function App() {
                   className="w-full h-32 p-5 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[15px] leading-7 bg-transparent"
                   disabled={isGenerating}
                 />
+                {!generatedCode && versions.length === 0 && (
+                  <div className="px-4 pb-4">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-slate-700">Optimize first build for</p>
+                        <p className="text-xs text-slate-500">This only affects the initial prompt.</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        {INITIAL_LAYOUT_OPTIONS.map((option) => {
+                          const Icon = option.icon;
+                          const isSelected = initialLayoutTarget === option.id;
+
+                          return (
+                            <label
+                              key={option.id}
+                              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-all ${
+                                isSelected
+                                  ? 'border-indigo-500 bg-white shadow-sm'
+                                  : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="initialLayoutTarget"
+                                value={option.id}
+                                checked={isSelected}
+                                onChange={() => setInitialLayoutTarget(option.id)}
+                                className="mt-1 h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                disabled={isGenerating}
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Icon size={15} className={isSelected ? 'text-indigo-600' : 'text-slate-500'} />
+                                  <span className="text-sm font-semibold text-slate-800">{option.label}</span>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-between items-center">
                   <div className="flex space-x-2">
                   </div>
@@ -1691,13 +1753,22 @@ export default function App() {
               {activeTab === 'preview' ? (
                 /* Device Mockup */
                 <div
-                  className={previewMode === 'mobile' ? 'device-smartphone' : 'device-desktop'}
-                  style={{ 
-                    transform: `scale(${zoomLevel})`,
-                    transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    transformOrigin: 'center center'
+                  className="relative shrink-0"
+                  style={{
+                    width: scaledPreviewWidth,
+                    height: scaledPreviewHeight
                   }}
                 >
+                  <div
+                    className={previewMode === 'mobile' ? 'device-smartphone' : 'device-desktop'}
+                    style={{ 
+                      position: 'absolute',
+                      inset: 0,
+                      transform: `scale(${zoomLevel})`,
+                      transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transformOrigin: 'top left'
+                    }}
+                  >
                   {previewMode === 'mobile' ? (
                     <>
                       {/* Notch */}
@@ -1723,7 +1794,7 @@ export default function App() {
                   )}
                    
                   {/* Screen */}
-                  <div className="device-screen">
+                  <div className={previewMode === 'mobile' ? 'device-screen device-screen-mobile' : 'device-screen'}>
                     {isGenerating ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10 p-6 text-center">
                         <div className="relative w-24 h-24 mb-8">
@@ -1735,7 +1806,7 @@ export default function App() {
                         <p className="text-sm text-slate-600 font-semibold mt-2 animate-pulse">Writing HTML, CSS, and JavaScript</p>
                       </div>
                     ) : (
-                      <div className="w-full h-full relative">
+                      <div className={previewMode === 'mobile' ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
                         {generatedCode ? (
                           <iframe
                             ref={iframeRef}
@@ -1774,12 +1845,13 @@ export default function App() {
 
                       {/* Home Indicator */}
                       <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
-                        <div className="w-32 h-1.5 bg-slate-200/50 rounded-full backdrop-blur-sm hover:bg-slate-300 transition-colors"></div>
+                        <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
                       </div>
                     </>
                   ) : (
                     <div className="device-desktop-stand"></div>
                   )}
+                  </div>
                 </div>
 
               ) : (
@@ -1793,7 +1865,7 @@ export default function App() {
                     </div>
                     <span className="text-xs text-slate-400 font-mono">index.html</span>
                     <div className="flex-1"></div>
-                    {generatedCode && (
+                    {codePanelCode && (
                       <button
                         onClick={handleCopyCode}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all ${
@@ -1809,16 +1881,24 @@ export default function App() {
                     )}
                   </div>
                   <div className="flex-1 overflow-auto bg-[#1a1b26] custom-scrollbar">
-                    {isGenerating ? (
+                    {codePanelCode ? (
+                      <>
+                        {isGenerating && (
+                          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-indigo-500/10 bg-[#1a1b26]/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-300 backdrop-blur-sm">
+                            <Loader2 className="animate-spin" size={14} />
+                            <span>Streaming</span>
+                          </div>
+                        )}
+                        <div 
+                          className="py-4 font-mono text-[13px] leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(codePanelCode) }}
+                        />
+                      </>
+                    ) : isGenerating ? (
                        <div className="flex items-center justify-center h-full space-x-3 text-indigo-400/60 font-mono text-sm">
                          <Loader2 className="animate-spin" size={20} />
                          <span>Synthesizing source code...</span>
-                       </div>
-                    ) : generatedCode ? (
-                      <div 
-                        className="py-4 font-mono text-[13px] leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(generatedCode) }}
-                      />
+                        </div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-slate-600 font-mono text-sm opacity-50">
                         <Code2 size={48} className="mb-4 text-slate-700" />
