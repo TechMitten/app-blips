@@ -938,71 +938,68 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+      <header className="shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600 p-2 rounded-xl shadow-inner text-white">
-            <Sparkles size={24} />
+          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-sm shadow-indigo-200">
+            <Sparkles size={22} />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Orion</h1>
-            <p className="text-sm text-slate-600 font-semibold">AI-Powered Micro App Builder</p>
-          </div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Orion</h1>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           <button
             onClick={handleNewApp}
-            className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
             title="Start a new app"
           >
-            <Plus size={18} />
-            <span className="hidden sm:inline">New App</span>
+            <Plus size={16} />
+            <span className="hidden sm:inline">New</span>
           </button>
 
           {user && (
             <button
               onClick={() => setIsProjectsListOpen(true)}
-              className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+              className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
             >
-              <FolderOpen size={18} />
-              <span className="hidden sm:inline">My Apps</span>
+              <FolderOpen size={16} />
+              <span className="hidden sm:inline">Apps</span>
             </button>
           )}
           
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="text-slate-400 hover:text-indigo-600 transition-all p-2 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100"
+            className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-50"
             title="Settings"
           >
-            <Settings size={20} />
+            <Settings size={18} />
           </button>
 
 
           {user ? (
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-               <div className="h-9 w-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-white shadow-sm ring-1 ring-indigo-100">
+               <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
                 {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
               </div>
               <button 
                 onClick={() => signOut(auth)}
-                className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
                 title="Sign Out"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
               </button>
             </div>
           ) : (
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md shadow-indigo-100"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm shadow-sm shadow-indigo-200"
             >
-              <User size={18} />
-              <span>Login</span>
+              <User size={16} />
+              <span>Sign In</span>
             </button>
           )}
 
-          <span className="hidden sm:inline px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+          <span className="hidden sm:inline px-2.5 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-500 border border-slate-200/80">
             {PROVIDER_OPTION_MAP[apiProvider]?.label || PROVIDER_OPTION_MAP[DEFAULT_PROVIDER].label}
             </span>
         </div>
@@ -1019,20 +1016,20 @@ export default function App() {
       )}
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">App Settings</h2>
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Settings</h2>
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
             <div className="p-8 space-y-6">
-              <div className="space-y-4">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select AI Engine</label>
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">AI Provider</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {PROVIDER_OPTIONS.map((providerOption) => {
                     const Icon = providerOption.icon;
@@ -1051,7 +1048,7 @@ export default function App() {
                         }`}>
                           <Icon size={18} />
                         </div>
-                        <span className={`text-sm font-bold ${apiProvider === providerOption.id ? 'text-indigo-900' : 'text-slate-700'}`}>
+                        <span className={`text-sm font-semibold ${apiProvider === providerOption.id ? 'text-indigo-900' : 'text-slate-700'}`}>
                           {providerOption.label}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium">
@@ -1063,18 +1060,18 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 px-8 py-6 flex justify-end gap-3">
+            <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3">
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveSettings}
-                className="rounded-xl px-6 py-2.5 bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all active:scale-95"
+                className="rounded-lg px-5 py-2 bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm transition-colors active:scale-[0.98]"
               >
-                Save Changes
+                Save
               </button>
             </div>
           </div>
@@ -1083,46 +1080,46 @@ export default function App() {
 
 
       {isProjectsListOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-fade-in">
-            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                   <FolderOpen size={24} />
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                   <FolderOpen size={20} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Saved Applications</h2>
-                  <p className="text-slate-400 text-sm font-medium">Continue where you left off</p>
+                  <h2 className="text-lg font-semibold text-slate-900">Your Apps</h2>
+                  <p className="text-slate-400 text-sm">Pick up where you left off</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsProjectsListOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-2.5 bg-slate-50 rounded-xl transition-all"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar bg-slate-50/30">
+            <div className="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar">
               {myProjects.length === 0 ? (
-                <div className="text-center py-20">
-                  <div className="bg-slate-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border-2 border-dashed border-slate-200">
-                    <History size={40} className="text-slate-300" />
+                <div className="text-center py-16">
+                  <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <FolderOpen size={28} className="text-slate-300" />
                   </div>
-                  <h3 className="text-slate-900 font-extrabold text-xl">Empty Canvas</h3>
-                  <p className="text-slate-500 mt-2 max-w-xs mx-auto">You haven't built anything yet. Start your first app with Orion!</p>
+                  <h3 className="text-slate-900 font-semibold text-base">No apps yet</h3>
+                  <p className="text-slate-500 mt-1 text-sm max-w-xs mx-auto">Create your first app to see it here.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {myProjects.map((project) => (
                     <div
                           key={project.id}
-                          className="text-left p-6 pr-20 rounded-3xl border border-slate-200 hover:border-indigo-500 hover:shadow-xl transition-all group relative overflow-hidden bg-white hover:-translate-y-1 active:scale-[0.98] min-h-[120px]"
+                          className="text-left p-5 pr-16 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group relative overflow-hidden bg-white hover:-translate-y-0.5 active:scale-[0.99] min-h-[100px]"
                         >
                           <div className="flex items-start">
                             <div className="flex-1 pr-6">
                               {editingProjectId === project.id ? (
-                        <div className="space-y-4">
-                          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rename App</label>
+                        <div className="space-y-3">
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rename App</label>
                           <input
                             autoFocus
                             type="text"
@@ -1138,7 +1135,7 @@ export default function App() {
                                 cancelProjectRename();
                               }
                             }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                             placeholder="App name"
                           />
                           <div className="flex items-center gap-2">
@@ -1146,7 +1143,7 @@ export default function App() {
                               type="button"
                               onClick={() => handleProjectRename(project)}
                               disabled={!editingProjectName.trim() || renamingProjectId === project.id}
-                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                                 !editingProjectName.trim() || renamingProjectId === project.id
                                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
@@ -1158,7 +1155,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={cancelProjectRename}
-                              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 bg-slate-100"
+                              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-800 bg-slate-100"
                             >
                               <X size={14} />
                               Cancel
@@ -1171,9 +1168,9 @@ export default function App() {
                               onClick={() => loadProject(project)}
                               className="w-full text-left"
                             >
-                              <h4 className="font-extrabold text-slate-900 mb-2 text-lg truncate group-hover:text-indigo-600 transition-colors">{project.name}</h4>
-                              <p className="text-xs text-slate-400 font-bold mb-4 flex items-center tracking-wider uppercase">
-                                <Clock size={14} className="mr-2 text-indigo-400" />
+                              <h4 className="font-semibold text-slate-900 mb-1.5 text-base truncate group-hover:text-indigo-600 transition-colors">{project.name}</h4>
+                              <p className="text-xs text-slate-400 font-medium mb-3 flex items-center">
+                                <Clock size={12} className="mr-1.5 text-slate-300" />
                                 {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
                               </p>
                               <div className="flex items-center mt-2">
@@ -1184,8 +1181,8 @@ export default function App() {
                                      </div>
                                    ))}
                                 </div>
-                                <span className="text-[11px] font-extrabold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 uppercase tracking-tighter">
-                                  {project.versions?.length || 1} versions
+                                <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                  {project.versions?.length || 1} version{(project.versions?.length || 1) !== 1 ? 's' : ''}
                                 </span>
                               </div>
                             </button>
@@ -1227,12 +1224,12 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="bg-slate-50 border-t border-slate-100 p-8 flex justify-center">
+            <div className="bg-slate-50 border-t border-slate-100 p-5 flex justify-center">
                <button 
                   onClick={() => setIsProjectsListOpen(false)}
-                  className="text-slate-400 hover:text-indigo-600 font-bold uppercase tracking-widest text-[11px]"
+                  className="text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors"
                >
-                 Close Library
+                 Close
                </button>
             </div>
           </div>
@@ -1240,23 +1237,23 @@ export default function App() {
       )}
 
       {projectToDelete && (
-        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Delete Saved App</h2>
-                <p className="text-sm text-slate-400 font-medium mt-1">This action cannot be undone.</p>
+                <h2 className="text-base font-semibold text-slate-900">Delete App</h2>
+                <p className="text-sm text-slate-400 mt-0.5">This cannot be undone.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setProjectToDelete(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <div className="p-8 space-y-5">
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-slate-600 leading-relaxed">
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed">
                 Delete <span className="font-bold text-slate-900">{projectToDelete.name || 'Untitled App'}</span> from your saved applications?
               </div>
               {currentProjectId === projectToDelete.id && (
@@ -1265,11 +1262,11 @@ export default function App() {
                 </p>
               )}
             </div>
-            <div className="bg-slate-50 px-8 py-6 flex justify-end gap-3">
+            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setProjectToDelete(null)}
-                className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
               >
                 Cancel
               </button>
@@ -1277,14 +1274,14 @@ export default function App() {
                 type="button"
                 onClick={handleDeleteProject}
                 disabled={deletingProjectId === projectToDelete.id}
-                className={`inline-flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold transition-all ${
                   deletingProjectId === projectToDelete.id
                     ? 'bg-red-200 text-white cursor-not-allowed'
                     : 'bg-red-600 text-white hover:bg-red-700'
                 }`}
               >
-                <Trash2 size={16} />
-                {deletingProjectId === projectToDelete.id ? 'Deleting...' : 'Delete App'}
+                <Trash2 size={14} />
+                {deletingProjectId === projectToDelete.id ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
@@ -1293,40 +1290,40 @@ export default function App() {
 
 
       {isNamingModalOpen && (
-        <div className="fixed inset-0 z-[65] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Name Your New App</h2>
+        <div className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">Name Your App</h2>
               <button
                 onClick={() => {
                   setShouldGenerateAfterNaming(false);
                   setTempProjectName('');
                   setIsNamingModalOpen(false);
                 }}
-                className="text-slate-400 hover:text-slate-600 font-bold p-2 bg-slate-50 rounded-xl transition-all"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleConfirmNaming} className="p-8 space-y-6">
-              <div className="space-y-4">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">App Title</label>
+            <form onSubmit={handleConfirmNaming} className="p-6 space-y-5">
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">App Name</label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                    <Edit2 size={18} />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                    <Edit2 size={16} />
                   </div>
                   <input
                     autoFocus
                     type="text"
                     value={tempProjectName}
                     onChange={(e) => setTempProjectName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-5 py-4 text-lg font-extrabold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    placeholder="E.g., Recipe Assistant, Task Master..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="e.g. Recipe Assistant, Task Manager..."
                   />
                 </div>
-                <p className="text-xs text-slate-500 font-medium">This name will help you find your app in the library later.</p>
+                <p className="text-xs text-slate-400">Helps you find this app later.</p>
               </div>
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1334,20 +1331,20 @@ export default function App() {
                     setTempProjectName('');
                     setIsNamingModalOpen(false);
                   }}
-                  className="rounded-xl px-5 py-2.5 font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                  className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!tempProjectName.trim()}
-                  className={`rounded-xl px-8 py-2.5 font-bold shadow-md transition-all active:scale-95 ${
+                  className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
                     !tempProjectName.trim() 
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
                   }`}
                 >
-                  Create App
+                  Create
                 </button>
               </div>
             </form>
@@ -1367,29 +1364,29 @@ export default function App() {
         />
       </Suspense>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-80 bg-white border-r border-slate-200 hidden md:flex flex-col">
-          <div className="px-6 py-7 border-b border-slate-100 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50 flex-shrink-0">
-                <History size={16} />
+        <aside className="w-72 bg-white border-r border-slate-200/80 hidden md:flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center bg-white">
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0">
+                <History size={14} />
               </div>
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight whitespace-nowrap">
-                Version History
+              <h2 className="text-sm font-semibold text-slate-900 whitespace-nowrap">
+                History
               </h2>
             </div>
 
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
             {versions.length === 0 ? (
-              <div className="text-center py-20 px-6 flex flex-col items-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 border border-slate-100 shadow-inner group">
-                  <Clock size={28} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
+              <div className="text-center py-16 px-5 flex flex-col items-center">
+                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mb-4 border border-slate-100">
+                  <Clock size={20} className="text-slate-300" />
                 </div>
-                <h3 className="text-slate-900 font-bold text-base mb-2">No versions yet</h3>
-                <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-[16rem]">Your app development journey will be documented here step by step.</p>
+                <h3 className="text-slate-700 font-medium text-sm mb-1">No versions yet</h3>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-[13rem]">Each generation creates a version snapshot you can revisit.</p>
               </div>
             ) : (
 
@@ -1400,49 +1397,60 @@ export default function App() {
                   <button
                     key={ver.id}
                     onClick={() => switchVersion(idx)}
-                    className={`w-full text-left p-4 rounded-3xl border transition-all duration-300 group flex flex-col version-item relative overflow-hidden ${
+                    className={`w-full text-left px-3 py-2 rounded-lg border transition-all group version-item ${
                       isActive 
-                        ? 'bg-indigo-50/40 border-indigo-200 shadow-sm ring-1 ring-indigo-500/10' 
-                        : 'bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50/50'
+                        ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' 
+                        : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50/60'
                     }`}
                   >
-                    <div className="flex justify-between items-center w-full mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`h-8 px-3 rounded-lg flex items-center text-sm font-black transition-colors ${
-                          isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-                        }`}>
-                          V{idx + 1}
-                        </div>
-                        {idx === 0 && (
-                          <span className="text-sm font-bold text-indigo-500 uppercase tracking-widest">Initial</span>
-                        )}
+                    <div className="flex items-center gap-2 w-full min-w-0">
+                      <div className={`h-6 min-w-[2.5rem] px-2 rounded-md flex items-center justify-center text-[11px] font-bold tracking-wide transition-colors ${
+                        isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                      }`}>
+                        v{idx + 1}
                       </div>
-                      <span className="text-sm text-slate-500 font-semibold">
-                        {ver.timestamp}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {idx === 0 && (
+                            <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider flex-shrink-0">Initial</span>
+                          )}
+                          <span className={`block text-sm leading-5 transition-colors truncate ${
+                            isActive ? 'text-slate-900 font-medium' : 'text-slate-600 group-hover:text-slate-800'
+                          }`}>
+                            {ver.prompt}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-xs min-w-0">
+                          <span className={`flex-shrink-0 ${
+                            isActive ? 'text-indigo-600' : 'text-slate-400'
+                          }`}>
+                            {ver.timestamp}
+                          </span>
+                          {ver.editSummary && (
+                            <>
+                              <span className="text-slate-300 flex-shrink-0">&bull;</span>
+                              <span className="text-slate-500 truncate">
+                                {ver.editSummary}
+                              </span>
+                            </>
+                          )}
+                          {isActive && (
+                            <>
+                              <span className="text-indigo-300 flex-shrink-0">&bull;</span>
+                              <span className="font-medium text-indigo-600 truncate text-[11px]">
+                                Active
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className={`flex-shrink-0 transition-colors ${
+                          isActive ? 'text-indigo-500' : 'text-slate-300 group-hover:text-slate-500'
+                        }`}
+                      />
                     </div>
-                    
-                    <span className={`text-base leading-relaxed transition-colors ${
-                      isActive ? 'text-indigo-950 font-extrabold' : 'text-slate-600 group-hover:text-slate-900 font-medium'
-                    }`}>
-                      {ver.prompt}
-                    </span>
-
-                    {ver.editSummary && (
-                      <span className="mt-3 text-sm text-slate-500 leading-relaxed">
-                        {ver.editSummary}
-                      </span>
-                    )}
-
-                    {isActive && (
-                      <div className="mt-4 flex items-center justify-between pt-3 border-t border-indigo-100/50">
-                        <div className="flex items-center text-sm font-bold text-indigo-700 pl-1">
-                          <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
-                          Live Version
-                        </div>
-                        <ChevronRight size={14} className="text-indigo-400" />
-                      </div>
-                    )}
                   </button>
 
                 );
@@ -1452,32 +1460,32 @@ export default function App() {
         </aside>
 
         {/* Main Workspace */}
-        <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Prompt/Chat Sidebar (Left) */}
-          <div className="w-full md:w-[380px] lg:w-[450px] flex flex-col bg-white border-r border-slate-200 z-10 flex-shrink-0">
+          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/80 z-10 flex-shrink-0">
             
-            <div className={`flex-1 overflow-y-auto p-6 lg:p-10 flex flex-col ${generatedCode ? 'justify-end' : 'justify-start pt-10 lg:pt-14'}`}>
-              <div className="max-w-2xl w-full mx-auto space-y-10 animate-fade-in">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 pt-8 lg:pt-10 flex flex-col justify-start">
+              <div className="max-w-2xl w-full mx-auto space-y-8 animate-fade-in">
                 
                 {/* Header Section */}
-                <div className={`space-y-6 ${generatedCode ? 'refine-card mb-4' : ''}`}>
-                  <div className="space-y-4">
-                    <h2 className="text-3xl lg:text-4xl font-[900] text-slate-900 tracking-tight leading-[1.1]">
+                <div className={`space-y-4 ${generatedCode ? 'refine-card mb-2' : ''}`}>
+                  <div className="space-y-3">
+                    <h2 className="text-2xl lg:text-[1.7rem] font-bold text-slate-900 tracking-tight leading-tight">
                       {generatedCode ? "Refine your app" : "What do you want to build?"}
                     </h2>
-                    <p className="text-slate-600 text-lg max-w-lg leading-relaxed font-medium">
+                    <p className="text-slate-500 text-[15px] max-w-sm leading-relaxed">
                       {generatedCode 
-                        ? "Describe exactly what you want to change, add, or fix in your current application."
-                        : "Describe your mini-app in natural language, and Orion will generate the production-ready code in seconds."}
+                        ? "Describe what to change, add, or fix."
+                        : "Describe your app in plain language and Orion will generate it."}
                     </p>
                     
                     {!user && (
-                      <div className="flex items-center gap-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-fade-in">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-                          <User size={16} />
+                      <div className="flex items-center gap-2.5 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl animate-fade-in">
+                        <div className="bg-indigo-600 p-1 rounded-md text-white">
+                          <User size={14} />
                         </div>
-                        <p className="text-sm font-bold text-indigo-900">Sign in to generate and save your apps</p>
+                        <p className="text-sm font-medium text-indigo-800">Sign in to generate and save apps</p>
                       </div>
                     )}
                   </div>
@@ -1486,27 +1494,21 @@ export default function App() {
 
                 {/* Suggestions - Only show when no app is generated */}
                 {!generatedCode && (
-                  <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.1s' }}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-slate-600 flex items-center">
-                        <Sparkles size={12} className="mr-2 text-amber-500" /> Suggested Starters
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
+                  <div className="animate-fade-in space-y-3" style={{ animationDelay: '0.1s' }}>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Try a starter
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2">
                       {suggestedPrompts.map((suggestion, idx) => (
                         <button
                           key={idx}
                           onClick={() => setPrompt(suggestion)}
-                          className="text-left p-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:border-indigo-200 hover:bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all group flex items-center justify-between shadow-sm relative overflow-hidden"
+                          className="text-left px-4 py-3 bg-white border border-slate-150 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group flex items-center justify-between"
                         >
-                          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/0 group-hover:bg-indigo-500 transition-all"></div>
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all shadow-sm shrink-0">
-                               <Plus size={18} />
-                            </div>
-                            <span className="text-base text-slate-700 group-hover:text-slate-900 font-semibold leading-snug transition-colors">{suggestion}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-600 group-hover:text-slate-900 leading-snug transition-colors">{suggestion}</span>
                           </div>
-                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 transition-all opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0" />
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-colors flex-shrink-0 ml-3" />
                         </button>
                       ))}
                     </div>
@@ -1515,12 +1517,12 @@ export default function App() {
                 )}
                 
                 {error && (
-                  <div className="bg-red-50 border border-red-100 p-5 rounded-3xl shadow-sm animate-shake">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-red-100 rounded-xl mr-4 text-red-600">
-                        <RefreshCw size={20} />
+                  <div className="bg-red-50 border border-red-100 p-4 rounded-xl animate-shake">
+                    <div className="flex items-start">
+                      <div className="p-1.5 bg-red-100 rounded-lg mr-3 text-red-600 flex-shrink-0">
+                        <RefreshCw size={16} />
                       </div>
-                      <p className="text-sm text-red-800 font-bold leading-snug">
+                      <p className="text-sm text-red-800 font-medium leading-snug">
                         {error}
                       </p>
                     </div>
@@ -1530,25 +1532,24 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all">
+            <div className="p-4 border-t border-slate-100 bg-white">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-400 transition-all">
                 <textarea
                   id="prompt"
                   name="prompt"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={generatedCode ? "E.g., Make the background dark blue, add a reset button..." : "E.g., A minimalist task manager..."}
-                  className="w-full h-32 p-5 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[15px] leading-7 bg-transparent"
+                  placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
+                  className="w-full h-28 p-4 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-sm leading-6 bg-transparent"
                   disabled={isGenerating}
                 />
                 {!generatedCode && versions.length === 0 && (
-                  <div className="px-4 pb-4">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-3">
-                        <p className="text-sm font-semibold text-slate-700">Optimize first build for</p>
-                        <p className="text-xs text-slate-500">This only affects the initial prompt.</p>
+                  <div className="px-4 pb-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-2.5">
+                        <p className="text-sm font-medium text-slate-700">Optimize for</p>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="grid grid-cols-3 gap-2">
                         {INITIAL_LAYOUT_OPTIONS.map((option) => {
                           const Icon = option.icon;
                           const isSelected = initialLayoutTarget === option.id;
@@ -1556,7 +1557,7 @@ export default function App() {
                           return (
                             <label
                               key={option.id}
-                              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-all ${
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
                                 isSelected
                                   ? 'border-indigo-500 bg-white shadow-sm'
                                   : 'border-slate-200 bg-white/70 hover:border-slate-300'
@@ -1568,14 +1569,12 @@ export default function App() {
                                 value={option.id}
                                 checked={isSelected}
                                 onChange={() => setInitialLayoutTarget(option.id)}
-                                className="mt-1 h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="mt-0 h-3.5 w-3.5 border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 disabled={isGenerating}
                               />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <Icon size={15} className={isSelected ? 'text-indigo-600' : 'text-slate-500'} />
-                                  <span className="text-sm font-semibold text-slate-800">{option.label}</span>
-                                </div>
+                              <div className="flex items-center gap-1.5">
+                                <Icon size={14} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
+                                <span className="text-sm font-medium text-slate-700">{option.label}</span>
                               </div>
                             </label>
                           );
@@ -1590,21 +1589,21 @@ export default function App() {
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating || (user && !prompt.trim())}
-                    className={`flex items-center px-5 py-2.5 rounded-xl text-base font-semibold text-white transition-all transform active:scale-95 ${
+                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all active:scale-[0.97] ${
                       isGenerating || (user && !prompt.trim()) 
                         ? 'bg-slate-300 cursor-not-allowed' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg'
+                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-sm'
                     }`}
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="animate-spin mr-2" size={18} />
-                        {generatedCode ? "Updating..." : "Generating..."}
+                        <Loader2 className="animate-spin mr-1.5" size={16} />
+                        {generatedCode ? "Updating..." : "Building..."}
                       </>
                     ) : (
                       <>
-                        {!user ? <User className="mr-2" size={18} /> : (generatedCode ? <Edit2 className="mr-2" size={18} /> : <Wand2 className="mr-2" size={18} />)}
-                        {!user ? "Login to Build" : (generatedCode ? "Update" : "Build")}
+                        {!user ? <User className="mr-1.5" size={16} /> : (generatedCode ? <Edit2 className="mr-1.5" size={16} /> : <Wand2 className="mr-1.5" size={16} />)}
+                        {!user ? "Sign In" : (generatedCode ? "Update" : "Build")}
                       </>
                     )}
                   </button>
@@ -1614,78 +1613,77 @@ export default function App() {
           </div>
 
           {/* Preview/Device Area (Right) */}
-          <div className="flex-1 bg-slate-100 flex flex-col relative z-0">
+          <div className="flex-1 min-h-0 bg-slate-50 flex flex-col relative z-0">
             
             {/* View Toggles */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white/50 backdrop-blur-sm">
-              <div className="flex bg-slate-200/50 p-1 rounded-xl">
+            <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 bg-white">
+              <div className="flex bg-slate-100 p-0.5 rounded-lg">
                 <button
                   onClick={() => setActiveTab('preview')}
-                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === 'preview' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  className={`flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <Play size={16} className="mr-2" /> Preview
+                  <Play size={14} className="mr-1.5" /> Preview
                 </button>
                 <button
                   onClick={() => setActiveTab('code')}
-                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === 'code' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  className={`flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'code' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <TerminalSquare size={16} className="mr-2" /> Code
+                  <TerminalSquare size={14} className="mr-1.5" /> Code
                 </button>
               </div>
 
-               
                <div className="flex items-center space-x-2">
                  {activeTab === 'preview' && (
-                   <div className="flex items-center bg-slate-200/50 p-1 rounded-xl">
+                   <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
                      <button
                        onClick={() => setPreviewMode('mobile')}
-                       className={`flex items-center px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                         previewMode === 'mobile' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                       className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                         previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                        }`}
                        title="Preview as mobile"
                      >
-                       <Smartphone size={16} className="mr-2" /> Mobile
+                       <Smartphone size={14} className="mr-1.5" /> Mobile
                      </button>
                      <button
                        onClick={() => setPreviewMode('desktop')}
-                       className={`flex items-center px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                         previewMode === 'desktop' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                       className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                         previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                        }`}
                        title="Preview as desktop"
                      >
-                       <Monitor size={16} className="mr-2" /> Desktop
+                       <Monitor size={14} className="mr-1.5" /> Desktop
                      </button>
                    </div>
                  )}
                  {versions.length > 1 && (
-                   <div className="flex items-center bg-slate-200/50 p-1 rounded-xl mr-3">
+                   <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
                     <button
                       onClick={handleUndo}
                       disabled={currentVersionIndex <= 0}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`p-1.5 rounded-md transition-all ${
                         currentVersionIndex <= 0 
                           ? 'text-slate-300 cursor-not-allowed' 
-                          : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                       }`}
-                      title="Undo (Previous Version)"
+                      title="Previous Version"
                     >
-                      <Undo2 size={16} />
+                      <Undo2 size={14} />
                     </button>
                     <button
                       onClick={handleRedo}
                       disabled={currentVersionIndex >= versions.length - 1}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`p-1.5 rounded-md transition-all ${
                         currentVersionIndex >= versions.length - 1 
                           ? 'text-slate-300 cursor-not-allowed' 
-                          : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                       }`}
-                      title="Redo (Next Version)"
+                      title="Next Version"
                     >
-                      <Redo2 size={16} />
+                      <Redo2 size={14} />
                     </button>
                   </div>
 
@@ -1693,47 +1691,47 @@ export default function App() {
                 {generatedCode && (
                    <button 
                     onClick={handleDownload}
-                    className="text-slate-500 hover:text-indigo-600 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all active:scale-95"
+                    className="text-slate-500 hover:text-slate-700 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
                     title="Download HTML"
                    >
-                     <Download size={18} />
+                     <Download size={16} />
                    </button>
                 )}
 
                 {/* Zoom Controls */}
-                <div className="flex items-center bg-slate-200/50 p-1 rounded-xl ml-1">
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg ml-1">
                   <button
                     onClick={() => handleManualZoom(-0.1)}
                     disabled={zoomLevel <= 0.2}
-                    className={`p-2 rounded-lg transition-all ${
+                    className={`p-1.5 rounded-md transition-all ${
                       zoomLevel <= 0.2 
                         ? 'text-slate-300 cursor-not-allowed' 
-                        : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                     }`}
                     title="Zoom Out"
                   >
-                    <ZoomOut size={16} />
+                    <ZoomOut size={14} />
                   </button>
                   <button
                     onClick={resetZoom}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-indigo-600'
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                      isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                     }`}
-                    title={isAutoZoom ? "Currently Auto-Zoomed" : "Reset to Auto-Zoom"}
+                    title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
                   >
-                    {isAutoZoom ? 'AUTO' : `${Math.round(zoomLevel * 100)}%`}
+                    {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
                   </button>
                   <button
                     onClick={() => handleManualZoom(0.1)}
                     disabled={zoomLevel >= 3}
-                    className={`p-2 rounded-lg transition-all ${
+                    className={`p-1.5 rounded-md transition-all ${
                       zoomLevel >= 3 
                         ? 'text-slate-300 cursor-not-allowed' 
-                        : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                     }`}
                     title="Zoom In"
                   >
-                    <ZoomIn size={16} />
+                    <ZoomIn size={14} />
                   </button>
                 </div>
               </div>
@@ -1742,13 +1740,11 @@ export default function App() {
             {/* Container for Device or Code */}
             <div 
               ref={previewContainerRef}
-              className="flex-1 flex items-center justify-center p-6 overflow-auto relative custom-scrollbar"
+              className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-auto relative custom-scrollbar"
             >
               
-              {/* Animated Background Pattern */}
-              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-                   style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-              </div>
+              {/* Subtle workspace grid */}
+              <div className="absolute inset-0 opacity-40 pointer-events-none workspace-grid"></div>
 
               {activeTab === 'preview' ? (
                 /* Device Mockup */
@@ -1796,14 +1792,14 @@ export default function App() {
                   {/* Screen */}
                   <div className={previewMode === 'mobile' ? 'device-screen device-screen-mobile' : 'device-screen'}>
                     {isGenerating ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10 p-6 text-center">
-                        <div className="relative w-24 h-24 mb-8">
-                          <div className="absolute inset-0 border-[6px] border-indigo-100 rounded-[2rem]"></div>
-                          <div className="absolute inset-0 border-[6px] border-indigo-600 rounded-[2rem] border-t-transparent animate-spin"></div>
-                          <Sparkles className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={32} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 p-6 text-center">
+                        <div className="relative w-16 h-16 mb-6">
+                          <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+                          <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+                          <Sparkles className="absolute inset-0 m-auto text-indigo-500" size={22} />
                         </div>
-                        <h3 className="text-lg font-extrabold text-slate-900 tracking-tight mb-1">Building Interface...</h3>
-                        <p className="text-sm text-slate-600 font-semibold mt-2 animate-pulse">Writing HTML, CSS, and JavaScript</p>
+                        <h3 className="text-sm font-semibold text-slate-900 mb-1">Building...</h3>
+                        <p className="text-xs text-slate-500 animate-pulse">Generating HTML, CSS & JavaScript</p>
                       </div>
                     ) : (
                       <div className={previewMode === 'mobile' ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
@@ -1816,19 +1812,19 @@ export default function App() {
                             sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
                           />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-10 text-center">
-                            <div className="w-20 h-20 rounded-[2rem] bg-indigo-50 flex items-center justify-center mb-6 shadow-sm border-2 border-dashed border-indigo-200">
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
+                            <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
                                {previewMode === 'mobile' ? (
-                                 <Smartphone size={32} className="text-indigo-300" />
+                                 <Smartphone size={24} className="text-slate-300" />
                                ) : (
-                                 <Monitor size={32} className="text-indigo-300" />
+                                 <Monitor size={24} className="text-slate-300" />
                                )}
                              </div>
-                            <h4 className="font-extrabold text-slate-900 text-lg tracking-tight mb-2">
-                              {previewMode === 'mobile' ? 'Mobile Preview Standby' : 'Desktop Preview Standby'}
+                            <h4 className="font-semibold text-slate-700 text-sm mb-1">
+                              {previewMode === 'mobile' ? 'Mobile Preview' : 'Desktop Preview'}
                             </h4>
-                            <p className="text-base text-slate-500 font-medium max-w-xs leading-relaxed">
-                              Your generated app will render here automatically in {PREVIEW_MODES[previewMode].label.toLowerCase()} view.
+                            <p className="text-xs text-slate-400 max-w-[14rem] leading-relaxed">
+                              Your app will appear here after building.
                             </p>
                           </div>
                         )}
@@ -1856,12 +1852,12 @@ export default function App() {
 
               ) : (
                 /* Code View */
-                <div className="w-full h-full bg-[#1E1E1E] rounded-xl overflow-hidden shadow-xl border border-slate-800 flex flex-col">
-                  <div className="bg-[#2D2D2D] px-4 py-2 flex items-center border-b border-black/50">
-                    <div className="flex space-x-2 mr-4">
-                      <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                      <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                      <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                <div className="w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
+                  <div className="bg-[#24253a] px-4 py-2 flex items-center border-b border-black/30">
+                    <div className="flex space-x-1.5 mr-4">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
                     </div>
                     <span className="text-xs text-slate-400 font-mono">index.html</span>
                     <div className="flex-1"></div>
@@ -1884,8 +1880,8 @@ export default function App() {
                     {codePanelCode ? (
                       <>
                         {isGenerating && (
-                          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-indigo-500/10 bg-[#1a1b26]/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-300 backdrop-blur-sm">
-                            <Loader2 className="animate-spin" size={14} />
+                      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-indigo-500/10 bg-[#1a1b26]/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-indigo-300 backdrop-blur-sm">
+                            <Loader2 className="animate-spin" size={12} />
                             <span>Streaming</span>
                           </div>
                         )}
@@ -1895,14 +1891,14 @@ export default function App() {
                         />
                       </>
                     ) : isGenerating ? (
-                       <div className="flex items-center justify-center h-full space-x-3 text-indigo-400/60 font-mono text-sm">
-                         <Loader2 className="animate-spin" size={20} />
-                         <span>Synthesizing source code...</span>
+                       <div className="flex items-center justify-center h-full space-x-2.5 text-indigo-400/50 font-mono text-sm">
+                         <Loader2 className="animate-spin" size={16} />
+                         <span>Generating...</span>
                         </div>
                     ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-600 font-mono text-sm opacity-50">
-                        <Code2 size={48} className="mb-4 text-slate-700" />
-                        <span>// No code generated yet.</span>
+                      <div className="h-full flex flex-col items-center justify-center text-slate-600 font-mono text-sm opacity-40">
+                        <Code2 size={36} className="mb-3 text-slate-700" />
+                        <span>// No code yet</span>
                       </div>
                     )}
                   </div>
