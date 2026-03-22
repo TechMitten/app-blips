@@ -79,7 +79,7 @@ export default function AuthModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-70 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
@@ -87,14 +87,14 @@ export default function AuthModal({ isOpen, onClose }) {
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all animate-in fade-in zoom-in duration-200">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-              {!showEmailForm || isLogin ? <LogIn size={18} /> : <UserPlus size={18} />}
+              {!showEmailForm || isLogin ? <LogIn size={16} /> : <UserPlus size={16} />}
             </div>
-            <h2 className="text-xl font-bold text-slate-900">
-              {!showEmailForm ? 'Get Started' : (isLogin ? 'Welcome Back' : 'Join Orion')}
+            <h2 className="text-base font-semibold text-slate-900">
+              {!showEmailForm ? 'Get Started' : (isLogin ? 'Welcome Back' : 'Create Account')}
             </h2>
           </div>
           <button
@@ -118,7 +118,7 @@ export default function AuthModal({ isOpen, onClose }) {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold py-3.5 rounded-xl transition-all shadow-sm hover:shadow-md transform active:scale-[0.98] disabled:opacity-70"
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold py-3 rounded-xl transition-all shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-70"
             >
               <img 
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
@@ -215,7 +215,7 @@ export default function AuthModal({ isOpen, onClose }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-sm shadow-indigo-200 transition-all active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
@@ -224,7 +224,7 @@ export default function AuthModal({ isOpen, onClose }) {
                 )}
               </button>
 
-              <p className="text-center text-slate-500 text-sm mt-4">
+              <p className="text-center text-slate-500 text-sm mt-3">
                 {isLogin ? "Don't have an account?" : "Already have an account?"}
                 <button
                   type="button"
@@ -232,7 +232,7 @@ export default function AuthModal({ isOpen, onClose }) {
                     setIsLogin(!isLogin);
                     setError('');
                   }}
-                  className="ml-1.5 font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                  className="ml-1.5 font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                 >
                   {isLogin ? 'Sign Up' : 'Log In'}
                 </button>
