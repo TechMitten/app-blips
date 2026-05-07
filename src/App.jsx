@@ -30,11 +30,36 @@ import {
 } from 'lucide-react';
 // --- Constants ---
 const LOCAL_STORAGE_PROJECTS_KEY = 'orion-local-projects';
+const SURGICAL_EDIT_TOOL = {
+  type: 'function',
+  function: {
+    name: 'apply_surgical_edits',
+    description: 'Applies precise search-and-replace edits to the current code.',
+    parameters: {
+      type: 'object',
+      properties: {
+        edits: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              search: { type: 'string', description: 'The exact code snippet to find.' },
+              replace: { type: 'string', description: 'The new code to replace it with.' }
+            },
+            required: ['search', 'replace']
+          }
+        }
+      },
+      required: ['edits']
+    }
+  }
+};
+
 const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
 
 CRITICAL RULES:
-1. Output ONLY valid, raw HTML code or surgical edit blocks.
+1. Output ONLY valid, raw HTML code or use the provided tools for edits.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
 3. Follow the platform-targeting instructions in the user request exactly.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
@@ -42,23 +67,8 @@ CRITICAL RULES:
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 7. For any mobile or responsive app, account for phone safe areas (viewport-fit=cover and safe-area-inset padding).
 
-REFINEMENT RULES:
-If you are asked to update an existing app, you MUST choose one of two modes:
-
-MODE A: SURGICAL EDITS (Preferred for specific changes)
-Provide one or more SEARCH/REPLACE blocks. Each block MUST match a unique, exact, and complete snippet from the current code.
-Format:
-<<<<<<< SEARCH
-[exact code to find]
-=======
-[new code to replace it with]
->>>>>>> REPLACE
-
-MODE B: FULL REWRITE (Use ONLY for massive structural changes)
-Return the complete, updated HTML document from <!DOCTYPE html> to </html>.
-
 STABILITY TIPS:
-- Include enough context in SEARCH blocks to ensure a unique match.
+- When using tools, include enough context in SEARCH blocks to ensure a unique match.
 - For complex apps, use "Landmark Comments" (e.g., <!-- @section: logic -->) as anchors for reliable surgical edits.
 
 Do not include any explanations, markdown markers, or text outside of these formats.`;
@@ -129,43 +139,33 @@ const sanitizeHtmlResponse = (text) => {
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
 };
 
-const applySurgicalEdits = (currentCode, editResponse) => {
-  if (!currentCode || !editResponse) return null;
+const applySurgicalEdits = (currentCode, edits) => {
+  if (!currentCode || !edits || !Array.isArray(edits)) return { success: false, error: 'Invalid edit format' };
 
   const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
-  const blocks = [];
-  const regex = /<<<<<<< SEARCH\r?\n([\s\S]*?)\r?\n=======\r?\n([\s\S]*?)\r?\n>>>>>>> REPLACE/g;
-  let match;
-  
-  while ((match = regex.exec(editResponse)) !== null) {
-    const search = match[1];
-    const replace = match[2];
-    // Deduplicate identical blocks
-    if (!blocks.some(b => b.search === search && b.replace === replace)) {
-      blocks.push({ search, replace });
-    }
-  }
-
-  if (blocks.length === 0) return null;
-
   let newCode = currentCode;
-  for (const block of blocks) {
-    const searchStr = block.search;
-    const replaceStr = block.replace;
+  const appliedSearchStrings = new Set();
 
-    // 1. Try exact match first (fastest)
+  for (const block of edits) {
+    const { search: searchStr, replace: replaceStr } = block;
+    if (!searchStr) continue;
+
+    // 1. Try exact match first
     if (newCode.includes(searchStr)) {
       newCode = newCode.split(searchStr).join(replaceStr);
+      appliedSearchStrings.add(searchStr);
       continue;
     }
 
-    // 2. Try fuzzy line-by-line match (ignores indentation and extra spaces)
+    // 2. Deduplicate / Already applied check
+    if (appliedSearchStrings.has(searchStr)) continue;
+
+    // 3. Fuzzy line-by-line match
     const codeLines = newCode.split(/\r?\n/);
     const searchLines = searchStr.split(/\r?\n/);
     const normalizedSearchLines = searchLines.map(normalizeLine);
     
     let matchIndex = -1;
-    // Iterate through code to find a sequence of lines that matches normalized search lines
     for (let i = 0; i <= codeLines.length - searchLines.length; i++) {
       let isMatch = true;
       for (let j = 0; j < searchLines.length; j++) {
@@ -181,17 +181,20 @@ const applySurgicalEdits = (currentCode, editResponse) => {
     }
 
     if (matchIndex !== -1) {
-      // Found a fuzzy match! Reconstruct the code by replacing the matched range
       const beforeLines = codeLines.slice(0, matchIndex);
       const afterLines = codeLines.slice(matchIndex + searchLines.length);
       newCode = [...beforeLines, replaceStr, ...afterLines].join('\n');
+      appliedSearchStrings.add(searchStr);
     } else {
-      console.warn("Surgical edit failed: no match found even with fuzzy matching.", { searchStr });
-      return null; // Trigger full fallback to preserve app integrity
+      return { 
+        success: false, 
+        error: `Search block not found: "${searchStr.substring(0, 100)}..."`,
+        failedBlock: searchStr 
+      };
     }
   }
 
-  return newCode;
+  return { success: true, code: newCode };
 };
 
 const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
@@ -211,11 +214,13 @@ const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
 
 // --- API Helper with Exponential Backoff ---
 const requestModelText = async ({
-  provider = 'openrouter',
+  provider = 'zai',
   systemPrompt,
   userText,
   onChunk = null,
   temperature = 0.7,
+  tools = null,
+  tool_choice = null,
   retryCount = 0
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
@@ -223,83 +228,82 @@ const requestModelText = async ({
   const zaiModel = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
 
   try {
-    let endpoint;
-    let headers;
-    let body;
+    const headers = {
+      'Authorization': `Bearer ${zaiKey}`,
+      'Content-Type': 'application/json'
+    };
+    const bodyObj = {
+      model: zaiModel,
+      stream: !!onChunk,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userText }
+      ],
+      temperature
+    };
+    if (tools) bodyObj.tools = tools;
+    if (tool_choice) bodyObj.tool_choice = tool_choice;
 
-    if (provider === 'zai') {
-      if (!zaiKey) throw new Error('API key is missing in your environment.');
-      endpoint = 'https://api.z.ai/api/coding/paas/v4/chat/completions';
-      headers = {
-        'Authorization': `Bearer ${zaiKey}`,
-        'Content-Type': 'application/json'
-      };
-      body = JSON.stringify({
-        model: zaiModel,
-        stream: !!onChunk,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userText }
-        ],
-        temperature
-      });
-    } else {
-      throw new Error(`Provider ${provider} is no longer supported.`);
-    }
+    const response = await fetch('https://api.z.ai/api/coding/paas/v4/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(bodyObj)
+    });
 
-    const response = await fetch(endpoint, { method: 'POST', headers, body });
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
-    let text = '';
-    if (onChunk && response.body) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+    if (!onChunk) {
+      const data = await response.json();
+      return data.choices[0].message;
+    }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        
-        // Standard SSE format
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep last incomplete line
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            const data = trimmedLine.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const json = JSON.parse(data);
-              const textChunk = json.choices[0]?.delta?.content || '';
-              if (textChunk) {
-                text += textChunk;
-                onChunk(textChunk);
-              }
-            } catch {
-              // Ignore incomplete payloads
+    // Streaming implementation
+    let text = '';
+    let toolCallsBuffer = [];
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('data: ')) {
+          const data = trimmedLine.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices[0]?.delta;
+            
+            if (delta?.content) {
+              text += delta.content;
+              onChunk(delta.content);
             }
-          }
+
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index || 0;
+                if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, function: { name: tc.function?.name, arguments: '' } };
+                if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
+              }
+            }
+          } catch { /* ignore */ }
         }
       }
-    } else {
-      const result = await response.json();
-      text = result.choices?.[0]?.message?.content || '';
     }
-    return text;
 
+    return { content: text, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
-    if (retryCount < 5) {
+    if (retryCount < delays.length) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        provider,
-        systemPrompt,
-        userText,
-        onChunk,
-        temperature,
-        retryCount: retryCount + 1
+        provider, systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -313,56 +317,53 @@ const generateAppCode = async (
   onChunk = null,
   layoutTarget = 'both'
 ) => {
-  const userText = currentCode
-    ? `Update the existing web app based on this new request: "${prompt}".
-    
-You should ideally use MODE A (SURGICAL EDITS) with SEARCH/REPLACE blocks to modify the code while preserving everything else. If the changes are too structural, use MODE B (FULL REWRITE).
-
-Current code for reference:
-\`\`\`html
-${currentCode}
-\`\`\``
-    : buildInitialGenerationPrompt(prompt, layoutTarget);
-
-  try {
-    const rawHtml = await requestModelText({
-      provider,
-      systemPrompt: HTML_SYSTEM_PROMPT,
-      userText,
-      onChunk,
-      temperature: currentCode ? 0.3 : 0.7
-    });
-
-    // Try applying surgical edits if we have current code
-    if (currentCode) {
-      const editedCode = applySurgicalEdits(currentCode, rawHtml);
-      if (editedCode) {
-        return {
-          code: editedCode,
-          editMode: 'surgical',
-          editSummary: 'Applied targeted changes via surgical edits.'
-        };
-      }
-    }
-
-    // Fallback to full rewrite or initial generation
-    const fallbackCode = sanitizeHtmlResponse(rawHtml);
-    const isFullHtml = fallbackCode.toLowerCase().includes('<html') || fallbackCode.toLowerCase().includes('<!doctype');
-
-    if (isFullHtml || !currentCode) {
-      return {
-        code: fallbackCode,
-        editMode: currentCode ? 'full-rewrite' : 'full-generation',
-        editSummary: currentCode ? 'Full rewrite from the current version.' : 'Initial app generation.'
-      };
-    }
-
-    // If surgical failed and it's not a full rewrite, it's an invalid response
-    throw new Error("The AI returned an invalid update format. Please try again with a more specific request.");
-  } catch (error) {
-    const generationReason = error instanceof Error ? error.message : 'Unknown generation failure.';
-    throw new Error(`Unable to generate the updated app: ${generationReason}`);
+  if (!currentCode) {
+    const userText = buildInitialGenerationPrompt(prompt, layoutTarget);
+    const message = await requestModelText({ provider, systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7 });
+    return {
+      code: sanitizeHtmlResponse(message.content || message),
+      editMode: 'full-generation',
+      editSummary: 'Initial app generation.'
+    };
   }
+
+  // REFINEMENT MODE: Self-healing surgical loop
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const userMessage = lastError 
+        ? `Surgical edit failed: ${lastError}. Please try again with a more precise SEARCH block that exists EXACTLY in the current code.`
+        : `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app.`;
+
+      const message = await requestModelText({
+        provider,
+        systemPrompt: HTML_SYSTEM_PROMPT,
+        userText: userMessage,
+        onChunk,
+        temperature: 0.1,
+        tools: [SURGICAL_EDIT_TOOL],
+        tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } }
+      });
+
+      const toolCall = message.tool_calls?.[0];
+      if (!toolCall) throw new Error("AI did not use the surgical edit tool.");
+
+      const { edits } = JSON.parse(toolCall.function.arguments);
+      const result = applySurgicalEdits(currentCode, edits);
+
+      if (result.success) {
+        return { code: result.code, editMode: 'surgical', editSummary: prompt };
+      } else {
+        console.warn(`Surgical attempt ${attempt} failed:`, result.error);
+        lastError = result.error;
+      }
+    } catch (e) {
+      console.error(`Attempt ${attempt} error:`, e);
+      lastError = e.message;
+    }
+  }
+
+  throw new Error(`Failed to apply updates after 3 attempts. Last error: ${lastError}`);
 };
 
 
