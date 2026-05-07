@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Suspense } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 import { 
   Wand2, 
@@ -19,8 +19,6 @@ import {
   Clock,
   Undo2,
   Redo2,
-  LogOut,
-  User,
   FolderOpen,
   X,
   Copy,
@@ -30,34 +28,40 @@ import {
   ZoomOut,
   Monitor
 } from 'lucide-react';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { 
-  doc, 
-  deleteDoc,
-  setDoc,
-  getDoc,
-  collection, 
-  query, 
-  getDocs, 
-  orderBy,
-  serverTimestamp 
-} from 'firebase/firestore';
-const AuthModal = React.lazy(() => import('./components/AuthModal'));
-
 // --- Constants ---
+const LOCAL_STORAGE_PROJECTS_KEY = 'orion-local-projects';
 const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
 
 CRITICAL RULES:
-1. Output ONLY valid, raw HTML code.
+1. Output ONLY valid, raw HTML code or surgical edit blocks.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
-3. Follow the platform-targeting instructions in the user request exactly. If the request says mobile, optimize for a 375px touch screen. If it says desktop, optimize for a wide desktop layout. If it says both, build a truly responsive experience across mobile, tablet, and desktop breakpoints.
+3. Follow the platform-targeting instructions in the user request exactly.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
-5. Include modern UI elements, rounded corners, good typography (import Google fonts if needed), and smooth interactions.
+5. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. Match the requested platform focus with appropriate spacing, interaction patterns, typography scale, and layout density.
-8. For any mobile or responsive app, account for phone safe areas so content does not sit beneath notches or home indicators. Include a viewport meta tag with viewport-fit=cover and use CSS env(safe-area-inset-top/right/bottom/left) where edge-aligned UI needs padding.`;
+7. For any mobile or responsive app, account for phone safe areas (viewport-fit=cover and safe-area-inset padding).
+
+REFINEMENT RULES:
+If you are asked to update an existing app, you MUST choose one of two modes:
+
+MODE A: SURGICAL EDITS (Preferred for specific changes)
+Provide one or more SEARCH/REPLACE blocks. Each block MUST match a unique, exact, and complete snippet from the current code.
+Format:
+<<<<<<< SEARCH
+[exact code to find]
+=======
+[new code to replace it with]
+>>>>>>> REPLACE
+
+MODE B: FULL REWRITE (Use ONLY for massive structural changes)
+Return the complete, updated HTML document from <!DOCTYPE html> to </html>.
+
+STABILITY TIPS:
+- Include enough context in SEARCH blocks to ensure a unique match.
+- For complex apps, use "Landmark Comments" (e.g., <!-- @section: logic -->) as anchors for reliable surgical edits.
+
+Do not include any explanations, markdown markers, or text outside of these formats.`;
 
 const getSafeAreaInstruction = (layoutTarget) => {
   if (layoutTarget === 'desktop') return '';
@@ -67,22 +71,10 @@ const getSafeAreaInstruction = (layoutTarget) => {
 
 const PROVIDER_OPTIONS = [
   {
-    id: 'openrouter',
-    label: 'OpenRouter',
-    description: 'Multi-model API',
-    icon: Layout
-  },
-  {
-    id: 'gemini',
-    label: 'Gemini',
-    description: 'Google Gemini Flash',
-    icon: Sparkles
-  },
-  {
-    id: 'chutes',
-    label: 'Chutes',
-    description: 'Chutes.ai LLM API',
-    icon: TerminalSquare
+    id: 'zai',
+    label: 'Orion AI',
+    description: 'High-performance generation',
+    icon: Code2
   }
 ];
 
@@ -106,6 +98,16 @@ const INITIAL_LAYOUT_OPTIONS = [
   }
 ];
 
+// --- Local Persistence Helpers ---
+const getLocalProjects = () => {
+  const data = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
+  return data ? JSON.parse(data) : {};
+};
+
+const setLocalProjects = (projects) => {
+  localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(projects));
+};
+
 const sanitizeHtmlResponse = (text) => {
   const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
   if (htmlBlockMatch) return htmlBlockMatch[1].trim();
@@ -125,6 +127,71 @@ const sanitizeHtmlResponse = (text) => {
   }
 
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+};
+
+const applySurgicalEdits = (currentCode, editResponse) => {
+  if (!currentCode || !editResponse) return null;
+
+  const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
+  const blocks = [];
+  const regex = /<<<<<<< SEARCH\r?\n([\s\S]*?)\r?\n=======\r?\n([\s\S]*?)\r?\n>>>>>>> REPLACE/g;
+  let match;
+  
+  while ((match = regex.exec(editResponse)) !== null) {
+    const search = match[1];
+    const replace = match[2];
+    // Deduplicate identical blocks
+    if (!blocks.some(b => b.search === search && b.replace === replace)) {
+      blocks.push({ search, replace });
+    }
+  }
+
+  if (blocks.length === 0) return null;
+
+  let newCode = currentCode;
+  for (const block of blocks) {
+    const searchStr = block.search;
+    const replaceStr = block.replace;
+
+    // 1. Try exact match first (fastest)
+    if (newCode.includes(searchStr)) {
+      newCode = newCode.split(searchStr).join(replaceStr);
+      continue;
+    }
+
+    // 2. Try fuzzy line-by-line match (ignores indentation and extra spaces)
+    const codeLines = newCode.split(/\r?\n/);
+    const searchLines = searchStr.split(/\r?\n/);
+    const normalizedSearchLines = searchLines.map(normalizeLine);
+    
+    let matchIndex = -1;
+    // Iterate through code to find a sequence of lines that matches normalized search lines
+    for (let i = 0; i <= codeLines.length - searchLines.length; i++) {
+      let isMatch = true;
+      for (let j = 0; j < searchLines.length; j++) {
+        if (normalizeLine(codeLines[i + j]) !== normalizedSearchLines[j]) {
+          isMatch = false;
+          break;
+        }
+      }
+      if (isMatch) {
+        matchIndex = i;
+        break;
+      }
+    }
+
+    if (matchIndex !== -1) {
+      // Found a fuzzy match! Reconstruct the code by replacing the matched range
+      const beforeLines = codeLines.slice(0, matchIndex);
+      const afterLines = codeLines.slice(matchIndex + searchLines.length);
+      newCode = [...beforeLines, replaceStr, ...afterLines].join('\n');
+    } else {
+      console.warn("Surgical edit failed: no match found even with fuzzy matching.", { searchStr });
+      return null; // Trigger full fallback to preserve app integrity
+    }
+  }
+
+  return newCode;
 };
 
 const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
@@ -152,36 +219,23 @@ const requestModelText = async ({
   retryCount = 0
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const chutesKey = import.meta.env.VITE_CHUTES_API_KEY;
-  const openrouterModel = import.meta.env.VITE_OPENROUTER_MODEL || 'openrouter/free';
-  const geminiModel = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash-preview-09-2025';
-  const chutesModel = import.meta.env.VITE_CHUTES_MODEL || 'deepseek-ai/DeepSeek-V3-0324';
+  const zaiKey = import.meta.env.VITE_ZAI_API_KEY;
+  const zaiModel = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
 
   try {
     let endpoint;
     let headers;
     let body;
 
-    if (provider === 'gemini') {
-      if (!geminiKey) throw new Error('Gemini API key is missing.');
-      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:${onChunk ? 'streamGenerateContent' : 'generateContent'}?key=${encodeURIComponent(geminiKey)}`;
-      headers = { 'Content-Type': 'application/json' };
-      body = JSON.stringify({
-        contents: [{ parts: [{ text: userText }] }],
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { temperature }
-      });
-    } else if (provider === 'chutes') {
-      if (!chutesKey) throw new Error('Chutes API key is missing.');
-      endpoint = 'https://llm.chutes.ai/v1/chat/completions';
+    if (provider === 'zai') {
+      if (!zaiKey) throw new Error('API key is missing in your environment.');
+      endpoint = 'https://api.z.ai/api/coding/paas/v4/chat/completions';
       headers = {
-        'Authorization': `Bearer ${chutesKey}`,
+        'Authorization': `Bearer ${zaiKey}`,
         'Content-Type': 'application/json'
       };
       body = JSON.stringify({
-        model: chutesModel,
+        model: zaiModel,
         stream: !!onChunk,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -190,23 +244,7 @@ const requestModelText = async ({
         temperature
       });
     } else {
-      if (!openrouterKey) throw new Error('OpenRouter API key is missing.');
-      endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-      headers = {
-        'Authorization': `Bearer ${openrouterKey}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Orion App Generator',
-        'Content-Type': 'application/json'
-      };
-      body = JSON.stringify({
-        model: openrouterModel,
-        stream: !!onChunk,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userText }
-        ],
-        temperature
-      });
+      throw new Error(`Provider ${provider} is no longer supported.`);
     }
 
     const response = await fetch(endpoint, { method: 'POST', headers, body });
@@ -225,71 +263,30 @@ const requestModelText = async ({
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
         
-        if (provider === 'gemini') {
-          // Gemini returns a JSON array: [ {object1}, {object2} ]
-          // We parse individual objects from the stream.
-          let startIdx;
-          while ((startIdx = buffer.indexOf('{')) !== -1) {
-            let depth = 0;
-            let endIdx = -1;
-            let inString = false;
-            for (let i = startIdx; i < buffer.length; i++) {
-              if (buffer[i] === '"' && buffer[i-1] !== '\\') inString = !inString;
-              if (!inString) {
-                if (buffer[i] === '{') depth++;
-                else if (buffer[i] === '}') depth--;
-                if (depth === 0) {
-                  endIdx = i;
-                  break;
-                }
+        // Standard SSE format
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep last incomplete line
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith('data: ')) {
+            const data = trimmedLine.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const json = JSON.parse(data);
+              const textChunk = json.choices[0]?.delta?.content || '';
+              if (textChunk) {
+                text += textChunk;
+                onChunk(textChunk);
               }
-            }
-            
-            if (endIdx !== -1) {
-              const objStr = buffer.substring(startIdx, endIdx + 1);
-              try {
-                const json = JSON.parse(objStr);
-                const textChunk = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                if (textChunk) {
-                  text += textChunk;
-                  onChunk(textChunk);
-                }
-              } catch {
-                // Likely a partial object or not the format we expect
-              }
-              buffer = buffer.substring(endIdx + 1);
-            } else {
-              break; // Need more data for current object
-            }
-          }
-        } else {
-          // OpenRouter (SSE format)
-          const lines = buffer.split('\n');
-          buffer = lines.pop(); // keep last incomplete line
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('data: ')) {
-              const data = trimmedLine.slice(6);
-              if (data === '[DONE]') continue;
-              try {
-                const json = JSON.parse(data);
-                const textChunk = json.choices[0]?.delta?.content || '';
-                if (textChunk) {
-                  text += textChunk;
-                  onChunk(textChunk);
-                }
-              } catch {
-                // Ignore incomplete SSE payloads between chunks.
-              }
+            } catch {
+              // Ignore incomplete payloads
             }
           }
         }
       }
     } else {
       const result = await response.json();
-      text = provider === 'gemini'
-        ? result?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-        : result.choices?.[0]?.message?.content || '';
+      text = result.choices?.[0]?.message?.content || '';
     }
     return text;
 
@@ -312,23 +309,16 @@ const requestModelText = async ({
 const generateAppCode = async (
   prompt,
   currentCode = null,
-  provider = 'openrouter',
+  provider = 'zai',
   onChunk = null,
   layoutTarget = 'both'
 ) => {
-  const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
   const userText = currentCode
-    ? `Update the existing web app based on this new request: "${prompt}". Return the FULL updated HTML document.
+    ? `Update the existing web app based on this new request: "${prompt}".
+    
+You should ideally use MODE A (SURGICAL EDITS) with SEARCH/REPLACE blocks to modify the code while preserving everything else. If the changes are too structural, use MODE B (FULL REWRITE).
 
-If the app is mobile-first or responsive, preserve or add safe-area-aware spacing so visible UI does not sit beneath phone notches or home indicators.${safeAreaInstruction}
-
-Preservation requirements:
-- Start from the current HTML and keep unrelated markup, CSS, JS, attributes, text, ordering, and structure unchanged.
-- Only modify the smallest necessary fragments to satisfy the request.
-- Any non-requested difference is a bug.
-- Do not rename ids/classes or restyle unrelated elements unless the request requires it.
-
-Current complete HTML:
+Current code for reference:
 \`\`\`html
 ${currentCode}
 \`\`\``
@@ -340,14 +330,35 @@ ${currentCode}
       systemPrompt: HTML_SYSTEM_PROMPT,
       userText,
       onChunk,
-      temperature: currentCode ? 0.5 : 0.7
+      temperature: currentCode ? 0.3 : 0.7
     });
 
-    return {
-      code: sanitizeHtmlResponse(rawHtml),
-      editMode: currentCode ? 'full-rewrite' : 'full-generation',
-      editSummary: currentCode ? 'Full rewrite from the current version.' : 'Initial app generation.'
-    };
+    // Try applying surgical edits if we have current code
+    if (currentCode) {
+      const editedCode = applySurgicalEdits(currentCode, rawHtml);
+      if (editedCode) {
+        return {
+          code: editedCode,
+          editMode: 'surgical',
+          editSummary: 'Applied targeted changes via surgical edits.'
+        };
+      }
+    }
+
+    // Fallback to full rewrite or initial generation
+    const fallbackCode = sanitizeHtmlResponse(rawHtml);
+    const isFullHtml = fallbackCode.toLowerCase().includes('<html') || fallbackCode.toLowerCase().includes('<!doctype');
+
+    if (isFullHtml || !currentCode) {
+      return {
+        code: fallbackCode,
+        editMode: currentCode ? 'full-rewrite' : 'full-generation',
+        editSummary: currentCode ? 'Full rewrite from the current version.' : 'Initial app generation.'
+      };
+    }
+
+    // If surgical failed and it's not a full rewrite, it's an invalid response
+    throw new Error("The AI returned an invalid update format. Please try again with a more specific request.");
   } catch (error) {
     const generationReason = error instanceof Error ? error.message : 'Unknown generation failure.';
     throw new Error(`Unable to generate the updated app: ${generationReason}`);
@@ -439,8 +450,6 @@ export default function App() {
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
   const [tempProjectName, setTempProjectName] = useState('');
@@ -456,6 +465,7 @@ export default function App() {
   const marqueeSegment = buildMarqueeLoop(streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
   const [isAutoZoom, setIsAutoZoom] = useState(true);
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
@@ -519,82 +529,34 @@ export default function App() {
     setIsAutoZoom(true);
   };
 
-  // --- Auto-save Name Changes ---
-  useEffect(() => {
-    if (!user || !currentProjectId) return;
-    
-    const timeoutId = setTimeout(() => {
-      // Only save if name actually changed from what we have in the list
-      const currentProjData = myProjects.find(p => p.id === currentProjectId);
-      if (currentProjData && currentProjData.name === projectName) return;
+  // --- Data Persistence Helpers ---
+  const loadUserProjects = useCallback(() => {
+    try {
+      const allProjects = getLocalProjects();
+      const projects = Object.keys(allProjects)
+        .map(id => ({ id, ...allProjects[id] }))
+        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
       
-      saveProject({ nameToSave: projectName });
-    }, 2000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [projectName, user, currentProjectId, myProjects]);
-
-  // --- Auth & Data Effects ---
-  // --- Auth & Data Effects ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
+      setMyProjects(projects);
+      return projects;
+    } catch (err) {
+      console.error("Error loading projects:", err);
+      return [];
+    }
   }, []);
 
-  useEffect(() => {
-    const fetchAndResume = async () => {
-      if (user) {
-        const projects = await loadUserProjects(user.uid);
-        const lastProjectId = localStorage.getItem('orion-current-project-id');
-        
-        // Migration: local progress -> account
-        if (versions.length > 0 && !currentProjectId) {
-          const projectId = Date.now().toString();
-          const projectData = {
-            name: projectName,
-            versions: versions,
-            currentVersionIndex: currentVersionIndex,
-            lastModified: serverTimestamp()
-          };
-          try {
-            await setDoc(doc(db, 'users', user.uid, 'projects', projectId), projectData);
-            setCurrentProjectId(projectId);
-            localStorage.setItem('orion-current-project-id', projectId);
-            loadUserProjects(user.uid);
-          } catch (err) {
-            console.error("Error migrating anonymous project:", err);
-          }
-        } 
-        // Resume: If no project is open, load from localStorage OR the most recent project
-        else if (!currentProjectId) {
-          const idToLoad = lastProjectId || (projects.length > 0 ? projects[0].id : null);
-          if (idToLoad) {
-            loadProjectById(user.uid, idToLoad);
-          }
-        }
-      } else {
-        setMyProjects([]);
-        setCurrentProjectId(null);
-      }
-    };
-    
-    fetchAndResume();
-  }, [user]);
-
-  const loadProjectById = async (uid, projectId) => {
+  const loadProjectById = useCallback((projectId) => {
     try {
-      const docRef = doc(db, 'users', uid, 'projects', projectId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      const allProjects = getLocalProjects();
+      const project = allProjects[projectId];
+      
+      if (project) {
         clearStreamingState();
-        setProjectName(data.name || 'Untitled App');
-        setVersions(data.versions || []);
-        setCurrentVersionIndex(data.currentVersionIndex ?? -1);
-        if (data.versions && data.versions[data.currentVersionIndex]) {
-          setGeneratedCode(data.versions[data.currentVersionIndex].code);
+        setProjectName(project.name || 'Untitled App');
+        setVersions(project.versions || []);
+        setCurrentVersionIndex(project.currentVersionIndex ?? -1);
+        if (project.versions && project.versions[project.currentVersionIndex]) {
+          setGeneratedCode(project.versions[project.currentVersionIndex].code);
         }
         setCurrentProjectId(projectId);
         localStorage.setItem('orion-current-project-id', projectId);
@@ -604,30 +566,9 @@ export default function App() {
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  };
+  }, []);
 
-  const loadUserProjects = async (uid) => {
-    try {
-      const q = query(
-        collection(db, 'users', uid, 'projects'),
-        orderBy('lastModified', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const projects = [];
-      querySnapshot.forEach((doc) => {
-        projects.push({ id: doc.id, ...doc.data() });
-      });
-      setMyProjects(projects);
-      return projects;
-    } catch (err) {
-      console.error("Error loading projects:", err);
-      return [];
-    }
-  };
-
-  const saveProject = async (params = {}) => {
-    if (!user) return;
-    
+  const saveProject = useCallback((params = {}) => {
     // Allow overriding state values for immediate updates
     const {
       versionsToSave = versions,
@@ -645,20 +586,55 @@ export default function App() {
         name: nameToSave,
         versions: versionsToSave,
         currentVersionIndex: indexToSave,
-        lastModified: serverTimestamp()
+        lastModified: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'users', user.uid, 'projects', projectId), projectData);
+      const allProjects = getLocalProjects();
+      allProjects[projectId] = projectData;
+      setLocalProjects(allProjects);
       
       if (!currentProjectId || currentProjectId !== projectId) {
         setCurrentProjectId(projectId);
         localStorage.setItem('orion-current-project-id', projectId);
       }
-      loadUserProjects(user.uid);
+      loadUserProjects();
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  };
+  }, [versions, currentVersionIndex, projectName, currentProjectId, loadUserProjects]);
+
+  // --- Auto-save Name Changes ---
+  useEffect(() => {
+    if (!currentProjectId) return;
+    
+    const timeoutId = setTimeout(() => {
+      // Only save if name actually changed from what we have in the list
+      const currentProjData = myProjects.find(p => p.id === currentProjectId);
+      if (currentProjData && currentProjData.name === projectName) return;
+      
+      saveProject({ nameToSave: projectName });
+    }, 2000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [projectName, currentProjectId, myProjects, saveProject]);
+
+  // --- Data Persistence ---
+  useEffect(() => {
+    const fetchAndResume = () => {
+      const projects = loadUserProjects();
+      const lastProjectId = localStorage.getItem('orion-current-project-id');
+      
+      // Resume: If no project is open, load from localStorage OR the most recent project
+      if (!currentProjectId) {
+        const idToLoad = lastProjectId || (projects.length > 0 ? projects[0].id : null);
+        if (idToLoad) {
+          loadProjectById(idToLoad);
+        }
+      }
+    };
+    
+    fetchAndResume();
+  }, [currentProjectId, loadUserProjects, loadProjectById]);
 
   const loadProject = (project) => {
     clearStreamingState();
@@ -666,7 +642,9 @@ export default function App() {
     setProjectName(project.name);
     setVersions(project.versions);
     setCurrentVersionIndex(project.currentVersionIndex);
-    setGeneratedCode(project.versions[project.currentVersionIndex].code);
+    if (project.versions && project.versions[project.currentVersionIndex]) {
+      setGeneratedCode(project.versions[project.currentVersionIndex].code);
+    }
     setIsProjectsListOpen(false);
     localStorage.setItem('orion-current-project-id', project.id);
   };
@@ -686,11 +664,6 @@ export default function App() {
   const handleGenerate = async (e) => {
     e?.preventDefault();
     if (!prompt.trim()) return;
-
-    if (!user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
 
     // Require naming for transition from Untitled or New App
     if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
@@ -731,14 +704,11 @@ export default function App() {
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
       
-      // Auto-save if logged in
-      if (user) {
-        // We pass versions directly because state hasn't updated yet
-        saveProject({
-          versionsToSave: finalVersions,
-          indexToSave: updatedVersions.length
-        });
-      }
+      // Auto-save
+      saveProject({
+        versionsToSave: finalVersions,
+        indexToSave: updatedVersions.length
+      });
       
     } catch (err) {
       setError(err.message);
@@ -765,10 +735,6 @@ export default function App() {
   };
 
   const handleNewApp = () => {
-    if (!user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
     setShouldGenerateAfterNaming(false);
     setTempProjectName('');
     setIsNamingModalOpen(true);
@@ -813,7 +779,7 @@ export default function App() {
       clearStreamingState();
       setCurrentVersionIndex(index);
       setGeneratedCode(versions[index].code);
-      if (user && currentProjectId) {
+      if (currentProjectId) {
         saveProject({ indexToSave: index });
       }
     }
@@ -840,6 +806,34 @@ export default function App() {
     } catch (err) {
       console.error('Failed to copy code:', err);
     }
+  };
+
+  const copyVersionCode = async (ver) => {
+    if (!ver || !ver.code) return;
+    try {
+      await navigator.clipboard.writeText(ver.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy version code:', err);
+    }
+  };
+
+  const downloadVersion = (ver) => {
+    if (!ver || !ver.code) return;
+    const blob = new Blob([ver.code], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `miniapp-v${ver.id || Date.now()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleExpandVersion = (idx) => {
+    setExpandedVersionIndex(prev => prev === idx ? null : idx);
   };
 
   const resetCurrentWorkspace = () => {
@@ -870,9 +864,7 @@ export default function App() {
     setRenamingProjectId(null);
   };
 
-  const handleProjectRename = async (project) => {
-    if (!user) return;
-
+  const handleProjectRename = (project) => {
     const trimmedName = editingProjectName.trim();
     if (!trimmedName) return;
 
@@ -883,14 +875,12 @@ export default function App() {
 
     setRenamingProjectId(project.id);
     try {
-      await setDoc(
-        doc(db, 'users', user.uid, 'projects', project.id),
-        {
-          name: trimmedName,
-          lastModified: serverTimestamp()
-        },
-        { merge: true }
-      );
+      const allProjects = getLocalProjects();
+      if (allProjects[project.id]) {
+        allProjects[project.id].name = trimmedName;
+        allProjects[project.id].lastModified = new Date().toISOString();
+        setLocalProjects(allProjects);
+      }
 
       setMyProjects(prev => prev.map((p) => (
         p.id === project.id
@@ -903,20 +893,22 @@ export default function App() {
       }
 
       cancelProjectRename();
-      loadUserProjects(user.uid);
+      loadUserProjects();
     } catch (err) {
       console.error('Error renaming project:', err);
       setRenamingProjectId(null);
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (!user || !projectToDelete) return;
+  const handleDeleteProject = () => {
+    if (!projectToDelete) return;
 
     const projectId = projectToDelete.id;
     setDeletingProjectId(projectId);
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'projects', projectId));
+      const allProjects = getLocalProjects();
+      delete allProjects[projectId];
+      setLocalProjects(allProjects);
 
       setMyProjects(prev => prev.filter((project) => project.id !== projectId));
 
@@ -930,7 +922,7 @@ export default function App() {
 
       setProjectToDelete(null);
       setDeletingProjectId(null);
-      loadUserProjects(user.uid);
+      loadUserProjects();
     } catch (err) {
       console.error('Error deleting project:', err);
       setDeletingProjectId(null);
@@ -957,15 +949,13 @@ export default function App() {
             <span className="hidden sm:inline">New</span>
           </button>
 
-          {user && (
-            <button
-              onClick={() => setIsProjectsListOpen(true)}
-              className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
-            >
-              <FolderOpen size={16} />
-              <span className="hidden sm:inline">Apps</span>
-            </button>
-          )}
+          <button
+            onClick={() => setIsProjectsListOpen(true)}
+            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+          >
+            <FolderOpen size={16} />
+            <span className="hidden sm:inline">Apps</span>
+          </button>
           
           <button
             onClick={() => setIsSettingsOpen(true)}
@@ -976,28 +966,6 @@ export default function App() {
           </button>
 
 
-          {user ? (
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-               <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
-                {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
-              </div>
-              <button 
-                onClick={() => signOut(auth)}
-                className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm shadow-sm shadow-indigo-200"
-            >
-              <User size={16} />
-              <span>Sign In</span>
-            </button>
-          )}
 
           <span className="hidden sm:inline px-2.5 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-500 border border-slate-200/80">
             {PROVIDER_OPTION_MAP[apiProvider]?.label || PROVIDER_OPTION_MAP[DEFAULT_PROVIDER].label}
@@ -1353,16 +1321,6 @@ export default function App() {
       )}
 
 
-      <Suspense fallback={
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl p-4 shadow-xl">Loading authentication...</div>
-        </div>
-      }>
-        <AuthModal 
-          isOpen={isAuthModalOpen} 
-          onClose={() => setIsAuthModalOpen(false)} 
-        />
-      </Suspense>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
@@ -1394,9 +1352,9 @@ export default function App() {
                 const idx = versions.length - 1 - reversedIdx;
                 const isActive = currentVersionIndex === idx;
                 return (
-                  <button
-                    key={ver.id}
-                    onClick={() => switchVersion(idx)}
+                  <div key={ver.id} className="relative">
+                    <button
+                      onClick={() => toggleExpandVersion(idx)}
                     className={`w-full text-left px-3 py-2 rounded-lg border transition-all group version-item ${
                       isActive 
                         ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' 
@@ -1411,36 +1369,24 @@ export default function App() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          {idx === 0 && (
-                            <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider flex-shrink-0">Initial</span>
-                          )}
                           <span className={`block text-sm leading-5 transition-colors truncate ${
-                            isActive ? 'text-slate-900 font-medium' : 'text-slate-600 group-hover:text-slate-800'
+                            isActive ? 'text-slate-900 font-bold' : 'text-slate-600 group-hover:text-slate-800'
                           }`}>
                             {ver.prompt}
                           </span>
+                          {idx === 0 && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-tighter flex-shrink-0">Initial</span>
+                          )}
                         </div>
-                        <div className="mt-0.5 flex items-center gap-1.5 text-xs min-w-0">
-                          <span className={`flex-shrink-0 ${
-                            isActive ? 'text-indigo-600' : 'text-slate-400'
-                          }`}>
+                        <div className="mt-0.5 flex items-center gap-2 text-[10px] min-w-0 font-medium">
+                          <span className={isActive ? 'text-indigo-500' : 'text-slate-400'}>
                             {ver.timestamp}
                           </span>
-                          {ver.editSummary && (
-                            <>
-                              <span className="text-slate-300 flex-shrink-0">&bull;</span>
-                              <span className="text-slate-500 truncate">
-                                {ver.editSummary}
-                              </span>
-                            </>
-                          )}
                           {isActive && (
-                            <>
-                              <span className="text-indigo-300 flex-shrink-0">&bull;</span>
-                              <span className="font-medium text-indigo-600 truncate text-[11px]">
-                                Active
-                              </span>
-                            </>
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
+                              <div className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"></div>
+                              Active
+                            </span>
                           )}
                         </div>
                       </div>
@@ -1451,7 +1397,63 @@ export default function App() {
                         }`}
                       />
                     </div>
-                  </button>
+                    </button>
+
+                    {expandedVersionIndex === idx && (
+                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm animate-fade-in">
+                        <div className="space-y-4">
+                          {/* Prompt Section */}
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Prompt</div>
+                            <div className="text-sm text-slate-800 font-medium leading-relaxed bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                              {ver.prompt}
+                            </div>
+                          </div>
+
+                          {/* Metadata Row */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-1 border-t border-slate-100 pt-3">
+                             <div className="flex flex-col">
+                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modified</span>
+                               <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.timestamp}</span>
+                             </div>
+                             {ver.editSummary && (
+                               <div className="flex flex-col">
+                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Summary</span>
+                                 <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.editSummary}</span>
+                               </div>
+                             )}
+                          </div>
+
+                          {/* Action Buttons Row */}
+                          <div className="grid grid-cols-3 gap-2 pt-1">
+                            <button 
+                              onClick={() => switchVersion(idx)} 
+                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-sm shadow-indigo-100"
+                            >
+                              <Play size={14} />
+                              Restore
+                            </button>
+                            <button 
+                              onClick={() => copyVersionCode(ver)} 
+                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                            >
+                              <Copy size={14} />
+                              Copy
+                            </button>
+                            <button 
+                              onClick={() => downloadVersion(ver)} 
+                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                            >
+                              <Download size={14} />
+                              Save
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
 
                 );
               })
@@ -1480,14 +1482,6 @@ export default function App() {
                         : "Describe your app in plain language and Orion will generate it."}
                     </p>
                     
-                    {!user && (
-                      <div className="flex items-center gap-2.5 p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl animate-fade-in">
-                        <div className="bg-indigo-600 p-1 rounded-md text-white">
-                          <User size={14} />
-                        </div>
-                        <p className="text-sm font-medium text-indigo-800">Sign in to generate and save apps</p>
-                      </div>
-                    )}
                   </div>
 
                 </div>
@@ -1588,9 +1582,9 @@ export default function App() {
                   </div>
                   <button
                     onClick={handleGenerate}
-                    disabled={isGenerating || (user && !prompt.trim())}
+                    disabled={isGenerating || !prompt.trim()}
                     className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all active:scale-[0.97] ${
-                      isGenerating || (user && !prompt.trim()) 
+                      isGenerating || !prompt.trim() 
                         ? 'bg-slate-300 cursor-not-allowed' 
                         : 'bg-indigo-600 hover:bg-indigo-700 shadow-sm'
                     }`}
@@ -1602,8 +1596,8 @@ export default function App() {
                       </>
                     ) : (
                       <>
-                        {!user ? <User className="mr-1.5" size={16} /> : (generatedCode ? <Edit2 className="mr-1.5" size={16} /> : <Wand2 className="mr-1.5" size={16} />)}
-                        {!user ? "Sign In" : (generatedCode ? "Update" : "Build")}
+                        {generatedCode ? <Edit2 className="mr-1.5" size={16} /> : <Wand2 className="mr-1.5" size={16} />}
+                        {generatedCode ? "Update" : "Build"}
                       </>
                     )}
                   </button>
