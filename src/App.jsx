@@ -26,7 +26,9 @@ import {
   Trash2,
   ZoomIn,
   ZoomOut,
-  Monitor
+  Monitor,
+  PanelLeftOpen,
+  PanelLeftClose
 } from 'lucide-react';
 // --- Constants ---
 const LOCAL_STORAGE_PROJECTS_KEY = 'orion-local-projects';
@@ -490,6 +492,10 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
   const [isAutoZoom, setIsAutoZoom] = useState(true);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
+    const stored = localStorage.getItem('orion-history-open');
+    return stored !== null ? stored === 'true' : true;
+  });
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
@@ -499,6 +505,10 @@ export default function App() {
   const activePreviewPreset = PREVIEW_MODES[previewMode];
   const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
   const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
+
+  useEffect(() => {
+    localStorage.setItem('orion-history-open', isHistoryOpen);
+  }, [isHistoryOpen]);
 
   const clearStreamingState = () => {
     setStreamingCode('');
@@ -1187,7 +1197,7 @@ export default function App() {
   return (
     <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="shrink-0 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
+      <header className="shrink-0 bg-white border-b border-slate-200/80 header-shadow px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center space-x-3">
           <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-sm shadow-indigo-200">
             <Sparkles size={22} />
@@ -1248,42 +1258,81 @@ export default function App() {
               </div>
             )}
 
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-              <button
-                onClick={() => handleManualZoom(-0.1)}
-                disabled={zoomLevel <= 0.2}
-                className={`p-1.5 rounded-md transition-all ${
-                  zoomLevel <= 0.2 
-                    ? 'text-slate-300 cursor-not-allowed' 
-                    : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                }`}
-                title="Zoom Out"
-              >
-                <ZoomOut size={14} />
-              </button>
-              <button
-                onClick={resetZoom}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                  isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-                title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
-              >
-                {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
-              </button>
-              <button
-                onClick={() => handleManualZoom(0.1)}
-                disabled={zoomLevel >= 3}
-                className={`p-1.5 rounded-md transition-all ${
-                  zoomLevel >= 3 
-                    ? 'text-slate-300 cursor-not-allowed' 
-                    : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                }`}
-                title="Zoom In"
-              >
-                <ZoomIn size={14} />
-              </button>
-            </div>
-          </div>
+             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+               <button
+                 onClick={() => handleManualZoom(-0.1)}
+                 disabled={zoomLevel <= 0.2}
+                 className={`p-1.5 rounded-md transition-all ${
+                   zoomLevel <= 0.2 
+                     ? 'text-slate-300 cursor-not-allowed' 
+                     : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                 }`}
+                 title="Zoom Out"
+               >
+                 <ZoomOut size={14} />
+               </button>
+               <button
+                 onClick={resetZoom}
+                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                   isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                 }`}
+                 title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
+               >
+                 {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
+               </button>
+               <button
+                 onClick={() => handleManualZoom(0.1)}
+                 disabled={zoomLevel >= 3}
+                 className={`p-1.5 rounded-md transition-all ${
+                   zoomLevel >= 3 
+                     ? 'text-slate-300 cursor-not-allowed' 
+                     : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                 }`}
+                 title="Zoom In"
+               >
+                 <ZoomIn size={14} />
+               </button>
+             </div>
+
+             {versions.length > 1 && (
+               <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+                <button
+                  onClick={handleUndo}
+                  disabled={currentVersionIndex <= 0}
+                  className={`p-1.5 rounded-md transition-all ${
+                    currentVersionIndex <= 0 
+                      ? 'text-slate-300 cursor-not-allowed' 
+                      : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                  }`}
+                  title="Previous Version"
+                >
+                  <Undo2 size={14} />
+                </button>
+                <button
+                  onClick={handleRedo}
+                  disabled={currentVersionIndex >= versions.length - 1}
+                  className={`p-1.5 rounded-md transition-all ${
+                    currentVersionIndex >= versions.length - 1 
+                      ? 'text-slate-300 cursor-not-allowed' 
+                      : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                  }`}
+                  title="Next Version"
+                >
+                  <Redo2 size={14} />
+                </button>
+              </div>
+             )}
+
+             {generatedCode && (
+               <button 
+                 onClick={handleDownload}
+                 className="text-slate-500 hover:text-slate-700 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
+                 title="Download HTML"
+               >
+                 <Download size={16} />
+               </button>
+             )}
+           </div>
         </div>
       </header>
 
@@ -1637,10 +1686,29 @@ export default function App() {
 
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Collapse toggle tab — visible only when sidebar is closed */}
+        {!isHistoryOpen && (
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="hidden md:flex items-center justify-center w-7 bg-white border border-slate-200/80 rounded-r-lg shadow-sm hover:bg-slate-50 transition-colors z-20 flex-shrink-0 -ml-px group"
+            title="Show history panel"
+          >
+            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+          </button>
+        )}
         {/* Sidebar */}
-        <aside className="w-72 bg-white border-r border-slate-200/80 hidden md:flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center bg-white">
+        <aside className={`hidden md:flex flex-col bg-white border-r border-slate-200/80 panel-shadow-right z-10 transition-all duration-300 ease-out ${
+          isHistoryOpen ? 'w-72' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
+        }`}>
+          <div className="px-5 py-4 border-b border-slate-200/80 flex items-center bg-white">
             <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-md transition-colors flex-shrink-0"
+                title="Hide history panel"
+              >
+                <PanelLeftClose size={15} />
+              </button>
               <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0">
                 <History size={14} />
               </div>
@@ -1654,7 +1722,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
             {versions.length === 0 ? (
               <div className="text-center py-16 px-5 flex flex-col items-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mb-4 border border-slate-100">
+                <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
                   <Clock size={20} className="text-slate-300" />
                 </div>
                 <h3 className="text-slate-700 font-medium text-sm mb-1">No versions yet</h3>
@@ -1779,7 +1847,7 @@ export default function App() {
         <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Prompt/Chat Sidebar (Left) */}
-          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/80 z-10 flex-shrink-0">
+          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/80 panel-shadow-right z-20 flex-shrink-0">
             
             <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 pt-8 lg:pt-10 flex flex-col justify-start">
               <div className="max-w-2xl w-full mx-auto space-y-8 animate-fade-in">
@@ -1811,7 +1879,7 @@ export default function App() {
                         <button
                           key={idx}
                           onClick={() => setPrompt(suggestion)}
-                          className="text-left px-4 py-3 bg-white border border-slate-150 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group flex items-center justify-between"
+                          className="text-left px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50/40 transition-all group flex items-center justify-between hover:shadow-sm"
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-sm text-slate-600 group-hover:text-slate-900 leading-snug transition-colors">{suggestion}</span>
@@ -1840,8 +1908,8 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="p-4 border-t border-slate-100 bg-white">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-400 transition-all">
+            <div className="p-4 border-t border-slate-200/80 bg-white/95 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-400 transition-all">
                 <textarea
                   id="prompt"
                   name="prompt"
@@ -1921,7 +1989,7 @@ export default function App() {
           </div>
 
           {/* Preview/Device Area (Right) */}
-          <div className="flex-1 min-h-0 bg-slate-50 flex flex-col relative z-0">
+          <div className="flex-1 min-h-0 bg-slate-200/60 flex flex-col relative z-0 inset-shadow-preview">
             
             {/* View Toggles */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 bg-white">
@@ -1943,47 +2011,6 @@ export default function App() {
                   <TerminalSquare size={14} className="mr-1.5" /> Code
                 </button>
               </div>
-
-               <div className="flex items-center space-x-2">
-                 {versions.length > 1 && (
-                   <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-                    <button
-                      onClick={handleUndo}
-                      disabled={currentVersionIndex <= 0}
-                      className={`p-1.5 rounded-md transition-all ${
-                        currentVersionIndex <= 0 
-                          ? 'text-slate-300 cursor-not-allowed' 
-                          : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                      }`}
-                      title="Previous Version"
-                    >
-                      <Undo2 size={14} />
-                    </button>
-                    <button
-                      onClick={handleRedo}
-                      disabled={currentVersionIndex >= versions.length - 1}
-                      className={`p-1.5 rounded-md transition-all ${
-                        currentVersionIndex >= versions.length - 1 
-                          ? 'text-slate-300 cursor-not-allowed' 
-                          : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                      }`}
-                      title="Next Version"
-                    >
-                      <Redo2 size={14} />
-                    </button>
-                  </div>
-
-                )}
-                {generatedCode && (
-                   <button 
-                    onClick={handleDownload}
-                    className="text-slate-500 hover:text-slate-700 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
-                    title="Download HTML"
-                   >
-                     <Download size={16} />
-                   </button>
-                )}
-              </div>
             </div>
 
             {/* Container for Device or Code */}
@@ -1993,7 +2020,7 @@ export default function App() {
             >
               
               {/* Subtle workspace grid */}
-              <div className="absolute inset-0 opacity-40 pointer-events-none workspace-grid"></div>
+              <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>
 
               {activeTab === 'preview' ? (
                 /* Device Mockup */
@@ -2040,7 +2067,34 @@ export default function App() {
                    
                   {/* Screen */}
                   <div className={previewMode === 'mobile' ? 'device-screen device-screen-mobile' : 'device-screen'}>
-                    {isGenerating ? (
+                    <div className={previewMode === 'mobile' ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
+                      {generatedCode ? (
+                        <iframe
+                          ref={iframeRef}
+                          title="Generated App Preview"
+                          srcDoc={generatedCode}
+                          className="w-full h-full border-none"
+                          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
+                          <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center justify-center mb-4">
+                             {previewMode === 'mobile' ? (
+                               <Smartphone size={24} className="text-slate-300" />
+                             ) : (
+                               <Monitor size={24} className="text-slate-300" />
+                             )}
+                           </div>
+                          <h4 className="font-semibold text-slate-700 text-sm mb-1">
+                            {previewMode === 'mobile' ? 'Mobile Preview' : 'Desktop Preview'}
+                          </h4>
+                          <p className="text-xs text-slate-400 max-w-[14rem] leading-relaxed">
+                            Your app will appear here after building.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {isGenerating && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 p-6 text-center">
                         <div className="relative w-16 h-16 mb-6">
                           <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
@@ -2049,34 +2103,6 @@ export default function App() {
                         </div>
                         <h3 className="text-sm font-semibold text-slate-900 mb-1">Building...</h3>
                         <p className="text-xs text-slate-500 animate-pulse">Generating HTML, CSS & JavaScript</p>
-                      </div>
-                    ) : (
-                      <div className={previewMode === 'mobile' ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
-                        {generatedCode ? (
-                          <iframe
-                            ref={iframeRef}
-                            title="Generated App Preview"
-                            srcDoc={generatedCode}
-                            className="w-full h-full border-none"
-                            sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
-                            <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
-                               {previewMode === 'mobile' ? (
-                                 <Smartphone size={24} className="text-slate-300" />
-                               ) : (
-                                 <Monitor size={24} className="text-slate-300" />
-                               )}
-                             </div>
-                            <h4 className="font-semibold text-slate-700 text-sm mb-1">
-                              {previewMode === 'mobile' ? 'Mobile Preview' : 'Desktop Preview'}
-                            </h4>
-                            <p className="text-xs text-slate-400 max-w-[14rem] leading-relaxed">
-                              Your app will appear here after building.
-                            </p>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
