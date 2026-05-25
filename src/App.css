@@ -243,7 +243,7 @@ body {
 
 .version-item:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 14px -10px rgb(0 0 0 / 0.18);
+  box-shadow: 0 8px 16px -8px rgb(0 0 0 / 0.15), 0 4px 8px -4px rgb(0 0 0 / 0.08);
 }
 
 .version-item:active {
@@ -259,12 +259,12 @@ body {
   border-radius: 20px;
   padding: 28px;
   transition: all 0.25s ease;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .refine-card:hover {
   border-color: var(--accent-border);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Custom Scrollbar */
@@ -286,8 +286,27 @@ body {
 /* Subtle workspace grid */
 .workspace-grid {
   background-image:
-    radial-gradient(circle, #cbd5e1 0.5px, transparent 0.5px);
+    radial-gradient(circle, #94a3b8 0.8px, transparent 0.8px);
   background-size: 24px 24px;
+}
+
+/* Panel depth shadows for right-edge separation */
+.panel-shadow-right {
+  box-shadow: 3px 0 20px -5px rgba(15, 23, 42, 0.14), 5px 0 14px -8px rgba(15, 23, 42, 0.12);
+}
+
+.panel-shadow-left {
+  box-shadow: -3px 0 20px -5px rgba(15, 23, 42, 0.14), -5px 0 14px -8px rgba(15, 23, 42, 0.12);
+}
+
+/* Inset shadow for preview area depth — stronger recessed feel */
+.inset-shadow-preview {
+  box-shadow: inset 0 10px 24px -10px rgba(15, 23, 42, 0.10), inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+}
+
+/* Header depth — crisp separation from workspace */
+.header-shadow {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 18px -6px rgba(15, 23, 42, 0.12);
 }
 
 /* Code Editor Polish */
