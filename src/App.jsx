@@ -85,6 +85,12 @@ const PROVIDER_OPTIONS = [
     label: 'Orion AI',
     description: 'High-performance generation',
     icon: Code2
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    description: 'Universal model access',
+    icon: Sparkles
   }
 ];
 
@@ -224,16 +230,32 @@ const requestModelText = async ({
   retryCount = 0
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  const zaiKey = import.meta.env.VITE_ZAI_API_KEY;
-  const zaiModel = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
+  
+  let apiKey, model, baseUrl;
+  
+  if (provider === 'openrouter') {
+    apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    model = import.meta.env.VITE_OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+    baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  } else {
+    apiKey = import.meta.env.VITE_ZAI_API_KEY;
+    model = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
+    baseUrl = 'https://api.z.ai/api/coding/paas/v4/chat/completions';
+  }
 
   try {
     const headers = {
-      'Authorization': `Bearer ${zaiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     };
+    
+    if (provider === 'openrouter') {
+      headers['HTTP-Referer'] = window.location.origin;
+      headers['X-Title'] = 'Orion';
+    }
+
     const bodyObj = {
-      model: zaiModel,
+      model,
       stream: !!onChunk,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -244,7 +266,7 @@ const requestModelText = async ({
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
-    const response = await fetch('https://api.z.ai/api/coding/paas/v4/chat/completions', {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(bodyObj)
@@ -518,6 +540,236 @@ export default function App() {
     return () => window.removeEventListener('resize', calculateZoom);
   }, [isAutoZoom, activeTab, previewMode]);
 
+  // --- Mobile Touch Scroll Simulation ---
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || previewMode !== 'mobile' || !generatedCode) return;
+
+    let cleanupFn = null;
+
+    const setupTouchSimulation = () => {
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+      if (!doc || !win) return;
+
+      let isDragging = false;
+      let hasMoved = false;
+      let startX = 0;
+      let startY = 0;
+      let lastX = 0;
+      let lastY = 0;
+      let velocityX = 0;
+      let velocityY = 0;
+      let momentumId = null;
+      let suppressClick = false;
+
+      const scrollbarStyle = doc.createElement('style');
+      scrollbarStyle.textContent = `
+        * {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        *::-webkit-scrollbar {
+          display: none !important;
+        }
+      `;
+      doc.head.appendChild(scrollbarStyle);
+
+      const findMainScrollElement = () => {
+        const candidates = [
+          doc.scrollingElement,
+          doc.documentElement,
+          doc.body,
+        ];
+        for (const el of candidates) {
+          if (el && el.scrollHeight > el.clientHeight + 1) return el;
+        }
+        for (const child of doc.body.children) {
+          const style = win.getComputedStyle(child);
+          const overflow = (style.overflowY || '') + (style.overflow || '');
+          if (/(auto|scroll)/.test(overflow) && child.scrollHeight > child.clientHeight + 1) {
+            return child;
+          }
+        }
+        return doc.scrollingElement || doc.documentElement || doc.body;
+      };
+
+      const mainScrollEl = findMainScrollElement();
+
+      const isFormControl = (el) => {
+        const tag = el.tagName.toLowerCase();
+        if (['input', 'textarea', 'select'].includes(tag)) return true;
+        if (el.isContentEditable) return true;
+        return false;
+      };
+
+      const touchStyle = doc.createElement('style');
+      touchStyle.textContent = `
+        html, body {
+          touch-action: none !important;
+          overscroll-behavior: none !important;
+        }
+      `;
+      doc.head.appendChild(touchStyle);
+
+      let pointerCaptureTarget = null;
+
+      const onPointerDown = (e) => {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        if (isFormControl(e.target)) return;
+
+        isDragging = true;
+        hasMoved = false;
+        suppressClick = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        velocityX = 0;
+        velocityY = 0;
+
+        try {
+          e.target.setPointerCapture(e.pointerId);
+          pointerCaptureTarget = e.target;
+        } catch (err) { void err; }
+
+        doc.body.style.userSelect = 'none';
+        doc.body.style.webkitUserSelect = 'none';
+        doc.body.style.MozUserSelect = 'none';
+
+        if (momentumId) {
+          cancelAnimationFrame(momentumId);
+          momentumId = null;
+        }
+
+        e.preventDefault();
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        if (!hasMoved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+          hasMoved = true;
+          suppressClick = true;
+          if (e.pointerType === 'mouse') {
+            doc.documentElement.style.cursor = 'grabbing';
+          }
+        }
+
+        if (!hasMoved) return;
+
+        const moveX = e.clientX - lastX;
+        const moveY = e.clientY - lastY;
+
+        velocityX = velocityX * 0.6 + moveX * 0.4;
+        velocityY = velocityY * 0.6 + moveY * 0.4;
+
+        mainScrollEl.scrollTop -= moveY;
+        mainScrollEl.scrollLeft -= moveX;
+
+        lastX = e.clientX;
+        lastY = e.clientY;
+
+        e.preventDefault();
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        try {
+          if (pointerCaptureTarget) {
+            pointerCaptureTarget.releasePointerCapture(e.pointerId);
+            pointerCaptureTarget = null;
+          }
+        } catch (err) { void err; }
+
+        doc.documentElement.style.cursor = '';
+        doc.body.style.userSelect = '';
+        doc.body.style.webkitUserSelect = '';
+        doc.body.style.MozUserSelect = '';
+
+        if (!hasMoved) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const applyMomentum = () => {
+          if (Math.abs(velocityX) < 0.3 && Math.abs(velocityY) < 0.3) {
+            momentumId = null;
+            return;
+          }
+
+          velocityX *= 0.975;
+          velocityY *= 0.975;
+
+          mainScrollEl.scrollTop -= velocityY;
+          mainScrollEl.scrollLeft -= velocityX;
+
+          momentumId = requestAnimationFrame(applyMomentum);
+        };
+
+        momentumId = requestAnimationFrame(applyMomentum);
+      };
+
+      const onClick = (e) => {
+        if (suppressClick) {
+          e.preventDefault();
+          e.stopPropagation();
+          suppressClick = false;
+        }
+      };
+
+      const listenerOptions = { capture: true, passive: false };
+
+      doc.addEventListener('pointerdown', onPointerDown, listenerOptions);
+      doc.addEventListener('pointermove', onPointerMove, listenerOptions);
+      doc.addEventListener('pointerup', onPointerUp, listenerOptions);
+      doc.addEventListener('pointercancel', onPointerUp, listenerOptions);
+      doc.addEventListener('click', onClick, true);
+
+      doc.documentElement.style.cursor = 'grab';
+
+      cleanupFn = () => {
+        doc.removeEventListener('pointerdown', onPointerDown, listenerOptions);
+        doc.removeEventListener('pointermove', onPointerMove, listenerOptions);
+        doc.removeEventListener('pointerup', onPointerUp, listenerOptions);
+        doc.removeEventListener('pointercancel', onPointerUp, listenerOptions);
+        doc.removeEventListener('click', onClick, true);
+        if (momentumId) cancelAnimationFrame(momentumId);
+        if (scrollbarStyle.parentNode) scrollbarStyle.parentNode.removeChild(scrollbarStyle);
+        if (touchStyle.parentNode) touchStyle.parentNode.removeChild(touchStyle);
+        try {
+          doc.documentElement.style.cursor = '';
+          doc.body.style.userSelect = '';
+          doc.body.style.webkitUserSelect = '';
+          doc.body.style.MozUserSelect = '';
+        } catch (err) { void err; }
+      };
+    };
+
+    const onLoad = () => {
+      if (cleanupFn) cleanupFn();
+      cleanupFn = null;
+      setupTouchSimulation();
+    };
+
+    iframe.addEventListener('load', onLoad);
+    try {
+      if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+        setupTouchSimulation();
+      }
+    } catch (err) { void err; }
+
+    return () => {
+      iframe.removeEventListener('load', onLoad);
+      if (cleanupFn) cleanupFn();
+    };
+  }, [generatedCode, previewMode]);
+
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);
     setZoomLevel(prev => {
@@ -635,7 +887,8 @@ export default function App() {
     };
     
     fetchAndResume();
-  }, [currentProjectId, loadUserProjects, loadProjectById]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadUserProjects, loadProjectById]);
 
   const loadProject = (project) => {
     clearStreamingState();
@@ -746,19 +999,20 @@ export default function App() {
     const trimmedName = tempProjectName.trim();
     if (!trimmedName) return;
 
-    if (!shouldGenerateAfterNaming) {
+    // If we are confirming a name for a new project triggered by a prompt,
+    // or if we explicitly clicked "New App", clear the workspace.
+    if (!shouldGenerateAfterNaming || (!currentProjectId && projectName === 'Untitled App')) {
       setGeneratedCode('');
-      setPrompt('');
+      setPrompt(shouldGenerateAfterNaming ? prompt : ''); // Keep prompt if we're about to generate
       setInitialLayoutTarget('both');
       setError(null);
       setVersions([]);
       setCurrentVersionIndex(-1);
-      setCurrentProjectId(null);
-      localStorage.removeItem('orion-current-project-id');
     }
 
     setProjectName(trimmedName);
     setTempProjectName('');
+    setCurrentProjectId(null);
     localStorage.removeItem('orion-current-project-id');
     setIsNamingModalOpen(false);
   };
@@ -966,11 +1220,70 @@ export default function App() {
             <Settings size={18} />
           </button>
 
-
-
           <span className="hidden sm:inline px-2.5 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-500 border border-slate-200/80">
             {PROVIDER_OPTION_MAP[apiProvider]?.label || PROVIDER_OPTION_MAP[DEFAULT_PROVIDER].label}
-            </span>
+          </span>
+
+          <div className="hidden sm:flex items-center space-x-2 ml-2 pl-2 border-l border-slate-200">
+            {activeTab === 'preview' && (
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setPreviewMode('mobile')}
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Preview as mobile"
+                >
+                  <Smartphone size={14} className="mr-1.5" /> Mobile
+                </button>
+                <button
+                  onClick={() => setPreviewMode('desktop')}
+                  className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Preview as desktop"
+                >
+                  <Monitor size={14} className="mr-1.5" /> Desktop
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => handleManualZoom(-0.1)}
+                disabled={zoomLevel <= 0.2}
+                className={`p-1.5 rounded-md transition-all ${
+                  zoomLevel <= 0.2 
+                    ? 'text-slate-300 cursor-not-allowed' 
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                }`}
+                title="Zoom Out"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <button
+                onClick={resetZoom}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                  isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
+              >
+                {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
+              </button>
+              <button
+                onClick={() => handleManualZoom(0.1)}
+                disabled={zoomLevel >= 3}
+                className={`p-1.5 rounded-md transition-all ${
+                  zoomLevel >= 3 
+                    ? 'text-slate-300 cursor-not-allowed' 
+                    : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                }`}
+                title="Zoom In"
+              >
+                <ZoomIn size={14} />
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1632,28 +1945,6 @@ export default function App() {
               </div>
 
                <div className="flex items-center space-x-2">
-                 {activeTab === 'preview' && (
-                   <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-                     <button
-                       onClick={() => setPreviewMode('mobile')}
-                       className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                         previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                       }`}
-                       title="Preview as mobile"
-                     >
-                       <Smartphone size={14} className="mr-1.5" /> Mobile
-                     </button>
-                     <button
-                       onClick={() => setPreviewMode('desktop')}
-                       className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                         previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                       }`}
-                       title="Preview as desktop"
-                     >
-                       <Monitor size={14} className="mr-1.5" /> Desktop
-                     </button>
-                   </div>
-                 )}
                  {versions.length > 1 && (
                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
                     <button
@@ -1692,43 +1983,6 @@ export default function App() {
                      <Download size={16} />
                    </button>
                 )}
-
-                {/* Zoom Controls */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg ml-1">
-                  <button
-                    onClick={() => handleManualZoom(-0.1)}
-                    disabled={zoomLevel <= 0.2}
-                    className={`p-1.5 rounded-md transition-all ${
-                      zoomLevel <= 0.2 
-                        ? 'text-slate-300 cursor-not-allowed' 
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                    }`}
-                    title="Zoom Out"
-                  >
-                    <ZoomOut size={14} />
-                  </button>
-                  <button
-                    onClick={resetZoom}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                      isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                    title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
-                  >
-                    {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
-                  </button>
-                  <button
-                    onClick={() => handleManualZoom(0.1)}
-                    disabled={zoomLevel >= 3}
-                    className={`p-1.5 rounded-md transition-all ${
-                      zoomLevel >= 3 
-                        ? 'text-slate-300 cursor-not-allowed' 
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                    }`}
-                    title="Zoom In"
-                  >
-                    <ZoomIn size={14} />
-                  </button>
-                </div>
               </div>
             </div>
 
