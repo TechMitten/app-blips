@@ -39,7 +39,7 @@ const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
     name: 'apply_surgical_edits',
-    description: 'Applies precise search-and-replace edits to the current code.',
+    description: 'Applies precise search-and-replace edits to the current code. Each search block MUST include enough unique surrounding context (5+ lines) to guarantee a single unambiguous match. Use landmark comments (<!-- @section: name -->) as anchors. Prefer fewer, larger edits over many tiny ones.',
     parameters: {
       type: 'object',
       properties: {
@@ -48,15 +48,18 @@ const SURGICAL_EDIT_TOOL = {
           items: {
             type: 'object',
             properties: {
-              search: { type: 'string', description: 'The exact code snippet to find.' },
-              replace: { type: 'string', description: 'The new code to replace it with.' }
+              search: { type: 'string', description: 'Exact code to find. Include 5+ lines of unique surrounding context — not just the changed lines.' },
+              replace: { type: 'string', description: 'Replacement code. Preserve surrounding context and indentation.' }
             },
-            required: ['search', 'replace']
+            required: ['search', 'replace'],
+            additionalProperties: false
           }
         }
       },
-      required: ['edits']
-    }
+      required: ['edits'],
+      additionalProperties: false
+    },
+    strict: true
   }
 };
 
@@ -70,11 +73,15 @@ CRITICAL RULES:
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. For any mobile or responsive app, account for phone safe areas (viewport-fit=cover and safe-area-inset padding).
+7. For mobile-focused apps, always include viewport-fit=cover meta tag and safe-area-inset padding.
 
-STABILITY TIPS:
-- When using tools, include enough context in SEARCH blocks to ensure a unique match.
-- For complex apps, use "Landmark Comments" (e.g., <!-- @section: logic -->) as anchors for reliable surgical edits.
+SURGICAL EDIT GUIDELINES:
+- Analyze the full code structure before deciding where and how to edit.
+- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
+- Use <!-- @section: name --> landmark comments as structural anchors for precise targeting.
+- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- Verify mentally that each search string appears exactly once in the code before submitting.
+- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
 
 Do not include any explanations, markdown markers, or text outside of these formats.`;
 
@@ -228,11 +235,12 @@ const requestModelText = async ({
   temperature = 0.7,
   tools = null,
   tool_choice = null,
-  retryCount = 0
+  retryCount = 0,
+  signal = null
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
   
-  let apiKey, model, baseUrl;
+  let apiKey, model, baseUrl, customEnv;
   
   if (provider === 'openrouter') {
     apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
@@ -242,6 +250,14 @@ const requestModelText = async ({
     apiKey = import.meta.env.VITE_CUSTOM_API_KEY;
     model = import.meta.env.VITE_CUSTOM_MODEL || 'gpt-4o';
     baseUrl = import.meta.env.VITE_CUSTOM_BASE_URL || 'https://api.openai.com/v1/chat/completions';
+    customEnv = {
+      temperature: parseFloat(import.meta.env.VITE_CUSTOM_TEMPERATURE),
+      top_p: parseFloat(import.meta.env.VITE_CUSTOM_TOP_P),
+      max_tokens: parseInt(import.meta.env.VITE_CUSTOM_MAX_TOKENS),
+      thinking_enabled: import.meta.env.VITE_CUSTOM_THINKING_ENABLED !== 'false',
+      reasoning_effort: import.meta.env.VITE_CUSTOM_REASONING_EFFORT || undefined,
+      stop: import.meta.env.VITE_CUSTOM_STOP ? import.meta.env.VITE_CUSTOM_STOP.split(',').map(s => s.trim()) : undefined
+    };
   } else {
     apiKey = import.meta.env.VITE_ZAI_API_KEY;
     model = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
@@ -265,16 +281,28 @@ const requestModelText = async ({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userText }
-      ],
-      temperature
+      ]
     };
+
+    if (provider === 'custom' && customEnv) {
+      if (!isNaN(customEnv.temperature)) bodyObj.temperature = customEnv.temperature;
+      if (!isNaN(customEnv.top_p)) bodyObj.top_p = customEnv.top_p;
+      if (!isNaN(customEnv.max_tokens)) bodyObj.max_tokens = customEnv.max_tokens;
+      if (customEnv.stop) bodyObj.stop = customEnv.stop;
+      if (customEnv.reasoning_effort) {
+        bodyObj.reasoning_effort = customEnv.reasoning_effort;
+      }
+    }
+
+    bodyObj.temperature = temperature;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
     const response = await fetch(baseUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify(bodyObj)
+      body: JSON.stringify(bodyObj),
+      signal
     });
 
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -285,14 +313,25 @@ const requestModelText = async ({
     }
 
     // Streaming implementation
+    const STREAM_READ_TIMEOUT_MS = 60000;
+
     let text = '';
     let toolCallsBuffer = [];
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const readWithTimeout = async () => {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      const readPromise = reader.read();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Stream stalled: no data received for ' + (STREAM_READ_TIMEOUT_MS / 1000) + 's')), STREAM_READ_TIMEOUT_MS)
+      );
+      return await Promise.race([readPromise, timeoutPromise]);
+    };
+
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readWithTimeout();
       if (done) break;
       
       buffer += decoder.decode(value, { stream: true });
@@ -313,6 +352,10 @@ const requestModelText = async ({
               onChunk(delta.content);
             }
 
+            if (delta?.reasoning_content) {
+              // Thinking tokens are internal reasoning, not UI content
+            }
+
             if (delta?.tool_calls) {
               for (const tc of delta.tool_calls) {
                 const idx = tc.index || 0;
@@ -327,10 +370,11 @@ const requestModelText = async ({
 
     return { content: text, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
-    if (retryCount < delays.length) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (retryCount < delays.length && err.name !== 'AbortError') {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        provider, systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1
+        provider, systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1, signal
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -342,11 +386,12 @@ const generateAppCode = async (
   currentCode = null,
   provider = 'zai',
   onChunk = null,
-  layoutTarget = 'both'
+  layoutTarget = 'both',
+  signal = null
 ) => {
   if (!currentCode) {
     const userText = buildInitialGenerationPrompt(prompt, layoutTarget);
-    const message = await requestModelText({ provider, systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7 });
+    const message = await requestModelText({ provider, systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7, signal });
     return {
       code: sanitizeHtmlResponse(message.content || message),
       editMode: 'full-generation',
@@ -357,9 +402,10 @@ const generateAppCode = async (
   // REFINEMENT MODE: Self-healing surgical loop
   let lastError = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     try {
-      const userMessage = lastError 
-        ? `Surgical edit failed: ${lastError}. Please try again with a more precise SEARCH block that exists EXACTLY in the current code.`
+      const userMessage = lastError
+        ? `Edit attempt ${attempt - 1} failed: ${lastError}\n\nCurrent Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nCorrective action: The SEARCH block was not found in the code. Re-examine the code structure, pick a different anchor point (landmark comment or unique class/id), and include 5+ lines of surrounding context to ensure the search string appears exactly once.`
         : `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app.`;
 
       const message = await requestModelText({
@@ -369,7 +415,8 @@ const generateAppCode = async (
         onChunk,
         temperature: 0.1,
         tools: [SURGICAL_EDIT_TOOL],
-        tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } }
+        tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
+        signal
       });
 
       const toolCall = message.tool_calls?.[0];
@@ -506,6 +553,7 @@ export default function App() {
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
+  const abortControllerRef = useRef(null);
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   const activePreviewPreset = PREVIEW_MODES[previewMode];
   const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
@@ -962,6 +1010,7 @@ export default function App() {
     setIsGenerating(true);
     clearStreamingState();
     setError(null);
+    abortControllerRef.current = new AbortController();
     
     const currentPrompt = prompt;
     setPrompt(''); // Clear input so user can easily type their next refinement
@@ -972,7 +1021,7 @@ export default function App() {
         setStreamingCode(streamingBufferRef.current.trim());
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
-      }, initialLayoutTarget);
+      }, initialLayoutTarget, abortControllerRef.current.signal);
       setGeneratedCode(generationResult.code);
       
       const newVersion = {
@@ -997,6 +1046,7 @@ export default function App() {
       });
       
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError(err.message);
       setPrompt(currentPrompt); // Restore prompt text on error
     } finally {
@@ -1131,6 +1181,11 @@ export default function App() {
   };
 
   const resetCurrentWorkspace = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
     clearStreamingState();
     setGeneratedCode('');
     setPrompt('');
@@ -2093,7 +2148,22 @@ export default function App() {
                   </div>
                 )}
                 <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3 flex justify-between items-center">
-                  <div className="flex space-x-2" />
+                  <div className="flex space-x-2">
+                    {isGenerating && (
+                      <button
+                        onClick={() => {
+                          if (abortControllerRef.current) {
+                            abortControllerRef.current.abort();
+                            abortControllerRef.current = null;
+                          }
+                        }}
+                        className="btn-premium py-2 px-4 text-[13px] bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors rounded-xl font-semibold flex items-center gap-1.5"
+                      >
+                        <X size={15} />
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating}
