@@ -28,10 +28,13 @@ import {
   ZoomOut,
   Monitor,
   PanelLeftOpen,
-  PanelLeftClose
+  PanelLeftClose,
+  TriangleAlert,
+  LogOut
 } from 'lucide-react';
+import { supabase } from './lib/supabase';
+import { useAuth } from './components/AuthContext';
 // --- Constants ---
-const LOCAL_STORAGE_PROJECTS_KEY = 'orion-local-projects';
 const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
@@ -93,6 +96,12 @@ const PROVIDER_OPTIONS = [
     label: 'OpenRouter',
     description: 'Universal model access',
     icon: Sparkles
+  },
+  {
+    id: 'custom',
+    label: 'Custom',
+    description: 'OpenAI-compatible endpoint',
+    icon: TerminalSquare
   }
 ];
 
@@ -115,16 +124,6 @@ const INITIAL_LAYOUT_OPTIONS = [
     icon: Layout
   }
 ];
-
-// --- Local Persistence Helpers ---
-const getLocalProjects = () => {
-  const data = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
-  return data ? JSON.parse(data) : {};
-};
-
-const setLocalProjects = (projects) => {
-  localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(projects));
-};
 
 const sanitizeHtmlResponse = (text) => {
   const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
@@ -239,6 +238,10 @@ const requestModelText = async ({
     apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
     model = import.meta.env.VITE_OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
     baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  } else if (provider === 'custom') {
+    apiKey = import.meta.env.VITE_CUSTOM_API_KEY;
+    model = import.meta.env.VITE_CUSTOM_MODEL || 'gpt-4o';
+    baseUrl = import.meta.env.VITE_CUSTOM_BASE_URL || 'https://api.openai.com/v1/chat/completions';
   } else {
     apiKey = import.meta.env.VITE_ZAI_API_KEY;
     model = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
@@ -487,6 +490,7 @@ export default function App() {
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
   const marqueeSegment = buildMarqueeLoop(streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -496,6 +500,7 @@ export default function App() {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : true;
   });
+  const { user, signOut } = useAuth();
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
@@ -526,8 +531,8 @@ export default function App() {
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
       const containerRect = container.getBoundingClientRect();
-      const verticalPadding = previewMode === 'mobile' ? 96 : 64;
-      const horizontalPadding = 64;
+      const verticalPadding = previewMode === 'mobile' ? 16 : 32;
+      const horizontalPadding = 32;
       const visibleHeight = Math.min(container.clientHeight, Math.max(0, viewportHeight - containerRect.top - 24));
       const visibleWidth = Math.min(container.clientWidth, Math.max(0, viewportWidth - containerRect.left - 24));
       const availableHeight = Math.max(0, visibleHeight - verticalPadding);
@@ -793,46 +798,61 @@ export default function App() {
   };
 
   // --- Data Persistence Helpers ---
-  const loadUserProjects = useCallback(() => {
+  const loadUserProjects = useCallback(async () => {
     try {
-      const allProjects = getLocalProjects();
-      const projects = Object.keys(allProjects)
-        .map(id => ({ id, ...allProjects[id] }))
-        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
-      
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      const projects = data.map(row => ({
+        id: row.id,
+        name: row.name,
+        ...row.data,
+        lastModified: row.updated_at
+      }));
+
       setMyProjects(projects);
       return projects;
     } catch (err) {
       console.error("Error loading projects:", err);
       return [];
     }
-  }, []);
+  }, [user]);
 
-  const loadProjectById = useCallback((projectId) => {
+  const loadProjectById = useCallback(async (projectId) => {
     try {
-      const allProjects = getLocalProjects();
-      const project = allProjects[projectId];
-      
-      if (project) {
-        clearStreamingState();
-        setProjectName(project.name || 'Untitled App');
-        setVersions(project.versions || []);
-        setCurrentVersionIndex(project.currentVersionIndex ?? -1);
-        if (project.versions && project.versions[project.currentVersionIndex]) {
-          setGeneratedCode(project.versions[project.currentVersionIndex].code);
-        }
-        setCurrentProjectId(projectId);
-        localStorage.setItem('orion-current-project-id', projectId);
-      } else {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (error || !data) {
         localStorage.removeItem('orion-current-project-id');
+        return;
       }
+
+      clearStreamingState();
+      setProjectName(data.name || 'Untitled App');
+      const projectData = data.data || {};
+      setVersions(projectData.versions || []);
+      setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
+      if (projectData.versions && projectData.versions[projectData.currentVersionIndex]) {
+        setGeneratedCode(projectData.versions[projectData.currentVersionIndex].code);
+      }
+      setCurrentProjectId(projectId);
+      localStorage.setItem('orion-current-project-id', projectId);
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
   }, []);
 
-  const saveProject = useCallback((params = {}) => {
-    // Allow overriding state values for immediate updates
+  const saveProject = useCallback(async (params = {}) => {
     const {
       versionsToSave = versions,
       indexToSave = currentVersionIndex,
@@ -841,21 +861,25 @@ export default function App() {
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
-    
+
     const projectId = idToSave || currentProjectId || Date.now().toString();
 
     try {
       const projectData = {
-        name: nameToSave,
         versions: versionsToSave,
         currentVersionIndex: indexToSave,
-        lastModified: new Date().toISOString()
       };
 
-      const allProjects = getLocalProjects();
-      allProjects[projectId] = projectData;
-      setLocalProjects(allProjects);
-      
+      await supabase
+        .from('projects')
+        .upsert({
+          id: projectId,
+          user_id: user.id,
+          name: nameToSave,
+          data: projectData,
+          updated_at: new Date().toISOString()
+        });
+
       if (!currentProjectId || currentProjectId !== projectId) {
         setCurrentProjectId(projectId);
         localStorage.setItem('orion-current-project-id', projectId);
@@ -864,7 +888,7 @@ export default function App() {
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, loadUserProjects]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, user, loadUserProjects]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -883,22 +907,20 @@ export default function App() {
 
   // --- Data Persistence ---
   useEffect(() => {
-    const fetchAndResume = () => {
-      const projects = loadUserProjects();
+    const fetchAndResume = async () => {
+      const projects = await loadUserProjects();
       const lastProjectId = localStorage.getItem('orion-current-project-id');
-      
-      // Resume: If no project is open, load from localStorage OR the most recent project
+
       if (!currentProjectId) {
         const idToLoad = lastProjectId || (projects.length > 0 ? projects[0].id : null);
         if (idToLoad) {
-          loadProjectById(idToLoad);
+          await loadProjectById(idToLoad);
         }
       }
     };
-    
+
     fetchAndResume();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadUserProjects, loadProjectById]);
+  }, [loadUserProjects, loadProjectById, currentProjectId]);
 
   const loadProject = (project) => {
     clearStreamingState();
@@ -999,9 +1021,16 @@ export default function App() {
   };
 
   const handleNewApp = () => {
-    setShouldGenerateAfterNaming(false);
-    setTempProjectName('');
-    setIsNamingModalOpen(true);
+    if (generatedCode || versions.length > 0 || isGenerating) {
+      setIsNewChatConfirmOpen(true);
+    } else {
+      resetCurrentWorkspace();
+    }
+  };
+
+  const handleConfirmNewChat = () => {
+    resetCurrentWorkspace();
+    setIsNewChatConfirmOpen(false);
   };
 
   const handleConfirmNaming = (e) => {
@@ -1129,7 +1158,7 @@ export default function App() {
     setRenamingProjectId(null);
   };
 
-  const handleProjectRename = (project) => {
+  const handleProjectRename = async (project) => {
     const trimmedName = editingProjectName.trim();
     if (!trimmedName) return;
 
@@ -1140,12 +1169,10 @@ export default function App() {
 
     setRenamingProjectId(project.id);
     try {
-      const allProjects = getLocalProjects();
-      if (allProjects[project.id]) {
-        allProjects[project.id].name = trimmedName;
-        allProjects[project.id].lastModified = new Date().toISOString();
-        setLocalProjects(allProjects);
-      }
+      await supabase
+        .from('projects')
+        .update({ name: trimmedName, updated_at: new Date().toISOString() })
+        .eq('id', project.id);
 
       setMyProjects(prev => prev.map((p) => (
         p.id === project.id
@@ -1165,15 +1192,16 @@ export default function App() {
     }
   };
 
-  const handleDeleteProject = () => {
+  const handleDeleteProject = async () => {
     if (!projectToDelete) return;
 
     const projectId = projectToDelete.id;
     setDeletingProjectId(projectId);
     try {
-      const allProjects = getLocalProjects();
-      delete allProjects[projectId];
-      setLocalProjects(allProjects);
+      await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
 
       setMyProjects(prev => prev.filter((project) => project.id !== projectId));
 
@@ -1221,20 +1249,36 @@ export default function App() {
             <FolderOpen size={16} />
             <span className="hidden sm:inline">Apps</span>
           </button>
-          
+
           <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-50"
-            title="Settings"
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            title={isHistoryOpen ? "Hide history panel" : "Show history panel"}
           >
-            <Settings size={18} />
+            {isHistoryOpen ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            <span className="hidden sm:inline">History</span>
           </button>
 
-          <span className="hidden sm:inline px-2.5 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-500 border border-slate-200/80">
-            {PROVIDER_OPTION_MAP[apiProvider]?.label || PROVIDER_OPTION_MAP[DEFAULT_PROVIDER].label}
-          </span>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            title="Settings"
+          >
+            <Settings size={16} />
+            <span className="hidden sm:inline">Settings</span>
+           </button>
 
-          <div className="hidden sm:flex items-center space-x-2 ml-2 pl-2 border-l border-slate-200">
+           <button
+             onClick={signOut}
+             className="flex items-center gap-1.5 text-slate-400 hover:text-red-500 font-medium px-3 py-2 rounded-lg hover:bg-red-50/60 transition-colors text-sm"
+             title="Sign out"
+           >
+             <LogOut size={16} />
+             <span className="hidden sm:inline">{user?.email?.split('@')[0]}</span>
+           </button>
+
+
+           <div className="hidden sm:flex items-center space-x-2 ml-2 pl-2 border-l border-slate-200">
             {activeTab === 'preview' && (
               <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
                 <button
@@ -1619,6 +1663,49 @@ export default function App() {
         </div>
       )}
 
+      {isNewChatConfirmOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Start a new app?</h2>
+                <p className="text-sm text-slate-400 mt-0.5">This will clear your current workspace.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewChatConfirmOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+                <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                <span>
+                  You have unsaved changes. Starting a new app will discard your current work including any generated code and version history.
+                </span>
+              </div>
+            </div>
+            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsNewChatConfirmOpen(false)}
+                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmNewChat}
+                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              >
+                Start New
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isNamingModalOpen && (
         <div className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1690,155 +1777,191 @@ export default function App() {
         {!isHistoryOpen && (
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="hidden md:flex items-center justify-center w-7 bg-white border border-slate-200/80 rounded-r-lg shadow-sm hover:bg-slate-50 transition-colors z-20 flex-shrink-0 -ml-px group"
+            className="hidden md:flex items-center justify-center w-7 bg-white border border-slate-200 rounded-r-lg shadow-premium-sm hover:bg-slate-50 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
             title="Show history panel"
           >
-            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
           </button>
         )}
-        {/* Sidebar */}
-        <aside className={`hidden md:flex flex-col bg-white border-r border-slate-200/80 panel-shadow-right z-10 transition-all duration-300 ease-out ${
-          isHistoryOpen ? 'w-72' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
+        {/* History Sidebar */}
+        <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 ${
+          isHistoryOpen ? 'w-80' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
         }`}>
-          <div className="px-5 py-4 border-b border-slate-200/80 flex items-center bg-white">
+          {/* Header */}
+          <div className="shrink-0 px-5 py-4 flex items-center justify-between history-header-bg border-b border-slate-200/60">
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsHistoryOpen(false)}
-                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-md transition-colors flex-shrink-0"
+                className="text-slate-400 hover:text-slate-600 hover:bg-white p-1.5 rounded-lg transition-all duration-200 flex-shrink-0"
                 title="Hide history panel"
               >
                 <PanelLeftClose size={15} />
               </button>
-              <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0">
-                <History size={14} />
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-500 flex-shrink-0 border border-indigo-100">
+                <History size={13} />
               </div>
-              <h2 className="text-sm font-semibold text-slate-900 whitespace-nowrap">
+              <h2 className="text-sm font-semibold text-slate-800 whitespace-nowrap tracking-tight">
                 History
               </h2>
             </div>
-
+            {versions.length > 0 && (
+              <span className="text-[11px] font-semibold text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
+                {versions.length} version{versions.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-1 custom-scrollbar">
+          {/* Version List */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0 chat-scrollbar relative z-[1]">
             {versions.length === 0 ? (
-              <div className="text-center py-16 px-5 flex flex-col items-center">
-                <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mb-4 border border-slate-200 shadow-sm">
-                  <Clock size={20} className="text-slate-300" />
+              <div className="flex flex-col items-center justify-center py-20 px-4">
+                <div className="relative mb-6">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-slate-200 shadow-premium-sm">
+                    <Clock size={28} className="text-slate-300" />
+                  </div>
+                  <div className="absolute inset-0 rounded-2xl animate-pulse" style={{ boxShadow: '0 0 0 4px rgba(148, 163, 184, 0.08)' }} />
                 </div>
-                <h3 className="text-slate-700 font-medium text-sm mb-1">No versions yet</h3>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-[13rem]">Each generation creates a version snapshot you can revisit.</p>
+                <h3 className="text-slate-700 font-semibold text-sm mb-1.5">No versions yet</h3>
+                <p className="text-slate-400 text-xs leading-relaxed text-center max-w-[14rem]">
+                  Each generation creates a version snapshot you can revisit anytime.
+                </p>
               </div>
             ) : (
-
-              [...versions].reverse().map((ver, reversedIdx) => {
+              <div className="relative pl-6">
+                {/* Timeline line */}
+                <div className="absolute left-[14px] top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-slate-200 to-transparent" />
+                {[...versions].reverse().map((ver, reversedIdx) => {
                 const idx = versions.length - 1 - reversedIdx;
                 const isActive = currentVersionIndex === idx;
+                const isExpanded = expandedVersionIndex === idx;
                 return (
-                  <div key={ver.id} className="relative">
-                    <button
-                      onClick={() => toggleExpandVersion(idx)}
-                    className={`w-full text-left px-3 py-2 rounded-lg border transition-all group version-item ${
-                      isActive 
-                        ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' 
-                        : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 w-full min-w-0">
-                      <div className={`h-6 min-w-[2.5rem] px-2 rounded-md flex items-center justify-center text-[11px] font-bold tracking-wide transition-colors ${
-                        isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-                      }`}>
-                        v{idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`block text-sm leading-5 transition-colors truncate ${
-                            isActive ? 'text-slate-900 font-bold' : 'text-slate-600 group-hover:text-slate-800'
-                          }`}>
-                            {ver.prompt}
-                          </span>
-                          {idx === 0 && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-tighter flex-shrink-0">Initial</span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[10px] min-w-0 font-medium">
-                          <span className={isActive ? 'text-indigo-500' : 'text-slate-400'}>
-                            {ver.timestamp}
-                          </span>
-                          {isActive && (
-                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
-                              <div className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"></div>
-                              Active
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight
-                        size={14}
-                        className={`flex-shrink-0 transition-colors ${
-                          isActive ? 'text-indigo-500' : 'text-slate-300 group-hover:text-slate-500'
-                        }`}
-                      />
-                    </div>
-                    </button>
+                  <div key={ver.id} className="relative mb-0.5 animate-fade-in" style={{ animationDelay: `${reversedIdx * 40}ms` }}>
+                    {/* Timeline dot */}
+                    <div className={`absolute left-[-18px] top-[14px] w-[9px] h-[9px] rounded-full border-2 z-[2] transition-all duration-300 ${
+                      isActive
+                        ? 'border-indigo-500 bg-indigo-100 shadow-[0_0_0_4px_rgba(99,102,241,0.12)]'
+                        : 'border-slate-300 bg-white'
+                    }`} />
 
-                    {expandedVersionIndex === idx && (
-                      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm animate-fade-in">
-                        <div className="space-y-4">
-                          {/* Prompt Section */}
-                          <div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Prompt</div>
-                            <div className="text-sm text-slate-800 font-medium leading-relaxed bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
-                              {ver.prompt}
+                    {/* Version card */}
+                    <div
+                      onClick={() => toggleExpandVersion(idx)}
+                      className={`relative cursor-pointer rounded-xl border transition-all duration-200 overflow-hidden ${
+                        isActive
+                          ? 'bg-white border-indigo-200/60 active-version-glow'
+                          : 'bg-white/80 border-transparent hover:border-slate-200 hover:bg-white hover:shadow-premium-sm'
+                      }`}
+                    >
+                      <div className="px-3.5 py-2.5">
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          {/* Version badge */}
+                          <div className={`shrink-0 h-[22px] min-w-[38px] px-2 rounded-md flex items-center justify-center text-[10px] font-bold tracking-wide transition-all duration-200 ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                              : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                          }`}>
+                            v{idx + 1}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <div className="flex items-start gap-1.5 min-w-0">
+                              <span className={`block text-[13px] leading-[1.35] transition-colors truncate ${
+                                isActive ? 'text-slate-900 font-semibold' : 'text-slate-600'
+                              }`}>
+                                {ver.prompt}
+                              </span>
+                              {idx === 0 && (
+                                <span className="shrink-0 text-[8px] font-bold px-1.5 py-[2px] rounded-full bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-wider mt-0.5">
+                                  Initial
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 text-[10px] font-medium">
+                              <span className={isActive ? 'text-indigo-500' : 'text-slate-400'}>
+                                {ver.timestamp}
+                              </span>
+                              {isActive && (
+                                <span className="flex items-center gap-1 px-1.5 py-[2px] rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                  Active
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {/* Metadata Row */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-1 border-t border-slate-100 pt-3">
-                             <div className="flex flex-col">
-                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modified</span>
-                               <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.timestamp}</span>
-                             </div>
-                             {ver.editSummary && (
-                               <div className="flex flex-col">
-                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Summary</span>
-                                 <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.editSummary}</span>
-                               </div>
-                             )}
-                          </div>
+                          <ChevronRight
+                            size={14}
+                            className={`shrink-0 mt-1 transition-all duration-200 ${
+                              isExpanded ? 'rotate-90 text-indigo-500' : isActive ? 'text-indigo-400' : 'text-slate-300'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-                          {/* Action Buttons Row */}
-                          <div className="grid grid-cols-3 gap-2 pt-1">
-                            <button 
-                              onClick={() => switchVersion(idx)} 
-                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-sm shadow-indigo-100"
-                            >
-                              <Play size={14} />
-                              Restore
-                            </button>
-                            <button 
-                              onClick={() => copyVersionCode(ver)} 
-                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                            >
-                              <Copy size={14} />
-                              Copy
-                            </button>
-                            <button 
-                              onClick={() => downloadVersion(ver)} 
-                              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                            >
-                              <Download size={14} />
-                              Save
-                            </button>
-                          </div>
+                    {/* Expanded detail panel */}
+                    {isExpanded && (
+                      <div className="mt-2 ml-2 mr-0 mb-2 version-expand-enter">
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-premium-md">
+                          <div className="space-y-4">
+                            {/* Prompt */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-1 h-3 rounded-full bg-indigo-400" />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.12em]">Prompt</span>
+                              </div>
+                              <div className="text-[13px] text-slate-700 font-medium leading-relaxed bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                                {ver.prompt}
+                              </div>
+                            </div>
 
+                            {/* Metadata */}
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 border-t border-slate-100">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.10em]">Modified</span>
+                                <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.timestamp}</span>
+                              </div>
+                              {ver.editSummary && (
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.10em]">Summary</span>
+                                  <span className="text-xs text-slate-600 font-medium mt-0.5 truncate">{ver.editSummary}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="grid grid-cols-3 gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); switchVersion(idx); }}
+                                className="btn-premium btn-premium-primary py-2 text-xs"
+                              >
+                                <Play size={13} />
+                                Restore
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); copyVersionCode(ver); }}
+                                className="btn-premium btn-premium-secondary py-2 text-xs"
+                              >
+                                <Copy size={13} />
+                                Copy
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); downloadVersion(ver); }}
+                                className="btn-premium btn-premium-secondary py-2 text-xs"
+                              >
+                                <Download size={13} />
+                                Save
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
-
                   </div>
-
                 );
-              })
+              })}
+              </div>
             )}
           </div>
         </aside>
@@ -1847,60 +1970,71 @@ export default function App() {
         <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Prompt/Chat Sidebar (Left) */}
-          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/80 panel-shadow-right z-20 flex-shrink-0">
-            
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 pt-8 lg:pt-10 flex flex-col justify-start">
+          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/60 z-20 flex-shrink-0 shadow-premium-lg relative">
+            {/* Subtle atmospheric gradient */}
+            <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 pt-8 lg:pt-10 pb-4 flex flex-col justify-start relative z-[1] chat-scrollbar">
               <div className="max-w-2xl w-full mx-auto space-y-8 animate-fade-in">
-                
+
                 {/* Header Section */}
-                <div className={`space-y-4 ${generatedCode ? 'refine-card mb-2' : ''}`}>
+                <div className={generatedCode ? 'refine-card' : ''}>
                   <div className="space-y-3">
-                    <h2 className="text-2xl lg:text-[1.7rem] font-bold text-slate-900 tracking-tight leading-tight">
+                    {generatedCode && (
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                        <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-[0.12em]">Editing</span>
+                      </div>
+                    )}
+                    <h2 className="text-[1.65rem] lg:text-[1.8rem] font-bold text-slate-900 tracking-tight leading-[1.2]">
                       {generatedCode ? "Refine your app" : "What do you want to build?"}
                     </h2>
-                    <p className="text-slate-500 text-[15px] max-w-sm leading-relaxed">
-                      {generatedCode 
+                    <p className="text-slate-500 text-[14px] leading-relaxed">
+                      {generatedCode
                         ? "Describe what to change, add, or fix."
-                        : "Describe your app in plain language and Orion will generate it."}
+                        : "Describe your app in natural language and Orion will generate a complete, working application."}
                     </p>
-                    
                   </div>
-
                 </div>
 
                 {/* Suggestions - Only show when no app is generated */}
                 {!generatedCode && (
-                  <div className="animate-fade-in space-y-3" style={{ animationDelay: '0.1s' }}>
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      Try a starter
-                    </h3>
-                    <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-3 h-[2px] rounded-full bg-slate-300" />
+                      <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.12em]">
+                        Try a starter
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5">
                       {suggestedPrompts.map((suggestion, idx) => (
                         <button
                           key={idx}
                           onClick={() => setPrompt(suggestion)}
-                          className="text-left px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50/40 transition-all group flex items-center justify-between hover:shadow-sm"
+                          className={`text-left px-4 py-3 bg-white/90 border border-slate-200 rounded-xl transition-all group flex items-center justify-between suggestion-card animate-stagger-${idx + 1}`}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-slate-600 group-hover:text-slate-900 leading-snug transition-colors">{suggestion}</span>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-[13px] text-slate-600 group-hover:text-slate-900 leading-snug transition-colors truncate">{suggestion}</span>
                           </div>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-colors flex-shrink-0 ml-3" />
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-all duration-200 flex-shrink-0 ml-3 group-hover:translate-x-0.5" />
                         </button>
                       ))}
                     </div>
-
                   </div>
                 )}
-                
+
                 {error && (
-                  <div className="bg-red-50 border border-red-100 p-4 rounded-xl animate-shake">
-                    <div className="flex items-start">
-                      <div className="p-1.5 bg-red-100 rounded-lg mr-3 text-red-600 flex-shrink-0">
-                        <RefreshCw size={16} />
+                  <div className="bg-red-50/80 border border-red-100 p-4 rounded-xl backdrop-blur-sm animate-fade-in">
+                    <div className="flex items-start gap-3">
+                      <div className="p-1.5 bg-red-100 rounded-lg text-red-500 flex-shrink-0">
+                        <RefreshCw size={15} />
                       </div>
-                      <p className="text-sm text-red-800 font-medium leading-snug">
-                        {error}
-                      </p>
+                      <div>
+                        <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-0.5">Error</p>
+                        <p className="text-[13px] text-red-800 font-medium leading-snug">
+                          {error}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1908,23 +2042,23 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="p-4 border-t border-slate-200/80 bg-white/95 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-400 transition-all">
+            <div className="shrink-0 p-4 border-t border-slate-200/60 bg-white/80 backdrop-blur-md relative z-[1]">
+              <div className="bg-white rounded-2xl shadow-premium-md border border-slate-200 overflow-hidden transition-all input-glow">
                 <textarea
                   id="prompt"
                   name="prompt"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
-                  className="w-full h-28 p-4 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-sm leading-6 bg-transparent"
+                  className="w-full h-28 px-4 pt-4 pb-3 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[14px] leading-6 bg-transparent"
                   disabled={isGenerating}
                 />
                 {!generatedCode && versions.length === 0 && (
-                  <div className="px-4 pb-3">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2.5">
-                        <p className="text-sm font-medium text-slate-700">Optimize for</p>
-                      </div>
+                  <div className="px-4 pb-3.5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.10em] mb-2.5">
+                        Optimize for
+                      </p>
                       <div className="grid grid-cols-3 gap-2">
                         {INITIAL_LAYOUT_OPTIONS.map((option) => {
                           const Icon = option.icon;
@@ -1933,10 +2067,10 @@ export default function App() {
                           return (
                             <label
                               key={option.id}
-                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
+                              className={`layout-selector flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-all ${
                                 isSelected
-                                  ? 'border-indigo-500 bg-white shadow-sm'
-                                  : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                                  ? 'layout-selector-selected'
+                                  : 'border-slate-200 bg-white/80 hover:border-slate-300'
                               }`}
                             >
                               <input
@@ -1945,13 +2079,12 @@ export default function App() {
                                 value={option.id}
                                 checked={isSelected}
                                 onChange={() => setInitialLayoutTarget(option.id)}
-                                className="mt-0 h-3.5 w-3.5 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="sr-only"
                                 disabled={isGenerating}
                               />
-                              <div className="flex items-center gap-1.5">
-                                <Icon size={14} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
-                                <span className="text-sm font-medium text-slate-700">{option.label}</span>
-                              </div>
+                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-indigo-500 shadow-[0_0_0_3px_rgba(99,102,241,0.2)]' : 'bg-slate-300'}`} />
+                              <Icon size={13} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
+                              <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-700' : 'text-slate-600'}`}>{option.label}</span>
                             </label>
                           );
                         })}
@@ -1959,26 +2092,25 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="bg-slate-50 border-t border-slate-100 p-3 flex justify-between items-center">
-                  <div className="flex space-x-2">
-                  </div>
+                <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3 flex justify-between items-center">
+                  <div className="flex space-x-2" />
                   <button
                     onClick={handleGenerate}
-                    disabled={isGenerating || !prompt.trim()}
-                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all active:scale-[0.97] ${
-                      isGenerating || !prompt.trim() 
-                        ? 'bg-slate-300 cursor-not-allowed' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-sm'
+                    disabled={isGenerating}
+                    className={`btn-premium py-2 px-5 text-[13px] ${
+                      isGenerating
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                        : 'btn-premium-primary'
                     }`}
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="animate-spin mr-1.5" size={16} />
+                        <Loader2 className="animate-spin" size={15} />
                         {generatedCode ? "Updating..." : "Building..."}
                       </>
                     ) : (
                       <>
-                        {generatedCode ? <Edit2 className="mr-1.5" size={16} /> : <Wand2 className="mr-1.5" size={16} />}
+                        {generatedCode ? <Edit2 size={15} /> : <Wand2 size={15} />}
                         {generatedCode ? "Update" : "Build"}
                       </>
                     )}
@@ -2025,7 +2157,7 @@ export default function App() {
               {activeTab === 'preview' ? (
                 /* Device Mockup */
                 <div
-                  className="relative shrink-0"
+                  className="relative shrink-0 flex items-center justify-center"
                   style={{
                     width: scaledPreviewWidth,
                     height: scaledPreviewHeight
@@ -2033,12 +2165,9 @@ export default function App() {
                 >
                   <div
                     className={previewMode === 'mobile' ? 'device-smartphone' : 'device-desktop'}
-                    style={{ 
-                      position: 'absolute',
-                      inset: 0,
+                    style={{
                       transform: `scale(${zoomLevel})`,
-                      transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      transformOrigin: 'top left'
+                      transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                   >
                   {previewMode === 'mobile' ? (
