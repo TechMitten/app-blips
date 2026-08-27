@@ -3276,17 +3276,7 @@ export default function App() {
                       transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                   >
-                  {previewMode === 'mobile' ? (
-                    <>
-                      {/* Notch */}
-                      <div className="absolute top-0 inset-x-0 flex justify-center z-20 pt-2">
-                        <div className="w-28 h-7 bg-[#0f172a] rounded-2xl flex items-center justify-center">
-                           <div className="w-10 h-1 bg-slate-800 rounded-full"></div>
-                           <div className="w-1.5 h-1.5 bg-slate-800 rounded-full ml-2"></div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
+                  {previewMode === 'desktop' && (
                     <div className="device-desktop-toolbar">
                       <div className="device-desktop-lights">
                         <span className="device-desktop-light device-desktop-light-red"></span>
