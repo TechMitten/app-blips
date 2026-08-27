@@ -9,6 +9,49 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fluid root font scaling for large and ultra-wide monitors */
+@media (min-width: 1280px) {
+  html {
+    font-size: 16.5px;
+  }
+}
+
+@media (min-width: 1536px) {
+  html {
+    font-size: 17.5px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 20.5px;
+  }
+}
+
+@media (min-width: 3440px) {
+  html {
+    font-size: 22.5px;
+  }
+}
+
+@media (min-width: 3840px) {
+  html {
+    font-size: 25px;
+  }
+}
+
 html,
 body,
 #root {
