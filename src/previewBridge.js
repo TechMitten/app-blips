@@ -134,6 +134,7 @@ const BRIDGE_SOURCE = `(function () {
     var suppressClick = false;
     var pointerCaptureTarget = null;
     var mainScrollEl = null;
+    var startTarget = null;
 
     var scrollbarStyle = document.createElement('style');
     scrollbarStyle.textContent = SCROLLBAR_CSS;
@@ -143,19 +144,51 @@ const BRIDGE_SOURCE = `(function () {
     touchStyle.textContent = TOUCH_CSS;
     document.head.appendChild(touchStyle);
 
-    function findMainScrollElement() {
+    function findScrollableElement(target, isHorizontal) {
+      var el = target;
+      while (el && el !== document.documentElement && el !== document.body) {
+        if (el.nodeType === 1) {
+          var style = window.getComputedStyle(el);
+          var overflow = isHorizontal
+            ? (style.overflowX || '') + (style.overflow || '')
+            : (style.overflowY || '') + (style.overflow || '');
+          if (/(auto|scroll)/.test(overflow)) {
+            var canScroll = isHorizontal
+              ? el.scrollWidth > el.clientWidth + 1
+              : el.scrollHeight > el.clientHeight + 1;
+            if (canScroll) return el;
+          }
+        }
+        el = el.parentElement;
+      }
+      return findGlobalScrollElement(isHorizontal);
+    }
+
+    function findGlobalScrollElement(isHorizontal) {
       var candidates = [document.scrollingElement, document.documentElement, document.body];
       for (var i = 0; i < candidates.length; i++) {
         var el = candidates[i];
-        if (el && el.scrollHeight > el.clientHeight + 1) return el;
+        if (el) {
+          var canScroll = isHorizontal
+            ? el.scrollWidth > el.clientWidth + 1
+            : el.scrollHeight > el.clientHeight + 1;
+          if (canScroll) return el;
+        }
       }
-      var kids = document.body ? document.body.children : [];
-      for (var j = 0; j < kids.length; j++) {
-        var child = kids[j];
-        var style = window.getComputedStyle(child);
-        var overflow = (style.overflowY || '') + (style.overflow || '');
-        if (/(auto|scroll)/.test(overflow) && child.scrollHeight > child.clientHeight + 1) {
-          return child;
+      if (document.body) {
+        var allScrollables = document.body.querySelectorAll('*');
+        for (var j = 0; j < allScrollables.length; j++) {
+          var child = allScrollables[j];
+          var childStyle = window.getComputedStyle(child);
+          var childOverflow = isHorizontal
+            ? (childStyle.overflowX || '') + (childStyle.overflow || '')
+            : (childStyle.overflowY || '') + (childStyle.overflow || '');
+          if (/(auto|scroll)/.test(childOverflow)) {
+            var canScrollChild = isHorizontal
+              ? child.scrollWidth > child.clientWidth + 1
+              : child.scrollHeight > child.clientHeight + 1;
+            if (canScrollChild) return child;
+          }
         }
       }
       return document.scrollingElement || document.documentElement || document.body;
@@ -165,7 +198,7 @@ const BRIDGE_SOURCE = `(function () {
       // e.target can be the Document, which has no tagName.
       if (!el || !el.tagName) return false;
       var tag = el.tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'option') return true;
       if (el.isContentEditable) return true;
       return false;
     }
@@ -181,8 +214,10 @@ const BRIDGE_SOURCE = `(function () {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (isFormControl(e.target)) return;
 
-      // Recomputed per drag: the app may have grown content since load.
-      mainScrollEl = findMainScrollElement();
+      if (momentumId) {
+        cancelAnimationFrame(momentumId);
+        momentumId = null;
+      }
 
       isDragging = true;
       hasMoved = false;
@@ -193,20 +228,9 @@ const BRIDGE_SOURCE = `(function () {
       lastY = e.clientY;
       velocityX = 0;
       velocityY = 0;
-
-      try {
-        e.target.setPointerCapture(e.pointerId);
-        pointerCaptureTarget = e.target;
-      } catch (err) { /* not capturable */ }
-
-      setUserSelect('none');
-
-      if (momentumId) {
-        cancelAnimationFrame(momentumId);
-        momentumId = null;
-      }
-
-      e.preventDefault();
+      startTarget = e.target;
+      mainScrollEl = null;
+      pointerCaptureTarget = null;
     }
 
     function onPointerMove(e) {
@@ -215,9 +239,22 @@ const BRIDGE_SOURCE = `(function () {
       var dx = e.clientX - startX;
       var dy = e.clientY - startY;
 
-      if (!hasMoved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+      // 6px drag threshold to prevent natural tap jitter from swallowing clicks
+      if (!hasMoved && (dx * dx + dy * dy > 36)) {
         hasMoved = true;
         suppressClick = true;
+        setUserSelect('none');
+
+        var isHorizontal = Math.abs(dx) > Math.abs(dy);
+        mainScrollEl = findScrollableElement(startTarget, isHorizontal);
+
+        try {
+          if (startTarget && startTarget.setPointerCapture) {
+            startTarget.setPointerCapture(e.pointerId);
+            pointerCaptureTarget = startTarget;
+          }
+        } catch (err) { /* not capturable */ }
+
         if (e.pointerType === 'mouse') {
           document.documentElement.style.cursor = 'grabbing';
         }
@@ -247,38 +284,42 @@ const BRIDGE_SOURCE = `(function () {
       isDragging = false;
 
       try {
-        if (pointerCaptureTarget) {
+        if (pointerCaptureTarget && pointerCaptureTarget.releasePointerCapture) {
           pointerCaptureTarget.releasePointerCapture(e.pointerId);
-          pointerCaptureTarget = null;
         }
       } catch (err) { /* already released */ }
+      pointerCaptureTarget = null;
 
       document.documentElement.style.cursor = 'grab';
       setUserSelect('');
 
-      if (!hasMoved) return;
+      if (!hasMoved) {
+        suppressClick = false;
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
 
-      var applyMomentum = function () {
-        if (Math.abs(velocityX) < 0.3 && Math.abs(velocityY) < 0.3) {
-          momentumId = null;
-          return;
-        }
+      var scrollTarget = mainScrollEl;
+      if (scrollTarget && (Math.abs(velocityX) > 0.5 || Math.abs(velocityY) > 0.5)) {
+        var applyMomentum = function () {
+          if (Math.abs(velocityX) < 0.3 && Math.abs(velocityY) < 0.3) {
+            momentumId = null;
+            return;
+          }
 
-        velocityX *= 0.975;
-        velocityY *= 0.975;
+          velocityX *= 0.96;
+          velocityY *= 0.96;
 
-        if (mainScrollEl) {
-          mainScrollEl.scrollTop -= velocityY;
-          mainScrollEl.scrollLeft -= velocityX;
-        }
+          scrollTarget.scrollTop -= velocityY;
+          scrollTarget.scrollLeft -= velocityX;
+
+          momentumId = requestAnimationFrame(applyMomentum);
+        };
 
         momentumId = requestAnimationFrame(applyMomentum);
-      };
-
-      momentumId = requestAnimationFrame(applyMomentum);
+      }
     }
 
     function onClick(e) {
