@@ -2032,25 +2032,29 @@ export default function App() {
                     {generatedCode ? (
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                        <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-[0.16em]">Editing</span>
+                        <span className="text-[13px] font-bold text-indigo-600 uppercase tracking-[0.14em]">Editing</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2.5">
-                        <span className="h-2 w-8 rounded-full bg-gradient-to-r from-indigo-500 to-violet-400" />
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">App Studio</span>
+                      <div className="flex items-center gap-2.5 pt-0.5">
+                        <span className="orion-belt" aria-hidden="true">
+                          <span className="orion-dot" />
+                          <span className="orion-dot orion-dot-mid" />
+                          <span className="orion-dot" />
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">From idea to running app</span>
                       </div>
                     )}
-                    <h2 className="text-[2rem] lg:text-[2.35rem] font-bold tracking-[-0.03em] leading-[1.08] text-slate-900">
+                    <h2 className="text-[2.15rem] lg:text-[2.55rem] font-bold tracking-[-0.035em] leading-[1.05] text-slate-900">
                       {generatedCode ? (
                         <>Refine <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">your app</span></>
                       ) : (
                         <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">build?</span></>
                       )}
                     </h2>
-                    <p className="text-slate-600 text-[14px] leading-relaxed max-w-[34ch]">
+                    <p className="text-slate-700 text-[16px] leading-relaxed max-w-[34ch]">
                       {generatedCode
                         ? "Describe what to change, add, or fix."
-                        : "Describe your idea in plain words and Orion will craft a complete, working app."}
+                        : "Describe an idea in plain words and Orion turns it into a complete, working app."}
                     </p>
                   </div>
                 </div>
@@ -2059,8 +2063,8 @@ export default function App() {
                 {!generatedCode && (
                   <div className="space-y-4 animate-fade-in" style={{ animationDelay: '0.08s' }}>
                     <div className="flex items-center gap-2.5">
-                      <span className="h-2 w-8 rounded-full bg-gradient-to-r from-slate-300 to-slate-200" />
-                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">
+                      <span className="h-3 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
+                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">
                         Try a starter
                       </h3>
                     </div>
@@ -2071,15 +2075,15 @@ export default function App() {
                           <button
                             key={idx}
                             onClick={() => setPrompt(suggestion)}
-                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/80 border border-slate-200/90 rounded-xl transition-all hover:border-indigo-200 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
+                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/70 border border-slate-200/90 rounded-xl transition-all hover:border-indigo-300 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <span className="shrink-0 w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
-                                <StarterIcon size={16} />
+                              <span className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                <StarterIcon size={18} />
                               </span>
-                              <span className="text-[13px] text-slate-700 group-hover:text-slate-900 font-medium leading-snug transition-colors truncate">{suggestion}</span>
+                              <span className="text-[15px] text-slate-800 group-hover:text-slate-900 font-medium leading-snug transition-colors truncate">{suggestion}</span>
                             </div>
-                            <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-500 transition-all duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
                           </button>
                         );
                       })}
@@ -2113,6 +2117,12 @@ export default function App() {
                   name="prompt"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isGenerating && prompt.trim()) {
+                      e.preventDefault();
+                      handleGenerate();
+                    }
+                  }}
                   placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
                   className="w-full h-32 px-4 pt-4 pb-3 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[14px] leading-6 bg-transparent"
                   disabled={isGenerating}
@@ -2120,10 +2130,13 @@ export default function App() {
                 {!generatedCode && versions.length === 0 && (
                   <div className="px-4 pb-3">
                     <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
-                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.10em] mb-2.5">
-                        Optimize for
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <span className="h-3 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">
+                          Optimize for
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
                         {INITIAL_LAYOUT_OPTIONS.map((option) => {
                           const Icon = option.icon;
                           const isSelected = initialLayoutTarget === option.id;
@@ -2156,6 +2169,12 @@ export default function App() {
                   </div>
                 )}
                 <div className="flex items-center gap-3 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3">
+                  {!isGenerating && prompt.trim() && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] select-none whitespace-nowrap">
+                      <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-sans text-[9px] leading-none text-slate-500">⌘ ↵</kbd>
+                      to build
+                    </span>
+                  )}
                   {isGenerating && (
                     <button
                       onClick={() => {
