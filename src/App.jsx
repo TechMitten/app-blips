@@ -39,7 +39,10 @@ import {
   PanelLeftClose,
   TriangleAlert,
   Eye,
-  EyeOff
+  EyeOff,
+  Calculator,
+  KeyRound,
+  Ruler
 } from 'lucide-react';
 // --- Constants ---
 const SURGICAL_EDIT_TOOL = {
@@ -108,6 +111,30 @@ const LIST_SECTIONS_TOOL = {
 
 const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL];
 
+const SUGGEST_NEXT_STEPS_TOOL = {
+  type: 'function',
+  function: {
+    name: 'return_suggestions',
+    description: 'Returns exactly 4 specific, actionable next-step feature suggestions for the current app, grounded in its actual code and edit history.',
+    parameters: {
+      type: 'object',
+      properties: {
+        suggestions: {
+          type: 'array',
+          description: 'Exactly 4 suggestions, no more and no fewer.',
+          items: {
+            type: 'string',
+            description: 'A short, specific, actionable next-step prompt phrased as an imperative instruction a user could submit as-is, e.g. "Add a dark mode toggle". Under 8 words. Must be grounded in this specific app\'s actual code, and never something already implemented or generic.'
+          }
+        }
+      },
+      required: ['suggestions'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
 const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
 
@@ -130,6 +157,16 @@ SURGICAL EDIT GUIDELINES:
 - If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
 
 Do not include any explanations, markdown markers, or text outside of these formats.`;
+
+const SUGGESTIONS_SYSTEM_PROMPT = `You are reviewing the current source code and edit history of a specific AI-generated web app.
+Propose exactly 4 concrete, specific next-step feature ideas for THIS app, grounded in what its code actually does.
+
+RULES:
+1. Return exactly 4 suggestions -- no more, no fewer.
+2. Each suggestion must be a short, imperative prompt under 8 words the user could submit as-is, e.g. "Add a dark mode toggle" or "Add sound alerts at zero".
+3. Never suggest something already implemented in the code below.
+4. Never suggest something generic that could apply to any app -- ground each idea in this app's actual features, UI, and data.
+5. Call return_suggestions with your 4 suggestions and nothing else.`;
 
 const getSafeAreaInstruction = (layoutTarget) => {
   if (layoutTarget === 'desktop') return '';
@@ -480,7 +517,7 @@ const requestModelText = async ({
     }
 
     // Streaming implementation
-    const STREAM_READ_TIMEOUT_MS = 60000;
+    const STREAM_READ_TIMEOUT_MS = 180000;
 
     let text = '';
     let toolCallsBuffer = [];
@@ -520,8 +557,9 @@ const requestModelText = async ({
             }
 
             if (delta?.reasoning_content) {
-              // Thinking tokens never become code, but reported so the UI can
-              // show progress instead of looking frozen during long reasoning.
+              // Thinking tokens never become code. Reported only so the UI can
+              // flip to a "thinking" indicator instead of looking frozen during
+              // long reasoning -- the token text itself is discarded.
               onChunk(delta.reasoning_content, 'reasoning');
             }
 
@@ -680,7 +718,71 @@ const generateAppCode = async (
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
 };
 
+const SUGGESTIONS_CODE_CHAR_BUDGET = 12000;
 
+const buildSuggestionsPrompt = (code, versions, projectName) => {
+  const half = SUGGESTIONS_CODE_CHAR_BUDGET / 2;
+  const truncatedCode = code.length > SUGGESTIONS_CODE_CHAR_BUDGET
+    ? `${code.slice(0, half)}\n...[truncated]...\n${code.slice(-half)}`
+    : code;
+
+  const recentHistory = versions.slice(-6).map((v, i) => {
+    const extra = v.editSummary && v.editSummary !== v.prompt ? ` (${v.editSummary})` : '';
+    return `${i + 1}. ${v.prompt}${extra}`;
+  }).join('\n');
+
+  return `App name: ${projectName}
+
+Recent edit history:
+${recentHistory || '(none yet)'}
+
+Current app code:
+\`\`\`html
+${truncatedCode}
+\`\`\`
+
+Suggest 3-4 specific next-step prompts for this app.`;
+};
+
+// Best-effort background enhancement -- never surfaces an error to the user.
+// Any failure (missing config, network error, malformed tool response) just
+// means no suggestions are shown.
+const generateContextualSuggestions = async ({ code, versions, projectName, signal }) => {
+  try {
+    const messages = [
+      { role: 'system', content: SUGGESTIONS_SYSTEM_PROMPT },
+      { role: 'user', content: buildSuggestionsPrompt(code, versions, projectName) }
+    ];
+
+    const message = await requestModelText({
+      messages,
+      tools: [SUGGEST_NEXT_STEPS_TOOL],
+      tool_choice: { type: 'function', function: { name: 'return_suggestions' } },
+      signal
+    });
+
+    const toolCall = message.tool_calls?.[0];
+    if (!toolCall) return [];
+
+    let args;
+    try {
+      args = JSON.parse(toolCall.function.arguments);
+    } catch {
+      return [];
+    }
+
+    if (!Array.isArray(args.suggestions)) return [];
+
+    return args.suggestions
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean)
+      .slice(0, 4);
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+    console.warn('[Orion] Failed to generate contextual suggestions:', err);
+    return [];
+  }
+};
 
 const syntaxHighlightHtml = (code) => {
   if (!code) return "";
@@ -720,7 +822,15 @@ const syntaxHighlightHtml = (code) => {
   return numberedLines;
 };
 
+// Some backends emit chain-of-thought/preamble text through the regular content
+// delta instead of (or in addition to) reasoning_content. Until this pattern shows
+// up in the accumulated stream, sanitizeHtmlResponse has no real boundary to anchor
+// on and falls back to returning the raw text -- which would flash that preamble
+// into the live code panel. Gate the panel update on this instead.
+const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
+
 const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
+const THINKING_MESSAGE = 'Thinking through the request...';
 const MARQUEE_SEPARATOR = '  //  ';
 const MARQUEE_MIN_LOOP_LENGTH = 220;
 const MARQUEE_MAX_BUFFER_LENGTH = 4000;
@@ -756,6 +866,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
+  const [contextualSuggestions, setContextualSuggestions] = useState([]);
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [previewMode, setPreviewMode] = useState('mobile');
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
@@ -774,6 +886,7 @@ export default function App() {
   }, [llmConfig]);
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -788,7 +901,7 @@ export default function App() {
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
-  const marqueeSegment = buildMarqueeLoop(streamingCode);
+  const marqueeSegment = buildMarqueeLoop(isThinking ? THINKING_MESSAGE : streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
@@ -803,6 +916,7 @@ export default function App() {
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
   const abortControllerRef = useRef(null);
+  const suggestionsAbortControllerRef = useRef(null);
   // Resume-last-project must only happen on initial mount. If it re-runs whenever
   // currentProjectId flips to null (e.g. after clicking "+ New" / deleting the
   // open app), it would fall back to projects[0] and resurrect the previous
@@ -827,6 +941,7 @@ export default function App() {
   const clearStreamingState = () => {
     setStreamingCode('');
     setStreamingGeneratedCode('');
+    setIsThinking(false);
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
   };
@@ -1065,6 +1180,48 @@ export default function App() {
     fetchAndResume();
   }, [loadUserProjects, loadProjectById, currentProjectId]);
 
+  // --- Contextual suggestions: refresh whenever the active version's code changes.
+  // Covers generation, refinement, undo/redo, and project load/switch from one place,
+  // since they all ultimately set `generatedCode`.
+  useEffect(() => {
+    if (!generatedCode) {
+      setContextualSuggestions([]);
+      setIsSuggestionsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    suggestionsAbortControllerRef.current = controller;
+
+    // Debounced so a burst of rapid undo/redo clicks only fires one request --
+    // the cleanup below cancels the pending timer/fetch on every re-run.
+    const debounceId = setTimeout(() => {
+      setIsSuggestionsLoading(true);
+      generateContextualSuggestions({
+        code: generatedCode,
+        versions,
+        projectName,
+        signal: controller.signal
+      })
+        .then((result) => {
+          if (!controller.signal.aborted) setContextualSuggestions(result);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!controller.signal.aborted) setIsSuggestionsLoading(false);
+        });
+    }, 500);
+
+    return () => {
+      clearTimeout(debounceId);
+      controller.abort();
+    };
+    // versions always updates alongside generatedCode at every mutation site (handleGenerate,
+    // loadProjectById, loadProject, switchVersion), so the closure is never stale. projectName
+    // is intentionally excluded so renaming mid-typing doesn't retrigger a fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedCode]);
+
   const loadProject = (project) => {
     clearStreamingState();
     setCurrentProjectId(project.id);
@@ -1084,10 +1241,13 @@ export default function App() {
     "A tip calculator with sliders for bill amount and tip percentage.",
     "A daily habit tracker with checkboxes for 5 custom habits.",
     "A to-do list where you add, complete, and delete tasks.",
-    "A budget tracker for monthly income and expenses."
+    "A budget tracker for monthly income and expenses.",
+    "A random password generator with a copy button and strength meter.",
+    "A simple calculator with a clean button grid.",
+    "A unit converter for length, weight, and temperature."
   ];
 
-  const starterIcons = [Timer, CloudSun, Receipt, ListChecks, ListTodo, Wallet];
+  const starterIcons = [Timer, CloudSun, Receipt, ListChecks, ListTodo, Wallet, KeyRound, Calculator, Ruler];
 
   const handleSaveSettings = () => {
     saveLlmConfig(llmConfig, rememberKey);
@@ -1116,10 +1276,21 @@ export default function App() {
 
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk, kind = 'content') => {
+        if (kind === 'reasoning') {
+          setIsThinking(true);
+          return;
+        }
+        if (kind === 'status') {
+          setIsThinking(false);
+          streamingBufferRef.current = '';
+          setStreamingCode(chunk);
+          return;
+        }
+        setIsThinking(false);
         streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
         setStreamingCode(streamingBufferRef.current.trim());
-        if (kind === 'content') {
-          streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
+        streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
+        if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
           setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
         }
       }, initialLayoutTarget, abortControllerRef.current.signal);
@@ -2266,6 +2437,32 @@ export default function App() {
 
             {/* Fixed Bottom Input Area */}
             <div className="shrink-0 p-4 pt-3 border-t border-slate-200/60 bg-white/80 backdrop-blur-md relative z-[1]">
+              {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
+                <div className="mb-3 space-y-2 animate-fade-in">
+                  <div className="flex items-center gap-1.5 px-0.5">
+                    <Sparkles size={13} className="text-blue-500" aria-hidden="true" />
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">Suggestions</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {contextualSuggestions.length > 0 ? (
+                      contextualSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setPrompt(suggestion)}
+                          className={`text-left px-3.5 py-2 text-[13px] leading-snug font-medium rounded-xl border border-slate-200 bg-white text-slate-700 shadow-premium-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 suggestion-chip animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))
+                    ) : (
+                      [0, 1, 2, 3].map((idx) => (
+                        <span key={idx} className="h-9 w-[47%] rounded-xl bg-slate-100 animate-pulse" aria-hidden="true" />
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="bg-white rounded-2xl shadow-premium-lg border border-slate-200 overflow-hidden transition-all input-glow">
                 <textarea
                   id="prompt"

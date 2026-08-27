@@ -731,6 +731,15 @@ body {
 .animate-stagger-4 { animation: fadeInUp 0.35s 0.20s ease-out both; }
 .animate-stagger-5 { animation: fadeInUp 0.35s 0.25s ease-out both; }
 
+/* Contextual suggestion chip (horizontal row pinned above chat input) */
+.suggestion-chip {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.suggestion-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+
 /* Subtle horizontal accent line */
 .accent-line {
   position: relative;
@@ -875,16 +884,24 @@ body {
 }
 
 /* Chat scrollbar refinement */
+.chat-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: #cbd5e1 transparent;
+}
 .chat-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 10px;
 }
 .chat-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .chat-scrollbar::-webkit-scrollbar-thumb {
-  background: #e8ecf1;
-  border-radius: 8px;
+  background: #cbd5e1;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
 }
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #d4d9e2;
+  background: #94a3b8;
+  background-clip: padding-box;
 }
