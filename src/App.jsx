@@ -143,7 +143,8 @@ const LLM_REMEMBER_KEY = 'orion-llm-remember';
 const DEFAULT_LLM_CONFIG = {
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
-  model: 'gpt-4o'
+  model: 'gpt-4o',
+  reasoning: true
 };
 
 // There is no way to hide a key from the machine that types it in a
@@ -180,7 +181,8 @@ const readStoredConfig = (store) => {
       return {
         baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
         apiKey: parsed.apiKey || '',
-        model: parsed.model || DEFAULT_LLM_CONFIG.model
+        model: parsed.model || DEFAULT_LLM_CONFIG.model,
+        reasoning: parsed.reasoning !== false
       };
     }
   } catch { /* ignore invalid stored config */ }
@@ -459,6 +461,7 @@ const requestModelText = async ({
     };
 
     bodyObj.temperature = 0.2;
+    if (config.reasoning === false) bodyObj.reasoning_effort = 'none';
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
@@ -1387,7 +1390,7 @@ export default function App() {
         <div className="flex items-center space-x-2">
           <button
             onClick={handleNewApp}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
             title="Start a new app"
           >
             <Plus size={16} />
@@ -1396,7 +1399,7 @@ export default function App() {
 
           <button
             onClick={() => setIsProjectsListOpen(true)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
           >
             <FolderOpen size={16} />
             <span className="hidden sm:inline">Apps</span>
@@ -1404,7 +1407,7 @@ export default function App() {
 
           <button
             onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
             title={isHistoryOpen ? "Hide history panel" : "Show history panel"}
           >
             {isHistoryOpen ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -1413,7 +1416,7 @@ export default function App() {
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
             title="Settings"
           >
             <Settings size={16} />
@@ -1460,7 +1463,7 @@ export default function App() {
                <button
                  onClick={resetZoom}
                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                    isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-700 hover:text-slate-900'
+                    isAutoZoom ? 'text-blue-600 bg-white shadow-sm' : 'text-slate-700 hover:text-slate-900'
                  }`}
                  title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
                >
@@ -1557,7 +1560,7 @@ export default function App() {
                     value={llmConfig.baseUrl}
                     onChange={(e) => handleLlmConfigChange('baseUrl', e.target.value)}
                     placeholder="https://api.openai.com/v1"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                   {isInsecureEndpoint(llmConfig.baseUrl) && (
                     <p className="mt-2 flex items-start gap-2 text-base font-semibold text-amber-700">
@@ -1575,7 +1578,7 @@ export default function App() {
                       onChange={(e) => handleLlmConfigChange('apiKey', e.target.value)}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                     <button
                       type="button"
@@ -1608,8 +1611,34 @@ export default function App() {
                     value={llmConfig.model}
                     onChange={(e) => handleLlmConfigChange('model', e.target.value)}
                     placeholder="gpt-4o"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
+                </div>
+                <div>
+                  <label className="flex items-center justify-between gap-3 cursor-pointer">
+                    <div>
+                      <span className="block text-base font-bold text-black mb-1">Reasoning / Thinking</span>
+                      <p className="text-slate-600 text-base leading-snug">
+                        Let the model think before answering. Disable for faster, lower-latency responses.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={llmConfig.reasoning !== false}
+                      onClick={() => handleLlmConfigChange('reasoning', llmConfig.reasoning === false)}
+                      className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${
+                        llmConfig.reasoning !== false ? 'bg-blue-600' : 'bg-slate-300'
+                      }`}
+                      title="Toggle reasoning"
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                          llmConfig.reasoning !== false ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1631,7 +1660,7 @@ export default function App() {
           <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
                    <FolderOpen size={20} />
                 </div>
                 <div>
@@ -1660,7 +1689,7 @@ export default function App() {
                   {myProjects.map((project) => (
                     <div
                           key={project.id}
-                          className="text-left p-5 pr-16 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group relative overflow-hidden bg-white hover:-translate-y-0.5 active:scale-[0.99] min-h-[100px]"
+                          className="text-left p-5 pr-16 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all group relative overflow-hidden bg-white hover:-translate-y-0.5 active:scale-[0.99] min-h-[100px]"
                         >
                           <div className="flex items-start">
                             <div className="flex-1 pr-6">
@@ -1682,7 +1711,7 @@ export default function App() {
                                 cancelProjectRename();
                               }
                             }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                             placeholder="App name"
                           />
                           <div className="flex items-center gap-2">
@@ -1693,7 +1722,7 @@ export default function App() {
                               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                                 !editingProjectName.trim() || renamingProjectId === project.id
                                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700'
                               }`}
                             >
                               <Check size={14} />
@@ -1715,7 +1744,7 @@ export default function App() {
                               onClick={() => loadProject(project)}
                               className="w-full text-left"
                             >
-                              <h4 className="font-semibold text-slate-900 mb-1.5 text-base truncate group-hover:text-indigo-600 transition-colors">{project.name}</h4>
+                              <h4 className="font-semibold text-slate-900 mb-1.5 text-base truncate group-hover:text-blue-600 transition-colors">{project.name}</h4>
                               <p className="text-xs text-slate-400 font-medium mb-3 flex items-center">
                                 <Clock size={12} className="mr-1.5 text-slate-300" />
                                 {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
@@ -1723,8 +1752,8 @@ export default function App() {
                               <div className="flex items-center mt-2">
                                 <div className="flex -space-x-1.5 overflow-hidden mr-3">
                                    {[...Array(Math.min(3, project.versions?.length || 0))].map((_, i) => (
-                                     <div key={i} className="inline-block h-6 w-6 rounded-lg ring-2 ring-white bg-indigo-100 border border-indigo-200 flex items-center justify-center">
-                                       <span className="text-[10px] font-bold text-indigo-600">v{i+1}</span>
+                                     <div key={i} className="inline-block h-6 w-6 rounded-lg ring-2 ring-white bg-blue-100 border border-blue-200 flex items-center justify-center">
+                                       <span className="text-[10px] font-bold text-blue-600">v{i+1}</span>
                                      </div>
                                    ))}
                                 </div>
@@ -1744,7 +1773,7 @@ export default function App() {
                                 onClick={() => startProjectRename(project)}
                                 aria-label="Rename app"
                                 title="Rename app"
-                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600"
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
                               >
                                 <Edit2 size={16} />
                               </button>
@@ -1761,7 +1790,7 @@ export default function App() {
                           )}
                           {editingProjectId !== project.id && (
                             <div className="transition-all">
-                              <ChevronRight className="text-indigo-600" size={24} />
+                              <ChevronRight className="text-blue-600" size={24} />
                             </div>
                           )}
                         </div>
@@ -1870,7 +1899,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleConfirmNewChat}
-                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
                 Start New
               </button>
@@ -1899,7 +1928,7 @@ export default function App() {
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">App Name</label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
                     <Edit2 size={16} />
                   </div>
                   <input
@@ -1907,7 +1936,7 @@ export default function App() {
                     type="text"
                     value={tempProjectName}
                     onChange={(e) => setTempProjectName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     placeholder="e.g. Recipe Assistant, Task Manager..."
                   />
                 </div>
@@ -1931,7 +1960,7 @@ export default function App() {
                   className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
                     !tempProjectName.trim() 
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                   }`}
                 >
                   Create
@@ -1952,7 +1981,7 @@ export default function App() {
             className="hidden md:flex items-center justify-center w-7 bg-white border border-slate-200 rounded-r-lg shadow-premium-sm hover:bg-slate-50 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
             title="Show history panel"
           >
-            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
           </button>
         )}
         {/* History Sidebar */}
@@ -1969,7 +1998,7 @@ export default function App() {
               >
                 <PanelLeftClose size={15} />
               </button>
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-500 flex-shrink-0 border border-indigo-100">
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-500 flex-shrink-0 border border-blue-100">
                 <History size={13} />
               </div>
               <h2 className="text-sm font-semibold text-slate-800 whitespace-nowrap tracking-tight">
@@ -2011,7 +2040,7 @@ export default function App() {
                     {/* Timeline dot */}
                     <div className={`absolute left-[-18px] top-[14px] w-[9px] h-[9px] rounded-full border-2 z-[2] transition-all duration-300 ${
                       isActive
-                        ? 'border-indigo-500 bg-indigo-100 shadow-[0_0_0_4px_rgba(99,102,241,0.12)]'
+                        ? 'border-blue-500 bg-blue-100 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]'
                         : 'border-slate-300 bg-white'
                     }`} />
 
@@ -2020,7 +2049,7 @@ export default function App() {
                       onClick={() => toggleExpandVersion(idx)}
                       className={`relative cursor-pointer rounded-xl border transition-all duration-200 overflow-hidden ${
                         isActive
-                          ? 'bg-white border-indigo-200/60 active-version-glow'
+                          ? 'bg-white border-blue-200/60 active-version-glow'
                           : 'bg-white/80 border-transparent hover:border-slate-200 hover:bg-white hover:shadow-premium-sm'
                       }`}
                     >
@@ -2029,7 +2058,7 @@ export default function App() {
                           {/* Version badge */}
                           <div className={`shrink-0 h-[22px] min-w-[38px] px-2 rounded-md flex items-center justify-center text-[10px] font-bold tracking-wide transition-all duration-200 ${
                             isActive
-                              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                              ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
                               : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
                           }`}>
                             v{idx + 1}
@@ -2050,12 +2079,12 @@ export default function App() {
                               )}
                             </div>
                             <div className="mt-1 flex items-center gap-2 text-[10px] font-medium">
-                              <span className={isActive ? 'text-indigo-500' : 'text-slate-400'}>
+                              <span className={isActive ? 'text-blue-500' : 'text-slate-400'}>
                                 {ver.timestamp}
                               </span>
                               {isActive && (
-                                <span className="flex items-center gap-1 px-1.5 py-[2px] rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                <span className="flex items-center gap-1 px-1.5 py-[2px] rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-bold uppercase tracking-wider">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                                   Active
                                 </span>
                               )}
@@ -2065,7 +2094,7 @@ export default function App() {
                           <ChevronRight
                             size={14}
                             className={`shrink-0 mt-1 transition-all duration-200 ${
-                              isExpanded ? 'rotate-90 text-indigo-500' : isActive ? 'text-indigo-400' : 'text-slate-300'
+                              isExpanded ? 'rotate-90 text-blue-500' : isActive ? 'text-blue-400' : 'text-slate-300'
                             }`}
                           />
                         </div>
@@ -2080,7 +2109,7 @@ export default function App() {
                             {/* Prompt */}
                             <div>
                               <div className="flex items-center gap-2 mb-2">
-                                <div className="w-1 h-3 rounded-full bg-indigo-400" />
+                                <div className="w-1 h-3 rounded-full bg-blue-400" />
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.12em]">Prompt</span>
                               </div>
                               <div className="text-[13px] text-slate-700 font-medium leading-relaxed bg-slate-50/80 p-3 rounded-lg border border-slate-100">
@@ -2157,8 +2186,8 @@ export default function App() {
                   <div className="space-y-4 relative">
                     {generatedCode ? (
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                        <span className="text-[13px] font-bold text-indigo-600 uppercase tracking-[0.14em]">Editing</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="text-[13px] font-bold text-blue-600 uppercase tracking-[0.14em]">Editing</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2.5 pt-0.5">
@@ -2201,15 +2230,15 @@ export default function App() {
                           <button
                             key={idx}
                             onClick={() => setPrompt(suggestion)}
-                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/70 border border-slate-200/90 rounded-xl transition-all hover:border-indigo-300 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
+                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/70 border border-slate-200/90 rounded-xl transition-all hover:border-blue-300 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <span className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                              <span className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center text-slate-500 group-hover:text-blue-600 transition-colors">
                                 <StarterIcon size={18} />
                               </span>
                               <span className="text-[15px] text-slate-800 group-hover:text-slate-900 font-medium leading-snug transition-colors">{suggestion}</span>
                             </div>
-                            <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
                           </button>
                         );
                       })}
@@ -2285,8 +2314,8 @@ export default function App() {
                                 className="sr-only"
                                 disabled={isGenerating}
                               />
-                              <Icon size={13} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
-                              <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-700' : 'text-slate-600'}`}>{option.label}</span>
+                              <Icon size={13} className={isSelected ? 'text-blue-600' : 'text-slate-400'} />
+                              <span className={`text-xs font-semibold ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>{option.label}</span>
                             </label>
                           );
                         })}
@@ -2318,7 +2347,7 @@ export default function App() {
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating}
-                    className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
+                    className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                       isGenerating
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                         : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
@@ -2449,9 +2478,9 @@ export default function App() {
                     {isGenerating && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 p-6 text-center">
                         <div className="relative w-16 h-16 mb-6">
-                          <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
-                          <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
-                          <Sparkles className="absolute inset-0 m-auto text-indigo-500" size={22} />
+                          <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                          <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                          <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
                         </div>
                         <h3 className="text-sm font-semibold text-slate-900 mb-1">Building...</h3>
                         <p className="text-xs text-slate-500 animate-pulse">Generating HTML, CSS & JavaScript</p>
@@ -2507,7 +2536,7 @@ export default function App() {
                     {codePanelCode ? (
                       <>
                         {isGenerating && (
-                      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-indigo-500/10 bg-[#1a1b26]/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-indigo-300 backdrop-blur-sm">
+                      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-blue-500/10 bg-[#1a1b26]/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-300 backdrop-blur-sm">
                             <Loader2 className="animate-spin" size={12} />
                             <span>Streaming</span>
                           </div>
@@ -2518,7 +2547,7 @@ export default function App() {
                         />
                       </>
                     ) : isGenerating ? (
-                       <div className="flex items-center justify-center h-full space-x-2.5 text-indigo-400/50 font-mono text-sm">
+                       <div className="flex items-center justify-center h-full space-x-2.5 text-blue-400/50 font-mono text-sm">
                          <Loader2 className="animate-spin" size={16} />
                          <span>Generating...</span>
                         </div>
