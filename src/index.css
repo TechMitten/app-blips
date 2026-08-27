@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+}
+
 /* 1. Global Reset & Full Screen Layout */
 * {
   box-sizing: border-box;
@@ -16,7 +20,7 @@ body,
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #1e293b;
   line-height: 1.5;
 }
@@ -33,7 +37,7 @@ body {
   --code-bg: #f1f5f9;
   --social-bg: #f1f5f9;
   --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --sans: 'Poppins', system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, 'Cascadia Code', monospace;
 }
 
