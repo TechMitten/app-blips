@@ -27,7 +27,7 @@
 body {
   background-color: var(--bg-main);
   color: var(--text-p);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -762,18 +762,18 @@ body {
   border: none;
 }
 .btn-premium-primary {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: #ffffff;
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3), 0 4px 8px -4px rgba(79, 70, 229, 0.2);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3), 0 4px 8px -4px rgba(37, 99, 235, 0.2);
 }
 .btn-premium-primary:hover {
-  background: linear-gradient(135deg, #4338ca, #4f46e5);
-  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.35), 0 6px 14px -4px rgba(79, 70, 229, 0.25);
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35), 0 6px 14px -4px rgba(37, 99, 235, 0.25);
   transform: translateY(-0.5px);
 }
 .btn-premium-primary:active {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
 }
 .btn-premium-secondary {
   background: #ffffff;
@@ -817,6 +817,13 @@ body {
   background:
     radial-gradient(ellipse 80% 60% at 50% 40%, rgba(99, 102, 241, 0.03), transparent),
     radial-gradient(ellipse 60% 40% at 30% 60%, rgba(99, 102, 241, 0.02), transparent);
+}
+
+/* Ambient glow behind the empty-state hero question */
+.hero-atmosphere {
+  background:
+    radial-gradient(72% 60% at 52% 12%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(50% 46% at 30% 60%, rgba(139, 92, 246, 0.06), transparent 72%);
 }
 
 /* Refined layout selector card */

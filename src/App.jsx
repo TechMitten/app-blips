@@ -14,6 +14,10 @@ import {
   Sparkles,
   ChevronRight,
   TerminalSquare,
+  Timer,
+  CloudSun,
+  Receipt,
+  ListChecks,
   Plus,
   Edit2,
   Clock,
@@ -30,10 +34,9 @@ import {
   PanelLeftOpen,
   PanelLeftClose,
   TriangleAlert,
-  LogOut
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { supabase } from './lib/supabase';
-import { useAuth } from './components/AuthContext';
 // --- Constants ---
 const SURGICAL_EDIT_TOOL = {
   type: 'function',
@@ -91,29 +94,36 @@ const getSafeAreaInstruction = (layoutTarget) => {
   return ' Respect modern phone safe areas: include a viewport meta tag with viewport-fit=cover and pad edge-aligned headers, footers, and fixed controls with env(safe-area-inset-top/right/bottom/left) so nothing is hidden by a notch or home indicator.';
 };
 
-const PROVIDER_OPTIONS = [
-  {
-    id: 'zai',
-    label: 'Orion AI',
-    description: 'High-performance generation',
-    icon: Code2
-  },
-  {
-    id: 'openrouter',
-    label: 'OpenRouter',
-    description: 'Universal model access',
-    icon: Sparkles
-  },
-  {
-    id: 'custom',
-    label: 'Custom',
-    description: 'OpenAI-compatible endpoint',
-    icon: TerminalSquare
-  }
-];
+const LLM_CONFIG_KEY = 'orion-llm-config';
 
-const DEFAULT_PROVIDER = PROVIDER_OPTIONS[0].id;
-const PROVIDER_OPTION_MAP = Object.fromEntries(PROVIDER_OPTIONS.map((option) => [option.id, option]));
+const DEFAULT_LLM_CONFIG = {
+  baseUrl: 'https://api.openai.com/v1',
+  apiKey: '',
+  model: 'gpt-4o'
+};
+
+const loadLlmConfig = () => {
+  try {
+    const raw = localStorage.getItem(LLM_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.baseUrl || parsed.apiKey || parsed.model)) {
+        return {
+          baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
+          apiKey: parsed.apiKey || '',
+          model: parsed.model || DEFAULT_LLM_CONFIG.model
+        };
+      }
+    }
+  } catch { /* ignore invalid stored config */ }
+  return { ...DEFAULT_LLM_CONFIG };
+};
+
+const toChatCompletionsUrl = (baseUrl) => {
+  const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
+};
 const INITIAL_LAYOUT_OPTIONS = [
   {
     id: 'mobile',
@@ -228,7 +238,6 @@ const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
 
 // --- API Helper with Exponential Backoff ---
 const requestModelText = async ({
-  provider = 'zai',
   systemPrompt,
   userText,
   onChunk = null,
@@ -239,41 +248,21 @@ const requestModelText = async ({
   signal = null
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  
-  let apiKey, model, baseUrl, customEnv;
-  
-  if (provider === 'openrouter') {
-    apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    model = import.meta.env.VITE_OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
-    baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-  } else if (provider === 'custom') {
-    apiKey = import.meta.env.VITE_CUSTOM_API_KEY;
-    model = import.meta.env.VITE_CUSTOM_MODEL || 'gpt-4o';
-    baseUrl = import.meta.env.VITE_CUSTOM_BASE_URL || 'https://api.openai.com/v1/chat/completions';
-    customEnv = {
-      temperature: parseFloat(import.meta.env.VITE_CUSTOM_TEMPERATURE),
-      top_p: parseFloat(import.meta.env.VITE_CUSTOM_TOP_P),
-      max_tokens: parseInt(import.meta.env.VITE_CUSTOM_MAX_TOKENS),
-      thinking_enabled: import.meta.env.VITE_CUSTOM_THINKING_ENABLED !== 'false',
-      reasoning_effort: import.meta.env.VITE_CUSTOM_REASONING_EFFORT || undefined,
-      stop: import.meta.env.VITE_CUSTOM_STOP ? import.meta.env.VITE_CUSTOM_STOP.split(',').map(s => s.trim()) : undefined
-    };
-  } else {
-    apiKey = import.meta.env.VITE_ZAI_API_KEY;
-    model = import.meta.env.VITE_ZAI_MODEL || 'glm-4-plus';
-    baseUrl = 'https://api.z.ai/api/coding/paas/v4/chat/completions';
-  }
+
+  const config = loadLlmConfig();
+  const baseUrl = toChatCompletionsUrl(config.baseUrl);
+  const apiKey = config.apiKey;
+  const model = config.model;
+
+  if (!baseUrl) throw new Error('Configure an API endpoint in Settings.');
+  if (!apiKey) throw new Error('Configure an API key in Settings.');
+  if (!model) throw new Error('Configure a model in Settings.');
 
   try {
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     };
-    
-    if (provider === 'openrouter') {
-      headers['HTTP-Referer'] = window.location.origin;
-      headers['X-Title'] = 'Orion';
-    }
 
     const bodyObj = {
       model,
@@ -283,16 +272,6 @@ const requestModelText = async ({
         { role: 'user', content: userText }
       ]
     };
-
-    if (provider === 'custom' && customEnv) {
-      if (!isNaN(customEnv.temperature)) bodyObj.temperature = customEnv.temperature;
-      if (!isNaN(customEnv.top_p)) bodyObj.top_p = customEnv.top_p;
-      if (!isNaN(customEnv.max_tokens)) bodyObj.max_tokens = customEnv.max_tokens;
-      if (customEnv.stop) bodyObj.stop = customEnv.stop;
-      if (customEnv.reasoning_effort) {
-        bodyObj.reasoning_effort = customEnv.reasoning_effort;
-      }
-    }
 
     bodyObj.temperature = temperature;
     if (tools) bodyObj.tools = tools;
@@ -374,7 +353,7 @@ const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError') {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        provider, systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1, signal
+        systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1, signal
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -384,14 +363,13 @@ const requestModelText = async ({
 const generateAppCode = async (
   prompt,
   currentCode = null,
-  provider = 'zai',
   onChunk = null,
   layoutTarget = 'both',
   signal = null
 ) => {
   if (!currentCode) {
     const userText = buildInitialGenerationPrompt(prompt, layoutTarget);
-    const message = await requestModelText({ provider, systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7, signal });
+    const message = await requestModelText({ systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7, signal });
     return {
       code: sanitizeHtmlResponse(message.content || message),
       editMode: 'full-generation',
@@ -409,7 +387,6 @@ const generateAppCode = async (
         : `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app.`;
 
       const message = await requestModelText({
-        provider,
         systemPrompt: HTML_SYSTEM_PROMPT,
         userText: userMessage,
         onChunk,
@@ -518,10 +495,15 @@ export default function App() {
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [previewMode, setPreviewMode] = useState('mobile');
-  const [apiProvider, setApiProvider] = useState(() => {
-    const storedProvider = localStorage.getItem('orion-api-provider');
-    return PROVIDER_OPTION_MAP[storedProvider] ? storedProvider : DEFAULT_PROVIDER;
-  });
+  const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const handleLlmConfigChange = useCallback((field, value) => {
+    setLlmConfig((prev) => {
+      const next = { ...prev, [field]: value };
+      try { localStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -547,7 +529,6 @@ export default function App() {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : true;
   });
-  const { user, signOut } = useAuth();
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
@@ -846,22 +827,29 @@ export default function App() {
   };
 
   // --- Data Persistence Helpers ---
-  const loadUserProjects = useCallback(async () => {
+  const readProjectRows = () => {
     try {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+      return JSON.parse(localStorage.getItem('orion-projects') || '[]');
+    } catch {
+      return [];
+    }
+  };
 
-      if (error) throw error;
+  const writeProjectRows = (rows) => {
+    localStorage.setItem('orion-projects', JSON.stringify(rows));
+  };
 
-      const projects = data.map(row => ({
+  const loadUserProjects = useCallback(() => {
+    try {
+      const rows = readProjectRows()
+        .slice()
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      const projects = rows.map(row => ({
         id: row.id,
         name: row.name,
         ...row.data,
-        lastModified: row.updated_at
+        lastModified: row.updatedAt
       }));
 
       setMyProjects(projects);
@@ -870,24 +858,20 @@ export default function App() {
       console.error("Error loading projects:", err);
       return [];
     }
-  }, [user]);
+  }, []);
 
   const loadProjectById = useCallback(async (projectId) => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', projectId)
-        .single();
+      const row = readProjectRows().find(r => r.id === projectId);
 
-      if (error || !data) {
+      if (!row) {
         localStorage.removeItem('orion-current-project-id');
         return;
       }
 
       clearStreamingState();
-      setProjectName(data.name || 'Untitled App');
-      const projectData = data.data || {};
+      setProjectName(row.name || 'Untitled App');
+      const projectData = row.data || {};
       setVersions(projectData.versions || []);
       setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
       if (projectData.versions && projectData.versions[projectData.currentVersionIndex]) {
@@ -900,7 +884,7 @@ export default function App() {
     }
   }, []);
 
-  const saveProject = useCallback(async (params = {}) => {
+  const saveProject = useCallback((params = {}) => {
     const {
       versionsToSave = versions,
       indexToSave = currentVersionIndex,
@@ -918,15 +902,21 @@ export default function App() {
         currentVersionIndex: indexToSave,
       };
 
-      await supabase
-        .from('projects')
-        .upsert({
-          id: projectId,
-          user_id: user.id,
-          name: nameToSave,
-          data: projectData,
-          updated_at: new Date().toISOString()
-        });
+      const rows = readProjectRows();
+      const existingIndex = rows.findIndex(r => r.id === projectId);
+      const row = {
+        id: projectId,
+        name: nameToSave,
+        data: projectData,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (existingIndex >= 0) {
+        rows[existingIndex] = row;
+      } else {
+        rows.push(row);
+      }
+      writeProjectRows(rows);
 
       if (!currentProjectId || currentProjectId !== projectId) {
         setCurrentProjectId(projectId);
@@ -936,7 +926,7 @@ export default function App() {
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, user, loadUserProjects]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, loadUserProjects]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -990,8 +980,10 @@ export default function App() {
     "A daily habit tracker with checkboxes for 5 custom habits."
   ];
 
+  const starterIcons = [Timer, CloudSun, Receipt, ListChecks];
+
   const handleSaveSettings = () => {
-    localStorage.setItem('orion-api-provider', apiProvider);
+    localStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(llmConfig));
     setIsSettingsOpen(false);
   };
 
@@ -1016,7 +1008,7 @@ export default function App() {
     setPrompt(''); // Clear input so user can easily type their next refinement
 
     try {
-      const generationResult = await generateAppCode(currentPrompt, generatedCode, apiProvider, (chunk) => {
+      const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk) => {
         streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
         setStreamingCode(streamingBufferRef.current.trim());
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
@@ -1224,10 +1216,12 @@ export default function App() {
 
     setRenamingProjectId(project.id);
     try {
-      await supabase
-        .from('projects')
-        .update({ name: trimmedName, updated_at: new Date().toISOString() })
-        .eq('id', project.id);
+      const rows = readProjectRows();
+      const idx = rows.findIndex(r => r.id === project.id);
+      if (idx >= 0) {
+        rows[idx] = { ...rows[idx], name: trimmedName, updatedAt: new Date().toISOString() };
+        writeProjectRows(rows);
+      }
 
       setMyProjects(prev => prev.map((p) => (
         p.id === project.id
@@ -1253,10 +1247,7 @@ export default function App() {
     const projectId = projectToDelete.id;
     setDeletingProjectId(projectId);
     try {
-      await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectId);
+      writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
 
       setMyProjects(prev => prev.filter((project) => project.id !== projectId));
 
@@ -1322,16 +1313,6 @@ export default function App() {
             <Settings size={16} />
             <span className="hidden sm:inline">Settings</span>
            </button>
-
-           <button
-             onClick={signOut}
-             className="flex items-center gap-1.5 text-slate-400 hover:text-red-500 font-medium px-3 py-2 rounded-lg hover:bg-red-50/60 transition-colors text-sm"
-             title="Sign out"
-           >
-             <LogOut size={16} />
-             <span className="hidden sm:inline">{user?.email?.split('@')[0]}</span>
-           </button>
-
 
            <div className="hidden sm:flex items-center space-x-2 ml-2 pl-2 border-l border-slate-200">
             {activeTab === 'preview' && (
@@ -1449,7 +1430,7 @@ export default function App() {
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Settings</h2>
+              <h2 className="text-2xl font-bold text-black">Settings</h2>
               <button
                 onClick={() => setIsSettingsOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
@@ -1459,49 +1440,59 @@ export default function App() {
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">AI Provider</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {PROVIDER_OPTIONS.map((providerOption) => {
-                    const Icon = providerOption.icon;
-                    return (
-                      <button
-                        key={providerOption.id}
-                        onClick={() => setApiProvider(providerOption.id)}
-                        className={`flex flex-col items-start p-4 rounded-2xl border-2 transition-all ${
-                          apiProvider === providerOption.id
-                            ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
-                            : 'border-slate-100 hover:border-slate-200 bg-white'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-xl mb-3 flex items-center justify-center ${
-                          apiProvider === providerOption.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          <Icon size={18} />
-                        </div>
-                        <span className={`text-sm font-semibold ${apiProvider === providerOption.id ? 'text-indigo-900' : 'text-slate-700'}`}>
-                          {providerOption.label}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {providerOption.description}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <label className="text-base font-bold text-black uppercase tracking-wider">API Endpoint</label>
+                <p className="text-black text-lg leading-relaxed">
+                  Connect any OpenAI-compatible API. Enter the endpoint URL, key and model — changes save automatically.
+                </p>
+                <div>
+                  <span className="block text-base font-bold text-black mb-1">Base URL</span>
+                  <input
+                    type="text"
+                    value={llmConfig.baseUrl}
+                    onChange={(e) => handleLlmConfigChange('baseUrl', e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <span className="block text-base font-bold text-black mb-1">API Key</span>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={llmConfig.apiKey}
+                      onChange={(e) => handleLlmConfigChange('apiKey', e.target.value)}
+                      placeholder="sk-..."
+                      autoComplete="off"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey((v) => !v)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-600 hover:text-black transition-colors"
+                      aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                    >
+                      {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <span className="block text-base font-bold text-black mb-1">Model</span>
+                  <input
+                    type="text"
+                    value={llmConfig.model}
+                    onChange={(e) => handleLlmConfigChange('model', e.target.value)}
+                    placeholder="gpt-4o"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  />
                 </div>
               </div>
             </div>
             <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3">
               <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
                 onClick={handleSaveSettings}
-                className="rounded-lg px-5 py-2 bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm transition-colors active:scale-[0.98]"
+                className="rounded-lg px-6 py-3 bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.98]"
               >
-                Save
+                Done
               </button>
             </div>
           </div>
@@ -2030,50 +2021,68 @@ export default function App() {
             <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 pt-8 lg:pt-10 pb-4 flex flex-col justify-start relative z-[1] chat-scrollbar">
-              <div className="max-w-2xl w-full mx-auto space-y-8 animate-fade-in">
+              <div className="max-w-2xl w-full mx-auto space-y-6 animate-fade-in">
 
                 {/* Header Section */}
-                <div className={generatedCode ? 'refine-card' : ''}>
-                  <div className="space-y-3">
-                    {generatedCode && (
+                <div className={generatedCode ? 'refine-card' : 'relative'}>
+                  {!generatedCode && (
+                    <div className="pointer-events-none absolute -top-8 left-0 right-0 h-44 hero-atmosphere" aria-hidden="true" />
+                  )}
+                  <div className="space-y-4 relative">
+                    {generatedCode ? (
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                        <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-[0.12em]">Editing</span>
+                        <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-[0.16em]">Editing</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-2 w-8 rounded-full bg-gradient-to-r from-indigo-500 to-violet-400" />
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">App Studio</span>
                       </div>
                     )}
-                    <h2 className="text-[1.65rem] lg:text-[1.8rem] font-bold text-slate-900 tracking-tight leading-[1.2]">
-                      {generatedCode ? "Refine your app" : "What do you want to build?"}
+                    <h2 className="text-[2rem] lg:text-[2.35rem] font-bold tracking-[-0.03em] leading-[1.08] text-slate-900">
+                      {generatedCode ? (
+                        <>Refine <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">your app</span></>
+                      ) : (
+                        <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">build?</span></>
+                      )}
                     </h2>
-                    <p className="text-slate-500 text-[14px] leading-relaxed">
+                    <p className="text-slate-600 text-[14px] leading-relaxed max-w-[34ch]">
                       {generatedCode
                         ? "Describe what to change, add, or fix."
-                        : "Describe your app in natural language and Orion will generate a complete, working application."}
+                        : "Describe your idea in plain words and Orion will craft a complete, working app."}
                     </p>
                   </div>
                 </div>
 
                 {/* Suggestions - Only show when no app is generated */}
                 {!generatedCode && (
-                  <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-3 h-[2px] rounded-full bg-slate-300" />
-                      <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.12em]">
+                  <div className="space-y-4 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="h-2 w-8 rounded-full bg-gradient-to-r from-slate-300 to-slate-200" />
+                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">
                         Try a starter
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {suggestedPrompts.map((suggestion, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setPrompt(suggestion)}
-                          className={`text-left px-4 py-3 bg-white/90 border border-slate-200 rounded-xl transition-all group flex items-center justify-between suggestion-card animate-stagger-${idx + 1}`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="text-[13px] text-slate-600 group-hover:text-slate-900 leading-snug transition-colors truncate">{suggestion}</span>
-                          </div>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-all duration-200 flex-shrink-0 ml-3 group-hover:translate-x-0.5" />
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-1 gap-2">
+                      {suggestedPrompts.map((suggestion, idx) => {
+                        const StarterIcon = starterIcons[idx];
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setPrompt(suggestion)}
+                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/80 border border-slate-200/90 rounded-xl transition-all hover:border-indigo-200 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="shrink-0 w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                <StarterIcon size={16} />
+                              </span>
+                              <span className="text-[13px] text-slate-700 group-hover:text-slate-900 font-medium leading-snug transition-colors truncate">{suggestion}</span>
+                            </div>
+                            <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-500 transition-all duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2097,21 +2106,21 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="shrink-0 p-4 border-t border-slate-200/60 bg-white/80 backdrop-blur-md relative z-[1]">
-              <div className="bg-white rounded-2xl shadow-premium-md border border-slate-200 overflow-hidden transition-all input-glow">
+            <div className="shrink-0 p-4 pt-3 border-t border-slate-200/60 bg-white/80 backdrop-blur-md relative z-[1]">
+              <div className="bg-white rounded-2xl shadow-premium-lg border border-slate-200 overflow-hidden transition-all input-glow">
                 <textarea
                   id="prompt"
                   name="prompt"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
-                  className="w-full h-28 px-4 pt-4 pb-3 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[14px] leading-6 bg-transparent"
+                  className="w-full h-32 px-4 pt-4 pb-3 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[14px] leading-6 bg-transparent"
                   disabled={isGenerating}
                 />
                 {!generatedCode && versions.length === 0 && (
-                  <div className="px-4 pb-3.5">
+                  <div className="px-4 pb-3">
                     <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.10em] mb-2.5">
+                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.10em] mb-2.5">
                         Optimize for
                       </p>
                       <div className="grid grid-cols-3 gap-2">
@@ -2122,7 +2131,7 @@ export default function App() {
                           return (
                             <label
                               key={option.id}
-                              className={`layout-selector flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-all ${
+                              className={`layout-selector flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2 transition-all ${
                                 isSelected
                                   ? 'layout-selector-selected'
                                   : 'border-slate-200 bg-white/80 hover:border-slate-300'
@@ -2137,7 +2146,6 @@ export default function App() {
                                 className="sr-only"
                                 disabled={isGenerating}
                               />
-                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-indigo-500 shadow-[0_0_0_3px_rgba(99,102,241,0.2)]' : 'bg-slate-300'}`} />
                               <Icon size={13} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
                               <span className={`text-xs font-semibold ${isSelected ? 'text-indigo-700' : 'text-slate-600'}`}>{option.label}</span>
                             </label>
@@ -2147,40 +2155,38 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3 flex justify-between items-center">
-                  <div className="flex space-x-2">
-                    {isGenerating && (
-                      <button
-                        onClick={() => {
-                          if (abortControllerRef.current) {
-                            abortControllerRef.current.abort();
-                            abortControllerRef.current = null;
-                          }
-                        }}
-                        className="btn-premium py-2 px-4 text-[13px] bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors rounded-xl font-semibold flex items-center gap-1.5"
-                      >
-                        <X size={15} />
-                        Cancel
-                      </button>
-                    )}
-                  </div>
+                <div className="flex items-center gap-3 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3">
+                  {isGenerating && (
+                    <button
+                      onClick={() => {
+                        if (abortControllerRef.current) {
+                          abortControllerRef.current.abort();
+                          abortControllerRef.current = null;
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
+                    >
+                      <X size={14} />
+                      Cancel
+                    </button>
+                  )}
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating}
-                    className={`btn-premium py-2 px-5 text-[13px] ${
+                    className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
                       isGenerating
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                        : 'btn-premium-primary'
+                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
                     }`}
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="animate-spin" size={15} />
+                        <Loader2 className="animate-spin" size={16} />
                         {generatedCode ? "Updating..." : "Building..."}
                       </>
                     ) : (
                       <>
-                        {generatedCode ? <Edit2 size={15} /> : <Wand2 size={15} />}
+                        {generatedCode ? <Edit2 size={16} /> : <Wand2 size={16} />}
                         {generatedCode ? "Update" : "Build"}
                       </>
                     )}
