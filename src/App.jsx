@@ -46,7 +46,7 @@ const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
     name: 'apply_surgical_edits',
-    description: 'Applies precise search-and-replace edits to the current code. Each search block MUST include enough unique surrounding context (5+ lines) to guarantee a single unambiguous match. Use landmark comments (<!-- @section: name -->) as anchors. Prefer fewer, larger edits over many tiny ones.',
+    description: 'Applies precise search-and-replace edits to the current code. Each search block must match exactly one location unless replace_all is set. If a search string could match more than once, set occurrence to pick which match (1-based, in document order) or replace_all to true. Prefer fewer, larger edits over many tiny ones.',
     parameters: {
       type: 'object',
       properties: {
@@ -56,9 +56,11 @@ const SURGICAL_EDIT_TOOL = {
             type: 'object',
             properties: {
               search: { type: 'string', description: 'Exact code to find. Include 5+ lines of unique surrounding context — not just the changed lines.' },
-              replace: { type: 'string', description: 'Replacement code. Preserve surrounding context and indentation.' }
+              replace: { type: 'string', description: 'Replacement code. Preserve surrounding context and indentation.' },
+              occurrence: { type: ['integer', 'null'], description: '1-based index of which match to replace, only if search is ambiguous (matches more than once). Null if search is unique.' },
+              replace_all: { type: ['boolean', 'null'], description: 'If true, replace every occurrence of search. Null otherwise.' }
             },
-            required: ['search', 'replace'],
+            required: ['search', 'replace', 'occurrence', 'replace_all'],
             additionalProperties: false
           }
         }
@@ -69,6 +71,42 @@ const SURGICAL_EDIT_TOOL = {
     strict: true
   }
 };
+
+const VIEW_CODE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'view_code',
+    description: 'Returns a line-numbered slice of the current app code, either by explicit line range or by @section landmark name. Use before editing a part of the code you have not seen or are unsure about.',
+    parameters: {
+      type: 'object',
+      properties: {
+        section: { type: ['string', 'null'], description: 'Exact @section landmark name to view. Null to use start_line/end_line instead.' },
+        start_line: { type: ['integer', 'null'], description: '1-based start line (inclusive). Null when using section.' },
+        end_line: { type: ['integer', 'null'], description: '1-based end line (inclusive). Null when using section.' }
+      },
+      required: ['section', 'start_line', 'end_line'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
+const LIST_SECTIONS_TOOL = {
+  type: 'function',
+  function: {
+    name: 'list_sections',
+    description: "Lists every <!-- @section: name --> landmark actually present in the current code, in document order, with each one's line range. Ground truth — call this before assuming a section exists.",
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
+const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL];
 
 const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
@@ -86,9 +124,9 @@ CRITICAL RULES:
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
 - SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
-- Use <!-- @section: name --> landmark comments as structural anchors for precise targeting.
+- Use <!-- @section: name --> landmark comments as structural anchors for precise targeting. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
 - Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
-- Verify mentally that each search string appears exactly once in the code before submitting.
+- If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
 - If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
 
 Do not include any explanations, markdown markers, or text outside of these formats.`;
@@ -230,62 +268,147 @@ const sanitizeHtmlResponse = (text) => {
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
 };
 
-const applySurgicalEdits = (currentCode, edits) => {
-  if (!currentCode || !edits || !Array.isArray(edits)) return { success: false, error: 'Invalid edit format' };
+const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
 
-  const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
-  let newCode = currentCode;
-  const appliedSearchStrings = new Set();
-
-  for (const block of edits) {
-    const { search: searchStr, replace: replaceStr } = block;
-    if (!searchStr) continue;
-
-    // 1. Try exact match first
-    if (newCode.includes(searchStr)) {
-      newCode = newCode.split(searchStr).join(replaceStr);
-      appliedSearchStrings.add(searchStr);
-      continue;
-    }
-
-    // 2. Deduplicate / Already applied check
-    if (appliedSearchStrings.has(searchStr)) continue;
-
-    // 3. Fuzzy line-by-line match
-    const codeLines = newCode.split(/\r?\n/);
-    const searchLines = searchStr.split(/\r?\n/);
-    const normalizedSearchLines = searchLines.map(normalizeLine);
-    
-    let matchIndex = -1;
-    for (let i = 0; i <= codeLines.length - searchLines.length; i++) {
-      let isMatch = true;
-      for (let j = 0; j < searchLines.length; j++) {
-        if (normalizeLine(codeLines[i + j]) !== normalizedSearchLines[j]) {
-          isMatch = false;
-          break;
-        }
-      }
-      if (isMatch) {
-        matchIndex = i;
+// Every line-window in codeLines that matches searchLines under whitespace-normalized comparison.
+const findFuzzyMatches = (codeLines, searchLines) => {
+  const normalizedSearchLines = searchLines.map(normalizeLine);
+  const matches = [];
+  for (let i = 0; i <= codeLines.length - searchLines.length; i++) {
+    let isMatch = true;
+    for (let j = 0; j < searchLines.length; j++) {
+      if (normalizeLine(codeLines[i + j]) !== normalizedSearchLines[j]) {
+        isMatch = false;
         break;
       }
     }
+    if (isMatch) matches.push(i);
+  }
+  return matches;
+};
 
-    if (matchIndex !== -1) {
-      const beforeLines = codeLines.slice(0, matchIndex);
-      const afterLines = codeLines.slice(matchIndex + searchLines.length);
-      newCode = [...beforeLines, replaceStr, ...afterLines].join('\n');
-      appliedSearchStrings.add(searchStr);
-    } else {
-      return { 
-        success: false, 
+const countExactOccurrences = (haystack, needle) => {
+  if (!needle) return 0;
+  let count = 0;
+  let idx = 0;
+  while ((idx = haystack.indexOf(needle, idx)) !== -1) {
+    count++;
+    idx += needle.length;
+  }
+  return count;
+};
+
+const replaceExactOccurrence = (haystack, needle, replacement, occurrence) => {
+  let idx = -1;
+  let from = 0;
+  for (let n = 0; n < occurrence; n++) {
+    idx = haystack.indexOf(needle, from);
+    from = idx + needle.length;
+  }
+  return haystack.slice(0, idx) + replacement + haystack.slice(idx + needle.length);
+};
+
+const applySurgicalEdits = (currentCode, edits) => {
+  if (!currentCode || !edits || !Array.isArray(edits)) return { success: false, error: 'Invalid edit format' };
+
+  let newCode = currentCode;
+
+  for (const block of edits) {
+    const { search: searchStr, replace: replaceStr, occurrence, replace_all: replaceAll } = block;
+    if (!searchStr) continue;
+
+    const exactCount = countExactOccurrences(newCode, searchStr);
+
+    if (exactCount > 0) {
+      if (replaceAll) {
+        newCode = newCode.split(searchStr).join(replaceStr);
+      } else if (exactCount === 1) {
+        newCode = newCode.replace(searchStr, replaceStr);
+      } else if (occurrence && occurrence >= 1 && occurrence <= exactCount) {
+        newCode = replaceExactOccurrence(newCode, searchStr, replaceStr, occurrence);
+      } else {
+        return {
+          success: false,
+          error: `Ambiguous: search block matches ${exactCount} locations. Set "occurrence" (1-${exactCount}) or "replace_all": true.`,
+          ambiguous: true,
+          matchCount: exactCount
+        };
+      }
+      continue;
+    }
+
+    // Fuzzy fallback: whitespace-normalized line-window match, same occurrence/replace_all logic.
+    const codeLines = newCode.split(/\r?\n/);
+    const searchLines = searchStr.split(/\r?\n/);
+    const matches = findFuzzyMatches(codeLines, searchLines);
+
+    if (matches.length === 0) {
+      return {
+        success: false,
         error: `Search block not found: "${searchStr.substring(0, 100)}..."`,
-        failedBlock: searchStr 
+        failedBlock: searchStr
+      };
+    } else if (matches.length === 1 || replaceAll) {
+      const targets = replaceAll ? matches : [matches[0]];
+      // Apply from the last match backwards so earlier indices stay valid.
+      let lines = codeLines;
+      for (let t = targets.length - 1; t >= 0; t--) {
+        const matchIndex = targets[t];
+        lines = [...lines.slice(0, matchIndex), replaceStr, ...lines.slice(matchIndex + searchLines.length)];
+      }
+      newCode = lines.join('\n');
+    } else if (occurrence && occurrence >= 1 && occurrence <= matches.length) {
+      const matchIndex = matches[occurrence - 1];
+      newCode = [...codeLines.slice(0, matchIndex), replaceStr, ...codeLines.slice(matchIndex + searchLines.length)].join('\n');
+    } else {
+      return {
+        success: false,
+        error: `Ambiguous: search block matches ${matches.length} locations. Set "occurrence" (1-${matches.length}) or "replace_all": true.`,
+        ambiguous: true,
+        matchCount: matches.length
       };
     }
   }
 
   return { success: true, code: newCode };
+};
+
+const SECTION_LANDMARK_RE = /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->/;
+
+const listSections = (code) => {
+  const lines = code.split(/\r?\n/);
+  const marks = [];
+  lines.forEach((line, i) => {
+    const m = line.match(SECTION_LANDMARK_RE);
+    if (m) marks.push({ name: m[1].trim(), line: i + 1 });
+  });
+  return marks.map((m, i) => ({
+    name: m.name,
+    startLine: m.line,
+    endLine: i + 1 < marks.length ? marks[i + 1].line - 1 : lines.length
+  }));
+};
+
+const VIEW_CODE_MAX_LINES = 400;
+
+const viewCode = (code, { section, start_line: startLine, end_line: endLine } = {}) => {
+  const lines = code.split(/\r?\n/);
+  let from, to;
+
+  if (section) {
+    const found = listSections(code).find((s) => s.name === section);
+    if (!found) return { success: false, error: `No @section named "${section}" found. Call list_sections to see actual names.` };
+    from = found.startLine;
+    to = found.endLine;
+  } else {
+    from = Math.max(1, startLine || 1);
+    to = Math.min(lines.length, endLine || from + 199);
+  }
+
+  if (to - from > VIEW_CODE_MAX_LINES) to = from + VIEW_CODE_MAX_LINES;
+
+  const slice = lines.slice(from - 1, to).map((l, i) => `${from + i}: ${l}`).join('\n');
+  return { success: true, code: slice, startLine: from, endLine: to };
 };
 
 const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
@@ -305,8 +428,7 @@ const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
 
 // --- API Helper with Exponential Backoff ---
 const requestModelText = async ({
-  systemPrompt,
-  userText,
+  messages,
   onChunk = null,
   tools = null,
   tool_choice = null,
@@ -333,10 +455,7 @@ const requestModelText = async ({
     const bodyObj = {
       model,
       stream: !!onChunk,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userText }
-      ]
+      messages
     };
 
     bodyObj.temperature = 0.2;
@@ -405,8 +524,8 @@ const requestModelText = async ({
 
             if (delta?.tool_calls) {
               for (const tc of delta.tool_calls) {
-                const idx = tc.index || 0;
-                if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, function: { name: tc.function?.name, arguments: '' } };
+                const idx = tc.index ?? toolCallsBuffer.length;
+                if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
                 if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
               }
             }
@@ -421,11 +540,53 @@ const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError') {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        systemPrompt, userText, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal
+        messages, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
   }
+};
+
+const MAX_REFINEMENT_TURNS = 8;
+
+const describeToolCall = (toolCall) => {
+  const name = toolCall.function?.name;
+  let args = {};
+  try { args = JSON.parse(toolCall.function?.arguments || '{}'); } catch { /* ignore, use defaults below */ }
+
+  if (name === 'list_sections') return 'Listing sections...';
+  if (name === 'view_code') {
+    return args.section ? `Inspecting section "${args.section}"...` : `Inspecting lines ${args.start_line ?? '?'}-${args.end_line ?? '?'}...`;
+  }
+  if (name === 'apply_surgical_edits') {
+    const count = Array.isArray(args.edits) ? args.edits.length : 1;
+    return `Applying ${count} edit${count === 1 ? '' : 's'}...`;
+  }
+  return `Calling ${name}...`;
+};
+
+// Executes one tool call against workingCode. Returns the (possibly updated) code plus
+// the JSON-able result to report back to the model as a tool message.
+const executeRefinementTool = (workingCode, toolCall) => {
+  const name = toolCall.function?.name;
+  let args;
+  try {
+    args = JSON.parse(toolCall.function?.arguments || '{}');
+  } catch (e) {
+    return { code: workingCode, applied: false, result: { success: false, error: `Arguments were not valid JSON: ${e.message}` } };
+  }
+
+  if (name === 'list_sections') {
+    return { code: workingCode, applied: false, result: { success: true, sections: listSections(workingCode) } };
+  }
+  if (name === 'view_code') {
+    return { code: workingCode, applied: false, result: viewCode(workingCode, args) };
+  }
+  if (name === 'apply_surgical_edits') {
+    const result = applySurgicalEdits(workingCode, args.edits);
+    return { code: result.success ? result.code : workingCode, applied: result.success, result };
+  }
+  return { code: workingCode, applied: false, result: { success: false, error: `Unknown tool: ${name}` } };
 };
 
 const generateAppCode = async (
@@ -436,8 +597,11 @@ const generateAppCode = async (
   signal = null
 ) => {
   if (!currentCode) {
-    const userText = buildInitialGenerationPrompt(prompt, layoutTarget);
-    const message = await requestModelText({ systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, signal });
+    const messages = [
+      { role: 'system', content: HTML_SYSTEM_PROMPT },
+      { role: 'user', content: buildInitialGenerationPrompt(prompt, layoutTarget) }
+    ];
+    const message = await requestModelText({ messages, onChunk, signal });
     return {
       code: sanitizeHtmlResponse(message.content || message),
       editMode: 'full-generation',
@@ -445,43 +609,72 @@ const generateAppCode = async (
     };
   }
 
-  // REFINEMENT MODE: Self-healing surgical loop
-  let lastError = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    try {
-      const userMessage = lastError
-        ? `Edit attempt ${attempt - 1} failed: ${lastError}\n\nCurrent Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nCorrective action: The SEARCH block was not found in the code. Re-examine the code structure, pick a different anchor point (landmark comment or unique class/id), and include 5+ lines of surrounding context to ensure the search string appears exactly once.`
-        : `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app.`;
+  // REFINEMENT MODE: multi-turn agentic tool-use loop. The model can inspect the code
+  // (view_code / list_sections) and apply edits (apply_surgical_edits) across several
+  // turns in one conversation, self-correcting from real tool-result errors instead of
+  // blindly restarting from scratch each attempt.
+  const messages = [
+    { role: 'system', content: HTML_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`
+    }
+  ];
 
-      const message = await requestModelText({
-        systemPrompt: HTML_SYSTEM_PROMPT,
-        userText: userMessage,
+  let workingCode = currentCode;
+  let editsApplied = false;
+  let nudged = false;
+
+  for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+    let message;
+    try {
+      message = await requestModelText({
+        messages,
         onChunk,
-        tools: [SURGICAL_EDIT_TOOL],
+        tools: REFINEMENT_TOOLS,
+        tool_choice: turn === 1 ? 'required' : 'auto',
+        signal
+      });
+    } catch (e) {
+      if (turn !== 1 || signal?.aborted) throw e;
+      // Some OpenAI-compatible backends don't support tool_choice: 'required' — fall back
+      // to forcing the one edit tool by name, matching the old always-forced behavior.
+      message = await requestModelText({
+        messages,
+        onChunk,
+        tools: REFINEMENT_TOOLS,
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
         signal
       });
+    }
 
-      const toolCall = message.tool_calls?.[0];
-      if (!toolCall) throw new Error("AI did not use the surgical edit tool.");
+    messages.push({
+      role: 'assistant',
+      content: message.content || null,
+      tool_calls: message.tool_calls?.length ? message.tool_calls : undefined
+    });
 
-      const { edits } = JSON.parse(toolCall.function.arguments);
-      const result = applySurgicalEdits(currentCode, edits);
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt };
+      if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
+      nudged = true;
+      messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
+      continue;
+    }
 
-      if (result.success) {
-        return { code: result.code, editMode: 'surgical', editSummary: prompt };
-      } else {
-        console.warn(`Surgical attempt ${attempt} failed:`, result.error);
-        lastError = result.error;
-      }
-    } catch (e) {
-      console.error(`Attempt ${attempt} error:`, e);
-      lastError = e.message;
+    for (const toolCall of message.tool_calls) {
+      if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+      const { code: nextCode, applied, result } = executeRefinementTool(workingCode, toolCall);
+      workingCode = nextCode;
+      if (applied) editsApplied = true;
+      messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
   }
 
-  throw new Error(`Failed to apply updates after 3 attempts. Last error: ${lastError}`);
+  if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt };
+  throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
 };
 
 
@@ -607,6 +800,11 @@ export default function App() {
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
   const abortControllerRef = useRef(null);
+  // Resume-last-project must only happen on initial mount. If it re-runs whenever
+  // currentProjectId flips to null (e.g. after clicking "+ New" / deleting the
+  // open app), it would fall back to projects[0] and resurrect the previous
+  // session's code into the preview.
+  const hasResumedRef = useRef(false);
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
@@ -844,8 +1042,11 @@ export default function App() {
     return () => clearTimeout(timeoutId);
   }, [projectName, currentProjectId, myProjects, saveProject]);
 
-  // --- Data Persistence ---
+  // --- Data Persistence (resume last project, once, on mount) ---
   useEffect(() => {
+    if (hasResumedRef.current) return;
+    hasResumedRef.current = true;
+
     const fetchAndResume = async () => {
       const projects = await loadUserProjects();
       const lastProjectId = localStorage.getItem('orion-current-project-id');
@@ -1186,7 +1387,7 @@ export default function App() {
         <div className="flex items-center space-x-2">
           <button
             onClick={handleNewApp}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
             title="Start a new app"
           >
             <Plus size={16} />
@@ -1195,7 +1396,7 @@ export default function App() {
 
           <button
             onClick={() => setIsProjectsListOpen(true)}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
           >
             <FolderOpen size={16} />
             <span className="hidden sm:inline">Apps</span>
@@ -1203,7 +1404,7 @@ export default function App() {
 
           <button
             onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
             title={isHistoryOpen ? "Hide history panel" : "Show history panel"}
           >
             {isHistoryOpen ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -1212,7 +1413,7 @@ export default function App() {
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
+            className="flex items-center gap-1.5 text-slate-800 hover:text-indigo-600 font-medium px-3 py-2 rounded-lg hover:bg-indigo-50/60 transition-colors text-sm"
             title="Settings"
           >
             <Settings size={16} />
@@ -1225,7 +1426,7 @@ export default function App() {
                 <button
                   onClick={() => setPreviewMode('mobile')}
                   className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
                   }`}
                   title="Preview as mobile"
                 >
@@ -1234,7 +1435,7 @@ export default function App() {
                 <button
                   onClick={() => setPreviewMode('desktop')}
                   className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
                   }`}
                   title="Preview as desktop"
                 >
@@ -1259,7 +1460,7 @@ export default function App() {
                <button
                  onClick={resetZoom}
                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                   isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    isAutoZoom ? 'text-indigo-600 bg-white shadow-sm' : 'text-slate-700 hover:text-slate-900'
                  }`}
                  title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
                >
@@ -1287,7 +1488,7 @@ export default function App() {
                   className={`p-1.5 rounded-md transition-all ${
                     currentVersionIndex <= 0 
                       ? 'text-slate-300 cursor-not-allowed' 
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                      : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                   }`}
                   title="Previous Version"
                 >
@@ -1299,7 +1500,7 @@ export default function App() {
                   className={`p-1.5 rounded-md transition-all ${
                     currentVersionIndex >= versions.length - 1 
                       ? 'text-slate-300 cursor-not-allowed' 
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                      : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                   }`}
                   title="Next Version"
                 >
@@ -1311,7 +1512,7 @@ export default function App() {
              {generatedCode && (
                <button 
                  onClick={handleDownload}
-                 className="text-slate-500 hover:text-slate-700 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
+                 className="text-slate-700 hover:text-slate-900 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
                  title="Download HTML"
                >
                  <Download size={16} />
