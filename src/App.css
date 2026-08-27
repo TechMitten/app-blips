@@ -822,8 +822,40 @@ body {
 /* Ambient glow behind the empty-state hero question */
 .hero-atmosphere {
   background:
-    radial-gradient(72% 60% at 52% 12%, rgba(99, 102, 241, 0.12), transparent 70%),
-    radial-gradient(50% 46% at 30% 60%, rgba(139, 92, 246, 0.06), transparent 72%);
+    radial-gradient(70% 56% at 50% 8%, rgba(99, 102, 241, 0.10), transparent 70%),
+    radial-gradient(52% 44% at 22% 66%, rgba(139, 92, 246, 0.05), transparent 72%);
+}
+
+/* Orion's belt — three stars, the middle one brighter (Alnilam) */
+.orion-belt {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  line-height: 1;
+}
+.orion-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #a5b4fc, #c7d2fe);
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.14);
+}
+.orion-dot-mid {
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.22),
+    0 0 12px 1px rgba(99, 102, 241, 0.35);
+  animation: belt-glow 4.5s ease-in-out infinite;
+}
+@keyframes belt-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.22), 0 0 10px 1px rgba(99, 102, 241, 0.28); }
+  50% { box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.34), 0 0 16px 2px rgba(99, 102, 241, 0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orion-dot-mid { animation: none; }
 }
 
 /* Refined layout selector card */
