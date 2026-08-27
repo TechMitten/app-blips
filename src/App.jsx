@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import './App.css';
 import { injectPreviewBridge, BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from './previewBridge';
 import { supabase } from './supabase';
+import AccountSettingsModal from './components/AccountSettingsModal';
 import { 
   Wand2, 
   ShieldAlert,
@@ -51,7 +52,8 @@ import {
   Mail,
   ExternalLink,
   Zap,
-  Layers
+  Layers,
+  Search
 } from 'lucide-react';
 // --- Constants ---
 const SURGICAL_EDIT_TOOL = {
@@ -143,6 +145,40 @@ const SUGGEST_NEXT_STEPS_TOOL = {
     strict: true
   }
 };
+
+const GENERATE_STARTER_IDEAS_TOOL = {
+  type: 'function',
+  function: {
+    name: 'return_starter_ideas',
+    description: 'Returns exactly 8 new, unique starter app ideas.',
+    parameters: {
+      type: 'object',
+      properties: {
+        ideas: {
+          type: 'array',
+          description: 'Exactly 8 starter app ideas.',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Short title for the app (2-4 words).' },
+              prompt: { type: 'string', description: 'A 1-2 sentence prompt describing the app.' },
+              category: { type: 'string', description: 'A 1-2 word category for the app (e.g. Utility, Finance).' },
+              iconName: { type: 'string', description: 'Name of a Lucide React icon to use. Must be one of: Wand2, Smartphone, Code2, Layout, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, TerminalSquare.' }
+            },
+            required: ['title', 'prompt', 'category', 'iconName'],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ['ideas'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
+const STARTER_IDEAS_SYSTEM_PROMPT = `You are an expert app ideator. Generate exactly 8 unique, high-quality, non-basic but well-scoped web app ideas that can be built by an AI assistant in a single file. Return them using the return_starter_ideas tool.`;
+
 
 const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
@@ -793,6 +829,33 @@ const generateContextualSuggestions = async ({ code, versions, projectName, sign
   }
 };
 
+const generateNewStarterIdeas = async ({ signal }) => {
+  const messages = [
+    { role: 'system', content: STARTER_IDEAS_SYSTEM_PROMPT },
+    { role: 'user', content: "Generate 8 new starter app ideas." }
+  ];
+
+  const message = await requestModelText({
+    messages,
+    tools: [GENERATE_STARTER_IDEAS_TOOL],
+    tool_choice: { type: 'function', function: { name: 'return_starter_ideas' } },
+    signal
+  });
+
+  const toolCall = message.tool_calls?.[0];
+  if (!toolCall) return null;
+
+  let args;
+  try {
+    args = JSON.parse(toolCall.function.arguments);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(args.ideas)) return null;
+  return args.ideas;
+};
+
 const syntaxHighlightHtml = (code) => {
   if (!code) return "";
 
@@ -837,6 +900,87 @@ const syntaxHighlightHtml = (code) => {
 // on and falls back to returning the raw text -- which would flash that preamble
 // into the live code panel. Gate the panel update on this instead.
 const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
+
+const PRESET_COLORS = [
+  "text-amber-600 bg-amber-50",
+  "text-sky-600 bg-sky-50",
+  "text-emerald-600 bg-emerald-50",
+  "text-indigo-600 bg-indigo-50",
+  "text-violet-600 bg-violet-50",
+  "text-rose-600 bg-rose-50",
+  "text-blue-600 bg-blue-50",
+  "text-teal-600 bg-teal-50"
+];
+
+const AVAILABLE_ICONS = {
+  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor
+};
+
+const STARTER_PRESETS = [
+  {
+    title: "Study Session Manager",
+    prompt: "A focus timer with customizable work/break intervals, task tagging, and a visual session history.",
+    category: "Productivity",
+    icon: Timer,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Travel Dashboard",
+    prompt: "A travel dashboard showing local weather forecasts, a packing checklist, and an interactive itinerary timeline.",
+    category: "Travel",
+    icon: CloudSun,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Group Bill Splitter",
+    prompt: "A dynamic bill splitter that lets you add friends, assign items to people, and calculates tax and tip automatically.",
+    category: "Finance",
+    icon: Receipt,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Mood & Habit Journal",
+    prompt: "A daily journal combining a mood selector with quick toggles for habits, displaying a weekly overview chart.",
+    category: "Wellness",
+    icon: ListChecks,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Kanban Board",
+    prompt: "A Kanban-style task board with columns for 'To Do', 'In Progress', and 'Done', featuring interactive cards.",
+    category: "Project",
+    icon: Layout,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Subscription Manager",
+    prompt: "A recurring subscription tracker that estimates monthly costs, sorts by billing date, and categorizes spending.",
+    category: "Finance",
+    icon: Wallet,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Secure Vault UI",
+    prompt: "A secure vault interface with a mock login screen, advanced password generator, and categorized credential cards.",
+    category: "Security",
+    icon: KeyRound,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Markdown Editor",
+    prompt: "A dual-pane markdown editor with a live preview, word count, and a distraction-free reading mode.",
+    category: "Utility",
+    icon: Edit2,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Recipe Scaler",
+    prompt: "A recipe ingredient scaler that instantly adjusts measurements and units when you change the desired serving size.",
+    category: "Tools",
+    icon: Calculator,
+    color: "text-teal-600 bg-teal-50"
+  }
+];
 
 const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
 const MARQUEE_SEPARATOR = '  //  ';
@@ -899,6 +1043,35 @@ export default function App() {
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [rememberKey, setRememberKey] = useState(loadRememberKey);
+  const [starterIdeas, setStarterIdeas] = useState(STARTER_PRESETS.slice(0, 8));
+  const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
+
+  const handleGenerateStarters = async () => {
+    if (isGeneratingStarters) return;
+    setIsGeneratingStarters(true);
+    setError(null);
+    try {
+      const ideas = await generateNewStarterIdeas({ signal: null });
+      if (ideas && ideas.length > 0) {
+        const mappedIdeas = ideas.map(idea => {
+          const IconComponent = AVAILABLE_ICONS[idea.iconName] || AVAILABLE_ICONS.Sparkles || Code2;
+          const randomColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
+          return {
+            ...idea,
+            icon: IconComponent,
+            color: randomColor
+          };
+        });
+        setStarterIdeas(mappedIdeas);
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        setError(err.message || 'Failed to generate starter ideas.');
+      }
+    } finally {
+      setIsGeneratingStarters(false);
+    }
+  };
   const handleLlmConfigChange = useCallback((field, value) => {
     setLlmConfig((prev) => {
       const next = { ...prev, [field]: value };
@@ -920,6 +1093,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('Untitled App');
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState(null);
   const [editingProjectName, setEditingProjectName] = useState('');
   const [renamingProjectId, setRenamingProjectId] = useState(null);
@@ -935,11 +1109,12 @@ export default function App() {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : true;
   });
-  const [starterOffset, setStarterOffset] = useState(0);
+
   // --- Auth state (Supabase) ---
   const [session, setSession] = useState(null);
   const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'signedOut' | 'signedIn'
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -1023,8 +1198,8 @@ export default function App() {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
       
       const el = previewContainerRef.current;
-      const horizontalPadding = previewMode === 'mobile' ? 24 : 36;
-      const verticalPadding = previewMode === 'mobile' ? 24 : 36;
+      const horizontalPadding = previewMode === 'mobile' ? 32 : 72;
+      const verticalPadding = previewMode === 'mobile' ? 32 : 54;
       const availableWidth = Math.max(100, el.clientWidth - horizontalPadding);
       const availableHeight = Math.max(100, el.clientHeight - verticalPadding);
       const preset = PREVIEW_MODES[previewMode];
@@ -1415,78 +1590,6 @@ export default function App() {
     localStorage.setItem('orion-current-project-id', project.id);
   };
 
-  const STARTER_PRESETS = [
-    {
-      title: "Pomodoro Timer",
-      prompt: "A sleek Pomodoro timer with start, pause, and reset buttons.",
-      category: "Focus",
-      icon: Timer,
-      color: "text-amber-600 bg-amber-50"
-    },
-    {
-      title: "Weather Forecast",
-      prompt: "A minimal weather app UI showing current temp and a 3-day forecast.",
-      category: "Weather",
-      icon: CloudSun,
-      color: "text-sky-600 bg-sky-50"
-    },
-    {
-      title: "Tip Calculator",
-      prompt: "A tip calculator with sliders for bill amount and tip percentage.",
-      category: "Finance",
-      icon: Receipt,
-      color: "text-emerald-600 bg-emerald-50"
-    },
-    {
-      title: "Habit Tracker",
-      prompt: "A daily habit tracker with checkboxes for 5 custom habits.",
-      category: "Habits",
-      icon: ListChecks,
-      color: "text-indigo-600 bg-indigo-50"
-    },
-    {
-      title: "Task Manager",
-      prompt: "A to-do list where you add, complete, and delete tasks.",
-      category: "Tasks",
-      icon: ListTodo,
-      color: "text-violet-600 bg-violet-50"
-    },
-    {
-      title: "Budget Tracker",
-      prompt: "A budget tracker for monthly income and expenses.",
-      category: "Finance",
-      icon: Wallet,
-      color: "text-emerald-600 bg-emerald-50"
-    },
-    {
-      title: "Password Generator",
-      prompt: "A random password generator with a copy button and strength meter.",
-      category: "Security",
-      icon: KeyRound,
-      color: "text-rose-600 bg-rose-50"
-    },
-    {
-      title: "Calculator",
-      prompt: "A simple calculator with a clean button grid.",
-      category: "Utility",
-      icon: Calculator,
-      color: "text-blue-600 bg-blue-50"
-    },
-    {
-      title: "Unit Converter",
-      prompt: "A unit converter for length, weight, and temperature.",
-      category: "Tools",
-      icon: Ruler,
-      color: "text-teal-600 bg-teal-50"
-    }
-  ];
-
-  const visibleStarters = [
-    STARTER_PRESETS[starterOffset % STARTER_PRESETS.length],
-    STARTER_PRESETS[(starterOffset + 1) % STARTER_PRESETS.length],
-    STARTER_PRESETS[(starterOffset + 2) % STARTER_PRESETS.length],
-    STARTER_PRESETS[(starterOffset + 3) % STARTER_PRESETS.length],
-  ];
 
   const handleSaveSettings = () => {
     saveLlmConfig(llmConfig, rememberKey);
@@ -1951,7 +2054,10 @@ export default function App() {
 
           {/* Apps Modal Trigger */}
           <button
-            onClick={() => setIsProjectsListOpen(true)}
+            onClick={() => {
+              setProjectSearchQuery('');
+              setIsProjectsListOpen(true);
+            }}
             className="nav-btn nav-btn-secondary group"
             title="My Saved Apps"
           >
@@ -1994,15 +2100,16 @@ export default function App() {
           {/* Auth Section */}
           {isSignedIn ? (
             <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200/80">
-              <span
-                className="hidden md:inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-slate-700 text-xs font-medium"
+              <button
+                onClick={() => setIsAccountSettingsOpen(true)}
+                className="hidden md:inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200/70 hover:border-slate-300 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
                 title={user?.email || 'Signed in'}
               >
                 <span className="h-5 w-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
                   {(user?.email?.[0] || '?').toUpperCase()}
                 </span>
                 <span className="max-w-[10rem] truncate">{user?.email}</span>
-              </span>
+              </button>
               <button
                 onClick={handleSignOut}
                 className="nav-btn bg-white hover:bg-rose-50/80 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200/80 text-xs group"
@@ -2158,157 +2265,282 @@ export default function App() {
 
 
       {isProjectsListOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-scale-in">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-                   <FolderOpen size={20} />
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+          <div 
+            className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[88vh] animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header Bar */}
+            <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60 sticky top-0 z-20 backdrop-blur-md">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 bg-gradient-to-tr from-indigo-600 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+                  <FolderOpen size={20} className="drop-shadow-xs" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Your Apps</h2>
-                  <p className="text-slate-400 text-sm">Pick up where you left off</p>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Your Saved Apps</h2>
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                      {myProjects.length}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Pick up where you left off or manage your applications</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsProjectsListOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar">
-              {myProjects.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FolderOpen size={28} className="text-slate-300" />
+
+              <div className="flex items-center gap-3">
+                {/* Search Bar */}
+                {myProjects.length > 0 && (
+                  <div className="relative flex-1 sm:w-60">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={projectSearchQuery}
+                      onChange={(e) => setProjectSearchQuery(e.target.value)}
+                      placeholder="Search apps..."
+                      className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm rounded-xl bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-all"
+                    />
+                    {projectSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setProjectSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
-                  <h3 className="text-slate-900 font-semibold text-base">No apps yet</h3>
-                  <p className="text-slate-500 mt-1 text-sm max-w-xs mx-auto">Create your first app to see it here.</p>
+                )}
+
+                {/* Close X button */}
+                <button
+                  onClick={() => setIsProjectsListOpen(false)}
+                  className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-200/70 transition-colors shrink-0"
+                  title="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Apps List */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 custom-scrollbar bg-slate-50/40">
+              {myProjects.length === 0 ? (
+                <div className="text-center py-16 px-4">
+                  <div className="w-16 h-16 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-indigo-500 shadow-premium-sm">
+                    <FolderOpen size={28} />
+                  </div>
+                  <h3 className="text-slate-900 font-bold text-base sm:text-lg">No saved apps yet</h3>
+                  <p className="text-slate-500 mt-1.5 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed">
+                    Build your first application in the workspace and it will be saved automatically to this list.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProjectsListOpen(false);
+                      document.getElementById('prompt')?.focus();
+                    }}
+                    className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-xs sm:text-sm shadow-premium-md hover:shadow-premium-lg transition-all"
+                  >
+                    <Plus size={15} strokeWidth={2.4} />
+                    <span>Create an App</span>
+                  </button>
+                </div>
+              ) : myProjects.filter((p) => !projectSearchQuery.trim() || (p.name || '').toLowerCase().includes(projectSearchQuery.toLowerCase().trim())).length === 0 ? (
+                <div className="text-center py-16 px-4">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <Search size={22} />
+                  </div>
+                  <h3 className="text-slate-800 font-bold text-base">No matching apps</h3>
+                  <p className="text-slate-500 mt-1 text-xs sm:text-sm">
+                    No applications match &ldquo;{projectSearchQuery}&rdquo;
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setProjectSearchQuery('')}
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-colors"
+                  >
+                    Clear Search
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {myProjects.map((project) => (
-                    <div
+                  {myProjects
+                    .filter((p) => !projectSearchQuery.trim() || (p.name || '').toLowerCase().includes(projectSearchQuery.toLowerCase().trim()))
+                    .map((project) => {
+                      const isCurrent = currentProjectId === project.id;
+                      const initialLetter = (project.name || 'U').trim()[0]?.toUpperCase() || 'A';
+                      const versionCount = project.versions?.length || 1;
+
+                      return (
+                        <div
                           key={project.id}
-                          className="text-left p-5 pr-16 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all group relative overflow-hidden bg-white hover:-translate-y-0.5 active:scale-[0.99] min-h-[100px]"
+                          className={`rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative group bg-white shadow-2xs hover:shadow-premium-md ${
+                            isCurrent
+                              ? 'border-indigo-300 ring-2 ring-indigo-500/20 bg-indigo-50/10'
+                              : 'border-slate-200/90 hover:border-indigo-300'
+                          }`}
                         >
-                          <div className="flex items-start">
-                            <div className="flex-1 pr-6">
-                              {editingProjectId === project.id ? (
-                        <div className="space-y-3">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rename App</label>
-                          <input
-                            autoFocus
-                            type="text"
-                            value={editingProjectName}
-                            onChange={(e) => setEditingProjectName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleProjectRename(project);
-                              }
-                              if (e.key === 'Escape') {
-                                e.preventDefault();
-                                cancelProjectRename();
-                              }
-                            }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            placeholder="App name"
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleProjectRename(project)}
-                              disabled={!editingProjectName.trim() || renamingProjectId === project.id}
-                              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                                !editingProjectName.trim() || renamingProjectId === project.id
-                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                              }`}
-                            >
-                              <Check size={14} />
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelProjectRename}
-                              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-800 bg-slate-100"
-                            >
-                              <X size={14} />
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => loadProject(project)}
-                              className="w-full text-left"
-                            >
-                              <h4 className="font-semibold text-slate-900 mb-1.5 text-base truncate group-hover:text-blue-600 transition-colors">{project.name}</h4>
-                              <p className="text-xs text-slate-400 font-medium mb-3 flex items-center">
-                                <Clock size={12} className="mr-1.5 text-slate-300" />
-                                {formatModifiedTime(project.lastModified)}
-                              </p>
-                              <div className="flex items-center mt-2">
-                                <div className="flex -space-x-1.5 overflow-hidden mr-3">
-                                   {[...Array(Math.min(3, project.versions?.length || 0))].map((_, i) => (
-                                     <div key={i} className="inline-block h-6 w-6 rounded-lg ring-2 ring-white bg-blue-100 border border-blue-200 flex items-center justify-center">
-                                       <span className="text-[10px] font-bold text-blue-600">v{i+1}</span>
-                                     </div>
-                                   ))}
+                          {/* Card Header & Content */}
+                          <div className="p-5 pb-4">
+                            {editingProjectId === project.id ? (
+                              /* In-place Rename */
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Rename Application
+                                  </label>
+                                  <span className="text-[11px] text-slate-400">Press Enter to save</span>
                                 </div>
-                                <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                                  {project.versions?.length || 1} version{(project.versions?.length || 1) !== 1 ? 's' : ''}
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={editingProjectName}
+                                  onChange={(e) => setEditingProjectName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleProjectRename(project);
+                                    }
+                                    if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      cancelProjectRename();
+                                    }
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                                  placeholder="App name"
+                                />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleProjectRename(project)}
+                                    disabled={!editingProjectName.trim() || renamingProjectId === project.id}
+                                    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                                      !editingProjectName.trim() || renamingProjectId === project.id
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-2xs'
+                                    }`}
+                                  >
+                                    <Check size={13} />
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelProjectRename}
+                                    className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                  >
+                                    <X size={13} />
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Standard Card Info */
+                              <div>
+                                <div className="flex items-start justify-between gap-3 mb-2.5">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    {/* App Icon Avatar */}
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-2xs shrink-0 ring-1 ring-black/5">
+                                      {initialLetter}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 
+                                          onClick={() => loadProject(project)}
+                                          className="font-bold text-slate-900 text-base leading-snug truncate cursor-pointer hover:text-indigo-600 transition-colors"
+                                          title={project.name}
+                                        >
+                                          {project.name}
+                                        </h4>
+                                        {isCurrent && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shrink-0">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                                            Active
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                        <span className="flex items-center gap-1">
+                                          <Clock size={11} className="text-slate-400" />
+                                          {formatModifiedTime(project.lastModified)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Top Right Actions (Rename & Delete) */}
+                                  <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => startProjectRename(project)}
+                                      aria-label="Rename app"
+                                      title="Rename app"
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100"
+                                    >
+                                      <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setProjectToDelete(project)}
+                                      aria-label="Delete app"
+                                      title="Delete app"
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-100"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Bottom / Footer Row */}
+                          {editingProjectId !== project.id && (
+                            <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-xs font-semibold text-slate-600 shadow-2xs">
+                                  <Layers size={12} className="text-indigo-500" />
+                                  {versionCount} version{versionCount !== 1 ? 's' : ''}
                                 </span>
                               </div>
-                            </button>
-                          )}
-                        </div>
 
-                        <div className="flex-shrink-0 ml-4 flex items-start gap-2 flex-wrap">
-                          {editingProjectId !== project.id && (
-                            <>
                               <button
                                 type="button"
-                                onClick={() => startProjectRename(project)}
-                                aria-label="Rename app"
-                                title="Rename app"
-                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
+                                onClick={() => loadProject(project)}
+                                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-2xs ${
+                                  isCurrent
+                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/20'
+                                    : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200'
+                                }`}
                               >
-                                <Edit2 size={16} />
+                                <span>{isCurrent ? 'Open in Editor' : 'Open App'}</span>
+                                <ExternalLink size={12} />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setProjectToDelete(project)}
-                                aria-label="Delete app"
-                                title="Delete app"
-                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 shadow-sm transition-all hover:border-red-200 hover:bg-red-100 hover:text-red-600"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                          {editingProjectId !== project.id && (
-                            <div className="transition-all">
-                              <ChevronRight className="text-blue-600" size={24} />
                             </div>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
-            <div className="bg-slate-50 border-t border-slate-100 p-5 flex justify-center">
-               <button 
-                  onClick={() => setIsProjectsListOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors"
-               >
-                 Close
-               </button>
+
+            {/* Modal Bottom Bar */}
+            <div className="bg-slate-50/90 border-t border-slate-200/80 px-6 sm:px-8 py-4 flex items-center justify-between text-xs text-slate-500">
+              <div className="font-medium">
+                {myProjects.length > 0 && (
+                  <span>
+                    Showing <span className="font-bold text-slate-700">
+                      {myProjects.filter((p) => !projectSearchQuery.trim() || (p.name || '').toLowerCase().includes(projectSearchQuery.toLowerCase().trim())).length}
+                    </span> of <span className="font-bold text-slate-700">{myProjects.length}</span> apps
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={() => setIsProjectsListOpen(false)}
+                className="nav-btn bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold px-4 py-1.5 rounded-xl border border-slate-200 shadow-2xs transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -2471,6 +2703,14 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+
+      {isAccountSettingsOpen && isSignedIn && (
+        <AccountSettingsModal 
+          user={user} 
+          onClose={() => setIsAccountSettingsOpen(false)} 
+          onSignOut={handleSignOut} 
+        />
       )}
 
       {isAuthModalOpen && (
@@ -2859,18 +3099,18 @@ export default function App() {
             {/* Subtle atmospheric gradient */}
             <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 xl:px-10 2xl:px-12 pt-7 lg:pt-9 2xl:pt-12 pb-6 flex flex-col justify-start relative z-[1] chat-scrollbar">
-              <div className="max-w-2xl w-full mx-auto space-y-6 2xl:space-y-8 animate-fade-in">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 xl:px-10 2xl:px-12 pt-5 lg:pt-6 2xl:pt-8 pb-3 flex flex-col justify-start relative z-[1] chat-scrollbar">
+              <div className="max-w-2xl w-full mx-auto space-y-4 xl:space-y-5 2xl:space-y-6 animate-fade-in">
 
                 {/* Header Section */}
                 <div className={generatedCode ? 'refine-card' : 'relative'}>
                   {!generatedCode && (
                     <div className="pointer-events-none absolute -top-8 left-0 right-0 h-44 hero-atmosphere" aria-hidden="true" />
                   )}
-                  <div className="space-y-3 sm:space-y-4 relative">
+                  <div className="space-y-2.5 sm:space-y-3 relative">
                     {generatedCode ? (
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-[0.14em] bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-[0.14em] bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
                           Editing Mode
                         </span>
@@ -2885,7 +3125,7 @@ export default function App() {
                         <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">From idea to running app</span>
                       </div>
                     )}
-                    <h2 className="text-3xl sm:text-4xl lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[3.5rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
+                    <h2 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.85rem] 2xl:text-[3.3rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
                       {generatedCode ? (
                         <>Refine <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">your app</span></>
                       ) : (
@@ -2902,7 +3142,7 @@ export default function App() {
 
                 {/* Starter Prompts */}
                 {!generatedCode && (
-                  <div className="space-y-4 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+                  <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="h-3.5 w-1 rounded-full bg-indigo-500" aria-hidden="true" />
@@ -2912,36 +3152,37 @@ export default function App() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setStarterOffset((prev) => (prev + 4) % STARTER_PRESETS.length)}
-                        className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs 2xl:text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                        title="Shuffle starter ideas"
+                        onClick={handleGenerateStarters}
+                        disabled={isGeneratingStarters}
+                        className="group inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs 2xl:text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Generate new starter ideas"
                       >
-                        <RefreshCw size={13} className="transition-transform duration-500 group-hover:rotate-180 text-slate-400 group-hover:text-indigo-600" />
-                        <span>Shuffle</span>
+                        <RefreshCw size={13} className={`transition-transform duration-500 text-slate-400 group-hover:text-indigo-600 ${isGeneratingStarters ? 'animate-spin text-indigo-600' : 'group-hover:rotate-180'}`} />
+                        <span>{isGeneratingStarters ? 'Generating...' : 'Refresh'}</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:gap-3.5 2xl:gap-4.5">
-                      {visibleStarters.map((starter) => {
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 xl:gap-3 2xl:gap-3.5">
+                      {starterIdeas.map((starter) => {
                         const IconComponent = starter.icon;
                         return (
                           <button
                             key={starter.title}
                             onClick={() => setPrompt(starter.prompt)}
-                            className="group flex flex-col justify-between text-left p-3.5 xl:p-4 2xl:p-5 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-indigo-300 rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            className="group flex flex-col justify-between text-left p-3 xl:p-3.5 2xl:p-4 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-indigo-300 rounded-xl xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                           >
-                            <div className="flex items-center justify-between w-full mb-2.5">
-                              <div className={`w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl flex items-center justify-center ${starter.color} border border-black/5 shadow-2xs`}>
-                                <IconComponent size={16} />
+                            <div className="flex items-center justify-between w-full mb-2">
+                              <div className={`w-7 h-7 2xl:w-8 2xl:h-8 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 shadow-2xs`}>
+                                <IconComponent size={15} />
                               </div>
-                              <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-white px-2 py-0.5 rounded-md border border-slate-200/80">
+                              <span className="text-[10px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-white px-1.5 py-0.5 rounded-md border border-slate-200/80">
                                 {starter.category}
                               </span>
                             </div>
-                            <div className="text-sm sm:text-base xl:text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-1 mb-1">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors mb-0.5">
                               {starter.title}
                             </div>
-                            <p className="text-xs sm:text-sm xl:text-base text-slate-500 leading-relaxed line-clamp-3">
+                            <p className="text-xs sm:text-sm text-slate-500 leading-snug">
                               {starter.prompt}
                             </p>
                           </button>
@@ -2970,10 +3211,10 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="shrink-0 p-4 sm:p-5 2xl:p-6 pt-3 border-t border-slate-200/80 bg-white/95 backdrop-blur-md relative z-[1]">
+            <div className="shrink-0 p-3.5 sm:p-4 2xl:p-5 pt-2.5 border-t border-slate-200/80 bg-white/95 backdrop-blur-md relative z-[1]">
               {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
-                <div className="mb-3 animate-fade-in">
-                  <div className="flex items-center justify-between px-0.5 mb-2">
+                <div className="mb-2.5 animate-fade-in">
+                  <div className="flex items-center justify-between px-0.5 mb-1.5">
                     <div className="flex items-center gap-1.5">
                       <span className="suggestion-spark" aria-hidden="true">
                         <Sparkles size={13} />
@@ -3027,13 +3268,13 @@ export default function App() {
                     }
                   }}
                   placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
-                  className="w-full h-28 sm:h-32 xl:h-40 2xl:h-48 px-4 2xl:px-6 pt-3.5 2xl:pt-4.5 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed bg-transparent"
+                  className="w-full h-20 sm:h-24 xl:h-28 2xl:h-36 px-4 2xl:px-5 pt-3 2xl:pt-4 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed bg-transparent"
                   disabled={isGenerating}
                 />
                 {!generatedCode && versions.length === 0 && (
-                  <div className="px-3.5 sm:px-4 pb-2.5">
-                    <div className="flex items-center justify-between py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                      <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-wider">Optimize for</span>
+                  <div className="px-3 sm:px-3.5 pb-2">
+                    <div className="flex items-center justify-between py-1.5 px-2.5 sm:px-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                      <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider">Optimize for</span>
                       <div className="flex items-center gap-1 sm:gap-1.5">
                         {INITIAL_LAYOUT_OPTIONS.map((option) => {
                           const Icon = option.icon;
@@ -3042,7 +3283,7 @@ export default function App() {
                           return (
                             <label
                               key={option.id}
-                              className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 py-1 text-xs xl:text-sm font-semibold transition-all ${
+                              className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${
                                 isSelected
                                   ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/80'
                                   : 'text-slate-500 hover:text-slate-800'
@@ -3057,7 +3298,7 @@ export default function App() {
                                 className="sr-only"
                                 disabled={isGenerating}
                               />
-                              <Icon size={14} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
+                              <Icon size={13} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
                               <span>{option.label}</span>
                             </label>
                           );
@@ -3066,7 +3307,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2.5 sm:py-3">
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2 sm:py-2.5">
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 select-none">
                     <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-white font-sans text-xs 2xl:text-sm leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
                     <span className="hidden sm:inline">to build</span>
@@ -3080,7 +3321,7 @@ export default function App() {
                             abortControllerRef.current = null;
                           }
                         }}
-                        className="inline-flex items-center gap-1 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
+                        className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
                       >
                         <X size={14} />
                         Cancel
@@ -3089,7 +3330,7 @@ export default function App() {
                     <button
                       onClick={handleGenerate}
                       disabled={isGenerating || !prompt.trim()}
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                      className={`inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                         isGenerating || !prompt.trim()
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                           : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
