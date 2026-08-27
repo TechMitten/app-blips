@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge, BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from './previewBridge';
+import { supabase } from './supabase';
 import { 
   Wand2, 
   ShieldAlert,
@@ -42,7 +43,15 @@ import {
   EyeOff,
   Calculator,
   KeyRound,
-  Ruler
+  Ruler,
+  LogIn,
+  LogOut,
+  User,
+  CloudUpload,
+  Mail,
+  ExternalLink,
+  Zap,
+  Layers
 } from 'lucide-react';
 // --- Constants ---
 const SURGICAL_EDIT_TOOL = {
@@ -830,7 +839,6 @@ const syntaxHighlightHtml = (code) => {
 const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
 
 const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
-const THINKING_MESSAGE = 'Thinking through the request...';
 const MARQUEE_SEPARATOR = '  //  ';
 const MARQUEE_MIN_LOOP_LENGTH = 220;
 const MARQUEE_MAX_BUFFER_LENGTH = 4000;
@@ -857,6 +865,24 @@ const buildMarqueeLoop = (value) => {
 
   return loop;
 };
+
+// Handles both the legacy Firebase-style Date object and plain ISO strings that
+// come back from Supabase's `updated_at`.
+const formatModifiedTime = (value) => {
+  if (!value) return 'Just now';
+  if (typeof value === 'string') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? 'Just now' : d.toLocaleString();
+  }
+  if (typeof value?.toDate === 'function') {
+    const d = value.toDate();
+    return isNaN(d.getTime()) ? 'Just now' : d.toLocaleString();
+  }
+  return 'Just now';
+};
+
+const isValidUuid = (value) =>
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value || '');
 
 export default function App() {
   const [prompt, setPrompt] = useState('');
@@ -886,7 +912,6 @@ export default function App() {
   }, [llmConfig]);
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -901,7 +926,7 @@ export default function App() {
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
-  const marqueeSegment = buildMarqueeLoop(isThinking ? THINKING_MESSAGE : streamingCode);
+  const marqueeSegment = buildMarqueeLoop(streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
@@ -910,6 +935,23 @@ export default function App() {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : true;
   });
+  const [starterOffset, setStarterOffset] = useState(0);
+  // --- Auth state (Supabase) ---
+  const [session, setSession] = useState(null);
+  const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'signedOut' | 'signedIn'
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [authInfo, setAuthInfo] = useState(null);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importLocalCount, setImportLocalCount] = useState(0);
+  const isSignedIn = authStatus === 'signedIn';
+  const user = session?.user ?? null;
+  const previousAuthStatusRef = useRef(null);
   const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
@@ -917,11 +959,6 @@ export default function App() {
   const streamingGeneratedCodeRef = useRef('');
   const abortControllerRef = useRef(null);
   const suggestionsAbortControllerRef = useRef(null);
-  // Resume-last-project must only happen on initial mount. If it re-runs whenever
-  // currentProjectId flips to null (e.g. after clicking "+ New" / deleting the
-  // open app), it would fall back to projects[0] and resurrect the previous
-  // session's code into the preview.
-  const hasResumedRef = useRef(false);
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
@@ -938,29 +975,58 @@ export default function App() {
     localStorage.setItem('orion-history-open', isHistoryOpen);
   }, [isHistoryOpen]);
 
+  // --- Auth bootstrap: restore the session then keep it in sync ---
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = null;
+
+    supabase.auth.getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (!active) return;
+        setSession(initialSession);
+        setAuthStatus(initialSession ? 'signedIn' : 'signedOut');
+      })
+      .catch((err) => {
+        console.error('[Orion] Failed to restore Supabase session:', err);
+        if (active) {
+          setSession(null);
+          setAuthStatus('signedOut');
+        }
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      setSession(nextSession);
+      setAuthStatus(nextSession ? 'signedIn' : 'signedOut');
+    });
+
+    unsubscribe = () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, []);
+
   const clearStreamingState = () => {
     setStreamingCode('');
     setStreamingGeneratedCode('');
-    setIsThinking(false);
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
   };
 
   // --- Dynamic Zoom Logic ---
   useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
     const calculateZoom = () => {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
       
-      const container = previewContainerRef.current;
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
-      const containerRect = container.getBoundingClientRect();
-      const verticalPadding = previewMode === 'mobile' ? 16 : 32;
-      const horizontalPadding = 32;
-      const visibleHeight = Math.min(container.clientHeight, Math.max(0, viewportHeight - containerRect.top - 24));
-      const visibleWidth = Math.min(container.clientWidth, Math.max(0, viewportWidth - containerRect.left - 24));
-      const availableHeight = Math.max(0, visibleHeight - verticalPadding);
-      const availableWidth = Math.max(0, visibleWidth - horizontalPadding);
+      const el = previewContainerRef.current;
+      const horizontalPadding = previewMode === 'mobile' ? 24 : 36;
+      const verticalPadding = previewMode === 'mobile' ? 24 : 36;
+      const availableWidth = Math.max(100, el.clientWidth - horizontalPadding);
+      const availableHeight = Math.max(100, el.clientHeight - verticalPadding);
       const preset = PREVIEW_MODES[previewMode];
       const baseHeight = preset.height;
       const baseWidth = preset.width;
@@ -969,15 +1035,27 @@ export default function App() {
       const scaleW = availableWidth / baseWidth;
       
       const newZoom = Math.min(scaleH, scaleW);
-      // We don't want it to get TOO small or TOO large automatically
-      const clampedZoom = Math.max(0.2, Math.min(newZoom, 2));
-      setZoomLevel(clampedZoom);
+      // Fluid zoom ranging from 0.25x up to 2.5x to fill large 1440p / 4K / UHD screens
+      const clampedZoom = Math.max(0.25, Math.min(newZoom, 2.5));
+      setZoomLevel(Number(clampedZoom.toFixed(3)));
     };
 
     calculateZoom();
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        calculateZoom();
+      });
+      resizeObserver.observe(container);
+    }
+
     window.addEventListener('resize', calculateZoom);
-    return () => window.removeEventListener('resize', calculateZoom);
-  }, [isAutoZoom, activeTab, previewMode]);
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      window.removeEventListener('resize', calculateZoom);
+    };
+  }, [isAutoZoom, activeTab, previewMode, isHistoryOpen]);
 
   // --- Preview bridge ---
   // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -1056,34 +1134,73 @@ export default function App() {
     localStorage.setItem('orion-projects', JSON.stringify(rows));
   };
 
-  const loadUserProjects = useCallback(() => {
+  const localRowsToProjects = (rows) => rows
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    .map(row => ({
+      id: row.id,
+      name: row.name,
+      ...row.data,
+      lastModified: row.updatedAt
+    }));
+
+  const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
+    id: row.id,
+    name: row.name,
+    versions: row.data?.versions || [],
+    currentVersionIndex: row.data?.currentVersionIndex ?? -1,
+    lastModified: row.updated_at
+  }));
+
+  const fetchCloudProjects = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    return cloudRowsToProjects(data);
+  }, []);
+
+  const loadUserProjects = useCallback(async () => {
     try {
-      const rows = readProjectRows()
-        .slice()
-        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-      const projects = rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        ...row.data,
-        lastModified: row.updatedAt
-      }));
-
+      let projects;
+      if (isSignedIn) {
+        projects = await fetchCloudProjects();
+      } else {
+        projects = localRowsToProjects(readProjectRows());
+      }
       setMyProjects(projects);
       return projects;
     } catch (err) {
       console.error("Error loading projects:", err);
-      return [];
+      // Fall back to the local list so a transient cloud failure doesn't blank the UI.
+      const projects = localRowsToProjects(readProjectRows());
+      setMyProjects(projects);
+      return projects;
     }
-  }, []);
+  }, [isSignedIn, fetchCloudProjects]);
 
   const loadProjectById = useCallback(async (projectId) => {
     try {
-      const row = readProjectRows().find(r => r.id === projectId);
-
-      if (!row) {
-        localStorage.removeItem('orion-current-project-id');
-        return;
+      let row;
+      if (isSignedIn) {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          localStorage.removeItem('orion-current-project-id');
+          return;
+        }
+        row = { id: data.id, name: data.name, data: data.data };
+      } else {
+        row = readProjectRows().find(r => r.id === projectId);
+        if (!row) {
+          localStorage.removeItem('orion-current-project-id');
+          return;
+        }
       }
 
       clearStreamingState();
@@ -1099,9 +1216,9 @@ export default function App() {
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, []);
+  }, [isSignedIn]);
 
-  const saveProject = useCallback((params = {}) => {
+  const saveProject = useCallback(async (params = {}) => {
     const {
       versionsToSave = versions,
       indexToSave = currentVersionIndex,
@@ -1111,7 +1228,7 @@ export default function App() {
 
     if (!versionsToSave.length && !params.force) return;
 
-    const projectId = idToSave || currentProjectId || Date.now().toString();
+    let projectId = idToSave || currentProjectId || (isSignedIn ? crypto.randomUUID() : Date.now().toString());
 
     try {
       const projectData = {
@@ -1119,21 +1236,40 @@ export default function App() {
         currentVersionIndex: indexToSave,
       };
 
-      const rows = readProjectRows();
-      const existingIndex = rows.findIndex(r => r.id === projectId);
-      const row = {
-        id: projectId,
-        name: nameToSave,
-        data: projectData,
-        updatedAt: new Date().toISOString()
-      };
+      if (isSignedIn) {
+        // Local ids (Date.now() strings) can't live in a uuid column. If a guest
+        // project is being edited after sign-in, re-key it once on upload.
+        let cloudId = projectId;
+        if (!isValidUuid(cloudId)) {
+          cloudId = crypto.randomUUID();
+          projectId = cloudId;
+        }
 
-      if (existingIndex >= 0) {
-        rows[existingIndex] = row;
+        const { error } = await supabase.from('projects').upsert({
+          id: cloudId,
+          user_id: user.id,
+          name: nameToSave,
+          data: projectData,
+          updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
       } else {
-        rows.push(row);
+        const rows = readProjectRows();
+        const existingIndex = rows.findIndex(r => r.id === projectId);
+        const row = {
+          id: projectId,
+          name: nameToSave,
+          data: projectData,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (existingIndex >= 0) {
+          rows[existingIndex] = row;
+        } else {
+          rows.push(row);
+        }
+        writeProjectRows(rows);
       }
-      writeProjectRows(rows);
 
       if (!currentProjectId || currentProjectId !== projectId) {
         setCurrentProjectId(projectId);
@@ -1143,7 +1279,7 @@ export default function App() {
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, loadUserProjects]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, isSignedIn, user?.id, loadUserProjects]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -1160,25 +1296,47 @@ export default function App() {
     return () => clearTimeout(timeoutId);
   }, [projectName, currentProjectId, myProjects, saveProject]);
 
-  // --- Data Persistence (resume last project, once, on mount) ---
+  // --- Data Persistence (resume last project) ---
+  // Waits for auth to settle, then reloads the correct project store. Runs on
+  // mount and again whenever the signed-in state actually flips (e.g. user signs
+  // in/out), so the list always reflects the active store. Respects any
+  // currently-open project by only auto-resuming when nothing is open.
   useEffect(() => {
-    if (hasResumedRef.current) return;
-    hasResumedRef.current = true;
+    if (authStatus === 'loading') return;
+
+    const previous = previousAuthStatusRef.current;
+    previousAuthStatusRef.current = authStatus;
 
     const fetchAndResume = async () => {
       const projects = await loadUserProjects();
-      const lastProjectId = localStorage.getItem('orion-current-project-id');
+
+      if (previous === 'signedIn' && authStatus === 'signedOut') {
+        // Just signed out: swap in the local list but keep whatever is open.
+        return;
+      }
 
       if (!currentProjectId) {
-        const idToLoad = lastProjectId || (projects.length > 0 ? projects[0].id : null);
-        if (idToLoad) {
-          await loadProjectById(idToLoad);
-        }
+        const lastProjectId = localStorage.getItem('orion-current-project-id');
+        const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
+          ? lastProjectId
+          : (projects.length > 0 ? projects[0].id : null);
+        if (idToLoad) await loadProjectById(idToLoad);
       }
     };
 
     fetchAndResume();
-  }, [loadUserProjects, loadProjectById, currentProjectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
+
+  // Close the auth modal the moment a session lands; offer a one-time local
+  // project import right after signing in.
+  useEffect(() => {
+    if (authStatus === 'signedIn') {
+      setIsAuthModalOpen(false);
+      maybeOfferImport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
 
   // --- Contextual suggestions: refresh whenever the active version's code changes.
   // Covers generation, refinement, undo/redo, and project load/switch from one place,
@@ -1222,6 +1380,28 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generatedCode]);
 
+  // Manual re-roll of the contextual suggestions (also called by the auto-refresh effect above).
+  const handleRefreshSuggestions = () => {
+    if (!generatedCode || isGenerating) return;
+    suggestionsAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    suggestionsAbortControllerRef.current = controller;
+    setIsSuggestionsLoading(true);
+    generateContextualSuggestions({
+      code: generatedCode,
+      versions,
+      projectName,
+      signal: controller.signal
+    })
+      .then((result) => {
+        if (!controller.signal.aborted) setContextualSuggestions(result);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!controller.signal.aborted) setIsSuggestionsLoading(false);
+      });
+  };
+
   const loadProject = (project) => {
     clearStreamingState();
     setCurrentProjectId(project.id);
@@ -1235,23 +1415,191 @@ export default function App() {
     localStorage.setItem('orion-current-project-id', project.id);
   };
 
-  const suggestedPrompts = [
-    "A sleek Pomodoro timer with start, pause, and reset buttons.",
-    "A minimal weather app UI showing current temp and a 3-day forecast.",
-    "A tip calculator with sliders for bill amount and tip percentage.",
-    "A daily habit tracker with checkboxes for 5 custom habits.",
-    "A to-do list where you add, complete, and delete tasks.",
-    "A budget tracker for monthly income and expenses.",
-    "A random password generator with a copy button and strength meter.",
-    "A simple calculator with a clean button grid.",
-    "A unit converter for length, weight, and temperature."
+  const STARTER_PRESETS = [
+    {
+      title: "Pomodoro Timer",
+      prompt: "A sleek Pomodoro timer with start, pause, and reset buttons.",
+      category: "Focus",
+      icon: Timer,
+      color: "text-amber-600 bg-amber-50"
+    },
+    {
+      title: "Weather Forecast",
+      prompt: "A minimal weather app UI showing current temp and a 3-day forecast.",
+      category: "Weather",
+      icon: CloudSun,
+      color: "text-sky-600 bg-sky-50"
+    },
+    {
+      title: "Tip Calculator",
+      prompt: "A tip calculator with sliders for bill amount and tip percentage.",
+      category: "Finance",
+      icon: Receipt,
+      color: "text-emerald-600 bg-emerald-50"
+    },
+    {
+      title: "Habit Tracker",
+      prompt: "A daily habit tracker with checkboxes for 5 custom habits.",
+      category: "Habits",
+      icon: ListChecks,
+      color: "text-indigo-600 bg-indigo-50"
+    },
+    {
+      title: "Task Manager",
+      prompt: "A to-do list where you add, complete, and delete tasks.",
+      category: "Tasks",
+      icon: ListTodo,
+      color: "text-violet-600 bg-violet-50"
+    },
+    {
+      title: "Budget Tracker",
+      prompt: "A budget tracker for monthly income and expenses.",
+      category: "Finance",
+      icon: Wallet,
+      color: "text-emerald-600 bg-emerald-50"
+    },
+    {
+      title: "Password Generator",
+      prompt: "A random password generator with a copy button and strength meter.",
+      category: "Security",
+      icon: KeyRound,
+      color: "text-rose-600 bg-rose-50"
+    },
+    {
+      title: "Calculator",
+      prompt: "A simple calculator with a clean button grid.",
+      category: "Utility",
+      icon: Calculator,
+      color: "text-blue-600 bg-blue-50"
+    },
+    {
+      title: "Unit Converter",
+      prompt: "A unit converter for length, weight, and temperature.",
+      category: "Tools",
+      icon: Ruler,
+      color: "text-teal-600 bg-teal-50"
+    }
   ];
 
-  const starterIcons = [Timer, CloudSun, Receipt, ListChecks, ListTodo, Wallet, KeyRound, Calculator, Ruler];
+  const visibleStarters = [
+    STARTER_PRESETS[starterOffset % STARTER_PRESETS.length],
+    STARTER_PRESETS[(starterOffset + 1) % STARTER_PRESETS.length],
+    STARTER_PRESETS[(starterOffset + 2) % STARTER_PRESETS.length],
+    STARTER_PRESETS[(starterOffset + 3) % STARTER_PRESETS.length],
+  ];
 
   const handleSaveSettings = () => {
     saveLlmConfig(llmConfig, rememberKey);
     setIsSettingsOpen(false);
+  };
+
+  // --- Auth (Supabase) handlers ---
+  const openAuthModal = (mode = 'signin') => {
+    setAuthMode(mode);
+    setAuthError(null);
+    setAuthInfo(null);
+    setAuthPassword('');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthModeSwitch = (mode) => {
+    setAuthMode(mode);
+    setAuthError(null);
+    setAuthInfo(null);
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e?.preventDefault();
+    const email = authEmail.trim();
+    if (!email || !authPassword) {
+      setAuthError('Enter your email and password.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthInfo(null);
+
+    try {
+      if (authMode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({ email, password: authPassword });
+        if (error) throw error;
+        if (!data?.session) {
+          // Email confirmation required. Stay on the modal with instructions; the
+          // session will land once they confirm and sign in.
+          setAuthInfo('We sent a confirmation link to your email. Confirm your account, then sign in.');
+        }
+        // If a session was returned (confirmation disabled), onAuthStateChange
+        // closes the modal.
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
+        if (error) throw error;
+        // onAuthStateChange closes the modal on success.
+      }
+    } catch (err) {
+      setAuthError(err?.message || 'Authentication failed.');
+      setAuthInfo(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
+  };
+
+  // --- One-time local → cloud project import (offered after first sign-in) ---
+  const importFlagKey = (userId) => `orion-imported-${userId}`;
+
+  const maybeOfferImport = useCallback(() => {
+    if (!user?.id) return;
+    try {
+      if (localStorage.getItem(importFlagKey(user.id))) return;
+    } catch { /* storage unavailable */ }
+    const localRows = readProjectRows();
+    if (!localRows.length) return;
+    setImportLocalCount(localRows.length);
+    setIsImportModalOpen(true);
+  }, [user?.id]);
+
+  const handleImportProjects = async () => {
+    if (!user?.id) return;
+    setAuthLoading(true);
+    try {
+      const localRows = readProjectRows();
+      const rows = localRows.map((r) => ({
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        name: r.name || 'Untitled App',
+        data: r.data || { versions: [], currentVersionIndex: -1 },
+        updated_at: r.updatedAt || new Date().toISOString()
+      }));
+      if (rows.length) {
+        const { error } = await supabase.from('projects').insert(rows);
+        if (error) throw error;
+      }
+      localStorage.setItem(importFlagKey(user.id), '1');
+      setIsImportModalOpen(false);
+      setImportLocalCount(0);
+      await loadUserProjects();
+    } catch (err) {
+      console.error('Error importing projects:', err);
+      setAuthError('Could not import your projects. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSkipImport = () => {
+    if (user?.id) {
+      try { localStorage.setItem(importFlagKey(user.id), '1'); } catch { /* ignore */ }
+    }
+    setIsImportModalOpen(false);
+    setImportLocalCount(0);
   };
 
   const handleGenerate = async (e) => {
@@ -1277,16 +1625,13 @@ export default function App() {
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk, kind = 'content') => {
         if (kind === 'reasoning') {
-          setIsThinking(true);
           return;
         }
         if (kind === 'status') {
-          setIsThinking(false);
           streamingBufferRef.current = '';
           setStreamingCode(chunk);
           return;
         }
-        setIsThinking(false);
         streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
         setStreamingCode(streamingBufferRef.current.trim());
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
@@ -1340,6 +1685,13 @@ export default function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleOpenInNewTab = () => {
+    if (!generatedCode) return;
+    const blob = new Blob([generatedCode], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   };
 
   const handleNewApp = () => {
@@ -1496,11 +1848,19 @@ export default function App() {
 
     setRenamingProjectId(project.id);
     try {
-      const rows = readProjectRows();
-      const idx = rows.findIndex(r => r.id === project.id);
-      if (idx >= 0) {
-        rows[idx] = { ...rows[idx], name: trimmedName, updatedAt: new Date().toISOString() };
-        writeProjectRows(rows);
+      if (isSignedIn) {
+        const { error } = await supabase
+          .from('projects')
+          .update({ name: trimmedName, updated_at: new Date().toISOString() })
+          .eq('id', project.id);
+        if (error) throw error;
+      } else {
+        const rows = readProjectRows();
+        const idx = rows.findIndex(r => r.id === project.id);
+        if (idx >= 0) {
+          rows[idx] = { ...rows[idx], name: trimmedName, updatedAt: new Date().toISOString() };
+          writeProjectRows(rows);
+        }
       }
 
       setMyProjects(prev => prev.map((p) => (
@@ -1527,7 +1887,12 @@ export default function App() {
     const projectId = projectToDelete.id;
     setDeletingProjectId(projectId);
     try {
-      writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
+      if (isSignedIn) {
+        const { error } = await supabase.from('projects').delete().eq('id', projectId);
+        if (error) throw error;
+      } else {
+        writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
+      }
 
       setMyProjects(prev => prev.filter((project) => project.id !== projectId));
 
@@ -1551,148 +1916,114 @@ export default function App() {
   return (
     <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="shrink-0 bg-white border-b border-slate-200/80 header-shadow px-6 py-3 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center space-x-3">
-          <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm shadow-blue-200">
-            <Sparkles size={22} />
+      <header className="shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
+        {/* Left: Brand / Logo */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+            <Sparkles size={17} className="text-white drop-shadow-xs" />
           </div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Orion</h1>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleNewApp}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
-            title="Start a new app"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">New</span>
-          </button>
-
-          <button
-            onClick={() => setIsProjectsListOpen(true)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
-          >
-            <FolderOpen size={16} />
-            <span className="hidden sm:inline">Apps</span>
-          </button>
-
-          <button
-            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
-            title={isHistoryOpen ? "Hide history panel" : "Show history panel"}
-          >
-            {isHistoryOpen ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            <span className="hidden sm:inline">History</span>
-          </button>
-
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1.5 text-slate-800 hover:text-blue-600 font-medium px-3 py-2 rounded-lg hover:bg-blue-50/60 transition-colors text-sm"
-            title="Settings"
-          >
-            <Settings size={16} />
-            <span className="hidden sm:inline">Settings</span>
-           </button>
-
-           <div className="hidden sm:flex items-center space-x-2 ml-2 pl-2 border-l border-slate-200">
-            {activeTab === 'preview' && (
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-                <button
-                  onClick={() => setPreviewMode('mobile')}
-                  className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
-                  }`}
-                  title="Preview as mobile"
-                >
-                  <Smartphone size={14} className="mr-1.5" /> Mobile
-                </button>
-                <button
-                  onClick={() => setPreviewMode('desktop')}
-                  className={`flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
-                  }`}
-                  title="Preview as desktop"
-                >
-                  <Monitor size={14} className="mr-1.5" /> Desktop
-                </button>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-base 2xl:text-lg font-bold text-slate-900 tracking-tight font-sans">Orion</h1>
+            {projectName && projectName !== 'Untitled App' && (
+              <div 
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 2xl:px-3 2xl:py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-xs 2xl:text-sm font-semibold text-slate-700 max-w-[200px] xl:max-w-[300px] 2xl:max-w-[400px] truncate"
+                title={`Current App: ${projectName}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                <span className="truncate">{projectName}</span>
               </div>
             )}
+          </div>
+        </div>
 
-             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-               <button
-                 onClick={() => handleManualZoom(-0.1)}
-                 disabled={zoomLevel <= 0.2}
-                 className={`p-1.5 rounded-md transition-all ${
-                   zoomLevel <= 0.2 
-                     ? 'text-slate-300 cursor-not-allowed' 
-                     : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                 }`}
-                 title="Zoom Out"
-               >
-                 <ZoomOut size={14} />
-               </button>
-               <button
-                 onClick={resetZoom}
-                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                    isAutoZoom ? 'text-blue-600 bg-white shadow-sm' : 'text-slate-700 hover:text-slate-900'
-                 }`}
-                 title={isAutoZoom ? "Auto-Zoom active" : "Reset to Auto-Zoom"}
-               >
-                 {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
-               </button>
-               <button
-                 onClick={() => handleManualZoom(0.1)}
-                 disabled={zoomLevel >= 3}
-                 className={`p-1.5 rounded-md transition-all ${
-                   zoomLevel >= 3 
-                     ? 'text-slate-300 cursor-not-allowed' 
-                     : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                 }`}
-                 title="Zoom In"
-               >
-                 <ZoomIn size={14} />
-               </button>
-             </div>
+        {/* Right: Actions and Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Primary Action: New App */}
+          <button
+            onClick={handleNewApp}
+            className="nav-btn nav-btn-primary group"
+            title="Start a new app"
+          >
+            <Plus size={15} strokeWidth={2.4} className="group-hover:rotate-90 transition-transform duration-200" />
+            <span className="hidden sm:inline">New App</span>
+            <span className="sm:hidden">New</span>
+          </button>
 
-             {versions.length > 1 && (
-               <div className="flex items-center bg-slate-100 p-0.5 rounded-lg">
-                <button
-                  onClick={handleUndo}
-                  disabled={currentVersionIndex <= 0}
-                  className={`p-1.5 rounded-md transition-all ${
-                    currentVersionIndex <= 0 
-                      ? 'text-slate-300 cursor-not-allowed' 
-                      : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                  }`}
-                  title="Previous Version"
-                >
-                  <Undo2 size={14} />
-                </button>
-                <button
-                  onClick={handleRedo}
-                  disabled={currentVersionIndex >= versions.length - 1}
-                  className={`p-1.5 rounded-md transition-all ${
-                    currentVersionIndex >= versions.length - 1 
-                      ? 'text-slate-300 cursor-not-allowed' 
-                      : 'text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-sm'
-                  }`}
-                  title="Next Version"
-                >
-                  <Redo2 size={14} />
-                </button>
-              </div>
-             )}
+          {/* Apps Modal Trigger */}
+          <button
+            onClick={() => setIsProjectsListOpen(true)}
+            className="nav-btn nav-btn-secondary group"
+            title="My Saved Apps"
+          >
+            <FolderOpen size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+            <span className="hidden sm:inline">Apps</span>
+            {myProjects.length > 0 && (
+              <span className="hidden md:inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] font-semibold rounded-full bg-slate-100 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                {myProjects.length}
+              </span>
+            )}
+          </button>
 
-             {generatedCode && (
-               <button 
-                 onClick={handleDownload}
-                 className="text-slate-700 hover:text-slate-900 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all active:scale-[0.97]"
-                 title="Download HTML"
-               >
-                 <Download size={16} />
-               </button>
-             )}
-           </div>
+          {/* History Panel Toggle */}
+          <button
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className={`nav-btn ${isHistoryOpen ? 'nav-btn-secondary-active' : 'nav-btn-secondary'} group`}
+            title={isHistoryOpen ? "Hide history drawer" : "Show history drawer"}
+          >
+            {isHistoryOpen ? (
+              <PanelLeftClose size={15} className="text-indigo-600" />
+            ) : (
+              <PanelLeftOpen size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+            )}
+            <span className="hidden sm:inline">History</span>
+            {versions.length > 0 && (
+              <span className={`w-1.5 h-1.5 rounded-full transition-colors ${isHistoryOpen ? 'bg-indigo-600' : 'bg-slate-400 group-hover:bg-indigo-500'}`} />
+            )}
+          </button>
+
+          {/* Settings Modal Trigger */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="nav-btn nav-btn-secondary group"
+            title="Settings (API Endpoint & Key)"
+          >
+            <Settings size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+
+          {/* Auth Section */}
+          {isSignedIn ? (
+            <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200/80">
+              <span
+                className="hidden md:inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-slate-700 text-xs font-medium"
+                title={user?.email || 'Signed in'}
+              >
+                <span className="h-5 w-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
+                  {(user?.email?.[0] || '?').toUpperCase()}
+                </span>
+                <span className="max-w-[10rem] truncate">{user?.email}</span>
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="nav-btn bg-white hover:bg-rose-50/80 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200/80 text-xs group"
+                title="Sign out"
+              >
+                <LogOut size={14} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
+                <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </div>
+          ) : authStatus !== 'loading' ? (
+            <div className="flex items-center ml-1 pl-2 border-l border-slate-200/80">
+              <button
+                onClick={() => openAuthModal('signin')}
+                className="nav-btn nav-btn-secondary group hover:text-indigo-600 hover:border-indigo-200"
+                title="Sign in to your account"
+              >
+                <LogIn size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+                <span className="hidden sm:inline">Sign in</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -1708,7 +2039,7 @@ export default function App() {
 
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+          <div className="w-full max-w-lg xl:max-w-xl 2xl:max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-black">Settings</h2>
               <button
@@ -1721,27 +2052,27 @@ export default function App() {
             <div className="p-8 space-y-6">
               <div className="space-y-3">
                 <label className="text-base font-bold text-black uppercase tracking-wider">API Endpoint</label>
-                <p className="text-black text-lg leading-relaxed">
+                <p className="text-black text-sm lg:text-base leading-relaxed">
                   Connect any OpenAI-compatible API. Enter the endpoint URL, key and model — changes save automatically.
                 </p>
                 <div>
-                  <span className="block text-base font-bold text-black mb-1">Base URL</span>
+                  <span className="block text-sm lg:text-base font-bold text-black mb-1">Base URL</span>
                   <input
                     type="text"
                     value={llmConfig.baseUrl}
                     onChange={(e) => handleLlmConfigChange('baseUrl', e.target.value)}
                     placeholder="https://api.openai.com/v1"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                   {isInsecureEndpoint(llmConfig.baseUrl) && (
-                    <p className="mt-2 flex items-start gap-2 text-base font-semibold text-amber-700">
+                    <p className="mt-2 flex items-start gap-2 text-sm lg:text-base font-semibold text-amber-700">
                       <ShieldAlert size={18} className="mt-0.5 shrink-0" />
                       <span>This endpoint is plain http, so your API key will cross the network unencrypted. Use https for anything outside your own machine.</span>
                     </p>
                   )}
                 </div>
                 <div>
-                  <span className="block text-base font-bold text-black mb-1">API Key</span>
+                  <span className="block text-sm lg:text-base font-bold text-black mb-1">API Key</span>
                   <div className="relative">
                     <input
                       type={showApiKey ? 'text' : 'password'}
@@ -1749,7 +2080,7 @@ export default function App() {
                       onChange={(e) => handleLlmConfigChange('apiKey', e.target.value)}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 pr-10 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                     <button
                       type="button"
@@ -1757,10 +2088,10 @@ export default function App() {
                       className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-600 hover:text-black transition-colors"
                       aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
                     >
-                      {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                      {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  <label className="mt-2 flex items-center gap-2 text-base font-semibold text-black cursor-pointer">
+                  <label className="mt-2 flex items-center gap-2 text-sm lg:text-base font-semibold text-black cursor-pointer">
                     <input
                       type="checkbox"
                       checked={rememberKey}
@@ -1769,27 +2100,27 @@ export default function App() {
                     />
                     <span>Remember on this device</span>
                   </label>
-                  <p className="text-slate-600 text-base leading-snug">
+                  <p className="text-slate-500 text-xs lg:text-sm leading-snug">
                     {rememberKey
                       ? 'Stored in this browser until you clear it.'
                       : 'Kept for this tab only — you will re-enter it next time.'}
                   </p>
                 </div>
                 <div>
-                  <span className="block text-base font-bold text-black mb-1">Model</span>
+                  <span className="block text-sm lg:text-base font-bold text-black mb-1">Model</span>
                   <input
                     type="text"
                     value={llmConfig.model}
                     onChange={(e) => handleLlmConfigChange('model', e.target.value)}
                     placeholder="gpt-4o"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
                 <div>
                   <label className="flex items-center justify-between gap-3 cursor-pointer">
                     <div>
-                      <span className="block text-base font-bold text-black mb-1">Reasoning / Thinking</span>
-                      <p className="text-slate-600 text-base leading-snug">
+                      <span className="block text-sm lg:text-base font-bold text-black mb-1">Reasoning / Thinking</span>
+                      <p className="text-slate-600 text-xs lg:text-sm leading-snug">
                         Let the model think before answering. Disable for faster, lower-latency responses.
                       </p>
                     </div>
@@ -1816,7 +2147,7 @@ export default function App() {
             <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3">
               <button
                 onClick={handleSaveSettings}
-                className="rounded-lg px-6 py-3 bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.98]"
+                className="rounded-lg px-6 py-2.5 bg-blue-600 text-white font-semibold text-base hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.98]"
               >
                 Done
               </button>
@@ -1918,7 +2249,7 @@ export default function App() {
                               <h4 className="font-semibold text-slate-900 mb-1.5 text-base truncate group-hover:text-blue-600 transition-colors">{project.name}</h4>
                               <p className="text-xs text-slate-400 font-medium mb-3 flex items-center">
                                 <Clock size={12} className="mr-1.5 text-slate-300" />
-                                {project.lastModified?.toDate?.() ? project.lastModified.toDate().toLocaleString() : 'Just now'}
+                                {formatModifiedTime(project.lastModified)}
                               </p>
                               <div className="flex items-center mt-2">
                                 <div className="flex -space-x-1.5 overflow-hidden mr-3">
@@ -1985,10 +2316,10 @@ export default function App() {
 
       {projectToDelete && (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Delete App</h2>
+                <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Delete App</h2>
                 <p className="text-sm text-slate-400 mt-0.5">This cannot be undone.</p>
               </div>
               <button
@@ -2037,10 +2368,10 @@ export default function App() {
 
       {isNewChatConfirmOpen && (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Start a new app?</h2>
+                <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Start a new app?</h2>
                 <p className="text-sm text-slate-400 mt-0.5">This will clear your current workspace.</p>
               </div>
               <button
@@ -2081,9 +2412,9 @@ export default function App() {
 
       {isNamingModalOpen && (
         <div className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-900">Name Your App</h2>
+              <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Name Your App</h2>
               <button
                 onClick={() => {
                   setShouldGenerateAfterNaming(false);
@@ -2130,8 +2461,8 @@ export default function App() {
                   disabled={!tempProjectName.trim()}
                   className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
                     !tempProjectName.trim() 
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                   }`}
                 >
                   Create
@@ -2142,86 +2473,268 @@ export default function App() {
         </div>
       )}
 
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                  <User size={18} />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
+            <form onSubmit={handleAuthSubmit} className="p-6 space-y-5">
+              {authInfo && (
+                <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800 leading-relaxed flex items-start gap-3">
+                  <Mail size={18} className="text-green-500 shrink-0 mt-0.5" />
+                  <span>{authInfo}</span>
+                </div>
+              )}
+              {authError && (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 leading-relaxed">
+                  {authError}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                  <input
+                    autoFocus
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showAuthPassword ? 'text' : 'password'}
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-800 transition-colors"
+                      aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {authMode === 'signup' ? (
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Your generated apps and version history sync to your account and are only visible to you.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Sign in to sync your apps across devices. Guests can keep working locally without an account.
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
+                    authLoading
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                  }`}
+                >
+                  {authLoading && <Loader2 className="animate-spin" size={15} />}
+                  {authMode === 'signup' ? 'Create account' : 'Sign in'}
+                </button>
+              </div>
+            </form>
+
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center text-sm">
+              {authMode === 'signup' ? (
+                <>Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => handleAuthModeSwitch('signin')}
+                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>New to Orion?{' '}
+                  <button
+                    type="button"
+                    onClick={() => handleAuthModeSwitch('signup')}
+                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Create an account
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                  <CloudUpload size={18} />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Bring your apps to the cloud?</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Found {importLocalCount} saved in this browser.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleSkipImport}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-600 leading-relaxed">
+                Import your existing {importLocalCount} app{importLocalCount !== 1 ? 's' : ''} into your account so they sync across devices? This happens once and won't be offered again.
+              </div>
+            </div>
+            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleSkipImport}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Skip
+              </button>
+              <button
+                type="button"
+                onClick={handleImportProjects}
+                disabled={authLoading}
+                className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
+                  authLoading
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                }`}
+              >
+                {authLoading && <Loader2 className="animate-spin" size={15} />}
+                {authLoading ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Collapse toggle tab — visible only when sidebar is closed */}
         {!isHistoryOpen && (
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="hidden md:flex items-center justify-center w-7 bg-white border border-slate-200 rounded-r-lg shadow-premium-sm hover:bg-slate-50 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+            className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-white border-y border-r border-slate-300 rounded-r-lg shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
             title="Show history panel"
           >
-            <PanelLeftOpen size={14} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <PanelLeftOpen size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
           </button>
         )}
         {/* History Sidebar */}
-        <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 ${
-          isHistoryOpen ? 'w-80' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
+        <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-300/80 shadow-[2px_0_8px_-2px_rgba(15,23,42,0.06)] ${
+          isHistoryOpen ? 'w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
         }`}>
           {/* Header */}
-          <div className="shrink-0 px-5 py-4 flex items-center justify-between history-header-bg border-b border-slate-200/60">
+          <div className="shrink-0 px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsHistoryOpen(false)}
-                className="text-slate-400 hover:text-slate-600 hover:bg-white p-1.5 rounded-lg transition-all duration-200 flex-shrink-0"
+                className="text-slate-400 hover:text-slate-700 hover:bg-white p-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all duration-200 flex-shrink-0"
                 title="Hide history panel"
               >
-                <PanelLeftClose size={15} />
+                <PanelLeftClose size={16} />
               </button>
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-500 flex-shrink-0 border border-blue-100">
-                <History size={13} />
+              <div className="h-7 w-7 2xl:h-8 2xl:w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 border border-indigo-200/80 shadow-2xs">
+                <History size={15} />
               </div>
-              <h2 className="text-sm font-semibold text-slate-800 whitespace-nowrap tracking-tight">
+              <h2 className="text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">
                 History
               </h2>
             </div>
             {versions.length > 0 && (
-              <span className="text-[11px] font-semibold text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
+              <span className="text-[11px] 2xl:text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border border-slate-300/80 shadow-2xs">
                 {versions.length} version{versions.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
 
           {/* Version List */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0 chat-scrollbar relative z-[1]">
+          <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-0 chat-scrollbar relative z-[1]">
             {versions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 px-4">
-                <div className="relative mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-slate-200 shadow-premium-sm">
-                    <Clock size={28} className="text-slate-300" />
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <div className="relative mb-4">
+                  <div className="w-16 h-16 2xl:w-20 2xl:h-20 rounded-2xl bg-white flex items-center justify-center border border-slate-200/90 shadow-sm">
+                    <div className="w-9 h-9 2xl:w-11 2xl:h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                      <Clock size={20} />
+                    </div>
                   </div>
-                  <div className="absolute inset-0 rounded-2xl animate-pulse" style={{ boxShadow: '0 0 0 4px rgba(148, 163, 184, 0.08)' }} />
+                  <div className="absolute inset-0 rounded-2xl animate-pulse" style={{ boxShadow: '0 0 0 4px rgba(79, 70, 229, 0.06)' }} />
                 </div>
-                <h3 className="text-slate-700 font-semibold text-sm mb-1.5">No versions yet</h3>
-                <p className="text-slate-400 text-xs leading-relaxed text-center max-w-[14rem]">
-                  Each generation creates a version snapshot you can revisit anytime.
+                <h3 className="text-slate-800 font-bold text-sm 2xl:text-base mb-1">No versions yet</h3>
+                <p className="text-slate-500 text-xs 2xl:text-sm leading-relaxed max-w-[15rem]">
+                  Each build creates a version snapshot you can inspect or restore anytime.
                 </p>
               </div>
             ) : (
               <div className="relative pl-6">
                 {/* Timeline line */}
-                <div className="absolute left-[14px] top-2 bottom-2 w-px bg-gradient-to-b from-transparent via-slate-200 to-transparent" />
+                <div className="absolute left-[14px] top-2 bottom-2 w-[2px] bg-slate-300/90 rounded-full" />
                 {[...versions].reverse().map((ver, reversedIdx) => {
                 const idx = versions.length - 1 - reversedIdx;
                 const isActive = currentVersionIndex === idx;
                 const isExpanded = expandedVersionIndex === idx;
                 return (
-                  <div key={ver.id} className="relative mb-0.5 animate-fade-in" style={{ animationDelay: `${reversedIdx * 40}ms` }}>
+                  <div key={ver.id} className="relative mb-2 animate-fade-in" style={{ animationDelay: `${reversedIdx * 40}ms` }}>
                     {/* Timeline dot */}
-                    <div className={`absolute left-[-18px] top-[14px] w-[9px] h-[9px] rounded-full border-2 z-[2] transition-all duration-300 ${
+                    <div className={`absolute z-[2] transition-all duration-300 ${
                       isActive
-                        ? 'border-blue-500 bg-blue-100 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]'
-                        : 'border-slate-300 bg-white'
+                        ? '-left-[20px] top-[13px] w-[12px] h-[12px] rounded-full bg-indigo-600 border-2 border-white ring-4 ring-indigo-200/70 shadow-sm'
+                        : '-left-[19px] top-[14px] w-[10px] h-[10px] rounded-full bg-slate-300 border-2 border-white ring-1 ring-slate-400/40'
                     }`} />
 
                     {/* Version card */}
                     <div
                       onClick={() => toggleExpandVersion(idx)}
-                      className={`relative cursor-pointer rounded-xl border transition-all duration-200 overflow-hidden ${
+                      className={`relative cursor-pointer rounded-xl transition-all duration-200 overflow-hidden ${
                         isActive
-                          ? 'bg-white border-blue-200/60 active-version-glow'
-                          : 'bg-white/80 border-transparent hover:border-slate-200 hover:bg-white hover:shadow-premium-sm'
+                          ? 'bg-white border-2 border-indigo-600 active-version-glow shadow-sm'
+                          : 'bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-sm shadow-2xs group'
                       }`}
                     >
                       <div className="px-3.5 py-2.5">
@@ -2229,8 +2742,8 @@ export default function App() {
                           {/* Version badge */}
                           <div className={`shrink-0 h-[22px] min-w-[38px] px-2 rounded-md flex items-center justify-center text-[10px] font-bold tracking-wide transition-all duration-200 ${
                             isActive
-                              ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                              : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                              ? 'bg-indigo-600 text-white shadow-xs shadow-indigo-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200 group-hover:bg-slate-200'
                           }`}>
                             v{idx + 1}
                           </div>
@@ -2238,24 +2751,24 @@ export default function App() {
                           {/* Content */}
                           <div className="flex-1 min-w-0 pt-0.5">
                             <div className="flex items-start gap-1.5 min-w-0">
-                              <span className={`block text-[13px] leading-[1.35] transition-colors truncate ${
-                                isActive ? 'text-slate-900 font-semibold' : 'text-slate-600'
+                              <span className={`block text-[13px] 2xl:text-[14px] leading-[1.35] transition-colors truncate ${
+                                isActive ? 'text-slate-900 font-bold' : 'text-slate-800 font-medium group-hover:text-slate-900'
                               }`}>
                                 {ver.prompt}
                               </span>
                               {idx === 0 && (
-                                <span className="shrink-0 text-[8px] font-bold px-1.5 py-[2px] rounded-full bg-slate-100 text-slate-400 border border-slate-200 uppercase tracking-wider mt-0.5">
+                                <span className="shrink-0 text-[8px] 2xl:text-[9px] font-bold px-1.5 py-[2px] rounded-full bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wider mt-0.5">
                                   Initial
                                 </span>
                               )}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-[10px] font-medium">
-                              <span className={isActive ? 'text-blue-500' : 'text-slate-400'}>
+                            <div className="mt-1 flex items-center gap-2 text-[10px] 2xl:text-[11px] font-medium">
+                              <span className={isActive ? 'text-indigo-600 font-semibold' : 'text-slate-500'}>
                                 {ver.timestamp}
                               </span>
                               {isActive && (
-                                <span className="flex items-center gap-1 px-1.5 py-[2px] rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-bold uppercase tracking-wider">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span className="flex items-center gap-1 px-1.5 py-[2px] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] 2xl:text-[10px] font-bold uppercase tracking-wider">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
                                   Active
                                 </span>
                               )}
@@ -2265,7 +2778,7 @@ export default function App() {
                           <ChevronRight
                             size={14}
                             className={`shrink-0 mt-1 transition-all duration-200 ${
-                              isExpanded ? 'rotate-90 text-blue-500' : isActive ? 'text-blue-400' : 'text-slate-300'
+                              isExpanded ? 'rotate-90 text-indigo-600' : isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'
                             }`}
                           />
                         </div>
@@ -2275,29 +2788,29 @@ export default function App() {
                     {/* Expanded detail panel */}
                     {isExpanded && (
                       <div className="mt-2 ml-2 mr-0 mb-2 version-expand-enter">
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-premium-md">
+                        <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-premium-md">
                           <div className="space-y-4">
                             {/* Prompt */}
                             <div>
                               <div className="flex items-center gap-2 mb-2">
-                                <div className="w-1 h-3 rounded-full bg-blue-400" />
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.12em]">Prompt</span>
+                                <div className="w-1.5 h-3 rounded-full bg-indigo-500" />
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em]">Prompt</span>
                               </div>
-                              <div className="text-[13px] text-slate-700 font-medium leading-relaxed bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                              <div className="text-[13px] 2xl:text-[14px] text-slate-800 font-medium leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
                                 {ver.prompt}
                               </div>
                             </div>
 
                             {/* Metadata */}
-                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 border-t border-slate-100">
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 border-t border-slate-200">
                               <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.10em]">Modified</span>
-                                <span className="text-xs text-slate-600 font-medium mt-0.5">{ver.timestamp}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.10em]">Modified</span>
+                                <span className="text-xs text-slate-700 font-semibold mt-0.5">{ver.timestamp}</span>
                               </div>
                               {ver.editSummary && (
                                 <div className="flex flex-col flex-1 min-w-0">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.10em]">Summary</span>
-                                  <span className="text-xs text-slate-600 font-medium mt-0.5 truncate">{ver.editSummary}</span>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.10em]">Summary</span>
+                                  <span className="text-xs text-slate-700 font-semibold mt-0.5 truncate">{ver.editSummary}</span>
                                 </div>
                               )}
                             </div>
@@ -2306,21 +2819,21 @@ export default function App() {
                             <div className="grid grid-cols-3 gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); switchVersion(idx); }}
-                                className="btn-premium btn-premium-primary py-2 text-xs"
+                                className="btn-premium btn-premium-primary py-2 text-xs font-semibold"
                               >
                                 <Play size={13} />
                                 Restore
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); copyVersionCode(ver); }}
-                                className="btn-premium btn-premium-secondary py-2 text-xs"
+                                className="btn-premium btn-premium-secondary py-2 text-xs font-semibold hover:border-slate-300"
                               >
                                 <Copy size={13} />
                                 Copy
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); downloadVersion(ver); }}
-                                className="btn-premium btn-premium-secondary py-2 text-xs"
+                                className="btn-premium btn-premium-secondary py-2 text-xs font-semibold hover:border-slate-300"
                               >
                                 <Download size={13} />
                                 Save
@@ -2341,24 +2854,26 @@ export default function App() {
         {/* Main Workspace */}
         <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
-          {/* Prompt/Chat Sidebar (Left) */}
-          <div className="w-full md:w-[360px] lg:w-[420px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-200/60 z-20 flex-shrink-0 shadow-premium-lg relative">
+          {/* Prompt/Chat Sidebar (Left) - Build Panel */}
+          <div className="w-full md:w-[400px] lg:w-[460px] xl:w-[520px] 2xl:w-[600px] 3xl:w-[680px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-300/80 z-20 flex-shrink-0 shadow-[4px_0_16px_-4px_rgba(15,23,42,0.06)] relative">
             {/* Subtle atmospheric gradient */}
             <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 pt-8 lg:pt-10 pb-4 flex flex-col justify-start relative z-[1] chat-scrollbar">
-              <div className="max-w-2xl w-full mx-auto space-y-6 animate-fade-in">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 xl:px-10 2xl:px-12 pt-7 lg:pt-9 2xl:pt-12 pb-6 flex flex-col justify-start relative z-[1] chat-scrollbar">
+              <div className="max-w-2xl w-full mx-auto space-y-6 2xl:space-y-8 animate-fade-in">
 
                 {/* Header Section */}
                 <div className={generatedCode ? 'refine-card' : 'relative'}>
                   {!generatedCode && (
                     <div className="pointer-events-none absolute -top-8 left-0 right-0 h-44 hero-atmosphere" aria-hidden="true" />
                   )}
-                  <div className="space-y-4 relative">
+                  <div className="space-y-3 sm:space-y-4 relative">
                     {generatedCode ? (
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                        <span className="text-[13px] font-bold text-blue-600 uppercase tracking-[0.14em]">Editing</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-[0.14em] bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                          Editing Mode
+                        </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2.5 pt-0.5">
@@ -2367,17 +2882,17 @@ export default function App() {
                           <span className="orion-dot orion-dot-mid" />
                           <span className="orion-dot" />
                         </span>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">From idea to running app</span>
+                        <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">From idea to running app</span>
                       </div>
                     )}
-                    <h2 className="text-[2.15rem] lg:text-[2.55rem] font-bold tracking-[-0.035em] leading-[1.05] text-slate-900">
+                    <h2 className="text-3xl sm:text-4xl lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[3.5rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
                       {generatedCode ? (
-                        <>Refine <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">your app</span></>
+                        <>Refine <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">your app</span></>
                       ) : (
-                        <>What do you want to <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">build?</span></>
+                        <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">build?</span></>
                       )}
                     </h2>
-                    <p className="text-slate-700 text-[16px] leading-relaxed max-w-[34ch]">
+                    <p className="text-slate-600 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed max-w-[36ch]">
                       {generatedCode
                         ? "Describe what to change, add, or fix."
                         : "Describe an idea in plain words and Orion turns it into a complete, working app."}
@@ -2385,31 +2900,50 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Suggestions - Only show when no app is generated */}
+                {/* Starter Prompts */}
                 {!generatedCode && (
                   <div className="space-y-4 animate-fade-in" style={{ animationDelay: '0.08s' }}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="h-3 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
-                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">
-                        Try a starter
-                      </h3>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="h-3.5 w-1 rounded-full bg-indigo-500" aria-hidden="true" />
+                        <h3 className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">
+                          Starter Ideas
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStarterOffset((prev) => (prev + 4) % STARTER_PRESETS.length)}
+                        className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs 2xl:text-sm font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                        title="Shuffle starter ideas"
+                      >
+                        <RefreshCw size={13} className="transition-transform duration-500 group-hover:rotate-180 text-slate-400 group-hover:text-indigo-600" />
+                        <span>Shuffle</span>
+                      </button>
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {suggestedPrompts.map((suggestion, idx) => {
-                        const StarterIcon = starterIcons[idx];
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:gap-3.5 2xl:gap-4.5">
+                      {visibleStarters.map((starter) => {
+                        const IconComponent = starter.icon;
                         return (
                           <button
-                            key={idx}
-                            onClick={() => setPrompt(suggestion)}
-                            className={`group flex items-center justify-between gap-3 text-left px-4 py-3.5 bg-white/70 border border-slate-200/90 rounded-xl transition-all hover:border-blue-300 hover:bg-white hover:shadow-premium-md suggestion-card animate-stagger-${idx + 1} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2`}
+                            key={starter.title}
+                            onClick={() => setPrompt(starter.prompt)}
+                            className="group flex flex-col justify-between text-left p-3.5 xl:p-4 2xl:p-5 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-indigo-300 rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                           >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center text-slate-500 group-hover:text-blue-600 transition-colors">
-                                <StarterIcon size={18} />
+                            <div className="flex items-center justify-between w-full mb-2.5">
+                              <div className={`w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl flex items-center justify-center ${starter.color} border border-black/5 shadow-2xs`}>
+                                <IconComponent size={16} />
+                              </div>
+                              <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-white px-2 py-0.5 rounded-md border border-slate-200/80">
+                                {starter.category}
                               </span>
-                              <span className="text-[15px] text-slate-800 group-hover:text-slate-900 font-medium leading-snug transition-colors">{suggestion}</span>
                             </div>
-                            <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
+                            <div className="text-sm sm:text-base xl:text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-1 mb-1">
+                              {starter.title}
+                            </div>
+                            <p className="text-xs sm:text-sm xl:text-base text-slate-500 leading-relaxed line-clamp-3">
+                              {starter.prompt}
+                            </p>
                           </button>
                         );
                       })}
@@ -2418,14 +2952,14 @@ export default function App() {
                 )}
 
                 {error && (
-                  <div className="bg-red-50/80 border border-red-100 p-4 rounded-xl backdrop-blur-sm animate-fade-in">
+                  <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl backdrop-blur-sm animate-fade-in">
                     <div className="flex items-start gap-3">
-                      <div className="p-1.5 bg-red-100 rounded-lg text-red-500 flex-shrink-0">
+                      <div className="p-1.5 bg-rose-100 rounded-lg text-rose-600 flex-shrink-0">
                         <RefreshCw size={15} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-0.5">Error</p>
-                        <p className="text-[13px] text-red-800 font-medium leading-snug">
+                        <p className="text-xs font-bold text-rose-700 uppercase tracking-wider mb-0.5">Error</p>
+                        <p className="text-[13px] text-rose-800 font-medium leading-snug">
                           {error}
                         </p>
                       </div>
@@ -2436,12 +2970,26 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="shrink-0 p-4 pt-3 border-t border-slate-200/60 bg-white/80 backdrop-blur-md relative z-[1]">
+            <div className="shrink-0 p-4 sm:p-5 2xl:p-6 pt-3 border-t border-slate-200/80 bg-white/95 backdrop-blur-md relative z-[1]">
               {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
-                <div className="mb-3 space-y-2 animate-fade-in">
-                  <div className="flex items-center gap-1.5 px-0.5">
-                    <Sparkles size={13} className="text-blue-500" aria-hidden="true" />
-                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.16em]">Suggestions</span>
+                <div className="mb-3 animate-fade-in">
+                  <div className="flex items-center justify-between px-0.5 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="suggestion-spark" aria-hidden="true">
+                        <Sparkles size={13} />
+                      </span>
+                      <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.16em]">Suggestions</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRefreshSuggestions}
+                      disabled={isSuggestionsLoading}
+                      aria-label="Regenerate suggestions"
+                      className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs 2xl:text-sm font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw size={12} className={isSuggestionsLoading ? 'animate-spin' : 'transition-transform duration-500 group-hover/refresh:rotate-180'} />
+                      <span>New</span>
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {contextualSuggestions.length > 0 ? (
@@ -2450,20 +2998,23 @@ export default function App() {
                           key={suggestion}
                           type="button"
                           onClick={() => setPrompt(suggestion)}
-                          className={`text-left px-3.5 py-2 text-[13px] leading-snug font-medium rounded-xl border border-slate-200 bg-white text-slate-700 shadow-premium-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 suggestion-chip animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2`}
+                          className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-white text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
                         >
-                          {suggestion}
+                          <span className="suggestion-chip-icon shrink-0" aria-hidden="true">
+                            <Plus size={13} strokeWidth={2.5} />
+                          </span>
+                          <span>{suggestion}</span>
                         </button>
                       ))
                     ) : (
                       [0, 1, 2, 3].map((idx) => (
-                        <span key={idx} className="h-9 w-[47%] rounded-xl bg-slate-100 animate-pulse" aria-hidden="true" />
+                        <span key={idx} className="suggestion-skeleton h-8 rounded-xl w-[46%]" aria-hidden="true" />
                       ))
                     )}
                   </div>
                 </div>
               )}
-              <div className="bg-white rounded-2xl shadow-premium-lg border border-slate-200 overflow-hidden transition-all input-glow">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-300 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/60 overflow-hidden transition-all input-glow">
                 <textarea
                   id="prompt"
                   name="prompt"
@@ -2476,19 +3027,14 @@ export default function App() {
                     }
                   }}
                   placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
-                  className="w-full h-32 px-4 pt-4 pb-3 outline-none resize-none text-slate-800 placeholder:text-slate-400 text-[14px] leading-6 bg-transparent"
+                  className="w-full h-28 sm:h-32 xl:h-40 2xl:h-48 px-4 2xl:px-6 pt-3.5 2xl:pt-4.5 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed bg-transparent"
                   disabled={isGenerating}
                 />
                 {!generatedCode && versions.length === 0 && (
-                  <div className="px-4 pb-3">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-3">
-                      <div className="flex items-center gap-2 mb-2.5">
-                        <span className="h-3 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.18em]">
-                          Optimize for
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
+                  <div className="px-3.5 sm:px-4 pb-2.5">
+                    <div className="flex items-center justify-between py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-wider">Optimize for</span>
+                      <div className="flex items-center gap-1 sm:gap-1.5">
                         {INITIAL_LAYOUT_OPTIONS.map((option) => {
                           const Icon = option.icon;
                           const isSelected = initialLayoutTarget === option.id;
@@ -2496,10 +3042,10 @@ export default function App() {
                           return (
                             <label
                               key={option.id}
-                              className={`layout-selector flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2 transition-all ${
+                              className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 py-1 text-xs xl:text-sm font-semibold transition-all ${
                                 isSelected
-                                  ? 'layout-selector-selected'
-                                  : 'border-slate-200 bg-white/80 hover:border-slate-300'
+                                  ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/80'
+                                  : 'text-slate-500 hover:text-slate-800'
                               }`}
                             >
                               <input
@@ -2511,8 +3057,8 @@ export default function App() {
                                 className="sr-only"
                                 disabled={isGenerating}
                               />
-                              <Icon size={13} className={isSelected ? 'text-blue-600' : 'text-slate-400'} />
-                              <span className={`text-xs font-semibold ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>{option.label}</span>
+                              <Icon size={14} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
+                              <span>{option.label}</span>
                             </label>
                           );
                         })}
@@ -2520,48 +3066,48 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white px-4 py-3">
-                  {!isGenerating && prompt.trim() && (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] select-none whitespace-nowrap">
-                      <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-sans text-[9px] leading-none text-slate-500">⌘ ↵</kbd>
-                      to build
-                    </span>
-                  )}
-                  {isGenerating && (
-                    <button
-                      onClick={() => {
-                        if (abortControllerRef.current) {
-                          abortControllerRef.current.abort();
-                          abortControllerRef.current = null;
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13px] font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
-                    >
-                      <X size={14} />
-                      Cancel
-                    </button>
-                  )}
-                  <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                    className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
-                      isGenerating
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                        : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
-                    }`}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="animate-spin" size={16} />
-                        {generatedCode ? "Updating..." : "Building..."}
-                      </>
-                    ) : (
-                      <>
-                        {generatedCode ? <Edit2 size={16} /> : <Wand2 size={16} />}
-                        {generatedCode ? "Update" : "Build"}
-                      </>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2.5 sm:py-3">
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 select-none">
+                    <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-white font-sans text-xs 2xl:text-sm leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
+                    <span className="hidden sm:inline">to build</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isGenerating && (
+                      <button
+                        onClick={() => {
+                          if (abortControllerRef.current) {
+                            abortControllerRef.current.abort();
+                            abortControllerRef.current = null;
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors"
+                      >
+                        <X size={14} />
+                        Cancel
+                      </button>
                     )}
-                  </button>
+                    <button
+                      onClick={handleGenerate}
+                      disabled={isGenerating || !prompt.trim()}
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                        isGenerating || !prompt.trim()
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                          : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="animate-spin" size={16} />
+                          <span>{generatedCode ? "Updating..." : "Building..."}</span>
+                        </>
+                      ) : (
+                        <>
+                          {generatedCode ? <Edit2 size={16} /> : <Wand2 size={16} />}
+                          <span>{generatedCode ? "Update App" : "Build App"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2570,25 +3116,138 @@ export default function App() {
           {/* Preview/Device Area (Right) */}
           <div className="flex-1 min-h-0 bg-slate-200/60 flex flex-col relative z-0 inset-shadow-preview">
             
-            {/* View Toggles */}
-            <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 bg-white">
-              <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  <Play size={14} className="mr-1.5" /> Preview
-                </button>
-                <button
-                  onClick={() => setActiveTab('code')}
-                  className={`flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'code' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  <TerminalSquare size={14} className="mr-1.5" /> Code
-                </button>
+            {/* Canvas Studio Header Bar */}
+            <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 2xl:px-8 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200/90 bg-white/95 backdrop-blur-md z-10">
+              {/* Left: View Tabs */}
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="nav-segmented-group">
+                  <button
+                    onClick={() => setActiveTab('preview')}
+                    className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
+                      activeTab === 'preview' ? 'nav-segmented-btn-active' : ''
+                    }`}
+                  >
+                    <Play size={14} />
+                    <span>Preview</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('code')}
+                    className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
+                      activeTab === 'code' ? 'nav-segmented-btn-active' : ''
+                    }`}
+                  >
+                    <TerminalSquare size={14} />
+                    <span>Code</span>
+                  </button>
+                </div>
+
+                {/* Version indicator pill */}
+                {versions.length > 0 && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                    v{currentVersionIndex + 1}
+                  </span>
+                )}
+              </div>
+
+              {/* Center: Device Presets (when in preview tab) */}
+              {activeTab === 'preview' && (
+                <div className="nav-segmented-group" title="Device Viewport Preset">
+                  <button
+                    onClick={() => setPreviewMode('mobile')}
+                    className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'mobile' ? 'nav-segmented-btn-active' : ''}`}
+                    title="Mobile View (399 × 820)"
+                  >
+                    <Smartphone size={14} />
+                    <span className="hidden sm:inline">Mobile</span>
+                  </button>
+                  <button
+                    onClick={() => setPreviewMode('desktop')}
+                    className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
+                    title="Desktop View (1468 × 1022)"
+                  >
+                    <Monitor size={14} />
+                    <span className="hidden sm:inline">Desktop</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out, Export) */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Undo/Redo when versions > 1 */}
+                {versions.length > 1 && (
+                  <div className="hidden md:flex nav-segmented-group" title="Undo / Redo Version">
+                    <button
+                      onClick={handleUndo}
+                      disabled={currentVersionIndex <= 0}
+                      className="nav-segmented-btn nav-segmented-btn-icon"
+                      title="Previous Version"
+                    >
+                      <Undo2 size={14} />
+                    </button>
+                    <button
+                      onClick={handleRedo}
+                      disabled={currentVersionIndex >= versions.length - 1}
+                      className="nav-segmented-btn nav-segmented-btn-icon"
+                      title="Next Version"
+                    >
+                      <Redo2 size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Zoom Controls (when in preview tab) */}
+                {activeTab === 'preview' && (
+                  <div className="hidden sm:flex nav-segmented-group" title="Zoom Controls">
+                    <button
+                      onClick={() => handleManualZoom(-0.1)}
+                      disabled={zoomLevel <= 0.2}
+                      className="nav-segmented-btn nav-segmented-btn-icon"
+                      title="Zoom Out (-10%)"
+                    >
+                      <ZoomOut size={14} />
+                    </button>
+                    <button
+                      onClick={resetZoom}
+                      className={`nav-segmented-btn text-xs sm:text-sm font-semibold px-2.5 ${isAutoZoom ? 'nav-segmented-btn-active' : ''}`}
+                      title={isAutoZoom ? "Auto-Zoom active (click to reset)" : "Reset to Auto-Zoom"}
+                    >
+                      {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
+                    </button>
+                    <button
+                      onClick={() => handleManualZoom(0.1)}
+                      disabled={zoomLevel >= 3}
+                      className="nav-segmented-btn nav-segmented-btn-icon"
+                      title="Zoom In (+10%)"
+                    >
+                      <ZoomIn size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Open in new tab (when code generated) */}
+                {generatedCode && (
+                  <button
+                    onClick={handleOpenInNewTab}
+                    className="nav-btn bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+                    title="Open preview in new browser tab"
+                  >
+                    <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+                    <span className="hidden lg:inline">Open</span>
+                  </button>
+                )}
+
+                {/* Export HTML */}
+                {generatedCode && (
+                  <button
+                    onClick={handleDownload}
+                    className="nav-btn bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 hover:text-indigo-800 border border-indigo-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+                    title="Export and Download HTML file"
+                  >
+                    <Download size={14} className="text-indigo-600 transition-colors" />
+                    <span className="hidden md:inline">Export</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2655,20 +3314,39 @@ export default function App() {
                           allow=""
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
-                          <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-slate-200 flex items-center justify-center mb-4">
-                             {previewMode === 'mobile' ? (
-                               <Smartphone size={24} className="text-slate-300" />
-                             ) : (
-                               <Monitor size={24} className="text-slate-300" />
-                             )}
-                           </div>
-                          <h4 className="font-semibold text-slate-700 text-sm mb-1">
-                            {previewMode === 'mobile' ? 'Mobile Preview' : 'Desktop Preview'}
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/70 p-6 sm:p-8 text-center select-none relative overflow-hidden">
+                          {/* Ambient glow */}
+                          <div className="absolute w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+
+                          <div className="relative mb-5">
+                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white flex items-center justify-center shadow-premium-md border border-slate-200/80">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center text-indigo-600">
+                                <Sparkles size={24} className="animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <h4 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight mb-1.5">
+                            Live Sandbox Preview
                           </h4>
-                          <p className="text-xs text-slate-400 max-w-[14rem] leading-relaxed">
-                            Your app will appear here after building.
+                          <p className="text-xs sm:text-sm text-slate-500 max-w-[17rem] leading-relaxed mb-6">
+                            Enter a prompt to generate and interact with your app in real-time.
                           </p>
+
+                          <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[280px]">
+                            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                              <Zap size={14} className="text-amber-500 shrink-0" />
+                              <span>Instant live rendering</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                              <ShieldAlert size={14} className="text-emerald-500 shrink-0" />
+                              <span>Sandboxed origin security</span>
+                            </div>
+                            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                              <Layers size={14} className="text-indigo-500 shrink-0" />
+                              <span>Tailwind CSS & JS built-in</span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2679,8 +3357,8 @@ export default function App() {
                           <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
                           <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
                         </div>
-                        <h3 className="text-sm font-semibold text-slate-900 mb-1">Building...</h3>
-                        <p className="text-xs text-slate-500 animate-pulse">Generating HTML, CSS & JavaScript</p>
+                        <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">Building...</h3>
+                        <p className="text-xs sm:text-sm text-slate-500 animate-pulse">Generating HTML, CSS & JavaScript</p>
                       </div>
                     )}
                   </div>
