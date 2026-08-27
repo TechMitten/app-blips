@@ -1,0 +1,433 @@
+/**
+ * Preview bridge.
+ *
+ * The generated app runs in an origin-isolated iframe (`sandbox` without
+ * `allow-same-origin`), so the parent can no longer reach into
+ * `iframe.contentDocument`. Everything the parent used to do by touching the
+ * frame's DOM now lives inside the frame, injected as a single inline script,
+ * and is driven over `postMessage`.
+ *
+ * The script does two jobs:
+ *
+ *  1. Shims `localStorage` / `sessionStorage` / `document.cookie`. On an opaque
+ *     origin these THROW `SecurityError` on mere access, which would kill the
+ *     generated app's inline script at that line and leave a white screen.
+ *     Generated apps hit this constantly -- the suggested prompts in the UI are
+ *     "habit tracker", "to-do list", "budget tracker".
+ *  2. Runs the mobile touch-scroll simulation (drag, momentum, click
+ *     suppression) that used to live in an effect in App.jsx.
+ *
+ * IMPORTANT: the bridge is spliced in at RENDER time only (see the `useMemo`
+ * feeding the iframe's `srcDoc` in App.jsx) and is never written into
+ * `generatedCode`. That keeps it out of downloads, the clipboard, the code
+ * pane, and `orion-projects` -- and, most importantly, out of the reach of
+ * `applySurgicalEdits`, whose fuzzy line-scan would otherwise happily match
+ * inside bridge code and corrupt it on refinement.
+ */
+
+export const BRIDGE_CHANNEL = 'orion-preview-bridge';
+export const BRIDGE_PROTOCOL_VERSION = 1;
+
+const makeToken = () => {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch { /* fall through */ }
+  return 'tok-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+};
+
+/**
+ * The in-frame script, as source text.
+ *
+ * Written in ES5-ish style with string concatenation so it never needs a
+ * backtick or a `${`, and so it parses even if a generated document does
+ * something odd. `__ORION_TOKEN__` is substituted per render.
+ */
+const BRIDGE_SOURCE = `(function () {
+  'use strict';
+
+  var TOKEN = '__ORION_TOKEN__';
+  var CHANNEL = '${BRIDGE_CHANNEL}';
+  var VERSION = ${BRIDGE_PROTOCOL_VERSION};
+
+  // ------------------------------------------------------------------
+  // 1. Storage shim
+  //
+  // The probe is what makes this a no-op if origin isolation is ever
+  // relaxed: if the real API works, we leave it completely alone.
+  // ------------------------------------------------------------------
+
+  function memStorage() {
+    var m = Object.create(null);
+    var api = {
+      getItem: function (k) { k = String(k); return k in m ? m[k] : null; },
+      setItem: function (k, v) { m[String(k)] = String(v); },
+      removeItem: function (k) { delete m[String(k)]; },
+      clear: function () { m = Object.create(null); },
+      key: function (i) { var ks = Object.keys(m); i = Number(i); return i >= 0 && i < ks.length ? ks[i] : null; }
+    };
+    Object.defineProperty(api, 'length', { get: function () { return Object.keys(m).length; } });
+    return api;
+  }
+
+  function shimStorage(name) {
+    try {
+      // Touching .length is enough to trip the SecurityError.
+      void window[name].length;
+      return;
+    } catch (probeErr) { /* opaque origin -- fall through and shim */ }
+    var store = memStorage();
+    try {
+      Object.defineProperty(window, name, { value: store, configurable: true, writable: false });
+      return;
+    } catch (ownErr) { /* try the prototype instead */ }
+    try {
+      Object.defineProperty(Window.prototype, name, { value: store, configurable: true });
+    } catch (protoErr) { /* nothing more we can do */ }
+  }
+
+  function shimCookie() {
+    try {
+      void document.cookie;
+      return;
+    } catch (probeErr) { /* opaque origin -- fall through and shim */ }
+    var jar = '';
+    var desc = {
+      configurable: true,
+      get: function () { return jar; },
+      set: function (v) {
+        var pair = String(v).split(';')[0];
+        if (!pair) return jar;
+        jar = jar ? jar + '; ' + pair : pair;
+        return v;
+      }
+    };
+    try {
+      Object.defineProperty(document, 'cookie', desc);
+      return;
+    } catch (ownErr) { /* try the prototype instead */ }
+    try {
+      Object.defineProperty(Document.prototype, 'cookie', desc);
+    } catch (protoErr) { /* nothing more we can do */ }
+  }
+
+  shimStorage('localStorage');
+  shimStorage('sessionStorage');
+  shimCookie();
+
+  // ------------------------------------------------------------------
+  // 2. Touch-scroll simulation
+  // ------------------------------------------------------------------
+
+  var SCROLLBAR_CSS =
+    '* { scrollbar-width: none !important; -ms-overflow-style: none !important; } ' +
+    '*::-webkit-scrollbar { display: none !important; }';
+
+  var TOUCH_CSS =
+    'html, body { touch-action: none !important; overscroll-behavior: none !important; }';
+
+  function install() {
+    var isDragging = false;
+    var hasMoved = false;
+    var startX = 0, startY = 0, lastX = 0, lastY = 0;
+    var velocityX = 0, velocityY = 0;
+    var momentumId = null;
+    var suppressClick = false;
+    var pointerCaptureTarget = null;
+    var mainScrollEl = null;
+
+    var scrollbarStyle = document.createElement('style');
+    scrollbarStyle.textContent = SCROLLBAR_CSS;
+    document.head.appendChild(scrollbarStyle);
+
+    var touchStyle = document.createElement('style');
+    touchStyle.textContent = TOUCH_CSS;
+    document.head.appendChild(touchStyle);
+
+    function findMainScrollElement() {
+      var candidates = [document.scrollingElement, document.documentElement, document.body];
+      for (var i = 0; i < candidates.length; i++) {
+        var el = candidates[i];
+        if (el && el.scrollHeight > el.clientHeight + 1) return el;
+      }
+      var kids = document.body ? document.body.children : [];
+      for (var j = 0; j < kids.length; j++) {
+        var child = kids[j];
+        var style = window.getComputedStyle(child);
+        var overflow = (style.overflowY || '') + (style.overflow || '');
+        if (/(auto|scroll)/.test(overflow) && child.scrollHeight > child.clientHeight + 1) {
+          return child;
+        }
+      }
+      return document.scrollingElement || document.documentElement || document.body;
+    }
+
+    function isFormControl(el) {
+      // e.target can be the Document, which has no tagName.
+      if (!el || !el.tagName) return false;
+      var tag = el.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    }
+
+    function setUserSelect(value) {
+      if (!document.body) return;
+      document.body.style.userSelect = value;
+      document.body.style.webkitUserSelect = value;
+      document.body.style.MozUserSelect = value;
+    }
+
+    function onPointerDown(e) {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (isFormControl(e.target)) return;
+
+      // Recomputed per drag: the app may have grown content since load.
+      mainScrollEl = findMainScrollElement();
+
+      isDragging = true;
+      hasMoved = false;
+      suppressClick = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      velocityX = 0;
+      velocityY = 0;
+
+      try {
+        e.target.setPointerCapture(e.pointerId);
+        pointerCaptureTarget = e.target;
+      } catch (err) { /* not capturable */ }
+
+      setUserSelect('none');
+
+      if (momentumId) {
+        cancelAnimationFrame(momentumId);
+        momentumId = null;
+      }
+
+      e.preventDefault();
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+
+      if (!hasMoved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+        hasMoved = true;
+        suppressClick = true;
+        if (e.pointerType === 'mouse') {
+          document.documentElement.style.cursor = 'grabbing';
+        }
+      }
+
+      if (!hasMoved) return;
+
+      var moveX = e.clientX - lastX;
+      var moveY = e.clientY - lastY;
+
+      velocityX = velocityX * 0.6 + moveX * 0.4;
+      velocityY = velocityY * 0.6 + moveY * 0.4;
+
+      if (mainScrollEl) {
+        mainScrollEl.scrollTop -= moveY;
+        mainScrollEl.scrollLeft -= moveX;
+      }
+
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      e.preventDefault();
+    }
+
+    function onPointerUp(e) {
+      if (!isDragging) return;
+      isDragging = false;
+
+      try {
+        if (pointerCaptureTarget) {
+          pointerCaptureTarget.releasePointerCapture(e.pointerId);
+          pointerCaptureTarget = null;
+        }
+      } catch (err) { /* already released */ }
+
+      document.documentElement.style.cursor = 'grab';
+      setUserSelect('');
+
+      if (!hasMoved) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      var applyMomentum = function () {
+        if (Math.abs(velocityX) < 0.3 && Math.abs(velocityY) < 0.3) {
+          momentumId = null;
+          return;
+        }
+
+        velocityX *= 0.975;
+        velocityY *= 0.975;
+
+        if (mainScrollEl) {
+          mainScrollEl.scrollTop -= velocityY;
+          mainScrollEl.scrollLeft -= velocityX;
+        }
+
+        momentumId = requestAnimationFrame(applyMomentum);
+      };
+
+      momentumId = requestAnimationFrame(applyMomentum);
+    }
+
+    function onClick(e) {
+      if (suppressClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressClick = false;
+      }
+    }
+
+    var opts = { capture: true, passive: false };
+
+    document.addEventListener('pointerdown', onPointerDown, opts);
+    document.addEventListener('pointermove', onPointerMove, opts);
+    document.addEventListener('pointerup', onPointerUp, opts);
+    document.addEventListener('pointercancel', onPointerUp, opts);
+    document.addEventListener('click', onClick, true);
+
+    document.documentElement.style.cursor = 'grab';
+
+    return function teardown() {
+      document.removeEventListener('pointerdown', onPointerDown, opts);
+      document.removeEventListener('pointermove', onPointerMove, opts);
+      document.removeEventListener('pointerup', onPointerUp, opts);
+      document.removeEventListener('pointercancel', onPointerUp, opts);
+      document.removeEventListener('click', onClick, true);
+      if (momentumId) cancelAnimationFrame(momentumId);
+      if (scrollbarStyle.parentNode) scrollbarStyle.parentNode.removeChild(scrollbarStyle);
+      if (touchStyle.parentNode) touchStyle.parentNode.removeChild(touchStyle);
+      try {
+        document.documentElement.style.cursor = '';
+        setUserSelect('');
+      } catch (err) { /* document going away */ }
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Message plumbing
+  // ------------------------------------------------------------------
+
+  var domReady = false;
+  var desiredEnabled = false;
+  var teardownFn = null;
+
+  function post(type, payload) {
+    try {
+      // targetOrigin '*' is required: this frame has an opaque origin and
+      // cannot know the parent's. It is only acceptable because no message
+      // in this protocol carries a secret. Do not add one.
+      parent.postMessage(
+        { __orion: CHANNEL, v: VERSION, token: TOKEN, type: type, payload: payload },
+        '*'
+      );
+    } catch (err) { /* parent gone */ }
+  }
+
+  function sync() {
+    if (!domReady) return;
+    try {
+      if (desiredEnabled && !teardownFn) {
+        teardownFn = install();
+      } else if (!desiredEnabled && teardownFn) {
+        teardownFn();
+        teardownFn = null;
+      }
+    } catch (err) {
+      post('error', { message: String((err && err.message) || err) });
+    }
+  }
+
+  // Registered synchronously, before the DOM exists, so no parent message can
+  // be missed while the document is still parsing.
+  window.addEventListener('message', function (e) {
+    if (e.source !== parent) return;
+    var d = e.data;
+    if (!d || d.__orion !== CHANNEL || d.token !== TOKEN) return;
+    if (d.type === 'configure') {
+      desiredEnabled = !!(d.payload && d.payload.enabled);
+      sync();
+    }
+  });
+
+  function onReady() {
+    domReady = true;
+    sync();
+    post('ready');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onReady, { once: true });
+  } else {
+    onReady();
+  }
+})();`;
+
+// A stray "</" inside the source would silently truncate the injected <script>
+// tag and leave the rest of the bridge as visible page text. Fail loudly at
+// module load instead of debugging it in a generated app.
+if (BRIDGE_SOURCE.indexOf('</') !== -1) {
+  throw new Error('previewBridge: BRIDGE_SOURCE contains "</", which would truncate the injected script tag.');
+}
+
+export const PREVIEW_BRIDGE_SCRIPT = BRIDGE_SOURCE;
+
+const SCRIPT_OPEN = '<script>';
+// Assembled so this module's own source never contains the literal sequence.
+const SCRIPT_CLOSE = '</' + 'script>';
+
+const buildTag = (token) =>
+  SCRIPT_OPEN + BRIDGE_SOURCE.replace('__ORION_TOKEN__', token) + SCRIPT_CLOSE;
+
+/**
+ * Splice the bridge into a generated document.
+ *
+ * Index-based insertion at a single point, never a global replace, so every
+ * byte of model output outside the insertion point is preserved verbatim.
+ * The bridge must land as early as possible -- before the Tailwind CDN tag and
+ * before the app's own script -- so the storage shim is in place by the time
+ * anything touches `localStorage`.
+ *
+ * @returns {{ srcDoc: string, token: string }}
+ */
+export const injectPreviewBridge = (code) => {
+  const token = makeToken();
+
+  if (typeof code !== 'string' || !code) {
+    return { srcDoc: '', token };
+  }
+
+  const tag = buildTag(token);
+  const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
+
+  // A leading <!DOCTYPE html> needs no special case -- it falls out of this
+  // naturally, since we insert after <head>/<html>/<body> rather than at 0.
+  const headMatch = /<head\b[^>]*>/i.exec(code);
+  if (headMatch) {
+    return { srcDoc: insertAt(headMatch.index + headMatch[0].length, tag), token };
+  }
+
+  const htmlMatch = /<html\b[^>]*>/i.exec(code);
+  if (htmlMatch) {
+    const head = '<head>' + tag + '</' + 'head>';
+    return { srcDoc: insertAt(htmlMatch.index + htmlMatch[0].length, head), token };
+  }
+
+  const bodyMatch = /<body\b[^>]*>/i.exec(code);
+  if (bodyMatch) {
+    return { srcDoc: insertAt(bodyMatch.index + bodyMatch[0].length, tag), token };
+  }
+
+  return { srcDoc: tag + code, token };
+};

@@ -7,11 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Firebase logs
-firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
-
 # Dependencies
 node_modules/
 dist/
@@ -34,9 +29,6 @@ coverage/
 .env
 .env.local
 .env.*.local
-
-# Firebase
-.firebase/
 
 # Misc
 .eslintcache

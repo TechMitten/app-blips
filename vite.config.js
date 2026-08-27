@@ -10,6 +10,13 @@ export default defineConfig({
     strictPort: false,
     watch: {
       usePolling: true
+    },
+    headers: {
+      // frame-ancestors is ignored in a <meta> tag, so it has to be a real
+      // header. Production hosting should send these too.
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer'
     }
   },
   build: {
@@ -18,7 +25,6 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('firebase')) return 'vendor_firebase';
             if (id.includes('lucide-react')) return 'vendor_icons';
             if (id.includes('react')) return 'vendor_react';
             return 'vendor';
