@@ -2,6 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Only directives that are safe to inherit. A srcdoc iframe inherits the
+         embedder's CSP and sandboxing does not sever that, so any script-src
+         here would kill the generated app's inline scripts and the Tailwind CDN
+         (and script-src 'self' would additionally break the dev server, whose
+         React-Refresh preamble is inlined). frame-ancestors is ignored in a
+         meta tag -- it is set as a real header in vite.config.js. -->
+    <meta http-equiv="Content-Security-Policy" content="base-uri 'none'; object-src 'none'" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#4f46e5" />

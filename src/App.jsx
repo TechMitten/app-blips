@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
+import { injectPreviewBridge, BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from './previewBridge';
 import { 
   Wand2, 
+  ShieldAlert,
   Smartphone, 
   Code2, 
   Play, 
@@ -21,6 +23,8 @@ import {
   Plus,
   Edit2,
   Clock,
+  ListTodo,
+  Wallet,
   Undo2,
   Redo2,
   FolderOpen,
@@ -77,6 +81,7 @@ CRITICAL RULES:
 5. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 7. For mobile-focused apps, always include viewport-fit=cover meta tag and safe-area-inset padding.
+8. The app runs in a sandboxed preview frame with no origin. Do NOT use localStorage, sessionStorage, indexedDB, or document.cookie - hold all state in JavaScript variables. Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
@@ -95,6 +100,7 @@ const getSafeAreaInstruction = (layoutTarget) => {
 };
 
 const LLM_CONFIG_KEY = 'orion-llm-config';
+const LLM_REMEMBER_KEY = 'orion-llm-remember';
 
 const DEFAULT_LLM_CONFIG = {
   baseUrl: 'https://api.openai.com/v1',
@@ -102,21 +108,82 @@ const DEFAULT_LLM_CONFIG = {
   model: 'gpt-4o'
 };
 
-const loadLlmConfig = () => {
+// There is no way to hide a key from the machine that types it in a
+// backend-less SPA. What the sandboxed preview frame buys us is the part that
+// matters: generated code can no longer read it. This toggle is the remaining
+// bit of hygiene -- session-only storage for shared or untrusted machines.
+const safeStorage = (kind) => {
   try {
-    const raw = localStorage.getItem(LLM_CONFIG_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && (parsed.baseUrl || parsed.apiKey || parsed.model)) {
-        return {
-          baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
-          apiKey: parsed.apiKey || '',
-          model: parsed.model || DEFAULT_LLM_CONFIG.model
-        };
-      }
+    const store = kind === 'session' ? window.sessionStorage : window.localStorage;
+    void store.length;
+    return store;
+  } catch {
+    return null;
+  }
+};
+
+// Defaults to true: existing installs already keep their config in localStorage.
+const loadRememberKey = () => {
+  try {
+    return safeStorage('local')?.getItem(LLM_REMEMBER_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
+const configStore = (remember) => safeStorage(remember ? 'local' : 'session');
+
+const readStoredConfig = (store) => {
+  try {
+    const raw = store?.getItem(LLM_CONFIG_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && (parsed.baseUrl || parsed.apiKey || parsed.model)) {
+      return {
+        baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
+        apiKey: parsed.apiKey || '',
+        model: parsed.model || DEFAULT_LLM_CONFIG.model
+      };
     }
   } catch { /* ignore invalid stored config */ }
-  return { ...DEFAULT_LLM_CONFIG };
+  return null;
+};
+
+const loadLlmConfig = () => {
+  const remember = loadRememberKey();
+  // Fall back to the other store so toggling mid-session never loses the key.
+  return readStoredConfig(configStore(remember))
+    || readStoredConfig(configStore(!remember))
+    || { ...DEFAULT_LLM_CONFIG };
+};
+
+const saveLlmConfig = (config, remember = loadRememberKey()) => {
+  try { configStore(remember)?.setItem(LLM_CONFIG_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+  try { configStore(!remember)?.removeItem(LLM_CONFIG_KEY); } catch { /* ignore */ }
+};
+
+const saveRememberKey = (remember, config) => {
+  try { safeStorage('local')?.setItem(LLM_REMEMBER_KEY, remember ? 'true' : 'false'); } catch { /* ignore */ }
+  saveLlmConfig(config, remember);
+};
+
+// The key crosses the network in cleartext on a plain-http remote endpoint.
+// Local model servers over http are fine, and are the common case.
+const isInsecureEndpoint = (baseUrl) => {
+  const trimmed = (baseUrl || '').trim();
+  if (!/^http:\/\//i.test(trimmed)) return false;
+  try {
+    const host = new URL(trimmed).hostname.toLowerCase();
+    return !(
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === '[::1]' ||
+      host.endsWith('.localhost')
+    );
+  } catch {
+    return false;
+  }
 };
 
 const toChatCompletionsUrl = (baseUrl) => {
@@ -241,7 +308,6 @@ const requestModelText = async ({
   systemPrompt,
   userText,
   onChunk = null,
-  temperature = 0.7,
   tools = null,
   tool_choice = null,
   retryCount = 0,
@@ -273,7 +339,7 @@ const requestModelText = async ({
       ]
     };
 
-    bodyObj.temperature = temperature;
+    bodyObj.temperature = 0.2;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
@@ -328,11 +394,13 @@ const requestModelText = async ({
             
             if (delta?.content) {
               text += delta.content;
-              onChunk(delta.content);
+              onChunk(delta.content, 'content');
             }
 
             if (delta?.reasoning_content) {
-              // Thinking tokens are internal reasoning, not UI content
+              // Thinking tokens never become code, but reported so the UI can
+              // show progress instead of looking frozen during long reasoning.
+              onChunk(delta.reasoning_content, 'reasoning');
             }
 
             if (delta?.tool_calls) {
@@ -353,7 +421,7 @@ const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError') {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        systemPrompt, userText, onChunk, temperature, tools, tool_choice, retryCount: retryCount + 1, signal
+        systemPrompt, userText, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -369,7 +437,7 @@ const generateAppCode = async (
 ) => {
   if (!currentCode) {
     const userText = buildInitialGenerationPrompt(prompt, layoutTarget);
-    const message = await requestModelText({ systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, temperature: 0.7, signal });
+    const message = await requestModelText({ systemPrompt: HTML_SYSTEM_PROMPT, userText, onChunk, signal });
     return {
       code: sanitizeHtmlResponse(message.content || message),
       editMode: 'full-generation',
@@ -390,7 +458,6 @@ const generateAppCode = async (
         systemPrompt: HTML_SYSTEM_PROMPT,
         userText: userMessage,
         onChunk,
-        temperature: 0.1,
         tools: [SURGICAL_EDIT_TOOL],
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
         signal
@@ -497,13 +564,18 @@ export default function App() {
   const [previewMode, setPreviewMode] = useState('mobile');
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [rememberKey, setRememberKey] = useState(loadRememberKey);
   const handleLlmConfigChange = useCallback((field, value) => {
     setLlmConfig((prev) => {
       const next = { ...prev, [field]: value };
-      try { localStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      saveLlmConfig(next, rememberKey);
       return next;
     });
-  }, []);
+  }, [rememberKey]);
+  const handleRememberKeyChange = useCallback((next) => {
+    setRememberKey(next);
+    saveRememberKey(next, llmConfig);
+  }, [llmConfig]);
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -536,6 +608,13 @@ export default function App() {
   const streamingGeneratedCodeRef = useRef('');
   const abortControllerRef = useRef(null);
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
+  // The preview bridge is spliced in at RENDER time only, so `generatedCode`
+  // itself stays pristine: downloads, the code pane, the clipboard,
+  // `orion-projects` and -- critically -- applySurgicalEdits never see it.
+  const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
+    () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
+    [generatedCode]
+  );
   const activePreviewPreset = PREVIEW_MODES[previewMode];
   const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
   const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
@@ -584,235 +663,57 @@ export default function App() {
     return () => window.removeEventListener('resize', calculateZoom);
   }, [isAutoZoom, activeTab, previewMode]);
 
-  // --- Mobile Touch Scroll Simulation ---
+  // --- Preview bridge ---
+  // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
+  // can no longer touch its document. The mobile touch-scroll simulation now runs
+  // inside the frame (src/previewBridge.js); this effect just drives it.
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe || previewMode !== 'mobile' || !generatedCode) return;
+    if (!iframe || !previewSrcDoc) return;
 
-    let cleanupFn = null;
-
-    const setupTouchSimulation = () => {
-      const doc = iframe.contentDocument;
-      const win = iframe.contentWindow;
-      if (!doc || !win) return;
-
-      let isDragging = false;
-      let hasMoved = false;
-      let startX = 0;
-      let startY = 0;
-      let lastX = 0;
-      let lastY = 0;
-      let velocityX = 0;
-      let velocityY = 0;
-      let momentumId = null;
-      let suppressClick = false;
-
-      const scrollbarStyle = doc.createElement('style');
-      scrollbarStyle.textContent = `
-        * {
-          scrollbar-width: none !important;
-          -ms-overflow-style: none !important;
-        }
-        *::-webkit-scrollbar {
-          display: none !important;
-        }
-      `;
-      doc.head.appendChild(scrollbarStyle);
-
-      const findMainScrollElement = () => {
-        const candidates = [
-          doc.scrollingElement,
-          doc.documentElement,
-          doc.body,
-        ];
-        for (const el of candidates) {
-          if (el && el.scrollHeight > el.clientHeight + 1) return el;
-        }
-        for (const child of doc.body.children) {
-          const style = win.getComputedStyle(child);
-          const overflow = (style.overflowY || '') + (style.overflow || '');
-          if (/(auto|scroll)/.test(overflow) && child.scrollHeight > child.clientHeight + 1) {
-            return child;
-          }
-        }
-        return doc.scrollingElement || doc.documentElement || doc.body;
-      };
-
-      const mainScrollEl = findMainScrollElement();
-
-      const isFormControl = (el) => {
-        const tag = el.tagName.toLowerCase();
-        if (['input', 'textarea', 'select'].includes(tag)) return true;
-        if (el.isContentEditable) return true;
-        return false;
-      };
-
-      const touchStyle = doc.createElement('style');
-      touchStyle.textContent = `
-        html, body {
-          touch-action: none !important;
-          overscroll-behavior: none !important;
-        }
-      `;
-      doc.head.appendChild(touchStyle);
-
-      let pointerCaptureTarget = null;
-
-      const onPointerDown = (e) => {
-        if (e.button !== 0 && e.pointerType === 'mouse') return;
-        if (isFormControl(e.target)) return;
-
-        isDragging = true;
-        hasMoved = false;
-        suppressClick = false;
-        startX = e.clientX;
-        startY = e.clientY;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        velocityX = 0;
-        velocityY = 0;
-
-        try {
-          e.target.setPointerCapture(e.pointerId);
-          pointerCaptureTarget = e.target;
-        } catch (err) { void err; }
-
-        doc.body.style.userSelect = 'none';
-        doc.body.style.webkitUserSelect = 'none';
-        doc.body.style.MozUserSelect = 'none';
-
-        if (momentumId) {
-          cancelAnimationFrame(momentumId);
-          momentumId = null;
-        }
-
-        e.preventDefault();
-      };
-
-      const onPointerMove = (e) => {
-        if (!isDragging) return;
-
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-
-        if (!hasMoved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
-          hasMoved = true;
-          suppressClick = true;
-          if (e.pointerType === 'mouse') {
-            doc.documentElement.style.cursor = 'grabbing';
-          }
-        }
-
-        if (!hasMoved) return;
-
-        const moveX = e.clientX - lastX;
-        const moveY = e.clientY - lastY;
-
-        velocityX = velocityX * 0.6 + moveX * 0.4;
-        velocityY = velocityY * 0.6 + moveY * 0.4;
-
-        mainScrollEl.scrollTop -= moveY;
-        mainScrollEl.scrollLeft -= moveX;
-
-        lastX = e.clientX;
-        lastY = e.clientY;
-
-        e.preventDefault();
-      };
-
-      const onPointerUp = (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-
-        try {
-          if (pointerCaptureTarget) {
-            pointerCaptureTarget.releasePointerCapture(e.pointerId);
-            pointerCaptureTarget = null;
-          }
-        } catch (err) { void err; }
-
-        doc.documentElement.style.cursor = '';
-        doc.body.style.userSelect = '';
-        doc.body.style.webkitUserSelect = '';
-        doc.body.style.MozUserSelect = '';
-
-        if (!hasMoved) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        const applyMomentum = () => {
-          if (Math.abs(velocityX) < 0.3 && Math.abs(velocityY) < 0.3) {
-            momentumId = null;
-            return;
-          }
-
-          velocityX *= 0.975;
-          velocityY *= 0.975;
-
-          mainScrollEl.scrollTop -= velocityY;
-          mainScrollEl.scrollLeft -= velocityX;
-
-          momentumId = requestAnimationFrame(applyMomentum);
-        };
-
-        momentumId = requestAnimationFrame(applyMomentum);
-      };
-
-      const onClick = (e) => {
-        if (suppressClick) {
-          e.preventDefault();
-          e.stopPropagation();
-          suppressClick = false;
-        }
-      };
-
-      const listenerOptions = { capture: true, passive: false };
-
-      doc.addEventListener('pointerdown', onPointerDown, listenerOptions);
-      doc.addEventListener('pointermove', onPointerMove, listenerOptions);
-      doc.addEventListener('pointerup', onPointerUp, listenerOptions);
-      doc.addEventListener('pointercancel', onPointerUp, listenerOptions);
-      doc.addEventListener('click', onClick, true);
-
-      doc.documentElement.style.cursor = 'grab';
-
-      cleanupFn = () => {
-        doc.removeEventListener('pointerdown', onPointerDown, listenerOptions);
-        doc.removeEventListener('pointermove', onPointerMove, listenerOptions);
-        doc.removeEventListener('pointerup', onPointerUp, listenerOptions);
-        doc.removeEventListener('pointercancel', onPointerUp, listenerOptions);
-        doc.removeEventListener('click', onClick, true);
-        if (momentumId) cancelAnimationFrame(momentumId);
-        if (scrollbarStyle.parentNode) scrollbarStyle.parentNode.removeChild(scrollbarStyle);
-        if (touchStyle.parentNode) touchStyle.parentNode.removeChild(touchStyle);
-        try {
-          doc.documentElement.style.cursor = '';
-          doc.body.style.userSelect = '';
-          doc.body.style.webkitUserSelect = '';
-          doc.body.style.MozUserSelect = '';
-        } catch (err) { void err; }
-      };
+    const send = (type, payload) => {
+      try {
+        // targetOrigin '*' is required -- the frame's origin is opaque, so it
+        // cannot know ours and we cannot address it by origin. Acceptable only
+        // because no message in this protocol carries a secret. Do not add one.
+        iframe.contentWindow?.postMessage(
+          { __orion: BRIDGE_CHANNEL, v: BRIDGE_PROTOCOL_VERSION, token: previewToken, type, payload },
+          '*'
+        );
+      } catch { /* frame torn down mid-send */ }
     };
 
-    const onLoad = () => {
-      if (cleanupFn) cleanupFn();
-      cleanupFn = null;
-      setupTouchSimulation();
+    const push = () => send('configure', { enabled: previewMode === 'mobile' });
+
+    const onMessage = (event) => {
+      // The frame's opaque origin makes event.origin the string "null", which is
+      // worthless for authorization -- any sandboxed frame produces it.
+      // WindowProxy identity is the actual boundary.
+      if (event.source !== iframe.contentWindow) return;
+      const data = event.data;
+      // The token only disambiguates a stale document from the current one. It is
+      // NOT a secret: the generated app can read it out of its own DOM.
+      if (!data || data.__orion !== BRIDGE_CHANNEL || data.token !== previewToken) return;
+      if (data.type === 'ready') push();
+      else if (data.type === 'error') console.warn('[preview bridge]', data.payload?.message);
     };
 
-    iframe.addEventListener('load', onLoad);
-    try {
-      if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-        setupTouchSimulation();
-      }
-    } catch (err) { void err; }
+    window.addEventListener('message', onMessage);
+    // Three-way handshake: answer `ready`, re-push on load, and push once eagerly
+    // for an already-loaded frame. Any one is sufficient; together they close the
+    // race from both directions.
+    iframe.addEventListener('load', push);
+    push();
 
     return () => {
-      iframe.removeEventListener('load', onLoad);
-      if (cleanupFn) cleanupFn();
+      window.removeEventListener('message', onMessage);
+      iframe.removeEventListener('load', push);
+      // Toggling previewMode does NOT reload the frame -- React reconciles the
+      // iframe in place -- so this message is what actually tears down the
+      // listeners, injected styles and cursor inside it.
+      send('configure', { enabled: false });
     };
-  }, [generatedCode, previewMode]);
+  }, [previewSrcDoc, previewToken, previewMode]);
 
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);
@@ -977,13 +878,15 @@ export default function App() {
     "A sleek Pomodoro timer with start, pause, and reset buttons.",
     "A minimal weather app UI showing current temp and a 3-day forecast.",
     "A tip calculator with sliders for bill amount and tip percentage.",
-    "A daily habit tracker with checkboxes for 5 custom habits."
+    "A daily habit tracker with checkboxes for 5 custom habits.",
+    "A to-do list where you add, complete, and delete tasks.",
+    "A budget tracker for monthly income and expenses."
   ];
 
-  const starterIcons = [Timer, CloudSun, Receipt, ListChecks];
+  const starterIcons = [Timer, CloudSun, Receipt, ListChecks, ListTodo, Wallet];
 
   const handleSaveSettings = () => {
-    localStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(llmConfig));
+    saveLlmConfig(llmConfig, rememberKey);
     setIsSettingsOpen(false);
   };
 
@@ -1008,11 +911,13 @@ export default function App() {
     setPrompt(''); // Clear input so user can easily type their next refinement
 
     try {
-      const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk) => {
+      const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk, kind = 'content') => {
         streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
         setStreamingCode(streamingBufferRef.current.trim());
-        streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
-        setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
+        if (kind === 'content') {
+          streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
+          setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
+        }
       }, initialLayoutTarget, abortControllerRef.current.signal);
       setGeneratedCode(generationResult.code);
       
@@ -1273,7 +1178,7 @@ export default function App() {
       {/* Header */}
       <header className="shrink-0 bg-white border-b border-slate-200/80 header-shadow px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-sm shadow-indigo-200">
+          <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm shadow-blue-200">
             <Sparkles size={22} />
           </div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Orion</h1>
@@ -1453,6 +1358,12 @@ export default function App() {
                     placeholder="https://api.openai.com/v1"
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-lg font-semibold text-black focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                   />
+                  {isInsecureEndpoint(llmConfig.baseUrl) && (
+                    <p className="mt-2 flex items-start gap-2 text-base font-semibold text-amber-700">
+                      <ShieldAlert size={18} className="mt-0.5 shrink-0" />
+                      <span>This endpoint is plain http, so your API key will cross the network unencrypted. Use https for anything outside your own machine.</span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <span className="block text-base font-bold text-black mb-1">API Key</span>
@@ -1474,6 +1385,20 @@ export default function App() {
                       {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
+                  <label className="mt-2 flex items-center gap-2 text-base font-semibold text-black cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberKey}
+                      onChange={(e) => handleRememberKeyChange(e.target.checked)}
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span>Remember on this device</span>
+                  </label>
+                  <p className="text-slate-600 text-base leading-snug">
+                    {rememberKey
+                      ? 'Stored in this browser until you clear it.'
+                      : 'Kept for this tab only — you will re-enter it next time.'}
+                  </p>
                 </div>
                 <div>
                   <span className="block text-base font-bold text-black mb-1">Model</span>
@@ -2046,9 +1971,9 @@ export default function App() {
                     )}
                     <h2 className="text-[2.15rem] lg:text-[2.55rem] font-bold tracking-[-0.035em] leading-[1.05] text-slate-900">
                       {generatedCode ? (
-                        <>Refine <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">your app</span></>
+                        <>Refine <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">your app</span></>
                       ) : (
-                        <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">build?</span></>
+                        <>What do you want to <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">build?</span></>
                       )}
                     </h2>
                     <p className="text-slate-700 text-[16px] leading-relaxed max-w-[34ch]">
@@ -2081,7 +2006,7 @@ export default function App() {
                               <span className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-indigo-50 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
                                 <StarterIcon size={18} />
                               </span>
-                              <span className="text-[15px] text-slate-800 group-hover:text-slate-900 font-medium leading-snug transition-colors truncate">{suggestion}</span>
+                              <span className="text-[15px] text-slate-800 group-hover:text-slate-900 font-medium leading-snug transition-colors">{suggestion}</span>
                             </div>
                             <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors duration-200 flex-shrink-0 group-hover:translate-x-0.5" />
                           </button>
@@ -2195,7 +2120,7 @@ export default function App() {
                     className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
                       isGenerating
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
                     }`}
                   >
                     {isGenerating ? (
@@ -2296,9 +2221,11 @@ export default function App() {
                         <iframe
                           ref={iframeRef}
                           title="Generated App Preview"
-                          srcDoc={generatedCode}
+                          srcDoc={previewSrcDoc}
                           className="w-full h-full border-none"
-                          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                          sandbox="allow-scripts allow-forms allow-popups"
+                          referrerPolicy="no-referrer"
+                          allow=""
                         />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
