@@ -1,4 +1,4 @@
-import { loadLlmConfig, toChatCompletionsUrl } from './config';
+import { supabase } from '../supabase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { 
   HTML_SYSTEM_PROMPT, 
@@ -26,48 +26,32 @@ export const requestModelText = async ({
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
 
-  const config = loadLlmConfig();
-  const baseUrl = toChatCompletionsUrl(config.baseUrl);
-  const apiKey = config.apiKey;
-  const model = config.model;
-
-  if (!baseUrl) throw new Error('Configure an API endpoint in Settings.');
-  if (!apiKey) throw new Error('Configure an API key in Settings.');
-  if (!model) throw new Error('Configure a model in Settings.');
-
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Sign in required.');
+
     const headers = {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
     };
 
     const bodyObj = {
-      model,
       stream: !!onChunk,
       messages
     };
 
-    bodyObj.temperature = 0.2;
-    const effort = reasoningEffort ?? config.reasoning;
-    if (effort === false || effort === 'none') {
-      bodyObj.reasoning_effort = 'none';
-    } else if (effort) {
-      bodyObj.reasoning_effort = effort;
-    }
-    if (config.max_tokens) {
-      const parsedMax = parseInt(config.max_tokens, 10);
-      if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
-    }
+    if (reasoningEffort !== null) bodyObj.reasoning_effort = reasoningEffort;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
-    const response = await fetch(baseUrl, {
+    const response = await fetch('/api/chat', {
       method: 'POST',
       headers,
       body: JSON.stringify(bodyObj),
       signal
     });
 
+    if (response.status === 401) throw new Error('Your session has expired. Please sign in again.');
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
     if (!onChunk) {
