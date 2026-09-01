@@ -20,6 +20,7 @@ export const requestModelText = async ({
   onChunk = null,
   tools = null,
   tool_choice = null,
+  reasoningEffort = null,
   retryCount = 0,
   signal = null
 }) => {
@@ -47,10 +48,11 @@ export const requestModelText = async ({
     };
 
     bodyObj.temperature = 0.2;
-    if (config.reasoning === false || config.reasoning === 'none') {
+    const effort = reasoningEffort ?? config.reasoning;
+    if (effort === false || effort === 'none') {
       bodyObj.reasoning_effort = 'none';
-    } else if (config.reasoning) {
-      bodyObj.reasoning_effort = config.reasoning;
+    } else if (effort) {
+      bodyObj.reasoning_effort = effort;
     }
     if (config.max_tokens) {
       const parsedMax = parseInt(config.max_tokens, 10);
@@ -345,6 +347,7 @@ export const generateNewStarterIdeas = async ({ signal }) => {
     messages,
     tools: [GENERATE_STARTER_IDEAS_TOOL],
     tool_choice: { type: 'function', function: { name: 'return_starter_ideas' } },
+    reasoningEffort: 'none',
     signal
   });
 
