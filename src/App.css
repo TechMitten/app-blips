@@ -946,7 +946,8 @@ html.dark .noise-texture::before {
 /* Force dark text on white brand buttons in dark mode */
 html.dark .brand-gradient,
 html.dark .nav-btn-primary,
-html.dark .btn-premium-primary {
+html.dark .btn-premium-primary,
+html.dark .brand-fill-text {
   color: #080808 !important;
 }
 
