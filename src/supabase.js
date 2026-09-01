@@ -1,4 +1,4 @@
-// Supabase client for Orion.
+// Supabase client for AppBlips.
 //
 // The project URL and publishable key are public by design — they only let the
 // browser reach the Supabase API. Actual data access is locked down by
