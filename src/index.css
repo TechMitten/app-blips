@@ -18,11 +18,24 @@
   --color-surface: #ffffff;              /* cards, modals, raised chrome */
   --color-scrim: rgb(2 6 23 / 0.5);      /* modal backdrops              */
 
-  --color-brand: #4f46e5;
-  --color-brand-hover: #4338ca;
+  --color-brand: #00509d;
+  --color-brand-hover: #003f7a;
   --color-brand-fg: #ffffff;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
+
+  /* Accent ramp in light theme based on #00509d (replacing the default purple/indigo) */
+  --color-indigo-50: #edf6ff;
+  --color-indigo-100: #d2e9fe;
+  --color-indigo-200: #aad2f8;
+  --color-indigo-300: #70afeb;
+  --color-indigo-400: #1d88ed;
+  --color-indigo-500: #006cd1;
+  --color-indigo-600: #00509d;
+  --color-indigo-700: #003f7a;
+  --color-indigo-800: #002f5c;
+  --color-indigo-900: #00203d;
+  --color-indigo-950: #001224;
 }
 
 /* ---------------------------------------------------------------------------

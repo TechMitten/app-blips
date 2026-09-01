@@ -22,7 +22,7 @@
   /* Accent used for glows and atmospherics. Distinct from --color-brand (the
      button fill): this one has to stay visible AS light on the page ground,
      so dark lifts it well above the brand fill. */
-  --color-accent: var(--color-brand);
+  --color-accent: #00509d;
   --glow-a1: 0.10;
   --glow-a2: 0.22;
   --glow-a3: 0.35;
@@ -33,8 +33,10 @@
   --seg-active-bg: var(--color-surface);
   --seg-active-fg: var(--color-brand);
   --focus-halo: var(--color-surface);
-  --pulse-ring: rgb(79 70 229 / 0.06);
+  --pulse-ring: rgb(0 80 157 / 0.08);
   --inset-highlight: rgb(255 255 255 / 0.8);
+  --accent-gradient: linear-gradient(135deg, #00509d, #0077b6);
+  --hero-glow-secondary: #0077b6;
 
   /* Depth kit. Mostly inert on light, where drop shadows already do the work.
      On dark a black shadow cannot darken a near-black ground, so depth has to
@@ -75,6 +77,8 @@ html.dark {
   --focus-halo: var(--color-surface);
   --pulse-ring: rgb(139 147 255 / 0.14);
   --inset-highlight: rgb(255 255 255 / 0.06);
+  --accent-gradient: linear-gradient(135deg, var(--color-indigo-500), var(--color-violet-500));
+  --hero-glow-secondary: var(--color-violet-500);
 
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.055);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0.035);
@@ -614,7 +618,7 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 6px;
-  background: linear-gradient(135deg, var(--color-indigo-500), var(--color-violet-500));
+  background: var(--accent-gradient);
   color: var(--color-surface);
   box-shadow: 0 2px 6px -1px rgb(from var(--color-accent) r g b / var(--glow-a3));
 }
@@ -628,6 +632,42 @@ body {
   background: linear-gradient(90deg, var(--color-slate-100) 25%, var(--color-slate-200) 45%, var(--color-slate-100) 65%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Suggestions collapsible transition container (smooth CSS Grid 0fr -> 1fr) */
+.suggestions-collapse-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease,
+    visibility 0.25s ease;
+}
+
+.suggestions-collapse-wrapper.is-expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+.suggestions-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(-6px);
+}
+
+.suggestions-collapse-wrapper.is-expanded .suggestions-collapse-inner {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestions-collapse-wrapper,
+  .suggestions-collapse-inner {
+    transition: none !important;
+  }
 }
 
 /* Premium button style */
@@ -832,7 +872,7 @@ body {
 .hero-atmosphere {
   background:
     radial-gradient(70% 56% at 50% 8%, rgb(from var(--color-accent) r g b / var(--glow-a1)), transparent 70%),
-    radial-gradient(52% 44% at 22% 66%, rgb(from var(--color-violet-500) r g b / var(--glow-a1)), transparent 72%);
+    radial-gradient(52% 44% at 22% 66%, rgb(from var(--hero-glow-secondary) r g b / var(--glow-a1)), transparent 72%);
 }
 
 /* Orion's belt — three stars, the middle one brighter (Alnilam) */
@@ -853,7 +893,7 @@ body {
   width: 7px;
   height: 7px;
   margin-top: -4px;
-  background: linear-gradient(135deg, var(--color-indigo-500), var(--color-violet-500));
+  background: var(--accent-gradient);
   box-shadow:
     0 0 0 1px rgb(from var(--color-accent) r g b / var(--glow-a2)),
     0 0 12px 1px rgb(from var(--color-accent) r g b / var(--glow-a3));
