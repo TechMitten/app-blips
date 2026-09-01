@@ -20,7 +20,7 @@ export default function ChatTranscript({
         return (
           <div key={ver.id} className="space-y-2">
             <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 text-white px-3.5 py-2.5 text-sm font-medium shadow-sm">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-3.5 py-2.5 text-sm font-medium shadow-sm">
                 {ver.prompt}
               </div>
             </div>
@@ -41,7 +41,7 @@ export default function ChatTranscript({
       {pendingPrompt && (
         <div className="space-y-2">
           <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 text-white px-3.5 py-2.5 text-sm font-medium shadow-sm animate-fade-in">
+            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-3.5 py-2.5 text-sm font-medium shadow-sm animate-fade-in">
               {pendingPrompt}
             </div>
           </div>
@@ -61,7 +61,7 @@ export default function ChatTranscript({
                 <span className="star-node star-node-pending" />
               </span>
               <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-500 px-3.5 py-2.5 text-sm flex items-center gap-2 animate-fade-in">
-                <Loader2 className="animate-spin text-indigo-500" size={14} />
+                <Loader2 className="animate-spin text-indigo-500 dark:text-emerald-500" size={14} />
                 <span className="text-xs font-medium">{chatMode === 'ask' ? 'Thinking' : 'Building app'}</span>
               </div>
             </div>
