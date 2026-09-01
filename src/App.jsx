@@ -1083,6 +1083,7 @@ export default function App() {
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [contextualSuggestions, setContextualSuggestions] = useState([]);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
+  const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [previewMode, setPreviewMode] = useState('mobile');
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
@@ -1643,6 +1644,7 @@ export default function App() {
   // Manual re-roll of the contextual suggestions (also called by the auto-refresh effect above).
   const handleRefreshSuggestions = () => {
     if (!generatedCode || isGenerating) return;
+    setIsSuggestionsExpanded(true);
     suggestionsAbortControllerRef.current?.abort();
     const controller = new AbortController();
     suggestionsAbortControllerRef.current = controller;
@@ -1664,6 +1666,7 @@ export default function App() {
 
   const loadProject = (project) => {
     clearStreamingState();
+    setIsSuggestionsExpanded(false);
     setCurrentProjectId(project.id);
     setProjectName(project.name);
     setVersions(project.versions);
@@ -1803,6 +1806,7 @@ export default function App() {
     }
 
     setIsGenerating(true);
+    setIsSuggestionsExpanded(false);
     clearStreamingState();
     setError(null);
     abortControllerRef.current = new AbortController();
@@ -3391,14 +3395,39 @@ export default function App() {
             {/* Fixed Bottom Input Area */}
             <div className="shrink-0 p-3.5 sm:p-4 2xl:p-5 pt-2.5 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
               {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
-                <div className="mb-2.5 animate-fade-in">
-                  <div className="flex items-center justify-between px-0.5 mb-1.5">
-                    <div className="flex items-center gap-1.5">
+                <div className="mb-2 animate-fade-in">
+                  <div className="flex items-center justify-between px-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsSuggestionsExpanded((prev) => !prev)}
+                      aria-expanded={isSuggestionsExpanded}
+                      aria-controls="suggestions-content"
+                      aria-label={isSuggestionsExpanded ? 'Collapse suggestions' : 'Expand suggestions'}
+                      className="group/toggle inline-flex items-center gap-1.5 rounded-lg py-0.5 px-1 -ml-1 text-xs 2xl:text-sm font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface cursor-pointer select-none"
+                    >
                       <span className="suggestion-spark" aria-hidden="true">
                         <Sparkles size={13} />
                       </span>
-                      <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.16em]">Suggestions</span>
-                    </div>
+                      <span>Suggestions</span>
+                      {contextualSuggestions.length > 0 && (
+                        <span
+                          className={`inline-flex items-center transition-all duration-200 overflow-hidden ${
+                            isSuggestionsExpanded ? 'max-w-0 opacity-0 -ml-1' : 'max-w-[36px] opacity-100'
+                          }`}
+                        >
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] tracking-normal font-semibold bg-slate-100 text-slate-500 group-hover/toggle:bg-indigo-50 group-hover/toggle:text-indigo-600 transition-colors">
+                            {contextualSuggestions.length}
+                          </span>
+                        </span>
+                      )}
+                      <ChevronRight
+                        size={13}
+                        className={`transition-transform duration-200 text-slate-400 group-hover/toggle:text-indigo-600 ${
+                          isSuggestionsExpanded ? 'rotate-90 text-indigo-600' : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </button>
                     <button
                       type="button"
                       onClick={handleRefreshSuggestions}
@@ -3410,26 +3439,35 @@ export default function App() {
                       <span>New</span>
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {contextualSuggestions.length > 0 ? (
-                      contextualSuggestions.map((suggestion, idx) => (
-                        <button
-                          key={suggestion}
-                          type="button"
-                          onClick={() => setPrompt(suggestion)}
-                          className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-surface text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface`}
-                        >
-                          <span className="suggestion-chip-icon shrink-0" aria-hidden="true">
-                            <Plus size={13} strokeWidth={2.5} />
-                          </span>
-                          <span>{suggestion}</span>
-                        </button>
-                      ))
-                    ) : (
-                      [0, 1, 2, 3].map((idx) => (
-                        <span key={idx} className="suggestion-skeleton h-8 rounded-xl w-[46%]" aria-hidden="true" />
-                      ))
-                    )}
+                  <div
+                    id="suggestions-content"
+                    className={`suggestions-collapse-wrapper ${isSuggestionsExpanded ? 'is-expanded' : ''}`}
+                    aria-hidden={!isSuggestionsExpanded}
+                  >
+                    <div className="suggestions-collapse-inner">
+                      <div className="pt-2 pb-0.5 flex flex-wrap gap-2">
+                        {contextualSuggestions.length > 0 ? (
+                          contextualSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              onClick={() => setPrompt(suggestion)}
+                              tabIndex={isSuggestionsExpanded ? 0 : -1}
+                              className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-surface text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface`}
+                            >
+                              <span className="suggestion-chip-icon shrink-0" aria-hidden="true">
+                                <Plus size={13} strokeWidth={2.5} />
+                              </span>
+                              <span>{suggestion}</span>
+                            </button>
+                          ))
+                        ) : (
+                          [0, 1, 2, 3].map((idx) => (
+                            <span key={idx} className="suggestion-skeleton h-8 rounded-xl w-[46%]" aria-hidden="true" />
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
