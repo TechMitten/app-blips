@@ -37,6 +37,7 @@ import {
   ZoomIn,
   ZoomOut,
   Monitor,
+  Tablet,
   Moon,
   Sun,
   PanelLeftOpen,
@@ -1164,12 +1165,26 @@ const PREVIEW_MODES = {
   mobile: {
     label: 'Mobile',
     width: 399,
-    height: 820
+    height: 820,
+    deviceClass: 'device-smartphone',
+    isTouchChrome: true,
+    zoomPadding: { h: 32, v: 32 }
+  },
+  tablet: {
+    label: 'Tablet',
+    width: 810,
+    height: 1080,
+    deviceClass: 'device-tablet',
+    isTouchChrome: true,
+    zoomPadding: { h: 52, v: 44 }
   },
   desktop: {
     label: 'Desktop',
     width: 1468,
-    height: 1022
+    height: 1022,
+    deviceClass: 'device-desktop',
+    isTouchChrome: false,
+    zoomPadding: { h: 72, v: 54 }
   }
 };
 
@@ -1214,7 +1229,10 @@ export default function App() {
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
-  const [previewMode, setPreviewMode] = useState('mobile');
+  const [previewMode, setPreviewMode] = useState(() => {
+    const stored = localStorage.getItem('orion-preview-mode');
+    return stored && PREVIEW_MODES[stored] ? stored : 'mobile';
+  });
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [rememberKey, setRememberKey] = useState(loadRememberKey);
@@ -1472,6 +1490,10 @@ export default function App() {
     localStorage.setItem('orion-build-pane-width', String(buildPaneWidth));
   }, [buildPaneWidth]);
 
+  useEffect(() => {
+    localStorage.setItem('orion-preview-mode', previewMode);
+  }, [previewMode]);
+
   // --- Dynamic Zoom Logic ---
   useEffect(() => {
     const container = previewContainerRef.current;
@@ -1481,8 +1503,7 @@ export default function App() {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
       
       const el = previewContainerRef.current;
-      const horizontalPadding = previewMode === 'mobile' ? 32 : 72;
-      const verticalPadding = previewMode === 'mobile' ? 32 : 54;
+      const { h: horizontalPadding, v: verticalPadding } = PREVIEW_MODES[previewMode].zoomPadding;
       const availableWidth = Math.max(100, el.clientWidth - horizontalPadding);
       const availableHeight = Math.max(100, el.clientHeight - verticalPadding);
       const preset = PREVIEW_MODES[previewMode];
@@ -1535,7 +1556,7 @@ export default function App() {
       } catch { /* frame torn down mid-send */ }
     };
 
-    const push = () => send('configure', { enabled: previewMode === 'mobile' });
+    const push = () => send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
 
     const onMessage = (event) => {
       // The frame's opaque origin makes event.origin the string "null", which is
@@ -4138,15 +4159,23 @@ export default function App() {
                   <button
                     onClick={() => setPreviewMode('mobile')}
                     className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'mobile' ? 'nav-segmented-btn-active' : ''}`}
-                    title="Mobile View (399 × 820)"
+                    title={`${PREVIEW_MODES.mobile.label} View (${PREVIEW_MODES.mobile.width} × ${PREVIEW_MODES.mobile.height})`}
                   >
                     <Smartphone size={14} />
                     <span className="hidden sm:inline">Mobile</span>
                   </button>
                   <button
+                    onClick={() => setPreviewMode('tablet')}
+                    className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'tablet' ? 'nav-segmented-btn-active' : ''}`}
+                    title={`${PREVIEW_MODES.tablet.label} View (${PREVIEW_MODES.tablet.width} × ${PREVIEW_MODES.tablet.height})`}
+                  >
+                    <Tablet size={14} />
+                    <span className="hidden sm:inline">Tablet</span>
+                  </button>
+                  <button
                     onClick={() => setPreviewMode('desktop')}
                     className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
-                    title="Desktop View (1468 × 1022)"
+                    title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
                   >
                     <Monitor size={14} />
                     <span className="hidden sm:inline">Desktop</span>
@@ -4269,7 +4298,7 @@ export default function App() {
                   }}
                 >
                   <div
-                    className={previewMode === 'mobile' ? 'device-smartphone' : 'device-desktop'}
+                    className={PREVIEW_MODES[previewMode].deviceClass}
                     style={{
                       transform: `scale(${zoomLevel})`,
                       transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -4290,8 +4319,8 @@ export default function App() {
                   )}
                    
                   {/* Screen */}
-                  <div className={previewMode === 'mobile' ? 'device-screen device-screen-mobile' : 'device-screen'}>
-                    <div className={previewMode === 'mobile' ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
+                  <div className={PREVIEW_MODES[previewMode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'}>
+                    <div className={PREVIEW_MODES[previewMode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
                       {generatedCode ? (
                         <iframe
                           ref={iframeRef}
@@ -4352,7 +4381,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {previewMode === 'mobile' ? (
+                  {PREVIEW_MODES[previewMode].isTouchChrome ? (
                     <>
                       {/* Side Buttons Visuals */}
                       <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
