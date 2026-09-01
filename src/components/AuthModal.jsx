@@ -95,7 +95,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             <User size={18} />
           </div>
           <h2 className="text-lg font-semibold text-slate-900">
-            {authMode === 'signup' ? 'Create your account' : 'Coming Soon!'}
+            {authMode === 'signup' ? 'Create your account' : 'Welcome Back!'}
           </h2>
         </div>
         {dismissible && (
