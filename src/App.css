@@ -165,19 +165,25 @@ body {
 }
 
 /* Custom Scrollbar */
+.custom-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-slate-400) var(--color-slate-100);
+}
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
+  height: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-slate-100);
+  border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-slate-200);
+  background: var(--color-slate-400);
   border-radius: 10px;
   transition: background 0.2s;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-slate-300);
+  background: var(--color-slate-500);
 }
 
 /* Subtle workspace grid */
