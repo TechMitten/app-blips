@@ -315,17 +315,20 @@ export default function DeviceMockup({
         {/* Screen */}
         <div className={PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'}>
           <div className={PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
-            {hasCode ? (
-              <iframe
-                ref={iframeRef}
-                title="Generated App Preview"
-                srcDoc={srcDoc}
-                className="w-full h-full border-none"
-                sandbox="allow-scripts allow-forms allow-popups"
-                referrerPolicy="no-referrer"
-                allow=""
-              />
-            ) : (
+            {/* Always mounted (even before the first generation) so the very
+                first real `srcDoc` assignment is an attribute update on an
+                already-connected iframe, not a fresh element creation -- the
+                same shape every later regeneration already goes through. */}
+            <iframe
+              ref={iframeRef}
+              title="Generated App Preview"
+              srcDoc={srcDoc}
+              className={`w-full h-full border-none${hasCode ? '' : ' hidden'}`}
+              sandbox="allow-scripts allow-forms allow-popups"
+              referrerPolicy="no-referrer"
+              allow=""
+            />
+            {!hasCode && (
               <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/70 p-6 sm:p-8 text-center select-none relative overflow-hidden">
                 {/* Ambient glow */}
                 <div className="absolute w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />

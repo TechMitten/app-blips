@@ -176,7 +176,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
           </p>
         ) : (
           <p className="text-xs text-slate-400 leading-relaxed">
-            Sign in to start creating apps with Orion.
+            Sign in to start creating apps with AppBlips.
           </p>
         )}
 
@@ -217,7 +217,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             </button>
           </>
         ) : (
-          <>New to Orion?{' '}
+          <>New to AppBlips?{' '}
             <button
               type="button"
               onClick={() => handleAuthModeSwitch('signup')}

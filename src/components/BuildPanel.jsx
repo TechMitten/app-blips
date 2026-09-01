@@ -95,7 +95,7 @@ export default function BuildPanel({
                   What do you want to <span className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-slate-900 dark:to-slate-600 bg-clip-text text-transparent">build?</span>
                 </h2>
                 <p className="text-slate-600 text-sm @sm:text-base @lg:text-lg @2xl:text-xl leading-relaxed max-w-[36ch]">
-                  Describe an idea in plain words. Orion turns it into a complete, working app.
+                  Describe an idea in plain words. AppBlips turns it into a complete, working app.
                 </p>
               </div>
             </div>

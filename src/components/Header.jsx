@@ -29,11 +29,11 @@ export default function Header({
       <div className="flex items-center gap-2.5">
         <img
           src="/orionlogo.png"
-          alt="Orion logo"
+          alt="AppBlips logo"
           className="w-10 h-10 2xl:w-11 2xl:h-11 rounded-xl shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20"
         />
         <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl 2xl:text-3xl leading-[2.5rem] 2xl:leading-[2.75rem] font-bold text-slate-900 tracking-tight font-sans">Orion</h1>
+          <h1 className="text-2xl 2xl:text-3xl leading-[2.5rem] 2xl:leading-[2.75rem] font-bold text-slate-900 tracking-tight font-sans">AppBlips</h1>
           {projectName && projectName !== 'Untitled App' && (
             <div
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 2xl:px-3 2xl:py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-xs 2xl:text-sm font-semibold text-slate-700 max-w-[200px] xl:max-w-[300px] 2xl:max-w-[400px] truncate"
