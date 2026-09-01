@@ -89,9 +89,54 @@ const wrapWithUnlockScreen = (encryptedBase64) => {
   </div>
   <script>
     const encryptedBase64 = "${encryptedBase64}";
+    const storageKey = 'unlock_state_' + window.location.pathname;
+    
+    const getRateLimitState = () => {
+      try {
+        const state = localStorage.getItem(storageKey);
+        if (state) return JSON.parse(state);
+      } catch (e) {}
+      return { attempts: 0, lockoutUntil: 0 };
+    };
+    
+    const saveRateLimitState = (state) => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      } catch (e) {}
+    };
+
+    const checkRateLimit = () => {
+      const state = getRateLimitState();
+      const now = Date.now();
+      const submitBtn = document.getElementById('submit-btn');
+      const errorDiv = document.getElementById('error');
+      
+      if (state.lockoutUntil > now) {
+        const remainingSec = Math.ceil((state.lockoutUntil - now) / 1000);
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Locked';
+        errorDiv.textContent = 'Too many attempts. Try again in ' + remainingSec + 's.';
+        errorDiv.style.display = 'block';
+        setTimeout(checkRateLimit, 1000);
+        return true;
+      }
+      
+      if (state.attempts >= 5 && state.lockoutUntil <= now) {
+        saveRateLimitState({ attempts: 0, lockoutUntil: 0 });
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Unlock App';
+        errorDiv.style.display = 'none';
+      }
+      return false;
+    };
+    
+    checkRateLimit();
     
     document.getElementById('unlock-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      if (checkRateLimit()) return;
+      
       const password = document.getElementById('password').value;
       const errorDiv = document.getElementById('error');
       const submitBtn = document.getElementById('submit-btn');
@@ -99,6 +144,9 @@ const wrapWithUnlockScreen = (encryptedBase64) => {
       errorDiv.style.display = 'none';
       submitBtn.disabled = true;
       submitBtn.textContent = 'Decrypting...';
+      
+      // Artificial delay to deter fast automated guesses
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       try {
         // base64 to Uint8Array
@@ -137,10 +185,22 @@ const wrapWithUnlockScreen = (encryptedBase64) => {
         const dec = new TextDecoder();
         const html = dec.decode(decryptedBuffer);
         
+        saveRateLimitState({ attempts: 0, lockoutUntil: 0 });
+        
         document.open();
         document.write(html);
         document.close();
       } catch (err) {
+        const state = getRateLimitState();
+        state.attempts += 1;
+        if (state.attempts >= 5) {
+          state.lockoutUntil = Date.now() + 60 * 1000;
+        }
+        saveRateLimitState(state);
+        
+        if (checkRateLimit()) return;
+        
+        errorDiv.textContent = 'Incorrect password. Please try again.';
         errorDiv.style.display = 'block';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Unlock App';
