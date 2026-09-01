@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { supabase } from '../supabase';
+import { TURNSTILE_SITE_KEY } from '../lib/constants';
 import { User, Mail, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import Modal from './Modal';
 
@@ -14,11 +16,24 @@ export default function AuthModal({ onClose }) {
   const [authError, setAuthError] = useState(null);
   const [authInfo, setAuthInfo] = useState(null);
   const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
+  // The theme toggle isn't reachable while this modal is open, so reading the
+  // applied class once is enough to match the widget to the current theme.
+  const [captchaTheme] = useState(
+    () => (typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light')
+  );
+
+  const resetCaptcha = () => {
+    captchaRef.current?.reset();
+    setCaptchaToken(null);
+  };
 
   const handleAuthModeSwitch = (mode) => {
     setAuthMode(mode);
     setAuthError(null);
     setAuthInfo(null);
+    resetCaptcha();
   };
 
   const handleAuthSubmit = async (e) => {
@@ -28,6 +43,10 @@ export default function AuthModal({ onClose }) {
       setAuthError('Enter your email and password.');
       return;
     }
+    if (!captchaToken) {
+      setAuthError('Please complete the verification check.');
+      return;
+    }
 
     setAuthLoading(true);
     setAuthError(null);
@@ -35,7 +54,11 @@ export default function AuthModal({ onClose }) {
 
     try {
       if (authMode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({ email, password: authPassword });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: authPassword,
+          options: { captchaToken },
+        });
         if (error) throw error;
         if (!data?.session) {
           // Email confirmation required. Stay on the modal with instructions; the
@@ -45,7 +68,11 @@ export default function AuthModal({ onClose }) {
         // If a session was returned (confirmation disabled), onAuthStateChange
         // closes the modal.
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: authPassword });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: authPassword,
+          options: { captchaToken },
+        });
         if (error) throw error;
         // onAuthStateChange closes the modal on success.
       }
@@ -53,6 +80,9 @@ export default function AuthModal({ onClose }) {
       setAuthError(err?.message || 'Authentication failed.');
       setAuthInfo(null);
     } finally {
+      // Tokens are single-use; always start a fresh challenge so the next
+      // attempt (retry, or the sign-in after confirming via email) works.
+      resetCaptcha();
       setAuthLoading(false);
     }
   };
@@ -125,6 +155,17 @@ export default function AuthModal({ onClose }) {
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="flex justify-center min-h-[65px]">
+          <Turnstile
+            ref={captchaRef}
+            siteKey={TURNSTILE_SITE_KEY}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            options={{ theme: captchaTheme, size: 'flexible' }}
+          />
         </div>
 
         {authMode === 'signup' ? (
