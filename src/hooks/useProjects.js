@@ -1,0 +1,298 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../supabase';
+import { isValidUuid } from '../lib/helpers';
+import {
+  readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
+} from '../lib/projectsStorage';
+
+// Project persistence: the saved-apps list (local rows when signed out,
+// Supabase rows when signed in), load/save/rename/delete, the auto-save-name
+// debounce, and the resume-last-project effect.
+//
+// The workspace state itself (versions, currentVersionIndex, projectName, …)
+// stays in App because the generation flow owns it; this hook reads it via the
+// `workspace` param and writes it back through the passed setters, which are
+// all stable React state setters.
+export default function useProjects({ authStatus, isSignedIn, user, workspace }) {
+  const {
+    versions, currentVersionIndex, projectName, currentProjectId, deployment,
+    setProjectName, setVersions, setCurrentVersionIndex, setDeployment,
+    setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
+    setIsResumingProject, setIsSuggestionsExpanded, clearStreamingState
+  } = workspace;
+
+  const [myProjects, setMyProjects] = useState([]);
+  const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
+  const previousAuthStatusRef = useRef(null);
+
+  const fetchCloudProjects = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    return cloudRowsToProjects(data);
+  }, []);
+
+  const loadUserProjects = useCallback(async () => {
+    try {
+      let projects;
+      if (isSignedIn) {
+        projects = await fetchCloudProjects();
+      } else {
+        projects = localRowsToProjects(readProjectRows());
+      }
+      setMyProjects(projects);
+      return projects;
+    } catch (err) {
+      console.error("Error loading projects:", err);
+      // Fall back to the local list so a transient cloud failure doesn't blank the UI.
+      const projects = localRowsToProjects(readProjectRows());
+      setMyProjects(projects);
+      return projects;
+    }
+  }, [isSignedIn, fetchCloudProjects]);
+
+  const loadProjectById = useCallback(async (projectId) => {
+    try {
+      let row;
+      if (isSignedIn) {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) {
+          localStorage.removeItem('orion-current-project-id');
+          return;
+        }
+        row = { id: data.id, name: data.name, data: data.data };
+      } else {
+        row = readProjectRows().find(r => r.id === projectId);
+        if (!row) {
+          localStorage.removeItem('orion-current-project-id');
+          return;
+        }
+      }
+
+      clearStreamingState();
+      setProjectName(row.name || 'Untitled App');
+      const projectData = row.data || {};
+      setVersions(projectData.versions || []);
+      setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
+      setDeployment(projectData.deployment || null);
+      if (projectData.versions && projectData.versions[projectData.currentVersionIndex]) {
+        setGeneratedCode(projectData.versions[projectData.currentVersionIndex].code);
+      }
+      setCurrentProjectId(projectId);
+      setHasSentFirstPrompt(Boolean(projectData.versions?.length));
+      localStorage.setItem('orion-current-project-id', projectId);
+    } catch (err) {
+      console.error("Error loading project by ID:", err);
+    }
+  }, [isSignedIn, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setDeployment, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
+
+  const saveProject = useCallback(async (params = {}) => {
+    const {
+      versionsToSave = versions,
+      indexToSave = currentVersionIndex,
+      nameToSave = projectName,
+      idToSave = currentProjectId,
+      deploymentToSave = deployment
+    } = params;
+
+    if (!versionsToSave.length && !params.force) return;
+
+    let projectId = idToSave || currentProjectId || (isSignedIn ? crypto.randomUUID() : Date.now().toString());
+
+    try {
+      const projectData = {
+        versions: versionsToSave,
+        currentVersionIndex: indexToSave,
+        deployment: deploymentToSave || null,
+      };
+
+      if (isSignedIn) {
+        // Local ids (Date.now() strings) can't live in a uuid column. If a guest
+        // project is being edited after sign-in, re-key it once on upload.
+        let cloudId = projectId;
+        if (!isValidUuid(cloudId)) {
+          cloudId = crypto.randomUUID();
+          projectId = cloudId;
+        }
+
+        const { error } = await supabase.from('projects').upsert({
+          id: cloudId,
+          user_id: user.id,
+          name: nameToSave,
+          data: projectData,
+          updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+      } else {
+        const rows = readProjectRows();
+        const existingIndex = rows.findIndex(r => r.id === projectId);
+        const row = {
+          id: projectId,
+          name: nameToSave,
+          data: projectData,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (existingIndex >= 0) {
+          rows[existingIndex] = row;
+        } else {
+          rows.push(row);
+        }
+        writeProjectRows(rows);
+      }
+
+      if (!currentProjectId || currentProjectId !== projectId) {
+        setCurrentProjectId(projectId);
+        localStorage.setItem('orion-current-project-id', projectId);
+      }
+      loadUserProjects();
+    } catch (err) {
+      console.error("Error saving project:", err);
+    }
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, isSignedIn, user?.id, loadUserProjects, setCurrentProjectId]);
+
+  // --- Auto-save Name Changes ---
+  useEffect(() => {
+    if (!currentProjectId) return;
+
+    const timeoutId = setTimeout(() => {
+      // Only save if name actually changed from what we have in the list
+      const currentProjData = myProjects.find(p => p.id === currentProjectId);
+      if (currentProjData && currentProjData.name === projectName) return;
+
+      saveProject({ nameToSave: projectName });
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [projectName, currentProjectId, myProjects, saveProject]);
+
+  // --- Data Persistence (resume last project) ---
+  // Waits for auth to settle, then reloads the correct project store. Runs on
+  // mount and again whenever the signed-in state actually flips (e.g. user signs
+  // in/out), so the list always reflects the active store. Respects any
+  // currently-open project by only auto-resuming when nothing is open.
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+
+    const previous = previousAuthStatusRef.current;
+    previousAuthStatusRef.current = authStatus;
+
+    const fetchAndResume = async () => {
+      try {
+        const projects = await loadUserProjects();
+
+        if (previous === 'signedIn' && authStatus === 'signedOut') {
+          // Just signed out: swap in the local list but keep whatever is open.
+          return;
+        }
+
+        if (!currentProjectId) {
+          const lastProjectId = localStorage.getItem('orion-current-project-id');
+          const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
+            ? lastProjectId
+            : null;
+          if (idToLoad) {
+            await loadProjectById(idToLoad);
+          } else if (lastProjectId) {
+            localStorage.removeItem('orion-current-project-id');
+          }
+        }
+      } finally {
+        setIsResumingProject(false);
+      }
+    };
+
+    fetchAndResume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
+
+  // Loading a project straight from the saved-apps list.
+  const loadProject = (project) => {
+    clearStreamingState();
+    setIsSuggestionsExpanded(false);
+    setCurrentProjectId(project.id);
+    setProjectName(project.name);
+    setVersions(project.versions);
+    setCurrentVersionIndex(project.currentVersionIndex);
+    if (project.versions && project.versions[project.currentVersionIndex]) {
+      setGeneratedCode(project.versions[project.currentVersionIndex].code);
+    }
+    setIsProjectsListOpen(false);
+    setHasSentFirstPrompt(Boolean(project.versions?.length));
+    localStorage.setItem('orion-current-project-id', project.id);
+  };
+
+  // Rename/delete return success booleans so the list modal can settle its own
+  // inline editing / confirmation UI.
+  const renameProject = async (project, trimmedName) => {
+    try {
+      if (isSignedIn) {
+        const { error } = await supabase
+          .from('projects')
+          .update({ name: trimmedName, updated_at: new Date().toISOString() })
+          .eq('id', project.id);
+        if (error) throw error;
+      } else {
+        const rows = readProjectRows();
+        const idx = rows.findIndex(r => r.id === project.id);
+        if (idx >= 0) {
+          rows[idx] = { ...rows[idx], name: trimmedName, updatedAt: new Date().toISOString() };
+          writeProjectRows(rows);
+        }
+      }
+
+      setMyProjects(prev => prev.map((p) => (
+        p.id === project.id
+          ? { ...p, name: trimmedName }
+          : p
+      )));
+
+      if (currentProjectId === project.id) {
+        setProjectName(trimmedName);
+      }
+
+      loadUserProjects();
+      return true;
+    } catch (err) {
+      console.error('Error renaming project:', err);
+      return false;
+    }
+  };
+
+  const deleteProject = async (project) => {
+    try {
+      const projectId = project.id;
+      if (isSignedIn) {
+        const { error } = await supabase.from('projects').delete().eq('id', projectId);
+        if (error) throw error;
+      } else {
+        writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
+      }
+
+      setMyProjects(prev => prev.filter((p) => p.id !== projectId));
+      loadUserProjects();
+      return true;
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      return false;
+    }
+  };
+
+  return {
+    myProjects,
+    isProjectsListOpen,
+    setIsProjectsListOpen,
+    loadUserProjects,
+    loadProject,
+    saveProject,
+    renameProject,
+    deleteProject,
+  };
+}
