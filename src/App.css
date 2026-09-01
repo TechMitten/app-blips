@@ -264,6 +264,21 @@ body {
   z-index: 4;
 }
 
+/* Landscape rotates the frame's aspect-ratio (and swaps which side is the
+   stable base dimension) rather than visually rotating the DOM, so the
+   iframe content inside stays upright. The bottom shadow bar above is
+   tuned for a horizontal home-indicator edge and would look wrong
+   stretched under a landscape frame, so it's dropped here. */
+.device-smartphone.device-landscape {
+  height: auto;
+  width: 800px;
+  aspect-ratio: 19/9;
+}
+
+.device-smartphone.device-landscape::before {
+  content: none;
+}
+
 /* Tablet Device Mockup Polish */
 .device-tablet {
   position: relative;
@@ -279,6 +294,12 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+}
+
+.device-tablet.device-landscape {
+  height: auto;
+  width: 1040px;
+  aspect-ratio: 4/3;
 }
 
 .device-desktop {
@@ -297,6 +318,40 @@ body {
   flex-direction: column;
   gap: 12px;
   flex-shrink: 0;
+}
+
+/* Zoom is applied via a custom property (rather than a literal inline
+   `scale(...)`) so the orientation-flip keyframes below can compose their own
+   `rotate()` with the live zoom value instead of clobbering it. `transform` is
+   compositor-only (no layout/paint cost), which keeps both the zoom transition
+   and the flip animation cheap regardless of preview size. */
+.device-smartphone,
+.device-tablet,
+.device-desktop {
+  transform: scale(var(--preview-zoom, 1));
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Orientation flip: the box's width/height/aspect-ratio already swap
+   instantly via the .device-landscape class toggle (no transition needed,
+   since animating to/from `auto`/`aspect-ratio` isn't reliably smooth across
+   browsers). This keyframe layers a quick rotate-to-rest on top so the
+   device visually "spins" into its new shape, mirroring how real devices
+   animate an orientation change -- while staying a single lightweight
+   compositor transform, not a JS-driven or layout-animating effect. */
+@keyframes device-flip-to-landscape {
+  from { transform: scale(var(--preview-zoom, 1)) rotate(-90deg); }
+  to   { transform: scale(var(--preview-zoom, 1)) rotate(0deg); }
+}
+@keyframes device-flip-to-portrait {
+  from { transform: scale(var(--preview-zoom, 1)) rotate(90deg); }
+  to   { transform: scale(var(--preview-zoom, 1)) rotate(0deg); }
+}
+.device-flip-to-landscape {
+  animation: device-flip-to-landscape 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.device-flip-to-portrait {
+  animation: device-flip-to-portrait 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .device-desktop-toolbar {
