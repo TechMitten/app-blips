@@ -36,9 +36,13 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  const handleDeploy = async () => {
+  const handleDeploy = async (password = '') => {
     if (!generatedCode || isDeploying) return;
     if (!isSignedIn || !user?.id) return;
+    if (!password) {
+      setDeployError('A password is required to deploy.');
+      return;
+    }
 
     setIsDeploying(true);
     setDeployError(null);
@@ -48,7 +52,7 @@ export default function useDeployment({
       // Reuse the existing path and slug so the shared link stays stable.
       const path = deployment?.path || deployObjectPath(user.id, makeStorageToken());
       // `generatedCode` only -- never the bridge-injected preview srcDoc.
-      await uploadDeploy({ path, html: generatedCode });
+      await uploadDeploy({ path, html: generatedCode, password });
 
       const slug = await registerDeployment({
         slug: deployment?.slug || makePublicSlug(projectName),

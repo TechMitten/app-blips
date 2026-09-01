@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { encryptApp } from './crypto';
 
 // --- Deployment ---
 //
@@ -84,10 +85,12 @@ export const unregisterDeployment = async (slug) => {
   if (error) throw new Error(error.message || 'Failed to remove the deploy link.');
 };
 
-export const uploadDeploy = async ({ path, html }) => {
+export const uploadDeploy = async ({ path, html, password }) => {
+  const finalHtml = password ? await encryptApp(html, password) : html;
+
   const { error } = await supabase.storage
     .from(DEPLOY_BUCKET)
-    .upload(path, new Blob([html], { type: 'text/html' }), {
+    .upload(path, new Blob([finalHtml], { type: 'text/html' }), {
       contentType: 'text/html; charset=utf-8',
       cacheControl: '60',
       upsert: true
