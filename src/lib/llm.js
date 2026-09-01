@@ -52,6 +52,14 @@ export const requestModelText = async ({
     });
 
     if (response.status === 401) throw new Error('Your session has expired. Please sign in again.');
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const err = new Error(retryAfter
+        ? `You're sending requests too quickly. Please try again in about ${retryAfter}s.`
+        : "You're sending requests too quickly. Please slow down and try again shortly.");
+      err.isRateLimit = true;
+      throw err;
+    }
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
     if (!onChunk) {
@@ -121,7 +129,7 @@ export const requestModelText = async ({
     return { content: text, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (retryCount < delays.length && err.name !== 'AbortError') {
+    if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
         messages, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal

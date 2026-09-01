@@ -26,17 +26,44 @@ const toChatCompletionsUrl = (baseUrl) => {
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 
-const isAuthorized = async (request) => {
+const authorize = async (request) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return false;
+  if (!token) return null;
   try {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_PUBLISHABLE_KEY },
     });
-    return res.ok;
+    return res.ok ? await res.json() : null;
   } catch {
-    return false;
+    return null;
+  }
+};
+
+// Per-user request cap, enforced via a SECURITY DEFINER Postgres function
+// (check_chat_rate_limit) that atomically checks-and-increments a counter row
+// keyed on user id -- see the chat_rate_limits migration. Fails open (allows
+// the request) if the Supabase call itself errors, so a Supabase hiccup
+// doesn't take down generation; the upstream LLM call still requires its own
+// valid config regardless.
+const checkRateLimit = async (userId, env) => {
+  const maxRequests = parseInt(env.ORION_CHAT_RATE_LIMIT_MAX, 10) || 60;
+  const windowSeconds = parseInt(env.ORION_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_chat_rate_limit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_PUBLISHABLE_KEY },
+      body: JSON.stringify({
+        p_user_id: userId,
+        p_max_requests: maxRequests,
+        p_window_seconds: windowSeconds,
+      }),
+    });
+    const allowed = res.ok ? await res.json() : true;
+    return { allowed, windowSeconds };
+  } catch {
+    return { allowed: true, windowSeconds };
   }
 };
 
@@ -45,10 +72,19 @@ export async function handleChatProxy(request, env) {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  if (!(await isAuthorized(request))) {
+  const user = await authorize(request);
+  if (!user) {
     return new Response(JSON.stringify({ error: 'Sign in required.' }), {
       status: 401,
       headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please slow down and try again shortly.' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json', 'Retry-After': String(windowSeconds) },
     });
   }
 

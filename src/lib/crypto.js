@@ -1,3 +1,5 @@
+import { PWA_HEAD_SNIPPET } from './pwa';
+
 // Derives a PBKDF2 key from a string password and a random salt
 const deriveKey = async (password, salt) => {
   const enc = new TextEncoder();
@@ -66,6 +68,7 @@ const wrapWithUnlockScreen = (encryptedBase64) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Protected App</title>
+  ${PWA_HEAD_SNIPPET}
   <style>
     body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #334155; }
     .card { background: white; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); width: 100%; max-width: 24rem; text-align: center; }

@@ -39,10 +39,6 @@ export default function useDeployment({
   const handleDeploy = async (password = '', customSlug = '') => {
     if (!generatedCode || isDeploying) return;
     if (!isSignedIn || !user?.id) return;
-    if (!password) {
-      setDeployError('A password is required to deploy.');
-      return;
-    }
 
     setIsDeploying(true);
     setDeployError(null);
@@ -68,7 +64,8 @@ export default function useDeployment({
         slug: desiredSlug,
         userId: user.id,
         projectId: currentProjectId,
-        storagePath: path
+        storagePath: path,
+        name: projectName
       });
 
       const next = {
