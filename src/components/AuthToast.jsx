@@ -25,7 +25,7 @@ export default function AuthToast({ kind, onDismiss }) {
         </p>
         <p className="text-xs text-slate-500 mt-0.5">
           {signedIn
-            ? 'Coming Soon!! Your apps are now syncing to your account.'
+            ? 'Welcome Back!! Your apps are now syncing to your account.'
             : 'You have been signed out of your account.'}
         </p>
       </div>
