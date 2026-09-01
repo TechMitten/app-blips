@@ -123,7 +123,7 @@ export default function DeployModal({
                   }`}
               >
                 <Trash2 size={15} />
-                {confirmUndeploy ? 'Remove' : 'Remove'}
+                {confirmUndeploy ? 'Really remove?' : 'Remove'}
               </button>
             )}
             <div className="flex-1" />
