@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { readProjectRows } from '../lib/projectsStorage';
 
@@ -15,6 +15,9 @@ export default function useAuth() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importLocalCount, setImportLocalCount] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
+  // Transient 'signedIn' | 'signedOut' notification (null when hidden).
+  const [authToast, setAuthToast] = useState(null);
+  const prevAuthStatusRef = useRef(null);
 
   const isSignedIn = authStatus === 'signedIn';
   const user = session?.user ?? null;
@@ -73,6 +76,22 @@ export default function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus]);
 
+  // Pop the "signed in/out" toast on real transitions only — the initial
+  // session restore ('loading' -> signedIn/signedOut) is silent.
+  useEffect(() => {
+    const prev = prevAuthStatusRef.current;
+    prevAuthStatusRef.current = authStatus;
+    if (prev === 'signedOut' && authStatus === 'signedIn') setAuthToast('signedIn');
+    if (prev === 'signedIn' && authStatus === 'signedOut') setAuthToast('signedOut');
+  }, [authStatus]);
+
+  // Auto-dismiss the toast after a few seconds.
+  useEffect(() => {
+    if (!authToast) return;
+    const timer = setTimeout(() => setAuthToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [authToast]);
+
   // `reloadProjects` is passed in by the caller (the projects hook owns the list).
   const handleImportProjects = useCallback(async (reloadProjects) => {
     if (!user?.id) return;
@@ -121,6 +140,8 @@ export default function useAuth() {
     authStatus,
     isSignedIn,
     user,
+    authToast,
+    dismissAuthToast: () => setAuthToast(null),
     isAuthModalOpen,
     setIsAuthModalOpen,
     isImportModalOpen,

@@ -11,6 +11,7 @@ import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
 import NamingModal from './components/NamingModal';
 import AuthModal from './components/AuthModal';
+import AuthToast from './components/AuthToast';
 import ImportModal from './components/ImportModal';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
@@ -54,6 +55,7 @@ export default function App() {
   // --- Auth (Supabase) ---
   const {
     authStatus, isSignedIn, user,
+    authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
     isImportModalOpen, importLocalCount, isImporting,
     handleImportProjects: runProjectImport,
@@ -587,6 +589,10 @@ export default function App() {
           onClose={() => setIsAccountSettingsOpen(false)}
           onSignOut={handleSignOut}
         />
+      )}
+
+      {authToast && (
+        <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
       )}
 
       {isAuthModalOpen && (
