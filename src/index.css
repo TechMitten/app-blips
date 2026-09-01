@@ -16,7 +16,7 @@
   --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
   /* Instrument voice: mono labels, version ticks, kbd, chat status. Deliberately
      distinct from Poppins (the human voice) -- the app already speaks mono in
-     the marquee and code panel, so this formalizes an existing dichotomy. */
+     the code panel, so this formalizes an existing dichotomy. */
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-surface: #ffffff;              /* cards, modals, raised chrome */

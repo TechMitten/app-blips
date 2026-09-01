@@ -96,10 +96,6 @@ export const STARTER_PRESETS = [
   }
 ];
 
-export const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
-export const MARQUEE_SEPARATOR = '  //  ';
-export const MARQUEE_MIN_LOOP_LENGTH = 220;
-export const MARQUEE_MAX_BUFFER_LENGTH = 4000;
 export const PREVIEW_MODES = {
   mobile: {
     label: 'Mobile',
