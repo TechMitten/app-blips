@@ -186,7 +186,7 @@ const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer
 Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
 
 CRITICAL RULES:
-1. Output ONLY valid, raw HTML code or use the provided tools for edits.
+1. Output raw HTML code (optionally preceded by a short reply, see REPLY GUIDELINES below) or use the provided tools for edits.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
 3. Follow the platform-targeting instructions in the user request exactly.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
@@ -203,7 +203,13 @@ SURGICAL EDIT GUIDELINES:
 - If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
 - If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
 
-Do not include any explanations, markdown markers, or text outside of these formats.`;
+REPLY GUIDELINES:
+- You may add ONE short, plain-English sentence of conversational reply (max ~15 words). Never more than one sentence, never a list, never a restatement of your plan.
+- Initial generation (no tools available yet): if you include a reply, put it FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
+- Edits (tool-calling turns): a reply is optional on any turn and may accompany a tool call, or stand alone once edits are complete (e.g. "Done — added the dark mode toggle."). Never skip a required tool call in order to reply instead.
+- If you have nothing worth saying, omit the reply entirely — silence beats filler like "Sure, here you go!".
+
+Beyond the optional short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
 const SUGGESTIONS_SYSTEM_PROMPT = `You are reviewing the current source code and edit history of a specific AI-generated web app.
 Propose exactly 4 concrete, specific next-step feature ideas for THIS app, grounded in what its code actually does.
@@ -367,6 +373,21 @@ const sanitizeHtmlResponse = (text) => {
   }
 
   return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+};
+
+// Complementary to sanitizeHtmlResponse: returns the text BEFORE the HTML boundary
+// (an optional short conversational reply) instead of the HTML itself.
+const extractLeadingReply = (text) => {
+  const htmlBlockMatch = text.match(/```html\s*[\s\S]*?\s*```/i);
+  if (htmlBlockMatch) return text.slice(0, htmlBlockMatch.index).trim();
+
+  const codeBlockMatch = text.match(/```\s*[\s\S]*?\s*```/i);
+  if (codeBlockMatch) return text.slice(0, codeBlockMatch.index).trim();
+
+  const htmlStartMatch = text.match(/<!DOCTYPE html[\s\S]*/i) || text.match(/<html[\s\S]*/i);
+  if (htmlStartMatch) return text.slice(0, htmlStartMatch.index).trim();
+
+  return '';
 };
 
 const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
@@ -705,10 +726,12 @@ const generateAppCode = async (
       { role: 'user', content: buildInitialGenerationPrompt(prompt, layoutTarget) }
     ];
     const message = await requestModelText({ messages, onChunk, signal });
+    const rawText = message.content || message;
     return {
-      code: sanitizeHtmlResponse(message.content || message),
+      code: sanitizeHtmlResponse(rawText),
       editMode: 'full-generation',
-      editSummary: 'Initial app generation.'
+      editSummary: 'Initial app generation.',
+      reply: extractLeadingReply(rawText) || undefined
     };
   }
 
@@ -727,6 +750,7 @@ const generateAppCode = async (
   let workingCode = currentCode;
   let editsApplied = false;
   let nudged = false;
+  let replyParts = [];
 
   for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -753,6 +777,10 @@ const generateAppCode = async (
       });
     }
 
+    if (message.content && message.content.trim()) {
+      replyParts.push(message.content.trim());
+    }
+
     messages.push({
       role: 'assistant',
       content: message.content || null,
@@ -760,7 +788,7 @@ const generateAppCode = async (
     });
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt };
+      if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
       if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
       nudged = true;
       messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
@@ -776,7 +804,7 @@ const generateAppCode = async (
     }
   }
 
-  if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt };
+  if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
 };
 
@@ -1108,6 +1136,8 @@ export default function App() {
   }, [llmConfig]);
   const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
+  const [streamingReply, setStreamingReply] = useState('');
+  const [pendingPrompt, setPendingPrompt] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -1155,6 +1185,8 @@ export default function App() {
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
+  const streamingReplyRef = useRef('');
+  const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
   const suggestionsAbortControllerRef = useRef(null);
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
@@ -1235,8 +1267,11 @@ export default function App() {
   const clearStreamingState = () => {
     setStreamingCode('');
     setStreamingGeneratedCode('');
+    setStreamingReply('');
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
+    streamingReplyRef.current = '';
+    replyFrozenRef.current = false;
   };
 
   // --- Dynamic Zoom Logic ---
@@ -1774,6 +1809,7 @@ export default function App() {
     
     const currentPrompt = prompt;
     setPrompt(''); // Clear input so user can easily type their next refinement
+    setPendingPrompt(currentPrompt);
 
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk, kind = 'content') => {
@@ -1791,6 +1827,16 @@ export default function App() {
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
           setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
         }
+        if (!replyFrozenRef.current) {
+          const boundaryMatch = streamingGeneratedCodeRef.current.match(HTML_STREAM_START_RE);
+          if (boundaryMatch) {
+            streamingReplyRef.current = streamingGeneratedCodeRef.current.slice(0, boundaryMatch.index).trim();
+            replyFrozenRef.current = true;
+          } else {
+            streamingReplyRef.current = streamingGeneratedCodeRef.current.trim();
+          }
+          setStreamingReply(streamingReplyRef.current);
+        }
       }, initialLayoutTarget, abortControllerRef.current.signal);
       setGeneratedCode(generationResult.code);
       
@@ -1800,7 +1846,8 @@ export default function App() {
         code: generationResult.code,
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
-        editSummary: generationResult.editSummary
+        editSummary: generationResult.editSummary,
+        reply: generationResult.reply || null
       };
       
       // If user goes back in time and generates, truncate the future versions (standard undo behavior)
@@ -1821,6 +1868,7 @@ export default function App() {
       setPrompt(currentPrompt); // Restore prompt text on error
     } finally {
       setIsGenerating(false);
+      setPendingPrompt('');
       clearStreamingState();
     }
   };
@@ -3282,6 +3330,43 @@ export default function App() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {(versions.length > 0 || pendingPrompt) && (
+                  <div className="space-y-4">
+                    {versions.slice(0, currentVersionIndex + 1).map((ver) => (
+                      <div key={ver.id} className="space-y-2">
+                        <div className="flex justify-end">
+                          <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 text-white px-4 py-2.5 text-sm font-medium shadow-sm">
+                            {ver.prompt}
+                          </div>
+                        </div>
+                        {ver.reply && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 text-slate-800 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                              {ver.reply}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {isGenerating && pendingPrompt && (
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 text-white px-4 py-2.5 text-sm font-medium shadow-sm">
+                            {pendingPrompt}
+                          </div>
+                        </div>
+                        {streamingReply && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 text-slate-800 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap animate-fade-in">
+                              {streamingReply}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
