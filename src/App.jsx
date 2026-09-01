@@ -38,6 +38,7 @@ import {
   ZoomOut,
   Monitor,
   Tablet,
+  RotateCw,
   Moon,
   Sun,
   PanelLeftOpen,
@@ -1188,6 +1189,20 @@ const PREVIEW_MODES = {
   }
 };
 
+// Desktop has no orientation concept (it's a browser window, not a rotatable
+// device), so only touch-chrome modes (mobile/tablet) swap width/height here.
+const getEffectivePreviewBox = (mode, orientation) => {
+  const preset = PREVIEW_MODES[mode];
+  if (preset.isTouchChrome && orientation === 'landscape') {
+    return {
+      width: preset.height,
+      height: preset.width,
+      zoomPadding: { h: preset.zoomPadding.v, v: preset.zoomPadding.h }
+    };
+  }
+  return { width: preset.width, height: preset.height, zoomPadding: preset.zoomPadding };
+};
+
 const buildMarqueeLoop = (value) => {
   const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
   let loop = normalized;
@@ -1233,6 +1248,16 @@ export default function App() {
     const stored = localStorage.getItem('orion-preview-mode');
     return stored && PREVIEW_MODES[stored] ? stored : 'mobile';
   });
+  const [previewOrientation, setPreviewOrientation] = useState(() => {
+    const stored = localStorage.getItem('orion-preview-orientation');
+    return stored === 'landscape' ? 'landscape' : 'portrait';
+  });
+  const [orientationFlipClass, setOrientationFlipClass] = useState('');
+
+  const handleToggleOrientation = () => {
+    setOrientationFlipClass(previewOrientation === 'portrait' ? 'device-flip-to-landscape' : 'device-flip-to-portrait');
+    setPreviewOrientation(prev => prev === 'portrait' ? 'landscape' : 'portrait');
+  };
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [rememberKey, setRememberKey] = useState(loadRememberKey);
@@ -1367,9 +1392,9 @@ export default function App() {
     () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
     [generatedCode]
   );
-  const activePreviewPreset = PREVIEW_MODES[previewMode];
-  const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
-  const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
+  const activePreviewBox = getEffectivePreviewBox(previewMode, previewOrientation);
+  const scaledPreviewWidth = activePreviewBox.width * zoomLevel;
+  const scaledPreviewHeight = activePreviewBox.height * zoomLevel;
   const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
   const showStarterIdeas = !isChatActive;
 
@@ -1494,6 +1519,10 @@ export default function App() {
     localStorage.setItem('orion-preview-mode', previewMode);
   }, [previewMode]);
 
+  useEffect(() => {
+    localStorage.setItem('orion-preview-orientation', previewOrientation);
+  }, [previewOrientation]);
+
   // --- Dynamic Zoom Logic ---
   useEffect(() => {
     const container = previewContainerRef.current;
@@ -1503,17 +1532,29 @@ export default function App() {
       if (!isAutoZoom || !previewContainerRef.current || activeTab !== 'preview') return;
       
       const el = previewContainerRef.current;
-      const { h: horizontalPadding, v: verticalPadding } = PREVIEW_MODES[previewMode].zoomPadding;
+      const box = getEffectivePreviewBox(previewMode, previewOrientation);
+      const { h: horizontalPadding, v: verticalPadding } = box.zoomPadding;
       const availableWidth = Math.max(100, el.clientWidth - horizontalPadding);
       const availableHeight = Math.max(100, el.clientHeight - verticalPadding);
-      const preset = PREVIEW_MODES[previewMode];
-      const baseHeight = preset.height;
-      const baseWidth = preset.width;
+      const baseHeight = box.height;
+      const baseWidth = box.width;
       
       const scaleH = availableHeight / baseHeight;
       const scaleW = availableWidth / baseWidth;
-      
-      const newZoom = Math.min(scaleH, scaleW);
+
+      let newZoom = Math.min(scaleH, scaleW);
+
+      // A rotated phone/tablet is still the same physical device -- its
+      // shorter landscape height leaves more headroom to "fit" into the
+      // container, which would otherwise zoom it up well past how large its
+      // own portrait orientation renders in that same space. Cap it there so
+      // rotating never makes the mockup look bigger, only differently shaped.
+      if (PREVIEW_MODES[previewMode].isTouchChrome && previewOrientation === 'landscape') {
+        const portraitPreset = PREVIEW_MODES[previewMode];
+        const portraitZoom = Math.min(availableHeight / portraitPreset.height, availableWidth / portraitPreset.width);
+        newZoom = Math.min(newZoom, portraitZoom);
+      }
+
       // Fluid zoom ranging from 0.25x up to 2.5x to fill large 1440p / 4K / UHD screens
       const clampedZoom = Math.max(0.25, Math.min(newZoom, 2.5));
       setZoomLevel(Number(clampedZoom.toFixed(3)));
@@ -1534,7 +1575,7 @@ export default function App() {
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', calculateZoom);
     };
-  }, [isAutoZoom, activeTab, previewMode, isHistoryOpen]);
+  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen]);
 
   // --- Preview bridge ---
   // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -4155,6 +4196,7 @@ export default function App() {
 
               {/* Center: Device Presets (when in preview tab) */}
               {activeTab === 'preview' && (
+                <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="nav-segmented-group" title="Device Viewport Preset">
                   <button
                     onClick={() => setPreviewMode('mobile')}
@@ -4180,6 +4222,18 @@ export default function App() {
                     <Monitor size={14} />
                     <span className="hidden sm:inline">Desktop</span>
                   </button>
+                </div>
+                {PREVIEW_MODES[previewMode].isTouchChrome && (
+                  <div className="nav-segmented-group" title="Device Orientation">
+                    <button
+                      onClick={handleToggleOrientation}
+                      className="nav-segmented-btn nav-segmented-btn-icon"
+                      title={`Rotate to ${previewOrientation === 'portrait' ? 'Landscape' : 'Portrait'}`}
+                    >
+                      <RotateCw size={14} className={previewOrientation === 'landscape' ? '-rotate-90' : ''} style={{ transition: 'transform 0.2s ease' }} />
+                    </button>
+                  </div>
+                )}
                 </div>
               )}
 
@@ -4298,11 +4352,9 @@ export default function App() {
                   }}
                 >
                   <div
-                    className={PREVIEW_MODES[previewMode].deviceClass}
-                    style={{
-                      transform: `scale(${zoomLevel})`,
-                      transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
+                    className={`${PREVIEW_MODES[previewMode].deviceClass}${PREVIEW_MODES[previewMode].isTouchChrome && previewOrientation === 'landscape' ? ' device-landscape' : ''}${orientationFlipClass ? ` ${orientationFlipClass}` : ''}`}
+                    style={{ '--preview-zoom': zoomLevel }}
+                    onAnimationEnd={() => setOrientationFlipClass('')}
                   >
                   {previewMode === 'desktop' && (
                     <div className="device-desktop-toolbar">
@@ -4382,17 +4434,31 @@ export default function App() {
                   </div>
 
                   {PREVIEW_MODES[previewMode].isTouchChrome ? (
-                    <>
-                      {/* Side Buttons Visuals */}
-                      <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
-                      <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
-                      <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm"></div>
+                    previewOrientation === 'landscape' ? (
+                      <>
+                        {/* Side Buttons Visuals (rotated to top/bottom edges) */}
+                        <div className="absolute -top-1 left-24 h-1 w-12 bg-slate-700 rounded-b-sm shadow-sm"></div>
+                        <div className="absolute -top-1 left-40 h-1 w-20 bg-slate-700 rounded-b-sm shadow-sm"></div>
+                        <div className="absolute -bottom-1 left-36 h-1 w-20 bg-slate-700 rounded-t-sm shadow-sm"></div>
 
-                      {/* Home Indicator */}
-                      <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
-                        <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
-                      </div>
-                    </>
+                        {/* Home Indicator (rotated to right edge) */}
+                        <div className="absolute right-3 inset-y-0 flex items-center justify-center z-20">
+                          <div className="h-32 w-1.5 rounded-full bg-slate-200/70"></div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Side Buttons Visuals */}
+                        <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
+                        <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
+                        <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm"></div>
+
+                        {/* Home Indicator */}
+                        <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
+                          <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
+                        </div>
+                      </>
+                    )
                   ) : (
                     <div className="device-desktop-stand"></div>
                   )}
