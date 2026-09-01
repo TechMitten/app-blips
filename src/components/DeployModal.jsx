@@ -224,7 +224,7 @@ export default function DeployModal({
         )}
       </div>
 
-      <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+      <div className="bg-slate-50 px-6 py-4 flex flex-wrap items-center justify-end gap-3">
         {deployment ? (
           <>
             {isSignedIn && (
