@@ -117,21 +117,20 @@ export default function DeployModal({
                 type="button"
                 onClick={() => (confirmUndeploy ? onUndeploy() : setConfirmUndeploy(true))}
                 disabled={isDeploying}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  confirmUndeploy
-                    ? 'text-rose-600 bg-rose-50 hover:bg-rose-100'
-                    : 'text-slate-600 hover:text-rose-600'
-                }`}
+                className={`whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${confirmUndeploy
+                  ? 'text-rose-600 bg-rose-50 hover:bg-rose-100'
+                  : 'text-slate-600 hover:text-rose-600'
+                  }`}
               >
                 <Trash2 size={15} />
-                {confirmUndeploy ? 'Really remove?' : 'Remove'}
+                {confirmUndeploy ? 'Remove' : 'Remove'}
               </button>
             )}
             <div className="flex-1" />
             <button
               type="button"
               onClick={onCopyUrl}
-              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
             >
               {deployCopied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
               {deployCopied ? 'Copied' : 'Copy link'}
@@ -139,7 +138,7 @@ export default function DeployModal({
             <button
               type="button"
               onClick={() => window.open(deploymentUrl, '_blank', 'noopener,noreferrer')}
-              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
             >
               <ExternalLink size={15} />
               Open
@@ -149,7 +148,7 @@ export default function DeployModal({
                 type="button"
                 onClick={onDeploy}
                 disabled={isDeploying}
-                className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Rocket size={15} />
                 Redeploy
@@ -158,7 +157,7 @@ export default function DeployModal({
               <button
                 type="button"
                 onClick={onRequireSignIn}
-                className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
               >
                 <LogIn size={15} />
                 Sign in
@@ -170,14 +169,14 @@ export default function DeployModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              className="whitespace-nowrap rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={onRequireSignIn}
-              className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+              className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
             >
               <LogIn size={15} />
               Sign in
@@ -189,7 +188,7 @@ export default function DeployModal({
               type="button"
               onClick={onClose}
               disabled={isDeploying}
-              className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="whitespace-nowrap rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -197,7 +196,7 @@ export default function DeployModal({
               type="button"
               onClick={onDeploy}
               disabled={isDeploying || !hasCode}
-              className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Rocket size={15} />
               Deploy

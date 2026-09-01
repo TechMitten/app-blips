@@ -278,12 +278,9 @@ export default function App() {
           return;
         }
         if (kind === 'status') {
-          streamingBufferRef.current = '';
           setStreamingCode(chunk);
           return;
         }
-        streamingBufferRef.current = `${streamingBufferRef.current}${chunk.replace(/\s+/g, ' ')}`.slice(-MARQUEE_MAX_BUFFER_LENGTH);
-        setStreamingCode(streamingBufferRef.current.trim());
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
           setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
@@ -545,7 +542,7 @@ export default function App() {
       />
 
       {/* Streaming Marquee - Only visible when generating */}
-      {isGenerating && (
+      {isGenerating && chatMode === 'build' && (
         <div className="marquee-container" id="marquee-container" aria-live="polite">
           <div className="marquee-track">
             <span className="marquee-segment">{marqueeSegment}</span>
@@ -740,7 +737,7 @@ export default function App() {
             containerRef={previewContainerRef}
             iframeRef={iframeRef}
             previewSrcDoc={previewSrcDoc}
-            isGenerating={isGenerating}
+            isGenerating={isGenerating && chatMode === 'build'}
             code={codePanelCode}
             copied={copied}
             onCopyCode={handleCopyCode}

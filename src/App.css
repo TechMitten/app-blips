@@ -326,16 +326,24 @@ body {
   flex-shrink: 0;
 }
 
-/* Zoom is applied via a custom property (rather than a literal inline
-   `scale(...)`) so the orientation-flip keyframes below can compose their own
-   `rotate()` with the live zoom value instead of clobbering it. `transform` is
-   compositor-only (no layout/paint cost), which keeps both the zoom transition
-   and the flip animation cheap regardless of preview size. */
+/* Zoom is applied via the CSS `zoom` property (a layout-time scale) rather
+   than `transform: scale()`. A fractional transform scale is applied by the
+   compositor to an already-rasterized layer, and the sandboxed preview iframe
+   inside the device is composited as its own surface -- the browser only
+   sometimes re-rasterizes that surface to match the applied scale, so the
+   mockup visibly swung between crisp and GPU-stretched/blurry depending on
+   zoom level and timing. `zoom` lays out and paints the whole subtree
+   natively at the final size (like browser zoom), keeping text and iframe
+   content crisp at any fractional factor. DeviceMockup sizes its wrapper to
+   `box * zoomLevel`, which exactly equals the zoomed layout box, so flex
+   centering and the container's overflow math are unchanged. There is no
+   transition: animating zoom would relayout every frame, and the 0.2s
+   transform transition was itself a source of momentary blur (every auto-fit
+   recalc re-stretched the layer) -- a crisp instant snap reads better. */
 .device-smartphone,
 .device-tablet,
 .device-desktop {
-  transform: scale(var(--preview-zoom, 1));
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  zoom: var(--preview-zoom, 1);
 }
 
 /* Orientation flip: the box's width/height/aspect-ratio already swap
@@ -343,15 +351,15 @@ body {
    since animating to/from `auto`/`aspect-ratio` isn't reliably smooth across
    browsers). This keyframe layers a quick rotate-to-rest on top so the
    device visually "spins" into its new shape, mirroring how real devices
-   animate an orientation change -- while staying a single lightweight
-   compositor transform, not a JS-driven or layout-animating effect. */
+   animate an orientation change -- zoom handles the scaling, so the
+   keyframes only need to compose the rotation. */
 @keyframes device-flip-to-landscape {
-  from { transform: scale(var(--preview-zoom, 1)) rotate(-90deg); }
-  to   { transform: scale(var(--preview-zoom, 1)) rotate(0deg); }
+  from { transform: rotate(-90deg); }
+  to   { transform: rotate(0deg); }
 }
 @keyframes device-flip-to-portrait {
-  from { transform: scale(var(--preview-zoom, 1)) rotate(90deg); }
-  to   { transform: scale(var(--preview-zoom, 1)) rotate(0deg); }
+  from { transform: rotate(90deg); }
+  to   { transform: rotate(0deg); }
 }
 .device-flip-to-landscape {
   animation: device-flip-to-landscape 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -629,6 +637,8 @@ body {
   border-bottom: 2px solid rgb(from var(--color-brand) r g b / 0.28);
   z-index: 50;
   pointer-events: none;
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
 }
 
 .marquee-track {
