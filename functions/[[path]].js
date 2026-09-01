@@ -1,9 +1,9 @@
-// Cloudflare Pages Function: serves deployed Orion apps.
+// Cloudflare Pages Function: serves deployed AppBlips apps.
 //
 // This project's Pages deployment answers on two hostnames:
 //
-//   app.orion.islandapps.dev   -> the Orion SPA (static assets, untouched)
-//   apps.orion.islandapps.dev  -> deployed user apps, one per slug
+//   appblips.com     -> the AppBlips SPA (static assets, untouched)
+//   my.appblips.com  -> deployed user apps, one per slug
 //
 // Why a separate hostname: a deployed app is LLM-generated code running with
 // full script privileges. On the SPA's own origin it could read localStorage --
@@ -17,7 +17,7 @@
 // shows source. Cloudflare does not, so the serving origin has to live here.
 // Storage remains the source of truth; this only ever reads.
 
-const APPS_HOSTNAME = 'apps.orion.islandapps.dev';
+const APPS_HOSTNAME = 'my.appblips.com';
 
 const SUPABASE_URL = 'https://nmmrhagtkfjqljktcwkf.supabase.co';
 // Publishable key, already public in the client bundle. Reads are RLS-scoped.

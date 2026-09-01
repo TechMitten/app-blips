@@ -1,4 +1,4 @@
-/* Orion design tokens.
+/* AppBlips design tokens.
 
    The Tailwind colour ramps (--color-slate-*, --color-indigo-* ...) are the
    real palette and are re-themed in src/index.css. Everything here that can be
@@ -1096,7 +1096,7 @@ html.dark .status-tick {
 
 /* --- Constellation meridian transcript ---
 
-   Every completed reply in Orion is a restorable version, so the conversation
+   Every completed reply in AppBlips is a restorable version, so the conversation
    is drawn as the project's star path: one hairline meridian, one star node
    per version, mono ticks that echo the History sidebar's v-badges. The
    pending turn gets a hollow "forming" star; nodes ignite on mount. */

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Orion is a React SPA that generates small single-file HTML apps from a text prompt via an OpenAI-chat-completions-compatible LLM API, then renders them live in a sandboxed preview iframe. There is no application backend beyond a single proxy endpoint: the LLM endpoint, key, model, and tuning knobs are fixed server-side via env vars (not user-configurable), and the browser calls `/api/chat` on Orion's own origin rather than the LLM provider directly. See "LLM proxy" below.
+AppBlips is a React SPA that generates small single-file HTML apps from a text prompt via an OpenAI-chat-completions-compatible LLM API, then renders them live in a sandboxed preview iframe. There is no application backend beyond a single proxy endpoint: the LLM endpoint, key, model, and tuning knobs are fixed server-side via env vars (not user-configurable), and the browser calls `/api/chat` on AppBlips's own origin rather than the LLM provider directly. See "LLM proxy" below.
 
 ## Commands
 
@@ -52,7 +52,7 @@ Consequences that matter when editing this code:
 
 - The LLM base URL, API key, model, `max_tokens`, and reasoning effort are **not** user-configurable — they're read server-side from `ORION_LLM_BASE_URL` / `ORION_LLM_API_KEY` / `ORION_LLM_MODEL` / `ORION_LLM_MAX_TOKENS` / `ORION_LLM_REASONING_EFFORT` env vars (see `.env.example`). None are `VITE_`-prefixed, so Vite never inlines them into the client bundle.
 - `functions/_lib/chatProxy.js` (`handleChatProxy(request, env)`) is the single implementation of the proxy: it builds the upstream OpenAI-style request from env + the client's `{ messages, tools, tool_choice, stream, reasoning_effort }` body, and streams the upstream response straight back — it's a transparent relay, not a reimplementation, so `requestModelText`'s SSE-parsing/retry logic in `src/lib/llm.js` is unaware a proxy exists.
-- In production (Cloudflare Pages) this runs as the Pages Function `functions/api/chat.js`, which just calls `handleChatProxy`. `functions/[[path]].js` is a separate, unrelated Function serving deployed user apps on a second hostname (`apps.orion.islandapps.dev`) — don't conflate the two.
+- In production (Cloudflare Pages) this runs as the Pages Function `functions/api/chat.js`, which just calls `handleChatProxy`. `functions/[[path]].js` is a separate, unrelated Function serving deployed user apps on a second hostname (`my.appblips.com`) — don't conflate the two.
 - In local dev (`npm run dev`, plain Vite — Pages Functions don't run under Vite), `vite.config.js` registers dev-server middleware on `/api/chat` that calls the same `handleChatProxy`, reading env via `loadEnv(mode, cwd, '')` from a local `.env`. This keeps `npm run dev` working with no `wrangler` dependency and no behavior drift between dev and prod.
 - Cloudflare Pages deployments need the same five vars set under Settings → Environment variables (API key marked Secret) — nothing in the app config does this automatically.
 - Projects are persisted to `localStorage['orion-projects']` as `{id, name, data: {versions, currentVersionIndex}, updatedAt}` rows; the last-open project id is in `localStorage['orion-current-project-id']`.

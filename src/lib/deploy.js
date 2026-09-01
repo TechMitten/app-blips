@@ -13,13 +13,13 @@ import { encryptApp } from './crypto';
 // Two rules when touching this:
 //
 // 1. Deployed apps MUST stay on their own hostname. They are LLM-generated code
-//    with full script privileges; on the Orion SPA's origin they could read
+//    with full script privileges; on the AppBlips SPA's origin they could read
 //    localStorage, which holds the user's LLM API key and Supabase session.
 // 2. Only ever upload `generatedCode`. The preview bridge is spliced in at
 //    render time and must stay out of anything that leaves the app -- a public
 //    URL most of all.
 export const DEPLOY_BUCKET = 'orion-deploys';
-export const APPS_ORIGIN = 'https://apps.orion.islandapps.dev';
+export const APPS_ORIGIN = 'https://my.appblips.com';
 
 export const randomToken = (length) => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
