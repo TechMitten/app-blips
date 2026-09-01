@@ -1580,8 +1580,12 @@ export default function App() {
         const lastProjectId = localStorage.getItem('orion-current-project-id');
         const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
           ? lastProjectId
-          : (projects.length > 0 ? projects[0].id : null);
-        if (idToLoad) await loadProjectById(idToLoad);
+          : null;
+        if (idToLoad) {
+          await loadProjectById(idToLoad);
+        } else if (lastProjectId) {
+          localStorage.removeItem('orion-current-project-id');
+        }
       }
     };
 
