@@ -29,7 +29,6 @@ import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import usePreviewViewport from './hooks/usePreviewViewport';
-import useBuildPaneResize from './hooks/useBuildPaneResize';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import useSuggestions from './hooks/useSuggestions';
 
@@ -193,9 +192,6 @@ export default function App() {
     orientationFlipClass, setOrientationFlipClass, zoomLevel, isAutoZoom,
     handleManualZoom, resetZoom,
   } = usePreviewViewport({ activeTab, isHistoryOpen, containerRef: previewContainerRef });
-
-  // --- Build pane resize ---
-  const { buildPaneWidth, isResizingBuildPane, handleBuildPaneResizeStart } = useBuildPaneResize();
 
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
@@ -663,7 +659,6 @@ export default function App() {
 
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
           <BuildPanel
-            width={buildPaneWidth}
             isChatActive={isChatActive}
             isResumingProject={isResumingProject}
             chatMode={chatMode}
@@ -692,22 +687,6 @@ export default function App() {
             onRefreshSuggestions={handleRefreshSuggestions}
             onPickSuggestion={setPrompt}
           />
-
-          {/* Drag handle to resize the build panel */}
-          <div
-            onMouseDown={handleBuildPaneResizeStart}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize build panel"
-            title="Drag to resize"
-            className={`hidden md:flex items-stretch w-1.5 shrink-0 cursor-col-resize z-20 group transition-colors ${
-              isResizingBuildPane ? 'bg-indigo-400/25' : 'hover:bg-indigo-400/15'
-            }`}
-          >
-            <div className={`w-px h-full mx-auto panel-edge-right transition-colors ${
-              isResizingBuildPane ? 'bg-indigo-500' : 'bg-slate-300/80 group-hover:bg-indigo-400'
-            }`} />
-          </div>
 
           {/* Preview/Device Area (Right) */}
           <PreviewPane

@@ -25,7 +25,7 @@ export default function SuggestionsBar({
           <span className="suggestion-spark" aria-hidden="true">
             <Sparkles size={13} />
           </span>
-          <span>Suggestions</span>
+          <span className="font-mono uppercase tracking-[0.14em]">Suggestions</span>
           {suggestions.length > 0 && (
             <span
               className={`inline-flex items-center transition-all duration-200 overflow-hidden ${
