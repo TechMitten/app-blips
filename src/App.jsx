@@ -59,1184 +59,43 @@ import {
   Layers,
   Search,
   Rocket,
-  Globe
+  Globe,
+  MessageSquare
 } from 'lucide-react';
-// --- Constants ---
-const SURGICAL_EDIT_TOOL = {
-  type: 'function',
-  function: {
-    name: 'apply_surgical_edits',
-    description: 'Applies precise search-and-replace edits to the current code. Each search block must match exactly one location unless replace_all is set. If a search string could match more than once, set occurrence to pick which match (1-based, in document order) or replace_all to true. Prefer fewer, larger edits over many tiny ones.',
-    parameters: {
-      type: 'object',
-      properties: {
-        edits: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              search: { type: 'string', description: 'Exact code to find. Include 5+ lines of unique surrounding context — not just the changed lines.' },
-              replace: { type: 'string', description: 'Replacement code. Preserve surrounding context and indentation.' },
-              occurrence: { type: ['integer', 'null'], description: '1-based index of which match to replace, only if search is ambiguous (matches more than once). Null if search is unique.' },
-              replace_all: { type: ['boolean', 'null'], description: 'If true, replace every occurrence of search. Null otherwise.' }
-            },
-            required: ['search', 'replace', 'occurrence', 'replace_all'],
-            additionalProperties: false
-          }
-        }
-      },
-      required: ['edits'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
 
-const VIEW_CODE_TOOL = {
-  type: 'function',
-  function: {
-    name: 'view_code',
-    description: 'Returns a line-numbered slice of the current app code, either by explicit line range or by @section landmark name. Use before editing a part of the code you have not seen or are unsure about.',
-    parameters: {
-      type: 'object',
-      properties: {
-        section: { type: ['string', 'null'], description: 'Exact @section landmark name to view. Null to use start_line/end_line instead.' },
-        start_line: { type: ['integer', 'null'], description: '1-based start line (inclusive). Null when using section.' },
-        end_line: { type: ['integer', 'null'], description: '1-based end line (inclusive). Null when using section.' }
-      },
-      required: ['section', 'start_line', 'end_line'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
-const LIST_SECTIONS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'list_sections',
-    description: "Lists every <!-- @section: name --> landmark actually present in the current code, in document order, with each one's line range. Ground truth — call this before assuming a section exists.",
-    parameters: {
-      type: 'object',
-      properties: {},
-      required: [],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
-const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL];
-
-const SUGGEST_NEXT_STEPS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'return_suggestions',
-    description: 'Returns exactly 4 specific, actionable next-step feature suggestions for the current app, grounded in its actual code and edit history.',
-    parameters: {
-      type: 'object',
-      properties: {
-        suggestions: {
-          type: 'array',
-          description: 'Exactly 4 suggestions, no more and no fewer.',
-          items: {
-            type: 'string',
-            description: 'A short, specific, actionable next-step prompt phrased as an imperative instruction a user could submit as-is, e.g. "Add a dark mode toggle". Under 8 words. Must be grounded in this specific app\'s actual code, and never something already implemented or generic.'
-          }
-        }
-      },
-      required: ['suggestions'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
-const GENERATE_STARTER_IDEAS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'return_starter_ideas',
-    description: 'Returns exactly 8 new, unique starter app ideas.',
-    parameters: {
-      type: 'object',
-      properties: {
-        ideas: {
-          type: 'array',
-          description: 'Exactly 8 starter app ideas.',
-          items: {
-            type: 'object',
-            properties: {
-              title: { type: 'string', description: 'Short title for the app (2-4 words).' },
-              prompt: { type: 'string', description: 'A 1-2 sentence prompt describing the app.' },
-              category: { type: 'string', description: 'A 1-2 word category for the app (e.g. Utility, Finance).' },
-              iconName: { type: 'string', description: 'Name of a Lucide React icon to use. Must be one of: Wand2, Smartphone, Code2, Layout, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, TerminalSquare.' }
-            },
-            required: ['title', 'prompt', 'category', 'iconName'],
-            additionalProperties: false
-          }
-        }
-      },
-      required: ['ideas'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
-const STARTER_IDEAS_SYSTEM_PROMPT = `You are an expert app ideator. Generate exactly 8 unique, high-quality, non-basic but well-scoped web app ideas that can be built by an AI assistant in a single file. Return them using the return_starter_ideas tool.`;
-
-
-const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
-Generate a complete, self-contained HTML file (with inline CSS and JS) that implements the user's requested app.
-
-CRITICAL RULES:
-1. Output raw HTML code (optionally preceded by a short reply, see REPLY GUIDELINES below) or use the provided tools for edits.
-2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
-3. Follow the platform-targeting instructions in the user request exactly.
-4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
-5. Include modern UI elements, rounded corners, good typography, and smooth interactions.
-6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. For mobile-focused apps, always include viewport-fit=cover meta tag and safe-area-inset padding.
-8. The app runs in a sandboxed preview frame with no origin. Do NOT use localStorage, sessionStorage, indexedDB, or document.cookie - hold all state in JavaScript variables. Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
-
-SURGICAL EDIT GUIDELINES:
-- Analyze the full code structure before deciding where and how to edit.
-- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
-- Use <!-- @section: name --> landmark comments as structural anchors for precise targeting. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
-- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
-- If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
-- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
-
-REPLY GUIDELINES:
-- You may add ONE short, plain-English sentence of conversational reply (max ~15 words). Never more than one sentence, never a list, never a restatement of your plan.
-- Initial generation (no tools available yet): if you include a reply, put it FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
-- Edits (tool-calling turns): a reply is optional on any turn and may accompany a tool call, or stand alone once edits are complete (e.g. "Done — added the dark mode toggle."). Never skip a required tool call in order to reply instead.
-- If you have nothing worth saying, omit the reply entirely — silence beats filler like "Sure, here you go!".
-
-Beyond the optional short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
-
-const SUGGESTIONS_SYSTEM_PROMPT = `You are reviewing the current source code and edit history of a specific AI-generated web app.
-Propose exactly 4 concrete, specific next-step feature ideas for THIS app, grounded in what its code actually does.
-
-RULES:
-1. Return exactly 4 suggestions -- no more, no fewer.
-2. Each suggestion must be a short, imperative prompt under 8 words the user could submit as-is, e.g. "Add a dark mode toggle" or "Add sound alerts at zero".
-3. Never suggest something already implemented in the code below.
-4. Never suggest something generic that could apply to any app -- ground each idea in this app's actual features, UI, and data.
-5. Call return_suggestions with your 4 suggestions and nothing else.`;
-
-const getSafeAreaInstruction = (layoutTarget) => {
-  if (layoutTarget === 'desktop') return '';
-
-  return ' Respect modern phone safe areas: include a viewport meta tag with viewport-fit=cover and pad edge-aligned headers, footers, and fixed controls with env(safe-area-inset-top/right/bottom/left) so nothing is hidden by a notch or home indicator.';
-};
-
-const LLM_CONFIG_KEY = 'orion-llm-config';
-const LLM_REMEMBER_KEY = 'orion-llm-remember';
-
-const DEFAULT_LLM_CONFIG = {
-  baseUrl: 'https://api.openai.com/v1',
-  apiKey: '',
-  model: 'gpt-4o',
-  reasoning: 'none',
-  max_tokens: ''
-};
-
-// There is no way to hide a key from the machine that types it in a
-// backend-less SPA. What the sandboxed preview frame buys us is the part that
-// matters: generated code can no longer read it. This toggle is the remaining
-// bit of hygiene -- session-only storage for shared or untrusted machines.
-const safeStorage = (kind) => {
-  try {
-    const store = kind === 'session' ? window.sessionStorage : window.localStorage;
-    void store.length;
-    return store;
-  } catch {
-    return null;
-  }
-};
-
-const THEME_KEY = 'orion-theme';
-// Mirrored by the pre-paint script in index.html -- keep both in sync.
-const THEME_META_COLOR = { light: '#f8fafc', dark: '#080808' };
-
-// 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
-// falls back to following the OS.
-const loadThemePreference = () => {
-  try {
-    const stored = safeStorage('local')?.getItem(THEME_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : 'system';
-  } catch {
-    return 'system';
-  }
-};
-
-// Defaults to true: existing installs already keep their config in localStorage.
-const loadRememberKey = () => {
-  try {
-    return safeStorage('local')?.getItem(LLM_REMEMBER_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-};
-
-const configStore = (remember) => safeStorage(remember ? 'local' : 'session');
-
-const readStoredConfig = (store) => {
-  try {
-    const raw = store?.getItem(LLM_CONFIG_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && (parsed.baseUrl || parsed.apiKey || parsed.model)) {
-      return {
-        baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
-        apiKey: parsed.apiKey || '',
-        model: parsed.model || DEFAULT_LLM_CONFIG.model,
-        reasoning: parsed.reasoning === true ? 'medium' : (parsed.reasoning === false ? 'none' : (parsed.reasoning || 'none')),
-        max_tokens: parsed.max_tokens || ''
-      };
-    }
-  } catch { /* ignore invalid stored config */ }
-  return null;
-};
-
-const loadLlmConfig = () => {
-  const remember = loadRememberKey();
-  // Fall back to the other store so toggling mid-session never loses the key.
-  return readStoredConfig(configStore(remember))
-    || readStoredConfig(configStore(!remember))
-    || { ...DEFAULT_LLM_CONFIG };
-};
-
-const saveLlmConfig = (config, remember = loadRememberKey()) => {
-  try { configStore(remember)?.setItem(LLM_CONFIG_KEY, JSON.stringify(config)); } catch { /* ignore */ }
-  try { configStore(!remember)?.removeItem(LLM_CONFIG_KEY); } catch { /* ignore */ }
-};
-
-const saveRememberKey = (remember, config) => {
-  try { safeStorage('local')?.setItem(LLM_REMEMBER_KEY, remember ? 'true' : 'false'); } catch { /* ignore */ }
-  saveLlmConfig(config, remember);
-};
-
-// The key crosses the network in cleartext on a plain-http remote endpoint.
-// Local model servers over http are fine, and are the common case.
-const isInsecureEndpoint = (baseUrl) => {
-  const trimmed = (baseUrl || '').trim();
-  if (!/^http:\/\//i.test(trimmed)) return false;
-  try {
-    const host = new URL(trimmed).hostname.toLowerCase();
-    return !(
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '::1' ||
-      host === '[::1]' ||
-      host.endsWith('.localhost')
-    );
-  } catch {
-    return false;
-  }
-};
-
-const toChatCompletionsUrl = (baseUrl) => {
-  const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
-  return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
-};
-
-// --- Deployment ---
-//
-// The HTML lives as a single .html object in the public `orion-deploys` bucket,
-// but it is NOT served from Supabase: every HTML GET on *.supabase.co comes back
-// as `text/plain` with `CSP: default-src 'none'; sandbox` (Edge Functions get
-// the same treatment as Storage), so such a link always shows source instead of
-// a page. A Cloudflare Pages Function on APPS_ORIGIN reads the object and
-// re-serves it with a real `text/html` content type -- see functions/[[path]].js.
-//
-// Two rules when touching this:
-//
-// 1. Deployed apps MUST stay on their own hostname. They are LLM-generated code
-//    with full script privileges; on the Orion SPA's origin they could read
-//    localStorage, which holds the user's LLM API key and Supabase session.
-// 2. Only ever upload `generatedCode`. The preview bridge is spliced in at
-//    render time and must stay out of anything that leaves the app -- a public
-//    URL most of all.
-const DEPLOY_BUCKET = 'orion-deploys';
-const APPS_ORIGIN = 'https://apps.orion.islandapps.dev';
-
-const randomToken = (length) => {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => (b % 36).toString(36)).join('');
-};
-
-// Storage object names stay opaque; only the public slug is human-readable.
-const makeStorageToken = () => randomToken(10);
-
-const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
-
-// `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal-a7f3`. The
-// random tail keeps slugs globally unique without letting one account squat on
-// a plain name, and keeps other people's links unguessable.
-const slugifyName = (name) =>
-  (name || '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/, '');
-
-const makePublicSlug = (projectName) => `${slugifyName(projectName) || 'app'}-${randomToken(4)}`;
-
-const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
-
-// Publishes the slug -> storage-object mapping the Pages Function reads. Slug is
-// the primary key, so a collision with someone else's app is refused by RLS
-// rather than silently stealing their link; retry with a longer tail.
-const registerDeployment = async ({ slug, userId, projectId, storagePath }) => {
-  let candidate = slug;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { error } = await supabase.from('deployments').upsert(
-      {
-        slug: candidate,
-        user_id: userId,
-        project_id: String(projectId ?? ''),
-        storage_path: storagePath,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'slug' }
-    );
-
-    if (!error) return candidate;
-
-    const taken = /duplicate key|row-level security|conflict|unauthorized/i.test(error.message || '');
-    if (!taken || attempt === 2) {
-      throw new Error(error.message || 'Failed to register the deploy link.');
-    }
-    candidate = `${slug}-${randomToken(3)}`;
-  }
-
-  throw new Error('Could not find a free deploy link. Try again.');
-};
-
-const unregisterDeployment = async (slug) => {
-  const { error } = await supabase.from('deployments').delete().eq('slug', slug);
-  if (error) throw new Error(error.message || 'Failed to remove the deploy link.');
-};
-
-const uploadDeploy = async ({ path, html }) => {
-  const { error } = await supabase.storage
-    .from(DEPLOY_BUCKET)
-    .upload(path, new Blob([html], { type: 'text/html' }), {
-      contentType: 'text/html; charset=utf-8',
-      cacheControl: '60',
-      upsert: true
-    });
-
-  if (error) {
-    const message = error.message || '';
-    if (/bucket not found/i.test(message)) {
-      throw new Error("Deployment storage isn't set up for this project yet.");
-    }
-    // A genuine expired/invalid token -- signing in again actually helps.
-    if (/jwt|token is expired|invalid claim/i.test(message)) {
-      throw new Error('Your session expired. Sign in again to deploy.');
-    }
-    // An RLS rejection is a server misconfiguration, not a stale session.
-    // Storage reports these as "Unauthorized" with a 400, so don't confuse the
-    // two -- telling the user to sign in again would send them in circles.
-    if (/row-level security|unauthorized/i.test(message)) {
-      throw new Error(`Deployment was rejected by storage permissions. ${message}`);
-    }
-    if (/payload too large|exceeded the maximum|maximum allowed size/i.test(message)) {
-      throw new Error('This app is too large to deploy (2 MB limit).');
-    }
-    if (/mime type|not supported/i.test(message)) {
-      throw new Error(`Storage rejected the file type. ${message}`);
-    }
-    throw new Error(message || 'Failed to deploy.');
-  }
-};
-const INITIAL_LAYOUT_OPTIONS = [
-  {
-    id: 'mobile',
-    label: 'Mobile',
-    icon: Smartphone
-  },
-  {
-    id: 'desktop',
-    label: 'Desktop',
-    icon: Monitor
-  },
-  {
-    id: 'both',
-    label: 'Both',
-    icon: Layout
-  }
-];
-
-const sanitizeHtmlResponse = (text) => {
-  const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
-  if (htmlBlockMatch) return htmlBlockMatch[1].trim();
-
-  const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) return codeBlockMatch[1].trim();
-
-  const htmlStartMatch = text.match(/(<!DOCTYPE html[\s\S]*)/i) || text.match(/(<html[\s\S]*)/i);
-  if (htmlStartMatch) {
-    const content = htmlStartMatch[0];
-    const endTagMatch = content.match(/<\/html>/i);
-    if (endTagMatch) {
-      const lastIndex = content.toLowerCase().lastIndexOf('</html>');
-      return content.substring(0, lastIndex + 7).trim();
-    }
-    return content.replace(/\n?```$/, '').trim();
-  }
-
-  return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
-};
-
-// Complementary to sanitizeHtmlResponse: returns the text BEFORE the HTML boundary
-// (an optional short conversational reply) instead of the HTML itself.
-const extractLeadingReply = (text) => {
-  const htmlBlockMatch = text.match(/```html\s*[\s\S]*?\s*```/i);
-  if (htmlBlockMatch) return text.slice(0, htmlBlockMatch.index).trim();
-
-  const codeBlockMatch = text.match(/```\s*[\s\S]*?\s*```/i);
-  if (codeBlockMatch) return text.slice(0, codeBlockMatch.index).trim();
-
-  const htmlStartMatch = text.match(/<!DOCTYPE html[\s\S]*/i) || text.match(/<html[\s\S]*/i);
-  if (htmlStartMatch) return text.slice(0, htmlStartMatch.index).trim();
-
-  return '';
-};
-
-const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
-
-// Every line-window in codeLines that matches searchLines under whitespace-normalized comparison.
-const findFuzzyMatches = (codeLines, searchLines) => {
-  const normalizedSearchLines = searchLines.map(normalizeLine);
-  const matches = [];
-  for (let i = 0; i <= codeLines.length - searchLines.length; i++) {
-    let isMatch = true;
-    for (let j = 0; j < searchLines.length; j++) {
-      if (normalizeLine(codeLines[i + j]) !== normalizedSearchLines[j]) {
-        isMatch = false;
-        break;
-      }
-    }
-    if (isMatch) matches.push(i);
-  }
-  return matches;
-};
-
-const countExactOccurrences = (haystack, needle) => {
-  if (!needle) return 0;
-  let count = 0;
-  let idx = 0;
-  while ((idx = haystack.indexOf(needle, idx)) !== -1) {
-    count++;
-    idx += needle.length;
-  }
-  return count;
-};
-
-const replaceExactOccurrence = (haystack, needle, replacement, occurrence) => {
-  let idx = -1;
-  let from = 0;
-  for (let n = 0; n < occurrence; n++) {
-    idx = haystack.indexOf(needle, from);
-    from = idx + needle.length;
-  }
-  return haystack.slice(0, idx) + replacement + haystack.slice(idx + needle.length);
-};
-
-const applySurgicalEdits = (currentCode, edits) => {
-  if (!currentCode || !edits || !Array.isArray(edits)) return { success: false, error: 'Invalid edit format' };
-
-  let newCode = currentCode;
-
-  for (const block of edits) {
-    const { search: searchStr, replace: replaceStr, occurrence, replace_all: replaceAll } = block;
-    if (!searchStr) continue;
-
-    const exactCount = countExactOccurrences(newCode, searchStr);
-
-    if (exactCount > 0) {
-      if (replaceAll) {
-        newCode = newCode.split(searchStr).join(replaceStr);
-      } else if (exactCount === 1) {
-        newCode = newCode.replace(searchStr, replaceStr);
-      } else if (occurrence && occurrence >= 1 && occurrence <= exactCount) {
-        newCode = replaceExactOccurrence(newCode, searchStr, replaceStr, occurrence);
-      } else {
-        return {
-          success: false,
-          error: `Ambiguous: search block matches ${exactCount} locations. Set "occurrence" (1-${exactCount}) or "replace_all": true.`,
-          ambiguous: true,
-          matchCount: exactCount
-        };
-      }
-      continue;
-    }
-
-    // Fuzzy fallback: whitespace-normalized line-window match, same occurrence/replace_all logic.
-    const codeLines = newCode.split(/\r?\n/);
-    const searchLines = searchStr.split(/\r?\n/);
-    const matches = findFuzzyMatches(codeLines, searchLines);
-
-    if (matches.length === 0) {
-      return {
-        success: false,
-        error: `Search block not found: "${searchStr.substring(0, 100)}..."`,
-        failedBlock: searchStr
-      };
-    } else if (matches.length === 1 || replaceAll) {
-      const targets = replaceAll ? matches : [matches[0]];
-      // Apply from the last match backwards so earlier indices stay valid.
-      let lines = codeLines;
-      for (let t = targets.length - 1; t >= 0; t--) {
-        const matchIndex = targets[t];
-        lines = [...lines.slice(0, matchIndex), replaceStr, ...lines.slice(matchIndex + searchLines.length)];
-      }
-      newCode = lines.join('\n');
-    } else if (occurrence && occurrence >= 1 && occurrence <= matches.length) {
-      const matchIndex = matches[occurrence - 1];
-      newCode = [...codeLines.slice(0, matchIndex), replaceStr, ...codeLines.slice(matchIndex + searchLines.length)].join('\n');
-    } else {
-      return {
-        success: false,
-        error: `Ambiguous: search block matches ${matches.length} locations. Set "occurrence" (1-${matches.length}) or "replace_all": true.`,
-        ambiguous: true,
-        matchCount: matches.length
-      };
-    }
-  }
-
-  return { success: true, code: newCode };
-};
-
-const SECTION_LANDMARK_RE = /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->/;
-
-const listSections = (code) => {
-  const lines = code.split(/\r?\n/);
-  const marks = [];
-  lines.forEach((line, i) => {
-    const m = line.match(SECTION_LANDMARK_RE);
-    if (m) marks.push({ name: m[1].trim(), line: i + 1 });
-  });
-  return marks.map((m, i) => ({
-    name: m.name,
-    startLine: m.line,
-    endLine: i + 1 < marks.length ? marks[i + 1].line - 1 : lines.length
-  }));
-};
-
-const VIEW_CODE_MAX_LINES = 400;
-
-const viewCode = (code, { section, start_line: startLine, end_line: endLine } = {}) => {
-  const lines = code.split(/\r?\n/);
-  let from, to;
-
-  if (section) {
-    const found = listSections(code).find((s) => s.name === section);
-    if (!found) return { success: false, error: `No @section named "${section}" found. Call list_sections to see actual names.` };
-    from = found.startLine;
-    to = found.endLine;
-  } else {
-    from = Math.max(1, startLine || 1);
-    to = Math.min(lines.length, endLine || from + 199);
-  }
-
-  if (to - from > VIEW_CODE_MAX_LINES) to = from + VIEW_CODE_MAX_LINES;
-
-  const slice = lines.slice(from - 1, to).map((l, i) => `${from + i}: ${l}`).join('\n');
-  return { success: true, code: slice, startLine: from, endLine: to };
-};
-
-const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
-  const trimmedPrompt = prompt.trim();
-  const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
-
-  switch (layoutTarget) {
-    case 'mobile':
-      return `Create a mobile-first web app based on this request: ${trimmedPrompt}. Optimize for a polished 375px touch-screen experience with compact spacing, thumb-friendly controls, and a layout that feels native on phones.${safeAreaInstruction}`;
-    case 'desktop':
-      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}. Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
-    case 'both':
-    default:
-      return `Create a responsive web app based on this request: ${trimmedPrompt}. It must look polished on mobile and also present a true desktop layout on larger screens instead of staying in a phone-width column.${safeAreaInstruction}`;
-  }
-};
-
-// --- API Helper with Exponential Backoff ---
-const requestModelText = async ({
-  messages,
-  onChunk = null,
-  tools = null,
-  tool_choice = null,
-  retryCount = 0,
-  signal = null
-}) => {
-  const delays = [1000, 2000, 4000, 8000, 16000];
-
-  const config = loadLlmConfig();
-  const baseUrl = toChatCompletionsUrl(config.baseUrl);
-  const apiKey = config.apiKey;
-  const model = config.model;
-
-  if (!baseUrl) throw new Error('Configure an API endpoint in Settings.');
-  if (!apiKey) throw new Error('Configure an API key in Settings.');
-  if (!model) throw new Error('Configure a model in Settings.');
-
-  try {
-    const headers = {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    };
-
-    const bodyObj = {
-      model,
-      stream: !!onChunk,
-      messages
-    };
-
-    bodyObj.temperature = 0.2;
-    if (config.reasoning === false || config.reasoning === 'none') {
-      bodyObj.reasoning_effort = 'none';
-    } else if (config.reasoning) {
-      bodyObj.reasoning_effort = config.reasoning;
-    }
-    if (config.max_tokens) {
-      const parsedMax = parseInt(config.max_tokens, 10);
-      if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
-    }
-    if (tools) bodyObj.tools = tools;
-    if (tool_choice) bodyObj.tool_choice = tool_choice;
-
-    const response = await fetch(baseUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(bodyObj),
-      signal
-    });
-
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-    if (!onChunk) {
-      const data = await response.json();
-      return data.choices[0].message;
-    }
-
-    // Streaming implementation
-    const STREAM_READ_TIMEOUT_MS = 180000;
-
-    let text = '';
-    let toolCallsBuffer = [];
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    const readWithTimeout = async () => {
-      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-      const readPromise = reader.read();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Stream stalled: no data received for ' + (STREAM_READ_TIMEOUT_MS / 1000) + 's')), STREAM_READ_TIMEOUT_MS)
-      );
-      return await Promise.race([readPromise, timeoutPromise]);
-    };
-
-    while (true) {
-      const { done, value } = await readWithTimeout();
-      if (done) break;
-      
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith('data: ')) {
-          const data = trimmedLine.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const json = JSON.parse(data);
-            const delta = json.choices[0]?.delta;
-            
-            if (delta?.content) {
-              text += delta.content;
-              onChunk(delta.content, 'content');
-            }
-
-            if (delta?.reasoning_content) {
-              // Thinking tokens never become code. Reported only so the UI can
-              // flip to a "thinking" indicator instead of looking frozen during
-              // long reasoning -- the token text itself is discarded.
-              onChunk(delta.reasoning_content, 'reasoning');
-            }
-
-            if (delta?.tool_calls) {
-              for (const tc of delta.tool_calls) {
-                const idx = tc.index ?? toolCallsBuffer.length;
-                if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
-                if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
-              }
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    }
-
-    return { content: text, tool_calls: toolCallsBuffer.filter(Boolean) };
-  } catch (err) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (retryCount < delays.length && err.name !== 'AbortError') {
-      await new Promise(r => setTimeout(r, delays[retryCount]));
-      return requestModelText({
-        messages, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal
-      });
-    }
-    throw new Error(err.message || 'Failed to generate app.');
-  }
-};
-
-const MAX_REFINEMENT_TURNS = 8;
-
-const describeToolCall = (toolCall) => {
-  const name = toolCall.function?.name;
-  let args = {};
-  try { args = JSON.parse(toolCall.function?.arguments || '{}'); } catch { /* ignore, use defaults below */ }
-
-  if (name === 'list_sections') return 'Listing sections...';
-  if (name === 'view_code') {
-    return args.section ? `Inspecting section "${args.section}"...` : `Inspecting lines ${args.start_line ?? '?'}-${args.end_line ?? '?'}...`;
-  }
-  if (name === 'apply_surgical_edits') {
-    const count = Array.isArray(args.edits) ? args.edits.length : 1;
-    return `Applying ${count} edit${count === 1 ? '' : 's'}...`;
-  }
-  return `Calling ${name}...`;
-};
-
-// Executes one tool call against workingCode. Returns the (possibly updated) code plus
-// the JSON-able result to report back to the model as a tool message.
-const executeRefinementTool = (workingCode, toolCall) => {
-  const name = toolCall.function?.name;
-  let args;
-  try {
-    args = JSON.parse(toolCall.function?.arguments || '{}');
-  } catch (e) {
-    return { code: workingCode, applied: false, result: { success: false, error: `Arguments were not valid JSON: ${e.message}` } };
-  }
-
-  if (name === 'list_sections') {
-    return { code: workingCode, applied: false, result: { success: true, sections: listSections(workingCode) } };
-  }
-  if (name === 'view_code') {
-    return { code: workingCode, applied: false, result: viewCode(workingCode, args) };
-  }
-  if (name === 'apply_surgical_edits') {
-    const result = applySurgicalEdits(workingCode, args.edits);
-    return { code: result.success ? result.code : workingCode, applied: result.success, result };
-  }
-  return { code: workingCode, applied: false, result: { success: false, error: `Unknown tool: ${name}` } };
-};
-
-const generateAppCode = async (
-  prompt,
-  currentCode = null,
-  onChunk = null,
-  layoutTarget = 'both',
-  signal = null
-) => {
-  if (!currentCode) {
-    const messages = [
-      { role: 'system', content: HTML_SYSTEM_PROMPT },
-      { role: 'user', content: buildInitialGenerationPrompt(prompt, layoutTarget) }
-    ];
-    const message = await requestModelText({ messages, onChunk, signal });
-    const rawText = message.content || message;
-    return {
-      code: sanitizeHtmlResponse(rawText),
-      editMode: 'full-generation',
-      editSummary: 'Initial app generation.',
-      reply: extractLeadingReply(rawText) || undefined
-    };
-  }
-
-  // REFINEMENT MODE: multi-turn agentic tool-use loop. The model can inspect the code
-  // (view_code / list_sections) and apply edits (apply_surgical_edits) across several
-  // turns in one conversation, self-correcting from real tool-result errors instead of
-  // blindly restarting from scratch each attempt.
-  const messages = [
-    { role: 'system', content: HTML_SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`
-    }
-  ];
-
-  let workingCode = currentCode;
-  let editsApplied = false;
-  let nudged = false;
-  let replyParts = [];
-
-  for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-
-    let message;
-    try {
-      message = await requestModelText({
-        messages,
-        onChunk,
-        tools: REFINEMENT_TOOLS,
-        tool_choice: turn === 1 ? 'required' : 'auto',
-        signal
-      });
-    } catch (e) {
-      if (turn !== 1 || signal?.aborted) throw e;
-      // Some OpenAI-compatible backends don't support tool_choice: 'required' — fall back
-      // to forcing the one edit tool by name, matching the old always-forced behavior.
-      message = await requestModelText({
-        messages,
-        onChunk,
-        tools: REFINEMENT_TOOLS,
-        tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
-        signal
-      });
-    }
-
-    if (message.content && message.content.trim()) {
-      replyParts.push(message.content.trim());
-    }
-
-    messages.push({
-      role: 'assistant',
-      content: message.content || null,
-      tool_calls: message.tool_calls?.length ? message.tool_calls : undefined
-    });
-
-    if (!message.tool_calls || message.tool_calls.length === 0) {
-      if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
-      if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
-      nudged = true;
-      messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
-      continue;
-    }
-
-    for (const toolCall of message.tool_calls) {
-      if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-      const { code: nextCode, applied, result } = executeRefinementTool(workingCode, toolCall);
-      workingCode = nextCode;
-      if (applied) editsApplied = true;
-      messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-    }
-  }
-
-  if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
-  throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
-};
-
-const SUGGESTIONS_CODE_CHAR_BUDGET = 12000;
-
-const buildSuggestionsPrompt = (code, versions, projectName) => {
-  const half = SUGGESTIONS_CODE_CHAR_BUDGET / 2;
-  const truncatedCode = code.length > SUGGESTIONS_CODE_CHAR_BUDGET
-    ? `${code.slice(0, half)}\n...[truncated]...\n${code.slice(-half)}`
-    : code;
-
-  const recentHistory = versions.slice(-6).map((v, i) => {
-    const extra = v.editSummary && v.editSummary !== v.prompt ? ` (${v.editSummary})` : '';
-    return `${i + 1}. ${v.prompt}${extra}`;
-  }).join('\n');
-
-  return `App name: ${projectName}
-
-Recent edit history:
-${recentHistory || '(none yet)'}
-
-Current app code:
-\`\`\`html
-${truncatedCode}
-\`\`\`
-
-Suggest 3-4 specific next-step prompts for this app.`;
-};
-
-// Best-effort background enhancement -- never surfaces an error to the user.
-// Any failure (missing config, network error, malformed tool response) just
-// means no suggestions are shown.
-const generateContextualSuggestions = async ({ code, versions, projectName, signal }) => {
-  try {
-    const messages = [
-      { role: 'system', content: SUGGESTIONS_SYSTEM_PROMPT },
-      { role: 'user', content: buildSuggestionsPrompt(code, versions, projectName) }
-    ];
-
-    const message = await requestModelText({
-      messages,
-      tools: [SUGGEST_NEXT_STEPS_TOOL],
-      tool_choice: { type: 'function', function: { name: 'return_suggestions' } },
-      signal
-    });
-
-    const toolCall = message.tool_calls?.[0];
-    if (!toolCall) return [];
-
-    let args;
-    try {
-      args = JSON.parse(toolCall.function.arguments);
-    } catch {
-      return [];
-    }
-
-    if (!Array.isArray(args.suggestions)) return [];
-
-    return args.suggestions
-      .map((s) => (typeof s === 'string' ? s.trim() : ''))
-      .filter(Boolean)
-      .slice(0, 4);
-  } catch (err) {
-    if (err?.name === 'AbortError') throw err;
-    console.warn('[Orion] Failed to generate contextual suggestions:', err);
-    return [];
-  }
-};
-
-const generateNewStarterIdeas = async ({ signal }) => {
-  const messages = [
-    { role: 'system', content: STARTER_IDEAS_SYSTEM_PROMPT },
-    { role: 'user', content: "Generate 8 new starter app ideas." }
-  ];
-
-  const message = await requestModelText({
-    messages,
-    tools: [GENERATE_STARTER_IDEAS_TOOL],
-    tool_choice: { type: 'function', function: { name: 'return_starter_ideas' } },
-    signal
-  });
-
-  const toolCall = message.tool_calls?.[0];
-  if (!toolCall) return null;
-
-  let args;
-  try {
-    args = JSON.parse(toolCall.function.arguments);
-  } catch {
-    return null;
-  }
-
-  if (!Array.isArray(args.ideas)) return null;
-  return args.ideas;
-};
-
-const syntaxHighlightHtml = (code) => {
-  if (!code) return "";
-
-  const escape = (str) => {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
-
-  let escaped = escape(code);
-
-  // 1. Comments
-  escaped = escaped.replace(/&lt;!--([\s\S]*?)--&gt;/g, '<span class="token-comment">&lt;!--$1--&gt;</span>');
-  // 2. Doctype
-  escaped = escaped.replace(/(&lt;!DOCTYPE[\s\S]*?&gt;)/gi, '<span class="token-doctype">$1</span>');
-  // 3. Tags and Attributes
-  escaped = escaped.replace(/(&lt;\/?)([\w-:]+)([\s\S]*?)(&gt;)/g, (match, prefix, tagName, attrs, suffix) => {
-    const highlightedTag = `${prefix}<span class="token-tag-name">${tagName}</span>`;
-    const highlightedAttrs = attrs.replace(/\s+([\w-:]+)(?:=(&quot;[\s\S]*?&quot;|&#039;[\s\S]*?&#039;|[\w:-]+))?/g, (m, attrName, attrValue) => {
-      let res = ` <span class="token-attr-name">${attrName}</span>`;
-      if (attrValue) res += `=<span class="token-string">${attrValue}</span>`;
-      return res;
-    });
-    return highlightedTag + highlightedAttrs + suffix;
-  });
-
-  // Split into lines for numbering
-  const lines = escaped.split('\n');
-  const numberedLines = lines.map((line, i) => {
-    return `<div class="code-line"><span class="line-number">${i + 1}</span><span class="line-content">${line || ' '}</span></div>`;
-  }).join('');
-
-  return numberedLines;
-};
-
-// Some backends emit chain-of-thought/preamble text through the regular content
-// delta instead of (or in addition to) reasoning_content. Until this pattern shows
-// up in the accumulated stream, sanitizeHtmlResponse has no real boundary to anchor
-// on and falls back to returning the raw text -- which would flash that preamble
-// into the live code panel. Gate the panel update on this instead.
-const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
-
-const PRESET_COLORS = [
-  "text-amber-600 bg-amber-50",
-  "text-sky-600 bg-sky-50",
-  "text-emerald-600 bg-emerald-50",
-  "text-indigo-600 bg-indigo-50",
-  "text-violet-600 bg-violet-50",
-  "text-rose-600 bg-rose-50",
-  "text-blue-600 bg-blue-50",
-  "text-teal-600 bg-teal-50"
-];
-
-const AVAILABLE_ICONS = {
-  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor
-};
-
-const STARTER_PRESETS = [
-  {
-    title: "Study Session Manager",
-    prompt: "A focus timer with customizable work/break intervals, task tagging, and a visual session history.",
-    category: "Productivity",
-    icon: Timer,
-    color: "text-amber-600 bg-amber-50"
-  },
-  {
-    title: "Travel Dashboard",
-    prompt: "A travel dashboard showing local weather forecasts, a packing checklist, and an interactive itinerary timeline.",
-    category: "Travel",
-    icon: CloudSun,
-    color: "text-sky-600 bg-sky-50"
-  },
-  {
-    title: "Group Bill Splitter",
-    prompt: "A dynamic bill splitter that lets you add friends, assign items to people, and calculates tax and tip automatically.",
-    category: "Finance",
-    icon: Receipt,
-    color: "text-emerald-600 bg-emerald-50"
-  },
-  {
-    title: "Mood & Habit Journal",
-    prompt: "A daily journal combining a mood selector with quick toggles for habits, displaying a weekly overview chart.",
-    category: "Wellness",
-    icon: ListChecks,
-    color: "text-indigo-600 bg-indigo-50"
-  },
-  {
-    title: "Kanban Board",
-    prompt: "A Kanban-style task board with columns for 'To Do', 'In Progress', and 'Done', featuring interactive cards.",
-    category: "Project",
-    icon: Layout,
-    color: "text-violet-600 bg-violet-50"
-  },
-  {
-    title: "Subscription Manager",
-    prompt: "A recurring subscription tracker that estimates monthly costs, sorts by billing date, and categorizes spending.",
-    category: "Finance",
-    icon: Wallet,
-    color: "text-emerald-600 bg-emerald-50"
-  },
-  {
-    title: "Secure Vault UI",
-    prompt: "A secure vault interface with a mock login screen, advanced password generator, and categorized credential cards.",
-    category: "Security",
-    icon: KeyRound,
-    color: "text-rose-600 bg-rose-50"
-  },
-  {
-    title: "Markdown Editor",
-    prompt: "A dual-pane markdown editor with a live preview, word count, and a distraction-free reading mode.",
-    category: "Utility",
-    icon: Edit2,
-    color: "text-blue-600 bg-blue-50"
-  },
-  {
-    title: "Recipe Scaler",
-    prompt: "A recipe ingredient scaler that instantly adjusts measurements and units when you change the desired serving size.",
-    category: "Tools",
-    icon: Calculator,
-    color: "text-teal-600 bg-teal-50"
-  }
-];
-
-const DEFAULT_MARQUEE_MESSAGE = 'Initializing generation... Preparing code workspace... Analyzing requirements... Writing components...';
-const MARQUEE_SEPARATOR = '  //  ';
-const MARQUEE_MIN_LOOP_LENGTH = 220;
-const MARQUEE_MAX_BUFFER_LENGTH = 4000;
-const PREVIEW_MODES = {
-  mobile: {
-    label: 'Mobile',
-    width: 399,
-    height: 820,
-    deviceClass: 'device-smartphone',
-    isTouchChrome: true,
-    zoomPadding: { h: 32, v: 32 }
-  },
-  tablet: {
-    label: 'Tablet',
-    width: 810,
-    height: 1080,
-    deviceClass: 'device-tablet',
-    isTouchChrome: true,
-    zoomPadding: { h: 52, v: 44 }
-  },
-  desktop: {
-    label: 'Desktop',
-    width: 1468,
-    height: 1022,
-    deviceClass: 'device-desktop',
-    isTouchChrome: false,
-    zoomPadding: { h: 72, v: 54 }
-  }
-};
-
-// Desktop has no orientation concept (it's a browser window, not a rotatable
-// device), so only touch-chrome modes (mobile/tablet) swap width/height here.
-const getEffectivePreviewBox = (mode, orientation) => {
-  const preset = PREVIEW_MODES[mode];
-  if (preset.isTouchChrome && orientation === 'landscape') {
-    return {
-      width: preset.height,
-      height: preset.width,
-      zoomPadding: { h: preset.zoomPadding.v, v: preset.zoomPadding.h }
-    };
-  }
-  return { width: preset.width, height: preset.height, zoomPadding: preset.zoomPadding };
-};
-
-const buildMarqueeLoop = (value) => {
-  const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
-  let loop = normalized;
-
-  while (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
-    loop += `${MARQUEE_SEPARATOR}${normalized}`;
-  }
-
-  return loop;
-};
-
-// Handles both the legacy Firebase-style Date object and plain ISO strings that
-// come back from Supabase's `updated_at`.
-const formatModifiedTime = (value) => {
-  if (!value) return 'Just now';
-  if (typeof value === 'string') {
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? 'Just now' : d.toLocaleString();
-  }
-  if (typeof value?.toDate === 'function') {
-    const d = value.toDate();
-    return isNaN(d.getTime()) ? 'Just now' : d.toLocaleString();
-  }
-  return 'Just now';
-};
-
-const isValidUuid = (value) =>
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value || '');
+import { 
+  safeStorage, loadThemePreference, loadRememberKey, loadLlmConfig, saveLlmConfig, 
+  saveRememberKey, isInsecureEndpoint, THEME_META_COLOR, THEME_KEY 
+} from './lib/config';
+import { 
+  registerDeployment, unregisterDeployment, uploadDeploy, makePublicSlug, deployUrlForSlug, 
+  deployObjectPath, makeStorageToken, DEPLOY_BUCKET 
+} from './lib/deploy';
+import { 
+  sanitizeHtmlResponse 
+} from './lib/edits';
+import { 
+  SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL, REFINEMENT_TOOLS, 
+  SUGGEST_NEXT_STEPS_TOOL, GENERATE_STARTER_IDEAS_TOOL, STARTER_IDEAS_SYSTEM_PROMPT, 
+  HTML_SYSTEM_PROMPT, SUGGESTIONS_SYSTEM_PROMPT
+} from './lib/prompts';
+import { 
+  MAX_REFINEMENT_TURNS, generateAppCode, generateContextualSuggestions, generateNewStarterIdeas 
+} from './lib/llm';
+import { 
+  PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, PREVIEW_MODES, DEFAULT_MARQUEE_MESSAGE, 
+  MARQUEE_SEPARATOR, MARQUEE_MIN_LOOP_LENGTH, MARQUEE_MAX_BUFFER_LENGTH, HTML_STREAM_START_RE, 
+  SUGGESTIONS_CODE_CHAR_BUDGET 
+} from './lib/constants';
+import { 
+  syntaxHighlightHtml, getEffectivePreviewBox, buildMarqueeLoop, formatModifiedTime, isValidUuid 
+} from './lib/helpers';
 
 export default function App() {
   const [prompt, setPrompt] = useState('');
-  const [initialLayoutTarget, setInitialLayoutTarget] = useState('both');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
+  const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
   const [error, setError] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
@@ -1267,7 +126,7 @@ export default function App() {
   );
   const resolvedTheme =
     themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference;
-  const [starterIdeas, setStarterIdeas] = useState(STARTER_PRESETS.slice(0, 8));
+  const [starterIdeas, setStarterIdeas] = useState(STARTER_PRESETS.slice(0, 4));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   const handleGenerateStarters = async () => {
@@ -2115,7 +974,7 @@ export default function App() {
           }
           setStreamingReply(streamingReplyRef.current);
         }
-      }, initialLayoutTarget, abortControllerRef.current.signal);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask');
       setGeneratedCode(generationResult.code);
       
       const newVersion = {
@@ -2287,7 +1146,6 @@ export default function App() {
     if (!shouldGenerateAfterNaming || (!currentProjectId && projectName === 'Untitled App')) {
       setGeneratedCode('');
       setPrompt(shouldGenerateAfterNaming ? prompt : ''); // Keep prompt if we're about to generate
-      setInitialLayoutTarget('both');
       setError(null);
       setVersions([]);
       setCurrentVersionIndex(-1);
@@ -2386,7 +1244,7 @@ export default function App() {
     setPrompt('');
     setPendingPrompt('');
     setHasSentFirstPrompt(false);
-    setInitialLayoutTarget('both');
+    setChatMode('build');
     setError(null);
     setVersions([]);
     setCurrentVersionIndex(-1);
@@ -3833,7 +2691,7 @@ export default function App() {
                     <h2 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.85rem] 2xl:text-[3.3rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
                       {isChatActive ? (
                         <>
-                          {isResumingProject ? 'Loading' : (generatedCode ? 'Refine' : 'Building')}{' '}
+                          {isResumingProject ? 'Loading' : (generatedCode ? (chatMode === 'ask' ? 'Ask about' : 'Refine') : 'Building')}{' '}
                           <span className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-slate-900 dark:to-slate-600 bg-clip-text text-transparent">your app</span>
                         </>
                       ) : (
@@ -3842,7 +2700,7 @@ export default function App() {
                     </h2>
                     <p className="text-slate-600 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed max-w-[36ch]">
                       {isChatActive
-                        ? (isResumingProject ? "Reopening your saved project." : (generatedCode ? "Describe what to change, add, or fix." : "Orion is synthesizing your application from your prompt."))
+                        ? (isResumingProject ? "Reopening your saved project." : (generatedCode ? (chatMode === 'ask' ? "Ask questions to understand the codebase." : "Describe what to change, add, or fix.") : "Orion is synthesizing your application from your prompt."))
                         : "Describe an idea in plain words and Orion turns it into a complete, working app."}
                     </p>
                   </div>
@@ -3935,7 +2793,7 @@ export default function App() {
                           <div className="flex justify-start">
                             <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 text-slate-500 px-4 py-2.5 text-sm flex items-center gap-2 animate-fade-in">
                               <Loader2 className="animate-spin text-indigo-500" size={14} />
-                              <span className="text-xs font-medium">Building app...</span>
+                              <span className="text-xs font-medium">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
                             </div>
                           </div>
                         ) : null}
@@ -3965,7 +2823,7 @@ export default function App() {
 
             {/* Fixed Bottom Input Area */}
             <div className="shrink-0 p-3 sm:p-3.5 pt-2 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
-              {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
+              {generatedCode && !isGenerating && chatMode === 'build' && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
                 <div className="mb-2 animate-fade-in">
                   <div className="flex items-center justify-between px-0.5">
                     <button
@@ -4054,42 +2912,25 @@ export default function App() {
                       handleGenerate();
                     }
                   }}
-                  placeholder={isChatActive ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
+                  placeholder={isChatActive ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...") : "e.g. A minimalist task manager with categories..."}
                   className="w-full h-16 sm:h-20 xl:h-20 2xl:h-24 px-4 pt-3 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base leading-relaxed bg-transparent"
                   disabled={isGenerating}
                 />
-                {!isChatActive && (
+                {isChatActive && (
                   <div className="px-3 sm:px-3.5 pb-2">
                     <div className="flex items-center justify-between py-1.5 px-2.5 sm:px-3 rounded-lg bg-slate-50 border border-slate-200/80">
-                      <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider">Optimize for</span>
+                      <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider">Mode</span>
                       <div className="flex items-center gap-1 sm:gap-1.5">
-                        {INITIAL_LAYOUT_OPTIONS.map((option) => {
-                          const Icon = option.icon;
-                          const isSelected = initialLayoutTarget === option.id;
-
-                          return (
-                            <label
-                              key={option.id}
-                              className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${
-                                isSelected
-                                  ? 'bg-surface text-indigo-700 shadow-sm border border-slate-300'
-                                  : 'text-slate-500 hover:text-slate-800'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name="initialLayoutTarget"
-                                value={option.id}
-                                checked={isSelected}
-                                onChange={() => setInitialLayoutTarget(option.id)}
-                                className="sr-only"
-                                disabled={isGenerating}
-                              />
-                              <Icon size={13} className={isSelected ? 'text-indigo-600' : 'text-slate-400'} />
-                              <span>{option.label}</span>
-                            </label>
-                          );
-                        })}
+                        <label className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${chatMode === 'build' ? 'bg-surface text-indigo-700 shadow-sm border border-slate-300' : 'text-slate-500 hover:text-slate-800'}`}>
+                          <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => setChatMode('build')} className="sr-only" disabled={isGenerating} />
+                          <Wand2 size={13} className={chatMode === 'build' ? 'text-indigo-600' : 'text-slate-400'} />
+                          <span>Build</span>
+                        </label>
+                        <label className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${chatMode === 'ask' ? 'bg-surface text-indigo-700 shadow-sm border border-slate-300' : 'text-slate-500 hover:text-slate-800'}`}>
+                          <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => setChatMode('ask')} className="sr-only" disabled={isGenerating} />
+                          <MessageSquare size={13} className={chatMode === 'ask' ? 'text-indigo-600' : 'text-slate-400'} />
+                          <span>Ask</span>
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -4097,7 +2938,7 @@ export default function App() {
                 <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2">
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 select-none">
                     <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-surface font-sans text-xs leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
-                    <span className="hidden sm:inline">to build</span>
+                    <span className="hidden sm:inline">{chatMode === 'ask' ? 'to ask' : 'to build'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {isGenerating && (
@@ -4126,12 +2967,12 @@ export default function App() {
                       {isGenerating ? (
                         <>
                           <Loader2 className="animate-spin" size={16} />
-                          <span>{generatedCode ? "Updating..." : "Building..."}</span>
+                          <span>{chatMode === 'ask' ? "Thinking..." : (generatedCode ? "Updating..." : "Building...")}</span>
                         </>
                       ) : (
                         <>
-                          {isChatActive ? <Edit2 size={16} /> : <Wand2 size={16} />}
-                          <span>{isChatActive ? "Update App" : "Build App"}</span>
+                          {chatMode === 'ask' ? <MessageSquare size={16} /> : (isChatActive ? <Edit2 size={16} /> : <Wand2 size={16} />)}
+                          <span>{chatMode === 'ask' ? "Ask" : (isChatActive ? "Update App" : "Build App")}</span>
                         </>
                       )}
                     </button>
