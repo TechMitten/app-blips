@@ -1301,6 +1301,12 @@ export default function App() {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : true;
   });
+  const [buildPaneWidth, setBuildPaneWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('orion-build-pane-width'));
+    return Number.isFinite(saved) && saved >= 320 ? saved : 480;
+  });
+  const [isResizingBuildPane, setIsResizingBuildPane] = useState(false);
+  const buildPaneResizeStartRef = useRef({ startX: 0, startWidth: 480 });
 
   // --- Auth state (Supabase) ---
   const [session, setSession] = useState(null);
@@ -1420,6 +1426,44 @@ export default function App() {
     streamingReplyRef.current = '';
     replyFrozenRef.current = false;
   };
+
+  // --- Build Panel Resize ---
+  const handleBuildPaneResizeStart = useCallback((e) => {
+    e.preventDefault();
+    buildPaneResizeStartRef.current = { startX: e.clientX, startWidth: buildPaneWidth };
+    setIsResizingBuildPane(true);
+  }, [buildPaneWidth]);
+
+  useEffect(() => {
+    if (!isResizingBuildPane) return;
+
+    const handleMouseMove = (e) => {
+      const { startX, startWidth } = buildPaneResizeStartRef.current;
+      const min = 320;
+      const max = Math.max(min, window.innerWidth - 420);
+      const next = Math.min(max, Math.max(min, startWidth + (e.clientX - startX)));
+      setBuildPaneWidth(next);
+    };
+    const handleMouseUp = () => setIsResizingBuildPane(false);
+
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingBuildPane]);
+
+  useEffect(() => {
+    localStorage.setItem('orion-build-pane-width', String(buildPaneWidth));
+  }, [buildPaneWidth]);
 
   // --- Dynamic Zoom Logic ---
   useEffect(() => {
@@ -3681,7 +3725,10 @@ export default function App() {
         <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
-          <div className="w-full md:w-[400px] lg:w-[460px] xl:w-[520px] 2xl:w-[600px] 3xl:w-[680px] min-h-0 overflow-hidden flex flex-col bg-surface border-r border-slate-300/80 z-20 flex-shrink-0 panel-edge-right relative">
+          <div
+            className="w-full md:w-[var(--build-pane-width)] min-h-0 overflow-hidden flex flex-col bg-surface z-20 flex-shrink-0 relative"
+            style={{ '--build-pane-width': `${buildPaneWidth}px` }}
+          >
             {/* Subtle atmospheric gradient */}
             <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
 
@@ -4019,6 +4066,22 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Drag handle to resize the build panel */}
+          <div
+            onMouseDown={handleBuildPaneResizeStart}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize build panel"
+            title="Drag to resize"
+            className={`hidden md:flex items-stretch w-1.5 shrink-0 cursor-col-resize z-20 group transition-colors ${
+              isResizingBuildPane ? 'bg-indigo-400/25' : 'hover:bg-indigo-400/15'
+            }`}
+          >
+            <div className={`w-px h-full mx-auto panel-edge-right transition-colors ${
+              isResizingBuildPane ? 'bg-indigo-500' : 'bg-slate-300/80 group-hover:bg-indigo-400'
+            }`} />
           </div>
 
           {/* Preview/Device Area (Right) */}
