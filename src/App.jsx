@@ -2517,8 +2517,8 @@ export default function App() {
 
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[60] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg xl:max-w-xl 2xl:max-w-2xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
-            <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="w-full max-w-lg xl:max-w-xl 2xl:max-w-2xl max-h-[90vh] bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col">
+            <div className="shrink-0 px-8 py-5 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
               <button
                 onClick={() => setIsSettingsOpen(false)}
@@ -2527,7 +2527,7 @@ export default function App() {
                 <X size={18} />
               </button>
             </div>
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
                 <label className="text-base font-bold text-slate-900 uppercase tracking-wider">Appearance</label>
                 <p className="text-slate-900 text-sm lg:text-base leading-relaxed">
@@ -2653,10 +2653,10 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3">
+            <div className="shrink-0 bg-slate-50 px-8 py-5 flex justify-end gap-3">
               <button
                 onClick={handleSaveSettings}
-                className="rounded-lg px-6 py-2.5 bg-brand text-white font-semibold text-base hover:bg-brand-hover shadow-sm transition-colors active:scale-[0.98]"
+                className="brand-fill-text rounded-lg px-6 py-2.5 bg-brand text-white font-semibold text-base hover:bg-brand-hover shadow-sm transition-colors active:scale-[0.98]"
               >
                 Done
               </button>
@@ -2819,7 +2819,7 @@ export default function App() {
                                     className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                                       !editingProjectName.trim() || renamingProjectId === project.id
                                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                        : 'bg-brand text-white hover:bg-brand-hover shadow-2xs'
+                                        : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-2xs'
                                     }`}
                                   >
                                     <Check size={13} />
@@ -2910,7 +2910,7 @@ export default function App() {
                                 onClick={() => loadProject(project)}
                                 className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-2xs ${
                                   isCurrent
-                                    ? 'bg-brand text-white hover:bg-brand-hover shadow-indigo-500/20'
+                                    ? 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-indigo-500/20'
                                     : 'bg-surface hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200'
                                 }`}
                               >
@@ -3035,7 +3035,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleConfirmNewChat}
-                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
               >
                 Start New
               </button>
@@ -3168,7 +3168,7 @@ export default function App() {
                       type="button"
                       onClick={handleDeploy}
                       disabled={isDeploying}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Rocket size={15} />
                       Redeploy
@@ -3177,7 +3177,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => { setIsDeployModalOpen(false); setIsAuthModalOpen(true); }}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                      className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
                     >
                       <LogIn size={15} />
                       Sign in
@@ -3196,7 +3196,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => { setIsDeployModalOpen(false); setIsAuthModalOpen(true); }}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                    className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
                   >
                     <LogIn size={15} />
                     Sign in
@@ -3216,7 +3216,7 @@ export default function App() {
                     type="button"
                     onClick={handleDeploy}
                     disabled={isDeploying || !generatedCode}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Rocket size={15} />
                     Deploy
@@ -3278,9 +3278,9 @@ export default function App() {
                   type="submit"
                   disabled={!tempProjectName.trim()}
                   className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
-                    !tempProjectName.trim() 
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                    : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
+                    !tempProjectName.trim()
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm'
                   }`}
                 >
                   Create
@@ -3393,7 +3393,7 @@ export default function App() {
                   className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
                     authLoading
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
+                      : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm'
                   }`}
                 >
                   {authLoading && <Loader2 className="animate-spin" size={15} />}
@@ -3470,7 +3470,7 @@ export default function App() {
                 className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
                   authLoading
                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
+                    : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm'
                 }`}
               >
                 {authLoading && <Loader2 className="animate-spin" size={15} />}
@@ -3568,7 +3568,7 @@ export default function App() {
                           {/* Version badge */}
                           <div className={`shrink-0 h-[22px] min-w-[38px] px-2 rounded-md flex items-center justify-center text-[10px] font-bold tracking-wide transition-all duration-200 ${
                             isActive
-                              ? 'bg-brand text-white shadow-xs shadow-indigo-200'
+                              ? 'brand-fill-text bg-brand text-white shadow-xs shadow-indigo-200'
                               : 'bg-slate-100 text-slate-700 border border-slate-200 group-hover:bg-slate-200'
                           }`}>
                             v{idx + 1}
@@ -4161,7 +4161,7 @@ export default function App() {
                 {generatedCode && (
                   <button
                     onClick={openDeployModal}
-                    className="nav-btn relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+                    className="nav-btn brand-fill-text relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
                     title={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
                   >
                     <Rocket size={14} />
