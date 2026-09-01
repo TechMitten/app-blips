@@ -113,18 +113,18 @@ export default function DeviceMockup({
                   Enter a prompt to generate and interact with your app in real-time.
                 </p>
 
-                <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[280px]">
+                <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[300px]">
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
                     <Zap size={14} className="text-amber-500 shrink-0" />
-                    <span>Instant live rendering</span>
+                    <span className="whitespace-nowrap">Instant live rendering</span>
                   </div>
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
                     <ShieldAlert size={14} className="text-emerald-500 shrink-0" />
-                    <span>Sandboxed origin security</span>
+                    <span className="whitespace-nowrap">Sandboxed origin security</span>
                   </div>
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
                     <Layers size={14} className="text-indigo-500 shrink-0" />
-                    <span>Tailwind CSS & JS built-in</span>
+                    <span className="whitespace-nowrap">Tailwind CSS &amp; JS built-in</span>
                   </div>
                 </div>
               </div>

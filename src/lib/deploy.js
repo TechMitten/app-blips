@@ -21,9 +21,10 @@ export const DEPLOY_BUCKET = 'orion-deploys';
 export const APPS_ORIGIN = 'https://apps.orion.islandapps.dev';
 
 export const randomToken = (length) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => (b % 36).toString(36)).join('');
+  return Array.from(bytes, (b) => chars[b % 62]).join('');
 };
 
 // Storage object names stay opaque; only the public slug is human-readable.
@@ -44,7 +45,7 @@ export const slugifyName = (name) =>
     .slice(0, 40)
     .replace(/-+$/, '');
 
-export const makePublicSlug = (projectName) => `${slugifyName(projectName) || 'app'}-${randomToken(4)}`;
+export const makePublicSlug = (projectName) => `${slugifyName(projectName) || 'app'}-${randomToken(6)}`;
 
 export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 

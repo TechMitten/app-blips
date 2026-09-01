@@ -24,9 +24,9 @@ const SUPABASE_URL = 'https://nmmrhagtkfjqljktcwkf.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bX8jWhkPlVD0bHx7cQ8RJg_mGjOdWc3';
 const BUCKET = 'orion-deploys';
 
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
+const SLUG_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
 const STORAGE_PATH_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[a-z0-9]{1,32}\.html$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[a-zA-Z0-9]{1,32}\.html$/i;
 
 // Generated apps are single files with inline scripts/styles, usually pulling
 // Tailwind from a CDN, so those need to be allowed for anything to render.
@@ -80,7 +80,7 @@ export async function onRequest(context) {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    const slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, '')).toLowerCase();
+    const slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, ''));
 
     if (!slug) {
       return notice(404, 'Nothing here', 'This address needs an app link.');
