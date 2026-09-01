@@ -134,7 +134,7 @@ CRITICAL RULES:
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 6. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
-7. For mobile-focused apps, always include viewport-fit=cover meta tag and safe-area-inset padding.
+7. For mobile-focused apps, build a native smartphone app, not a shrunk-down website. Do not use website conventions like top nav bars with a logo, hamburger menus, hero sections, or footers. Instead use native app patterns: a fixed bottom tab bar or top app bar, full-bleed screens, card-based lists, sheets/modals that slide up from the bottom, large tappable rows, and a floating action button where appropriate. Always include a viewport-fit=cover meta tag and safe-area-inset padding.
 8. The app runs in a sandboxed preview frame with no origin. Do NOT use localStorage, sessionStorage, indexedDB, or document.cookie - hold all state in JavaScript variables. Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 
 SURGICAL EDIT GUIDELINES:
@@ -175,12 +175,12 @@ export const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
 
   switch (layoutTarget) {
     case 'mobile':
-      return `Create a mobile-first web app based on this request: ${trimmedPrompt}. Optimize for a polished 375px touch-screen experience with compact spacing, thumb-friendly controls, and a layout that feels native on phones.${safeAreaInstruction}`;
+      return `Create a native-feeling smartphone app based on this request: ${trimmedPrompt}. It must look and feel like a real native iOS/Android app running full-screen on a 375px device -- not a website viewed on a phone. Use native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals, large thumb-friendly controls) instead of website conventions (top nav bars, hamburger menus, hero sections, footers).${safeAreaInstruction}`;
     case 'desktop':
       return `Create a desktop-focused web app based on this request: ${trimmedPrompt}. Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
     case 'both':
     default:
-      return `Create a responsive web app based on this request: ${trimmedPrompt}. It must look polished on mobile and also present a true desktop layout on larger screens instead of staying in a phone-width column.${safeAreaInstruction}`;
+      return `Create a responsive app based on this request: ${trimmedPrompt}. On phone widths it must look and feel like a native iOS/Android app -- not a website viewed on a phone -- using native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals) instead of website conventions (top nav bars, hamburger menus, hero sections, footers). On larger screens, present a true desktop layout instead of staying in a phone-width column.${safeAreaInstruction}`;
   }
 };
 

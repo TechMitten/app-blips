@@ -76,7 +76,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
-    return stored !== null ? stored === 'true' : true;
+    return stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
@@ -215,6 +215,12 @@ export default function App() {
 
   const handleGenerateStarters = async () => {
     if (isGeneratingStarters) return;
+
+    if (!isSignedIn) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsGeneratingStarters(true);
     setError(null);
     try {
@@ -244,6 +250,11 @@ export default function App() {
   const handleGenerate = async (e) => {
     e?.preventDefault();
     if (!prompt.trim()) return;
+
+    if (!isSignedIn) {
+      setIsAuthModalOpen(true);
+      return;
+    }
 
     // Require naming for transition from Untitled or New App
     if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
@@ -511,23 +522,13 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
-  // Every function of the app requires a signed-in account: block on session
-  // restore, then gate the entire workspace behind AuthModal when signed out.
+  // Only session restore blocks the UI; signed-out visitors can look around
+  // freely and are only prompted to sign in when they try to generate or use
+  // an account-only feature (see handleGenerate, DeployModal's onRequireSignIn).
   if (authStatus === 'loading') {
     return (
       <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
         <Loader2 className="animate-spin text-slate-400" size={28} />
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
-        {authToast && (
-          <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
-        )}
-        <AuthModal dismissible={false} />
       </div>
     );
   }

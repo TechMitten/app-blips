@@ -4,7 +4,7 @@ import {
   Edit2, Clock, ListTodo, Wallet, Undo2, Redo2, FolderOpen, X, Copy, Check, Trash2, ZoomIn, ZoomOut,
   Monitor, Tablet, RotateCw, Moon, Sun, PanelLeftOpen, PanelLeftClose, TriangleAlert, Eye, EyeOff,
   Calculator, KeyRound, Ruler, LogIn, LogOut, User, CloudUpload, Mail, ExternalLink, Zap, Layers,
-  Search, Rocket, Globe, MessageSquare
+  Search, Rocket, Globe, MessageSquare, Trophy
 } from 'lucide-react';
 
 export const SUGGESTIONS_CODE_CHAR_BUDGET = 12000;
@@ -32,65 +32,65 @@ export const AVAILABLE_ICONS = {
 
 export const STARTER_PRESETS = [
   {
-    title: "Study Session Manager",
-    prompt: "A focus timer with work/break intervals and a session history.",
+    title: "Focus Timer",
+    prompt: "A cozy focus timer with work/break intervals, gentle chimes, and a streak history.",
     category: "Productivity",
     icon: Timer,
     color: "text-amber-600 bg-amber-50"
   },
   {
-    title: "Travel Dashboard",
-    prompt: "A travel dashboard showing weather forecasts and a packing checklist.",
+    title: "Trip Planner",
+    prompt: "A trip planner with a weather forecast, packing checklist, and day-by-day itinerary.",
     category: "Travel",
     icon: CloudSun,
     color: "text-sky-600 bg-sky-50"
   },
   {
-    title: "Group Bill Splitter",
-    prompt: "A dynamic bill splitter that assigns items and calculates tax/tip.",
+    title: "Bill Splitter",
+    prompt: "A bill splitter for group dinners that assigns items to people and calculates tax/tip.",
     category: "Finance",
     icon: Receipt,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
-    title: "Mood & Habit Journal",
-    prompt: "A daily journal combining a mood selector with quick toggles for habits.",
+    title: "Mood & Habit Tracker",
+    prompt: "A friendly daily journal combining a mood check-in with quick toggles for habits and streaks.",
     category: "Wellness",
     icon: ListChecks,
     color: "text-indigo-600 bg-indigo-50"
   },
   {
-    title: "Kanban Board",
-    prompt: "A task board with columns for 'To Do', 'In Progress', and 'Done'.",
-    category: "Project",
+    title: "Family Chore Board",
+    prompt: "A drag-and-drop chore board for a household with columns for 'To Do', 'Doing', and 'Done'.",
+    category: "Home",
     icon: Layout,
     color: "text-violet-600 bg-violet-50"
   },
   {
-    title: "Subscription Manager",
-    prompt: "A subscription tracker that estimates monthly costs and categorizes spending.",
+    title: "Subscription Tracker",
+    prompt: "A subscription tracker that totals monthly spending and flags upcoming renewals.",
     category: "Finance",
     icon: Wallet,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
-    title: "Secure Vault UI",
-    prompt: "A vault interface with a password generator and credential cards.",
-    category: "Security",
-    icon: KeyRound,
+    title: "Game Night Scorekeeper",
+    prompt: "A scorekeeper for game night with player rounds, running totals, and a winner celebration.",
+    category: "Fun",
+    icon: Trophy,
     color: "text-rose-600 bg-rose-50"
   },
   {
-    title: "Markdown Editor",
-    prompt: "A dual-pane markdown editor with a live preview and word count.",
-    category: "Utility",
+    title: "Recipe Box",
+    prompt: "A recipe box for saving favorite recipes with an ingredient scaler for serving size.",
+    category: "Food",
     icon: Edit2,
     color: "text-blue-600 bg-blue-50"
   },
   {
-    title: "Recipe Scaler",
-    prompt: "A recipe ingredient scaler that adjusts measurements by serving size.",
-    category: "Tools",
+    title: "Workout Log",
+    prompt: "A simple workout log for tracking sets, reps, and weight with a progress chart over time.",
+    category: "Fitness",
     icon: Calculator,
     color: "text-teal-600 bg-teal-50"
   }
