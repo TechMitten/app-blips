@@ -1,9 +1,8 @@
 import { RefreshCw, Plus } from 'lucide-react';
-
 // Empty-state idea cards (LLM-generated when refreshed, presets otherwise).
 export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick }) {
   return (
-    <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+    <div className="space-y-3 animate-fade-in @container" style={{ animationDelay: '0.08s' }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-3.5 w-1 rounded-full bg-indigo-500" aria-hidden="true" />
@@ -23,29 +22,27 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 xl:gap-3 2xl:gap-3.5">
+      <div className="grid grid-cols-1 @xl:grid-cols-2 gap-2.5 @xl:gap-3 2xl:gap-3.5">
         {ideas.map((starter) => {
           const IconComponent = starter.icon;
           return (
             <button
               key={starter.title}
               onClick={() => onPick(starter)}
-              className="group flex flex-col justify-between text-left p-3 xl:p-3.5 2xl:p-4 bg-slate-50/80 hover:bg-surface border border-slate-200/90 hover:border-indigo-300 rounded-xl xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              className="group flex items-center gap-3 2xl:gap-3.5 text-left p-3 xl:p-3.5 bg-slate-50/80 hover:bg-surface border border-slate-200/90 hover:border-indigo-300 rounded-xl xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
-              <div className="flex items-center justify-between w-full mb-2">
-                <div className={`w-7 h-7 2xl:w-8 2xl:h-8 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 dark:border-white/10 shadow-2xs`}>
-                  <IconComponent size={15} />
-                </div>
-                <span className="text-[10px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-surface px-1.5 py-0.5 rounded-md border border-slate-200/80">
-                  {starter.category}
-                </span>
+              <div className={`shrink-0 w-9 h-9 2xl:w-10 2xl:h-10 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 dark:border-white/10 shadow-2xs transition-transform duration-200 group-hover:scale-105`}>
+                <IconComponent size={17} />
               </div>
-              <div className="text-sm sm:text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors mb-0.5">
+              <div className="flex-1 text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug text-balance">
                 {starter.title}
               </div>
-              <p className="text-xs sm:text-sm text-slate-500 leading-snug">
-                {starter.prompt}
-              </p>
+              <Plus
+                size={16}
+                strokeWidth={2.4}
+                aria-hidden="true"
+                className="shrink-0 text-indigo-500 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+              />
             </button>
           );
         })}
