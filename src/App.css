@@ -28,8 +28,6 @@
   --glow-a3: 0.35;
 
   --grid-dot: var(--color-slate-400);
-  --marquee-bg: var(--color-slate-900);
-  --marquee-fg: var(--color-surface);
   --seg-active-bg: var(--color-surface);
   --seg-active-fg: var(--color-brand);
   --focus-halo: var(--color-surface);
@@ -70,8 +68,6 @@ html.dark {
   --glow-a3: 0.35;
 
   --grid-dot: #333333;
-  --marquee-bg: #080808;
-  --marquee-fg: #fafafa;
   --seg-active-bg: var(--color-slate-200);
   --seg-active-fg: #ffffff;
   --focus-halo: var(--color-surface);
@@ -636,48 +632,6 @@ html.dark .status-tick {
   border-radius: 0 0 15px 15px;
   background: #fff;
   box-shadow: none;
-}
-
-/* --- Enhanced Marquee --- */
-.marquee-container {
-  --marquee-gap: 2rem;
-  overflow: hidden;
-  position: relative;
-  background: var(--marquee-bg);
-  padding: 6px 0;
-  border-bottom: 2px solid rgb(from var(--color-brand) r g b / 0.28);
-  z-index: 50;
-  pointer-events: none;
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-}
-
-.marquee-track {
-  display: flex;
-  align-items: center;
-  gap: var(--marquee-gap);
-  width: max-content;
-  animation: marquee-scroll 80s linear infinite;
-  will-change: transform;
-}
-
-.marquee-segment {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  line-height: 1.4;
-  color: var(--marquee-fg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
-}
-
-@keyframes marquee-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(calc(-50% - (var(--marquee-gap) / 2))); }
 }
 
 /* ===== Premium Design System ===== */

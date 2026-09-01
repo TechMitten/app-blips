@@ -1,4 +1,4 @@
-import { PREVIEW_MODES, DEFAULT_MARQUEE_MESSAGE, MARQUEE_MIN_LOOP_LENGTH, MARQUEE_SEPARATOR } from './constants';
+import { PREVIEW_MODES } from './constants';
 export const syntaxHighlightHtml = (code) => {
   if (!code) return "";
 
@@ -52,17 +52,6 @@ export const getEffectivePreviewBox = (mode, orientation) => {
     };
   }
   return { width: preset.width, height: preset.height, zoomPadding: preset.zoomPadding };
-};
-
-export const buildMarqueeLoop = (value) => {
-  const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
-  let loop = normalized;
-
-  if (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
-    loop += '\u00A0'.repeat(MARQUEE_MIN_LOOP_LENGTH - loop.length);
-  }
-
-  return loop;
 };
 
 // Handles both the legacy Firebase-style Date object and plain ISO strings that
