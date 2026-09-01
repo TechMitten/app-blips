@@ -34,16 +34,19 @@ export default function DeployModal({
   const username = user?.user_metadata?.username;
 
   const passwordValid =
-    password.length >= 8 &&
-    /[A-Z]/.test(password) &&
-    /[a-z]/.test(password) &&
-    /[0-9]/.test(password) &&
-    /[^A-Za-z0-9]/.test(password);
+    password.length === 0 ||
+    (password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password) &&
+      /[^A-Za-z0-9]/.test(password));
 
-  const passwordsMatch = password === confirmPassword && password.length > 0;
+  const passwordsMatch = password.length === 0 || (password === confirmPassword && password.length > 0);
+
+  const canSubmitPassword = passwordValid && passwordsMatch;
 
   const handleDeployClick = () => {
-    if (passwordValid && passwordsMatch && (deployment || username)) {
+    if (canSubmitPassword && (deployment || username)) {
       onDeploy(password, customSlug);
     }
   };
@@ -112,12 +115,13 @@ export default function DeployModal({
                 />
               </div>
               <p className="text-xs text-slate-400">
-                Deployed {formatModifiedTime(deployment.deployedAt)} &middot; only people with the password can view it.
+                Deployed {formatModifiedTime(deployment.deployedAt)}.
               </p>
             </div>
             {isSignedIn && (
               <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect (optional)</label>
+                <p className="text-xs text-slate-400 !mt-1">Set a password to redeploy this link as protected, or leave it blank for a public link.</p>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Lock size={16} />
@@ -167,7 +171,6 @@ export default function DeployModal({
               <Globe size={18} className="text-slate-400 shrink-0 mt-0.5" />
               <span>
                 We&rsquo;ll upload this app and give you a link you can share. Redeploying reuses the same link, so it always shows your latest version.
-                <span className="block mt-1 text-slate-400">Only people with the password can view it.</span>
               </span>
             </div>
             
@@ -188,7 +191,8 @@ export default function DeployModal({
               <p className="text-xs text-slate-400">Leave blank to auto-generate a random path.</p>
             </div>
             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect (optional)</label>
+              <p className="text-xs text-slate-400 !mt-1">Leave blank for a public link, or set a password to require it before the app loads.</p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                   <Lock size={16} />
@@ -262,7 +266,7 @@ export default function DeployModal({
               <button
                 type="button"
                 onClick={handleDeployClick}
-                disabled={isDeploying || !passwordValid || !passwordsMatch}
+                disabled={isDeploying || !canSubmitPassword}
                 className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Rocket size={15} />
@@ -310,7 +314,7 @@ export default function DeployModal({
             <button
               type="button"
               onClick={handleDeployClick}
-              disabled={isDeploying || !hasCode || !passwordValid || !passwordsMatch || !username}
+              disabled={isDeploying || !hasCode || !canSubmitPassword || !username}
               className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Rocket size={15} />

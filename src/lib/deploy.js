@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { encryptApp } from './crypto';
+import { injectPwaSnippet } from './pwa';
 
 // --- Deployment ---
 //
@@ -54,7 +55,7 @@ export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 // Publishes the slug -> storage-object mapping the Pages Function reads. Slug is
 // the primary key, so a collision with someone else's app is refused by RLS
 // rather than silently stealing their link; retry with a longer tail.
-export const registerDeployment = async ({ slug, userId, projectId, storagePath }) => {
+export const registerDeployment = async ({ slug, userId, projectId, storagePath, name }) => {
   let candidate = slug;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -64,6 +65,7 @@ export const registerDeployment = async ({ slug, userId, projectId, storagePath 
         user_id: userId,
         project_id: String(projectId ?? ''),
         storage_path: storagePath,
+        name: name || null,
         updated_at: new Date().toISOString()
       },
       { onConflict: 'slug' }
@@ -87,7 +89,8 @@ export const unregisterDeployment = async (slug) => {
 };
 
 export const uploadDeploy = async ({ path, html, password }) => {
-  const finalHtml = password ? await encryptApp(html, password) : html;
+  const pwaHtml = injectPwaSnippet(html);
+  const finalHtml = password ? await encryptApp(pwaHtml, password) : pwaHtml;
 
   const { error } = await supabase.storage
     .from(DEPLOY_BUCKET)

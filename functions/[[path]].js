@@ -28,6 +28,32 @@ const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA
 const STORAGE_PATH_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[a-zA-Z0-9]{1,32}\.html$/i;
 
+// Reserved path prefix for every deployed app's PWA assets. It can never
+// collide with a real slug -- SLUG_PATTERN requires a slug to start with an
+// alphanumeric, and "_pwa" starts with an underscore. The manifest/service-
+// worker URLs live under here, keyed by slug, so a single deployed app
+// occupies exactly one top-level path (`/{slug}`) plus this shared namespace.
+const PWA_ROUTE_PATTERN = /^_pwa\/(.+)\/(manifest\.webmanifest|sw\.js)$/;
+
+// Identical for every deployed app -- no per-app caching, just enough to
+// satisfy installability checks that require a registered service worker
+// with a fetch handler.
+const SERVICE_WORKER_JS = `self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', () => {});
+`;
+
+// Fallback display name when a deployment has no stored `name`: strips a
+// leading "user/" segment and a trailing random slug tail, then title-cases
+// what's left. "daybook-mood-habit-journal-a7f3" -> "Daybook Mood Habit Journal".
+const humanizeSlug = (slug) => {
+  const base = slug.includes('/') ? slug.slice(slug.indexOf('/') + 1) : slug;
+  const withoutTail = base.replace(/-[a-z0-9]{4,8}$/i, '') || base;
+  const words = withoutTail.split('-').filter(Boolean);
+  if (!words.length) return 'App';
+  return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+};
+
 // Generated apps are single files with inline scripts/styles, usually pulling
 // Tailwind from a CDN, so those need to be allowed for anything to render.
 const CSP = [
@@ -61,6 +87,26 @@ const notice = (status, title, body) =>
     },
   );
 
+// Resolve a slug to its `deployments` row. Public read, no privileged key
+// involved -- reads are RLS-scoped. Returns `{ ok: false }` on a transport
+// failure (caller should 502) or `{ ok: true, row: null }` when the slug
+// isn't registered (caller should 404).
+const fetchDeploymentRow = async (slug, select) => {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=${select}`,
+    {
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        accept: 'application/json',
+      },
+    },
+  );
+  if (!res.ok) return { ok: false, row: null };
+  const rows = await res.json();
+  return { ok: true, row: rows?.[0] || null };
+};
+
 export async function onRequest(context) {
   const { request, next } = context;
 
@@ -80,7 +126,67 @@ export async function onRequest(context) {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    const slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, ''));
+    const path = url.pathname.replace(/^\/+|\/+$/g, '');
+
+    const pwaMatch = PWA_ROUTE_PATTERN.exec(path);
+    if (pwaMatch) {
+      const pwaSlug = decodeURIComponent(pwaMatch[1]);
+      const resource = pwaMatch[2];
+
+      if (!SLUG_PATTERN.test(pwaSlug)) {
+        return notice(404, 'Not found', 'This deployment link is not valid.');
+      }
+
+      if (resource === 'sw.js') {
+        // Served from under /_pwa/, but must control the app's real path --
+        // widen its default scope with this header.
+        return new Response(SERVICE_WORKER_JS, {
+          status: 200,
+          headers: {
+            'content-type': 'text/javascript; charset=utf-8',
+            'service-worker-allowed': `/${pwaSlug}`,
+            'cache-control': 'public, max-age=300',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
+      const { ok, row } = await fetchDeploymentRow(pwaSlug, 'name');
+      if (!ok) {
+        return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
+      }
+      if (!row) {
+        return notice(404, 'Not found', 'This app is no longer deployed.');
+      }
+
+      const name = (row.name && String(row.name).trim()) || humanizeSlug(pwaSlug);
+      const manifest = {
+        name,
+        short_name: name.length > 30 ? `${name.slice(0, 29)}…` : name,
+        start_url: `/${pwaSlug}`,
+        scope: `/${pwaSlug}`,
+        display: 'standalone',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        icons: [
+          { src: 'https://appblips.com/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'https://appblips.com/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      };
+
+      return new Response(JSON.stringify(manifest), {
+        status: 200,
+        headers: {
+          'content-type': 'application/manifest+json; charset=utf-8',
+          'cache-control': 'public, max-age=60',
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'no-referrer',
+          'x-robots-tag': 'noindex',
+        },
+      });
+    }
+
+    const slug = decodeURIComponent(path);
 
     if (!slug) {
       return notice(404, 'Nothing here', 'This address needs an app link.');
@@ -89,24 +195,13 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This deployment link is not valid.');
     }
 
-    // Resolve slug -> storage object. Public read, no privileged key involved.
-    const lookup = await fetch(
-      `${SUPABASE_URL}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=storage_path`,
-      {
-        headers: {
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-          authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-          accept: 'application/json',
-        },
-      },
-    );
-
-    if (!lookup.ok) {
+    // Resolve slug -> storage object.
+    const { ok, row } = await fetchDeploymentRow(slug, 'storage_path');
+    if (!ok) {
       return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
     }
 
-    const rows = await lookup.json();
-    const storagePath = rows?.[0]?.storage_path;
+    const storagePath = row?.storage_path;
 
     // Re-validate what came back from the database before using it to build a
     // URL, so a bad row can never redirect this fetch somewhere unintended.
