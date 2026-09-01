@@ -36,7 +36,7 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  const handleDeploy = async (password = '') => {
+  const handleDeploy = async (password = '', customSlug = '') => {
     if (!generatedCode || isDeploying) return;
     if (!isSignedIn || !user?.id) return;
     if (!password) {
@@ -54,8 +54,18 @@ export default function useDeployment({
       // `generatedCode` only -- never the bridge-injected preview srcDoc.
       await uploadDeploy({ path, html: generatedCode, password });
 
+      let desiredSlug = deployment?.slug;
+      if (!desiredSlug) {
+        const baseSlug = customSlug || makePublicSlug(projectName);
+        if (user?.user_metadata?.username) {
+          desiredSlug = `${user.user_metadata.username}/${baseSlug}`;
+        } else {
+          desiredSlug = baseSlug;
+        }
+      }
+
       const slug = await registerDeployment({
-        slug: deployment?.slug || makePublicSlug(projectName),
+        slug: desiredSlug,
         userId: user.id,
         projectId: currentProjectId,
         storagePath: path

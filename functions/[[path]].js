@@ -24,7 +24,7 @@ const SUPABASE_URL = 'https://nmmrhagtkfjqljktcwkf.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bX8jWhkPlVD0bHx7cQ8RJg_mGjOdWc3';
 const BUCKET = 'orion-deploys';
 
-const SLUG_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
+const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
 const STORAGE_PATH_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[a-zA-Z0-9]{1,32}\.html$/i;
 
