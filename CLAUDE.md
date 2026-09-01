@@ -17,10 +17,18 @@ There is no test suite configured.
 
 ## Architecture
 
-Nearly the entire app lives in two files:
+The app is split into `App.jsx` (workspace/generation state + composition), `src/lib/` (framework-free logic), `src/hooks/` (stateful concerns), and `src/components/` (presentational UI):
 
-- **[src/App.jsx](src/App.jsx)** — the whole UI and app logic (single default-exported `App` component plus module-level helpers above it). Sectioned roughly as: LLM config/storage helpers → HTML sanitization/surgical-edit engine → `requestModelText`/`generateAppCode` (the API layer) → syntax highlighter → the `App` component (state, effects, handlers) → JSX render.
+- **[src/App.jsx](src/App.jsx)** — the `App` component: owns the workspace/generation state (prompt, `generatedCode`, `versions`/undo-redo, streaming refs, `handleGenerate`, naming/new-app flow, `resetCurrentWorkspace`) and composes everything else.
 - **[src/previewBridge.js](src/previewBridge.js)** — a self-contained script injected into the generated app's HTML at render time, documented in detail in its file header.
+- **src/lib/** — pure logic, no React:
+  - `llm.js` — `requestModelText` / `generateAppCode` / `generateContextualSuggestions` / `generateNewStarterIdeas` (the API layer)
+  - `edits.js` — `sanitizeHtmlResponse` + the surgical-edit engine (`applySurgicalEdits` and friends)
+  - `prompts.js` — system prompts and tool schemas; `constants.js` — presets, `PREVIEW_MODES`, marquee/streaming constants
+  - `config.js` — LLM config/theme persistence helpers; `helpers.js` — syntax highlighter, preview-box math, misc
+  - `deploy.js` — public-URL deployment calls; `projectsStorage.js` — localStorage↔Supabase project row plumbing
+- **src/hooks/** — `useTheme`, `useAuth` (session + import offer), `useProjects` (list/persistence/resume), `useDeployment`, `usePreviewViewport` (mode/orientation/zoom), `useBuildPaneResize`, `usePreviewBridge` (the postMessage driver), `useSuggestions`.
+- **src/components/** — `Header`, `HistorySidebar`, `BuildPanel` (with `StarterIdeas`, `ChatTranscript`, `SuggestionsBar`, `PromptInput`), `PreviewPane` (with `DeviceMockup`, `CodeView`), and modals: `Modal`/`ConfirmModal` (shared shells), `SettingsModal`, `ProjectsListModal`, `DeployModal`, `NamingModal`, `AuthModal`, `ImportModal`, `AccountSettingsModal`. Self-contained modals (`AuthModal`, `SettingsModal`, `AccountSettingsModal`) own their form state and talk to `supabase`/`lib/config` directly.
 
 ### Generation flow
 
