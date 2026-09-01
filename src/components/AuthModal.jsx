@@ -8,7 +8,7 @@ import Modal from './Modal';
 // Self-contained sign-in / sign-up modal (same pattern as
 // AccountSettingsModal): owns its form state and talks to Supabase directly.
 // onAuthStateChange in useAuth closes the modal the moment a session lands.
-export default function AuthModal({ onClose }) {
+export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -98,14 +98,16 @@ export default function AuthModal({ onClose }) {
             {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-          aria-label="Close"
-        >
-          <X size={18} />
-        </button>
+        {dismissible && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleAuthSubmit} className="p-6 space-y-5">
@@ -174,18 +176,20 @@ export default function AuthModal({ onClose }) {
           </p>
         ) : (
           <p className="text-xs text-slate-400 leading-relaxed">
-            Sign in to sync your apps across devices. Guests can keep working locally without an account.
+            Sign in to start creating apps with Orion.
           </p>
         )}
 
         <div className="flex justify-end gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-          >
-            Cancel
-          </button>
+          {dismissible && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={authLoading}
