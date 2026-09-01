@@ -42,6 +42,7 @@ export const slugifyName = (name) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
+    .replace(/([a-z0-9])\1{2,}/g, '$1')
     .replace(/^-+|-+$/g, '')
     .slice(0, 40)
     .replace(/-+$/, '');
