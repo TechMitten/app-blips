@@ -1269,6 +1269,13 @@ export default function App() {
   const [streamingReply, setStreamingReply] = useState('');
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [hasSentFirstPrompt, setHasSentFirstPrompt] = useState(false);
+  // True from first paint whenever a previously-open project might still be
+  // resumed, so the empty-state (starter ideas) never flashes before that
+  // project's data lands. Cleared once the resume attempt (successful or not)
+  // finishes.
+  const [isResumingProject, setIsResumingProject] = useState(
+    () => Boolean(localStorage.getItem('orion-current-project-id'))
+  );
   const chatBottomRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -1345,7 +1352,7 @@ export default function App() {
   const activePreviewPreset = PREVIEW_MODES[previewMode];
   const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
   const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
-  const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt);
+  const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
   const showStarterIdeas = !isChatActive;
 
   useEffect(() => {
@@ -1764,23 +1771,27 @@ export default function App() {
     previousAuthStatusRef.current = authStatus;
 
     const fetchAndResume = async () => {
-      const projects = await loadUserProjects();
+      try {
+        const projects = await loadUserProjects();
 
-      if (previous === 'signedIn' && authStatus === 'signedOut') {
-        // Just signed out: swap in the local list but keep whatever is open.
-        return;
-      }
-
-      if (!currentProjectId) {
-        const lastProjectId = localStorage.getItem('orion-current-project-id');
-        const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
-          ? lastProjectId
-          : null;
-        if (idToLoad) {
-          await loadProjectById(idToLoad);
-        } else if (lastProjectId) {
-          localStorage.removeItem('orion-current-project-id');
+        if (previous === 'signedIn' && authStatus === 'signedOut') {
+          // Just signed out: swap in the local list but keep whatever is open.
+          return;
         }
+
+        if (!currentProjectId) {
+          const lastProjectId = localStorage.getItem('orion-current-project-id');
+          const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
+            ? lastProjectId
+            : null;
+          if (idToLoad) {
+            await loadProjectById(idToLoad);
+          } else if (lastProjectId) {
+            localStorage.removeItem('orion-current-project-id');
+          }
+        }
+      } finally {
+        setIsResumingProject(false);
       }
     };
 
@@ -3745,7 +3756,7 @@ export default function App() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-[0.14em] bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                          {generatedCode ? 'Editing Mode' : 'Building Mode'}
+                          {isResumingProject ? 'Loading' : (generatedCode ? 'Editing Mode' : 'Building Mode')}
                         </span>
                       </div>
                     ) : (
@@ -3760,7 +3771,7 @@ export default function App() {
                     <h2 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.85rem] 2xl:text-[3.3rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
                       {isChatActive ? (
                         <>
-                          {generatedCode ? 'Refine' : 'Building'}{' '}
+                          {isResumingProject ? 'Loading' : (generatedCode ? 'Refine' : 'Building')}{' '}
                           <span className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-slate-900 dark:to-slate-600 bg-clip-text text-transparent">your app</span>
                         </>
                       ) : (
@@ -3769,7 +3780,7 @@ export default function App() {
                     </h2>
                     <p className="text-slate-600 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed max-w-[36ch]">
                       {isChatActive
-                        ? (generatedCode ? "Describe what to change, add, or fix." : "Orion is synthesizing your application from your prompt.")
+                        ? (isResumingProject ? "Reopening your saved project." : (generatedCode ? "Describe what to change, add, or fix." : "Orion is synthesizing your application from your prompt."))
                         : "Describe an idea in plain words and Orion turns it into a complete, working app."}
                     </p>
                   </div>
@@ -3891,7 +3902,7 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="shrink-0 p-3.5 sm:p-4 2xl:p-5 pt-2.5 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
+            <div className="shrink-0 p-3 sm:p-3.5 pt-2 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
               {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
                 <div className="mb-2 animate-fade-in">
                   <div className="flex items-center justify-between px-0.5">
@@ -3901,7 +3912,7 @@ export default function App() {
                       aria-expanded={isSuggestionsExpanded}
                       aria-controls="suggestions-content"
                       aria-label={isSuggestionsExpanded ? 'Collapse suggestions' : 'Expand suggestions'}
-                      className="group/toggle inline-flex items-center gap-1.5 rounded-lg py-0.5 px-1 -ml-1 text-xs 2xl:text-sm font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface cursor-pointer select-none"
+                      className="group/toggle inline-flex items-center gap-1.5 rounded-lg py-0.5 px-1 -ml-1 text-xs font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface cursor-pointer select-none"
                     >
                       <span className="suggestion-spark" aria-hidden="true">
                         <Sparkles size={13} />
@@ -3931,7 +3942,7 @@ export default function App() {
                       onClick={handleRefreshSuggestions}
                       disabled={isSuggestionsLoading}
                       aria-label="Regenerate suggestions"
-                      className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs 2xl:text-sm font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <RefreshCw size={12} className={isSuggestionsLoading ? 'animate-spin' : 'transition-transform duration-500 group-hover/refresh:rotate-180'} />
                       <span>New</span>
@@ -3982,7 +3993,7 @@ export default function App() {
                     }
                   }}
                   placeholder={isChatActive ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
-                  className="w-full h-20 sm:h-24 xl:h-28 2xl:h-36 px-4 2xl:px-5 pt-3 2xl:pt-4 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed bg-transparent"
+                  className="w-full h-16 sm:h-20 xl:h-20 2xl:h-24 px-4 pt-3 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base leading-relaxed bg-transparent"
                   disabled={isGenerating}
                 />
                 {!isChatActive && (
@@ -4021,9 +4032,9 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2 sm:py-2.5">
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2">
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 select-none">
-                    <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-surface font-sans text-xs 2xl:text-sm leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
+                    <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-surface font-sans text-xs leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
                     <span className="hidden sm:inline">to build</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -4044,7 +4055,7 @@ export default function App() {
                     <button
                       onClick={handleGenerate}
                       disabled={isGenerating || !prompt.trim()}
-                      className={`inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                      className={`inline-flex items-center justify-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 text-sm font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                         isGenerating || !prompt.trim()
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                           : 'brand-gradient text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
