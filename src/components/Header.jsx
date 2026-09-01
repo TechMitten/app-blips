@@ -30,10 +30,10 @@ export default function Header({
         <img
           src="/orionlogo.png"
           alt="Orion logo"
-          className="w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20"
+          className="w-9 h-9 2xl:w-10 2xl:h-10 rounded-xl shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20"
         />
         <div className="flex items-center gap-2.5">
-          <h1 className="text-base 2xl:text-lg font-bold text-slate-900 tracking-tight font-sans">Orion</h1>
+          <h1 className="text-[2rem] 2xl:text-[2.25rem] leading-none font-bold text-slate-900 tracking-tight font-sans">Orion</h1>
           {projectName && projectName !== 'Untitled App' && (
             <div
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 2xl:px-3 2xl:py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-xs 2xl:text-sm font-semibold text-slate-700 max-w-[200px] xl:max-w-[300px] 2xl:max-w-[400px] truncate"

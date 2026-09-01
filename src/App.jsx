@@ -36,6 +36,43 @@ import useSuggestions from './hooks/useSuggestions';
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
+
+const STARTER_IDEAS_KEY = 'orion-starter-ideas';
+
+// Starter ideas persist across reloads as plain JSON (icon component resolved
+// from iconName); returns null when nothing valid is stored so the caller can
+// fall back to the presets.
+const loadStoredStarterIdeas = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STARTER_IDEAS_KEY) || 'null');
+    if (!Array.isArray(parsed)) return null;
+    const mapped = parsed
+      .filter((idea) => idea && typeof idea.title === 'string' && typeof idea.prompt === 'string')
+      .map((idea) => ({
+        ...idea,
+        icon: AVAILABLE_ICONS[idea.iconName] || AVAILABLE_ICONS.Sparkles || Code2,
+      }));
+    return mapped.length > 0 ? mapped : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistStarterIdeas = (ideas) => {
+  try {
+    localStorage.setItem(STARTER_IDEAS_KEY, JSON.stringify(
+      ideas.map((idea) => ({
+        title: idea.title,
+        prompt: idea.prompt,
+        category: idea.category,
+        iconName: idea.iconName,
+        color: idea.color,
+      }))
+    ));
+  } catch {
+    /* storage blocked or full -- ideas just won't survive a reload */
+  }
+};
 export default function App() {
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
@@ -83,7 +120,7 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [starterIdeas, setStarterIdeas] = useState(STARTER_PRESETS.slice(0, 4));
+  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 4));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   // --- Streaming state ---
@@ -201,6 +238,7 @@ export default function App() {
           };
         });
         setStarterIdeas(mappedIdeas);
+        persistStarterIdeas(mappedIdeas);
       }
     } catch (err) {
       if (err?.name !== 'AbortError') {
