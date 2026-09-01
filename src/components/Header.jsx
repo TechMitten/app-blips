@@ -1,5 +1,5 @@
 import {
-  Sparkles, Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
+  Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, LogIn, LogOut
 } from 'lucide-react';
 
@@ -27,9 +27,11 @@ export default function Header({
     <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
       {/* Left: Brand / Logo */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl brand-gradient text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20 dark:shadow-none dark:ring-white/20">
-          <Sparkles size={17} className="text-white drop-shadow-xs" />
-        </div>
+        <img
+          src="/orionlogo.png"
+          alt="Orion logo"
+          className="w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20"
+        />
         <div className="flex items-center gap-2.5">
           <h1 className="text-base 2xl:text-lg font-bold text-slate-900 tracking-tight font-sans">Orion</h1>
           {projectName && projectName !== 'Untitled App' && (
