@@ -14,6 +14,10 @@
    --------------------------------------------------------------------------- */
 @theme {
   --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+  /* Instrument voice: mono labels, version ticks, kbd, chat status. Deliberately
+     distinct from Poppins (the human voice) -- the app already speaks mono in
+     the marquee and code panel, so this formalizes an existing dichotomy. */
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-surface: #ffffff;              /* cards, modals, raised chrome */
   --color-scrim: rgb(2 6 23 / 0.5);      /* modal backdrops              */
@@ -368,65 +372,71 @@
     --color-violet-950: oklch(28.3% 0.141 291.089);  }
 }
 
-/* --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
 
-* {
-  box-sizing: border-box;
-}
+   Element defaults. Kept in @layer base on purpose: unlayered rules would
+   beat every Tailwind utility (cascade layers lose to unlayered CSS), so
+   e.g. the header logo's text-lg could never override the h1 size here.
+   --------------------------------------------------------------------------- */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-/* Fluid root font scaling for large and ultra-wide monitors */
-@media (min-width: 1280px) { html { font-size: 16.5px; } }
-@media (min-width: 1536px) { html { font-size: 17.5px; } }
-@media (min-width: 1920px) { html { font-size: 18.5px; } }
-@media (min-width: 2560px) { html { font-size: 20.5px; } }
-@media (min-width: 3440px) { html { font-size: 22.5px; } }
-@media (min-width: 3840px) { html { font-size: 25px; } }
+  /* Fluid root font scaling for large and ultra-wide monitors */
+  @media (min-width: 1280px) { html { font-size: 16.5px; } }
+  @media (min-width: 1536px) { html { font-size: 17.5px; } }
+  @media (min-width: 1920px) { html { font-size: 18.5px; } }
+  @media (min-width: 2560px) { html { font-size: 20.5px; } }
+  @media (min-width: 3440px) { html { font-size: 22.5px; } }
+  @media (min-width: 3840px) { html { font-size: 25px; } }
 
-/* html and #root need the background too, not just body -- otherwise
-   overscroll and any gap around #root paint the light colour in dark mode. */
-html,
-body,
-#root {
-  min-height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background: var(--color-slate-50);
-}
+  /* html and #root need the background too, not just body -- otherwise
+     overscroll and any gap around #root paint the light colour in dark mode. */
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: var(--color-slate-50);
+  }
 
-body {
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-}
+  body {
+    font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+  }
 
-h1, h2, h3 {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  color: var(--color-slate-900);
-  margin: 0;
-}
+  h1, h2, h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: var(--color-slate-900);
+    margin: 0;
+  }
 
-h1 {
-  font-size: 3rem;
-  letter-spacing: -0.025em;
-}
+  h1 {
+    font-size: 3rem;
+    letter-spacing: -0.025em;
+  }
 
-h2 {
-  font-size: 1.5rem;
-  letter-spacing: -0.025em;
-}
+  h2 {
+    font-size: 1.5rem;
+    letter-spacing: -0.025em;
+  }
 
-code {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  padding: 0.2rem 0.4rem;
-  background: var(--color-slate-100);
-  border-radius: 6px;
-  color: inherit;
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    padding: 0.2rem 0.4rem;
+    background: var(--color-slate-100);
+    border-radius: 6px;
+    color: inherit;
+  }
 }

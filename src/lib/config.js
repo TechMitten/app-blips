@@ -28,13 +28,13 @@ export const THEME_KEY = 'orion-theme';
 export const THEME_META_COLOR = { light: '#f8fafc', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
-// falls back to following the OS.
+// falls back to light.
 export const loadThemePreference = () => {
   try {
     const stored = safeStorage('local')?.getItem(THEME_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : 'system';
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 };
 

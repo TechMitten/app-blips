@@ -147,21 +147,32 @@ body {
   animation: scaleIn 0.2s ease-out forwards;
 }
 
-/* --- Refine Section --- */
-.refine-card {
-  position: relative;
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-slate-200);
-  border-radius: 20px;
-  padding: 28px;
-  transition: all 0.25s ease;
-  box-shadow: var(--shadow-md), var(--edge-top), var(--edge-ring);
+/* --- Chat status (compact instrument header shown once a conversation exists) --- */
+.chat-status {
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-slate-200);
 }
-
-.refine-card:hover {
-  border-color: var(--accent-border);
-  box-shadow: var(--shadow-lg);
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-indigo-500);
+}
+.status-tick {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: var(--color-indigo-700);
+  background: var(--color-indigo-50);
+  border: 1px solid var(--accent-border);
+}
+html.dark .status-tick {
+  color: var(--color-indigo-700);
 }
 
 /* Custom Scrollbar */
@@ -1049,6 +1060,16 @@ body {
   padding: 0.38rem 0.55rem;
 }
 
+/* Compact variant for the prompt-input footer, where horizontal space is
+   tight (360px pane shared with the submit button). */
+.nav-segmented-compact {
+  padding: 0.2rem;
+}
+.nav-segmented-compact .nav-segmented-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
 /* History section background and header with distinct cool slate contrast */
 .history-bg {
   background-color: var(--color-slate-100);
@@ -1116,6 +1137,122 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .orion-dot-mid { animation: none; }
+}
+
+/* --- Constellation meridian transcript ---
+
+   Every completed reply in Orion is a restorable version, so the conversation
+   is drawn as the project's star path: one hairline meridian, one star node
+   per version, mono ticks that echo the History sidebar's v-badges. The
+   pending turn gets a hollow "forming" star; nodes ignite on mount. */
+.chat-log {
+  position: relative;
+  padding-left: 32px;
+}
+.chat-log::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--color-slate-200) 28px,
+    var(--color-slate-200) calc(100% - 28px),
+    transparent
+  );
+}
+
+/* Anchors hang off each reply row; width:0 + align-items:center centers every
+   child on the anchor x, so node and tick both straddle the meridian. */
+.star-anchor {
+  position: absolute;
+  left: -17px;
+  top: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 0;
+  z-index: 1;
+}
+.star-node {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-indigo-300), var(--color-indigo-200));
+  box-shadow: 0 0 0 3px var(--color-slate-50);
+  animation: star-ignite 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+.star-node-active {
+  background: var(--accent-gradient);
+  box-shadow:
+    0 0 0 3px var(--color-slate-50),
+    0 0 0 4.5px rgb(from var(--color-accent) r g b / var(--glow-a2)),
+    0 0 10px 1px rgb(from var(--color-accent) r g b / var(--glow-a3));
+}
+.star-node-pending {
+  background: transparent;
+  border: 1.5px solid var(--color-indigo-400);
+  box-shadow: 0 0 0 3px var(--color-slate-50);
+  animation: star-form 1.6s ease-in-out infinite;
+}
+.star-tick {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--color-slate-400);
+}
+.star-tick-active {
+  color: var(--color-indigo-600);
+}
+html.dark .star-tick-active {
+  color: var(--color-indigo-700);
+}
+
+@keyframes star-ignite {
+  0% { transform: scale(0.3); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes star-form {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* Streaming reply caret: a mono block cursor, the code-panel voice carried
+   into the conversation while the app is being written. */
+.stream-caret::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 0.95em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  background: var(--color-indigo-500);
+  animation: caret-blink 1s steps(2, start) infinite;
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-node,
+  .star-node-active {
+    animation: none;
+  }
+  .star-node-pending {
+    animation: none;
+    opacity: 0.6;
+  }
+  .stream-caret::after {
+    animation: none;
+  }
 }
 
 /* Chat scrollbar refinement */
