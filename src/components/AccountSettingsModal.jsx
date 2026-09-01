@@ -6,6 +6,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState(user?.user_metadata?.username || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +29,31 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
       setMessage('Password updated successfully.');
       setPassword('');
       setConfirmPassword('');
+    }
+    setLoading(false);
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      setError('Username cannot be empty');
+      return;
+    }
+    // Basic username validation: only letters, numbers, hyphens
+    if (!/^[a-zA-Z0-9-]+$/.test(username)) {
+      setError('Username can only contain letters, numbers, and hyphens');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setMessage('');
+    const { error: updateError } = await supabase.auth.updateUser({
+      data: { username: username.toLowerCase() }
+    });
+    if (updateError) {
+      setError(updateError.message);
+    } else {
+      setMessage('Profile updated successfully.');
     }
     setLoading(false);
   };
@@ -115,6 +141,30 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
                 </div>
                 <p className="mt-2 text-xs text-slate-500">Your email address is used for sign in and notifications.</p>
               </div>
+              <form onSubmit={handleUpdateProfile} className="space-y-4 mt-4 pt-4 border-t border-slate-100">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                  <div className="relative">
+                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 bg-surface border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      placeholder="Choose a username"
+                      required
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">Your username is used for custom app URLs.</p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || !username || username === user?.user_metadata?.username}
+                  className="w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Updating...' : 'Save Profile'}
+                </button>
+              </form>
             </div>
           )}
 

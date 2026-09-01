@@ -592,6 +592,7 @@ export default function App() {
       {isDeployModalOpen && (
         <DeployModal
           isSignedIn={isSignedIn}
+          user={user}
           deployment={deployment}
           deploymentUrl={deploymentUrl}
           isDeployStale={isDeployStale}

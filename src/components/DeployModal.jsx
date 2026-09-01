@@ -11,6 +11,7 @@ import { formatModifiedTime } from '../lib/helpers';
 // swaps this modal for the auth modal.
 export default function DeployModal({
   isSignedIn,
+  user,
   deployment,
   deploymentUrl,
   isDeployStale,
@@ -27,9 +28,24 @@ export default function DeployModal({
   onRequireSignIn,
 }) {
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [customSlug, setCustomSlug] = useState('');
+
+  const username = user?.user_metadata?.username;
+
+  const passwordValid =
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
+
+  const passwordsMatch = password === confirmPassword && password.length > 0;
 
   const handleDeployClick = () => {
-    onDeploy(password);
+    if (passwordValid && passwordsMatch && (deployment || username)) {
+      onDeploy(password, customSlug);
+    }
   };
 
   return (
@@ -107,16 +123,31 @@ export default function DeployModal({
                     <Lock size={16} />
                   </div>
                   <input
-                    type="text"
+                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter a password"
                     className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
                   />
                 </div>
-                <p className="text-xs text-slate-400">
-                  A password is required to encrypt and deploy the app.
+                <div className="relative group mt-2">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Check size={16} />
+                  </div>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
+                    className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
+                  />
+                </div>
+                <p className={`text-xs ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
+                  Password must be at least 8 characters with uppercase, lowercase, numbers, and symbol.
                 </p>
+                {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
+                  <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
+                )}
               </div>
             )}
           </>
@@ -124,6 +155,11 @@ export default function DeployModal({
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
             <span>Deploying needs an account, so your app can be stored and stay reachable at a stable link.</span>
+          </div>
+        ) : !username ? (
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>You must set a username in Account Settings before you can deploy apps.</span>
           </div>
         ) : (
           <>
@@ -134,6 +170,23 @@ export default function DeployModal({
                 <span className="block mt-1 text-slate-400">Only people with the password can view it.</span>
               </span>
             </div>
+            
+            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom URL Path</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 whitespace-nowrap">
+                  {username} /
+                </span>
+                <input
+                  type="text"
+                  value={customSlug}
+                  onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="custom-slug"
+                  className="w-full bg-surface border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
+                />
+              </div>
+              <p className="text-xs text-slate-400">Leave blank to auto-generate a random path.</p>
+            </div>
             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect</label>
               <div className="relative group">
@@ -141,16 +194,31 @@ export default function DeployModal({
                   <Lock size={16} />
                 </div>
                 <input
-                  type="text"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter a password"
                   className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
                 />
               </div>
-              <p className="text-xs text-slate-400">
-                A password is required to encrypt and deploy the app.
+              <div className="relative group mt-2">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <Check size={16} />
+                </div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
+                />
+              </div>
+              <p className={`text-xs ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
+                Password must be at least 8 characters with uppercase, lowercase, numbers, and symbol.
               </p>
+              {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
+                <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
+              )}
             </div>
           </>
         )}
@@ -194,7 +262,7 @@ export default function DeployModal({
               <button
                 type="button"
                 onClick={handleDeployClick}
-                disabled={isDeploying || password.trim().length === 0}
+                disabled={isDeploying || !passwordValid || !passwordsMatch}
                 className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Rocket size={15} />
@@ -242,7 +310,7 @@ export default function DeployModal({
             <button
               type="button"
               onClick={handleDeployClick}
-              disabled={isDeploying || !hasCode || password.trim().length === 0}
+              disabled={isDeploying || !hasCode || !passwordValid || !passwordsMatch || !username}
               className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Rocket size={15} />
