@@ -109,7 +109,7 @@ export default function Header({
         <button
           onClick={onOpenSettings}
           className="nav-btn nav-btn-secondary group"
-          title="Settings (API Endpoint & Key)"
+          title="Settings"
         >
           <Settings size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
           <span className="hidden sm:inline">Settings</span>
