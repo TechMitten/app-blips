@@ -87,17 +87,17 @@
        has to come from surface steps and light edges instead. The canvas sits
        well below every panel so raised chrome has somewhere to rise to, and
        --color-surface (below) lands ABOVE slate-100 rather than beside it. */
-    --color-slate-50: oklch(15.2% 0.018 270.2);   /* #080b12  canvas / void */
-    --color-slate-100: oklch(22.5% 0.028 270);    /* #171c29  panel, chips  */
-    --color-slate-200: oklch(29.5% 0.034 270.1);  /* #262d3f  borders       */
-    --color-slate-300: oklch(36.5% 0.042 271.7);  /* #363e55  strong lines  */
-    --color-slate-400: oklch(71.7% 0.039 270.3);  /* #9aa3bd  muted text   */
-    --color-slate-500: oklch(76.7% 0.034 268.6);  /* #aab3ca               */
-    --color-slate-600: oklch(82.1% 0.031 269.1);  /* #bcc4d9               */
-    --color-slate-700: oklch(87.3% 0.025 267.9);  /* #ced5e6               */
-    --color-slate-800: oklch(91.3% 0.018 269.1);  /* #dde2ef               */
-    --color-slate-900: oklch(93.8% 0.012 276.1);  /* #e8eaf3  primary text */
-    --color-slate-950: oklch(97.3% 0.008 271.3);  /* #f4f6fc               */
+    --color-slate-50: #080808;    /* canvas / void */
+    --color-slate-100: #141414;   /* panel, chips  */
+    --color-slate-200: #262626;   /* borders       */
+    --color-slate-300: #404040;   /* strong lines  */
+    --color-slate-400: #a3a3a3;   /* muted text   */
+    --color-slate-500: #b3b3b3;
+    --color-slate-600: #c7c7c7;
+    --color-slate-700: #dcdcdc;
+    --color-slate-800: #e8e8e8;
+    --color-slate-900: #f0f0f0;   /* primary text */
+    --color-slate-950: #ffffff;
 
     /* indigo */
     --color-indigo-50: oklch(22.5% 0.0405 281.288);
@@ -222,10 +222,10 @@
     /* Semantic tokens. Brand keeps a saturated fill so white text still
        clears AA on it (5.21); the lifted indigo used for accent TEXT is
        --color-accent / the indigo ramp, which is a different job. */
-    --color-surface: oklch(25.5% 0.03 270);       /* #1c2233  cards, modals */
+    --color-surface: #141414;       /* cards, modals */
     --color-scrim: rgb(0 0 0 / 0.72);
-    --color-brand: #5b56f0;
-    --color-brand-hover: #6560f7;
+    --color-brand: #ffffff;
+    --color-brand-hover: #e5e5e5;
   }
 
   /* Opt-out for regions that are theme-invariant: the code panel (always
