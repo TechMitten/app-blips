@@ -20,9 +20,8 @@ import { Code2, TriangleAlert } from 'lucide-react';
 import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
 import { sanitizeHtmlResponse } from './lib/edits';
 import {
-  PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, MARQUEE_MAX_BUFFER_LENGTH, HTML_STREAM_START_RE
+  PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
 } from './lib/constants';
-import { buildMarqueeLoop } from './lib/helpers';
 
 import useTheme from './hooks/useTheme';
 import useAuth from './hooks/useAuth';
@@ -123,7 +122,6 @@ export default function App() {
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   // --- Streaming state ---
-  const [streamingCode, setStreamingCode] = useState('');
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
 
@@ -144,7 +142,6 @@ export default function App() {
   const abortControllerRef = useRef(null);
 
   const clearStreamingState = useCallback(() => {
-    setStreamingCode('');
     setStreamingGeneratedCode('');
     setStreamingReply('');
     streamingBufferRef.current = '';
@@ -203,7 +200,6 @@ export default function App() {
   usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode });
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
-  const marqueeSegment = buildMarqueeLoop(streamingCode);
   const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
   const showStarterIdeas = !isChatActive;
 
@@ -274,7 +270,6 @@ export default function App() {
           return;
         }
         if (kind === 'status') {
-          setStreamingCode(chunk);
           return;
         }
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
@@ -536,16 +531,6 @@ export default function App() {
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
       />
-
-      {/* Streaming Marquee - Only visible when generating */}
-      {isGenerating && chatMode === 'build' && (
-        <div className="marquee-container" id="marquee-container" aria-live="polite">
-          <div className="marquee-track">
-            <span className="marquee-segment">{marqueeSegment}</span>
-            <span className="marquee-segment" aria-hidden="true">{marqueeSegment}</span>
-          </div>
-        </div>
-      )}
 
       {isSettingsOpen && (
         <SettingsModal
