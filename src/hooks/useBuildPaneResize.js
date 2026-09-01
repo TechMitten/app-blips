@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const MIN_WIDTH = 320;
+const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 480;
 
 // Drag-to-resize state for the build (prompt/chat) pane, persisted to
@@ -25,7 +26,7 @@ export default function useBuildPaneResize() {
     const handleMouseMove = (e) => {
       const { startX, startWidth } = buildPaneResizeStartRef.current;
       const min = MIN_WIDTH;
-      const max = Math.max(min, window.innerWidth - 420);
+      const max = Math.min(MAX_WIDTH, Math.max(min, window.innerWidth - 420));
       const next = Math.min(max, Math.max(min, startWidth + (e.clientX - startX)));
       setBuildPaneWidth(next);
     };

@@ -58,8 +58,8 @@ export const buildMarqueeLoop = (value) => {
   const normalized = (value || DEFAULT_MARQUEE_MESSAGE).replace(/\s+/g, ' ').trim();
   let loop = normalized;
 
-  while (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
-    loop += `${MARQUEE_SEPARATOR}${normalized}`;
+  if (loop.length < MARQUEE_MIN_LOOP_LENGTH) {
+    loop += '\u00A0'.repeat(MARQUEE_MIN_LOOP_LENGTH - loop.length);
   }
 
   return loop;
