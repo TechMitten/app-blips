@@ -37,6 +37,8 @@ import {
   ZoomIn,
   ZoomOut,
   Monitor,
+  Moon,
+  Sun,
   PanelLeftOpen,
   PanelLeftClose,
   TriangleAlert,
@@ -226,7 +228,7 @@ const DEFAULT_LLM_CONFIG = {
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o',
-  reasoning: true
+  reasoning: false
 };
 
 // There is no way to hide a key from the machine that types it in a
@@ -240,6 +242,21 @@ const safeStorage = (kind) => {
     return store;
   } catch {
     return null;
+  }
+};
+
+const THEME_KEY = 'orion-theme';
+// Mirrored by the pre-paint script in index.html -- keep both in sync.
+const THEME_META_COLOR = { light: '#f8fafc', dark: '#10131c' };
+
+// 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
+// falls back to following the OS.
+const loadThemePreference = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(THEME_KEY);
+    return stored === 'light' || stored === 'dark' ? stored : 'system';
+  } catch {
+    return 'system';
   }
 };
 
@@ -264,7 +281,7 @@ const readStoredConfig = (store) => {
         baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
         apiKey: parsed.apiKey || '',
         model: parsed.model || DEFAULT_LLM_CONFIG.model,
-        reasoning: parsed.reasoning !== false
+        reasoning: parsed.reasoning === true
       };
     }
   } catch { /* ignore invalid stored config */ }
@@ -1043,6 +1060,12 @@ export default function App() {
   const [llmConfig, setLlmConfig] = useState(loadLlmConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [rememberKey, setRememberKey] = useState(loadRememberKey);
+  const [themePreference, setThemePreference] = useState(loadThemePreference);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  );
+  const resolvedTheme =
+    themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference;
   const [starterIdeas, setStarterIdeas] = useState(STARTER_PRESETS.slice(0, 8));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
@@ -1149,6 +1172,33 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('orion-history-open', isHistoryOpen);
   }, [isHistoryOpen]);
+
+  // Stay subscribed even while an explicit light/dark preference is active, so
+  // switching back to System applies the current OS setting immediately rather
+  // than one render late.
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!query) return undefined;
+    const handleChange = (event) => setSystemPrefersDark(event.matches);
+    setSystemPrefersDark(query.matches);
+    query.addEventListener('change', handleChange);
+    return () => query.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', THEME_META_COLOR[resolvedTheme]);
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    try {
+      safeStorage('local')?.setItem(THEME_KEY, themePreference);
+    } catch {
+      /* storage blocked -- the preference just will not persist */
+    }
+  }, [themePreference]);
 
   // --- Auth bootstrap: restore the session then keep it in sync ---
   useEffect(() => {
@@ -2019,10 +2069,10 @@ export default function App() {
   return (
     <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
       {/* Header */}
-      <header className="shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
+      <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
         {/* Left: Brand / Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+          <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl brand-gradient text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
             <Sparkles size={17} className="text-white drop-shadow-xs" />
           </div>
           <div className="flex items-center gap-2.5">
@@ -2087,6 +2137,20 @@ export default function App() {
             )}
           </button>
 
+          {/* Theme Toggle -- the icon names the destination, not the current state */}
+          <button
+            onClick={() => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="nav-btn nav-btn-secondary nav-segmented-btn-icon group"
+            title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
+            ) : (
+              <Moon size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+            )}
+          </button>
+
           {/* Settings Modal Trigger */}
           <button
             onClick={() => setIsSettingsOpen(true)}
@@ -2105,14 +2169,14 @@ export default function App() {
                 className="hidden md:inline-flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200/70 hover:border-slate-300 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
                 title={user?.email || 'Signed in'}
               >
-                <span className="h-5 w-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
+                <span className="h-5 w-5 rounded-full brand-gradient text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
                   {(user?.email?.[0] || '?').toUpperCase()}
                 </span>
                 <span className="max-w-[10rem] truncate">{user?.email}</span>
               </button>
               <button
                 onClick={handleSignOut}
-                className="nav-btn bg-white hover:bg-rose-50/80 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200/80 text-xs group"
+                className="nav-btn bg-surface hover:bg-rose-50/80 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200/80 text-xs group"
                 title="Sign out"
               >
                 <LogOut size={14} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
@@ -2145,10 +2209,10 @@ export default function App() {
       )}
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg xl:max-w-xl 2xl:max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[60] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg xl:max-w-xl 2xl:max-w-2xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-black">Settings</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
               <button
                 onClick={() => setIsSettingsOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
@@ -2158,18 +2222,48 @@ export default function App() {
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-3">
-                <label className="text-base font-bold text-black uppercase tracking-wider">API Endpoint</label>
-                <p className="text-black text-sm lg:text-base leading-relaxed">
+                <label className="text-base font-bold text-slate-900 uppercase tracking-wider">Appearance</label>
+                <p className="text-slate-900 text-sm lg:text-base leading-relaxed">
+                  Choose how Orion looks on this device.
+                </p>
+                <div className="nav-segmented-group" role="group" aria-label="Theme">
+                  {[
+                    { value: 'light', label: 'Light', Icon: Sun },
+                    { value: 'dark', label: 'Dark', Icon: Moon },
+                    { value: 'system', label: 'System', Icon: Monitor }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={themePreference === option.value}
+                      onClick={() => setThemePreference(option.value)}
+                      className={`nav-segmented-btn ${themePreference === option.value ? 'nav-segmented-btn-active' : ''}`}
+                    >
+                      <option.Icon size={14} />
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-slate-500 text-xs lg:text-sm leading-snug">
+                  {themePreference === 'system'
+                    ? `Following your system setting \u2014 currently ${resolvedTheme}.`
+                    : `Always ${themePreference}. Your system setting is ignored.`}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-base font-bold text-slate-900 uppercase tracking-wider">API Endpoint</label>
+                <p className="text-slate-900 text-sm lg:text-base leading-relaxed">
                   Connect any OpenAI-compatible API. Enter the endpoint URL, key and model — changes save automatically.
                 </p>
                 <div>
-                  <span className="block text-sm lg:text-base font-bold text-black mb-1">Base URL</span>
+                  <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Base URL</span>
                   <input
                     type="text"
                     value={llmConfig.baseUrl}
                     onChange={(e) => handleLlmConfigChange('baseUrl', e.target.value)}
                     placeholder="https://api.openai.com/v1"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                   {isInsecureEndpoint(llmConfig.baseUrl) && (
                     <p className="mt-2 flex items-start gap-2 text-sm lg:text-base font-semibold text-amber-700">
@@ -2179,7 +2273,7 @@ export default function App() {
                   )}
                 </div>
                 <div>
-                  <span className="block text-sm lg:text-base font-bold text-black mb-1">API Key</span>
+                  <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">API Key</span>
                   <div className="relative">
                     <input
                       type={showApiKey ? 'text' : 'password'}
@@ -2187,23 +2281,23 @@ export default function App() {
                       onChange={(e) => handleLlmConfigChange('apiKey', e.target.value)}
                       placeholder="sk-..."
                       autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 pr-10 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 pr-10 text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowApiKey((v) => !v)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-600 hover:text-black transition-colors"
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-600 hover:text-slate-900 transition-colors"
                       aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
                     >
                       {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  <label className="mt-2 flex items-center gap-2 text-sm lg:text-base font-semibold text-black cursor-pointer">
+                  <label className="mt-2 flex items-center gap-2 text-sm lg:text-base font-semibold text-slate-900 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={rememberKey}
                       onChange={(e) => handleRememberKeyChange(e.target.checked)}
-                      className="w-4 h-4 accent-blue-600"
+                      className="w-4 h-4 accent-brand"
                     />
                     <span>Remember on this device</span>
                   </label>
@@ -2214,19 +2308,19 @@ export default function App() {
                   </p>
                 </div>
                 <div>
-                  <span className="block text-sm lg:text-base font-bold text-black mb-1">Model</span>
+                  <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Model</span>
                   <input
                     type="text"
                     value={llmConfig.model}
                     onChange={(e) => handleLlmConfigChange('model', e.target.value)}
                     placeholder="gpt-4o"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-black focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
                 <div>
                   <label className="flex items-center justify-between gap-3 cursor-pointer">
                     <div>
-                      <span className="block text-sm lg:text-base font-bold text-black mb-1">Reasoning / Thinking</span>
+                      <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Reasoning / Thinking</span>
                       <p className="text-slate-600 text-xs lg:text-sm leading-snug">
                         Let the model think before answering. Disable for faster, lower-latency responses.
                       </p>
@@ -2237,7 +2331,7 @@ export default function App() {
                       aria-checked={llmConfig.reasoning !== false}
                       onClick={() => handleLlmConfigChange('reasoning', llmConfig.reasoning === false)}
                       className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${
-                        llmConfig.reasoning !== false ? 'bg-blue-600' : 'bg-slate-300'
+                        llmConfig.reasoning !== false ? 'bg-brand' : 'bg-slate-300'
                       }`}
                       title="Toggle reasoning"
                     >
@@ -2254,7 +2348,7 @@ export default function App() {
             <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3">
               <button
                 onClick={handleSaveSettings}
-                className="rounded-lg px-6 py-2.5 bg-blue-600 text-white font-semibold text-base hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.98]"
+                className="rounded-lg px-6 py-2.5 bg-brand text-white font-semibold text-base hover:bg-brand-hover shadow-sm transition-colors active:scale-[0.98]"
               >
                 Done
               </button>
@@ -2265,15 +2359,15 @@ export default function App() {
 
 
       {isProjectsListOpen && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+        <div className="fixed inset-0 z-[60] bg-scrim backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in">
           <div 
-            className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[88vh] animate-scale-in"
+            className="w-full max-w-4xl bg-surface rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[88vh] animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header Bar */}
             <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60 sticky top-0 z-20 backdrop-blur-md">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 bg-gradient-to-tr from-indigo-600 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+                <div className="w-11 h-11 brand-gradient rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
                   <FolderOpen size={20} className="drop-shadow-xs" />
                 </div>
                 <div>
@@ -2297,7 +2391,7 @@ export default function App() {
                       value={projectSearchQuery}
                       onChange={(e) => setProjectSearchQuery(e.target.value)}
                       placeholder="Search apps..."
-                      className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm rounded-xl bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-all"
+                      className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm rounded-xl bg-surface border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-all"
                     />
                     {projectSearchQuery && (
                       <button
@@ -2339,7 +2433,7 @@ export default function App() {
                       setIsProjectsListOpen(false);
                       document.getElementById('prompt')?.focus();
                     }}
-                    className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold text-xs sm:text-sm shadow-premium-md hover:shadow-premium-lg transition-all"
+                    className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl brand-gradient text-white font-semibold text-xs sm:text-sm shadow-premium-md hover:shadow-premium-lg transition-all"
                   >
                     <Plus size={15} strokeWidth={2.4} />
                     <span>Create an App</span>
@@ -2357,7 +2451,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setProjectSearchQuery('')}
-                    className="mt-4 px-4 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-colors"
+                    className="mt-4 px-4 py-1.5 rounded-lg bg-surface border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-colors"
                   >
                     Clear Search
                   </button>
@@ -2374,7 +2468,7 @@ export default function App() {
                       return (
                         <div
                           key={project.id}
-                          className={`rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative group bg-white shadow-2xs hover:shadow-premium-md ${
+                          className={`rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative group bg-surface shadow-2xs hover:shadow-premium-md ${
                             isCurrent
                               ? 'border-indigo-300 ring-2 ring-indigo-500/20 bg-indigo-50/10'
                               : 'border-slate-200/90 hover:border-indigo-300'
@@ -2417,7 +2511,7 @@ export default function App() {
                                     className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                                       !editingProjectName.trim() || renamingProjectId === project.id
                                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-2xs'
+                                        : 'bg-brand text-white hover:bg-brand-hover shadow-2xs'
                                     }`}
                                   >
                                     <Check size={13} />
@@ -2439,7 +2533,7 @@ export default function App() {
                                 <div className="flex items-start justify-between gap-3 mb-2.5">
                                   <div className="flex items-center gap-3 min-w-0 flex-1">
                                     {/* App Icon Avatar */}
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-2xs shrink-0 ring-1 ring-black/5">
+                                    <div className="w-10 h-10 rounded-xl brand-gradient text-white font-bold text-sm flex items-center justify-center shadow-2xs shrink-0 ring-1 ring-black/5 dark:ring-white/10">
                                       {initialLetter}
                                     </div>
                                     <div className="min-w-0 flex-1">
@@ -2497,7 +2591,7 @@ export default function App() {
                           {editingProjectId !== project.id && (
                             <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-xs font-semibold text-slate-600 shadow-2xs">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-slate-200/80 text-xs font-semibold text-slate-600 shadow-2xs">
                                   <Layers size={12} className="text-indigo-500" />
                                   {versionCount} version{versionCount !== 1 ? 's' : ''}
                                 </span>
@@ -2508,8 +2602,8 @@ export default function App() {
                                 onClick={() => loadProject(project)}
                                 className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-2xs ${
                                   isCurrent
-                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-500/20'
-                                    : 'bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200'
+                                    ? 'bg-brand text-white hover:bg-brand-hover shadow-indigo-500/20'
+                                    : 'bg-surface hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200'
                                 }`}
                               >
                                 <span>{isCurrent ? 'Open in Editor' : 'Open App'}</span>
@@ -2537,7 +2631,7 @@ export default function App() {
               </div>
               <button 
                 onClick={() => setIsProjectsListOpen(false)}
-                className="nav-btn bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold px-4 py-1.5 rounded-xl border border-slate-200 shadow-2xs transition-colors"
+                className="nav-btn bg-surface hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold px-4 py-1.5 rounded-xl border border-slate-200 shadow-2xs transition-colors"
               >
                 Close
               </button>
@@ -2547,8 +2641,8 @@ export default function App() {
       )}
 
       {projectToDelete && (
-        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[70] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Delete App</h2>
@@ -2587,7 +2681,7 @@ export default function App() {
                 className={`inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold transition-all ${
                   deletingProjectId === projectToDelete.id
                     ? 'bg-red-200 text-white cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-danger text-white hover:bg-danger-hover'
                 }`}
               >
                 <Trash2 size={14} />
@@ -2599,8 +2693,8 @@ export default function App() {
       )}
 
       {isNewChatConfirmOpen && (
-        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[70] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Start a new app?</h2>
@@ -2633,7 +2727,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleConfirmNewChat}
-                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
               >
                 Start New
               </button>
@@ -2643,8 +2737,8 @@ export default function App() {
       )}
 
       {isNamingModalOpen && (
-        <div className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[65] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Name Your App</h2>
               <button
@@ -2694,7 +2788,7 @@ export default function App() {
                   className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
                     !tempProjectName.trim() 
                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                    : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
                   }`}
                 >
                   Create
@@ -2714,8 +2808,8 @@ export default function App() {
       )}
 
       {isAuthModalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[80] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
@@ -2807,7 +2901,7 @@ export default function App() {
                   className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
                     authLoading
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                      : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
                   }`}
                 >
                   {authLoading && <Loader2 className="animate-spin" size={15} />}
@@ -2844,8 +2938,8 @@ export default function App() {
       )}
 
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[80] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
@@ -2884,7 +2978,7 @@ export default function App() {
                 className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
                   authLoading
                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                    : 'bg-brand text-white hover:bg-brand-hover shadow-sm'
                 }`}
               >
                 {authLoading && <Loader2 className="animate-spin" size={15} />}
@@ -2900,14 +2994,14 @@ export default function App() {
         {!isHistoryOpen && (
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-white border-y border-r border-slate-300 rounded-r-lg shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+            className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-surface border-y border-r border-slate-300 rounded-r-lg shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
             title="Show history panel"
           >
             <PanelLeftOpen size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
           </button>
         )}
         {/* History Sidebar */}
-        <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-300/80 shadow-[2px_0_8px_-2px_rgba(15,23,42,0.06)] ${
+        <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-300/80 panel-edge-right ${
           isHistoryOpen ? 'w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
         }`}>
           {/* Header */}
@@ -2915,7 +3009,7 @@ export default function App() {
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsHistoryOpen(false)}
-                className="text-slate-400 hover:text-slate-700 hover:bg-white p-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all duration-200 flex-shrink-0"
+                className="text-slate-400 hover:text-slate-700 hover:bg-surface p-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all duration-200 flex-shrink-0"
                 title="Hide history panel"
               >
                 <PanelLeftClose size={16} />
@@ -2928,7 +3022,7 @@ export default function App() {
               </h2>
             </div>
             {versions.length > 0 && (
-              <span className="text-[11px] 2xl:text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border border-slate-300/80 shadow-2xs">
+              <span className="text-[11px] 2xl:text-xs font-bold text-slate-700 bg-surface px-2.5 py-0.5 rounded-full border border-slate-300/80 shadow-2xs">
                 {versions.length} version{versions.length !== 1 ? 's' : ''}
               </span>
             )}
@@ -2939,12 +3033,12 @@ export default function App() {
             {versions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
                 <div className="relative mb-4">
-                  <div className="w-16 h-16 2xl:w-20 2xl:h-20 rounded-2xl bg-white flex items-center justify-center border border-slate-200/90 shadow-sm">
+                  <div className="w-16 h-16 2xl:w-20 2xl:h-20 rounded-2xl bg-surface flex items-center justify-center border border-slate-200/90 shadow-sm">
                     <div className="w-9 h-9 2xl:w-11 2xl:h-11 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
                       <Clock size={20} />
                     </div>
                   </div>
-                  <div className="absolute inset-0 rounded-2xl animate-pulse" style={{ boxShadow: '0 0 0 4px rgba(79, 70, 229, 0.06)' }} />
+                  <div className="absolute inset-0 rounded-2xl animate-pulse pulse-ring" />
                 </div>
                 <h3 className="text-slate-800 font-bold text-sm 2xl:text-base mb-1">No versions yet</h3>
                 <p className="text-slate-500 text-xs 2xl:text-sm leading-relaxed max-w-[15rem]">
@@ -2964,8 +3058,8 @@ export default function App() {
                     {/* Timeline dot */}
                     <div className={`absolute z-[2] transition-all duration-300 ${
                       isActive
-                        ? '-left-[20px] top-[13px] w-[12px] h-[12px] rounded-full bg-indigo-600 border-2 border-white ring-4 ring-indigo-200/70 shadow-sm'
-                        : '-left-[19px] top-[14px] w-[10px] h-[10px] rounded-full bg-slate-300 border-2 border-white ring-1 ring-slate-400/40'
+                        ? '-left-[20px] top-[13px] w-[12px] h-[12px] rounded-full bg-indigo-600 border-2 border-surface ring-4 ring-indigo-200/70 shadow-sm'
+                        : '-left-[19px] top-[14px] w-[10px] h-[10px] rounded-full bg-slate-300 border-2 border-surface ring-1 ring-slate-400/40'
                     }`} />
 
                     {/* Version card */}
@@ -2973,8 +3067,8 @@ export default function App() {
                       onClick={() => toggleExpandVersion(idx)}
                       className={`relative cursor-pointer rounded-xl transition-all duration-200 overflow-hidden ${
                         isActive
-                          ? 'bg-white border-2 border-indigo-600 active-version-glow shadow-sm'
-                          : 'bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-sm shadow-2xs group'
+                          ? 'bg-surface border-2 border-indigo-600 active-version-glow shadow-sm'
+                          : 'bg-surface border border-slate-200/90 hover:border-slate-300 hover:shadow-sm shadow-2xs group'
                       }`}
                     >
                       <div className="px-3.5 py-2.5">
@@ -2982,7 +3076,7 @@ export default function App() {
                           {/* Version badge */}
                           <div className={`shrink-0 h-[22px] min-w-[38px] px-2 rounded-md flex items-center justify-center text-[10px] font-bold tracking-wide transition-all duration-200 ${
                             isActive
-                              ? 'bg-indigo-600 text-white shadow-xs shadow-indigo-200'
+                              ? 'bg-brand text-white shadow-xs shadow-indigo-200'
                               : 'bg-slate-100 text-slate-700 border border-slate-200 group-hover:bg-slate-200'
                           }`}>
                             v{idx + 1}
@@ -3028,7 +3122,7 @@ export default function App() {
                     {/* Expanded detail panel */}
                     {isExpanded && (
                       <div className="mt-2 ml-2 mr-0 mb-2 version-expand-enter">
-                        <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-premium-md">
+                        <div className="bg-surface border border-slate-200/90 rounded-xl p-4 shadow-premium-md">
                           <div className="space-y-4">
                             {/* Prompt */}
                             <div>
@@ -3095,7 +3189,7 @@ export default function App() {
         <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
-          <div className="w-full md:w-[400px] lg:w-[460px] xl:w-[520px] 2xl:w-[600px] 3xl:w-[680px] min-h-0 overflow-hidden flex flex-col bg-white border-r border-slate-300/80 z-20 flex-shrink-0 shadow-[4px_0_16px_-4px_rgba(15,23,42,0.06)] relative">
+          <div className="w-full md:w-[400px] lg:w-[460px] xl:w-[520px] 2xl:w-[600px] 3xl:w-[680px] min-h-0 overflow-hidden flex flex-col bg-surface border-r border-slate-300/80 z-20 flex-shrink-0 panel-edge-right relative">
             {/* Subtle atmospheric gradient */}
             <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
 
@@ -3122,7 +3216,6 @@ export default function App() {
                           <span className="orion-dot orion-dot-mid" />
                           <span className="orion-dot" />
                         </span>
-                        <span className="text-xs 2xl:text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">From idea to running app</span>
                       </div>
                     )}
                     <h2 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.85rem] 2xl:text-[3.3rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
@@ -3169,13 +3262,13 @@ export default function App() {
                           <button
                             key={starter.title}
                             onClick={() => setPrompt(starter.prompt)}
-                            className="group flex flex-col justify-between text-left p-3 xl:p-3.5 2xl:p-4 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-indigo-300 rounded-xl xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            className="group flex flex-col justify-between text-left p-3 xl:p-3.5 2xl:p-4 bg-slate-50/80 hover:bg-surface border border-slate-200/90 hover:border-indigo-300 rounded-xl xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                           >
                             <div className="flex items-center justify-between w-full mb-2">
-                              <div className={`w-7 h-7 2xl:w-8 2xl:h-8 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 shadow-2xs`}>
+                              <div className={`w-7 h-7 2xl:w-8 2xl:h-8 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 dark:border-white/10 shadow-2xs`}>
                                 <IconComponent size={15} />
                               </div>
-                              <span className="text-[10px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-white px-1.5 py-0.5 rounded-md border border-slate-200/80">
+                              <span className="text-[10px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider bg-surface px-1.5 py-0.5 rounded-md border border-slate-200/80">
                                 {starter.category}
                               </span>
                             </div>
@@ -3211,7 +3304,7 @@ export default function App() {
             </div>
 
             {/* Fixed Bottom Input Area */}
-            <div className="shrink-0 p-3.5 sm:p-4 2xl:p-5 pt-2.5 border-t border-slate-200/80 bg-white/95 backdrop-blur-md relative z-[1]">
+            <div className="shrink-0 p-3.5 sm:p-4 2xl:p-5 pt-2.5 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
               {generatedCode && !isGenerating && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
                 <div className="mb-2.5 animate-fade-in">
                   <div className="flex items-center justify-between px-0.5 mb-1.5">
@@ -3226,7 +3319,7 @@ export default function App() {
                       onClick={handleRefreshSuggestions}
                       disabled={isSuggestionsLoading}
                       aria-label="Regenerate suggestions"
-                      className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs 2xl:text-sm font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs 2xl:text-sm font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <RefreshCw size={12} className={isSuggestionsLoading ? 'animate-spin' : 'transition-transform duration-500 group-hover/refresh:rotate-180'} />
                       <span>New</span>
@@ -3239,7 +3332,7 @@ export default function App() {
                           key={suggestion}
                           type="button"
                           onClick={() => setPrompt(suggestion)}
-                          className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-white text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2`}
+                          className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-surface text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface`}
                         >
                           <span className="suggestion-chip-icon shrink-0" aria-hidden="true">
                             <Plus size={13} strokeWidth={2.5} />
@@ -3255,7 +3348,7 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-300 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/60 overflow-hidden transition-all input-glow">
+              <div className="bg-surface rounded-2xl shadow-sm border border-slate-300 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/60 overflow-hidden transition-all input-glow">
                 <textarea
                   id="prompt"
                   name="prompt"
@@ -3285,7 +3378,7 @@ export default function App() {
                               key={option.id}
                               className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${
                                 isSelected
-                                  ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200/80'
+                                  ? 'bg-surface text-indigo-700 shadow-2xs border border-slate-200/80'
                                   : 'text-slate-500 hover:text-slate-800'
                               }`}
                             >
@@ -3309,7 +3402,7 @@ export default function App() {
                 )}
                 <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2 sm:py-2.5">
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 select-none">
-                    <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-white font-sans text-xs 2xl:text-sm leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
+                    <kbd className="px-2 py-0.5 rounded border border-slate-300 bg-surface font-sans text-xs 2xl:text-sm leading-none text-slate-600 font-semibold shadow-2xs">⌘ ↵</kbd>
                     <span className="hidden sm:inline">to build</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -3333,7 +3426,7 @@ export default function App() {
                       className={`inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                         isGenerating || !prompt.trim()
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                          : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
+                          : 'brand-gradient text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
                       }`}
                     >
                       {isGenerating ? (
@@ -3355,10 +3448,10 @@ export default function App() {
           </div>
 
           {/* Preview/Device Area (Right) */}
-          <div className="flex-1 min-h-0 bg-slate-200/60 flex flex-col relative z-0 inset-shadow-preview">
+          <div className="flex-1 min-h-0 flex flex-col relative z-0 inset-shadow-preview noise-texture">
             
             {/* Canvas Studio Header Bar */}
-            <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 2xl:px-8 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200/90 bg-white/95 backdrop-blur-md z-10">
+            <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 2xl:px-8 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200/90 bg-surface/95 backdrop-blur-md z-10">
               {/* Left: View Tabs */}
               <div className="flex items-center gap-2 sm:gap-2.5">
                 <div className="nav-segmented-group">
@@ -3470,7 +3563,7 @@ export default function App() {
                 {generatedCode && (
                   <button
                     onClick={handleOpenInNewTab}
-                    className="nav-btn bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+                    className="nav-btn bg-surface hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
                     title="Open preview in new browser tab"
                   >
                     <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
@@ -3504,7 +3597,7 @@ export default function App() {
               {activeTab === 'preview' ? (
                 /* Device Mockup */
                 <div
-                  className="relative shrink-0 flex items-center justify-center"
+                  className="palette-stock relative shrink-0 flex items-center justify-center"
                   style={{
                     width: scaledPreviewWidth,
                     height: scaledPreviewHeight
@@ -3614,7 +3707,7 @@ export default function App() {
 
               ) : (
                 /* Code View */
-                <div className="w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
+                <div className="palette-stock w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
                   <div className="bg-[#24253a] px-4 py-2 flex items-center border-b border-black/30">
                     <div className="flex space-x-1.5 mr-4">
                       <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>

@@ -1,0 +1,99 @@
+- generic [ref=f4e3]:
+  - banner [ref=f4e4]:
+    - heading "Orion" [level=1] [ref=f4e11]
+    - generic [ref=f4e12]:
+      - button "New App" [ref=f4e13] [cursor=pointer]
+      - button "Apps" [ref=f4e16] [cursor=pointer]
+      - button "History" [ref=f4e20] [cursor=pointer]
+      - button "Switch to light theme" [ref=f4e25] [cursor=pointer]
+      - button "Settings" [ref=f4e32] [cursor=pointer]
+      - button "Sign in" [ref=f4e38] [cursor=pointer]
+  - generic [ref=f4e43]:
+    - complementary [ref=f4e44]:
+      - generic [ref=f4e46]:
+        - button "Hide history panel" [ref=f4e47]
+        - heading "History" [level=2] [ref=f4e56]
+      - generic [ref=f4e58]:
+        - heading "No versions yet" [level=3] [ref=f4e66]
+        - paragraph [ref=f4e67]: Each build creates a version snapshot you can inspect or restore anytime.
+    - main [ref=f4e68]:
+      - generic [ref=f4e69]:
+        - generic [ref=f4e71]:
+          - generic [ref=f4e73]:
+            - heading "What do you want to build?" [level=2] [ref=f4e79]
+            - paragraph [ref=f4e80]: Describe an idea in plain words and Orion turns it into a complete, working app.
+          - generic [ref=f4e81]:
+            - generic [ref=f4e82]:
+              - heading "Starter Ideas" [level=3] [ref=f4e85]
+              - button "Refresh" [ref=f4e86]
+            - generic [ref=f4e93]:
+              - button "Productivity Study Session Manager A focus timer with customizable work/break intervals, task tagging, and a visual session history." [ref=f4e94]:
+                - generic [ref=f4e95]: Productivity
+                - generic [ref=f4e101]: Study Session Manager
+                - paragraph [ref=f4e102]: A focus timer with customizable work/break intervals, task tagging, and a visual session history.
+              - button "Travel Travel Dashboard A travel dashboard showing local weather forecasts, a packing checklist, and an interactive itinerary timeline." [ref=f4e103]:
+                - generic [ref=f4e104]: Travel
+                - generic [ref=f4e112]: Travel Dashboard
+                - paragraph [ref=f4e113]: A travel dashboard showing local weather forecasts, a packing checklist, and an interactive itinerary timeline.
+              - button "Finance Group Bill Splitter A dynamic bill splitter that lets you add friends, assign items to people, and calculates tax and tip automatically." [ref=f4e114]:
+                - generic [ref=f4e115]: Finance
+                - generic [ref=f4e121]: Group Bill Splitter
+                - paragraph [ref=f4e122]: A dynamic bill splitter that lets you add friends, assign items to people, and calculates tax and tip automatically.
+              - button "Wellness Mood & Habit Journal A daily journal combining a mood selector with quick toggles for habits, displaying a weekly overview chart." [ref=f4e123]:
+                - generic [ref=f4e124]: Wellness
+                - generic [ref=f4e130]: Mood & Habit Journal
+                - paragraph [ref=f4e131]: A daily journal combining a mood selector with quick toggles for habits, displaying a weekly overview chart.
+              - button "Project Kanban Board A Kanban-style task board with columns for 'To Do', 'In Progress', and 'Done', featuring interactive cards." [ref=f4e132]:
+                - generic [ref=f4e133]: Project
+                - generic [ref=f4e138]: Kanban Board
+                - paragraph [ref=f4e139]: A Kanban-style task board with columns for 'To Do', 'In Progress', and 'Done', featuring interactive cards.
+              - button "Finance Subscription Manager A recurring subscription tracker that estimates monthly costs, sorts by billing date, and categorizes spending." [ref=f4e140]:
+                - generic [ref=f4e141]: Finance
+                - generic [ref=f4e147]: Subscription Manager
+                - paragraph [ref=f4e148]: A recurring subscription tracker that estimates monthly costs, sorts by billing date, and categorizes spending.
+              - button "Security Secure Vault UI A secure vault interface with a mock login screen, advanced password generator, and categorized credential cards." [ref=f4e149]:
+                - generic [ref=f4e150]: Security
+                - generic [ref=f4e156]: Secure Vault UI
+                - paragraph [ref=f4e157]: A secure vault interface with a mock login screen, advanced password generator, and categorized credential cards.
+              - button "Utility Markdown Editor A dual-pane markdown editor with a live preview, word count, and a distraction-free reading mode." [ref=f4e158]:
+                - generic [ref=f4e159]: Utility
+                - generic [ref=f4e164]: Markdown Editor
+                - paragraph [ref=f4e165]: A dual-pane markdown editor with a live preview, word count, and a distraction-free reading mode.
+        - generic [ref=f4e167]:
+          - textbox "e.g. A minimalist task manager with categories..." [ref=f4e168]
+          - generic [ref=f4e170]:
+            - generic [ref=f4e171]: Optimize for
+            - generic [ref=f4e172]:
+              - generic [ref=f4e173] [cursor=pointer]:
+                - radio "Mobile" [ref=f4e174]
+                - generic [ref=f4e177]: Mobile
+              - generic [ref=f4e178] [cursor=pointer]:
+                - radio "Desktop" [ref=f4e179]
+                - generic [ref=f4e182]: Desktop
+              - generic [ref=f4e183] [cursor=pointer]:
+                - radio "Both" [checked] [ref=f4e184]
+                - generic [ref=f4e187]: Both
+          - generic [ref=f4e188]:
+            - generic [ref=f4e189]:
+              - generic [ref=f4e190]: ⌘ ↵
+              - generic [ref=f4e191]: to build
+            - button "Build App" [disabled] [ref=f4e193]
+      - generic [ref=f4e198]:
+        - generic [ref=f4e199]:
+          - generic [ref=f4e201]:
+            - button "Preview" [ref=f4e202] [cursor=pointer]
+            - button "Code" [ref=f4e206] [cursor=pointer]
+          - generic "Device Viewport Preset" [ref=f4e211]:
+            - button "Mobile" [ref=f4e212] [cursor=pointer]
+            - button "Desktop" [ref=f4e216] [cursor=pointer]
+          - generic "Zoom Controls" [ref=f4e221]:
+            - button "Zoom Out (-10%)" [ref=f4e222] [cursor=pointer]
+            - button "Auto" [ref=f4e226] [cursor=pointer]
+            - button "Zoom In (+10%)" [ref=f4e227] [cursor=pointer]
+        - generic [ref=f4e236]:
+          - heading "Live Sandbox Preview" [level=4] [ref=f4e243]
+          - paragraph [ref=f4e244]: Enter a prompt to generate and interact with your app in real-time.
+          - generic [ref=f4e245]:
+            - generic [ref=f4e246]: Instant live rendering
+            - generic [ref=f4e250]: Sandboxed origin security
+            - generic [ref=f4e254]: Tailwind CSS & JS built-in
