@@ -253,7 +253,7 @@ const safeStorage = (kind) => {
 
 const THEME_KEY = 'orion-theme';
 // Mirrored by the pre-paint script in index.html -- keep both in sync.
-const THEME_META_COLOR = { light: '#f8fafc', dark: '#10131c' };
+const THEME_META_COLOR = { light: '#f8fafc', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
 // falls back to following the OS.
@@ -1139,6 +1139,8 @@ export default function App() {
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
   const [pendingPrompt, setPendingPrompt] = useState('');
+  const [hasSentFirstPrompt, setHasSentFirstPrompt] = useState(false);
+  const chatBottomRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -1201,6 +1203,14 @@ export default function App() {
   const activePreviewPreset = PREVIEW_MODES[previewMode];
   const scaledPreviewWidth = activePreviewPreset.width * zoomLevel;
   const scaledPreviewHeight = activePreviewPreset.height * zoomLevel;
+  const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt);
+  const showStarterIdeas = !isChatActive;
+
+  useEffect(() => {
+    if (pendingPrompt || versions.length > 0) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [pendingPrompt, versions.length, streamingReply]);
 
   useEffect(() => {
     localStorage.setItem('orion-history-open', isHistoryOpen);
@@ -1473,6 +1483,7 @@ export default function App() {
         setGeneratedCode(projectData.versions[projectData.currentVersionIndex].code);
       }
       setCurrentProjectId(projectId);
+      setHasSentFirstPrompt(Boolean(projectData.versions?.length));
       localStorage.setItem('orion-current-project-id', projectId);
     } catch (err) {
       console.error("Error loading project by ID:", err);
@@ -1679,6 +1690,7 @@ export default function App() {
       setGeneratedCode(project.versions[project.currentVersionIndex].code);
     }
     setIsProjectsListOpen(false);
+    setHasSentFirstPrompt(Boolean(project.versions?.length));
     localStorage.setItem('orion-current-project-id', project.id);
   };
 
@@ -1809,6 +1821,7 @@ export default function App() {
       return;
     }
 
+    setHasSentFirstPrompt(true);
     setIsGenerating(true);
     setIsSuggestionsExpanded(false);
     clearStreamingState();
@@ -1904,7 +1917,7 @@ export default function App() {
   };
 
   const handleNewApp = () => {
-    if (generatedCode || versions.length > 0 || isGenerating) {
+    if (generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt) {
       setIsNewChatConfirmOpen(true);
     } else {
       resetCurrentWorkspace();
@@ -2022,6 +2035,8 @@ export default function App() {
     clearStreamingState();
     setGeneratedCode('');
     setPrompt('');
+    setPendingPrompt('');
+    setHasSentFirstPrompt(false);
     setInitialLayoutTarget('both');
     setError(null);
     setVersions([]);
@@ -2128,7 +2143,7 @@ export default function App() {
       <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
         {/* Left: Brand / Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl brand-gradient text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+          <div className="flex items-center justify-center w-8 h-8 2xl:w-9 2xl:h-9 rounded-xl brand-gradient text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20 dark:shadow-none dark:ring-white/20">
             <Sparkles size={17} className="text-white drop-shadow-xs" />
           </div>
           <div className="flex items-center gap-2.5">
@@ -2423,7 +2438,7 @@ export default function App() {
             {/* Modal Header Bar */}
             <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60 sticky top-0 z-20 backdrop-blur-md">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 brand-gradient rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20">
+                <div className="w-11 h-11 brand-gradient rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20 dark:shadow-none dark:ring-white/20">
                   <FolderOpen size={20} className="drop-shadow-xs" />
                 </div>
                 <div>
@@ -3253,16 +3268,16 @@ export default function App() {
               <div className="max-w-2xl w-full mx-auto space-y-4 xl:space-y-5 2xl:space-y-6 animate-fade-in">
 
                 {/* Header Section */}
-                <div className={generatedCode ? 'refine-card' : 'relative'}>
-                  {!generatedCode && (
+                <div className={isChatActive ? 'refine-card' : 'relative'}>
+                  {!isChatActive && (
                     <div className="pointer-events-none absolute -top-8 left-0 right-0 h-44 hero-atmosphere" aria-hidden="true" />
                   )}
                   <div className="space-y-2.5 sm:space-y-3 relative">
-                    {generatedCode ? (
+                    {isChatActive ? (
                       <div className="flex items-center gap-2 mb-1">
                         <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-[0.14em] bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                          Editing Mode
+                          {generatedCode ? 'Editing Mode' : 'Building Mode'}
                         </span>
                       </div>
                     ) : (
@@ -3275,22 +3290,25 @@ export default function App() {
                       </div>
                     )}
                     <h2 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.85rem] 2xl:text-[3.3rem] font-bold tracking-tight text-slate-900 leading-[1.08]">
-                      {generatedCode ? (
-                        <>Refine <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">your app</span></>
+                      {isChatActive ? (
+                        <>
+                          {generatedCode ? 'Refine' : 'Building'}{' '}
+                          <span className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-slate-900 dark:to-slate-600 bg-clip-text text-transparent">your app</span>
+                        </>
                       ) : (
-                        <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">build?</span></>
+                        <>What do you want to <span className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-slate-900 dark:to-slate-600 bg-clip-text text-transparent">build?</span></>
                       )}
                     </h2>
                     <p className="text-slate-600 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed max-w-[36ch]">
-                      {generatedCode
-                        ? "Describe what to change, add, or fix."
+                      {isChatActive
+                        ? (generatedCode ? "Describe what to change, add, or fix." : "Orion is synthesizing your application from your prompt.")
                         : "Describe an idea in plain words and Orion turns it into a complete, working app."}
                     </p>
                   </div>
                 </div>
 
                 {/* Starter Prompts */}
-                {!generatedCode && (
+                {showStarterIdeas && (
                   <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -3359,22 +3377,30 @@ export default function App() {
                         )}
                       </div>
                     ))}
-                    {isGenerating && pendingPrompt && (
+                    {pendingPrompt && (
                       <div className="space-y-2">
                         <div className="flex justify-end">
                           <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 text-white px-4 py-2.5 text-sm font-medium shadow-sm">
                             {pendingPrompt}
                           </div>
                         </div>
-                        {streamingReply && (
+                        {streamingReply ? (
                           <div className="flex justify-start">
                             <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 text-slate-800 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap animate-fade-in">
                               {streamingReply}
                             </div>
                           </div>
-                        )}
+                        ) : isGenerating ? (
+                          <div className="flex justify-start">
+                            <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 text-slate-500 px-4 py-2.5 text-sm flex items-center gap-2 animate-fade-in">
+                              <Loader2 className="animate-spin text-indigo-500" size={14} />
+                              <span className="text-xs font-medium">Building app...</span>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     )}
+                    <div ref={chatBottomRef} />
                   </div>
                 )}
 
@@ -3487,11 +3513,11 @@ export default function App() {
                       handleGenerate();
                     }
                   }}
-                  placeholder={generatedCode ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
+                  placeholder={isChatActive ? "e.g. Make the background dark, add a reset button..." : "e.g. A minimalist task manager with categories..."}
                   className="w-full h-20 sm:h-24 xl:h-28 2xl:h-36 px-4 2xl:px-5 pt-3 2xl:pt-4 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base xl:text-lg 2xl:text-xl leading-relaxed bg-transparent"
                   disabled={isGenerating}
                 />
-                {!generatedCode && versions.length === 0 && (
+                {!isChatActive && (
                   <div className="px-3 sm:px-3.5 pb-2">
                     <div className="flex items-center justify-between py-1.5 px-2.5 sm:px-3 rounded-lg bg-slate-50 border border-slate-200/80">
                       <span className="text-[11px] 2xl:text-xs font-bold text-slate-500 uppercase tracking-wider">Optimize for</span>
@@ -3563,8 +3589,8 @@ export default function App() {
                         </>
                       ) : (
                         <>
-                          {generatedCode ? <Edit2 size={16} /> : <Wand2 size={16} />}
-                          <span>{generatedCode ? "Update App" : "Build App"}</span>
+                          {isChatActive ? <Edit2 size={16} /> : <Wand2 size={16} />}
+                          <span>{isChatActive ? "Update App" : "Build App"}</span>
                         </>
                       )}
                     </button>
