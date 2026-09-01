@@ -32,7 +32,7 @@ const STORAGE_PATH_PATTERN =
 // Tailwind from a CDN, so those need to be allowed for anything to render.
 const CSP = [
   "default-src 'self' data: blob:",
-  "script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com",
   "style-src 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
   "font-src data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
   "img-src * data: blob:",
