@@ -15,7 +15,7 @@ import AuthToast from './components/AuthToast';
 import ImportModal from './components/ImportModal';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
-import { Code2, TriangleAlert } from 'lucide-react';
+import { Code2, TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
 import { sanitizeHtmlResponse } from './lib/edits';
@@ -510,6 +510,27 @@ export default function App() {
     setIsDeployModalOpen(false);
     setIsAuthModalOpen(true);
   };
+
+  // Every function of the app requires a signed-in account: block on session
+  // restore, then gate the entire workspace behind AuthModal when signed out.
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
+        <Loader2 className="animate-spin text-slate-400" size={28} />
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
+        {authToast && (
+          <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
+        )}
+        <AuthModal dismissible={false} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
