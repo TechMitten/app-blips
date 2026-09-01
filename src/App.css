@@ -264,6 +264,23 @@ body {
   z-index: 4;
 }
 
+/* Tablet Device Mockup Polish */
+.device-tablet {
+  position: relative;
+  height: 1040px; /* Stable base height for scaling, ~3:4 portrait to match PREVIEW_MODES.tablet */
+  aspect-ratio: 3/4;
+  background: #1e3a8a;
+  border-radius: 32px;
+  padding: 22px 16px;
+  box-shadow:
+    0 0 0 2px #284496,
+    0 20px 50px -12px rgba(0,0,0,0.8),
+    inset 0 0 2px 2px rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
 .device-desktop {
   position: relative;
   width: 1440px;
