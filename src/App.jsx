@@ -55,7 +55,9 @@ import {
   ExternalLink,
   Zap,
   Layers,
-  Search
+  Search,
+  Rocket,
+  Globe
 } from 'lucide-react';
 // --- Constants ---
 const SURGICAL_EDIT_TOOL = {
@@ -234,7 +236,8 @@ const DEFAULT_LLM_CONFIG = {
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o',
-  reasoning: false
+  reasoning: 'none',
+  max_tokens: ''
 };
 
 // There is no way to hide a key from the machine that types it in a
@@ -287,7 +290,8 @@ const readStoredConfig = (store) => {
         baseUrl: parsed.baseUrl || DEFAULT_LLM_CONFIG.baseUrl,
         apiKey: parsed.apiKey || '',
         model: parsed.model || DEFAULT_LLM_CONFIG.model,
-        reasoning: parsed.reasoning === true
+        reasoning: parsed.reasoning === true ? 'medium' : (parsed.reasoning === false ? 'none' : (parsed.reasoning || 'none')),
+        max_tokens: parsed.max_tokens || ''
       };
     }
   } catch { /* ignore invalid stored config */ }
@@ -335,6 +339,123 @@ const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
   if (!trimmed) return '';
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
+};
+
+// --- Deployment ---
+//
+// The HTML lives as a single .html object in the public `orion-deploys` bucket,
+// but it is NOT served from Supabase: every HTML GET on *.supabase.co comes back
+// as `text/plain` with `CSP: default-src 'none'; sandbox` (Edge Functions get
+// the same treatment as Storage), so such a link always shows source instead of
+// a page. A Cloudflare Pages Function on APPS_ORIGIN reads the object and
+// re-serves it with a real `text/html` content type -- see functions/[[path]].js.
+//
+// Two rules when touching this:
+//
+// 1. Deployed apps MUST stay on their own hostname. They are LLM-generated code
+//    with full script privileges; on the Orion SPA's origin they could read
+//    localStorage, which holds the user's LLM API key and Supabase session.
+// 2. Only ever upload `generatedCode`. The preview bridge is spliced in at
+//    render time and must stay out of anything that leaves the app -- a public
+//    URL most of all.
+const DEPLOY_BUCKET = 'orion-deploys';
+const APPS_ORIGIN = 'https://apps.orion.islandapps.dev';
+
+const randomToken = (length) => {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => (b % 36).toString(36)).join('');
+};
+
+// Storage object names stay opaque; only the public slug is human-readable.
+const makeStorageToken = () => randomToken(10);
+
+const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
+
+// `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal-a7f3`. The
+// random tail keeps slugs globally unique without letting one account squat on
+// a plain name, and keeps other people's links unguessable.
+const slugifyName = (name) =>
+  (name || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+
+const makePublicSlug = (projectName) => `${slugifyName(projectName) || 'app'}-${randomToken(4)}`;
+
+const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
+
+// Publishes the slug -> storage-object mapping the Pages Function reads. Slug is
+// the primary key, so a collision with someone else's app is refused by RLS
+// rather than silently stealing their link; retry with a longer tail.
+const registerDeployment = async ({ slug, userId, projectId, storagePath }) => {
+  let candidate = slug;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { error } = await supabase.from('deployments').upsert(
+      {
+        slug: candidate,
+        user_id: userId,
+        project_id: String(projectId ?? ''),
+        storage_path: storagePath,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'slug' }
+    );
+
+    if (!error) return candidate;
+
+    const taken = /duplicate key|row-level security|conflict|unauthorized/i.test(error.message || '');
+    if (!taken || attempt === 2) {
+      throw new Error(error.message || 'Failed to register the deploy link.');
+    }
+    candidate = `${slug}-${randomToken(3)}`;
+  }
+
+  throw new Error('Could not find a free deploy link. Try again.');
+};
+
+const unregisterDeployment = async (slug) => {
+  const { error } = await supabase.from('deployments').delete().eq('slug', slug);
+  if (error) throw new Error(error.message || 'Failed to remove the deploy link.');
+};
+
+const uploadDeploy = async ({ path, html }) => {
+  const { error } = await supabase.storage
+    .from(DEPLOY_BUCKET)
+    .upload(path, new Blob([html], { type: 'text/html' }), {
+      contentType: 'text/html; charset=utf-8',
+      cacheControl: '60',
+      upsert: true
+    });
+
+  if (error) {
+    const message = error.message || '';
+    if (/bucket not found/i.test(message)) {
+      throw new Error("Deployment storage isn't set up for this project yet.");
+    }
+    // A genuine expired/invalid token -- signing in again actually helps.
+    if (/jwt|token is expired|invalid claim/i.test(message)) {
+      throw new Error('Your session expired. Sign in again to deploy.');
+    }
+    // An RLS rejection is a server misconfiguration, not a stale session.
+    // Storage reports these as "Unauthorized" with a 400, so don't confuse the
+    // two -- telling the user to sign in again would send them in circles.
+    if (/row-level security|unauthorized/i.test(message)) {
+      throw new Error(`Deployment was rejected by storage permissions. ${message}`);
+    }
+    if (/payload too large|exceeded the maximum|maximum allowed size/i.test(message)) {
+      throw new Error('This app is too large to deploy (2 MB limit).');
+    }
+    if (/mime type|not supported/i.test(message)) {
+      throw new Error(`Storage rejected the file type. ${message}`);
+    }
+    throw new Error(message || 'Failed to deploy.');
+  }
 };
 const INITIAL_LAYOUT_OPTIONS = [
   {
@@ -581,7 +702,15 @@ const requestModelText = async ({
     };
 
     bodyObj.temperature = 0.2;
-    if (config.reasoning === false) bodyObj.reasoning_effort = 'none';
+    if (config.reasoning === false || config.reasoning === 'none') {
+      bodyObj.reasoning_effort = 'none';
+    } else if (config.reasoning) {
+      bodyObj.reasoning_effort = config.reasoning;
+    }
+    if (config.max_tokens) {
+      const parsedMax = parseInt(config.max_tokens, 10);
+      if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
+    }
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
 
@@ -1156,6 +1285,13 @@ export default function App() {
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+  // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
+  const [deployment, setDeployment] = useState(null);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployError, setDeployError] = useState(null);
+  const [deployCopied, setDeployCopied] = useState(false);
+  const [confirmUndeploy, setConfirmUndeploy] = useState(false);
   const marqueeSegment = buildMarqueeLoop(streamingCode);
   const [copied, setCopied] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -1420,6 +1556,7 @@ export default function App() {
     name: row.name,
     versions: row.data?.versions || [],
     currentVersionIndex: row.data?.currentVersionIndex ?? -1,
+    deployment: row.data?.deployment || null,
     lastModified: row.updated_at
   }));
 
@@ -1479,6 +1616,7 @@ export default function App() {
       const projectData = row.data || {};
       setVersions(projectData.versions || []);
       setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
+      setDeployment(projectData.deployment || null);
       if (projectData.versions && projectData.versions[projectData.currentVersionIndex]) {
         setGeneratedCode(projectData.versions[projectData.currentVersionIndex].code);
       }
@@ -1495,7 +1633,8 @@ export default function App() {
       versionsToSave = versions,
       indexToSave = currentVersionIndex,
       nameToSave = projectName,
-      idToSave = currentProjectId
+      idToSave = currentProjectId,
+      deploymentToSave = deployment
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
@@ -1506,6 +1645,7 @@ export default function App() {
       const projectData = {
         versions: versionsToSave,
         currentVersionIndex: indexToSave,
+        deployment: deploymentToSave || null,
       };
 
       if (isSignedIn) {
@@ -1551,7 +1691,7 @@ export default function App() {
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, isSignedIn, user?.id, loadUserProjects]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, isSignedIn, user?.id, loadUserProjects]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -1924,6 +2064,97 @@ export default function App() {
     }
   };
 
+  // The live deployment is one version behind the workspace.
+  const currentVersionId = versions[currentVersionIndex]?.id ?? null;
+  const isDeployStale = Boolean(deployment) && deployment.versionId !== currentVersionId;
+  const deploymentUrl = deployment
+    ? (deployment.slug ? deployUrlForSlug(deployment.slug) : deployment.url)
+    : '';
+
+  const openDeployModal = () => {
+    setDeployError(null);
+    setConfirmUndeploy(false);
+    setIsDeployModalOpen(true);
+  };
+
+  const closeDeployModal = () => {
+    if (isDeploying) return;
+    setIsDeployModalOpen(false);
+    setConfirmUndeploy(false);
+  };
+
+  const handleDeploy = async () => {
+    if (!generatedCode || isDeploying) return;
+    if (!isSignedIn || !user?.id) return;
+
+    setIsDeploying(true);
+    setDeployError(null);
+    setConfirmUndeploy(false);
+
+    try {
+      // Reuse the existing path and slug so the shared link stays stable.
+      const path = deployment?.path || deployObjectPath(user.id, makeStorageToken());
+      // `generatedCode` only -- never the bridge-injected preview srcDoc.
+      await uploadDeploy({ path, html: generatedCode });
+
+      const slug = await registerDeployment({
+        slug: deployment?.slug || makePublicSlug(projectName),
+        userId: user.id,
+        projectId: currentProjectId,
+        storagePath: path
+      });
+
+      const next = {
+        slug,
+        url: deployUrlForSlug(slug),
+        path,
+        deployedAt: new Date().toISOString(),
+        versionId: currentVersionId
+      };
+      setDeployment(next);
+      saveProject({ deploymentToSave: next, force: true });
+    } catch (err) {
+      setDeployError(err.message || 'Failed to deploy.');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const handleUndeploy = async () => {
+    if (!deployment || isDeploying) return;
+
+    setIsDeploying(true);
+    setDeployError(null);
+
+    try {
+      if (deployment.slug) await unregisterDeployment(deployment.slug);
+
+      const { error: removeError } = await supabase.storage
+        .from(DEPLOY_BUCKET)
+        .remove([deployment.path]);
+      if (removeError) throw new Error(removeError.message || 'Failed to remove deployment.');
+
+      setDeployment(null);
+      setConfirmUndeploy(false);
+      saveProject({ deploymentToSave: null, force: true });
+    } catch (err) {
+      setDeployError(err.message || 'Failed to remove deployment.');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const handleCopyDeployUrl = async () => {
+    if (!deploymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(deploymentUrl);
+      setDeployCopied(true);
+      setTimeout(() => setDeployCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy deploy URL:', err);
+    }
+  };
+
   const handleConfirmNewChat = () => {
     resetCurrentWorkspace();
     setIsNewChatConfirmOpen(false);
@@ -1943,6 +2174,7 @@ export default function App() {
       setError(null);
       setVersions([]);
       setCurrentVersionIndex(-1);
+      setDeployment(null);
     }
 
     setProjectName(trimmedName);
@@ -2042,6 +2274,10 @@ export default function App() {
     setVersions([]);
     setCurrentVersionIndex(-1);
     setCurrentProjectId(null);
+    setDeployment(null);
+    setDeployError(null);
+    setConfirmUndeploy(false);
+    setIsDeployModalOpen(false);
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
@@ -2389,30 +2625,31 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="flex items-center justify-between gap-3 cursor-pointer">
-                    <div>
-                      <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Reasoning / Thinking</span>
-                      <p className="text-slate-600 text-xs lg:text-sm leading-snug">
-                        Let the model think before answering. Disable for faster, lower-latency responses.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={llmConfig.reasoning !== false}
-                      onClick={() => handleLlmConfigChange('reasoning', llmConfig.reasoning === false)}
-                      className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${
-                        llmConfig.reasoning !== false ? 'bg-brand' : 'bg-slate-300'
-                      }`}
-                      title="Toggle reasoning"
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-                          llmConfig.reasoning !== false ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </label>
+                  <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Max Tokens (Optional)</span>
+                  <input
+                    type="number"
+                    value={llmConfig.max_tokens}
+                    onChange={(e) => handleLlmConfigChange('max_tokens', e.target.value)}
+                    placeholder="Leave blank for model default"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <span className="block text-sm lg:text-base font-bold text-slate-900 mb-1">Reasoning / Thinking</span>
+                  <p className="text-slate-600 text-xs lg:text-sm leading-snug mb-3">
+                    Let the model think before answering. Disable for faster responses on standard models, or choose intensity for reasoning models.
+                  </p>
+                  <select
+                    value={llmConfig.reasoning === true ? 'medium' : (llmConfig.reasoning === false ? 'none' : llmConfig.reasoning)}
+                    onChange={(e) => handleLlmConfigChange('reasoning', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  >
+                    <option value="none">None (Disabled)</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -2802,6 +3039,190 @@ export default function App() {
               >
                 Start New
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeployModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-base 2xl:text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Rocket size={18} className="text-brand" />
+                  {deployment ? 'Deployment' : 'Deploy your app'}
+                </h2>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  {deployment ? 'Your app is live at this link.' : 'Publish this app to a public URL.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDeployModal}
+                disabled={isDeploying}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {deployError && (
+                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl text-sm text-rose-700 flex items-start gap-3 animate-fade-in">
+                  <TriangleAlert size={18} className="text-rose-500 shrink-0 mt-0.5" />
+                  <span>{deployError}</span>
+                </div>
+              )}
+
+              {isDeploying ? (
+                <div className="flex items-center gap-3 px-4 py-6 text-sm text-slate-600">
+                  <Loader2 size={18} className="animate-spin text-brand" />
+                  <span>{deployment && confirmUndeploy ? 'Removing deployment...' : 'Uploading your app...'}</span>
+                </div>
+              ) : deployment ? (
+                <>
+                  {!isSignedIn && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+                      <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
+                      <span>Sign in to update or remove this deployment.</span>
+                    </div>
+                  )}
+                  {isSignedIn && isDeployStale && (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+                      <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                      <span>The live version is older than what&rsquo;s in your workspace. Redeploy to update the link.</span>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Public URL</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Globe size={16} />
+                      </div>
+                      <input
+                        readOnly
+                        value={deploymentUrl}
+                        onFocus={(e) => e.target.select()}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Deployed {formatModifiedTime(deployment.deployedAt)} &middot; anyone with this link can view it.
+                    </p>
+                  </div>
+                </>
+              ) : !isSignedIn ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+                  <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
+                  <span>Deploying needs an account, so your app can be stored and stay reachable at a stable link.</span>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+                  <Globe size={18} className="text-slate-400 shrink-0 mt-0.5" />
+                  <span>
+                    We&rsquo;ll upload this app and give you a link you can share. Redeploying reuses the same link, so it always shows your latest version.
+                    <span className="block mt-1 text-slate-400">Anyone with the link can view it.</span>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+              {deployment ? (
+                <>
+                  {isSignedIn && (
+                    <button
+                      type="button"
+                      onClick={() => (confirmUndeploy ? handleUndeploy() : setConfirmUndeploy(true))}
+                      disabled={isDeploying}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        confirmUndeploy
+                          ? 'text-rose-600 bg-rose-50 hover:bg-rose-100'
+                          : 'text-slate-600 hover:text-rose-600'
+                      }`}
+                    >
+                      <Trash2 size={15} />
+                      {confirmUndeploy ? 'Really remove?' : 'Remove'}
+                    </button>
+                  )}
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={handleCopyDeployUrl}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                  >
+                    {deployCopied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+                    {deployCopied ? 'Copied' : 'Copy link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(deploymentUrl, '_blank', 'noopener,noreferrer')}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                  >
+                    <ExternalLink size={15} />
+                    Open
+                  </button>
+                  {isSignedIn ? (
+                    <button
+                      type="button"
+                      onClick={handleDeploy}
+                      disabled={isDeploying}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Rocket size={15} />
+                      Redeploy
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setIsDeployModalOpen(false); setIsAuthModalOpen(true); }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                    >
+                      <LogIn size={15} />
+                      Sign in
+                    </button>
+                  )}
+                </>
+              ) : !isSignedIn ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeDeployModal}
+                    className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsDeployModalOpen(false); setIsAuthModalOpen(true); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+                  >
+                    <LogIn size={15} />
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeDeployModal}
+                    disabled={isDeploying}
+                    className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeploy}
+                    disabled={isDeploying || !generatedCode}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Rocket size={15} />
+                    Deploy
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3531,7 +3952,7 @@ export default function App() {
                               key={option.id}
                               className={`flex cursor-pointer items-center gap-1 sm:gap-1.5 rounded-md px-2 py-0.5 text-xs xl:text-sm font-semibold transition-all ${
                                 isSelected
-                                  ? 'bg-surface text-indigo-700 shadow-2xs border border-slate-200/80'
+                                  ? 'bg-surface text-indigo-700 shadow-sm border border-slate-300'
                                   : 'text-slate-500 hover:text-slate-800'
                               }`}
                             >
@@ -3733,6 +4154,23 @@ export default function App() {
                   >
                     <Download size={14} className="text-indigo-600 transition-colors" />
                     <span className="hidden md:inline">Export</span>
+                  </button>
+                )}
+
+                {/* Deploy to a public URL */}
+                {generatedCode && (
+                  <button
+                    onClick={openDeployModal}
+                    className="nav-btn relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+                    title={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
+                  >
+                    <Rocket size={14} />
+                    <span className="hidden md:inline">
+                      {deployment ? (isDeployStale && isSignedIn ? 'Update' : 'Deployed') : 'Deploy'}
+                    </span>
+                    {isDeployStale && isSignedIn && (
+                      <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand" />
+                    )}
                   </button>
                 )}
               </div>
