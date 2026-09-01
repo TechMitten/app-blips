@@ -4336,7 +4336,7 @@ export default function App() {
             {/* Container for Device or Code */}
             <div 
               ref={previewContainerRef}
-              className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-auto relative custom-scrollbar"
+              className="flex-1 min-h-0 flex items-center-safe justify-center-safe p-6 overflow-auto relative custom-scrollbar"
             >
               
               {/* Subtle workspace grid */}
