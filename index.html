@@ -12,6 +12,26 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#4f46e5" />
+    <!-- Resolve the theme before first paint so there is no light flash.
+         Inline is required (it must run before the deferred module bundle);
+         the meta CSP above sets no script-src, so inline scripts are allowed.
+         Kept in sync with THEME_KEY / THEME_META_COLOR in src/App.jsx. -->
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('orion-theme');
+          var dark =
+            pref === 'dark' ||
+            (pref !== 'light' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', dark ? '#10131c' : '#f8fafc');
+        } catch (e) {
+          /* storage blocked -- fall through to the light default */
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
