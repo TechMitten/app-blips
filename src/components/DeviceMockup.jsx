@@ -1,4 +1,7 @@
-import { Sparkles, Zap, ShieldAlert, Layers } from 'lucide-react';
+import {
+  Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
+  Lock, Star, Plus, X, MoreVertical
+} from 'lucide-react';
 import { PREVIEW_MODES } from '../lib/constants';
 import { getEffectivePreviewBox } from '../lib/helpers';
 
@@ -32,15 +35,47 @@ export default function DeviceMockup({
         onAnimationEnd={onFlipAnimationEnd}
       >
         {mode === 'desktop' && (
-          <div className="device-desktop-toolbar">
-            <div className="device-desktop-lights">
-              <span className="device-desktop-light device-desktop-light-red"></span>
-              <span className="device-desktop-light device-desktop-light-amber"></span>
-              <span className="device-desktop-light device-desktop-light-green"></span>
+          <div className="device-browser-chrome" aria-hidden="true">
+            <div className="device-browser-tabstrip">
+              <div className="device-desktop-lights">
+                <span className="device-desktop-light device-desktop-light-red"></span>
+                <span className="device-desktop-light device-desktop-light-amber"></span>
+                <span className="device-desktop-light device-desktop-light-green"></span>
+              </div>
+              <div className="device-browser-tab">
+                <span className="device-browser-favicon">
+                  <Sparkles size={10} strokeWidth={2.5} />
+                </span>
+                <span className="device-browser-tab-title">app-preview.local</span>
+                <X size={12} strokeWidth={2.25} className="device-browser-tab-close" />
+              </div>
+              <span className="device-browser-newtab">
+                <Plus size={14} strokeWidth={2.25} />
+              </span>
             </div>
-            <div className="device-desktop-addressbar">
-              <span className="device-desktop-address-pill"></span>
-              <span className="device-desktop-address-text">app-preview.local</span>
+            <div className="device-browser-toolbar">
+              <div className="device-browser-nav">
+                <span className="device-browser-navbtn is-disabled">
+                  <ChevronLeft size={17} />
+                </span>
+                <span className="device-browser-navbtn is-disabled">
+                  <ChevronRight size={17} />
+                </span>
+                <span className="device-browser-navbtn">
+                  <RotateCw size={14} />
+                </span>
+              </div>
+              <div className="device-browser-addressbar">
+                <Lock size={12} strokeWidth={2.25} className="device-browser-lock" />
+                <span className="device-browser-url">app-preview.local</span>
+                <Star size={13} strokeWidth={2} className="device-browser-star" />
+              </div>
+              <div className="device-browser-actions">
+                <span className="device-browser-navbtn">
+                  <MoreVertical size={16} />
+                </span>
+                <span className="device-browser-avatar">O</span>
+              </div>
             </div>
           </div>
         )}
@@ -134,9 +169,7 @@ export default function DeviceMockup({
               </div>
             </>
           )
-        ) : (
-          <div className="device-desktop-stand"></div>
-        )}
+        ) : null}
       </div>
     </div>
   );
