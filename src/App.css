@@ -749,6 +749,7 @@ html.dark .status-tick {
 .animate-stagger-3 { animation: fadeInUp 0.35s 0.15s ease-out both; }
 .animate-stagger-4 { animation: fadeInUp 0.35s 0.20s ease-out both; }
 .animate-stagger-5 { animation: fadeInUp 0.35s 0.25s ease-out both; }
+.animate-fade-in-up { animation: fadeInUp 0.35s ease-out both; }
 
 /* Contextual suggestion chip (horizontal row pinned above chat input) */
 .suggestion-chip {
