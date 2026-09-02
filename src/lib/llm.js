@@ -1,17 +1,20 @@
 import { supabase } from '../supabase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
-import { 
-  HTML_SYSTEM_PROMPT, 
-  SURGICAL_EDIT_TOOL, 
-  SUGGESTIONS_SYSTEM_PROMPT, 
-  SUGGEST_NEXT_STEPS_TOOL, 
-  STARTER_IDEAS_SYSTEM_PROMPT, 
-  GENERATE_STARTER_IDEAS_TOOL, 
-  REFINEMENT_TOOLS, 
-  VIEW_CODE_TOOL, 
-  LIST_SECTIONS_TOOL, 
-  buildInitialGenerationPrompt, 
-  buildSuggestionsPrompt 
+import { checkSyntax } from './syntaxCheck';
+import {
+  HTML_SYSTEM_PROMPT,
+  SURGICAL_EDIT_TOOL,
+  SUGGESTIONS_SYSTEM_PROMPT,
+  SUGGEST_NEXT_STEPS_TOOL,
+  STARTER_IDEAS_SYSTEM_PROMPT,
+  GENERATE_STARTER_IDEAS_TOOL,
+  REFINEMENT_TOOLS,
+  VIEW_CODE_TOOL,
+  LIST_SECTIONS_TOOL,
+  buildInitialGenerationPrompt,
+  buildSuggestionsPrompt,
+  buildSyntaxRepairPrompt,
+  buildSyntaxRepairInstruction
 } from './prompts';
 
 // --- API Helper with Exponential Backoff ---
@@ -140,6 +143,7 @@ export const requestModelText = async ({
 };
 
 export const MAX_REFINEMENT_TURNS = 8;
+export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
@@ -211,11 +215,34 @@ export const generateAppCode = async (
     ];
     const message = await requestModelText({ messages, onChunk, signal });
     const rawText = message.content || message;
+    let code = sanitizeHtmlResponse(rawText);
+    const reply = extractLeadingReply(rawText) || undefined;
+
+    // End-of-generation syntax gate: parse the finished document, and if it
+    // doesn't parse, feed the errors back for correction. Repair requests are
+    // deliberately non-streaming so the preview buffer keeps showing the
+    // original code until the whole flow resolves.
+    let check = checkSyntax(code);
+    for (let repairs = 0; check.errors.length && repairs < MAX_SYNTAX_REPAIR_ATTEMPTS; repairs++) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
+      const repairMessage = await requestModelText({
+        messages: [
+          { role: 'system', content: HTML_SYSTEM_PROMPT },
+          { role: 'user', content: buildSyntaxRepairPrompt(code, check.errors) }
+        ],
+        signal
+      });
+      code = sanitizeHtmlResponse(repairMessage.content || repairMessage);
+      check = checkSyntax(code);
+    }
+
     return {
-      code: sanitizeHtmlResponse(rawText),
+      code,
       editMode: 'full-generation',
       editSummary: 'Initial app generation.',
-      reply: extractLeadingReply(rawText) || undefined
+      reply,
+      ...(check.errors.length ? { syntaxErrors: check.errors } : {})
     };
   }
 
@@ -235,6 +262,17 @@ export const generateAppCode = async (
   let editsApplied = false;
   let nudged = false;
   let replyParts = [];
+  let syntaxErrors = [];
+  let syntaxRepairCycles = 0;
+
+  const nudgeSyntaxRepair = () => {
+    syntaxRepairCycles++;
+    if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
+    messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+  };
+
+  const syntaxResultFields = () =>
+    syntaxErrors.length ? { syntaxErrors } : {};
 
   for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -272,7 +310,13 @@ export const generateAppCode = async (
     });
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
+      if (editsApplied) {
+        if (syntaxErrors.length && syntaxRepairCycles < MAX_SYNTAX_REPAIR_ATTEMPTS) {
+          nudgeSyntaxRepair();
+          continue;
+        }
+        return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined, ...syntaxResultFields() };
+      }
       if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
       nudged = true;
       messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
@@ -286,9 +330,22 @@ export const generateAppCode = async (
       if (applied) editsApplied = true;
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
+
+    // After every edit-applying turn, parse the working code; if it no longer
+    // parses, inject the errors as corrective context and let the model fix
+    // them with the same tools before the loop is allowed to finish.
+    if (editsApplied) {
+      syntaxErrors = checkSyntax(workingCode).errors;
+      if (syntaxErrors.length && syntaxRepairCycles < MAX_SYNTAX_REPAIR_ATTEMPTS) {
+        nudgeSyntaxRepair();
+      }
+    }
   }
 
-  if (editsApplied) return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined };
+  if (editsApplied) {
+    syntaxErrors = checkSyntax(workingCode).errors;
+    return { code: workingCode, editMode: 'surgical', editSummary: prompt, reply: replyParts.join(' ').trim() || undefined, ...syntaxResultFields() };
+  }
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
 };
 

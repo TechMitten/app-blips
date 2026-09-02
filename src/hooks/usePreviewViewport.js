@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PREVIEW_MODES } from '../lib/constants';
 import { getEffectivePreviewBox } from '../lib/helpers';
 
@@ -6,7 +6,16 @@ import { getEffectivePreviewBox } from '../lib/helpers';
 // flip animation), zoom (auto-fit or manual), all persisted to localStorage.
 // `activeTab`/`isHistoryOpen` gate the auto-fit recalculation exactly like the
 // original inline effect did.
-export default function usePreviewViewport({ activeTab, isHistoryOpen, containerRef }) {
+//
+// The container ref is created here as a callback ref mirrored into state:
+// the workspace (and thus the container) mounts only after the auth loading
+// screen unmounts, and a plain ref object would leave this effect's deps
+// unchanged when that happens -- the effect would run once with a null node,
+// never attach its ResizeObserver, and auto-zoom would stay stuck at its
+// initial value until the user manually switched device mode.
+export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
+  const [containerNode, setContainerNode] = useState(null);
+  const containerRef = useCallback((node) => setContainerNode(node), []);
   const [previewMode, setPreviewMode] = useState(() => {
     const stored = localStorage.getItem('orion-preview-mode');
     return stored && PREVIEW_MODES[stored] ? stored : 'mobile';
@@ -34,17 +43,28 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, container
 
   // --- Dynamic Zoom Logic ---
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!containerNode) return;
 
     const calculateZoom = () => {
-      if (!isAutoZoom || !containerRef.current || activeTab !== 'preview') return;
+      if (!isAutoZoom || activeTab !== 'preview') return;
 
-      const el = containerRef.current;
+      const el = containerNode;
+      // Zoom fits inside the container's *content* box. clientWidth/Height
+      // include the container's own padding (p-6), so subtract it first --
+      // zoomPadding is breathing room on top of that, not a replacement.
+      // Skipping this leaves the mockup overflowing the content box by the
+      // padding delta, clipping the bottom edge and forcing a scrollbar.
+      const cs = getComputedStyle(el);
       const box = getEffectivePreviewBox(previewMode, previewOrientation);
       const { h: horizontalPadding, v: verticalPadding } = box.zoomPadding;
-      const availableWidth = Math.max(100, el.clientWidth - horizontalPadding);
-      const availableHeight = Math.max(100, el.clientHeight - verticalPadding);
+      const availableWidth = Math.max(
+        100,
+        el.clientWidth - (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) - horizontalPadding
+      );
+      const availableHeight = Math.max(
+        100,
+        el.clientHeight - (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) - verticalPadding
+      );
       const baseHeight = box.height;
       const baseWidth = box.width;
 
@@ -76,7 +96,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, container
       resizeObserver = new ResizeObserver(() => {
         calculateZoom();
       });
-      resizeObserver.observe(container);
+      resizeObserver.observe(containerNode);
     }
 
     window.addEventListener('resize', calculateZoom);
@@ -84,7 +104,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, container
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', calculateZoom);
     };
-  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerRef]);
+  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode]);
 
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);
@@ -99,6 +119,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, container
   };
 
   return {
+    containerRef,
     previewMode,
     setPreviewMode,
     previewOrientation,

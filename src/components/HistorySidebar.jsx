@@ -20,14 +20,14 @@ export default function HistorySidebar({
       {!isOpen && (
         <button
           onClick={onExpand}
-          className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-surface border-y border-r border-slate-300 rounded-r-lg shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+          className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-surface border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
           title="Show history panel"
         >
           <PanelLeftOpen size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
         </button>
       )}
       {/* History Sidebar */}
-      <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-300/80 panel-edge-right ${
+      <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 panel-edge-right ${
         isOpen ? 'w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
       }`}>
         {/* Header */}

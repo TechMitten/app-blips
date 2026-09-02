@@ -45,7 +45,7 @@ export default function PreviewPane({
     <div className="flex-1 min-h-0 flex flex-col relative z-0 inset-shadow-preview noise-texture">
 
       {/* Canvas Studio Header Bar */}
-      <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 2xl:px-8 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200/90 bg-surface/95 backdrop-blur-md z-10">
+      <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 2xl:px-8 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200 bg-surface/95 backdrop-blur-md z-10">
         {/* Left: View Tabs */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           <div className="nav-segmented-group">

@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react';
+import Markdown from './Markdown';
 
 // Prompt/reply bubbles drawn as the project's star path: a hairline meridian
 // with one star node per version (echoing the History sidebar's v-badges), a
@@ -20,7 +21,7 @@ export default function ChatTranscript({
         return (
           <div key={ver.id} className="space-y-2">
             <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-3.5 py-2.5 text-sm font-medium shadow-sm">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-medium shadow-sm">
                 {ver.prompt}
               </div>
             </div>
@@ -30,8 +31,8 @@ export default function ChatTranscript({
                   <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
                   <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{idx + 1}</span>
                 </span>
-                <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-800 px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap">
-                  {ver.reply}
+                <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-800 px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
+                  <Markdown text={ver.reply} />
                 </div>
               </div>
             )}
@@ -41,7 +42,7 @@ export default function ChatTranscript({
       {pendingPrompt && (
         <div className="space-y-2">
           <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-3.5 py-2.5 text-sm font-medium shadow-sm animate-fade-in">
+            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 dark:bg-[#047857] text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-medium shadow-sm animate-fade-in">
               {pendingPrompt}
             </div>
           </div>
@@ -50,8 +51,8 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-800 px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap animate-fade-in">
-                {streamingReply}
+              <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-800 px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
+                <Markdown text={streamingReply} />
                 <span className="stream-caret" aria-hidden="true" />
               </div>
             </div>
@@ -60,9 +61,9 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-500 px-3.5 py-2.5 text-sm flex items-center gap-2 animate-fade-in">
-                <Loader2 className="animate-spin text-indigo-500 dark:text-emerald-500" size={14} />
-                <span className="text-xs font-medium">{chatMode === 'ask' ? 'Thinking' : 'Building app'}</span>
+              <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-500 px-4 py-3 text-[length:var(--chat-prompt-text)] flex items-center gap-2 animate-fade-in">
+                <Loader2 className="animate-spin text-indigo-500 dark:text-emerald-500" size={15} />
+                <span className="text-[length:var(--chat-label-text)] font-medium">{chatMode === 'ask' ? 'Thinking' : 'Building app'}</span>
               </div>
             </div>
           ) : null}

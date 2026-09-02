@@ -22,24 +22,27 @@
   --color-surface: #ffffff;              /* cards, modals, raised chrome */
   --color-scrim: rgb(2 6 23 / 0.5);      /* modal backdrops              */
 
-  --color-brand: #00509d;
-  --color-brand-hover: #003f7a;
+  /* Brand is a desaturated navy (HSL 209/65%/34%) so filled buttons don't
+     vibrate against the muted canvas. White text still clears AA at 7.3:1. */
+  --color-brand: #1e598f;
+  --color-brand-hover: #184672;
   --color-brand-fg: #ffffff;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
 
-  /* Accent ramp in light theme based on #00509d (replacing the default purple/indigo) */
-  --color-indigo-50: #edf6ff;
-  --color-indigo-100: #d2e9fe;
-  --color-indigo-200: #aad2f8;
-  --color-indigo-300: #70afeb;
-  --color-indigo-400: #1d88ed;
-  --color-indigo-500: #006cd1;
-  --color-indigo-600: #00509d;
-  --color-indigo-700: #003f7a;
-  --color-indigo-800: #002f5c;
-  --color-indigo-900: #00203d;
-  --color-indigo-950: #001224;
+  /* Accent ramp in light theme based on #1e598f (replacing the default purple/indigo).
+     Chroma tapers toward the pale end so tints stay quiet on the soft canvas. */
+  --color-indigo-50: #eff4fa;
+  --color-indigo-100: #dbe9f4;
+  --color-indigo-200: #b8d3ea;
+  --color-indigo-300: #81afda;
+  --color-indigo-400: #3987d0;
+  --color-indigo-500: #256db1;
+  --color-indigo-600: #1e598f;
+  --color-indigo-700: #184672;
+  --color-indigo-800: #123450;
+  --color-indigo-900: #0d263c;
+  --color-indigo-950: #071726;
 }
 
 /* ---------------------------------------------------------------------------
@@ -61,6 +64,27 @@
 @layer theme {
   html {
     color-scheme: light;
+  }
+
+  /* Light theme slate overrides.
+
+     Same trick as the dark block below -- specificity (0,1,1) beats
+     Tailwind's ":root, :host" defaults (0,1,0) -- so the canvas and ink
+     steps can be softened without touching the JSX:
+
+       slate-50   canvas: soft muted neutral so the white panels float
+                  above it as physical cards (was stock #f8fafc)
+       slate-900  primary text: soft charcoal instead of near-black ink
+       slate-950  darkest text: pinned to the same charcoal
+
+     The mid ramp (100-800) keeps Tailwind's stock values, so borders
+     (200 = #e2e8f0) and secondary text (600/700) are unchanged.
+     .palette-stock is a no-op here (it only re-pins under html.dark), and
+     the code panel paints from literal hex, so neither is affected. */
+  html:not(.dark) {
+    --color-slate-50: #f1f3f5;
+    --color-slate-900: #1e293b;
+    --color-slate-950: #1e293b;
   }
 
   /* Dark theme.
