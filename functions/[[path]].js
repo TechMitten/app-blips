@@ -36,11 +36,11 @@ const STORAGE_PATH_PATTERN =
 const PWA_ROUTE_PATTERN = /^_pwa\/(.+)\/(manifest\.webmanifest|sw\.js)$/;
 
 // Identical for every deployed app -- no per-app caching, just enough to
-// satisfy installability checks that require a registered service worker
-// with a fetch handler.
+// satisfy installability checks that require a registered service worker.
+// No fetch handler: Chrome flags no-op fetch handlers as pure overhead, and
+// current installability criteria no longer require one.
 const SERVICE_WORKER_JS = `self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', () => {});
 `;
 
 // Fallback display name when a deployment has no stored `name`: strips a
@@ -54,13 +54,18 @@ const humanizeSlug = (slug) => {
   return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 };
 
-// Generated apps are single files with inline scripts/styles, usually pulling
-// Tailwind from a CDN, so those need to be allowed for anything to render.
+// Generated apps are single files with inline scripts/styles whose library
+// imports come from whichever CDN the model picked (the system prompt
+// prescribes esm.sh, but it may emit others), so script/style/font sources
+// are open to any https origin. That's not a hole: these pages already run
+// arbitrary inline script, and the real boundary is the dedicated hostname
+// (see the header comment) -- not a CDN allowlist, which only ever chased
+// the model's output and blanked pages it missed.
 const CSP = [
   "default-src 'self' data: blob:",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com",
-  "style-src 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-  "font-src data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https:",
+  "style-src 'unsafe-inline' https:",
+  "font-src data: https:",
   "img-src * data: blob:",
   "media-src * data: blob:",
   "connect-src https:",
@@ -184,6 +189,12 @@ export async function onRequest(context) {
           'x-robots-tag': 'noindex',
         },
       });
+    }
+
+    // Browsers request this automatically for every page; there is no per-app
+    // icon, so borrow the site's instead of serving a 404 page for it.
+    if (path === 'favicon.ico') {
+      return Response.redirect('https://appblips.com/favicon.ico', 302);
     }
 
     const slug = decodeURIComponent(path);
