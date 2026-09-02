@@ -22,6 +22,7 @@ import { sanitizeHtmlResponse } from './lib/edits';
 import {
   PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
 } from './lib/constants';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useChatFont from './hooks/useChatFont';
@@ -75,6 +76,7 @@ const persistStarterIdeas = (ideas) => {
 export default function App() {
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
+  const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : false;
@@ -216,6 +218,15 @@ export default function App() {
     localStorage.setItem('orion-history-open', isHistoryOpen);
   }, [isHistoryOpen]);
 
+  useEffect(() => {
+    localStorage.setItem(SHOW_CODE_VIEW_KEY, showCodeView);
+  }, [showCodeView]);
+
+  const handleShowCodeViewChange = (value) => {
+    setShowCodeView(value);
+    if (!value) setActiveTab('preview');
+  };
+
   const handleGenerateStarters = async () => {
     if (isGeneratingStarters) return;
 
@@ -346,19 +357,6 @@ export default function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  };
-
-  const handleDownload = () => {
-    if (!generatedCode) return;
-    const blob = new Blob([generatedCode], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `miniapp-${Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleOpenInNewTab = () => {
@@ -568,6 +566,8 @@ export default function App() {
           resolvedTheme={resolvedTheme}
           chatFont={chatFont}
           onChatFontChange={setChatFont}
+          showCodeView={showCodeView}
+          onShowCodeViewChange={handleShowCodeViewChange}
         />
       )}
 
@@ -708,6 +708,7 @@ export default function App() {
           <PreviewPane
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            showCodeView={showCodeView}
             versions={versions}
             currentVersionIndex={currentVersionIndex}
             previewMode={previewMode}
@@ -725,7 +726,6 @@ export default function App() {
             onRedo={handleRedo}
             hasCode={Boolean(generatedCode)}
             onOpenNewTab={handleOpenInNewTab}
-            onDownload={handleDownload}
             deployment={deployment}
             isDeployStale={isDeployStale}
             isSignedIn={isSignedIn}

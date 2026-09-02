@@ -3,8 +3,9 @@ import Modal from './Modal';
 import { CHAT_FONT_OPTIONS } from '../lib/config';
 
 // Settings modal: appearance (theme preference comes from useTheme in App,
-// chat font size from useChatFont). The LLM endpoint/key/model are fixed
-// server-side (see functions/api/chat.js) and are not user-configurable.
+// chat font size from useChatFont) and the code-view toggle. The LLM
+// endpoint/key/model are fixed server-side (see functions/api/chat.js) and are
+// not user-configurable.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -16,6 +17,8 @@ export default function SettingsModal({
   resolvedTheme,
   chatFont,
   onChatFontChange,
+  showCodeView,
+  onShowCodeViewChange,
 }) {
   return (
     <Modal
@@ -92,6 +95,36 @@ export default function SettingsModal({
           </div>
           <p className="text-xs text-slate-600 leading-snug">
             Text size for the build conversation, including replies and code snippets.
+          </p>
+        </section>
+
+        {/* Code view toggle */}
+        <section className="space-y-2" aria-label="Code view">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
+            <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
+              Code view
+            </h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showCodeView}
+              aria-label="Show Code tab"
+              onClick={() => onShowCodeViewChange(!showCodeView)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                showCodeView
+                  ? 'brand-fill-text bg-brand border-transparent'
+                  : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  showCodeView ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">
+            Show the Code tab in the preview toolbar to inspect the generated HTML.
           </p>
         </section>
       </div>

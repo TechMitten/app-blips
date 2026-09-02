@@ -1,16 +1,17 @@
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCw, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Download, Rocket
+  ZoomIn, ZoomOut, ExternalLink, Rocket
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import { PREVIEW_MODES } from '../lib/constants';
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
-// open/export/deploy) and the preview surface or code view below it.
+// open/deploy) and the preview surface or code view below it.
 export default function PreviewPane({
   activeTab,
   onTabChange,
+  showCodeView,
   versions,
   currentVersionIndex,
   previewMode,
@@ -28,7 +29,6 @@ export default function PreviewPane({
   onRedo,
   hasCode,
   onOpenNewTab,
-  onDownload,
   deployment,
   isDeployStale,
   isSignedIn,
@@ -58,15 +58,17 @@ export default function PreviewPane({
               <Play size={14} />
               <span>Preview</span>
             </button>
-            <button
-              onClick={() => onTabChange('code')}
-              className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
-                activeTab === 'code' ? 'nav-segmented-btn-active' : ''
-              }`}
-            >
-              <TerminalSquare size={14} />
-              <span>Code</span>
-            </button>
+            {showCodeView && (
+              <button
+                onClick={() => onTabChange('code')}
+                className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
+                  activeTab === 'code' ? 'nav-segmented-btn-active' : ''
+                }`}
+              >
+                <TerminalSquare size={14} />
+                <span>Code</span>
+              </button>
+            )}
           </div>
 
           {/* Version indicator pill */}
@@ -121,7 +123,7 @@ export default function PreviewPane({
           </div>
         )}
 
-        {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out, Export) */}
+        {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Undo/Redo when versions > 1 */}
           {versions.length > 1 && (
@@ -183,18 +185,6 @@ export default function PreviewPane({
             >
               <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
               <span className="hidden lg:inline">Open</span>
-            </button>
-          )}
-
-          {/* Export HTML */}
-          {hasCode && (
-            <button
-              onClick={onDownload}
-              className="nav-btn bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 hover:text-indigo-800 border border-indigo-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
-              title="Export and Download HTML file"
-            >
-              <Download size={14} className="text-indigo-600 transition-colors" />
-              <span className="hidden md:inline">Export</span>
             </button>
           )}
 
