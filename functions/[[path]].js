@@ -72,6 +72,31 @@ const CSP = [
   "base-uri 'none'",
 ].join('; ');
 
+// Umami analytics, injected at serve time so deployments uploaded before it
+// existed are tracked too. New uploads already carry the tag (spliced in by
+// src/lib/analytics.js via uploadDeploy) -- the includes() check keeps the
+// script single-load so events are never double-counted.
+const UMAMI_SCRIPT_TAG =
+  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
+
+const injectAnalytics = (html) => {
+  if (html.includes('umami.techmitten.com/script.js')) return html;
+
+  const headMatch = /<head\b[^>]*>/i.exec(html);
+  if (headMatch) {
+    const at = headMatch.index + headMatch[0].length;
+    return html.slice(0, at) + UMAMI_SCRIPT_TAG + html.slice(at);
+  }
+
+  const htmlMatch = /<html\b[^>]*>/i.exec(html);
+  if (htmlMatch) {
+    const at = htmlMatch.index + htmlMatch[0].length;
+    return html.slice(0, at) + UMAMI_SCRIPT_TAG + html.slice(at);
+  }
+
+  return html;
+};
+
 const notice = (status, title, body) =>
   new Response(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
@@ -173,9 +198,13 @@ export async function onRequest(context) {
         display: 'standalone',
         theme_color: '#ffffff',
         background_color: '#ffffff',
+        // Root-relative icon URLs resolve against the apps origin (relative to
+        // this manifest's URL) and are served by the static-asset passthrough
+        // above, so installability never depends on the SPA hostname being up
+        // or holding the same assets.
         icons: [
-          { src: 'https://appblips.com/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'https://appblips.com/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
         ],
       };
 
@@ -191,10 +220,17 @@ export async function onRequest(context) {
       });
     }
 
-    // Browsers request this automatically for every page; there is no per-app
-    // icon, so borrow the site's instead of serving a 404 page for it.
-    if (path === 'favicon.ico') {
-      return Response.redirect('https://appblips.com/favicon.ico', 302);
+    // Shared static assets: the Pages build output backs both hostnames, so
+    // root-level dotted paths here fall through to the static handler. Slugs
+    // can never contain a dot (SLUG_PATTERN is [a-zA-Z0-9-]), so there is no
+    // app-link collision. This serves the manifest's PNG icons (same-origin),
+    // the favicon browsers request automatically, and apple-touch-icon for iOS
+    // installs -- keeping installability off the SPA hostname. The extension
+    // allowlist stops a typo'd dotted URL from coming back as the SPA shell.
+    // Must run after the _pwa check above: manifest.webmanifest/sw.js contain
+    // dots and are Function-served.
+    if (/^[a-z0-9-]+\.(png|ico|svg|webmanifest|txt|xml)$/i.test(path)) {
+      return next();
     }
 
     const slug = decodeURIComponent(path);
@@ -228,7 +264,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = await object.text();
+    const html = injectAnalytics(await object.text());
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,

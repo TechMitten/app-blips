@@ -15,11 +15,14 @@
 //   - the "Unlock App" wrapper template in crypto.js -- so it's present
 //     immediately, before any password is entered, for protected deploys.
 export const PWA_HEAD_SNIPPET = `<link rel="manifest" id="orion-pwa-manifest">
+<link rel="apple-touch-icon" id="orion-pwa-touch-icon">
 <script>
 (function () {
   var base = '/_pwa' + location.pathname.replace(/\\/+$/, '');
   var link = document.getElementById('orion-pwa-manifest');
   if (link) link.setAttribute('href', base + '/manifest.webmanifest');
+  var touch = document.getElementById('orion-pwa-touch-icon');
+  if (touch) touch.setAttribute('href', '/apple-touch-icon.png');
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register(base + '/sw.js', { scope: location.pathname }).catch(function () {});
   }

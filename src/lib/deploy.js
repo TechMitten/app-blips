@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
+import { injectAnalyticsSnippet } from './analytics';
 
 // --- Deployment ---
 //
@@ -89,8 +90,10 @@ export const unregisterDeployment = async (slug) => {
 };
 
 export const uploadDeploy = async ({ path, html, password }) => {
-  const pwaHtml = injectPwaSnippet(html);
-  const finalHtml = password ? await encryptApp(pwaHtml, password) : pwaHtml;
+  // Analytics goes in before encryption so a password-protected deploy still
+  // carries it once decrypted and document.write'n in.
+  const withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
+  const finalHtml = password ? await encryptApp(withExtras, password) : withExtras;
 
   const { error } = await supabase.storage
     .from(DEPLOY_BUCKET)
