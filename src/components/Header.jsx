@@ -49,7 +49,7 @@ export default function Header({
   onSignOut,
 }) {
   return (
-    <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200/80 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
+    <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-4 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between sticky top-0 z-40">
       {/* Left: Brand / Logo */}
       <div className="flex items-center gap-2.5">
         <LogoMark className="w-10 h-10 2xl:w-11 2xl:h-11" />

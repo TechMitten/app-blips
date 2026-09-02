@@ -9,8 +9,9 @@
 
   /* Shadows: near-black at low alpha reads as depth on a light ground, but
      disappears entirely on a dark one -- so dark raises the alpha and adds a
-     light hairline instead of relying on the shadow alone. */
-  --shadow-color: 15 23 42;
+     light hairline instead of relying on the shadow alone. The ink matches
+     the softened slate-900 charcoal (#1e293b). */
+  --shadow-color: 30 41 59;
   --shadow-a1: 0.06;
   --shadow-a2: 0.08;
   --shadow-a3: 0.12;
@@ -21,8 +22,9 @@
 
   /* Accent used for glows and atmospherics. Distinct from --color-brand (the
      button fill): this one has to stay visible AS light on the page ground,
-     so dark lifts it well above the brand fill. */
-  --color-accent: #00509d;
+     so dark lifts it well above the brand fill. Light tracks the desaturated
+     brand (#1e598f). */
+  --color-accent: #1e598f;
   --glow-a1: 0.10;
   --glow-a2: 0.22;
   --glow-a3: 0.35;
@@ -31,10 +33,10 @@
   --seg-active-bg: var(--color-surface);
   --seg-active-fg: var(--color-brand);
   --focus-halo: var(--color-surface);
-  --pulse-ring: rgb(0 80 157 / 0.08);
+  --pulse-ring: rgb(30 89 143 / 0.08);
   --inset-highlight: rgb(255 255 255 / 0.8);
-  --accent-gradient: linear-gradient(135deg, #00509d, #0077b6);
-  --hero-glow-secondary: #0077b6;
+  --accent-gradient: linear-gradient(135deg, #1e598f, #3081a6);
+  --hero-glow-secondary: #3081a6;
 
   /* Depth kit. Mostly inert on light, where drop shadows already do the work.
      On dark a black shadow cannot darken a near-black ground, so depth has to
@@ -42,8 +44,8 @@
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0);
   --stage-bg: rgb(226 232 240 / 0.6);
-  --stage-inset: inset 0 10px 24px -10px rgb(15 23 42 / 0.1),
-    inset 0 0 0 1px rgb(15 23 42 / 0.05);
+  --stage-inset: inset 0 10px 24px -10px rgb(30 41 59 / 0.1),
+    inset 0 0 0 1px rgb(30 41 59 / 0.05);
   --ambient: none;
   --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0);
   /* Inputs read as wells cut INTO the panel. On light a border carries that;
@@ -115,12 +117,13 @@ body {
 /* Header logo mark. A fixed gradient rather than --color-brand: that token
    inverts to white in dark mode so text stays legible on filled buttons
    (see the html.dark override below), but the logo is an identity mark and
-   has to read as the same blue in both themes. */
+   has to read as the same blue in both themes. Shares the desaturated
+   brand family (#1e598f). */
 .brand-mark {
-  background: linear-gradient(155deg, #1a73c9 0%, #00509d 55%, #003f7a 100%);
+  background: linear-gradient(155deg, #2c70af 0%, #1e598f 55%, #184672 100%);
   box-shadow:
-    0 1px 2px rgb(0 63 122 / 0.35),
-    0 4px 12px -3px rgb(0 63 122 / 0.5),
+    0 1px 2px rgb(24 70 114 / 0.35),
+    0 4px 12px -3px rgb(24 70 114 / 0.5),
     inset 0 1px 0 rgb(255 255 255 / 0.28),
     inset 0 0 0 1px rgb(255 255 255 / 0.08);
 }
@@ -878,16 +881,16 @@ html.dark .status-tick {
 .btn-premium-primary {
   background: linear-gradient(135deg, var(--color-brand), var(--color-brand-hover));
   color: var(--color-surface);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3), 0 4px 8px -4px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 1px 2px rgb(from var(--color-accent) r g b / 0.3), 0 4px 8px -4px rgb(from var(--color-accent) r g b / 0.2);
 }
 .btn-premium-primary:hover {
   background: linear-gradient(135deg, var(--color-brand-hover), var(--color-brand));
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35), 0 6px 14px -4px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 4px rgb(from var(--color-accent) r g b / 0.35), 0 6px 14px -4px rgb(from var(--color-accent) r g b / 0.25);
   transform: translateY(-0.5px);
 }
 .btn-premium-primary:active {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 1px 2px rgb(from var(--color-accent) r g b / 0.25);
 }
 .btn-premium-secondary {
   background: var(--color-surface);
@@ -1038,16 +1041,23 @@ html.dark .status-tick {
   font-size: 0.75rem;
 }
 
-/* History section background and header with distinct cool slate contrast */
+/* History section: a lit card floating above the canvas, so it rides
+   --color-surface (white on light, #141414 on dark) with a gentle
+   top-lit tilt rather than the old darker-than-canvas slate wash. The
+   gradient stays token-based so dark inverts correctly. */
 .history-bg {
-  background-color: var(--color-slate-100);
-  background-image: linear-gradient(180deg, var(--color-slate-50) 0%, var(--color-slate-100) 35%, var(--color-slate-100) 100%);
+  background-color: var(--color-surface);
+  background-image: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    color-mix(in oklab, var(--color-surface) 88%, var(--color-slate-100) 12%) 100%
+  );
 }
 .history-header-bg {
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, var(--color-slate-50) 98%, transparent),
-    color-mix(in oklab, var(--color-slate-100) 92%, transparent)
+    color-mix(in oklab, var(--color-surface) 98%, transparent),
+    color-mix(in oklab, var(--color-surface) 92%, transparent)
   );
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1105,6 +1115,50 @@ html.dark .status-tick {
 }
 @media (prefers-reduced-motion: reduce) {
   .orion-dot-mid { animation: none; }
+}
+
+/* --- Chat font size setting ---
+
+   The Settings modal exposes small/default/large/xlarge; the choice is mirrored
+   onto <html data-chat-font> and these variables feed every font size in the
+   build/ask transcript (ChatTranscript + Markdown). The default set matches the
+   px sizes the components shipped with, so 'default' is visually identical. */
+:root,
+[data-chat-font='default'] {
+  --chat-text: 0.875rem;        /* reply body (14px) */
+  --chat-prompt-text: 0.9375rem;/* user prompt bubble (15px) */
+  --chat-code-text: 0.78125rem; /* inline + fenced code (12.5px) */
+  --chat-h1: 1rem;              /* markdown headings (16/15/14px) */
+  --chat-h2: 0.9375rem;
+  --chat-h3: 0.875rem;
+  --chat-label-text: 0.8125rem; /* "Thinking"/"Building app" label (13px) */
+}
+[data-chat-font='small'] {
+  --chat-text: 0.8125rem;       /* 13px */
+  --chat-prompt-text: 0.875rem;
+  --chat-code-text: 0.71875rem; /* 11.5px */
+  --chat-h1: 0.9375rem;
+  --chat-h2: 0.875rem;
+  --chat-h3: 0.84375rem;        /* 13.5px */
+  --chat-label-text: 0.75rem;
+}
+[data-chat-font='large'] {
+  --chat-text: 1rem;            /* 16px */
+  --chat-prompt-text: 1.0625rem;/* 17px */
+  --chat-code-text: 0.875rem;
+  --chat-h1: 1.125rem;          /* 18px */
+  --chat-h2: 1.0625rem;
+  --chat-h3: 1rem;
+  --chat-label-text: 0.875rem;
+}
+[data-chat-font='xlarge'] {
+  --chat-text: 1.125rem;        /* 18px */
+  --chat-prompt-text: 1.1875rem;/* 19px */
+  --chat-code-text: 0.96875rem; /* 15.5px */
+  --chat-h1: 1.25rem;           /* 20px */
+  --chat-h2: 1.1875rem;
+  --chat-h3: 1.125rem;
+  --chat-label-text: 0.9375rem;
 }
 
 /* --- Constellation meridian transcript ---

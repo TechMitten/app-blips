@@ -15,11 +15,12 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#4f46e5" />
-    <!-- Resolve the theme before first paint so there is no light flash.
-         Inline is required (it must run before the deferred module bundle);
-         the meta CSP above sets no script-src, so inline scripts are allowed.
-         Kept in sync with THEME_KEY / THEME_META_COLOR in src/App.jsx. -->
+    <meta name="theme-color" content="#f1f3f5" />
+    <!-- Resolve the theme and chat font size before first paint so there is no
+         light/small flash. Inline is required (it must run before the deferred
+         module bundle); the meta CSP above sets no script-src, so inline scripts
+         are allowed. Kept in sync with THEME_KEY / THEME_META_COLOR in
+         src/lib/config.js. -->
     <script>
       (function () {
         try {
@@ -30,9 +31,13 @@
               window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.classList.toggle('dark', dark);
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', dark ? '#080808' : '#f8fafc');
+          if (meta) meta.setAttribute('content', dark ? '#080808' : '#f1f3f5');
+          var font = localStorage.getItem('orion-chat-font');
+          if (font === 'small' || font === 'large' || font === 'xlarge') {
+            document.documentElement.dataset.chatFont = font;
+          }
         } catch (e) {
-          /* storage blocked -- fall through to the light default */
+          /* storage blocked -- fall through to the light/default sizes */
         }
       })();
     </script>

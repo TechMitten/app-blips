@@ -139,14 +139,22 @@ export const applySurgicalEdits = (currentCode, edits) => {
   return { success: true, code: newCode };
 };
 
-export const SECTION_LANDMARK_RE = /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->/;
+// Landmark comments come in two forms because they have to survive in two
+// different syntaxes. `<!-- @section: x -->` is the HTML form; `// @section: x`
+// is the JavaScript form, required inside <script type="module"> blocks where
+// HTML-like comments are a hard syntax error (they are only tolerated in
+// classic scripts as a legacy quirk). The JS form is anchored to the start of
+// the line so a `@section:` appearing mid-expression or inside a URL cannot be
+// mistaken for a landmark.
+export const SECTION_LANDMARK_RE =
+  /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->|^\s*\/\/\s*@section:\s*([^\s][^\n]*?)\s*$/;
 
 export const listSections = (code) => {
   const lines = code.split(/\r?\n/);
   const marks = [];
   lines.forEach((line, i) => {
     const m = line.match(SECTION_LANDMARK_RE);
-    if (m) marks.push({ name: m[1].trim(), line: i + 1 });
+    if (m) marks.push({ name: (m[1] ?? m[2]).trim(), line: i + 1 });
   });
   return marks.map((m, i) => ({
     name: m.name,

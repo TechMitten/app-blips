@@ -24,6 +24,7 @@ import {
 } from './lib/constants';
 
 import useTheme from './hooks/useTheme';
+import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
@@ -86,6 +87,7 @@ export default function App() {
   // --- Theme ---
   const { themePreference, setThemePreference, resolvedTheme } = useTheme();
   const handleToggleTheme = () => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark');
+  const { chatFont, setChatFont } = useChatFont();
 
   // --- Auth (Supabase) ---
   const {
@@ -103,6 +105,7 @@ export default function App() {
   const [generatedCode, setGeneratedCode] = useState('');
   const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
   const [error, setError] = useState(null);
+  const [generationStatus, setGenerationStatus] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [pendingPrompt, setPendingPrompt] = useState('');
@@ -132,7 +135,6 @@ export default function App() {
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
 
   const chatBottomRef = useRef(null);
-  const previewContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
@@ -185,10 +187,11 @@ export default function App() {
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
+    containerRef: previewContainerRef,
     previewMode, setPreviewMode, previewOrientation, handleToggleOrientation,
     orientationFlipClass, setOrientationFlipClass, zoomLevel, isAutoZoom,
     handleManualZoom, resetZoom,
-  } = usePreviewViewport({ activeTab, isHistoryOpen, containerRef: previewContainerRef });
+  } = usePreviewViewport({ activeTab, isHistoryOpen });
 
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
@@ -269,6 +272,7 @@ export default function App() {
     setIsSuggestionsExpanded(false);
     clearStreamingState();
     setError(null);
+    setGenerationStatus(null);
     abortControllerRef.current = new AbortController();
 
     const currentPrompt = prompt;
@@ -281,6 +285,7 @@ export default function App() {
           return;
         }
         if (kind === 'status') {
+          setGenerationStatus(chunk);
           return;
         }
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
@@ -329,6 +334,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
       setPendingPrompt('');
+      setGenerationStatus(null);
       clearStreamingState();
     }
   };
@@ -560,6 +566,8 @@ export default function App() {
           themePreference={themePreference}
           onThemePreferenceChange={setThemePreference}
           resolvedTheme={resolvedTheme}
+          chatFont={chatFont}
+          onChatFontChange={setChatFont}
         />
       )}
 
@@ -681,6 +689,7 @@ export default function App() {
             pendingPrompt={pendingPrompt}
             streamingReply={streamingReply}
             isGenerating={isGenerating}
+            generationStatus={generationStatus}
             error={error}
             prompt={prompt}
             onPromptChange={setPrompt}

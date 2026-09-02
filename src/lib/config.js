@@ -14,7 +14,8 @@ export const safeStorage = (kind) => {
 
 export const THEME_KEY = 'orion-theme';
 // Mirrored by the pre-paint script in index.html -- keep both in sync.
-export const THEME_META_COLOR = { light: '#f8fafc', dark: '#080808' };
+// Light matches the canvas token (--color-slate-50 in index.css).
+export const THEME_META_COLOR = { light: '#f1f3f5', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
 // falls back to light.
@@ -24,5 +25,20 @@ export const loadThemePreference = () => {
     return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light';
   } catch {
     return 'light';
+  }
+};
+
+export const CHAT_FONT_KEY = 'orion-chat-font';
+export const CHAT_FONT_OPTIONS = ['small', 'default', 'large', 'xlarge'];
+
+// One of CHAT_FONT_OPTIONS; anything else falls back to 'default'. The value
+// only selects a CSS variable set (see the chat-font block in App.css), so the
+// components themselves stay agnostic about concrete pixel sizes.
+export const loadChatFont = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(CHAT_FONT_KEY);
+    return CHAT_FONT_OPTIONS.includes(stored) ? stored : 'default';
+  } catch {
+    return 'default';
   }
 };

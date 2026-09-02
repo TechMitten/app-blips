@@ -1,10 +1,22 @@
 import { Sun, Moon, Monitor, X } from 'lucide-react';
 import Modal from './Modal';
+import { CHAT_FONT_OPTIONS } from '../lib/config';
 
-// Settings modal: appearance (theme preference comes from useTheme in App).
-// The LLM endpoint/key/model are fixed server-side (see functions/api/chat.js)
-// and are not user-configurable.
-export default function SettingsModal({ onClose, themePreference, onThemePreferenceChange, resolvedTheme }) {
+// Settings modal: appearance (theme preference comes from useTheme in App,
+// chat font size from useChatFont). The LLM endpoint/key/model are fixed
+// server-side (see functions/api/chat.js) and are not user-configurable.
+const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
+// The option buttons show an "A" at the size it selects -- the preview IS the label.
+const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
+
+export default function SettingsModal({
+  onClose,
+  themePreference,
+  onThemePreferenceChange,
+  resolvedTheme,
+  chatFont,
+  onChatFontChange,
+}) {
   return (
     <Modal
       zIndex={60}
@@ -52,6 +64,34 @@ export default function SettingsModal({ onClose, themePreference, onThemePrefere
             {themePreference === 'system'
               ? `Following your system setting — currently ${resolvedTheme}.`
               : `Always ${themePreference}. Your system setting is ignored.`}
+          </p>
+        </section>
+
+        {/* Chat font size */}
+        <section className="space-y-2" aria-label="Chat font size">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
+            <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
+              Chat font
+            </h3>
+            <div className="nav-segmented-group" role="group" aria-label="Chat font size">
+              {CHAT_FONT_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={chatFont === option}
+                  aria-label={CHAT_FONT_LABELS[option]}
+                  title={CHAT_FONT_LABELS[option]}
+                  onClick={() => onChatFontChange(option)}
+                  className={`nav-segmented-btn ${chatFont === option ? 'nav-segmented-btn-active' : ''}`}
+                >
+                  <span className={`font-semibold leading-none ${CHAT_FONT_PREVIEW[option]}`}>A</span>
+                  <span className="sr-only">{CHAT_FONT_LABELS[option]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">
+            Text size for the build conversation, including replies and code snippets.
           </p>
         </section>
       </div>

@@ -32,67 +32,67 @@ export const AVAILABLE_ICONS = {
 
 export const STARTER_PRESETS = [
   {
-    title: "Focus Timer",
-    prompt: "A cozy focus timer with work/break intervals, gentle chimes, and a streak history.",
+    title: "Focus Pet",
+    prompt: "A pomodoro timer with a pixel pet that hatches and levels up when you finish focus sessions, plus a weekly streak history.",
     category: "Productivity",
     icon: Timer,
     color: "text-amber-600 bg-amber-50"
   },
   {
-    title: "Trip Planner",
-    prompt: "A trip planner with a weather forecast, packing checklist, and day-by-day itinerary.",
-    category: "Travel",
-    icon: CloudSun,
-    color: "text-sky-600 bg-sky-50"
-  },
-  {
-    title: "Bill Splitter",
-    prompt: "A bill splitter for group dinners that assigns items to people and calculates tax/tip.",
-    category: "Finance",
-    icon: Receipt,
-    color: "text-emerald-600 bg-emerald-50"
-  },
-  {
-    title: "Mood & Habit Tracker",
-    prompt: "A friendly daily journal combining a mood check-in with quick toggles for habits and streaks.",
-    category: "Wellness",
-    icon: ListChecks,
-    color: "text-indigo-600 bg-indigo-50"
-  },
-  {
-    title: "Family Chore Board",
-    prompt: "A drag-and-drop chore board for a household with columns for 'To Do', 'Doing', and 'Done'.",
-    category: "Home",
-    icon: Layout,
-    color: "text-violet-600 bg-violet-50"
-  },
-  {
-    title: "Subscription Tracker",
-    prompt: "A subscription tracker that totals monthly spending and flags upcoming renewals.",
-    category: "Finance",
-    icon: Wallet,
-    color: "text-emerald-600 bg-emerald-50"
-  },
-  {
-    title: "Game Night Scorekeeper",
-    prompt: "A scorekeeper for game night with player rounds, running totals, and a winner celebration.",
-    category: "Fun",
+    title: "Word Gambit",
+    prompt: "A five-letter word guessing game with color-coded hints, an on-screen keyboard, and a win streak counter.",
+    category: "Games",
     icon: Trophy,
     color: "text-rose-600 bg-rose-50"
   },
   {
-    title: "Recipe Box",
-    prompt: "A recipe box for saving favorite recipes with an ingredient scaler for serving size.",
+    title: "Pixel Painter",
+    prompt: "A retro pixel art studio with a 32×32 canvas, a chunky color palette, an eraser, and one-click PNG download.",
+    category: "Creative",
+    icon: Layout,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Dinner Roulette",
+    prompt: "A dinner decision wheel that spins through your saved meals, with a surprise-me wildcard and a no-repeats memory.",
     category: "Food",
-    icon: Edit2,
+    icon: Wand2,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Neon Serpent",
+    prompt: "A neon snake arcade game with glowing trails, swipe-friendly touch controls, and a high-score board.",
+    category: "Arcade",
+    icon: Zap,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Pocket Garden",
+    prompt: "A virtual windowsill garden where plants wilt if you skip watering days, with growth stages and a care log.",
+    category: "Wellness",
+    icon: CloudSun,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Pocket Beats",
+    prompt: "A 16-step drum machine with a punchy WebAudio kit, a tempo slider, and a few preset beats to remix.",
+    category: "Music",
+    icon: Layers,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Chore Quest",
+    prompt: "A family chore board where chores are quests worth XP, and players level up from Couch Loafer to Chore Legend.",
+    category: "Home",
+    icon: ListChecks,
     color: "text-blue-600 bg-blue-50"
   },
   {
-    title: "Workout Log",
-    prompt: "A simple workout log for tracking sets, reps, and weight with a progress chart over time.",
-    category: "Fitness",
-    icon: Calculator,
-    color: "text-teal-600 bg-teal-50"
+    title: "Sub Hunter",
+    prompt: "A subscription tracker that totals your monthly drains in one dial and warns you before the next renewal sneaks up.",
+    category: "Finance",
+    icon: Receipt,
+    color: "text-amber-600 bg-amber-50"
   }
 ];
 
