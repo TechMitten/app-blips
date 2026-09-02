@@ -318,18 +318,30 @@ export default function DeviceMockup({
             {/* Always mounted (even before the first generation) so the very
                 first real `srcDoc` assignment is an attribute update on an
                 already-connected iframe, not a fresh element creation -- the
-                same shape every later regeneration already goes through. */}
+                same shape every later regeneration already goes through.
+
+                It is also never `display: none`. The empty-state card below is
+                an overlay painted ON TOP of it rather than a replacement for
+                it, because hiding the iframe would mean the first real
+                `srcDoc` lands on a frame that has never been rendered -- the
+                document navigates and the frame gets its first layout in the
+                same commit, and Chromium then routinely leaves that frame's
+                compositor surface blank (white) until something forces it to
+                recomposite. That is the "white until I toggle Code/Preview or
+                switch device" bug: both of those force a fresh element or a
+                relayout. Keeping the frame laid out at all times means a new
+                document always commits into an already-rendering frame. */}
             <iframe
               ref={iframeRef}
               title="Generated App Preview"
               srcDoc={srcDoc}
-              className={`w-full h-full border-none${hasCode ? '' : ' hidden'}`}
+              className="w-full h-full border-none"
               sandbox="allow-scripts allow-forms allow-popups"
               referrerPolicy="no-referrer"
               allow=""
             />
             {!hasCode && (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/70 p-6 sm:p-8 text-center select-none relative overflow-hidden">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/70 p-6 sm:p-8 text-center select-none overflow-hidden">
                 {/* Ambient glow */}
                 <div className="absolute w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
 
