@@ -1,4 +1,4 @@
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import SuggestionsBar from './SuggestionsBar';
@@ -36,6 +36,9 @@ export default function BuildPanel({
   setIsSuggestionsExpanded,
   onRefreshSuggestions,
   onPickSuggestion,
+  interruptedJob = null,
+  onRetryInterruptedJob,
+  onDismissInterruptedJob,
 }) {
   const statusWord = isResumingProject
     ? 'Restoring'
@@ -113,15 +116,48 @@ export default function BuildPanel({
           )}
 
           {(versions.length > 0 || pendingPrompt) && (
-            <ChatTranscript
-              versions={versions}
-              currentVersionIndex={currentVersionIndex}
-              pendingPrompt={pendingPrompt}
-              streamingReply={streamingReply}
-              isGenerating={isGenerating}
-              chatMode={chatMode}
-              chatBottomRef={chatBottomRef}
-            />
+            <>
+              {interruptedJob && (
+                <div role="alert" className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 bg-amber-100 rounded-lg text-amber-600 flex-shrink-0 mt-0.5">
+                      <TriangleAlert size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-[10px] font-semibold text-amber-700 uppercase tracking-[0.14em] mb-1">Build interrupted</p>
+                      <p className="text-[12px] text-amber-900 font-medium leading-snug truncate" title={interruptedJob.prompt}>
+                        &ldquo;{interruptedJob.prompt}&rdquo;
+                      </p>
+                    </div>
+                    <button
+                      onClick={onDismissInterruptedJob}
+                      className="p-1 rounded-md text-amber-500 hover:bg-amber-100 transition-colors flex-shrink-0"
+                      aria-label="Dismiss"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  <div className="mt-2.5 pl-9">
+                    <button
+                      onClick={onRetryInterruptedJob}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors px-3 py-1.5 rounded-lg"
+                    >
+                      <RotateCcw size={11} />
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
+              <ChatTranscript
+                versions={versions}
+                currentVersionIndex={currentVersionIndex}
+                pendingPrompt={pendingPrompt}
+                streamingReply={streamingReply}
+                isGenerating={isGenerating}
+                chatMode={chatMode}
+                chatBottomRef={chatBottomRef}
+              />
+            </>
           )}
 
           {error && (

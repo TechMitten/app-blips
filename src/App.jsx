@@ -19,6 +19,7 @@ import SplashScreen from './components/SplashScreen';
 import { Code2, TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
+import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { sanitizeHtmlResponse } from './lib/edits';
 import {
   PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
@@ -128,6 +129,9 @@ export default function App() {
   const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 6));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
+  // --- Interrupted build job (persisted across page reloads) ---
+  const [interruptedJob, setInterruptedJob] = useState(null);
+
   // --- Streaming state ---
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
@@ -231,6 +235,19 @@ export default function App() {
     }
   }, [pendingPrompt, versions.length, streamingReply]);
 
+  // Warn the user before leaving / reloading while a build is running.
+  useEffect(() => {
+    if (!isGenerating) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      // returnValue is required for cross-browser support (Chrome ignores the
+      // custom message anyway and shows its own generic dialog).
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isGenerating]);
+
   useEffect(() => {
     localStorage.setItem('orion-history-open', isHistoryOpen);
   }, [isHistoryOpen]);
@@ -242,6 +259,24 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ASK_CLARIFYING_QUESTIONS_KEY, askClarifyingQuestions);
   }, [askClarifyingQuestions]);
+
+  // Once the resume-project flow settles, check for an interrupted build job.
+  // We surface it only when it belongs to the project that just loaded (matched
+  // by projectId) or when both the job and the workspace have no project yet.
+  useEffect(() => {
+    if (isResumingProject) return; // Still loading — wait.
+    const job = loadPendingJob();
+    if (!job) return;
+    // The current project id is captured via closure; use the ref-based value.
+    const resumedId = localStorage.getItem('orion-current-project-id') || null;
+    const jobBelongsHere =
+      (job.projectId ?? null) === (resumedId ?? null);
+    if (jobBelongsHere) {
+      setInterruptedJob(job);
+    }
+    // If the job belongs to a different project, leave the record intact but
+    // don't surface it — the user can encounter it by opening that project.
+  }, [isResumingProject]);
 
   const handleShowCodeViewChange = (value) => {
     setShowCodeView(value);
@@ -311,6 +346,14 @@ export default function App() {
     setMobileView('preview');
     clearStreamingState();
     setError(null);
+    // Persist the in-flight job so a page close/reload can offer to resume it.
+    setInterruptedJob(null);
+    savePendingJob({
+      projectId: currentProjectId,
+      prompt: currentPrompt,
+      chatMode,
+      startedAt: Date.now(),
+    });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
     const shouldAskClarifyingQuestions = askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
@@ -387,10 +430,20 @@ export default function App() {
         indexToSave: updatedVersions.length
       });
 
+      // Generation completed successfully — no interrupted job to resume.
+      clearPendingJob();
+
     } catch (err) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') {
+        // Explicit user cancel — clear the job so no spurious resume banner.
+        clearPendingJob();
+        return;
+      }
       setError(err.message);
       setPrompt(currentPrompt); // Restore prompt text on error
+      // Clear the pending job on a hard error — user can see the error message
+      // and re-submit themselves; stale job records would be confusing.
+      clearPendingJob();
     } finally {
       setIsGenerating(false);
       setPendingPrompt('');
@@ -531,6 +584,24 @@ export default function App() {
     setExpandedVersionIndex(prev => prev === idx ? null : idx);
   };
 
+  // --- Interrupted job handlers ---
+  const handleRetryInterruptedJob = useCallback(() => {
+    if (!interruptedJob) return;
+    const jobPrompt = interruptedJob.prompt;
+    const jobChatMode = interruptedJob.chatMode || 'build';
+    setInterruptedJob(null);
+    clearPendingJob();
+    setChatMode(jobChatMode);
+    setPrompt(jobPrompt);
+    // Use setTimeout so state setters flush before handleGenerate reads them.
+    setTimeout(() => handleGenerateRef.current?.(null, jobPrompt), 0);
+  }, [interruptedJob]);
+
+  const handleDismissInterruptedJob = useCallback(() => {
+    setInterruptedJob(null);
+    clearPendingJob();
+  }, []);
+
   const resetCurrentWorkspace = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -556,6 +627,8 @@ export default function App() {
     setIsNamingModalOpen(false);
     setProjectName('Untitled App');
     localStorage.removeItem('orion-current-project-id');
+    setInterruptedJob(null);
+    clearPendingJob();
   };
 
   // Deleting the currently-open project also clears the workspace.
@@ -745,7 +818,6 @@ export default function App() {
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
           <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-auto flex-1 md:flex-none min-h-0`}>
             <BuildPanel
-
               isChatActive={isChatActive}
               isResumingProject={isResumingProject}
               chatMode={chatMode}
@@ -774,6 +846,9 @@ export default function App() {
               setIsSuggestionsExpanded={setIsSuggestionsExpanded}
               onRefreshSuggestions={handleRefreshSuggestions}
               onPickSuggestion={setPrompt}
+              interruptedJob={interruptedJob}
+              onRetryInterruptedJob={handleRetryInterruptedJob}
+              onDismissInterruptedJob={handleDismissInterruptedJob}
             />
           </div>
 
