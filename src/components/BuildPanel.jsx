@@ -52,7 +52,7 @@ export default function BuildPanel({
 
   return (
     <div
-      className="w-full md:w-[400px] xl:w-[460px] min-h-0 overflow-hidden flex flex-col bg-surface z-20 flex-shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200"
+      className="flex-1 md:flex-none h-full w-full md:w-[400px] xl:w-[460px] min-h-0 overflow-hidden flex flex-col bg-surface z-20 md:shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200"
     >
       {/* Subtle atmospheric gradient */}
       <div className="absolute inset-0 pointer-events-none z-0 prompt-atmosphere" />
@@ -143,7 +143,7 @@ export default function BuildPanel({
       </div>
 
       {/* Fixed Bottom Input Area */}
-      <div className="shrink-0 p-3 @sm:p-3.5 pt-2 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
+      <div className="shrink-0 p-2 @sm:p-3.5 pt-1.5 @sm:pt-2 border-t border-slate-200/80 bg-surface/95 backdrop-blur-md relative z-[1]">
         {generatedCode && !isGenerating && chatMode === 'build' && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
           <SuggestionsBar
             suggestions={contextualSuggestions}

@@ -125,7 +125,7 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 7));
+  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 6));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   // --- Streaming state ---
@@ -137,6 +137,9 @@ export default function App() {
   const [tempProjectName, setTempProjectName] = useState('');
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+
+  // --- Mobile Layout ---
+  const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
 
   const chatBottomRef = useRef(null);
   const iframeRef = useRef(null);
@@ -305,6 +308,7 @@ export default function App() {
     setHasSentFirstPrompt(true);
     setIsGenerating(true);
     setIsSuggestionsExpanded(false);
+    setMobileView('preview');
     clearStreamingState();
     setError(null);
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
@@ -331,6 +335,11 @@ export default function App() {
         if (kind === 'reasoning') {
           return;
         }
+        if (kind === 'clear_reply') {
+          setStreamingReply('');
+          streamingReplyRef.current = '';
+          return;
+        }
         if (kind === 'status') {
           setGenerationStatus(chunk);
           return;
@@ -345,10 +354,15 @@ export default function App() {
           if (boundaryMatch) {
             streamingReplyRef.current = streamingGeneratedCodeRef.current.slice(0, boundaryMatch.index).trim();
             replyFrozenRef.current = true;
+            setStreamingReply(streamingReplyRef.current);
           } else {
             streamingReplyRef.current = streamingGeneratedCodeRef.current.trim();
+            // Only stream the reply in ask mode. In build mode, wait for the HTML
+            // to start generating to guarantee it's not a tool call before showing the reply.
+            if (chatMode === 'ask') {
+              setStreamingReply(streamingReplyRef.current);
+            }
           }
-          setStreamingReply(streamingReplyRef.current);
         }
       }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions);
       setGeneratedCode(generationResult.code);
@@ -566,14 +580,14 @@ export default function App() {
   // an account-only feature (see handleGenerate, DeployModal's onRequireSignIn).
   if (authStatus === 'loading') {
     return (
-      <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
+      <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
         <Loader2 className="animate-spin text-slate-400" size={28} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
+    <div className="fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen />
       <Header
         projectName={projectName}
@@ -593,6 +607,24 @@ export default function App() {
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
       />
+
+      {/* Mobile Tab Toggle Bar (Sub-header) */}
+      <div className="md:hidden shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex justify-center z-30">
+        <div className="nav-segmented-group nav-segmented-compact w-full max-w-[260px]" role="radiogroup" aria-label="Mobile View">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setMobileView('preview')}
+            className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Preview
+          </button>
+        </div>
+      </div>
 
       {isSettingsOpen && (
         <SettingsModal
@@ -708,75 +740,80 @@ export default function App() {
         />
 
         {/* Main Workspace */}
-        <main className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+        <main className="flex-1 min-h-0 flex overflow-hidden relative">
 
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
-          <BuildPanel
-            isChatActive={isChatActive}
-            isResumingProject={isResumingProject}
-            chatMode={chatMode}
-            onChatModeChange={setChatMode}
-            generatedCode={generatedCode}
-            showStarterIdeas={showStarterIdeas}
-            starterIdeas={starterIdeas}
-            isGeneratingStarters={isGeneratingStarters}
-            onGenerateStarters={handleGenerateStarters}
-            onPickStarter={setPrompt}
-            versions={versions}
-            currentVersionIndex={currentVersionIndex}
-            pendingPrompt={pendingPrompt}
-            streamingReply={streamingReply}
-            isGenerating={isGenerating}
-            generationStatus={generationStatus}
-            error={error}
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            onSubmit={handleGenerate}
-            onCancelGeneration={handleCancelGeneration}
-            chatBottomRef={chatBottomRef}
-            contextualSuggestions={contextualSuggestions}
-            isSuggestionsLoading={isSuggestionsLoading}
-            isSuggestionsExpanded={isSuggestionsExpanded}
-            setIsSuggestionsExpanded={setIsSuggestionsExpanded}
-            onRefreshSuggestions={handleRefreshSuggestions}
-            onPickSuggestion={setPrompt}
-          />
+          <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-auto flex-1 md:flex-none min-h-0`}>
+            <BuildPanel
+
+              isChatActive={isChatActive}
+              isResumingProject={isResumingProject}
+              chatMode={chatMode}
+              onChatModeChange={setChatMode}
+              generatedCode={generatedCode}
+              showStarterIdeas={showStarterIdeas}
+              starterIdeas={starterIdeas}
+              isGeneratingStarters={isGeneratingStarters}
+              onGenerateStarters={handleGenerateStarters}
+              onPickStarter={setPrompt}
+              versions={versions}
+              currentVersionIndex={currentVersionIndex}
+              pendingPrompt={pendingPrompt}
+              streamingReply={streamingReply}
+              isGenerating={isGenerating}
+              generationStatus={generationStatus}
+              error={error}
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onSubmit={handleGenerate}
+              onCancelGeneration={handleCancelGeneration}
+              chatBottomRef={chatBottomRef}
+              contextualSuggestions={contextualSuggestions}
+              isSuggestionsLoading={isSuggestionsLoading}
+              isSuggestionsExpanded={isSuggestionsExpanded}
+              setIsSuggestionsExpanded={setIsSuggestionsExpanded}
+              onRefreshSuggestions={handleRefreshSuggestions}
+              onPickSuggestion={setPrompt}
+            />
+          </div>
 
           {/* Preview/Device Area (Right) */}
-          <PreviewPane
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            showCodeView={showCodeView}
-            versions={versions}
-            currentVersionIndex={currentVersionIndex}
-            previewMode={previewMode}
-            onPreviewModeChange={setPreviewMode}
-            previewOrientation={previewOrientation}
-            onToggleOrientation={handleToggleOrientation}
-            orientationFlipClass={orientationFlipClass}
-            onOrientationFlipEnd={setOrientationFlipClass}
-            zoomLevel={zoomLevel}
-            isAutoZoom={isAutoZoom}
-            onZoomIn={handleManualZoom}
-            onZoomOut={handleManualZoom}
-            onResetZoom={resetZoom}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            hasCode={Boolean(generatedCode)}
-            onOpenNewTab={handleOpenInNewTab}
-            deployment={deployment}
-            isDeployStale={isDeployStale}
-            isSignedIn={isSignedIn}
-            onOpenDeployModal={openDeployModal}
-            containerRef={previewContainerRef}
-            iframeRef={iframeRef}
-            previewSrcDoc={previewSrcDoc}
-            isGenerating={isGenerating && chatMode === 'build'}
-            generationStatus={generationStatus}
-            code={codePanelCode}
-            copied={copied}
-            onCopyCode={handleCopyCode}
-          />
+          <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-h-0`}>
+            <PreviewPane
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              showCodeView={showCodeView}
+              versions={versions}
+              currentVersionIndex={currentVersionIndex}
+              previewMode={previewMode}
+              onPreviewModeChange={setPreviewMode}
+              previewOrientation={previewOrientation}
+              onToggleOrientation={handleToggleOrientation}
+              orientationFlipClass={orientationFlipClass}
+              onOrientationFlipEnd={setOrientationFlipClass}
+              zoomLevel={zoomLevel}
+              isAutoZoom={isAutoZoom}
+              onZoomIn={handleManualZoom}
+              onZoomOut={handleManualZoom}
+              onResetZoom={resetZoom}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              hasCode={Boolean(generatedCode)}
+              onOpenNewTab={handleOpenInNewTab}
+              deployment={deployment}
+              isDeployStale={isDeployStale}
+              isSignedIn={isSignedIn}
+              onOpenDeployModal={openDeployModal}
+              containerRef={previewContainerRef}
+              iframeRef={iframeRef}
+              previewSrcDoc={previewSrcDoc}
+              isGenerating={isGenerating && chatMode === 'build'}
+              generationStatus={generationStatus}
+              code={codePanelCode}
+              copied={copied}
+              onCopyCode={handleCopyCode}
+            />
+          </div>
         </main>
       </div>
     </div>

@@ -83,7 +83,7 @@ export default function PreviewPane({
 
         {/* Center: Device Presets (when in preview tab) */}
         {activeTab === 'preview' && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
             <div className="nav-segmented-group" title="Device Viewport Preset">
               <button
                 onClick={() => onPreviewModeChange('mobile')}

@@ -27,14 +27,20 @@ const toChatCompletionsUrl = (baseUrl) => {
 const authorize = async (request) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const appCheckToken = request.headers.get('x-firebase-appcheck') || request.headers.get('X-Firebase-AppCheck') || '';
   if (!token) return null;
   try {
     const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {})
+      },
       body: JSON.stringify({ idToken: token })
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+        return null;
+    }
     const data = await res.json();
     if (data.users && data.users.length > 0) {
       return { id: data.users[0].localId };
@@ -59,7 +65,7 @@ export async function handleChatProxy(request, env) {
   const user = await authorize(request);
   if (!user) {
     return new Response(JSON.stringify({ error: 'Sign in required.' }), {
-      status: 401,
+      status: 401, statusText: "ProxyAuthFailed",
       headers: { 'content-type': 'application/json' },
     });
   }

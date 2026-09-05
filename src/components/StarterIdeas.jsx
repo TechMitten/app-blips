@@ -2,7 +2,7 @@ import { RefreshCw, Plus, Sparkles } from 'lucide-react';
 // Empty-state idea cards (LLM-generated when refreshed, presets otherwise).
 export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick }) {
   return (
-    <div className="space-y-3 animate-fade-in @container" style={{ animationDelay: '0.08s' }}>
+    <div className="hidden md:block space-y-3 animate-fade-in @container" style={{ animationDelay: '0.08s' }}>
       <div className="flex items-center justify-between">
         <h3 className="font-mono text-[11px] @2xl:text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Starter ideas
@@ -19,14 +19,14 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
         </button>
       </div>
 
-      <div className="grid grid-cols-1 @xl:grid-cols-2 gap-2.5 @xl:gap-3 @2xl:gap-3.5">
-        {ideas.map((starter) => {
+      <div className="flex md:grid md:grid-cols-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0 gap-3 md:gap-2.5 @xl:gap-3 @2xl:gap-3.5 snap-x md:snap-none snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {ideas.slice(0, 6).map((starter) => {
           const IconComponent = starter.icon || Sparkles;
           return (
             <button
               key={starter.title}
               onClick={() => onPick(starter)}
-              className="group flex items-center gap-3 @2xl:gap-3.5 text-left p-3 @xl:p-3.5 bg-slate-50/80 hover:bg-surface border border-slate-200/90 hover:border-indigo-300 rounded-xl @xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              className="group flex-none w-[85%] @sm:w-[280px] md:w-auto snap-center flex items-center gap-3 @2xl:gap-3.5 text-left p-3 @xl:p-3.5 bg-slate-50/80 hover:bg-surface border border-slate-200/90 hover:border-indigo-300 rounded-xl @xl:rounded-2xl transition-all hover:shadow-premium-md suggestion-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
               <div className={`shrink-0 w-9 h-9 2xl:w-10 2xl:h-10 rounded-lg 2xl:rounded-xl flex items-center justify-center ${starter.color} border border-black/5 dark:border-white/10 shadow-2xs transition-transform duration-200 group-hover:scale-105`}>
                 <IconComponent size={17} />
