@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../supabase';
+import { db } from '../firebase';
+import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { isValidUuid } from '../lib/helpers';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
@@ -26,11 +27,9 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const previousAuthStatusRef = useRef(null);
 
   const fetchCloudProjects = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
+    const q = query(collection(db, 'projects'), orderBy('updated_at', 'desc'));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(d => d.data());
     return cloudRowsToProjects(data);
   }, []);
 
@@ -57,12 +56,9 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     try {
       let row;
       if (isSignedIn) {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .maybeSingle();
-        if (error) throw error;
+        const docRef = doc(db, 'projects', projectId);
+        const docSnap = await getDoc(docRef);
+        const data = docSnap.exists() ? docSnap.data() : null;
         if (!data) {
           localStorage.removeItem('orion-current-project-id');
           return;
@@ -122,14 +118,13 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
           projectId = cloudId;
         }
 
-        const { error } = await supabase.from('projects').upsert({
+        await setDoc(doc(db, 'projects', cloudId), {
           id: cloudId,
           user_id: user.id,
           name: nameToSave,
           data: projectData,
           updated_at: new Date().toISOString()
         });
-        if (error) throw error;
       } else {
         const rows = readProjectRows();
         const existingIndex = rows.findIndex(r => r.id === projectId);
@@ -234,11 +229,10 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const renameProject = async (project, trimmedName) => {
     try {
       if (isSignedIn) {
-        const { error } = await supabase
-          .from('projects')
-          .update({ name: trimmedName, updated_at: new Date().toISOString() })
-          .eq('id', project.id);
-        if (error) throw error;
+        await updateDoc(doc(db, 'projects', project.id), {
+          name: trimmedName,
+          updated_at: new Date().toISOString()
+        });
       } else {
         const rows = readProjectRows();
         const idx = rows.findIndex(r => r.id === project.id);
@@ -270,8 +264,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     try {
       const projectId = project.id;
       if (isSignedIn) {
-        const { error } = await supabase.from('projects').delete().eq('id', projectId);
-        if (error) throw error;
+        await deleteDoc(doc(db, 'projects', projectId));
       } else {
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
       }

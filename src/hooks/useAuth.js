@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../supabase';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, writeBatch } from 'firebase/firestore';
 import { readProjectRows } from '../lib/projectsStorage';
 
 // One-time local -> cloud project import flag, keyed per user.
@@ -26,28 +28,13 @@ export default function useAuth() {
   useEffect(() => {
     let active = true;
     let unsubscribe = null;
-
-    supabase.auth.getSession()
-      .then(({ data: { session: initialSession } }) => {
-        if (!active) return;
-        setSession(initialSession);
-        setAuthStatus(initialSession ? 'signedIn' : 'signedOut');
-      })
-      .catch((err) => {
-        console.error('[Orion] Failed to restore Supabase session:', err);
-        if (active) {
-          setSession(null);
-          setAuthStatus('signedOut');
-        }
-      });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    
+    unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!active) return;
-      setSession(nextSession);
-      setAuthStatus(nextSession ? 'signedIn' : 'signedOut');
+      setSession(firebaseUser ? { user: Object.assign({}, firebaseUser, { id: firebaseUser.uid }) } : null);
+      setAuthStatus(firebaseUser ? 'signedIn' : 'signedOut');
     });
 
-    unsubscribe = () => subscription.unsubscribe();
     return () => {
       active = false;
       unsubscribe?.();
@@ -106,8 +93,12 @@ export default function useAuth() {
         updated_at: r.updatedAt || new Date().toISOString()
       }));
       if (rows.length) {
-        const { error } = await supabase.from('projects').insert(rows);
-        if (error) throw error;
+        const batch = writeBatch(db);
+        rows.forEach(r => {
+          const docRef = doc(db, 'projects', r.id);
+          batch.set(docRef, r);
+        });
+        await batch.commit();
       }
       localStorage.setItem(importFlagKey(user.id), '1');
       setIsImportModalOpen(false);
@@ -130,7 +121,7 @@ export default function useAuth() {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut(auth);
     } catch (err) {
       console.error('Error signing out:', err);
     }

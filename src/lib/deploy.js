@@ -1,4 +1,6 @@
-import { supabase } from '../supabase';
+import { db, storage } from '../firebase';
+import { doc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { ref, uploadString } from 'firebase/storage';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
@@ -61,33 +63,40 @@ export const registerDeployment = async ({ slug, userId, projectId, storagePath,
   let candidate = slug;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { error } = await supabase.from('deployments').upsert(
-      {
-        slug: candidate,
-        user_id: userId,
-        project_id: String(projectId ?? ''),
-        storage_path: storagePath,
-        name: name || null,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'slug' }
-    );
-
-    if (!error) return candidate;
-
-    const taken = /duplicate key|row-level security|conflict|unauthorized/i.test(error.message || '');
-    if (!taken || attempt === 2) {
-      throw new Error(error.message || 'Failed to register the deploy link.');
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docRef = doc(db, 'deployments', candidate);
+        const docSnap = await transaction.get(docRef);
+        if (docSnap.exists() && docSnap.data().user_id !== userId) {
+          throw new Error('taken');
+        }
+        transaction.set(docRef, {
+          slug: candidate,
+          user_id: userId,
+          project_id: String(projectId ?? ''),
+          storage_path: storagePath,
+          name: name || null,
+          updated_at: new Date().toISOString()
+        });
+      });
+      return candidate;
+    } catch (error) {
+      if (error.message !== 'taken' && attempt === 2) {
+        throw new Error(error.message || 'Failed to register the deploy link.');
+      }
+      candidate = `${slug}-${randomToken(3)}`;
     }
-    candidate = `${slug}-${randomToken(3)}`;
   }
 
   throw new Error('Could not find a free deploy link. Try again.');
 };
 
 export const unregisterDeployment = async (slug) => {
-  const { error } = await supabase.from('deployments').delete().eq('slug', slug);
-  if (error) throw new Error(error.message || 'Failed to remove the deploy link.');
+  try {
+    await deleteDoc(doc(db, 'deployments', slug));
+  } catch (error) {
+    throw new Error(error.message || 'Failed to remove the deploy link.');
+  }
 };
 
 export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon }) => {
@@ -102,34 +111,16 @@ export const uploadDeploy = async ({ path, html, password, preventIndexing, favi
   }
   const finalHtml = password ? await encryptApp(withExtras, password) : withExtras;
 
-  const { error } = await supabase.storage
-    .from(DEPLOY_BUCKET)
-    .upload(path, new Blob([finalHtml], { type: 'text/html' }), {
+  try {
+    const storageRef = ref(storage, `${DEPLOY_BUCKET}/${path}`);
+    await uploadString(storageRef, finalHtml, 'raw', {
       contentType: 'text/html; charset=utf-8',
-      cacheControl: '60',
-      upsert: true
+      cacheControl: 'public, max-age=60'
     });
-
-  if (error) {
+  } catch (error) {
     const message = error.message || '';
-    if (/bucket not found/i.test(message)) {
-      throw new Error("Deployment storage isn't set up for this project yet.");
-    }
-    // A genuine expired/invalid token -- signing in again actually helps.
-    if (/jwt|token is expired|invalid claim/i.test(message)) {
-      throw new Error('Your session expired. Sign in again to deploy.');
-    }
-    // An RLS rejection is a server misconfiguration, not a stale session.
-    // Storage reports these as "Unauthorized" with a 400, so don't confuse the
-    // two -- telling the user to sign in again would send them in circles.
-    if (/row-level security|unauthorized/i.test(message)) {
+    if (/unauthorized/i.test(message)) {
       throw new Error(`Deployment was rejected by storage permissions. ${message}`);
-    }
-    if (/payload too large|exceeded the maximum|maximum allowed size/i.test(message)) {
-      throw new Error('This app is too large to deploy (2 MB limit).');
-    }
-    if (/mime type|not supported/i.test(message)) {
-      throw new Error(`Storage rejected the file type. ${message}`);
     }
     throw new Error(message || 'Failed to deploy.');
   }
