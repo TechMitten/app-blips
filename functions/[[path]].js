@@ -276,7 +276,6 @@ export async function onRequest(context) {
         'cache-control': 'public, max-age=60',
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
-        'x-robots-tag': 'noindex',
       },
     });
   } catch {
