@@ -15,6 +15,7 @@ import AuthToast from './components/AuthToast';
 import ImportModal from './components/ImportModal';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
+import SplashScreen from './components/SplashScreen';
 import { Code2, TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
@@ -573,6 +574,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen h-dvh overflow-hidden bg-slate-50 flex flex-col font-sans">
+      <SplashScreen />
       <Header
         projectName={projectName}
         onNewApp={handleNewApp}
