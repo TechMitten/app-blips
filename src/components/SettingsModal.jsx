@@ -19,6 +19,8 @@ export default function SettingsModal({
   onChatFontChange,
   showCodeView,
   onShowCodeViewChange,
+  askClarifyingQuestions,
+  onAskClarifyingQuestionsChange,
 }) {
   return (
     <Modal
@@ -125,6 +127,36 @@ export default function SettingsModal({
           </div>
           <p className="text-xs text-slate-600 leading-snug">
             Show the Code tab in the preview toolbar to inspect the generated HTML.
+          </p>
+        </section>
+
+        {/* Clarifying Questions toggle */}
+        <section className="space-y-2" aria-label="Clarifying questions">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
+            <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
+              Clarifying Questions
+            </h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={askClarifyingQuestions}
+              aria-label="Ask clarifying questions before building"
+              onClick={() => onAskClarifyingQuestionsChange(!askClarifyingQuestions)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                askClarifyingQuestions
+                  ? 'brand-fill-text bg-brand border-transparent'
+                  : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  askClarifyingQuestions ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">
+            Allow the AI to ask helpful clarifying questions about your prompt before generating the code.
           </p>
         </section>
       </div>

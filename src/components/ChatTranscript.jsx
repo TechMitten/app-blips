@@ -53,7 +53,6 @@ export default function ChatTranscript({
               </span>
               <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 border border-slate-200/60 text-slate-800 px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
                 <Markdown text={streamingReply} />
-                <span className="stream-caret" aria-hidden="true" />
               </div>
             </div>
           ) : isGenerating ? (
