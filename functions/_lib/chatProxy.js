@@ -15,10 +15,8 @@
 // every request must carry a valid Supabase session access token, verified
 // against Supabase itself (not just "a token was present").
 
-// Same project as src/supabase.js and functions/[[path]].js -- a publishable
-// key, safe to hardcode; it only grants what RLS/auth already allow.
-const SUPABASE_URL = 'https://nmmrhagtkfjqljktcwkf.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bX8jWhkPlVD0bHx7cQ8RJg_mGjOdWc3';
+// Firebase web API key (public), safe to hardcode
+const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -31,40 +29,26 @@ const authorize = async (request) => {
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
   try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_PUBLISHABLE_KEY },
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: token })
     });
-    return res.ok ? await res.json() : null;
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.users && data.users.length > 0) {
+      return { id: data.users[0].localId };
+    }
+    return null;
   } catch {
     return null;
   }
 };
 
-// Per-user request cap, enforced via a SECURITY DEFINER Postgres function
-// (check_chat_rate_limit) that atomically checks-and-increments a counter row
-// keyed on user id -- see the chat_rate_limits migration. Fails open (allows
-// the request) if the Supabase call itself errors, so a Supabase hiccup
-// doesn't take down generation; the upstream LLM call still requires its own
-// valid config regardless.
+// Rate limiting stub - fails open until natively implemented on Firebase
 const checkRateLimit = async (userId, env) => {
-  const maxRequests = parseInt(env.ORION_CHAT_RATE_LIMIT_MAX, 10) || 60;
   const windowSeconds = parseInt(env.ORION_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_chat_rate_limit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_PUBLISHABLE_KEY },
-      body: JSON.stringify({
-        p_user_id: userId,
-        p_max_requests: maxRequests,
-        p_window_seconds: windowSeconds,
-      }),
-    });
-    const allowed = res.ok ? await res.json() : true;
-    return { allowed, windowSeconds };
-  } catch {
-    return { allowed: true, windowSeconds };
-  }
+  return { allowed: true, windowSeconds };
 };
 
 export async function handleChatProxy(request, env) {
