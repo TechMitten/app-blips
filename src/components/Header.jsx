@@ -1,6 +1,6 @@
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, LogIn, LogOut
+  Settings, LogIn
 } from 'lucide-react';
 
 
@@ -22,10 +22,9 @@ export default function Header({
   userEmail,
   onOpenAccountSettings,
   onSignIn,
-  onSignOut,
 }) {
   return (
-    <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-3 sticky top-0 z-40 transition-colors">
+    <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
       {/* Left: Brand / Logo */}
       <div className="flex items-center gap-2.5 shrink-0 min-w-0">
         <img src="/appblips-logo.png" alt="AppBlips" className="h-20 2xl:h-24 w-auto object-contain -my-4 -ml-2" />
@@ -52,7 +51,6 @@ export default function Header({
           aria-label="Start a new app"
         >
           <Plus size={15} strokeWidth={2.4} className="group-hover:rotate-90 transition-transform duration-200" />
-          <span className="hidden min-[400px]:inline sm:hidden">New</span>
           <span className="hidden sm:inline">New App</span>
         </button>
 
@@ -93,7 +91,7 @@ export default function Header({
         {/* Theme Toggle -- the icon names the destination, not the current state */}
         <button
           onClick={onToggleTheme}
-          className="nav-btn nav-btn-secondary nav-btn-icon group"
+          className="nav-btn nav-btn-secondary nav-btn-icon group hidden sm:flex"
           title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         >
@@ -128,15 +126,6 @@ export default function Header({
                 {(userEmail?.[0] || '?').toUpperCase()}
               </span>
               <span className="hidden lg:inline max-w-[6rem] xl:max-w-[10rem] truncate">{userEmail}</span>
-            </button>
-            <button
-              onClick={onSignOut}
-              className="nav-btn nav-btn-icon bg-surface hover:bg-rose-50/80 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200/80 text-xs group"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut size={14} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
-              <span className="hidden lg:inline">Sign out</span>
             </button>
           </div>
         ) : authStatus !== 'loading' ? (
