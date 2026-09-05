@@ -417,29 +417,29 @@ export default function DeviceMockup({
 
         {PREVIEW_MODES[mode].isTouchChrome ? (
           orientation === 'landscape' ? (
-            <div className="animate-fade-in">
+            <>
               {/* Side Buttons Visuals (rotated to top/bottom edges) */}
-              <div className="absolute -top-1 left-24 h-1 w-12 bg-slate-700 rounded-b-sm shadow-sm"></div>
-              <div className="absolute -top-1 left-40 h-1 w-20 bg-slate-700 rounded-b-sm shadow-sm"></div>
-              <div className="absolute -bottom-1 left-36 h-1 w-20 bg-slate-700 rounded-t-sm shadow-sm"></div>
+              <div className="absolute -top-1 left-24 h-1 w-12 bg-slate-700 rounded-b-sm shadow-sm animate-fade-in"></div>
+              <div className="absolute -top-1 left-40 h-1 w-20 bg-slate-700 rounded-b-sm shadow-sm animate-fade-in"></div>
+              <div className="absolute -bottom-1 left-36 h-1 w-20 bg-slate-700 rounded-t-sm shadow-sm animate-fade-in"></div>
 
               {/* Home Indicator (rotated to right edge) */}
-              <div className="absolute right-3 inset-y-0 flex items-center justify-center z-20">
+              <div className="absolute right-3 inset-y-0 flex items-center justify-center z-20 animate-fade-in">
                 <div className="h-32 w-1.5 rounded-full bg-slate-200/70"></div>
               </div>
-            </div>
+            </>
           ) : (
-            <div className="animate-fade-in">
+            <>
               {/* Side Buttons Visuals */}
-              <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
-              <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
-              <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm"></div>
+              <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm animate-fade-in"></div>
+              <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm animate-fade-in"></div>
+              <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm animate-fade-in"></div>
 
               {/* Home Indicator */}
-              <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
+              <div className="absolute bottom-3 inset-x-0 flex justify-center z-20 animate-fade-in">
                 <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
               </div>
-            </div>
+            </>
           )
         ) : null}
       </div>
