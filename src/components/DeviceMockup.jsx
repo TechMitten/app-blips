@@ -3,6 +3,7 @@ import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
   Lock, Star, Plus, X, MoreVertical
 } from 'lucide-react';
+import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
 import { getEffectivePreviewBox } from '../lib/helpers';
 
@@ -342,39 +343,40 @@ export default function DeviceMockup({
               allow=""
             />
             {!hasCode && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/70 p-6 sm:p-8 text-center select-none overflow-hidden">
+              <div className="preview-empty-backdrop absolute inset-0 flex flex-col items-center justify-center p-6 sm:p-8 text-center select-none overflow-hidden">
                 {/* Ambient glow */}
-                <div className="absolute w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+                <div className="preview-empty-glow absolute inset-0 pointer-events-none" />
 
                 <div 
-                  className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                  className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                   style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
                 >
-                  <div className="relative mb-5">
-                    <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white flex items-center justify-center shadow-premium-md border border-slate-200/80">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center text-indigo-600">
-                        <Sparkles size={24} className="animate-pulse" />
-                      </div>
-                    </div>
+                  <div className="relative mb-3">
+                    <img
+                      src={previewIcon}
+                      alt="App preview"
+                      className="preview-empty-icon-img w-24 h-24 sm:w-28 sm:h-28 object-contain select-none"
+                      draggable={false}
+                    />
                   </div>
 
-                  <h4 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight mb-1.5">
+                  <h4 className="preview-empty-title text-base sm:text-lg font-bold tracking-tight mb-1.5">
                     Live Sandbox Preview
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-500 max-w-[17rem] leading-relaxed mb-6">
+                  <p className="preview-empty-subtitle text-xs sm:text-sm max-w-[17rem] leading-relaxed mb-6">
                     Enter a prompt to generate and interact with your app in real-time.
                   </p>
 
                   <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[300px]">
-                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                    <div className="preview-empty-pill flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium">
                       <Zap size={14} className="text-amber-500 shrink-0" />
                       <span className="whitespace-nowrap">Instant live rendering</span>
                     </div>
-                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                    <div className="preview-empty-pill flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium">
                       <ShieldAlert size={14} className="text-emerald-500 shrink-0" />
                       <span className="whitespace-nowrap">Sandboxed origin security</span>
                     </div>
-                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                    <div className="preview-empty-pill flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium">
                       <Layers size={14} className="text-indigo-500 shrink-0" />
                       <span className="whitespace-nowrap">Tailwind CSS &amp; JS built-in</span>
                     </div>
