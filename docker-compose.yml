@@ -1,0 +1,10 @@
+services:
+  appblips:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - USE_FIREBASE=false
+    restart: unless-stopped
