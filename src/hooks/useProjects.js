@@ -1,14 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from '../firebase';
+import { db, firebaseEnabled } from '../firebase';
 import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { isValidUuid } from '../lib/helpers';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
 
-// Project persistence: the saved-apps list (local rows when signed out,
-// Supabase rows when signed in), load/save/rename/delete, the auto-save-name
-// debounce, and the resume-last-project effect.
+// Project persistence: the saved-apps list (local rows when signed out or
+// self-hosted, Firestore rows when signed in with Firebase enabled),
+// load/save/rename/delete, the auto-save-name debounce, and the
+// resume-last-project effect.
+//
+// `useCloud` (not `isSignedIn` alone) decides Firestore vs. localStorage: in
+// a self-hosted build the mock auth provider always reports `isSignedIn`
+// true, but there's no Firebase project behind `db` to talk to, so cloud
+// storage additionally requires `firebaseEnabled`.
 //
 // The workspace state itself (versions, currentVersionIndex, projectName, …)
 // stays in App because the generation flow owns it; this hook reads it via the
@@ -21,6 +27,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, setIsSuggestionsExpanded, clearStreamingState
   } = workspace;
+
+  const useCloud = isSignedIn && firebaseEnabled;
 
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
@@ -36,7 +44,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const loadUserProjects = useCallback(async () => {
     try {
       let projects;
-      if (isSignedIn) {
+      if (useCloud) {
         projects = await fetchCloudProjects();
       } else {
         projects = localRowsToProjects(readProjectRows());
@@ -50,12 +58,12 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       setMyProjects(projects);
       return projects;
     }
-  }, [isSignedIn, fetchCloudProjects]);
+  }, [useCloud, fetchCloudProjects]);
 
   const loadProjectById = useCallback(async (projectId) => {
     try {
       let row;
-      if (isSignedIn) {
+      if (useCloud) {
         const docRef = doc(db, 'projects', projectId);
         const docSnap = await getDoc(docRef);
         const data = docSnap.exists() ? docSnap.data() : null;
@@ -87,7 +95,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [isSignedIn, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setDeployment, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setDeployment, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -100,7 +108,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
 
     if (!versionsToSave.length && !params.force) return;
 
-    let projectId = idToSave || currentProjectId || (isSignedIn ? crypto.randomUUID() : Date.now().toString());
+    let projectId = idToSave || currentProjectId || (useCloud ? crypto.randomUUID() : Date.now().toString());
 
     try {
       const projectData = {
@@ -109,7 +117,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         deployment: deploymentToSave || null,
       };
 
-      if (isSignedIn) {
+      if (useCloud) {
         // Local ids (Date.now() strings) can't live in a uuid column. If a guest
         // project is being edited after sign-in, re-key it once on upload.
         let cloudId = projectId;
@@ -151,7 +159,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, isSignedIn, user?.id, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -228,7 +236,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   // inline editing / confirmation UI.
   const renameProject = async (project, trimmedName) => {
     try {
-      if (isSignedIn) {
+      if (useCloud) {
         await updateDoc(doc(db, 'projects', project.id), {
           name: trimmedName,
           updated_at: new Date().toISOString()
@@ -263,7 +271,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const deleteProject = async (project) => {
     try {
       const projectId = project.id;
-      if (isSignedIn) {
+      if (useCloud) {
         await deleteDoc(doc(db, 'projects', projectId));
       } else {
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));

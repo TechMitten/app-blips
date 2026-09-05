@@ -1,5 +1,4 @@
-import { auth, appCheck } from '../firebase';
-import { getToken } from 'firebase/app-check';
+import authProvider from './auth';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
 import {
@@ -18,6 +17,42 @@ import {
   buildSyntaxRepairInstruction
 } from './prompts';
 
+const MAX_CLARIFY_OPTIONS = 5;
+const MAX_OPTION_LABEL_LENGTH = 40;
+
+function parseClarifyingQuestionArgs(rawArguments) {
+  let args;
+  try {
+    args = JSON.parse(rawArguments);
+  } catch {
+    args = { question: "Could you clarify what you mean?" };
+  }
+
+  let q = args?.question || "Could you clarify what you mean?";
+  if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
+  q = String(q).trim() || "Could you clarify what you mean?";
+
+  let options;
+  if (Array.isArray(args?.options)) {
+    const seen = new Set();
+    const cleaned = [];
+    for (const raw of args.options) {
+      if (typeof raw !== 'string') continue;
+      let label = raw.trim();
+      if (!label) continue;
+      if (label.length > MAX_OPTION_LABEL_LENGTH) label = `${label.slice(0, MAX_OPTION_LABEL_LENGTH - 1)}…`;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cleaned.push(label);
+      if (cleaned.length >= MAX_CLARIFY_OPTIONS) break;
+    }
+    if (cleaned.length >= 2) options = cleaned;
+  }
+
+  return { question: q, options };
+}
+
 // --- API Helper with Exponential Backoff ---
 export const requestModelText = async ({
   messages,
@@ -31,19 +66,8 @@ export const requestModelText = async ({
   const delays = [1000, 2000, 4000, 8000, 16000];
 
   try {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Sign in required.');
-    const token = await user.getIdToken();
-    
-    let appCheckTokenStr = '';
-    try {
-      if (appCheck) {
-        const appCheckTokenResult = await getToken(appCheck, false);
-        appCheckTokenStr = appCheckTokenResult.token;
-      }
-    } catch (e) {
-      console.warn('Failed to get App Check token:', e);
-    }
+    const token = await authProvider.getIdToken();
+    const appCheckTokenStr = await authProvider.getAppCheckToken();
 
     const headers = {
       'Content-Type': 'application/json',
@@ -256,22 +280,14 @@ export const generateAppCode = async (
     if (message.tool_calls && message.tool_calls.length > 0) {
       const clarifyTool = message.tool_calls.find(t => t.function?.name === 'ask_clarifying_questions');
       if (clarifyTool) {
-        let args;
-        try {
-          args = JSON.parse(clarifyTool.function.arguments);
-        } catch {
-          args = { question: "Could you clarify what you mean?" };
-        }
-        
-        let q = args?.question || args?.questions?.[0] || "Could you clarify what you mean?";
-        if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
-        q = String(q).trim() || "Could you clarify what you mean?";
+        const { question: q, options } = parseClarifyingQuestionArgs(clarifyTool.function.arguments);
 
         return {
           code: currentCode || '',
           editMode: 'clarify',
           editSummary: prompt,
-          reply: q
+          reply: q,
+          options
         };
       }
     }
@@ -437,22 +453,14 @@ export const generateAppCode = async (
 
     for (const toolCall of message.tool_calls) {
       if (toolCall.function?.name === 'ask_clarifying_questions') {
-        let args;
-        try {
-          args = JSON.parse(toolCall.function.arguments);
-        } catch {
-          args = { question: "Could you clarify what you mean?" };
-        }
-        
-        let q = args?.question || args?.questions?.[0] || "Could you clarify what you mean?";
-        if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
-        q = String(q).trim() || "Could you clarify what you mean?";
+        const { question: q, options } = parseClarifyingQuestionArgs(toolCall.function.arguments);
 
         return {
           code: workingCode,
           editMode: 'clarify',
           editSummary: prompt,
           reply: q,
+          options,
           ...(syntaxErrors.length ? { syntaxErrors } : {})
         };
       }

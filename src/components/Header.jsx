@@ -22,6 +22,7 @@ export default function Header({
   userEmail,
   onOpenAccountSettings,
   onSignIn,
+  firebaseEnabled,
 }) {
   return (
     <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -113,8 +114,8 @@ export default function Header({
           <span className="hidden lg:inline">Settings</span>
         </button>
 
-        {/* Auth Section */}
-        {isSignedIn ? (
+        {/* Auth Section -- hidden entirely in self-hosted mode, no accounts to sign into */}
+        {!firebaseEnabled ? null : isSignedIn ? (
           <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-slate-200/80 max-[400px]:ml-0 max-[400px]:pl-0 max-[400px]:border-0">
             <button
               onClick={onOpenAccountSettings}

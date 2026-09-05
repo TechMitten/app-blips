@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
+import { firebaseEnabled } from './firebase';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -95,7 +96,7 @@ export default function App() {
   const handleToggleTheme = () => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark');
   const { chatFont, setChatFont } = useChatFont();
 
-  // --- Auth (Supabase) ---
+  // --- Auth ---
   const {
     authStatus, isSignedIn, user,
     authToast, dismissAuthToast,
@@ -422,7 +423,8 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
-        reply: generationResult.reply || null
+        reply: generationResult.reply || null,
+        options: generationResult.options || null
       };
 
       const finalVersions = [...updatedVersions, newVersion];
@@ -684,6 +686,7 @@ export default function App() {
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
+        firebaseEnabled={firebaseEnabled}
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
@@ -780,7 +783,7 @@ export default function App() {
         />
       )}
 
-      {isAccountSettingsOpen && isSignedIn && (
+      {isAccountSettingsOpen && isSignedIn && firebaseEnabled && (
         <AccountSettingsModal
           user={user}
           onClose={() => setIsAccountSettingsOpen(false)}
@@ -792,7 +795,7 @@ export default function App() {
         <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
       )}
 
-      {isAuthModalOpen && (
+      {isAuthModalOpen && firebaseEnabled && (
         <AuthModal onClose={() => setIsAuthModalOpen(false)} />
       )}
 
