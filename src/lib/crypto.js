@@ -1,5 +1,6 @@
 import { PWA_HEAD_SNIPPET } from './pwa';
 import { UMAMI_SCRIPT_TAG } from './analytics';
+import { NOINDEX_META_TAG } from './seo';
 
 // Derives a PBKDF2 key from a string password and a random salt
 const deriveKey = async (password, salt) => {
@@ -69,6 +70,7 @@ const wrapWithUnlockScreen = (encryptedBase64) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Protected App</title>
+  ${NOINDEX_META_TAG}
   ${PWA_HEAD_SNIPPET}
   ${UMAMI_SCRIPT_TAG}
   <style>

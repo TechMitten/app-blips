@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
+import { injectNoindexSnippet, injectFaviconSnippet } from './seo';
 
 // --- Deployment ---
 //
@@ -89,10 +90,16 @@ export const unregisterDeployment = async (slug) => {
   if (error) throw new Error(error.message || 'Failed to remove the deploy link.');
 };
 
-export const uploadDeploy = async ({ path, html, password }) => {
+export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon }) => {
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
-  const withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
+  let withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
+  if (preventIndexing) {
+    withExtras = injectNoindexSnippet(withExtras);
+  }
+  if (favicon) {
+    withExtras = injectFaviconSnippet(withExtras, favicon);
+  }
   const finalHtml = password ? await encryptApp(withExtras, password) : withExtras;
 
   const { error } = await supabase.storage

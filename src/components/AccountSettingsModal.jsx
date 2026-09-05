@@ -160,7 +160,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
                 <button
                   type="submit"
                   disabled={loading || !username || username === user?.user_metadata?.username}
-                  className="w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="brand-fill-text w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Updating...' : 'Save Profile'}
                 </button>
@@ -201,7 +201,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
               <button
                 type="submit"
                 disabled={loading || !password}
-                className="w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="brand-fill-text w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Updating...' : 'Update Password'}
               </button>

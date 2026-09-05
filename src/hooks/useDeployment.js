@@ -36,7 +36,7 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  const handleDeploy = async (password = '', customSlug = '') => {
+  const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null) => {
     if (!generatedCode || isDeploying) return;
     if (!isSignedIn || !user?.id) return;
 
@@ -48,7 +48,7 @@ export default function useDeployment({
       // Reuse the existing path and slug so the shared link stays stable.
       const path = deployment?.path || deployObjectPath(user.id, makeStorageToken());
       // `generatedCode` only -- never the bridge-injected preview srcDoc.
-      await uploadDeploy({ path, html: generatedCode, password });
+      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon });
 
       let desiredSlug = deployment?.slug;
       if (!desiredSlug) {
