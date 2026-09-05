@@ -19,9 +19,10 @@
 
 const APPS_HOSTNAME = 'my.appblips.com';
 
-const SUPABASE_URL = 'https://nmmrhagtkfjqljktcwkf.supabase.co';
-// Publishable key, already public in the client bundle. Reads are RLS-scoped.
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bX8jWhkPlVD0bHx7cQ8RJg_mGjOdWc3';
+const FIREBASE_PROJECT_ID = 'appbips-f46e2';
+const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+const STORAGE_BUCKET = 'appbips-f46e2.firebasestorage.app';
+const FIREBASE_STORAGE_URL = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o`;
 const BUCKET = 'orion-deploys';
 
 const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
@@ -117,24 +118,18 @@ const notice = (status, title, body) =>
     },
   );
 
-// Resolve a slug to its `deployments` row. Public read, no privileged key
-// involved -- reads are RLS-scoped. Returns `{ ok: false }` on a transport
-// failure (caller should 502) or `{ ok: true, row: null }` when the slug
-// isn't registered (caller should 404).
-const fetchDeploymentRow = async (slug, select) => {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=${select}`,
-    {
-      headers: {
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-        accept: 'application/json',
-      },
-    },
-  );
+const fetchDeploymentRow = async (slug) => {
+  const res = await fetch(`${FIRESTORE_API_URL}/deployments/${encodeURIComponent(slug)}`);
+  if (res.status === 404) return { ok: true, row: null };
   if (!res.ok) return { ok: false, row: null };
-  const rows = await res.json();
-  return { ok: true, row: rows?.[0] || null };
+  const doc = await res.json();
+  return {
+    ok: true,
+    row: {
+      name: doc.fields?.name?.stringValue || null,
+      storage_path: doc.fields?.storage_path?.stringValue || null
+    }
+  };
 };
 
 export async function onRequest(context) {
@@ -181,7 +176,7 @@ export async function onRequest(context) {
         });
       }
 
-      const { ok, row } = await fetchDeploymentRow(pwaSlug, 'name');
+      const { ok, row } = await fetchDeploymentRow(pwaSlug);
       if (!ok) {
         return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
       }
@@ -243,7 +238,7 @@ export async function onRequest(context) {
     }
 
     // Resolve slug -> storage object.
-    const { ok, row } = await fetchDeploymentRow(slug, 'storage_path');
+    const { ok, row } = await fetchDeploymentRow(slug);
     if (!ok) {
       return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
     }
@@ -257,7 +252,7 @@ export async function onRequest(context) {
     }
 
     const object = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`,
+      `${FIREBASE_STORAGE_URL}/${encodeURIComponent(BUCKET + '/' + storagePath)}?alt=media`,
     );
 
     if (!object.ok) {

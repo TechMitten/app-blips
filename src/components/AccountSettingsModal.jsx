@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabase';
+import { auth } from '../firebase';
+import { updatePassword as firebaseUpdatePassword, updateProfile, deleteUser } from 'firebase/auth';
 import { User, Mail, KeyRound, Trash2, X, AlertTriangle } from 'lucide-react';
 
 export default function AccountSettingsModal({ user, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState(user?.user_metadata?.username || '');
+  const [username, setUsername] = useState(user?.displayName || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -20,15 +21,13 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     setLoading(true);
     setError('');
     setMessage('');
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: password
-    });
-    if (updateError) {
-      setError(updateError.message);
-    } else {
+    try {
+      await firebaseUpdatePassword(auth.currentUser, password);
       setMessage('Password updated successfully.');
       setPassword('');
       setConfirmPassword('');
+    } catch (updateError) {
+      setError(updateError.message);
     }
     setLoading(false);
   };
@@ -47,13 +46,11 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     setLoading(true);
     setError('');
     setMessage('');
-    const { error: updateError } = await supabase.auth.updateUser({
-      data: { username: username.toLowerCase() }
-    });
-    if (updateError) {
-      setError(updateError.message);
-    } else {
+    try {
+      await updateProfile(auth.currentUser, { displayName: username.toLowerCase() });
       setMessage('Profile updated successfully.');
+    } catch (updateError) {
+      setError(updateError.message);
     }
     setLoading(false);
   };
@@ -64,18 +61,14 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     }
     setLoading(true);
     setError('');
-    
-    // We attempt a generic RPC call for deletion
-    // Depending on backend this might fail if not configured, but provides the UI option
-    const { error: deleteError } = await supabase.rpc('delete_user');
-    
-    if (deleteError) {
-      // Fallback: Just sign out if delete isn't explicitly supported via RPC
-      console.warn("Could not delete user via RPC:", deleteError);
-      setError('Account deletion requires admin privileges or is not fully configured on the backend. ' + deleteError.message);
-    } else {
+    // Delete Firebase user
+    try {
+      await deleteUser(auth.currentUser);
       onSignOut();
       onClose();
+    } catch (deleteError) {
+      console.warn("Could not delete user:", deleteError);
+      setError('Account deletion requires recent authentication. Please sign out and sign back in before deleting your account. ' + deleteError.message);
     }
     setLoading(false);
   };
@@ -159,7 +152,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading || !username || username === user?.user_metadata?.username}
+                  disabled={loading || !username || username === user?.displayName}
                   className="brand-fill-text w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Updating...' : 'Save Profile'}
