@@ -6,7 +6,7 @@ import { PREVIEW_MODES } from '../lib/constants';
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
 // can no longer touch its document. The mobile touch-scroll simulation now runs
 // inside the frame (src/previewBridge.js); this effect just drives it.
-export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode }) {
+export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError }) {
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe || !previewSrcDoc) return;
@@ -61,6 +61,7 @@ export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToke
       if (!data || data.__orion !== BRIDGE_CHANNEL || data.token !== previewToken) return;
       if (data.type === 'ready') { push(); forceRepaint(); }
       else if (data.type === 'error') console.warn('[preview bridge]', data.payload?.message);
+      else if (data.type === 'runtime_error' && onRuntimeError) onRuntimeError(data.payload);
     };
 
     const handleLoad = () => { push(); forceRepaint(); };
@@ -82,5 +83,5 @@ export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToke
       // listeners, injected styles and cursor inside it.
       send('configure', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
+  }, [previewSrcDoc, previewToken, previewMode, iframeRef, onRuntimeError]);
 }

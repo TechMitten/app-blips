@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@babel/parser": "^8.0.4",
     "@marsidev/react-turnstile": "^1.6.1",
     "@supabase/supabase-js": "^2.112.4",
-    "acorn": "^8.18.0",
     "lucide-react": "^0.577.0",
     "ping": "^1.0.0",
     "react": "^19.2.4",

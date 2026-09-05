@@ -164,6 +164,7 @@ export default function BuildPanel({
           hasCode={Boolean(generatedCode)}
           chatMode={chatMode}
           onChatModeChange={onChatModeChange}
+          isClarifying={chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify'}
         />
       </div>
     </div>

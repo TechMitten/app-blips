@@ -918,6 +918,7 @@ html.dark .status-tick {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .nav-btn:active {
@@ -927,6 +928,53 @@ html.dark .status-tick {
 .nav-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--focus-halo), 0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
+}
+
+/* Square variant for icon-only buttons, so they don't carry the wide
+   horizontal padding meant for text labels. position: relative anchors
+   the mobile tap-target extension below. */
+.nav-btn-icon {
+  position: relative;
+  justify-content: center;
+  padding: 0.5rem 0.6rem;
+}
+
+/* The history drawer itself is md+ only, so its header toggle hides on
+   phones rather than dead-ending. Pure CSS (not a `hidden md:inline-flex`
+   utility) because this unlayered sheet outruns Tailwind's layered
+   utilities on `display`. */
+.nav-btn-history {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .nav-btn-history {
+    display: inline-flex;
+  }
+}
+
+/* Phone-width header: the toolbar holds six controls beside the brand in
+   as little as 320px, so buttons compact to icon-sized squares and gain a
+   4px invisible tap apron (::after) that tiles exactly between neighbors
+   (gap-1) instead of growing visual chrome. */
+@media (max-width: 639px) {
+  .nav-btn {
+    gap: 0.35rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8125rem;
+  }
+
+  .nav-btn-icon {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.5rem;
+  }
+
+  .nav-btn-icon::after {
+    content: '';
+    position: absolute;
+    inset: -0.25rem;
+  }
 }
 
 .nav-btn-primary {
@@ -1001,6 +1049,7 @@ html.dark .status-tick {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .nav-segmented-btn:hover:not(:disabled) {
@@ -1247,21 +1296,6 @@ html.dark .star-tick-active {
   50% { opacity: 1; }
 }
 
-/* Streaming reply caret: a mono block cursor, the code-panel voice carried
-   into the conversation while the app is being written. */
-.stream-caret::after {
-  content: '';
-  display: inline-block;
-  width: 7px;
-  height: 0.95em;
-  margin-left: 3px;
-  vertical-align: -0.12em;
-  background: var(--color-indigo-500);
-  animation: caret-blink 1s steps(2, start) infinite;
-}
-@keyframes caret-blink {
-  50% { opacity: 0; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .star-node,
@@ -1271,9 +1305,6 @@ html.dark .star-tick-active {
   .star-node-pending {
     animation: none;
     opacity: 0.6;
-  }
-  .stream-caret::after {
-    animation: none;
   }
 }
 

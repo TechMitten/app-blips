@@ -1,4 +1,4 @@
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Sparkles } from 'lucide-react';
 // Empty-state idea cards (LLM-generated when refreshed, presets otherwise).
 export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick }) {
   return (
@@ -21,7 +21,7 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
 
       <div className="grid grid-cols-1 @xl:grid-cols-2 gap-2.5 @xl:gap-3 @2xl:gap-3.5">
         {ideas.map((starter) => {
-          const IconComponent = starter.icon;
+          const IconComponent = starter.icon || Sparkles;
           return (
             <button
               key={starter.title}

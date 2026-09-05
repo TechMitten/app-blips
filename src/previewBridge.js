@@ -408,11 +408,27 @@ const BRIDGE_SOURCE = `(function () {
     post('ready');
   }
 
-  if (document.readyState === 'loading') {
+      if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', onReady, { once: true });
   } else {
     onReady();
   }
+
+  // ------------------------------------------------------------------
+  // 4. Runtime error capture
+  // ------------------------------------------------------------------
+  window.addEventListener('error', function(e) {
+    if (e.message && e.message !== 'Script error.') {
+      post('runtime_error', { message: e.message, line: e.lineno, col: e.colno });
+    }
+  });
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var reason = e.reason;
+    var msg = reason ? (reason.message || String(reason)) : 'Unhandled Promise Rejection';
+    post('runtime_error', { message: msg });
+  });
+
 })();`;
 
 // A stray "</" inside the source would silently truncate the injected <script>

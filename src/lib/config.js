@@ -54,3 +54,15 @@ export const loadShowCodeView = () => {
     return false;
   }
 };
+
+export const ASK_CLARIFYING_QUESTIONS_KEY = 'orion-ask-clarifying-questions';
+
+// Boolean: whether the AI should ask clarifying questions before building. On by default.
+export const loadAskClarifyingQuestions = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(ASK_CLARIFYING_QUESTIONS_KEY);
+    return stored !== null ? stored === 'true' : true;
+  } catch {
+    return true;
+  }
+};
