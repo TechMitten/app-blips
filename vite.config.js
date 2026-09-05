@@ -5,12 +5,12 @@ import { handleChatProxy } from './functions/_lib/chatProxy.js'
 
 // Runs the same LLM proxy handler used by the production Cloudflare Pages
 // Function (functions/api/chat.js) as dev-server middleware, so `npm run dev`
-// works without needing wrangler. Reads ORION_LLM_* from a local .env with no
+// works without needing wrangler. Reads APPBLIPS_LLM_* from a local .env with no
 // prefix filter -- these never reach the client bundle since they aren't
 // VITE_-prefixed and are only read here, in Node config code.
 function llmProxyDevMiddleware(mode) {
   return {
-    name: 'orion-llm-proxy-dev-middleware',
+    name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
       server.middlewares.use('/api/chat', async (req, res) => {

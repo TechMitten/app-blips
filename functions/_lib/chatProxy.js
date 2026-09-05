@@ -5,13 +5,13 @@
 // between dev and prod behavior.
 //
 // The point of this proxy: the real base URL / API key / model / tuning
-// knobs live only in server-side env vars (ORION_LLM_*, no VITE_ prefix), so
+// knobs live only in server-side env vars (APPBLIPS_LLM_*, no VITE_ prefix), so
 // they never reach the client bundle. The browser only ever talks to this
 // app's own origin at POST /api/chat.
 //
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
-// which is UI-only) and spend the LLM budget behind ORION_LLM_API_KEY. So,
+// which is UI-only) and spend the LLM budget behind APPBLIPS_LLM_API_KEY. So,
 // in hosted mode (USE_FIREBASE=true), every request must carry a valid
 // Firebase ID token, verified against Firebase itself (not just "a token was
 // present"). Self-hosted mode is the default (USE_FIREBASE unset or anything
@@ -58,7 +58,7 @@ const authorize = async (request, env) => {
 
 // Rate limiting stub - fails open until natively implemented on Firebase
 const checkRateLimit = async (userId, env) => {
-  const windowSeconds = parseInt(env.ORION_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
+  const windowSeconds = parseInt(env.APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
   return { allowed: true, windowSeconds };
 };
 
@@ -66,9 +66,9 @@ const checkRateLimit = async (userId, env) => {
 // needed to verify tokens in hosted mode (USE_FIREBASE=true).
 const validateEnv = (env) => {
   const missing = [];
-  if (!env.ORION_LLM_BASE_URL) missing.push('ORION_LLM_BASE_URL');
-  if (!env.ORION_LLM_API_KEY) missing.push('ORION_LLM_API_KEY');
-  if (!env.ORION_LLM_MODEL) missing.push('ORION_LLM_MODEL');
+  if (!env.APPBLIPS_LLM_BASE_URL) missing.push('APPBLIPS_LLM_BASE_URL');
+  if (!env.APPBLIPS_LLM_API_KEY) missing.push('APPBLIPS_LLM_API_KEY');
+  if (!env.APPBLIPS_LLM_MODEL) missing.push('APPBLIPS_LLM_MODEL');
   if (env.USE_FIREBASE === 'true' && !env.FIREBASE_API_KEY) missing.push('FIREBASE_API_KEY');
   return missing;
 };
@@ -102,9 +102,9 @@ export async function handleChatProxy(request, env) {
     });
   }
 
-  const url = toChatCompletionsUrl(env.ORION_LLM_BASE_URL);
-  const apiKey = env.ORION_LLM_API_KEY;
-  const model = env.ORION_LLM_MODEL;
+  const url = toChatCompletionsUrl(env.APPBLIPS_LLM_BASE_URL);
+  const apiKey = env.APPBLIPS_LLM_API_KEY;
+  const model = env.APPBLIPS_LLM_MODEL;
 
   let payload;
   try {
@@ -125,15 +125,15 @@ export async function handleChatProxy(request, env) {
     temperature: 0.2,
   };
 
-  const effort = reasoning_effort ?? env.ORION_LLM_REASONING_EFFORT ?? 'none';
+  const effort = reasoning_effort ?? env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
   if (effort === false || effort === 'none') {
     bodyObj.reasoning_effort = 'none';
   } else if (effort) {
     bodyObj.reasoning_effort = effort;
   }
 
-  if (env.ORION_LLM_MAX_TOKENS) {
-    const parsedMax = parseInt(env.ORION_LLM_MAX_TOKENS, 10);
+  if (env.APPBLIPS_LLM_MAX_TOKENS) {
+    const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
     if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
   }
 
