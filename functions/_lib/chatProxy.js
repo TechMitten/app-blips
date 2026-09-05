@@ -11,12 +11,15 @@
 //
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
-// which is UI-only) and spend the LLM budget behind ORION_LLM_API_KEY. So
-// every request must carry a valid Supabase session access token, verified
-// against Supabase itself (not just "a token was present").
-
-// Firebase web API key (public), safe to hardcode
-const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
+// which is UI-only) and spend the LLM budget behind ORION_LLM_API_KEY. So,
+// in hosted mode (USE_FIREBASE=true), every request must carry a valid
+// Firebase ID token, verified against Firebase itself (not just "a token was
+// present"). Self-hosted mode is the default (USE_FIREBASE unset or anything
+// other than "true"): there's no Firebase project to verify against, so
+// every request is treated as coming from the single local user, on the
+// assumption that self-hosters put their own access control (network
+// restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
+// if they expose it beyond localhost.
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -24,15 +27,17 @@ const toChatCompletionsUrl = (baseUrl) => {
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 
-const authorize = async (request) => {
+const authorize = async (request, env) => {
+  if (env.USE_FIREBASE !== 'true') return { id: 'local-user' };
+
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   const appCheckToken = request.headers.get('x-firebase-appcheck') || request.headers.get('X-Firebase-AppCheck') || '';
   if (!token) return null;
   try {
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${env.FIREBASE_API_KEY}`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {})
       },
@@ -57,12 +62,31 @@ const checkRateLimit = async (userId, env) => {
   return { allowed: true, windowSeconds };
 };
 
+// Core keys are required in every hosting mode; FIREBASE_API_KEY is only
+// needed to verify tokens in hosted mode (USE_FIREBASE=true).
+const validateEnv = (env) => {
+  const missing = [];
+  if (!env.ORION_LLM_BASE_URL) missing.push('ORION_LLM_BASE_URL');
+  if (!env.ORION_LLM_API_KEY) missing.push('ORION_LLM_API_KEY');
+  if (!env.ORION_LLM_MODEL) missing.push('ORION_LLM_MODEL');
+  if (env.USE_FIREBASE === 'true' && !env.FIREBASE_API_KEY) missing.push('FIREBASE_API_KEY');
+  return missing;
+};
+
 export async function handleChatProxy(request, env) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const user = await authorize(request);
+  const missingEnv = validateEnv(env);
+  if (missingEnv.length) {
+    return new Response(
+      JSON.stringify({ error: `Server is missing required configuration: ${missingEnv.join(', ')}.` }),
+      { status: 500, headers: { 'content-type': 'application/json' } },
+    );
+  }
+
+  const user = await authorize(request, env);
   if (!user) {
     return new Response(JSON.stringify({ error: 'Sign in required.' }), {
       status: 401, statusText: "ProxyAuthFailed",
@@ -81,13 +105,6 @@ export async function handleChatProxy(request, env) {
   const url = toChatCompletionsUrl(env.ORION_LLM_BASE_URL);
   const apiKey = env.ORION_LLM_API_KEY;
   const model = env.ORION_LLM_MODEL;
-
-  if (!url || !apiKey || !model) {
-    return new Response(
-      JSON.stringify({ error: 'Server is missing ORION_LLM_BASE_URL / ORION_LLM_API_KEY / ORION_LLM_MODEL configuration.' }),
-      { status: 500, headers: { 'content-type': 'application/json' } },
-    );
-  }
 
   let payload;
   try {

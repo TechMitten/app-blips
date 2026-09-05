@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { auth, db } from '../firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { db } from '../firebase';
 import { doc, writeBatch } from 'firebase/firestore';
+import authProvider, { firebaseEnabled } from '../lib/auth';
 import { readProjectRows } from '../lib/projectsStorage';
 
 // One-time local -> cloud project import flag, keyed per user.
 const importFlagKey = (userId) => `orion-imported-${userId}`;
 
-// Session lifecycle for Supabase auth: restores the session on mount, keeps it
-// in sync, and owns the one-time local -> cloud import offer. The auth modal's
-// form state lives in <AuthModal> (self-contained, like AccountSettingsModal).
+// Session lifecycle, driven by the auth adapter (Firebase or the self-hosted
+// mock, see src/lib/auth): restores the session on mount, keeps it in sync,
+// and owns the one-time local -> cloud import offer (hosted mode only -- a
+// self-hosted build has no cloud to import into). The auth modal's form state
+// lives in <AuthModal> (self-contained, like AccountSettingsModal).
 export default function useAuth() {
   const [session, setSession] = useState(null);
   const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'signedOut' | 'signedIn'
@@ -29,10 +31,10 @@ export default function useAuth() {
     let active = true;
     let unsubscribe = null;
     
-    unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    unsubscribe = authProvider.onAuthStateChanged((user) => {
       if (!active) return;
-      setSession(firebaseUser ? { user: Object.assign({}, firebaseUser, { id: firebaseUser.uid }) } : null);
-      setAuthStatus(firebaseUser ? 'signedIn' : 'signedOut');
+      setSession(user ? { user } : null);
+      setAuthStatus(user ? 'signedIn' : 'signedOut');
     });
 
     return () => {
@@ -43,7 +45,7 @@ export default function useAuth() {
 
   // --- One-time local → cloud project import (offered after first sign-in) ---
   const maybeOfferImport = useCallback(() => {
-    if (!user?.id) return;
+    if (!firebaseEnabled || !user?.id) return;
     try {
       if (localStorage.getItem(importFlagKey(user.id))) return;
     } catch { /* storage unavailable */ }
@@ -121,7 +123,7 @@ export default function useAuth() {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await authProvider.signOut();
     } catch (err) {
       console.error('Error signing out:', err);
     }

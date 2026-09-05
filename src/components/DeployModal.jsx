@@ -5,10 +5,13 @@ import {
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
+import { firebaseEnabled } from '../firebase';
 
 // Publish-to-public-URL modal: deploy / redeploy / remove / copy link. All
 // state and handlers come from useDeployment via props; `onRequireSignIn`
-// swaps this modal for the auth modal.
+// swaps this modal for the auth modal. Deploy is a hosted-mode-only feature
+// (Firebase Storage), so this renders a simple unavailable state instead when
+// !firebaseEnabled -- self-hosted builds never reach the rest of this UI.
 export default function DeployModal({
   isSignedIn,
   user,
@@ -71,6 +74,42 @@ export default function DeployModal({
       onDeploy(password, customSlug, preventIndexing, favicon);
     }
   };
+
+  if (!firebaseEnabled) {
+    return (
+      <Modal zIndex={70}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base 2xl:text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <Rocket size={18} className="text-brand" />
+            Deploy your app
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <Globe size={18} className="text-slate-400 shrink-0 mt-0.5" />
+            <span>Deploy is not available in self-hosted mode.</span>
+          </div>
+        </div>
+        <div className="bg-slate-50 px-6 py-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="whitespace-nowrap rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal zIndex={70}>

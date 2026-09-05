@@ -32,3 +32,9 @@ coverage/
 
 # Misc
 .eslintcache
+.agents/
+.antigravity/
+.claude/
+.devcontainer/
+.opencode/
+.playwright-mcp/

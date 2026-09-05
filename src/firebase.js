@@ -4,27 +4,57 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM",
-  authDomain: "appbips-f46e2.firebaseapp.com",
-  projectId: "appbips-f46e2",
-  storageBucket: "appbips-f46e2.firebasestorage.app",
-  messagingSenderId: "472626328876",
-  appId: "1:472626328876:web:2800d30e2a40acfbf26889",
-  measurementId: "G-Q0SKEZX67P"
-};
+// Self-hosted builds run with no Firebase project at all: every VITE_FIREBASE_*
+// var (and the SDK init below, including the network call initializeAppCheck
+// makes to Google's reCAPTCHA endpoint) is skipped entirely unless
+// VITE_USE_FIREBASE=true. See src/lib/auth/ for the adapter that picks a real
+// vs. mock auth provider based on this same flag.
+export const firebaseEnabled = import.meta.env.VITE_USE_FIREBASE === 'true';
 
-export const app = initializeApp(firebaseConfig);
+let app = null;
+let appCheck = null;
+let auth = null;
+let db = null;
+let storage = null;
 
-if (typeof self !== 'undefined' && import.meta.env.DEV) {
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+if (firebaseEnabled) {
+  const required = {
+    apiKey: 'VITE_FIREBASE_API_KEY',
+    authDomain: 'VITE_FIREBASE_AUTH_DOMAIN',
+    projectId: 'VITE_FIREBASE_PROJECT_ID',
+    storageBucket: 'VITE_FIREBASE_STORAGE_BUCKET',
+    messagingSenderId: 'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    appId: 'VITE_FIREBASE_APP_ID',
+  };
+
+  const firebaseConfig = {};
+  const missing = [];
+  for (const [configKey, envName] of Object.entries(required)) {
+    const value = import.meta.env[envName];
+    if (!value) missing.push(envName);
+    firebaseConfig[configKey] = value;
+  }
+  if (missing.length) {
+    throw new Error(`VITE_USE_FIREBASE is true but missing required env vars: ${missing.join(', ')}`);
+  }
+
+  app = initializeApp(firebaseConfig);
+
+  if (typeof self !== 'undefined' && import.meta.env.DEV) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+
+  const recaptchaSiteKey = import.meta.env.VITE_FIREBASE_RECAPTCHA_SITE_KEY;
+  if (recaptchaSiteKey) {
+    appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  }
+
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider('6Lde6qotAAAAAOCm2EAdgRuVZo8__6WrZW-0wFDM'),
-  isTokenAutoRefreshEnabled: true
-});
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export { app, appCheck, auth, db, storage };

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { auth } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GithubAuthProvider, GoogleAuthProvider, sendEmailVerification } from 'firebase/auth';
+import authProvider from '../lib/auth';
 import { User, Mail, X, Loader2, Eye, EyeOff, Github } from 'lucide-react';
 import Modal from './Modal';
 
 // Self-contained sign-in / sign-up modal (same pattern as
-// AccountSettingsModal): owns its form state and talks to Supabase directly.
-// onAuthStateChange in useAuth closes the modal the moment a session lands.
+// AccountSettingsModal): owns its form state and talks to the auth adapter
+// directly (only ever mounted when firebaseEnabled -- see App.jsx). The
+// auth-state listener in useAuth closes the modal the moment a session lands.
 export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
   const [authEmail, setAuthEmail] = useState('');
@@ -37,14 +37,12 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
 
     try {
       if (authMode === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, authPassword);
-        // Supabase behavior was to send confirmation link. We can do the same:
-        await sendEmailVerification(userCredential.user);
+        await authProvider.signUp(email, authPassword);
         setAuthInfo('We sent a confirmation link to your email. Confirm your account, then sign in.');
-        // Note: Firebase signs the user in immediately upon creation, 
+        // Note: Firebase signs the user in immediately upon creation,
         // so the session will land and onAuthStateChange will close the modal.
       } else {
-        await signInWithEmailAndPassword(auth, email, authPassword);
+        await authProvider.signIn(email, authPassword);
         // onAuthStateChange closes the modal on success.
       }
     } catch (err) {
@@ -60,8 +58,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
     setAuthInfo(null);
     setOauthLoading(true);
     try {
-      const provider = new GithubAuthProvider();
-      await signInWithPopup(auth, provider);
+      await authProvider.signInWithGithub();
       // On success onAuthStateChange picks up the session and closes the modal.
     } catch (err) {
       setAuthError(err?.message || 'GitHub sign-in failed.');
@@ -74,8 +71,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
     setAuthInfo(null);
     setOauthLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await authProvider.signInWithGoogle();
     } catch (err) {
       setAuthError(err?.message || 'Google sign-in failed.');
       setOauthLoading(false);
