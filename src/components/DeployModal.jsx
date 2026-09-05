@@ -30,6 +30,9 @@ export default function DeployModal({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [customSlug, setCustomSlug] = useState('');
+  const [preventIndexing, setPreventIndexing] = useState(false);
+  const [favicon, setFavicon] = useState(null);
+  const [faviconError, setFaviconError] = useState('');
 
   const username = user?.user_metadata?.username;
 
@@ -45,9 +48,27 @@ export default function DeployModal({
 
   const canSubmitPassword = passwordValid && passwordsMatch;
 
+  const handleFaviconUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 200 * 1024) {
+      setFaviconError('Favicon must be smaller than 200KB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFavicon(reader.result);
+      setFaviconError('');
+    };
+    reader.onerror = () => setFaviconError('Failed to read the file.');
+    reader.readAsDataURL(file);
+  };
+
   const handleDeployClick = () => {
     if (canSubmitPassword && (deployment || username)) {
-      onDeploy(password, customSlug);
+      onDeploy(password, customSlug, preventIndexing, favicon);
     }
   };
 
@@ -119,7 +140,8 @@ export default function DeployModal({
               </p>
             </div>
             {isSignedIn && (
-              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+              <>
+                <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect (optional)</label>
                 <p className="text-xs text-slate-400 !mt-1">Set a password to redeploy this link as protected, or leave it blank for a public link.</p>
                 <div className="relative group">
@@ -153,6 +175,49 @@ export default function DeployModal({
                   <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
                 )}
               </div>
+              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Engine Visibility</label>
+                <div className="flex items-center justify-between gap-4 mt-2" onClick={() => setPreventIndexing(!preventIndexing)} style={{ cursor: 'pointer' }}>
+                  <span className="text-sm text-slate-600 leading-tight">
+                    Prevent search engines from indexing this app
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={preventIndexing}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                      preventIndexing
+                        ? 'bg-brand border-transparent'
+                        : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        preventIndexing ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Favicon</label>
+                <p className="text-xs text-slate-400 !mt-1">Upload an image file to use as the browser tab icon.</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFaviconUpload}
+                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
+                  />
+                  {favicon && (
+                    <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 object-cover shrink-0" />
+                  )}
+                </div>
+                {faviconError && (
+                  <p className="text-xs text-rose-500 font-medium">{faviconError}</p>
+                )}
+              </div>
+              </>
             )}
           </>
         ) : !isSignedIn ? (
@@ -184,7 +249,7 @@ export default function DeployModal({
                   type="text"
                   value={customSlug}
                   onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="custom-slug"
+                  placeholder="my-app-name"
                   className="w-full bg-surface border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
                 />
               </div>
@@ -222,6 +287,48 @@ export default function DeployModal({
               </p>
               {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
                 <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
+              )}
+            </div>
+            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Engine Visibility</label>
+              <div className="flex items-center justify-between gap-4 mt-2" onClick={() => setPreventIndexing(!preventIndexing)} style={{ cursor: 'pointer' }}>
+                <span className="text-sm text-slate-600 leading-tight">
+                  Prevent search engines from indexing this app
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={preventIndexing}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                    preventIndexing
+                      ? 'bg-brand border-transparent'
+                      : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      preventIndexing ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Favicon</label>
+              <p className="text-xs text-slate-400 !mt-1">Upload an image file to use as the browser tab icon.</p>
+              <div className="flex items-center gap-4 mt-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFaviconUpload}
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
+                />
+                {favicon && (
+                  <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 object-cover shrink-0" />
+                )}
+              </div>
+              {faviconError && (
+                <p className="text-xs text-rose-500 font-medium">{faviconError}</p>
               )}
             </div>
           </>
