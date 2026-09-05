@@ -256,19 +256,21 @@ export default function DeviceMockup({
 
   return (
     <div
-      className="palette-stock relative shrink-0 flex items-center justify-center"
+      className="palette-stock relative shrink-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
       style={{
         width: box.width * zoomLevel,
         height: box.height * zoomLevel
       }}
     >
       <div
-        className={`${PREVIEW_MODES[mode].deviceClass}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''}`}
+        className={`${PREVIEW_MODES[mode].deviceClass}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
         style={{ '--preview-zoom': zoomLevel }}
         onAnimationEnd={onFlipAnimationEnd}
       >
-        {mode === 'desktop' && (
-          <div className="device-browser-chrome" aria-hidden="true">
+        <div 
+          className={`device-browser-chrome transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${mode === 'desktop' ? 'h-[91px] opacity-100' : 'h-0 opacity-0'}`} 
+          aria-hidden="true"
+        >
             <div className="device-browser-tabstrip">
               <div className="device-desktop-lights">
                 <span className="device-desktop-light device-desktop-light-red"></span>
@@ -311,11 +313,9 @@ export default function DeviceMockup({
               </div>
             </div>
           </div>
-        )}
-
         {/* Screen */}
-        <div className={PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'}>
-          <div className={PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'}>
+        <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
+          <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
             {/* Always mounted (even before the first generation) so the very
                 first real `srcDoc` assignment is an attribute update on an
                 already-connected iframe, not a fresh element creation -- the
@@ -346,33 +346,38 @@ export default function DeviceMockup({
                 {/* Ambient glow */}
                 <div className="absolute w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
 
-                <div className="relative mb-5">
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white flex items-center justify-center shadow-premium-md border border-slate-200/80">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center text-indigo-600">
-                      <Sparkles size={24} className="animate-pulse" />
+                <div 
+                  className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                  style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
+                >
+                  <div className="relative mb-5">
+                    <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white flex items-center justify-center shadow-premium-md border border-slate-200/80">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center text-indigo-600">
+                        <Sparkles size={24} className="animate-pulse" />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <h4 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight mb-1.5">
-                  Live Sandbox Preview
-                </h4>
-                <p className="text-xs sm:text-sm text-slate-500 max-w-[17rem] leading-relaxed mb-6">
-                  Enter a prompt to generate and interact with your app in real-time.
-                </p>
+                  <h4 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight mb-1.5">
+                    Live Sandbox Preview
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-500 max-w-[17rem] leading-relaxed mb-6">
+                    Enter a prompt to generate and interact with your app in real-time.
+                  </p>
 
-                <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[300px]">
-                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
-                    <Zap size={14} className="text-amber-500 shrink-0" />
-                    <span className="whitespace-nowrap">Instant live rendering</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
-                    <ShieldAlert size={14} className="text-emerald-500 shrink-0" />
-                    <span className="whitespace-nowrap">Sandboxed origin security</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
-                    <Layers size={14} className="text-indigo-500 shrink-0" />
-                    <span className="whitespace-nowrap">Tailwind CSS &amp; JS built-in</span>
+                  <div className="flex flex-col gap-2 w-full max-w-[260px] sm:max-w-[300px]">
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                      <Zap size={14} className="text-amber-500 shrink-0" />
+                      <span className="whitespace-nowrap">Instant live rendering</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                      <ShieldAlert size={14} className="text-emerald-500 shrink-0" />
+                      <span className="whitespace-nowrap">Sandboxed origin security</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/95 border border-slate-200/80 shadow-2xs text-xs sm:text-sm font-medium text-slate-700">
+                      <Layers size={14} className="text-indigo-500 shrink-0" />
+                      <span className="whitespace-nowrap">Tailwind CSS &amp; JS built-in</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -380,32 +385,37 @@ export default function DeviceMockup({
           </div>
           {isGenerating && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
-              <div className="relative w-16 h-16 mb-6">
-                <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
+              <div 
+                className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
+              >
+                <div className="relative w-16 h-16 mb-6">
+                  <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                  <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
+                </div>
+                <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
+                  {generationStatus?.startsWith('Analyzing') 
+                    ? 'Planning...'
+                    : generationStatus?.includes('Syntax errors found') 
+                      ? 'Fixing errors...' 
+                      : 'Building...'}
+                </h3>
+                {generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                    {generationStatus}
+                  </p>
+                ) : (
+                  <BuildingStatusMessage />
+                )}
               </div>
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
-                {generationStatus?.startsWith('Analyzing') 
-                  ? 'Planning...'
-                  : generationStatus?.includes('Syntax errors found') 
-                    ? 'Fixing errors...' 
-                    : 'Building...'}
-              </h3>
-              {generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
-                <p className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                  {generationStatus}
-                </p>
-              ) : (
-                <BuildingStatusMessage />
-              )}
             </div>
           )}
         </div>
 
         {PREVIEW_MODES[mode].isTouchChrome ? (
           orientation === 'landscape' ? (
-            <>
+            <div className="animate-fade-in">
               {/* Side Buttons Visuals (rotated to top/bottom edges) */}
               <div className="absolute -top-1 left-24 h-1 w-12 bg-slate-700 rounded-b-sm shadow-sm"></div>
               <div className="absolute -top-1 left-40 h-1 w-20 bg-slate-700 rounded-b-sm shadow-sm"></div>
@@ -415,9 +425,9 @@ export default function DeviceMockup({
               <div className="absolute right-3 inset-y-0 flex items-center justify-center z-20">
                 <div className="h-32 w-1.5 rounded-full bg-slate-200/70"></div>
               </div>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="animate-fade-in">
               {/* Side Buttons Visuals */}
               <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm"></div>
               <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm"></div>
@@ -427,7 +437,7 @@ export default function DeviceMockup({
               <div className="absolute bottom-3 inset-x-0 flex justify-center z-20">
                 <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
               </div>
-            </>
+            </div>
           )
         ) : null}
       </div>
