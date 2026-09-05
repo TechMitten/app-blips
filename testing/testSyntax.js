@@ -1,4 +1,4 @@
-import { checkSyntax } from './src/lib/syntaxCheck.js';
+import { checkSyntax } from '../src/lib/syntaxCheck.js';
 
 const html = `
 <!DOCTYPE html>

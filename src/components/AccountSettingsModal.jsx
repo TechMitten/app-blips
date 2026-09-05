@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { auth } from '../firebase';
-import { updatePassword as firebaseUpdatePassword, updateProfile, deleteUser } from 'firebase/auth';
+import authProvider from '../lib/auth';
 import { User, Mail, KeyRound, Trash2, X, AlertTriangle, LogOut } from 'lucide-react';
 
 export default function AccountSettingsModal({ user, onClose, onSignOut }) {
@@ -22,7 +21,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     setError('');
     setMessage('');
     try {
-      await firebaseUpdatePassword(auth.currentUser, password);
+      await authProvider.updatePassword(password);
       setMessage('Password updated successfully.');
       setPassword('');
       setConfirmPassword('');
@@ -47,7 +46,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     setError('');
     setMessage('');
     try {
-      await updateProfile(auth.currentUser, { displayName: username.toLowerCase() });
+      await authProvider.updateProfile({ displayName: username.toLowerCase() });
       setMessage('Profile updated successfully.');
     } catch (updateError) {
       setError(updateError.message);
@@ -61,9 +60,8 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     }
     setLoading(true);
     setError('');
-    // Delete Firebase user
     try {
-      await deleteUser(auth.currentUser);
+      await authProvider.deleteAccount();
       onSignOut();
       onClose();
     } catch (deleteError) {

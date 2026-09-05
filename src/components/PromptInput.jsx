@@ -15,6 +15,7 @@ export default function PromptInput({
   chatMode,
   onChatModeChange,
   isClarifying,
+  options,
 }) {
   const textareaRef = useRef(null);
   const canSubmit = !isGenerating && prompt.trim().length > 0;
@@ -40,20 +41,18 @@ export default function PromptInput({
 
   return (
     <div className="bg-surface rounded-2xl shadow-sm border border-blue-500 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/60 overflow-hidden transition-all input-glow flex flex-col">
-      {isClarifying && !isGenerating && (
-        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-          <button
-            onClick={(e) => onSubmit(e, "Yes")}
-            className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg border border-indigo-200 transition-colors"
-          >
-            Yes
-          </button>
-          <button
-            onClick={(e) => onSubmit(e, "No")}
-            className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 transition-colors"
-          >
-            No
-          </button>
+      {isClarifying && !isGenerating && Array.isArray(options) && options.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-1">
+          {options.map((opt, i) => (
+            <button
+              key={`${opt}-${i}`}
+              onClick={(e) => onSubmit(e, opt)}
+              title={opt}
+              className="flex-1 min-w-[6.5rem] max-w-full truncate py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 transition-colors"
+            >
+              {opt}
+            </button>
+          ))}
         </div>
       )}
       <textarea

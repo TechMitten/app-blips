@@ -1,4 +1,4 @@
-import { generateAppCode } from './src/lib/llm.js';
+import { generateAppCode } from '../src/lib/llm.js';
 
 async function main() {
   const code = '<html><body>Test</body></html>';

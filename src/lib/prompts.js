@@ -40,10 +40,15 @@ export const ASK_CLARIFYING_QUESTIONS_TOOL = {
       properties: {
         question: {
           type: 'string',
-          description: 'A single, specific yes/no question you need answered to build the perfect app. MUST be phrased so it can be answered with just "Yes" or "No".'
+          description: 'A single, specific clarifying question you need answered to build the perfect app. Keep it short and focused on one topic.'
+        },
+        options: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+          description: 'Optional list of 2 to 5 short, mutually-exclusive answer choices for the question (e.g. ["Dark", "Light", "Colorful", "Minimal"]), each under ~20 characters -- rendered as clickable buttons alongside a free-text field. For a genuinely yes/no question, pass ["Yes", "No"]. Use null only when the question does not reduce to a short discrete set of choices (e.g. "What should the app be called?").'
         }
       },
-      required: ['question'],
+      required: ['question', 'options'],
       additionalProperties: false
     },
     strict: true
@@ -205,7 +210,7 @@ CRITICAL RULES:
 9. The app runs in a sandboxed preview frame with no origin. localStorage, sessionStorage and document.cookie ARE available and safe to call -- in the preview they are backed by an in-memory shim, and once the app is deployed to a real origin the same code persists for real. So never assume saved data exists: always read defensively, tolerate an empty store, and keep the app fully usable on a first run. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, or harm users (e.g., fake login screens, credential harvesters, scams). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
-12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
+12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. When the question naturally reduces to a small set of discrete choices (including plain yes/no), populate "options" with 2-5 short button-friendly labels so the user can answer with one click; otherwise leave "options" null and rely on free-text. If you call this tool, do NOT generate any HTML or code.
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.

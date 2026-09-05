@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { storage } from '../firebase';
+import { storage, firebaseEnabled } from '../firebase';
 import { ref, deleteObject } from 'firebase/storage';
 import {
   registerDeployment, unregisterDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
@@ -8,7 +8,9 @@ import {
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
 // the project's data blob by `saveProject`) plus the modal/UI state around
-// deploy / redeploy / undeploy.
+// deploy / redeploy / undeploy. Deploy is a Firebase Storage feature with no
+// self-hosted equivalent, so every action here is a no-op unless
+// firebaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
   generatedCode, isSignedIn, user, projectName, currentProjectId, currentVersionId,
   deployment, setDeployment, saveProject
@@ -39,6 +41,10 @@ export default function useDeployment({
 
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null) => {
     if (!generatedCode || isDeploying) return;
+    if (!firebaseEnabled) {
+      setDeployError('Deploy is not available in self-hosted mode.');
+      return;
+    }
     if (!isSignedIn || !user?.id) return;
 
     setIsDeploying(true);
@@ -87,6 +93,7 @@ export default function useDeployment({
 
   const handleUndeploy = async () => {
     if (!deployment || isDeploying) return;
+    if (!firebaseEnabled) return;
 
     setIsDeploying(true);
     setDeployError(null);
