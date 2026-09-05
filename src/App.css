@@ -54,7 +54,7 @@
   --well-inset: none;
 }
 
-html.dark {
+:is(html.dark, .force-dark) {
   --shadow-color: 0 0 0;
   --shadow-a1: 0.35;
   --shadow-a2: 0.45;
@@ -183,7 +183,7 @@ body {
   background: var(--color-indigo-50);
   border: 1px solid var(--accent-border);
 }
-html.dark .status-tick {
+:is(html.dark, .force-dark) .status-tick {
   color: var(--color-indigo-700);
 }
 
@@ -1282,7 +1282,7 @@ html.dark .status-tick {
 .star-tick-active {
   color: var(--color-indigo-600);
 }
-html.dark .star-tick-active {
+:is(html.dark, .force-dark) .star-tick-active {
   color: var(--color-indigo-700);
 }
 
@@ -1333,7 +1333,7 @@ html.dark .star-tick-active {
 
 /* The grain is tuned against a light ground; on dark it reads as haze unless
    it blends rather than sits on top. */
-html.dark .noise-texture::before {
+:is(html.dark, .force-dark) .noise-texture::before {
   opacity: 0.55;
   mix-blend-mode: overlay;
 }
@@ -1345,20 +1345,20 @@ html.dark .noise-texture::before {
 }
 
 /* Force dark text on white brand buttons in dark mode */
-html.dark .brand-gradient,
-html.dark .nav-btn-primary,
-html.dark .btn-premium-primary,
-html.dark .brand-fill-text {
+:is(html.dark, .force-dark) .brand-gradient,
+:is(html.dark, .force-dark) .nav-btn-primary,
+:is(html.dark, .force-dark) .btn-premium-primary,
+:is(html.dark, .force-dark) .brand-fill-text {
   color: #080808 !important;
 }
 
-html.dark .nav-btn-secondary-active {
+:is(html.dark, .force-dark) .nav-btn-secondary-active {
   background: var(--color-slate-200);
   color: var(--color-slate-950);
   border-color: var(--color-slate-300);
 }
 
-html.dark .nav-btn-secondary-active:hover {
+:is(html.dark, .force-dark) .nav-btn-secondary-active:hover {
   background: var(--color-slate-300);
   border-color: var(--color-slate-400);
   color: var(--color-slate-950);

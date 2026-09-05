@@ -3,30 +3,6 @@ import {
   Settings, LogIn, LogOut
 } from 'lucide-react';
 
-// The brand mark: a single blip tracing across a signal line -- literal to
-// the product name and legible down to a 40px header slot. Lives in its own
-// gradient tile (.brand-mark, App.css) rather than the shared PNG so it
-// stays crisp at any pixel density and keeps a fixed identity color in dark
-// mode instead of following --color-brand's button-legibility inversion.
-function LogoMark({ className = '' }) {
-  return (
-    <div
-      className={`brand-mark shrink-0 flex items-center justify-center rounded-xl ${className}`}
-      aria-hidden="true"
-    >
-      <svg viewBox="0 0 24 24" className="w-[58%] h-[58%]" fill="none">
-        <path
-          d="M3.5 13H8L10.5 7.5L13.5 16.5L16 13H20.5"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="10.5" cy="7.5" r="1.3" fill="white" />
-      </svg>
-    </div>
-  );
-}
 
 // Top bar: brand + current-app pill on the left; New App / Apps / History /
 // theme / Settings / auth on the right.
@@ -49,12 +25,11 @@ export default function Header({
   onSignOut,
 }) {
   return (
-    <header className="shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-3 sticky top-0 z-40">
+    <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-3 sticky top-0 z-40 transition-colors">
       {/* Left: Brand / Logo */}
       <div className="flex items-center gap-2.5 shrink-0 min-w-0">
-        <LogoMark className="w-10 h-10 2xl:w-11 2xl:h-11" />
+        <img src="/appblips-logo.png" alt="AppBlips" className="h-20 2xl:h-24 w-auto object-contain -my-4 -ml-2" />
         <div className="flex items-center gap-2.5 min-w-0">
-          <h1 className="hidden sm:block text-xl 2xl:text-2xl font-semibold text-slate-900 tracking-[-0.02em] leading-none font-sans">AppBlips</h1>
           {projectName && projectName !== 'Untitled App' && (
             <div
               className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 2xl:px-3 2xl:py-1 rounded-full bg-slate-100/90 border border-slate-200/70 text-xs 2xl:text-sm font-semibold text-slate-700 max-w-[160px] xl:max-w-[300px] 2xl:max-w-[400px] truncate"

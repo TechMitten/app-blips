@@ -105,7 +105,7 @@
 
      --color-white and --color-black are deliberately NOT remapped: text-white
      has to stay white on brand fills. */
-  html.dark {
+  :is(html.dark, .force-dark) {
     color-scheme: dark;
 
     /* slate -- hand-tuned.
