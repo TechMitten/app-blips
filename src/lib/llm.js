@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { auth } from '../firebase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
 import {
@@ -30,12 +30,13 @@ export const requestModelText = async ({
   const delays = [1000, 2000, 4000, 8000, 16000];
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Sign in required.');
+    const user = auth.currentUser;
+    if (!user) throw new Error('Sign in required.');
+    const token = await user.getIdToken();
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`
+      'Authorization': `Bearer ${token}`
     };
 
     const bodyObj = {

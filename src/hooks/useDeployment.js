@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { supabase } from '../supabase';
+import { storage } from '../firebase';
+import { ref, deleteObject } from 'firebase/storage';
 import {
   registerDeployment, unregisterDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
   deployUrlForSlug, deployObjectPath, DEPLOY_BUCKET
@@ -93,10 +94,12 @@ export default function useDeployment({
     try {
       if (deployment.slug) await unregisterDeployment(deployment.slug);
 
-      const { error: removeError } = await supabase.storage
-        .from(DEPLOY_BUCKET)
-        .remove([deployment.path]);
-      if (removeError) throw new Error(removeError.message || 'Failed to remove deployment.');
+      try {
+        const storageRef = ref(storage, `${DEPLOY_BUCKET}/${deployment.path}`);
+        await deleteObject(storageRef);
+      } catch (removeError) {
+        throw new Error(removeError.message || 'Failed to remove deployment.');
+      }
 
       setDeployment(null);
       setConfirmUndeploy(false);

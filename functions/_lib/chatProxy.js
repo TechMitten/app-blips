@@ -42,23 +42,20 @@ const authorize = async (request) => {
 
 // Per-user request cap, enforced via a SECURITY DEFINER Postgres function
 // (check_chat_rate_limit) that atomically checks-and-increments a counter row
-// keyed on auth.uid() -- see the chat_rate_limits migration. Fails open (allows
+// keyed on user id -- see the chat_rate_limits migration. Fails open (allows
 // the request) if the Supabase call itself errors, so a Supabase hiccup
 // doesn't take down generation; the upstream LLM call still requires its own
 // valid config regardless.
-const checkRateLimit = async (token, env) => {
+const checkRateLimit = async (userId, env) => {
   const maxRequests = parseInt(env.ORION_CHAT_RATE_LIMIT_MAX, 10) || 60;
   const windowSeconds = parseInt(env.ORION_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
 
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_chat_rate_limit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_PUBLISHABLE_KEY },
       body: JSON.stringify({
+        p_user_id: userId,
         p_max_requests: maxRequests,
         p_window_seconds: windowSeconds,
       }),
@@ -83,8 +80,7 @@ export async function handleChatProxy(request, env) {
     });
   }
 
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  const { allowed, windowSeconds } = await checkRateLimit(token, env);
+  const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
   if (!allowed) {
     return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please slow down and try again shortly.' }), {
       status: 429,
