@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase';
 import { updatePassword as firebaseUpdatePassword, updateProfile, deleteUser } from 'firebase/auth';
-import { User, Mail, KeyRound, Trash2, X, AlertTriangle } from 'lucide-react';
+import { User, Mail, KeyRound, Trash2, X, AlertTriangle, LogOut } from 'lucide-react';
 
 export default function AccountSettingsModal({ user, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
@@ -83,12 +83,21 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
             </div>
             <h2 className="text-lg font-semibold text-slate-900">Account Settings</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => { onSignOut(); onClose(); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors mr-2"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="flex border-b border-slate-100 px-2">

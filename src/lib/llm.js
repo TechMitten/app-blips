@@ -1,4 +1,5 @@
-import { auth } from '../firebase';
+import { auth, appCheck } from '../firebase';
+import { getToken } from 'firebase/app-check';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
 import {
@@ -33,11 +34,25 @@ export const requestModelText = async ({
     const user = auth.currentUser;
     if (!user) throw new Error('Sign in required.');
     const token = await user.getIdToken();
+    
+    let appCheckTokenStr = '';
+    try {
+      if (appCheck) {
+        const appCheckTokenResult = await getToken(appCheck, false);
+        appCheckTokenStr = appCheckTokenResult.token;
+      }
+    } catch (e) {
+      console.warn('Failed to get App Check token:', e);
+    }
 
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     };
+    
+    if (appCheckTokenStr) {
+      headers['X-Firebase-AppCheck'] = appCheckTokenStr;
+    }
 
     const bodyObj = {
       stream: !!onChunk,
@@ -54,8 +69,10 @@ export const requestModelText = async ({
       body: JSON.stringify(bodyObj),
       signal
     });
+    if (response.status === 401) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
 
-    if (response.status === 401) throw new Error('Your session has expired. Please sign in again.');
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
       const err = new Error(retryAfter
@@ -127,6 +144,9 @@ export const requestModelText = async ({
                 const idx = tc.index ?? (tc.id ? toolCallsBuffer.length : Math.max(0, toolCallsBuffer.length - 1));
                 if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
                 if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
+                if (toolCallsBuffer[idx].function.name === 'ask_clarifying_questions') {
+                  onChunk('', 'clear_reply');
+                }
               }
             }
           } catch { /* ignore */ }
@@ -517,7 +537,7 @@ export const generateContextualSuggestions = async ({ code, versions, projectNam
 export const generateNewStarterIdeas = async ({ signal }) => {
   const messages = [
     { role: 'system', content: STARTER_IDEAS_SYSTEM_PROMPT },
-    { role: 'user', content: "Generate 7 new starter app ideas." }
+    { role: 'user', content: "Generate 6 new starter app ideas." }
   ];
 
   const message = await requestModelText({

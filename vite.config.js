@@ -26,6 +26,7 @@ function llmProxyDevMiddleware(mode) {
           headers: {
             'content-type': 'application/json',
             ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+            ...(req.headers['x-firebase-appcheck'] ? { 'x-firebase-appcheck': req.headers['x-firebase-appcheck'] } : {}),
           },
           body: Buffer.concat(chunks),
         })
