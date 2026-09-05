@@ -30,26 +30,6 @@ export const SURGICAL_EDIT_TOOL = {
   }
 };
 
-export const ASK_CLARIFYING_QUESTIONS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'ask_clarifying_questions',
-    description: 'Call this tool to ask the user a clarifying question BEFORE building or editing the app, if their prompt is ambiguous or underspecified.',
-    parameters: {
-      type: 'object',
-      properties: {
-        question: {
-          type: 'string',
-          description: 'A single, specific yes/no question you need answered to build the perfect app. MUST be phrased so it can be answered with just "Yes" or "No".'
-        }
-      },
-      required: ['question'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
 export const VIEW_CODE_TOOL = {
   type: 'function',
   function: {
@@ -205,7 +185,6 @@ CRITICAL RULES:
 9. The app runs in a sandboxed preview frame with no origin. localStorage, sessionStorage and document.cookie ARE available and safe to call -- in the preview they are backed by an in-memory shim, and once the app is deployed to a real origin the same code persists for real. So never assume saved data exists: always read defensively, tolerate an empty store, and keep the app fully usable on a first run. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, or harm users (e.g., fake login screens, credential harvesters, scams). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
-12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
@@ -217,11 +196,12 @@ SURGICAL EDIT GUIDELINES:
 - If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
 
 REPLY GUIDELINES:
-- You MUST ALWAYS add ONE short, plain-English sentence of conversational reply (max ~15 words) acknowledging the request or explaining what you will do. Never more than one sentence, never a list, never a restatement of your plan.
-- Initial generation (no tools available yet): put your reply FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
-- Edits (tool-calling turns): your reply MUST accompany the tool call. Never skip a required tool call in order to reply instead, but always include the reply in the text content before calling the tool.
+- You may add ONE short, plain-English sentence of conversational reply (max ~15 words). Never more than one sentence, never a list, never a restatement of your plan.
+- Initial generation (no tools available yet): if you include a reply, put it FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
+- Edits (tool-calling turns): a reply is optional on any turn and may accompany a tool call, or stand alone once edits are complete (e.g. "Done — added the dark mode toggle."). Never skip a required tool call in order to reply instead.
+- If you have nothing worth saying, omit the reply entirely — silence beats filler like "Sure, here you go!".
 
-Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
+Beyond the optional short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
 export const SUGGESTIONS_SYSTEM_PROMPT = `You are reviewing the current source code and edit history of a specific AI-generated web app.
 Propose exactly 4 concrete, specific next-step feature ideas for THIS app, grounded in what its code actually does.
@@ -279,7 +259,16 @@ ${truncatedCode}
 Suggest 3-4 specific next-step prompts for this app.`;
 };
 
+export const buildSyntaxRepairPrompt = (code, errors) => `The following HTML document contains JavaScript syntax errors that will break the app:
 
+\`\`\`html
+${code}
+\`\`\`
+
+Syntax errors detected:
+${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
+
+Return the complete corrected document, starting at <!DOCTYPE html>. Fix ONLY the listed syntax errors (and anything they directly cascade into) -- keep all markup, styling, behavior, and features exactly as they are. Do not redesign or rewrite unrelated parts. Do not wrap the output in markdown formatting.`;
 
 export const buildSyntaxRepairInstruction = (errors) => `The current app code contains JavaScript syntax errors that will break the app:
 

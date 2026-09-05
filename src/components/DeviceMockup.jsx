@@ -249,6 +249,7 @@ export default function DeviceMockup({
   iframeRef,
   srcDoc,
   isGenerating,
+  generationStatus,
   hasCode,
 }) {
   const box = getEffectivePreviewBox(mode, orientation);
@@ -384,8 +385,20 @@ export default function DeviceMockup({
                 <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
                 <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
               </div>
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">Building...</h3>
-              <BuildingStatusMessage />
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
+                {generationStatus?.startsWith('Analyzing') 
+                  ? 'Planning...'
+                  : generationStatus?.includes('Syntax errors found') 
+                    ? 'Fixing errors...' 
+                    : 'Building...'}
+              </h3>
+              {generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                <p className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                  {generationStatus}
+                </p>
+              ) : (
+                <BuildingStatusMessage />
+              )}
             </div>
           )}
         </div>

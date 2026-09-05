@@ -22,7 +22,7 @@ import { sanitizeHtmlResponse } from './lib/edits';
 import {
   PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useChatFont from './hooks/useChatFont';
@@ -52,7 +52,7 @@ const loadStoredStarterIdeas = () => {
         ...idea,
         icon: AVAILABLE_ICONS[idea.iconName] || AVAILABLE_ICONS.Sparkles || Code2,
       }));
-    return mapped.length > 0 ? mapped : null;
+    return mapped.length >= 7 ? mapped : null;
   } catch {
     return null;
   }
@@ -77,6 +77,7 @@ export default function App() {
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
+  const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : false;
@@ -123,7 +124,7 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 4));
+  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 7));
   const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   // --- Streaming state ---
@@ -144,6 +145,7 @@ export default function App() {
   const streamingReplyRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
+  const runtimeErrorRetriesRef = useRef(0);
 
   const clearStreamingState = useCallback(() => {
     setStreamingGeneratedCode('');
@@ -202,7 +204,18 @@ export default function App() {
     () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
     [generatedCode]
   );
-  usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode });
+  const handleRuntimeError = useCallback((payload) => {
+    if (isGenerating || chatMode !== 'build') return;
+    if (runtimeErrorRetriesRef.current >= 2) {
+      console.warn('Runtime error auto-fix limit reached.');
+      return;
+    }
+    runtimeErrorRetriesRef.current += 1;
+    const promptText = `Fix this runtime error:\n${payload.message}${payload.line ? ` at line ${payload.line}` : ''}`;
+    handleGenerateRef.current?.(null, promptText, true);
+  }, [isGenerating, chatMode]);
+
+  usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError: handleRuntimeError });
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
@@ -221,6 +234,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SHOW_CODE_VIEW_KEY, showCodeView);
   }, [showCodeView]);
+
+  useEffect(() => {
+    localStorage.setItem(ASK_CLARIFYING_QUESTIONS_KEY, askClarifyingQuestions);
+  }, [askClarifyingQuestions]);
 
   const handleShowCodeViewChange = (value) => {
     setShowCodeView(value);
@@ -261,9 +278,15 @@ export default function App() {
     }
   };
 
-  const handleGenerate = async (e) => {
+
+  const handleGenerate = async (e, overridePrompt, isAutoFix = false) => {
     e?.preventDefault();
-    if (!prompt.trim()) return;
+    const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
+    if (!currentPrompt.trim()) return;
+
+    if (!isAutoFix) {
+      runtimeErrorRetriesRef.current = 0;
+    }
 
     if (!isSignedIn) {
       setIsAuthModalOpen(true);
@@ -283,15 +306,27 @@ export default function App() {
     setIsSuggestionsExpanded(false);
     clearStreamingState();
     setError(null);
-    setGenerationStatus(null);
+    const updatedVersions = versions.slice(0, currentVersionIndex + 1);
+    const prevVersion = updatedVersions[updatedVersions.length - 1];
+    const shouldAskClarifyingQuestions = askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+
+    setGenerationStatus(
+      shouldAskClarifyingQuestions
+        ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
+        : null
+    );
     abortControllerRef.current = new AbortController();
 
-    const currentPrompt = prompt;
     setPrompt(''); // Clear input so user can easily type their next refinement
     setPendingPrompt(currentPrompt);
 
+    const chatHistory = updatedVersions.flatMap(v => [
+      { role: 'user', content: v.prompt },
+      { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
+    ]);
+
     try {
-      const generationResult = await generateAppCode(currentPrompt, generatedCode, (chunk, kind = 'content') => {
+      const generationResult = await generateAppCode(currentPrompt, generatedCode, chatHistory, (chunk, kind = 'content') => {
         if (kind === 'reasoning') {
           return;
         }
@@ -302,6 +337,7 @@ export default function App() {
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
           setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
+          setGenerationStatus("Synthesizing your app from your prompt.");
         }
         if (!replyFrozenRef.current) {
           const boundaryMatch = streamingGeneratedCodeRef.current.match(HTML_STREAM_START_RE);
@@ -313,7 +349,7 @@ export default function App() {
           }
           setStreamingReply(streamingReplyRef.current);
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask');
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions);
       setGeneratedCode(generationResult.code);
 
       const newVersion = {
@@ -326,8 +362,6 @@ export default function App() {
         reply: generationResult.reply || null
       };
 
-      // If user goes back in time and generates, truncate the future versions (standard undo behavior)
-      const updatedVersions = versions.slice(0, currentVersionIndex + 1);
       const finalVersions = [...updatedVersions, newVersion];
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
@@ -568,6 +602,8 @@ export default function App() {
           onChatFontChange={setChatFont}
           showCodeView={showCodeView}
           onShowCodeViewChange={handleShowCodeViewChange}
+          askClarifyingQuestions={askClarifyingQuestions}
+          onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
         />
       )}
 
@@ -734,6 +770,7 @@ export default function App() {
             iframeRef={iframeRef}
             previewSrcDoc={previewSrcDoc}
             isGenerating={isGenerating && chatMode === 'build'}
+            generationStatus={generationStatus}
             code={codePanelCode}
             copied={copied}
             onCopyCode={handleCopyCode}

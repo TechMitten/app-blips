@@ -11,9 +11,9 @@ import {
   REFINEMENT_TOOLS,
   VIEW_CODE_TOOL,
   LIST_SECTIONS_TOOL,
+  ASK_CLARIFYING_QUESTIONS_TOOL,
   buildInitialGenerationPrompt,
   buildSuggestionsPrompt,
-  buildSyntaxRepairPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
 
@@ -88,7 +88,8 @@ export const requestModelText = async ({
       return await Promise.race([readPromise, timeoutPromise]);
     };
 
-    while (true) {
+    let isDone = false;
+    while (!isDone) {
       const { done, value } = await readWithTimeout();
       if (done) break;
       
@@ -100,7 +101,10 @@ export const requestModelText = async ({
         const trimmedLine = line.trim();
         if (trimmedLine.startsWith('data: ')) {
           const data = trimmedLine.slice(6);
-          if (data === '[DONE]') continue;
+          if (data === '[DONE]') {
+            isDone = true;
+            break;
+          }
           try {
             const json = JSON.parse(data);
             const delta = json.choices[0]?.delta;
@@ -119,7 +123,7 @@ export const requestModelText = async ({
 
             if (delta?.tool_calls) {
               for (const tc of delta.tool_calls) {
-                const idx = tc.index ?? toolCallsBuffer.length;
+                const idx = tc.index ?? (tc.id ? toolCallsBuffer.length : Math.max(0, toolCallsBuffer.length - 1));
                 if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
                 if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
               }
@@ -188,14 +192,17 @@ export const executeRefinementTool = (workingCode, toolCall) => {
 export const generateAppCode = async (
   prompt,
   currentCode = null,
+  chatHistory = [],
   onChunk = null,
   layoutTarget = 'both',
   signal = null,
-  isAskMode = false
+  isAskMode = false,
+  askClarifyingQuestions = true
 ) => {
   if (isAskMode && currentCode) {
     const messages = [
       { role: 'system', content: 'You are a helpful coding assistant. The user is asking a question about their current app code. Answer the question directly and concisely. Do NOT generate or output the full HTML code. Provide a plain-text or markdown answer.' },
+      ...chatHistory,
       { role: 'user', content: `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nQuestion: ${prompt}` }
     ];
     const message = await requestModelText({ messages, onChunk, signal });
@@ -209,32 +216,111 @@ export const generateAppCode = async (
   }
 
   if (!currentCode) {
+    const formattedChatHistory = chatHistory.map((msg, idx) => {
+      if (idx === 0 && msg.role === 'user') {
+        return { ...msg, content: buildInitialGenerationPrompt(msg.content, layoutTarget) };
+      }
+      return msg;
+    });
+
     const messages = [
       { role: 'system', content: HTML_SYSTEM_PROMPT },
-      { role: 'user', content: buildInitialGenerationPrompt(prompt, layoutTarget) }
+      ...formattedChatHistory,
+      { role: 'user', content: chatHistory.length > 0 ? prompt : buildInitialGenerationPrompt(prompt, layoutTarget) }
     ];
-    const message = await requestModelText({ messages, onChunk, signal });
+    
+    const tools = askClarifyingQuestions ? [ASK_CLARIFYING_QUESTIONS_TOOL] : undefined;
+    const message = await requestModelText({ messages, onChunk, tools, signal });
+    
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const clarifyTool = message.tool_calls.find(t => t.function?.name === 'ask_clarifying_questions');
+      if (clarifyTool) {
+        let args;
+        try {
+          args = JSON.parse(clarifyTool.function.arguments);
+        } catch {
+          args = { question: "Could you clarify what you mean?" };
+        }
+        
+        let q = args?.question || args?.questions?.[0] || "Could you clarify what you mean?";
+        if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
+        q = String(q).trim() || "Could you clarify what you mean?";
+
+        return {
+          code: currentCode || '',
+          editMode: 'clarify',
+          editSummary: prompt,
+          reply: q
+        };
+      }
+    }
+
     const rawText = message.content || message;
     let code = sanitizeHtmlResponse(rawText);
     const reply = extractLeadingReply(rawText) || undefined;
 
     // End-of-generation syntax gate: parse the finished document, and if it
-    // doesn't parse, feed the errors back for correction. Repair requests are
-    // deliberately non-streaming so the preview buffer keeps showing the
-    // original code until the whole flow resolves.
+    // doesn't parse, feed the errors back for correction. Repair requests use
+    // surgical edits so we don't regenerate the entire document.
     let check = checkSyntax(code);
-    for (let repairs = 0; check.errors.length && repairs < MAX_SYNTAX_REPAIR_ATTEMPTS; repairs++) {
-      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-      if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
-      const repairMessage = await requestModelText({
-        messages: [
-          { role: 'system', content: HTML_SYSTEM_PROMPT },
-          { role: 'user', content: buildSyntaxRepairPrompt(code, check.errors) }
-        ],
-        signal
-      });
-      code = sanitizeHtmlResponse(repairMessage.content || repairMessage);
-      check = checkSyntax(code);
+    if (check.errors.length) {
+      let repairMessages = [
+        { role: 'system', content: HTML_SYSTEM_PROMPT },
+        { role: 'user', content: `Current App Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
+      ];
+
+      for (let repairs = 0; check.errors.length && repairs < MAX_SYNTAX_REPAIR_ATTEMPTS; repairs++) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
+        
+        let repairMessage;
+        try {
+          repairMessage = await requestModelText({
+            messages: repairMessages,
+            tools: REFINEMENT_TOOLS,
+            tool_choice: 'auto',
+            signal
+          });
+        } catch {
+          repairMessage = await requestModelText({
+            messages: repairMessages,
+            tools: REFINEMENT_TOOLS,
+            tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
+            signal
+          });
+        }
+
+        repairMessages.push({
+          role: 'assistant',
+          content: repairMessage.content || null,
+          tool_calls: repairMessage.tool_calls?.length ? repairMessage.tool_calls : undefined
+        });
+
+        if (!repairMessage.tool_calls || repairMessage.tool_calls.length === 0) {
+          break; // Exit if model didn't use any tools
+        }
+
+        let editsApplied = false;
+        let nextCode = code;
+        for (const toolCall of repairMessage.tool_calls) {
+          if (toolCall.function?.name === 'ask_clarifying_questions') continue;
+          if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+          const result = executeRefinementTool(nextCode, toolCall);
+          nextCode = result.code;
+          if (result.applied) editsApplied = true;
+          repairMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result.result) });
+        }
+
+        if (editsApplied) {
+          code = nextCode;
+          check = checkSyntax(code);
+          if (check.errors.length) {
+            repairMessages.push({ role: 'user', content: buildSyntaxRepairInstruction(check.errors) });
+          }
+        } else {
+          repairMessages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
+        }
+      }
     }
 
     return {
@@ -252,6 +338,7 @@ export const generateAppCode = async (
   // blindly restarting from scratch each attempt.
   const messages = [
     { role: 'system', content: HTML_SYSTEM_PROMPT },
+    ...chatHistory,
     {
       role: 'user',
       content: `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`
@@ -277,13 +364,17 @@ export const generateAppCode = async (
   for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
+    const currentTools = askClarifyingQuestions && !editsApplied && turn === 1 
+      ? [...REFINEMENT_TOOLS, ASK_CLARIFYING_QUESTIONS_TOOL] 
+      : REFINEMENT_TOOLS;
+
     let message;
     try {
       message = await requestModelText({
         messages,
         onChunk,
-        tools: REFINEMENT_TOOLS,
-        tool_choice: turn === 1 ? 'required' : 'auto',
+        tools: currentTools,
+        tool_choice: turn === 1 && !askClarifyingQuestions ? 'required' : 'auto',
         signal
       });
     } catch (e) {
@@ -293,7 +384,7 @@ export const generateAppCode = async (
       message = await requestModelText({
         messages,
         onChunk,
-        tools: REFINEMENT_TOOLS,
+        tools: currentTools,
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
         signal
       });
@@ -324,6 +415,27 @@ export const generateAppCode = async (
     }
 
     for (const toolCall of message.tool_calls) {
+      if (toolCall.function?.name === 'ask_clarifying_questions') {
+        let args;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch {
+          args = { question: "Could you clarify what you mean?" };
+        }
+        
+        let q = args?.question || args?.questions?.[0] || "Could you clarify what you mean?";
+        if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
+        q = String(q).trim() || "Could you clarify what you mean?";
+
+        return {
+          code: workingCode,
+          editMode: 'clarify',
+          editSummary: prompt,
+          reply: q,
+          ...(syntaxErrors.length ? { syntaxErrors } : {})
+        };
+      }
+
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
       const { code: nextCode, applied, result } = executeRefinementTool(workingCode, toolCall);
       workingCode = nextCode;
@@ -337,7 +449,22 @@ export const generateAppCode = async (
     if (editsApplied) {
       syntaxErrors = checkSyntax(workingCode).errors;
       if (syntaxErrors.length && syntaxRepairCycles < MAX_SYNTAX_REPAIR_ATTEMPTS) {
-        nudgeSyntaxRepair();
+        syntaxRepairCycles++;
+        if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
+        
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg && lastMsg.role === 'tool') {
+          try {
+            const parsed = JSON.parse(lastMsg.content);
+            parsed.syntaxErrors = syntaxErrors;
+            parsed.instruction = buildSyntaxRepairInstruction(syntaxErrors);
+            lastMsg.content = JSON.stringify(parsed);
+          } catch {
+            messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+          }
+        } else {
+          messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+        }
       }
     }
   }
@@ -389,7 +516,7 @@ export const generateContextualSuggestions = async ({ code, versions, projectNam
 export const generateNewStarterIdeas = async ({ signal }) => {
   const messages = [
     { role: 'system', content: STARTER_IDEAS_SYSTEM_PROMPT },
-    { role: 'user', content: "Generate 8 new starter app ideas." }
+    { role: 'user', content: "Generate 7 new starter app ideas." }
   ];
 
   const message = await requestModelText({
