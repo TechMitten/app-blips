@@ -62,7 +62,7 @@ export default function PromptInput({
         onChange={(e) => onPromptChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={isChatActive ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...") : "e.g. A minimalist task manager with categories..."}
-        className="w-full min-h-[56px] max-h-44 px-4 pt-3 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-sm sm:text-base leading-relaxed bg-transparent"
+        className="w-full min-h-[56px] max-h-44 px-4 pt-3 pb-2 outline-none resize-none text-slate-900 placeholder:text-slate-500 text-sm sm:text-base leading-relaxed bg-transparent"
         disabled={isGenerating}
       />
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3.5 sm:px-4 py-2">
@@ -105,7 +105,7 @@ export default function PromptInput({
             className={`inline-flex items-center justify-center gap-2 whitespace-nowrap px-3.5 py-1.5 sm:px-4 sm:py-2 text-sm font-bold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
                 ? 'brand-gradient text-white shadow-premium-md hover:shadow-premium-lg hover:brightness-105 active:scale-[0.99]'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                : 'bg-slate-200/80 text-slate-500 cursor-not-allowed shadow-none'
             }`}
           >
             {isGenerating ? (
