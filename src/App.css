@@ -598,6 +598,69 @@ body {
     0 1px 2px rgba(2, 6, 23, 0.2);
 }
 
+/* ===== Desktop browser chrome — dark mode ===== */
+
+:is(html.dark, .force-dark) .device-browser-chrome {
+  background: #1c1c1c;
+}
+
+:is(html.dark, .force-dark) .device-browser-tabstrip {
+  background: linear-gradient(180deg, #141414 0%, #1c1c1c 100%);
+}
+
+:is(html.dark, .force-dark) .device-browser-tab {
+  background: #252525;
+  box-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .device-browser-tab-title {
+  color: #c4c8d0;
+}
+
+:is(html.dark, .force-dark) .device-browser-tab-close {
+  color: #555f6d;
+}
+
+:is(html.dark, .force-dark) .device-browser-newtab {
+  color: #555f6d;
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+
+:is(html.dark, .force-dark) .device-browser-toolbar {
+  background: #252525;
+  border-bottom-color: rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .device-browser-navbtn {
+  color: #8892a0;
+}
+
+:is(html.dark, .force-dark) .device-browser-navbtn.is-disabled {
+  color: #383838;
+}
+
+:is(html.dark, .force-dark) .device-browser-addressbar {
+  background: #181818;
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.4),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+:is(html.dark, .force-dark) .device-browser-lock {
+  color: #6b7280;
+}
+
+:is(html.dark, .force-dark) .device-browser-url {
+  color: #9aa5b4;
+}
+
+:is(html.dark, .force-dark) .device-browser-star {
+  color: #3d4450;
+}
+
 .device-screen {
   position: relative;
   width: 100%;
@@ -1362,4 +1425,120 @@ body {
   background: var(--color-slate-300);
   border-color: var(--color-slate-400);
   color: var(--color-slate-950);
+}
+
+/* ===== Empty-state preview overlay (shown before first generation) ===== */
+
+.preview-empty-backdrop {
+  /* Richer mesh — deeper base + stronger radials so the palette actually shows */
+  background:
+    radial-gradient(ellipse 85% 60% at 50% -8%, rgb(165 180 252 / 0.65) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 85% 75%, rgb(147 210 253 / 0.5) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 42% at 15% 82%, rgb(192 132 252 / 0.35) 0%, transparent 52%),
+    linear-gradient(170deg, #eaedff 0%, #e2e8ff 40%, #dce3f8 100%);
+}
+
+/* Subtle bokeh dot layer for light mode */
+.preview-empty-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle 3px at 22% 28%, rgb(99 102 241 / 0.3) 100%, transparent 100%),
+    radial-gradient(circle 2px at 75% 18%, rgb(56 189 248 / 0.35) 100%, transparent 100%),
+    radial-gradient(circle 4px at 65% 75%, rgb(167 139 250 / 0.25) 100%, transparent 100%),
+    radial-gradient(circle 2px at 30% 70%, rgb(251 146 60 / 0.2) 100%, transparent 100%),
+    radial-gradient(circle 3px at 85% 50%, rgb(99 102 241 / 0.22) 100%, transparent 100%),
+    radial-gradient(circle 2px at 12% 52%, rgb(56 189 248 / 0.25) 100%, transparent 100%);
+}
+
+:is(html.dark, .force-dark) .preview-empty-backdrop {
+  background: linear-gradient(160deg, #111827 0%, #0f172a 55%, #0c1120 100%);
+}
+
+/* Ambient glow blob */
+.preview-empty-glow {
+  background:
+    radial-gradient(ellipse 72% 48% at 50% 28%, rgb(99 102 241 / 0.3) 0%, transparent 58%),
+    radial-gradient(ellipse 50% 34% at 68% 18%, rgb(56 189 248 / 0.22) 0%, transparent 52%),
+    radial-gradient(ellipse 44% 30% at 30% 32%, rgb(167 139 250 / 0.18) 0%, transparent 50%);
+}
+
+:is(html.dark, .force-dark) .preview-empty-glow {
+  background: radial-gradient(circle at 50% 30%, rgb(99 102 241 / 0.22), transparent 62%);
+}
+
+/* Icon image */
+.preview-empty-icon-img {
+  filter:
+    drop-shadow(0 8px 18px rgb(99 102 241 / 0.28))
+    drop-shadow(0 2px 6px rgb(56 189 248 / 0.2));
+}
+
+:is(html.dark, .force-dark) .preview-empty-icon-img {
+  filter:
+    drop-shadow(0 8px 22px rgb(99 102 241 / 0.4))
+    drop-shadow(0 2px 8px rgb(56 189 248 / 0.25));
+}
+
+/* Headline */
+.preview-empty-title {
+  color: #0a0f1e;
+  text-shadow:
+    0 1px 6px rgb(255 255 255 / 0.55),
+    0 0 16px rgb(255 255 255 / 0.3);
+}
+
+:is(html.dark, .force-dark) .preview-empty-title {
+  color: #f1f5f9;
+  text-shadow: none;
+}
+
+/* Subtitle */
+.preview-empty-subtitle {
+  color: #2d3a50;
+  text-shadow:
+    0 1px 5px rgb(255 255 255 / 0.5),
+    0 0 12px rgb(255 255 255 / 0.25);
+}
+
+:is(html.dark, .force-dark) .preview-empty-subtitle {
+  color: #94a3b8;
+  text-shadow: none;
+}
+
+/* Feature pill rows — borderless icon+text, no box */
+.preview-empty-pill {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  color: #0f172a;
+  text-shadow:
+    0 1px 5px rgb(255 255 255 / 0.5),
+    0 0 12px rgb(255 255 255 / 0.25);
+}
+
+:is(html.dark, .force-dark) .preview-empty-pill {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #94a3b8;
+  text-shadow: none;
+}
+
+
+/* Decorative grid lines on dark (light mode has bokeh dots above instead) */
+:is(html.dark, .force-dark) .preview-empty-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(99 102 241 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(99 102 241 / 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
 }
