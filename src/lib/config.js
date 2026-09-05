@@ -66,3 +66,15 @@ export const loadAskClarifyingQuestions = () => {
     return true;
   }
 };
+
+export const SKIP_SPLASH_KEY = 'orion-skip-splash';
+
+// Boolean: when true the splash screen is skipped entirely on load. Off by
+// default so new users still see the branded intro.
+export const loadSkipSplash = () => {
+  try {
+    return safeStorage('local')?.getItem(SKIP_SPLASH_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};

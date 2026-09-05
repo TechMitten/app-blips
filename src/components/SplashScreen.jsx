@@ -66,8 +66,8 @@ const Starfield = () => {
   return <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />;
 };
 
-export default function SplashScreen() {
-  const [isVisible, setIsVisible] = useState(true);
+export default function SplashScreen({ skip = false }) {
+  const [isVisible, setIsVisible] = useState(!skip);
   const [isFading, setIsFading] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
 

@@ -24,7 +24,7 @@ import { sanitizeHtmlResponse } from './lib/edits';
 import {
   PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useChatFont from './hooks/useChatFont';
@@ -80,6 +80,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
+  const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
     return stored !== null ? stored === 'true' : false;
@@ -259,6 +260,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ASK_CLARIFYING_QUESTIONS_KEY, askClarifyingQuestions);
   }, [askClarifyingQuestions]);
+
+  useEffect(() => {
+    localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
+  }, [skipSplash]);
 
   // Once the resume-project flow settles, check for an interrupted build job.
   // We surface it only when it belongs to the project that just loaded (matched
@@ -661,7 +666,7 @@ export default function App() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-      <SplashScreen />
+      <SplashScreen skip={skipSplash} />
       <Header
         projectName={projectName}
         onNewApp={handleNewApp}
@@ -711,6 +716,8 @@ export default function App() {
           onShowCodeViewChange={handleShowCodeViewChange}
           askClarifyingQuestions={askClarifyingQuestions}
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
+          skipSplash={skipSplash}
+          onSkipSplashChange={setSkipSplash}
         />
       )}
 
