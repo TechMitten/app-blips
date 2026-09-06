@@ -1,6 +1,6 @@
 import {
-  Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCw, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket, Download
+  Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
+  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -38,6 +38,7 @@ export default function PreviewPane({
   containerRef,
   iframeRef,
   previewSrcDoc,
+  onReloadPreview,
   isGenerating,
   generationStatus,
   isAutoFixing,
@@ -121,7 +122,7 @@ export default function PreviewPane({
                   className="nav-segmented-btn nav-segmented-btn-icon"
                   title={`Rotate to ${previewOrientation === 'portrait' ? 'Landscape' : 'Portrait'}`}
                 >
-                  <RotateCw size={14} className={previewOrientation === 'landscape' ? '-rotate-90' : ''} style={{ transition: 'transform 0.2s ease' }} />
+                  <RotateCcwSquare size={14} className={previewOrientation === 'landscape' ? '-rotate-90' : ''} style={{ transition: 'transform 0.2s ease' }} />
                 </button>
               </div>
             )}
@@ -177,6 +178,20 @@ export default function PreviewPane({
                 title="Zoom In (+10%)"
               >
                 <ZoomIn size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Reload preview (when in preview tab and code generated) */}
+          {activeTab === 'preview' && hasCode && (
+            <div className="nav-segmented-group" title="Reload Preview">
+              <button
+                onClick={onReloadPreview}
+                className="nav-segmented-btn nav-segmented-btn-icon"
+                title="Reload the app preview"
+                aria-label="Reload the app preview"
+              >
+                <RefreshCw size={14} />
               </button>
             </div>
           )}

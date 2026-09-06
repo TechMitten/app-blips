@@ -317,7 +317,7 @@ export async function handleChatProxy(request, env) {
   };
 
   const effort = reasoning_effort ?? env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
-  if (effort === false || effort === 'none') {
+  if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
     bodyObj.reasoning_effort = 'none';
   } else if (effort) {
     bodyObj.reasoning_effort = effort;

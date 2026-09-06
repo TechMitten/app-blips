@@ -14,8 +14,6 @@ export default function BuildPanel({
   generatedCode,
   showStarterIdeas,
   starterIdeas,
-  isGeneratingStarters,
-  onGenerateStarters,
   onPickStarter,
   versions,
   currentVersionIndex,
@@ -178,8 +176,6 @@ export default function BuildPanel({
             <>
               <StarterIdeas
                 ideas={starterIdeas}
-                isGenerating={isGeneratingStarters}
-                onRefresh={onGenerateStarters}
                 onPick={(starter) => onPickStarter(starter.prompt)}
               />
               <div className="build-panel-capabilities pt-2 flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300 font-semibold border-t border-slate-200/80 dark:border-slate-700">

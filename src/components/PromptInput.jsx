@@ -92,7 +92,7 @@ export default function PromptInput({
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 transition-colors cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
             >
               <X size={13} />
               Cancel
