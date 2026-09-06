@@ -70,13 +70,28 @@ export default function SplashScreen({ skip = false }) {
   const [isVisible, setIsVisible] = useState(!skip);
   const [isFading, setIsFading] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const endedRef = useRef(false);
 
   const handleVideoEnd = () => {
+    if (endedRef.current) return;
+    endedRef.current = true;
     setIsFading(true);
     setTimeout(() => {
       setIsVisible(false);
     }, 500); // 500ms for transition
   };
+
+  useEffect(() => {
+    if (skip) return;
+    // Switching tabs pauses the (control-less) video in most browsers and
+    // doesn't reliably resume it on return, so just skip the splash instead
+    // of leaving it stuck.
+    const handleVisibilityChange = () => {
+      if (document.hidden) handleVideoEnd();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [skip]);
 
   if (!isVisible) return null;
 

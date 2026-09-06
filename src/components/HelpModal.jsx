@@ -176,11 +176,6 @@ function BuildingSection() {
             Ready-made app ideas on the empty screen. Clicking one fills the box, it
             doesn&rsquo;t send.
           </HelpItem>
-          <HelpItem icon={Lightbulb} name="Suggestions">
-            After a build, a <strong>Suggestions</strong> strip offers sensible next steps for
-            your app. It&rsquo;s collapsed until you open it. A chip fills the box;
-            <strong> New</strong> fetches a different set.
-          </HelpItem>
           <HelpItem icon={MessageCircleQuestion} name="Clarifying questions">
             Sometimes you&rsquo;ll get a short question before the build starts, so you can type
             your custom answer. Turn it off in Settings to always build straight away.
@@ -461,7 +456,7 @@ function TipsSection() {
           Use <strong>Ask</strong> when you want to understand something rather than change it.
         </HelpTip>
         <HelpTip>
-          Borrow wording from <strong>Suggestions</strong> and <strong>Starter ideas</strong> when
+          Borrow wording from <strong>Starter ideas</strong> when
           you&rsquo;re not sure how to phrase something.
         </HelpTip>
         <HelpTip>

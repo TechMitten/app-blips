@@ -1,5 +1,3 @@
-// --- Constants ---
-import { SUGGESTIONS_CODE_CHAR_BUDGET } from './constants';
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
@@ -90,30 +88,6 @@ export const LIST_SECTIONS_TOOL = {
 
 export const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL];
 
-export const SUGGEST_NEXT_STEPS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'return_suggestions',
-    description: 'Returns exactly 4 specific, actionable next-step feature suggestions for the current app, grounded in its actual code and edit history.',
-    parameters: {
-      type: 'object',
-      properties: {
-        suggestions: {
-          type: 'array',
-          description: 'Exactly 4 suggestions, no more and no fewer.',
-          items: {
-            type: 'string',
-            description: 'A short, specific, actionable next-step prompt phrased as an imperative instruction a user could submit as-is, e.g. "Add a dark mode toggle". Under 8 words. Must be grounded in this specific app\'s actual code, and never something already implemented or generic.'
-          }
-        }
-      },
-      required: ['suggestions'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
 export const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a single self-contained HTML file that implements the user's requested app. "Self-contained" describes the delivery format -- one file, no build step -- not the technology: that file may carry inline CSS, an import map, and module scripts pulling real libraries from a CDN (see rule 5).
 
@@ -199,17 +173,6 @@ REPLY GUIDELINES:
 
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
-export const SUGGESTIONS_SYSTEM_PROMPT = `You are reviewing the current source code and edit history of a specific AI-generated web app.
-Propose exactly 4 concrete, specific next-step feature ideas for THIS app, grounded in what its code actually does.
-
-RULES:
-1. Return exactly 4 suggestions -- no more, no fewer.
-2. Each suggestion must be a short, imperative prompt under 8 words the user could submit as-is, e.g. "Add a dark mode toggle" or "Add sound alerts at zero".
-3. Never suggest something already implemented in the code below.
-4. Never suggest something generic that could apply to any app -- ground each idea in this app's actual features, UI, and data.
-5. The app can pull real libraries from a CDN as ES modules and can persist data locally, so a suggestion may propose real charting, animation, 3D, audio, or saved state. Do not restrict yourself to what plain DOM code could do. Never suggest anything needing a server, an account, or a third-party API key.
-6. Call return_suggestions with your 4 suggestions and nothing else.`;
-
 export const getSafeAreaInstruction = (layoutTarget) => {
   if (layoutTarget === 'desktop') return '';
 
@@ -232,32 +195,6 @@ export const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
   }
 };
 
-export const buildSuggestionsPrompt = (code, versions, projectName) => {
-  const half = SUGGESTIONS_CODE_CHAR_BUDGET / 2;
-  const truncatedCode = code.length > SUGGESTIONS_CODE_CHAR_BUDGET
-    ? `${code.slice(0, half)}\n...[truncated]...\n${code.slice(-half)}`
-    : code;
-
-  const recentHistory = versions.slice(-6).map((v, i) => {
-    const extra = v.editSummary && v.editSummary !== v.prompt ? ` (${v.editSummary})` : '';
-    return `${i + 1}. ${v.prompt}${extra}`;
-  }).join('\n');
-
-  return `App name: ${projectName}
-
-Recent edit history:
-${recentHistory || '(none yet)'}
-
-Current app code:
-\`\`\`html
-${truncatedCode}
-\`\`\`
-
-Suggest 3-4 specific next-step prompts for this app.`;
-};
-
-
-
 export const buildSyntaxRepairInstruction = (errors) => `The current app code contains JavaScript syntax errors that will break the app:
 
 ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
@@ -265,7 +202,3 @@ ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
 CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html\`<div class="...">\${content}</div>\` and <\${Component} /> for components).
 
 Fix these with apply_surgical_edits before finishing. If a search anchor around the broken code is unclear, call view_code first. Change as little as possible -- only what is needed to make the code parse.`;
-
-// Best-effort background enhancement -- never surfaces an error to the user.
-// Any failure (missing config, network error, malformed tool response) just
-// means no suggestions are shown.

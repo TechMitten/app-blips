@@ -3,7 +3,7 @@ import { parseInlineMarkdown, parseMarkdownBlocks } from '../lib/markdown';
 // Renders assistant chat replies (markdown) inside the transcript bubbles.
 // Plain React text nodes throughout — LLM output is never treated as HTML.
 const INLINE_CODE_CLS =
-  'font-mono text-[length:var(--chat-code-text)] px-1 py-[1px] rounded bg-slate-200/80 dark:bg-slate-700/70 text-slate-800 dark:text-slate-100 break-words';
+  'font-mono text-[length:var(--chat-code-text)] px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-white/10 text-slate-800 dark:text-white border border-slate-300/40 dark:border-white/10 break-words';
 
 const renderInline = (tokens, keyPrefix) =>
   tokens.map((tok, i) => {
@@ -55,17 +55,17 @@ export default function Markdown({ text }) {
   if (!blocks.length) return null;
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 text-slate-900 dark:text-white">
       {blocks.map((block, i) => {
         switch (block.type) {
           case 'code':
             return (
               <div
                 key={i}
-                className="rounded-lg overflow-hidden bg-slate-900 text-slate-100 dark:bg-black/50 border border-slate-700/50"
+                className="rounded-lg overflow-hidden bg-slate-900 text-slate-100 dark:bg-black/60 dark:text-white border border-slate-700/50 dark:border-white/10"
               >
                 {block.lang && (
-                  <div className="px-2.5 pt-1.5 font-mono text-[length:var(--chat-label-text)] font-medium uppercase tracking-wider text-slate-400">
+                  <div className="px-2.5 pt-1.5 font-mono text-[length:var(--chat-label-text)] font-medium uppercase tracking-wider text-slate-400 dark:text-white/60">
                     {block.lang}
                   </div>
                 )}

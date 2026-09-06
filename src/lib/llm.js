@@ -4,15 +4,12 @@ import { checkSyntax } from './syntaxCheck';
 import {
   HTML_SYSTEM_PROMPT,
   SURGICAL_EDIT_TOOL,
-  SUGGESTIONS_SYSTEM_PROMPT,
-  SUGGEST_NEXT_STEPS_TOOL,
   REFINEMENT_TOOLS,
   VIEW_CODE_TOOL,
   LIST_SECTIONS_TOOL,
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   buildInitialGenerationPrompt,
-  buildSuggestionsPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
 
@@ -579,41 +576,4 @@ export const generateAppCode = async (
     };
   }
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
-};
-
-export const generateContextualSuggestions = async ({ code, versions, projectName, signal }) => {
-  try {
-    const messages = [
-      { role: 'system', content: SUGGESTIONS_SYSTEM_PROMPT },
-      { role: 'user', content: buildSuggestionsPrompt(code, versions, projectName) }
-    ];
-
-    const message = await requestModelText({
-      messages,
-      tools: [SUGGEST_NEXT_STEPS_TOOL],
-      tool_choice: { type: 'function', function: { name: 'return_suggestions' } },
-      signal
-    });
-
-    const toolCall = message.tool_calls?.[0];
-    if (!toolCall) return [];
-
-    let args;
-    try {
-      args = JSON.parse(toolCall.function.arguments);
-    } catch {
-      return [];
-    }
-
-    if (!Array.isArray(args.suggestions)) return [];
-
-    return args.suggestions
-      .map((s) => (typeof s === 'string' ? s.trim() : ''))
-      .filter(Boolean)
-      .slice(0, 4);
-  } catch (err) {
-    if (err?.name === 'AbortError') throw err;
-    console.warn('[Orion] Failed to generate contextual suggestions:', err);
-    return [];
-  }
 };
