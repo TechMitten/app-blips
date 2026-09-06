@@ -6,5 +6,5 @@ services:
     env_file:
       - .env
     environment:
-      - USE_FIREBASE=false
+      - SELF_HOSTED_MODE=true
     restart: unless-stopped
