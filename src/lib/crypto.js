@@ -75,10 +75,10 @@ const wrapWithUnlockScreen = (encryptedBase64, favicon = DEFAULT_FAVICON_URL) =>
   ${NOINDEX_META_TAG}
   ${PWA_HEAD_SNIPPET}
 ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
-    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #334155; }
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #334155; user-select: none; -webkit-user-select: none; }
     .card { background: white; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); width: 100%; max-width: 24rem; text-align: center; }
     h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 1.5rem; color: #0f172a; }
-    input { width: 100%; box-sizing: border-box; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; outline: none; margin-bottom: 1rem; font-size: 1rem; transition: border-color 0.15s; }
+    input { width: 100%; box-sizing: border-box; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; outline: none; margin-bottom: 1rem; font-size: 1rem; transition: border-color 0.15s; user-select: text; -webkit-user-select: text; }
     input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
     button { width: 100%; padding: 0.75rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background 0.15s; }
     button:hover { background: #2563eb; }
@@ -86,7 +86,7 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
     .error { color: #ef4444; font-size: 0.875rem; margin-top: 1rem; display: none; }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
   <div class="card">
     <h1>Password Protected</h1>
     <form id="unlock-form">
@@ -96,6 +96,49 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
     </form>
   </div>
   <script>
+    // Disable right-click context menu to prevent viewing source code while locked
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      return false;
+    }, true);
+    window.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      return false;
+    }, true);
+
+    // Disable keyboard shortcuts for viewing source or opening developer tools
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.keyCode === 85)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && (
+        e.key === 'I' || e.key === 'i' || e.keyCode === 73 ||
+        e.key === 'J' || e.key === 'j' || e.keyCode === 74 ||
+        e.key === 'C' || e.key === 'c' || e.keyCode === 67
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }, true);
+
+    document.addEventListener('dragstart', function(e) {
+      e.preventDefault();
+      return false;
+    }, true);
+
     const encryptedBase64 = "${encryptedBase64}";
     const storageKey = 'unlock_state_' + window.location.pathname;
     
