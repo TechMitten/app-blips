@@ -116,7 +116,7 @@ export default function BuildPanel({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 select-none py-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 select-none py-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span>Ready</span>
             </div>
@@ -124,12 +124,12 @@ export default function BuildPanel({
         </div>
       </div>
 
-      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col relative z-[1] chat-scrollbar">
-        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
+      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-3.5 sm:py-4 flex flex-col relative z-[1] chat-scrollbar">
+        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-3.5 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}
           {isChatActive ? (
-            <header className="chat-status pb-2 mb-2 border-b border-slate-200/60">
+            <header className="chat-status pb-2 mb-2 border-b border-slate-200/80 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-1 min-h-[20px]">
                 {(isGenerating || isResumingProject) && (
                   <span className="status-dot animate-pulse" aria-hidden="true" />
@@ -139,34 +139,34 @@ export default function BuildPanel({
                     v{Math.min(currentVersionIndex + 1, versions.length)}
                   </span>
                 )}
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                   {statusWord}
                 </span>
               </div>
-              <p className="text-slate-500 text-xs leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
                 {isGenerating && generationStatus ? generationStatus : statusLine}
               </p>
             </header>
           ) : (
-            <div className="space-y-3 relative">
-              <div className="space-y-2 relative">
+            <div className="space-y-2.5 relative">
+              <div className="space-y-1.5 relative">
                 <div className="flex items-center gap-2 pt-0.5">
                   <span className="orion-belt" aria-hidden="true">
                     <span className="orion-dot" />
                     <span className="orion-dot orion-dot-mid" />
                     <span className="orion-dot" />
                   </span>
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     AI App Generator
                   </span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-tight">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
                   What do you want to{' '}
                   <span className="bg-gradient-to-r from-indigo-500 to-blue-500 dark:bg-none bg-clip-text text-transparent dark:text-white">
                     build?
                   </span>
                 </h2>
-                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed max-w-[34ch]">
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed max-w-[34ch]">
                   Describe an idea in plain words. AppBlips turns it into a complete, interactive single-file app.
                 </p>
               </div>
@@ -182,17 +182,17 @@ export default function BuildPanel({
                 onRefresh={onGenerateStarters}
                 onPick={(starter) => onPickStarter(starter.prompt)}
               />
-              <div className="build-panel-capabilities pt-2.5 flex items-center justify-between text-[11px] text-slate-800 dark:text-slate-300 font-semibold border-t border-slate-200/60 dark:border-slate-700">
+              <div className="build-panel-capabilities pt-2 flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300 font-semibold border-t border-slate-200/80 dark:border-slate-700">
                 <span className="inline-flex items-center gap-1.5">
-                  <Zap size={12} className="text-indigo-500" aria-hidden="true" />
+                  <Zap size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                   Instant Preview
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Palette size={12} className="text-indigo-500" aria-hidden="true" />
+                  <Palette size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                   Tailwind Built-in
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-indigo-500" aria-hidden="true" />
+                  <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                   Natural Edits
                 </span>
               </div>
