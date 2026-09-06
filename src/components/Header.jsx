@@ -1,11 +1,11 @@
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, LogIn
+  Settings, CircleHelp, LogIn
 } from 'lucide-react';
 
 
 // Top bar: brand + current-app pill on the left; New App / Apps / History /
-// theme / Settings / auth on the right.
+// theme / Settings / Help / auth on the right.
 export default function Header({
   projectName,
   onNewApp,
@@ -17,6 +17,7 @@ export default function Header({
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
+  onOpenHelp,
   authStatus,
   isSignedIn,
   userEmail,
@@ -112,6 +113,18 @@ export default function Header({
         >
           <Settings size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
           <span className="hidden lg:inline">Settings</span>
+        </button>
+
+        {/* Help Modal Trigger -- label held back to xl so the lg row keeps
+            room for the account pill. */}
+        <button
+          onClick={onOpenHelp}
+          className="nav-btn nav-btn-secondary nav-btn-icon group"
+          title="How AppBlips works"
+          aria-label="Help"
+        >
+          <CircleHelp size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+          <span className="hidden xl:inline">Help</span>
         </button>
 
         {/* Auth Section -- hidden entirely in self-hosted mode, no accounts to sign into */}
