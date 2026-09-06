@@ -18,14 +18,15 @@ import ImportModal from './components/ImportModal';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
-import { Code2, TriangleAlert, Loader2 } from 'lucide-react';
+import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
+import { generateAppCode } from './lib/llm';
 import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { sanitizeHtmlResponse } from './lib/edits';
+import { checkSyntax } from './lib/syntaxCheck';
 import {
-  PRESET_COLORS, AVAILABLE_ICONS, STARTER_PRESETS, HTML_STREAM_START_RE
+  STARTER_PRESETS, HTML_STREAM_START_RE
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY } from './lib/config';
 
@@ -43,42 +44,8 @@ import useBuildPaneResize from './hooks/useBuildPaneResize';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-const STARTER_IDEAS_KEY = 'orion-starter-ideas';
+const starterIdeas = STARTER_PRESETS.slice(0, 6);
 
-// Starter ideas persist across reloads as plain JSON (icon component resolved
-// from iconName); returns null when nothing valid is stored so the caller can
-// fall back to the presets.
-const loadStoredStarterIdeas = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STARTER_IDEAS_KEY) || 'null');
-    if (!Array.isArray(parsed)) return null;
-    const mapped = parsed
-      .filter((idea) => idea && typeof idea.title === 'string' && typeof idea.prompt === 'string')
-      .map((idea) => ({
-        ...idea,
-        icon: AVAILABLE_ICONS[idea.iconName] || AVAILABLE_ICONS.Sparkles || Code2,
-      }));
-    return mapped.length >= 7 ? mapped : null;
-  } catch {
-    return null;
-  }
-};
-
-const persistStarterIdeas = (ideas) => {
-  try {
-    localStorage.setItem(STARTER_IDEAS_KEY, JSON.stringify(
-      ideas.map((idea) => ({
-        title: idea.title,
-        prompt: idea.prompt,
-        category: idea.category,
-        iconName: idea.iconName,
-        color: idea.color,
-      }))
-    ));
-  } catch {
-    /* storage blocked or full -- ideas just won't survive a reload */
-  }
-};
 export default function App() {
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
@@ -135,8 +102,6 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [starterIdeas, setStarterIdeas] = useState(() => loadStoredStarterIdeas() ?? STARTER_PRESETS.slice(0, 6));
-  const [isGeneratingStarters, setIsGeneratingStarters] = useState(false);
 
   // --- Interrupted build job (persisted across page reloads) ---
   const [interruptedJob, setInterruptedJob] = useState(null);
@@ -163,6 +128,13 @@ export default function App() {
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
   const runtimeErrorRetriesRef = useRef(0);
+  const reloadStateRef = useRef({
+    pending: false,
+    token: null,
+    isAutoFix: false,
+    syntaxAutoFixed: false,
+    timerId: null,
+  });
 
   const clearStreamingState = useCallback(() => {
     setStreamingGeneratedCode('');
@@ -217,14 +189,81 @@ export default function App() {
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
   // `orion-projects` and -- critically -- applySurgicalEdits never see it.
-  const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
-    () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
-    [generatedCode]
-  );
+  // `previewReloadCount` re-runs the injection with a fresh token so the
+  // srcDoc attribute changes and the iframe navigates -- i.e. reloads the
+  // generated app -- without touching `generatedCode`.
+  const [previewReloadCount, setPreviewReloadCount] = useState(0);
+
+  const cancelPendingReload = useCallback(() => {
+    if (reloadStateRef.current.timerId) {
+      clearTimeout(reloadStateRef.current.timerId);
+      reloadStateRef.current.timerId = null;
+    }
+    reloadStateRef.current.pending = false;
+  }, []);
+
+  const handleReloadPreview = useCallback(() => {
+    cancelPendingReload();
+    setPreviewReloadCount((n) => n + 1);
+  }, [cancelPendingReload]);
+
+  const confirmAndExecuteReload = useCallback(() => {
+    reloadStateRef.current.timerId = null;
+    if (!reloadStateRef.current.pending) return;
+    if (isGenerating || isAutoFixing) return;
+    if (chatMode !== 'build') return;
+
+    // Check syntax one more time to ensure code integrity
+    if (generatedCode) {
+      const syntax = checkSyntax(generatedCode);
+      if (syntax.errors && syntax.errors.length > 0) {
+        reloadStateRef.current.pending = false;
+        return;
+      }
+    }
+
+    // When auto-fixing was in progress and the settlement period passes with no
+    // runtime errors, auto-fixing is confirmed complete.
+    if (reloadStateRef.current.isAutoFix || runtimeErrorRetriesRef.current > 0) {
+      runtimeErrorRetriesRef.current = 0;
+      setIsAutoFixing(false);
+      setAutoFixMessage(null);
+    }
+
+    // Mark pending false BEFORE triggering the reload so the reloaded frame doesn't re-trigger.
+    reloadStateRef.current.pending = false;
+    handleReloadPreview();
+  }, [isGenerating, isAutoFixing, chatMode, generatedCode, handleReloadPreview]);
+
+  const scheduleReloadSettlement = useCallback((delayMs = 400) => {
+    if (reloadStateRef.current.timerId) {
+      clearTimeout(reloadStateRef.current.timerId);
+    }
+    reloadStateRef.current.timerId = setTimeout(() => {
+      confirmAndExecuteReload();
+    }, delayMs);
+  }, [confirmAndExecuteReload]);
+
+  const handlePreviewReady = useCallback(() => {
+    // If a preview reload is pending for the latest build/edit/auto-fix,
+    // wait a settlement period after the iframe reports ready to confirm
+    // that no runtime errors fire during initial mount/execution.
+    if (reloadStateRef.current.pending) {
+      scheduleReloadSettlement(400);
+    }
+  }, [scheduleReloadSettlement]);
+
   const handleRuntimeError = useCallback((payload) => {
+    // If a runtime error occurs, auto-fixing is necessary.
+    // Immediately cancel any pending reload so it does not reload broken code
+    // or interfere with auto-fixing.
+    cancelPendingReload();
+
     if (isGenerating || chatMode !== 'build') return;
     if (runtimeErrorRetriesRef.current >= 2) {
       console.warn('Runtime error auto-fix limit reached.');
+      setIsAutoFixing(false);
+      setAutoFixMessage(null);
       return;
     }
     runtimeErrorRetriesRef.current += 1;
@@ -234,9 +273,24 @@ export default function App() {
     setAutoFixMessage(errorDetails);
     setGenerationStatus(`Fixing runtime error: ${errorDetails}`);
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
-  }, [isGenerating, chatMode]);
+  }, [cancelPendingReload, isGenerating, chatMode]);
 
-  usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError: handleRuntimeError });
+  const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
+    () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
+    // previewReloadCount is intentionally "unused": bumping it re-runs the
+    // injection so a fresh token forces the iframe to navigate (reload).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [generatedCode, previewReloadCount]
+  );
+
+  usePreviewBridge({
+    iframeRef,
+    previewSrcDoc,
+    previewToken,
+    previewMode,
+    onRuntimeError: handleRuntimeError,
+    onReady: handlePreviewReady,
+  });
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
@@ -277,6 +331,12 @@ export default function App() {
     localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
   }, [skipSplash]);
 
+  useEffect(() => {
+    return () => {
+      cancelPendingReload();
+    };
+  }, [cancelPendingReload]);
+
   // Once the resume-project flow settles, check for an interrupted build job.
   // We surface it only when it belongs to the project that just loaded (matched
   // by projectId) or when both the job and the workspace have no project yet.
@@ -300,51 +360,18 @@ export default function App() {
     if (!value) setActiveTab('preview');
   };
 
-  const handleGenerateStarters = async () => {
-    if (isGeneratingStarters) return;
-
-    if (!isSignedIn) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
-    setIsGeneratingStarters(true);
-    setError(null);
-    try {
-      const ideas = await generateNewStarterIdeas({ signal: null });
-      if (ideas && ideas.length > 0) {
-        const mappedIdeas = ideas.map(idea => {
-          const IconComponent = AVAILABLE_ICONS[idea.iconName] || AVAILABLE_ICONS.Sparkles || Code2;
-          const randomColor = PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
-          return {
-            ...idea,
-            icon: IconComponent,
-            color: randomColor
-          };
-        });
-        setStarterIdeas(mappedIdeas);
-        persistStarterIdeas(mappedIdeas);
-      }
-    } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setError(err.message || 'Failed to generate starter ideas.');
-      }
-    } finally {
-      setIsGeneratingStarters(false);
-    }
-  };
-
-
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
 
     if (!isAutoFix) {
+      cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
       setIsAutoFixing(false);
       setAutoFixMessage(null);
     } else {
+      cancelPendingReload();
       setIsAutoFixing(true);
       setAutoFixMessage(autoFixError || 'Runtime error detected');
     }
@@ -467,7 +494,37 @@ export default function App() {
       // Generation completed successfully — no interrupted job to resume.
       clearPendingJob();
 
+      // Check syntax: verify code is valid and has no unclosed/broken syntax.
+      const syntaxCheck = checkSyntax(generationResult.code);
+      const hasSyntaxErrors = Boolean(
+        (syntaxCheck.errors && syntaxCheck.errors.length > 0) ||
+        (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
+      );
+      const syntaxAutoFixed = Boolean(
+        (generationResult.syntaxAutoFixAttempted || generationResult.syntaxRepairCycles > 0) && !hasSyntaxErrors
+      );
+
+      // If syntax errors remain, auto-fixing was not confirmed complete (it failed).
+      // Do not trigger or schedule reload.
+      if (hasSyntaxErrors) {
+        cancelPendingReload();
+      } else if (generationResult.editMode !== 'clarify' && generationResult.editMode !== 'ask') {
+        // At the end of each build or edit, or when auto-fixing (syntax or runtime)
+        // is complete, schedule a single preview reload once the iframe settles cleanly.
+        cancelPendingReload();
+        reloadStateRef.current = {
+          pending: true,
+          token: null,
+          isAutoFix: Boolean(isAutoFix),
+          syntaxAutoFixed,
+          timerId: null,
+        };
+        // Fallback settlement timer in case bridge ready event is delayed or skipped
+        scheduleReloadSettlement(800);
+      }
+
     } catch (err) {
+      cancelPendingReload();
       if (err.name === 'AbortError') {
         // Explicit user cancel — clear the job so no spurious resume banner.
         clearPendingJob();
@@ -491,6 +548,7 @@ export default function App() {
   handleGenerateRef.current = handleGenerate;
 
   const handleCancelGeneration = () => {
+    cancelPendingReload();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -892,8 +950,6 @@ export default function App() {
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
               starterIdeas={starterIdeas}
-              isGeneratingStarters={isGeneratingStarters}
-              onGenerateStarters={handleGenerateStarters}
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
@@ -969,6 +1025,7 @@ export default function App() {
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
+              onReloadPreview={handleReloadPreview}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
               isAutoFixing={isAutoFixing}

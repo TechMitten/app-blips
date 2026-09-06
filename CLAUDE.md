@@ -27,7 +27,7 @@ The app is split into `App.jsx` (workspace/generation state + composition), `src
 - **[src/previewBridge.js](src/previewBridge.js)** — a self-contained script injected into the generated app's HTML at render time, documented in detail in its file header.
 - **[src/firebase.js](src/firebase.js)** — the single Firebase SDK init point, gated on `firebaseEnabled` (`SELF_HOSTED_MODE === 'false'`). When disabled, `app`/`auth`/`db`/`storage` all stay `null` and no Firebase code (including the App Check network call) runs.
 - **src/lib/** — pure logic, no React:
-  - `llm.js` — `requestModelText` / `generateAppCode` / `generateContextualSuggestions` / `generateNewStarterIdeas` (the API layer; attaches the Firebase ID token + App Check token to every `/api/chat` call)
+  - `llm.js` — `requestModelText` / `generateAppCode` / `generateClarifyingQuestion` / `generateContextualSuggestions` (the API layer; attaches the Firebase ID token + App Check token to every `/api/chat` call)
   - `edits.js` — `sanitizeHtmlResponse` + the surgical-edit engine (`applySurgicalEdits` and friends)
   - `prompts.js` — system prompts and tool schemas; `constants.js` — presets, `PREVIEW_MODES`, marquee/streaming constants
   - `config.js` — theme/UI-preference persistence helpers; `helpers.js` — syntax highlighter, preview-box math, misc

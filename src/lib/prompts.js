@@ -50,6 +50,10 @@ export const ASK_CLARIFYING_QUESTIONS_TOOL = {
   }
 };
 
+export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build or edit single-file web apps.
+If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build a game", "make an app", or "make it better" without specifying what kind of features or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
+Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
+
 export const VIEW_CODE_TOOL = {
   type: 'function',
   function: {
@@ -109,48 +113,6 @@ export const SUGGEST_NEXT_STEPS_TOOL = {
     strict: true
   }
 };
-
-export const GENERATE_STARTER_IDEAS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'return_starter_ideas',
-    description: 'Returns exactly 7 new, unique starter app ideas.',
-    parameters: {
-      type: 'object',
-      properties: {
-        ideas: {
-          type: 'array',
-          description: 'Exactly 7 starter app ideas.',
-          items: {
-            type: 'object',
-            properties: {
-              title: { type: 'string', description: 'Short, evocative title that sells the app\'s playful twist (1-4 words, capitalized like a product name, no emoji).' },
-              prompt: { type: 'string', description: 'One crisp sentence naming the delightful twist plus 1-2 concrete features, concrete enough to build from directly. No marketing fluff.' },
-              category: { type: 'string', description: 'A 1-2 word category for the app (e.g. Utility, Finance).' },
-              iconName: { type: 'string', description: 'Name of a Lucide React icon to use. Must be one of: Wand2, Smartphone, Code2, Layout, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, TerminalSquare, Trophy.' }
-            },
-            required: ['title', 'prompt', 'category', 'iconName'],
-            additionalProperties: false
-          }
-        }
-      },
-      required: ['ideas'],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};
-
-export const STARTER_IDEAS_SYSTEM_PROMPT = `You are an expert app ideator with a knack for playful, memorable product concepts. Generate exactly 7 unique, high-quality, non-basic but well-scoped web app ideas that can be built by an AI assistant in a single file.
-
-The single file is not as limiting as it sounds: the builder can pull real libraries (component rendering, charting, 3D, animation, physics, audio) from a CDN as ES modules, and can persist data locally, so ideas may assume genuine interactivity, real visualization, and state that survives a session. Avoid ideas that need a server, an account, a third-party API key, or a file upload the app cannot fabricate itself.
-
-HOUSE STYLE: every idea leads with one delightful twist -- a pet that grows, a streak to protect, a wheel to spin, a quest, a personality -- so the app feels alive rather than like a generic utility. Titles sell the twist and read like tiny product names (the built-in starters are "Focus Pet", "Word Gambit", "Pixel Painter", "Dinner Roulette", "Neon Serpent", "Pocket Garden", "Pocket Beats"). Never propose flat labels like "Notes App" or "Expense Tracker"; if the idea is a tracker or list, give it a game-like or ritual-like angle. No emoji in titles.
-
-CRITICAL RULE: Never generate ideas for apps that are meant to deceive, defraud, phish, or harm users. All ideas must be safe, ethical, and benign.
-
-Keep the descriptions (prompts) to one crisp sentence that names the twist plus 1-2 concrete features -- concrete enough to build from directly, with no marketing fluff. Return them using the return_starter_ideas tool.`;
-
 
 export const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a single self-contained HTML file that implements the user's requested app. "Self-contained" describes the delivery format -- one file, no build step -- not the technology: that file may carry inline CSS, an import map, and module scripts pulling real libraries from a CDN (see rule 5).

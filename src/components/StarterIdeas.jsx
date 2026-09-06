@@ -1,4 +1,4 @@
-import { RefreshCw, Sparkles, ArrowUpRight } from 'lucide-react';
+import { Sparkles, ArrowUpRight } from 'lucide-react';
 
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
@@ -57,33 +57,18 @@ const getColorClasses = (colorString = '') => {
   };
 };
 
-// Empty-state idea cards (LLM-generated when refreshed, presets otherwise).
-export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick }) {
+// Empty-state idea cards (presets).
+export default function StarterIdeas({ ideas, onPick }) {
   return (
     <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Sparkles size={13} className="text-indigo-500 dark:text-indigo-400" aria-hidden="true" />
-          <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-            Starter ideas
-          </h3>
-        </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isGenerating}
-          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          title="Generate new starter ideas"
-        >
-          <RefreshCw
-            size={12}
-            className={`transition-transform duration-500 ${isGenerating ? 'animate-spin text-indigo-600 dark:text-indigo-400' : 'group-hover:rotate-180'}`}
-          />
-          <span>{isGenerating ? 'Generating...' : 'Refresh'}</span>
-        </button>
+      <div className="flex items-center gap-1.5">
+        <Sparkles size={13} className="text-indigo-500 dark:text-indigo-400" aria-hidden="true" />
+        <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+          Starter ideas
+        </h3>
       </div>
 
-      <div className={`grid grid-cols-2 gap-2.5 transition-opacity duration-200 ${isGenerating ? 'opacity-60 pointer-events-none' : ''}`}>
+      <div className="grid grid-cols-2 gap-2.5">
         {ideas.slice(0, 6).map((starter) => {
           const IconComponent = starter.icon || Sparkles;
           const theme = getColorClasses(starter.color);
