@@ -17,9 +17,6 @@ import {
   buildSyntaxRepairInstruction
 } from './prompts';
 
-const MAX_CLARIFY_OPTIONS = 5;
-const MAX_OPTION_LABEL_LENGTH = 40;
-
 function parseClarifyingQuestionArgs(rawArguments) {
   let args;
   try {
@@ -32,25 +29,7 @@ function parseClarifyingQuestionArgs(rawArguments) {
   if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
   q = String(q).trim() || "Could you clarify what you mean?";
 
-  let options;
-  if (Array.isArray(args?.options)) {
-    const seen = new Set();
-    const cleaned = [];
-    for (const raw of args.options) {
-      if (typeof raw !== 'string') continue;
-      let label = raw.trim();
-      if (!label) continue;
-      if (label.length > MAX_OPTION_LABEL_LENGTH) label = `${label.slice(0, MAX_OPTION_LABEL_LENGTH - 1)}…`;
-      const key = label.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cleaned.push(label);
-      if (cleaned.length >= MAX_CLARIFY_OPTIONS) break;
-    }
-    if (cleaned.length >= 2) options = cleaned;
-  }
-
-  return { question: q, options };
+  return { question: q };
 }
 
 // --- API Helper with Exponential Backoff ---
@@ -115,7 +94,18 @@ export const requestModelText = async ({
       err.isRateLimit = true;
       throw err;
     }
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    if (!response.ok) {
+      let message = `API Error: ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.error) {
+          message = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
+        }
+      } catch {
+        // ignore json parse error
+      }
+      throw new Error(message);
+    }
 
     if (!onChunk) {
       const data = await response.json();
@@ -304,14 +294,13 @@ export const generateAppCode = async (
       if (message.tool_calls && message.tool_calls.length > 0) {
         const clarifyTool = message.tool_calls.find(t => t.function?.name === 'ask_clarifying_questions');
         if (clarifyTool) {
-          const { question: q, options } = parseClarifyingQuestionArgs(clarifyTool.function.arguments);
+          const { question: q } = parseClarifyingQuestionArgs(clarifyTool.function.arguments);
 
           return {
             code: currentCode || '',
             editMode: 'clarify',
             editSummary: prompt,
-            reply: q,
-            options
+            reply: q
           };
         }
       }
@@ -484,14 +473,13 @@ export const generateAppCode = async (
 
     for (const toolCall of message.tool_calls) {
       if (toolCall.function?.name === 'ask_clarifying_questions') {
-        const { question: q, options } = parseClarifyingQuestionArgs(toolCall.function.arguments);
+        const { question: q } = parseClarifyingQuestionArgs(toolCall.function.arguments);
 
         return {
           code: workingCode,
           editMode: 'clarify',
           editSummary: prompt,
           reply: q,
-          options,
           ...(syntaxErrors.length ? { syntaxErrors } : {})
         };
       }
