@@ -470,8 +470,10 @@ export default function App() {
       return;
     }
 
-    // Require naming for transition from Untitled or New App
-    if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
+    // Require naming for transition from Untitled or New App. Skipped in ask
+    // mode before any app exists -- a plain question shouldn't force naming a
+    // project that may never contain generated code.
+    if (chatMode !== 'ask' && (projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
       if (isAutoFix) {
         setIsAutoFixing(false);
         isAutoFixingRef.current = false;
@@ -500,7 +502,7 @@ export default function App() {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
 
     setGenerationStatus(
       isAutoFix
@@ -660,6 +662,25 @@ export default function App() {
     pendingRuntimeErrorRef.current = null;
     setAutoFixMessage(null);
     setGenerationStatus(null);
+    clearStreamingState();
+  };
+
+  // Ask mode's "new chat": drops trailing ask-mode turns so the next question
+  // starts with no prior Q&A context, without touching any build/version
+  // history the app may already have underneath it.
+  const handleStartNewChat = () => {
+    if (isGenerating) {
+      handleCancelGeneration();
+    }
+    const activeVersions = versions.slice(0, currentVersionIndex + 1);
+    let cut = activeVersions.length;
+    while (cut > 0 && activeVersions[cut - 1].editMode === 'ask') cut -= 1;
+    const trimmed = activeVersions.slice(0, cut);
+    setVersions(trimmed);
+    setCurrentVersionIndex(trimmed.length - 1);
+    setPendingPrompt('');
+    setError(null);
+    setPrompt('');
     clearStreamingState();
   };
 
@@ -1083,6 +1104,7 @@ export default function App() {
               onPromptChange={setPrompt}
               onSubmit={handleGenerate}
               onCancelGeneration={handleCancelGeneration}
+              onNewChat={handleStartNewChat}
               chatBottomRef={chatBottomRef}
               interruptedJob={interruptedJob}
               onRetryInterruptedJob={handleRetryInterruptedJob}
