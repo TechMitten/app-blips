@@ -1,4 +1,4 @@
-import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare, Zap, Palette, Sparkles } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import SuggestionsBar from './SuggestionsBar';
@@ -65,27 +65,30 @@ export default function BuildPanel({
 
   return (
     <div
-      className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200"
+      className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-300/90 dark:border-white/10"
     >
       {/* Subtle atmospheric gradient */}
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      <div className="build-panel-header shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200 bg-surface/95 backdrop-blur-md z-10">
+      <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         {/* Left: Section identity & status */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="nav-segmented-group -ml-1 sm:-ml-[5px] flex items-center gap-2 px-3 py-1.5">
-            <span className="shrink-0 text-indigo-500">
-              {chatMode === 'ask' ? <MessageSquare size={14} /> : <Wand2 size={14} />}
+          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-white/10 dark:text-white dark:border dark:border-white/15 shadow-sm">
+            <span className="w-5 h-5 rounded-lg bg-indigo-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+              {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
             </span>
-            <span className="font-semibold text-xs sm:text-sm text-slate-800 truncate">
+            <span className="font-black text-xs sm:text-sm tracking-tight truncate">
               {isChatActive ? (chatMode === 'ask' ? 'Assistant' : 'Builder') : 'Prompt & Build'}
             </span>
             {(isGenerating || isResumingProject) && (
-              <span className="status-dot animate-pulse shrink-0" aria-hidden="true" />
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-400" />
+              </span>
             )}
             {generatedCode && versions.length > 0 && (
-              <span className="status-tick shrink-0 text-[10px] py-0.5 px-1.5">
+              <span className="shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md bg-indigo-600 text-white shadow-2xs">
                 v{Math.min(currentVersionIndex + 1, versions.length)}
               </span>
             )}
@@ -93,13 +96,13 @@ export default function BuildPanel({
         </div>
 
         {/* Right: Quick actions / mode pill */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {isChatActive && !isGenerating ? (
-            <div className="nav-segmented-group nav-segmented-compact" role="radiogroup" aria-label="Chat mode">
+        {isChatActive && !isGenerating && (
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="nav-segmented-group nav-segmented-compact p-0.5 bg-slate-100 dark:bg-white/[0.08] border-2 border-slate-200 dark:border-white/10 rounded-xl shadow-2xs" role="radiogroup" aria-label="Chat mode">
               <button
                 type="button"
                 onClick={() => onChatModeChange('build')}
-                className={`nav-segmented-btn text-xs py-1.5 px-2.5 font-semibold ${chatMode === 'build' ? 'nav-segmented-btn-active' : ''}`}
+                className={`nav-segmented-btn text-xs py-1 px-3 font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
               >
                 <Wand2 size={12} aria-hidden="true" />
                 <span>Build</span>
@@ -107,120 +110,114 @@ export default function BuildPanel({
               <button
                 type="button"
                 onClick={() => onChatModeChange('ask')}
-                className={`nav-segmented-btn text-xs py-1.5 px-2.5 font-semibold ${chatMode === 'ask' ? 'nav-segmented-btn-active' : ''}`}
+                className={`nav-segmented-btn text-xs py-1 px-3 font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
               >
                 <MessageSquare size={12} aria-hidden="true" />
                 <span>Ask</span>
               </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 select-none py-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Ready</span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-3.5 sm:py-4 flex flex-col relative z-[1] chat-scrollbar">
-        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-3.5 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
+      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 flex flex-col relative z-[1] chat-scrollbar">
+        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}
           {isChatActive ? (
-            <header className="chat-status pb-2 mb-2 border-b border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center gap-2 mb-1 min-h-[20px]">
-                {(isGenerating || isResumingProject) && (
-                  <span className="status-dot animate-pulse" aria-hidden="true" />
-                )}
+            <header className="chat-status p-4 rounded-2xl border-2 border-slate-300/90 dark:border-white/15 bg-white dark:bg-[#181a24] shadow-sm space-y-2">
+              <div className="flex items-center justify-between gap-2 min-h-[22px]">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    {(isGenerating || isResumingProject) ? (
+                      <>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400" />
+                      </>
+                    ) : (
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    )}
+                  </span>
+                  <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-slate-900 dark:text-white">
+                    {statusWord}
+                  </span>
+                </div>
                 {generatedCode && versions.length > 0 && (
-                  <span className="status-tick">
-                    v{Math.min(currentVersionIndex + 1, versions.length)}
+                  <span className="status-tick text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/40 shadow-2xs">
+                    v{Math.min(currentVersionIndex + 1, versions.length)} of {versions.length}
                   </span>
                 )}
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                  {statusWord}
-                </span>
               </div>
-              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
+              <p className="text-slate-700 dark:text-white/80 text-xs leading-relaxed font-semibold">
                 {isGenerating && generationStatus ? generationStatus : statusLine}
               </p>
             </header>
           ) : (
-            <div className="space-y-2.5 relative">
-              <div className="space-y-1.5 relative">
-                <div className="flex items-center gap-2 pt-0.5">
+            <div className="relative p-5 sm:p-6 rounded-3xl border-2 border-indigo-500/30 dark:border-indigo-500/40 bg-white dark:bg-[#181a24] shadow-md space-y-3.5 overflow-hidden">
+              {/* Top vibrant rainbow/gradient accent bar */}
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-600 via-blue-500 to-cyan-400" />
+              
+              {/* Background ambient radial glow */}
+              <div className="absolute -right-10 -bottom-10 w-44 h-44 bg-gradient-to-br from-indigo-500/15 via-blue-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-600 dark:bg-indigo-500 text-white font-mono text-[11px] font-black uppercase tracking-[0.16em] shadow-sm">
                   <span className="orion-belt" aria-hidden="true">
-                    <span className="orion-dot" />
-                    <span className="orion-dot orion-dot-mid" />
-                    <span className="orion-dot" />
+                    <span className="orion-dot bg-white" />
+                    <span className="orion-dot orion-dot-mid bg-amber-300" />
+                    <span className="orion-dot bg-white" />
                   </span>
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                    AI App Generator
-                  </span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-                  What do you want to{' '}
-                  <span className="bg-gradient-to-r from-indigo-500 to-blue-500 dark:bg-none bg-clip-text text-transparent dark:text-white">
-                    build?
-                  </span>
-                </h2>
-                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed max-w-[34ch]">
-                  Describe an idea in plain words. AppBlips turns it into a complete, interactive single-file app.
-                </p>
+                  AI Studio
+                </span>
               </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white leading-tight">
+                What do you want to{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 dark:from-indigo-400 dark:via-blue-400 dark:to-cyan-400">
+                  build?
+                </span>
+              </h2>
+
+              <p className="text-slate-700 dark:text-white/80 text-xs sm:text-sm font-medium leading-relaxed">
+                Describe your idea in plain words to generate an interactive app in seconds.
+              </p>
             </div>
           )}
 
           {/* Starter Prompts */}
           {showStarterIdeas && (
-            <>
-              <StarterIdeas
-                ideas={starterIdeas}
-                onPick={(starter) => onPickStarter(starter.prompt)}
-              />
-              <div className="build-panel-capabilities pt-2 flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300 font-semibold border-t border-slate-200/80 dark:border-slate-700">
-                <span className="inline-flex items-center gap-1.5">
-                  <Zap size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
-                  Instant Preview
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Palette size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
-                  Tailwind Built-in
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
-                  Natural Edits
-                </span>
-              </div>
-            </>
+            <StarterIdeas
+              ideas={starterIdeas}
+              onPick={(starter) => onPickStarter(starter.prompt)}
+            />
           )}
 
           {(versions.length > 0 || pendingPrompt) && (
             <>
               {interruptedJob && (
-                <div role="alert" className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 p-3 rounded-xl animate-fade-in">
+                <div role="alert" className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
                   <div className="flex items-start gap-2.5">
-                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5">
+                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/50 flex-shrink-0 mt-0.5 shadow-2xs">
                       <TriangleAlert size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-[0.14em] mb-0.5">Build interrupted</p>
-                      <p className="text-xs text-amber-900 dark:text-amber-200 font-medium leading-snug truncate" title={interruptedJob.prompt}>
+                      <p className="font-mono text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-[0.14em] mb-0.5">Build interrupted</p>
+                      <p className="text-xs text-amber-950 dark:text-amber-100 font-semibold leading-snug truncate" title={interruptedJob.prompt}>
                         &ldquo;{interruptedJob.prompt}&rdquo;
                       </p>
                     </div>
                     <button
                       onClick={onDismissInterruptedJob}
-                      className="p-1 rounded-md text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors flex-shrink-0 cursor-pointer"
+                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/60 transition-colors flex-shrink-0 cursor-pointer"
                       aria-label="Dismiss"
                     >
                       <X size={13} />
                     </button>
                   </div>
-                  <div className="mt-2 pl-8">
+                  <div className="mt-2.5 pl-8">
                     <button
                       onClick={onRetryInterruptedJob}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors px-2.5 py-1 rounded-lg cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-100 bg-amber-100/90 dark:bg-amber-900/70 hover:bg-amber-200 dark:hover:bg-amber-800 border border-amber-300/80 dark:border-amber-700/60 transition-all px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
                     >
                       <RotateCcw size={11} />
                       Retry
@@ -241,14 +238,14 @@ export default function BuildPanel({
           )}
 
           {error && (
-            <div role="alert" className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40 p-3.5 rounded-xl backdrop-blur-sm animate-fade-in">
+            <div role="alert" className="bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
               <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-rose-100 dark:bg-rose-900/50 rounded-lg text-rose-600 dark:text-rose-400 flex-shrink-0">
+                <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-700/50 flex-shrink-0 shadow-2xs">
                   <TriangleAlert size={14} />
                 </div>
                 <div>
-                  <p className="font-mono text-[10px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-[0.14em] mb-0.5">Error</p>
-                  <p className="text-xs text-rose-800 dark:text-rose-200 font-medium leading-snug">
+                  <p className="font-mono text-[10px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-[0.14em] mb-0.5">Error</p>
+                  <p className="text-xs text-rose-950 dark:text-rose-100 font-semibold leading-snug">
                     {error}
                   </p>
                 </div>
@@ -259,7 +256,7 @@ export default function BuildPanel({
       </div>
 
       {/* Fixed Bottom Input Area */}
-      <div className="build-panel-composer shrink-0 p-3 sm:p-3.5 border-t border-slate-200 bg-surface/95 backdrop-blur-md relative z-[1]">
+      <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-[1]">
         {generatedCode && !isGenerating && chatMode === 'build' && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
           <SuggestionsBar
             suggestions={contextualSuggestions}

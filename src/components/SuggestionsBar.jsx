@@ -20,9 +20,9 @@ export default function SuggestionsBar({
           aria-expanded={isExpanded}
           aria-controls="suggestions-content"
           aria-label={isExpanded ? 'Collapse suggestions' : 'Expand suggestions'}
-          className="group/toggle inline-flex items-center gap-1.5 rounded-lg py-0.5 px-1 -ml-1 text-xs font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface cursor-pointer select-none"
+          className="group/toggle inline-flex items-center gap-1.5 rounded-xl py-1 px-2 -ml-1 text-xs font-bold text-slate-700 dark:text-white/75 hover:text-indigo-600 dark:hover:text-indigo-400 uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 cursor-pointer select-none"
         >
-          <span className="suggestion-spark" aria-hidden="true">
+          <span className="suggestion-spark shadow-2xs" aria-hidden="true">
             <Sparkles size={13} />
           </span>
           <span className="font-mono uppercase tracking-[0.14em]">Suggestions</span>
@@ -32,7 +32,7 @@ export default function SuggestionsBar({
                 isExpanded ? 'max-w-0 opacity-0 -ml-1' : 'max-w-[36px] opacity-100'
               }`}
             >
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] tracking-normal font-semibold bg-slate-100 text-slate-500 group-hover/toggle:bg-indigo-50 group-hover/toggle:text-indigo-600 transition-colors">
+              <span className="px-2 py-0.5 rounded-full text-[10px] tracking-normal font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white/75 border border-slate-200/80 dark:border-white/10 group-hover/toggle:bg-indigo-50 dark:group-hover/toggle:bg-indigo-500/20 group-hover/toggle:text-indigo-600 dark:group-hover/toggle:text-indigo-400 transition-colors shadow-2xs">
                 {suggestions.length}
               </span>
             </span>
@@ -50,7 +50,7 @@ export default function SuggestionsBar({
           onClick={onRefresh}
           disabled={isLoading}
           aria-label="Regenerate suggestions"
-          className="group/refresh inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-400 hover:text-indigo-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40 disabled:cursor-not-allowed"
+          className="group/refresh inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-white/75 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200/90 dark:border-white/10 shadow-2xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <RefreshCw size={12} className={isLoading ? 'animate-spin' : 'transition-transform duration-500 group-hover/refresh:rotate-180'} />
           <span>New</span>
@@ -62,7 +62,7 @@ export default function SuggestionsBar({
         aria-hidden={!isExpanded}
       >
         <div className="suggestions-collapse-inner">
-          <div className="pt-2 pb-0.5 flex flex-wrap gap-2">
+          <div className="pt-2.5 pb-1 flex flex-wrap gap-2">
             {suggestions.length > 0 ? (
               suggestions.map((suggestion, idx) => (
                 <button
@@ -70,7 +70,7 @@ export default function SuggestionsBar({
                   type="button"
                   onClick={() => onPick(suggestion)}
                   tabIndex={isExpanded ? 0 : -1}
-                  className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2 pr-3.5 py-1.5 text-xs sm:text-sm leading-snug font-medium rounded-xl border border-slate-200 bg-surface text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-800 animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface`}
+                  className={`suggestion-chip group inline-flex items-center gap-2 text-left pl-2.5 pr-4 py-2 text-xs sm:text-sm leading-snug font-semibold rounded-2xl border border-slate-200/90 dark:border-white/[0.12] bg-surface text-slate-900 dark:text-white shadow-xs transition-all hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:bg-indigo-50/80 dark:hover:bg-indigo-500/15 hover:text-indigo-900 dark:hover:text-white animate-stagger-${Math.min(idx + 1, 5)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
                 >
                   <span className="suggestion-chip-icon shrink-0" aria-hidden="true">
                     <Plus size={13} strokeWidth={2.5} />
@@ -80,7 +80,7 @@ export default function SuggestionsBar({
               ))
             ) : (
               [0, 1, 2, 3].map((idx) => (
-                <span key={idx} className="suggestion-skeleton h-8 rounded-xl w-[46%]" aria-hidden="true" />
+                <span key={idx} className="suggestion-skeleton h-9 rounded-2xl w-[46%]" aria-hidden="true" />
               ))
             )}
           </div>

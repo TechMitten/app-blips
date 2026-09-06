@@ -987,25 +987,224 @@ body {
   animation: glowPulse 2.5s ease-in-out infinite;
 }
 
-/* Prompt/build command dock. This is the primary action surface in the left
-   pane, so it needs a darker well, a crisp rim, and controls that read as
-   intentionally raised rather than as a light row attached to a textarea. */
+/* Prompt/build command dock — POP OUT 3D physical elevation & extrusion */
 .prompt-input-dock {
-  border: 1px solid rgb(15 23 42 / 0.12);
-  background: var(--color-surface);
-  border-radius: 0.75rem;
+  border: 2px solid #cbd5e1;
+  border-bottom: 5px solid #94a3b8;
+  background: #ffffff;
+  border-radius: 1.15rem;
   box-shadow:
-    0 1px 3px rgb(15 23 42 / 0.05),
-    0 1px 2px rgb(15 23 42 / 0.03);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    0 12px 28px -4px rgba(15, 23, 42, 0.18),
+    0 4px 10px -2px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .prompt-input-dock:focus-within {
-  border-color: var(--color-indigo-400);
+  border-color: #6366f1;
+  border-bottom-color: #4338ca;
   box-shadow:
-    0 0 0 3px rgb(37 109 177 / 0.12),
-    0 2px 6px rgb(15 23 42 / 0.06);
+    0 0 0 4px rgba(99, 102, 241, 0.22),
+    0 18px 40px -4px rgba(99, 102, 241, 0.28),
+    0 8px 16px -2px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
 }
+
+:is(html.dark, .force-dark) .prompt-input-dock {
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-bottom: 5px solid #000000;
+  background: #161824;
+  box-shadow:
+    0 16px 36px -4px rgba(0, 0, 0, 0.85),
+    0 6px 14px -2px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+:is(html.dark, .force-dark) .prompt-input-dock:focus-within {
+  border-color: #818cf8;
+  border-bottom-color: #4f46e5;
+  box-shadow:
+    0 0 0 4px rgba(129, 140, 248, 0.25),
+    0 22px 48px -4px rgba(0, 0, 0, 0.95),
+    0 8px 18px -2px rgba(99, 102, 241, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Starter Idea Cards — POP OUT 3D physical elevation & extrusion */
+.starter-pop-card {
+  border: 2px solid #cbd5e1;
+  border-bottom: 5px solid #94a3b8;
+  background: #ffffff;
+  border-radius: 1.15rem;
+  box-shadow:
+    0 10px 22px -3px rgba(15, 23, 42, 0.16),
+    0 4px 8px -1px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, border-bottom-color 0.2s ease;
+}
+
+.starter-pop-card:hover {
+  transform: translateY(-4px);
+  border-color: #6366f1;
+  border-bottom-color: #4338ca;
+  box-shadow:
+    0 20px 38px -4px rgba(15, 23, 42, 0.24),
+    0 8px 16px -2px rgba(99, 102, 241, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.starter-pop-card:active {
+  transform: translateY(1px);
+  border-bottom-width: 3px;
+  box-shadow:
+    0 4px 10px -2px rgba(15, 23, 42, 0.12),
+    0 2px 4px -1px rgba(15, 23, 42, 0.08);
+}
+
+:is(html.dark, .force-dark) .starter-pop-card {
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 5px solid #000000;
+  background: #181a24;
+  box-shadow:
+    0 12px 28px -4px rgba(0, 0, 0, 0.8),
+    0 4px 10px -2px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+:is(html.dark, .force-dark) .starter-pop-card:hover {
+  transform: translateY(-4px);
+  border-color: #818cf8;
+  border-bottom-color: #4f46e5;
+  box-shadow:
+    0 22px 44px -4px rgba(0, 0, 0, 0.95),
+    0 10px 20px -2px rgba(99, 102, 241, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+:is(html.dark, .force-dark) .starter-pop-card:active {
+  transform: translateY(1px);
+  border-bottom-width: 3px;
+  box-shadow: 
+    0 4px 12px -2px rgba(0, 0, 0, 0.7);
+}
+
+/* Starter Card Description — High contrast & crisp in both light and dark themes */
+.starter-card-desc {
+  color: #475569;
+}
+.starter-pop-card:hover .starter-card-desc {
+  color: #0f172a;
+}
+:is(html.dark, .force-dark) .starter-card-desc {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+:is(html.dark, .force-dark) .starter-pop-card:hover .starter-card-desc {
+  color: #ffffff !important;
+}
+
+/* Starter Idea Category Badges — Vibrant & high-contrast in dark mode */
+.starter-badge-amber {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+:is(html.dark, .force-dark) .starter-badge-amber {
+  background: rgba(245, 158, 11, 0.20) !important;
+  color: #fcd34d !important;
+  border-color: rgba(251, 191, 36, 0.50) !important;
+}
+
+.starter-badge-sky {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+:is(html.dark, .force-dark) .starter-badge-sky {
+  background: rgba(14, 165, 233, 0.20) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.50) !important;
+}
+
+.starter-badge-emerald {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+:is(html.dark, .force-dark) .starter-badge-emerald {
+  background: rgba(16, 185, 129, 0.20) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.50) !important;
+}
+
+.starter-badge-violet {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #c4b5fd;
+}
+:is(html.dark, .force-dark) .starter-badge-violet {
+  background: rgba(139, 92, 246, 0.20) !important;
+  color: #c4b5fd !important;
+  border-color: rgba(167, 139, 250, 0.50) !important;
+}
+
+.starter-badge-rose {
+  background: #ffe4e6;
+  color: #9f1239;
+  border-color: #fda4af;
+}
+:is(html.dark, .force-dark) .starter-badge-rose {
+  background: rgba(244, 63, 94, 0.20) !important;
+  color: #fda4af !important;
+  border-color: rgba(251, 113, 133, 0.50) !important;
+}
+
+.starter-badge-blue {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+:is(html.dark, .force-dark) .starter-badge-blue {
+  background: rgba(59, 130, 246, 0.20) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.50) !important;
+}
+
+.starter-badge-teal {
+  background: #ccfbf1;
+  color: #115e59;
+  border-color: #5eead4;
+}
+:is(html.dark, .force-dark) .starter-badge-teal {
+  background: rgba(20, 184, 166, 0.20) !important;
+  color: #2dd4bf !important;
+  border-color: rgba(45, 212, 191, 0.50) !important;
+}
+
+.starter-badge-indigo {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #a5b4fc;
+}
+:is(html.dark, .force-dark) .starter-badge-indigo {
+  background: rgba(99, 102, 241, 0.20) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(129, 140, 248, 0.50) !important;
+}
+
+/* Templates Section Pill */
+.starter-templates-badge {
+  color: #4338ca;
+  background: rgba(224, 231, 255, 0.85);
+  border: 1px solid #c7d2fe;
+}
+:is(html.dark, .force-dark) .starter-templates-badge {
+  color: #c7d2fe !important;
+  background: rgba(99, 102, 241, 0.22) !important;
+  border-color: rgba(165, 180, 252, 0.35) !important;
+}
+
 
 .prompt-input-field {
   font-weight: 500;
@@ -1017,13 +1216,22 @@ body {
   font-weight: 450;
 }
 
+:is(html.dark, .force-dark) .prompt-input-field::placeholder {
+  color: rgb(255 255 255 / 0.45);
+}
+
 .prompt-input-footer {
-  border-top: 1px solid rgb(15 23 42 / 0.08);
+  border-top: 1px solid rgb(15 23 42 / 0.10);
   background: #f8fafc;
 }
 
+:is(html.dark, .force-dark) .prompt-input-footer {
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .prompt-input-mode {
-  border-color: rgb(15 23 42 / 0.08);
+  border-color: rgb(15 23 42 / 0.10);
   background: #f1f5f9;
 }
 
@@ -1033,14 +1241,21 @@ body {
   box-shadow:
     0 1px 3px rgb(0 0 0 / 0.08),
     0 1px 2px rgb(0 0 0 / 0.04),
-    0 0 0 1px rgb(15 23 42 / 0.06);
+    0 0 0 1px rgb(15 23 42 / 0.08);
 }
 
 .prompt-input-kbd {
-  border: 1px solid rgb(15 23 42 / 0.12);
+  border: 1px solid rgb(15 23 42 / 0.15);
   background: #ffffff;
-  color: #334155;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+:is(html.dark, .force-dark) .prompt-input-kbd {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 .prompt-input-action {
@@ -1071,20 +1286,41 @@ body {
   box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 rgb(255 255 255 / 0.42);
 }
 
-/* Light-theme build pane */
+/* Light-theme build pane — bold, high contrast & modern depth */
 .build-panel {
-  background: #f8fafc;
-  border-right: 1px solid rgb(15 23 42 / 0.08);
+  background: #edf2f7;
+  border-right: 2px solid #cbd5e1;
+  box-shadow: 
+    1px 0 0 0 rgb(255 255 255 / 0.9),
+    6px 0 24px -8px rgba(15, 23, 42, 0.08);
+}
+
+.build-panel-header,
+.preview-pane-header {
+  height: 3.5rem;
+  min-height: 3.5rem;
+  max-height: 3.5rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .build-panel-header,
+  .preview-pane-header {
+    height: 4rem;
+    min-height: 4rem;
+    max-height: 4rem;
+  }
 }
 
 .build-panel-header {
-  min-height: 3.5rem;
-  background: var(--color-surface);
-  border-bottom: 1px solid rgb(15 23 42 / 0.08);
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 3px 10px -2px rgba(15, 23, 42, 0.05);
 }
 
 .build-panel-scroll {
-  background: #f8fafc;
+  background: #edf2f7;
+  box-shadow: inset 0 2px 6px 0 rgba(15, 23, 42, 0.05);
 }
 
 .build-panel-stage {
@@ -1095,69 +1331,47 @@ body {
 }
 
 .build-panel-composer {
-  background: var(--color-surface);
-  border-top: 1px solid rgb(15 23 42 / 0.08);
+  background: #ffffff;
+  border-top: 2px solid #e2e8f0;
+  box-shadow: 
+    0 -6px 20px -4px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.9);
 }
 
-/* Compact capability row */
-.build-panel-capabilities {
-  color: #334155;
-  border-top: 1px solid rgb(15 23 42 / 0.08);
-  background: transparent;
-  font-weight: 600;
-}
-
-.build-panel-capabilities svg {
-  color: var(--color-indigo-600);
-}
-
-/* Dark mode overrides */
-:is(html.dark, .force-dark) .prompt-input-dock {
-  border: 1px solid rgb(255 255 255 / 0.1);
-  background: var(--color-surface);
-  box-shadow: none;
-}
-
-:is(html.dark, .force-dark) .prompt-input-dock:focus-within {
-  border-color: var(--color-slate-400);
-  box-shadow: none;
-}
-
-:is(html.dark, .force-dark) .prompt-input-field::placeholder {
-  color: rgb(255 255 255 / 0.4);
-}
-
-:is(html.dark, .force-dark) .prompt-input-footer {
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-  background: transparent;
-}
-
+/* Dark mode overrides — high contrast, refined borders & depth */
 :is(html.dark, .force-dark) .build-panel {
-  background: var(--color-surface);
-  box-shadow: none;
+  background: #0f1117;
+  border-right: 2px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    1px 0 0 0 rgb(0 0 0 / 0.6),
+    8px 0 32px -8px rgba(0, 0, 0, 0.6);
 }
 
-:is(html.dark, .force-dark) .build-panel-header,
+:is(html.dark, .force-dark) .build-panel-header {
+  background: #14161f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 
+    0 1px 0 0 rgb(255 255 255 / 0.05),
+    0 4px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
 :is(html.dark, .force-dark) .build-panel-composer {
-  background: color-mix(in oklab, var(--color-surface) 95%, transparent);
-  border-color: var(--color-slate-200);
-  box-shadow: none;
+  background: #14161f;
+  border-top: 2px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 
+    0 -6px 24px -4px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06);
 }
 
 :is(html.dark, .force-dark) .build-panel-scroll {
-  background: transparent;
+  background: #0b0d13;
+  box-shadow: inset 0 3px 12px -2px rgba(0, 0, 0, 0.6);
 }
 
 :is(html.dark, .force-dark) .build-panel-stage {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-}
-
-:is(html.dark, .force-dark) .build-panel-capabilities {
-  color: var(--color-slate-700);
-  border-top-color: color-mix(in oklab, var(--color-slate-200) 60%, transparent);
-  background: transparent;
 }
 
 /* Version expand animation */
