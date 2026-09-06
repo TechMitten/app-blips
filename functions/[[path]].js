@@ -20,14 +20,62 @@
 const APPS_HOSTNAME = 'my.appblips.com';
 
 const FIREBASE_PROJECT_ID = 'appbips-f46e2';
+const FIREBASE_APP_ID = '1:472626328876:web:2800d30e2a40acfbf26889';
+const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
+const FIREBASE_APPCHECK_DEBUG_TOKEN = 'a96e675f-24b0-444f-9cff-ea0075345af1';
 const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 const STORAGE_BUCKET = 'appbips-f46e2.firebasestorage.app';
 const FIREBASE_STORAGE_URL = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o`;
 const BUCKET = 'orion-deploys';
 
+let cachedAppCheckToken = null;
+let tokenExpiry = 0;
+
+const getAppCheckToken = async (env) => {
+  const now = Date.now();
+  if (cachedAppCheckToken && now < tokenExpiry) {
+    return cachedAppCheckToken;
+  }
+
+  const projectId = env?.FIREBASE_PROJECT_ID || env?.VITE_FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
+  const appId = env?.FIREBASE_APP_ID || env?.VITE_FIREBASE_APP_ID || FIREBASE_APP_ID;
+  const apiKey = env?.FIREBASE_API_KEY || env?.VITE_FIREBASE_API_KEY || FIREBASE_API_KEY;
+  const debugToken =
+    env?.FIREBASE_APPCHECK_DEBUG_TOKEN ||
+    env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ||
+    FIREBASE_APPCHECK_DEBUG_TOKEN;
+
+  if (!debugToken) return null;
+
+  try {
+    const res = await fetch(
+      `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appId}:exchangeDebugToken?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ debugToken }),
+      }
+    );
+    if (!res.ok) {
+      console.warn('Failed to exchange App Check debug token:', res.status);
+      return null;
+    }
+    const data = await res.json();
+    if (data.token) {
+      cachedAppCheckToken = data.token;
+      const ttlSeconds = parseInt(data.ttl, 10) || 3600;
+      tokenExpiry = now + (ttlSeconds - 60) * 1000;
+      return cachedAppCheckToken;
+    }
+  } catch (err) {
+    console.warn('Error obtaining App Check token:', err);
+  }
+  return null;
+};
+
 const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
 const STORAGE_PATH_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[a-zA-Z0-9]{1,32}\.html$/i;
+  /^[a-zA-Z0-9_-]{1,128}\/[a-zA-Z0-9]{1,32}\.html$/i;
 
 // Reserved path prefix for every deployed app's PWA assets. It can never
 // collide with a real slug -- SLUG_PATTERN requires a slug to start with an
@@ -153,8 +201,15 @@ const notice = (status, title, body) =>
     },
   );
 
-const fetchDeploymentRow = async (slug) => {
-  const res = await fetch(`${FIRESTORE_API_URL}/deployments/${encodeURIComponent(slug)}`);
+const fetchDeploymentRow = async (slug, env) => {
+  const headers = {};
+  const appCheckToken = await getAppCheckToken(env);
+  if (appCheckToken) {
+    headers['X-Firebase-AppCheck'] = appCheckToken;
+  }
+  const res = await fetch(`${FIRESTORE_API_URL}/deployments/${encodeURIComponent(slug)}`, {
+    headers,
+  });
   if (res.status === 404) return { ok: true, row: null };
   if (!res.ok) return { ok: false, row: null };
   const doc = await res.json();
@@ -211,7 +266,7 @@ export async function onRequest(context) {
         });
       }
 
-      const { ok, row } = await fetchDeploymentRow(pwaSlug);
+      const { ok, row } = await fetchDeploymentRow(pwaSlug, env);
       if (!ok) {
         return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
       }
@@ -273,7 +328,7 @@ export async function onRequest(context) {
     }
 
     // Resolve slug -> storage object.
-    const { ok, row } = await fetchDeploymentRow(slug);
+    const { ok, row } = await fetchDeploymentRow(slug, env);
     if (!ok) {
       return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
     }
@@ -286,8 +341,15 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
+    const storageHeaders = {};
+    const appCheckToken = await getAppCheckToken(env);
+    if (appCheckToken) {
+      storageHeaders['X-Firebase-AppCheck'] = appCheckToken;
+    }
+
     const object = await fetch(
       `${FIREBASE_STORAGE_URL}/${encodeURIComponent(BUCKET + '/' + storagePath)}?alt=media`,
+      { headers: storageHeaders },
     );
 
     if (!object.ok) {
