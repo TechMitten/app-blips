@@ -49,7 +49,7 @@ import useBuildPaneResize from './hooks/useBuildPaneResize';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-const starterIdeas = STARTER_PRESETS.slice(0, 4);
+const starterIdeas = STARTER_PRESETS;
 
 export default function App() {
   // --- Layout / chrome state ---

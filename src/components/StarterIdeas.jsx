@@ -66,7 +66,7 @@ export default function StarterIdeas({ ideas, onPick }) {
       </div>
 
       <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
-        {ideas.slice(0, 4).map((starter) => {
+        {ideas.map((starter) => {
           const IconComponent = starter.icon || Sparkles;
           const theme = getColorClasses(starter.color);
           return (
