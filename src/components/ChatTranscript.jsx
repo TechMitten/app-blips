@@ -31,7 +31,7 @@ export default function ChatTranscript({
                   <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
                   <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{idx + 1}</span>
                 </span>
-                <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 text-slate-800 dark:text-slate-200 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed">
+                <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-800 dark:text-slate-200 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed">
                   <Markdown text={ver.reply} />
                 </div>
               </div>
@@ -51,7 +51,7 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 text-slate-800 dark:text-slate-200 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
+              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-800 dark:text-slate-200 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
                 <Markdown text={streamingReply} />
               </div>
             </div>
@@ -60,9 +60,9 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 text-slate-500 dark:text-slate-400 px-3.5 py-2 text-[length:var(--chat-prompt-text)] flex items-center gap-2 animate-fade-in">
-                <Loader2 className="animate-spin text-indigo-500 dark:text-indigo-400" size={14} />
-                <span className="text-[length:var(--chat-label-text)] font-medium">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
+              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-600 dark:text-slate-400 px-3.5 py-2 text-[length:var(--chat-prompt-text)] flex items-center gap-2 animate-fade-in">
+                <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={14} />
+                <span className="text-[length:var(--chat-label-text)] font-medium text-slate-700 dark:text-slate-300">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
               </div>
             </div>
           ) : null}

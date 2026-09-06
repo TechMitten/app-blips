@@ -4,56 +4,56 @@ const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
     return {
       bg: 'bg-amber-50 dark:bg-amber-500/10',
-      border: 'border-amber-200/70 dark:border-amber-500/25',
-      text: 'text-amber-600 dark:text-amber-400',
+      border: 'border-amber-200/80 dark:border-amber-500/25',
+      text: 'text-amber-700 dark:text-amber-400',
     };
   }
   if (colorString.includes('sky')) {
     return {
       bg: 'bg-sky-50 dark:bg-sky-500/10',
-      border: 'border-sky-200/70 dark:border-sky-500/25',
-      text: 'text-sky-600 dark:text-sky-400',
+      border: 'border-sky-200/80 dark:border-sky-500/25',
+      text: 'text-sky-700 dark:text-sky-400',
     };
   }
   if (colorString.includes('emerald')) {
     return {
       bg: 'bg-emerald-50 dark:bg-emerald-500/10',
-      border: 'border-emerald-200/70 dark:border-emerald-500/25',
-      text: 'text-emerald-600 dark:text-emerald-400',
+      border: 'border-emerald-200/80 dark:border-emerald-500/25',
+      text: 'text-emerald-700 dark:text-emerald-400',
     };
   }
   if (colorString.includes('violet')) {
     return {
       bg: 'bg-violet-50 dark:bg-violet-500/10',
-      border: 'border-violet-200/70 dark:border-violet-500/25',
-      text: 'text-violet-600 dark:text-violet-400',
+      border: 'border-violet-200/80 dark:border-violet-500/25',
+      text: 'text-violet-700 dark:text-violet-400',
     };
   }
   if (colorString.includes('rose')) {
     return {
       bg: 'bg-rose-50 dark:bg-rose-500/10',
-      border: 'border-rose-200/70 dark:border-rose-500/25',
-      text: 'text-rose-600 dark:text-rose-400',
+      border: 'border-rose-200/80 dark:border-rose-500/25',
+      text: 'text-rose-700 dark:text-rose-400',
     };
   }
   if (colorString.includes('blue')) {
     return {
       bg: 'bg-blue-50 dark:bg-blue-500/10',
-      border: 'border-blue-200/70 dark:border-blue-500/25',
-      text: 'text-blue-600 dark:text-blue-400',
+      border: 'border-blue-200/80 dark:border-blue-500/25',
+      text: 'text-blue-700 dark:text-blue-400',
     };
   }
   if (colorString.includes('teal')) {
     return {
       bg: 'bg-teal-50 dark:bg-teal-500/10',
-      border: 'border-teal-200/70 dark:border-teal-500/25',
-      text: 'text-teal-600 dark:text-teal-400',
+      border: 'border-teal-200/80 dark:border-teal-500/25',
+      text: 'text-teal-700 dark:text-teal-400',
     };
   }
   return {
     bg: 'bg-indigo-50 dark:bg-indigo-500/10',
-    border: 'border-indigo-200/70 dark:border-indigo-500/25',
-    text: 'text-indigo-600 dark:text-indigo-400',
+    border: 'border-indigo-200/80 dark:border-indigo-500/25',
+    text: 'text-indigo-700 dark:text-indigo-400',
   };
 };
 
@@ -72,7 +72,7 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
           type="button"
           onClick={onRefresh}
           disabled={isGenerating}
-          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           title="Generate new starter ideas"
         >
           <RefreshCw
@@ -93,8 +93,8 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
               type="button"
               onClick={() => onPick(starter)}
               title={`${starter.title} — ${starter.prompt}`}
-              className="group relative flex flex-col justify-between text-left p-2.5 sm:p-3 rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden
-                bg-white/80 dark:bg-white/[0.04]
+              className="group relative flex flex-col justify-between text-left p-2.5 rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden
+                bg-white dark:bg-white/[0.04]
                 hover:bg-white dark:hover:bg-white/[0.08]
                 border-slate-200/90 dark:border-white/10
                 hover:border-indigo-300 dark:hover:border-indigo-500/50
@@ -113,7 +113,7 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
 
                     <div className="flex items-center gap-1 min-w-0">
                       {starter.category && (
-                        <span className="text-[9.5px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100/90 dark:bg-white/[0.08] text-slate-700 dark:text-white/80 border border-slate-200/80 dark:border-white/10 truncate max-w-[85px]">
+                        <span className="text-[9.5px] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-slate-700 dark:text-white/80 border border-slate-200/80 dark:border-white/10 truncate max-w-[85px]">
                           {starter.category}
                         </span>
                       )}
@@ -130,7 +130,7 @@ export default function StarterIdeas({ ideas, isGenerating, onRefresh, onPick })
                   </h4>
 
                   {starter.prompt && (
-                    <p className="text-[11px] text-slate-700 dark:text-white/75 line-clamp-2 leading-relaxed mt-1 font-medium group-hover:text-slate-950 dark:group-hover:text-white transition-colors">
+                    <p className="text-[11px] text-slate-600 dark:text-white/75 line-clamp-2 leading-relaxed mt-1 font-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                       {starter.prompt}
                     </p>
                   )}

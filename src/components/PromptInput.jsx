@@ -45,7 +45,7 @@ export default function PromptInput({
   };
 
   return (
-    <div className="prompt-input-dock bg-surface rounded-xl border overflow-hidden transition-all input-glow flex flex-col">
+    <div className="prompt-input-dock bg-surface rounded-xl border border-slate-200/90 dark:border-white/10 overflow-hidden transition-all input-glow flex flex-col">
       <textarea
         ref={textareaRef}
         id="prompt"
@@ -60,7 +60,7 @@ export default function PromptInput({
               ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...")
               : "e.g. A minimalist task manager with categories..."
         }
-        className="prompt-input-field w-full min-h-[48px] sm:min-h-[58px] max-h-40 px-3.5 pt-2.5 sm:pt-3 pb-1.5 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm leading-relaxed bg-transparent custom-scrollbar"
+        className="prompt-input-field w-full min-h-[48px] sm:min-h-[58px] max-h-40 px-3.5 pt-2.5 sm:pt-3 pb-1.5 outline-none resize-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 text-xs sm:text-sm leading-relaxed bg-transparent custom-scrollbar"
         disabled={isGenerating}
       />
       <div className="prompt-input-footer flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2">
@@ -80,9 +80,9 @@ export default function PromptInput({
             </div>
           ) : (
             !isGenerating && (
-              <div className="prompt-input-hint flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-slate-500 select-none">
+              <div className="prompt-input-hint flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-slate-400 select-none">
                 <span className="hidden sm:inline">Press</span>
-                <kbd className="prompt-input-kbd px-1.5 py-0.5 rounded text-[10px] leading-none text-slate-600 font-mono font-semibold" title="Shift+Enter for a new line">Enter</kbd>
+                <kbd className="prompt-input-kbd px-1.5 py-0.5 rounded text-[10px] leading-none text-slate-700 dark:text-slate-300 font-mono font-semibold" title="Shift+Enter for a new line">Enter</kbd>
                 <span className="hidden sm:inline">{isClarifying ? 'to answer' : (hasCode ? 'to update' : 'to build')}</span>
               </div>
             )
@@ -104,7 +104,7 @@ export default function PromptInput({
             className={`prompt-input-action inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
                 ? 'prompt-input-action-ready brand-gradient text-white hover:brightness-105 active:scale-[0.98] cursor-pointer'
-                : 'prompt-input-action-disabled bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed shadow-none'
+                : 'prompt-input-action-disabled bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-white/10 cursor-not-allowed shadow-none'
             }`}
           >
             {isGenerating ? (

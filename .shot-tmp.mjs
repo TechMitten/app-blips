@@ -12,6 +12,12 @@ const page = await browser.newPage({ viewport: { width, height } });
 if (dark) {
   await page.addInitScript(() => {
     localStorage.setItem('orion-theme', 'dark');
+    localStorage.setItem('orion-skip-splash', 'true');
+  });
+} else {
+  await page.addInitScript(() => {
+    localStorage.setItem('orion-theme', 'light');
+    localStorage.setItem('orion-skip-splash', 'true');
   });
 }
 await page.goto(url, { waitUntil: 'networkidle' });
