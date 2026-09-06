@@ -31,15 +31,15 @@ export const loadThemePreference = () => {
 export const CHAT_FONT_KEY = 'orion-chat-font';
 export const CHAT_FONT_OPTIONS = ['small', 'default', 'large', 'xlarge'];
 
-// One of CHAT_FONT_OPTIONS; anything else falls back to 'default'. The value
+// One of CHAT_FONT_OPTIONS; anything else falls back to 'small'. The value
 // only selects a CSS variable set (see the chat-font block in App.css), so the
 // components themselves stay agnostic about concrete pixel sizes.
 export const loadChatFont = () => {
   try {
     const stored = safeStorage('local')?.getItem(CHAT_FONT_KEY);
-    return CHAT_FONT_OPTIONS.includes(stored) ? stored : 'default';
+    return CHAT_FONT_OPTIONS.includes(stored) ? stored : 'small';
   } catch {
-    return 'default';
+    return 'small';
   }
 };
 
