@@ -74,13 +74,13 @@ export default function SettingsModal({
           </p>
         </section>
 
-        {/* Chat font size */}
-        <section className="space-y-2" aria-label="Chat font size">
+        {/* Build pane font size */}
+        <section className="space-y-2" aria-label="Build pane font size">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
             <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
-              Chat font
+              Build pane font
             </h3>
-            <div className="nav-segmented-group" role="group" aria-label="Chat font size">
+            <div className="nav-segmented-group" role="group" aria-label="Build pane font size">
               {CHAT_FONT_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -98,7 +98,7 @@ export default function SettingsModal({
             </div>
           </div>
           <p className="text-xs text-slate-600 leading-snug">
-            Text size for the build conversation, including replies and code snippets.
+            Text size for the entire build pane, including starter ideas, suggestions, chat conversation, and prompt input.
           </p>
         </section>
 

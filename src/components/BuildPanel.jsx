@@ -67,13 +67,13 @@ export default function BuildPanel({
 
   return (
     <div
-      className="h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200"
+      className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200"
     >
       {/* Subtle atmospheric gradient */}
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200 bg-surface/95 backdrop-blur-md z-10">
+      <div className="build-panel-header shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 2xl:py-3.5 border-b border-slate-200 bg-surface/95 backdrop-blur-md z-10">
         {/* Left: Section identity & status */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="nav-segmented-group -ml-1 sm:-ml-[5px] flex items-center gap-2 px-3 py-1.5">
@@ -124,8 +124,8 @@ export default function BuildPanel({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col relative z-[1] chat-scrollbar">
-        <div className={`w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
+      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 flex flex-col relative z-[1] chat-scrollbar">
+        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}
           {isChatActive ? (
@@ -162,7 +162,7 @@ export default function BuildPanel({
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 leading-tight">
                   What do you want to{' '}
-                  <span className="bg-gradient-to-r from-indigo-500 to-blue-500 dark:from-indigo-400 dark:to-sky-300 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-indigo-500 to-blue-500 dark:bg-none bg-clip-text text-transparent dark:text-white">
                     build?
                   </span>
                 </h2>
@@ -182,7 +182,7 @@ export default function BuildPanel({
                 onRefresh={onGenerateStarters}
                 onPick={(starter) => onPickStarter(starter.prompt)}
               />
-              <div className="pt-2.5 flex items-center justify-between text-[11px] text-slate-500 font-medium border-t border-slate-200/60">
+              <div className="build-panel-capabilities pt-2.5 flex items-center justify-between text-[11px] text-slate-800 dark:text-slate-300 font-semibold border-t border-slate-200/60 dark:border-slate-700">
                 <span className="inline-flex items-center gap-1.5">
                   <Zap size={12} className="text-indigo-500" aria-hidden="true" />
                   Instant Preview
@@ -263,7 +263,7 @@ export default function BuildPanel({
       </div>
 
       {/* Fixed Bottom Input Area */}
-      <div className="shrink-0 p-3 sm:p-3.5 border-t border-slate-200 bg-surface/95 backdrop-blur-md relative z-[1]">
+      <div className="build-panel-composer shrink-0 p-3 sm:p-3.5 border-t border-slate-200 bg-surface/95 backdrop-blur-md relative z-[1]">
         {generatedCode && !isGenerating && chatMode === 'build' && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
           <SuggestionsBar
             suggestions={contextualSuggestions}

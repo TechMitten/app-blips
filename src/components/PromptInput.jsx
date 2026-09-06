@@ -45,7 +45,7 @@ export default function PromptInput({
   };
 
   return (
-    <div className="bg-surface rounded-xl shadow-2xs border border-slate-200 focus-within:border-indigo-500/80 focus-within:ring-2 focus-within:ring-indigo-500/15 overflow-hidden transition-all input-glow flex flex-col">
+    <div className="prompt-input-dock bg-surface rounded-xl border overflow-hidden transition-all input-glow flex flex-col">
       <textarea
         ref={textareaRef}
         id="prompt"
@@ -60,13 +60,13 @@ export default function PromptInput({
               ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...")
               : "e.g. A minimalist task manager with categories..."
         }
-        className="w-full min-h-[48px] sm:min-h-[58px] max-h-40 px-3.5 pt-2.5 sm:pt-3 pb-1.5 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm leading-relaxed bg-transparent custom-scrollbar"
+        className="prompt-input-field w-full min-h-[48px] sm:min-h-[58px] max-h-40 px-3.5 pt-2.5 sm:pt-3 pb-1.5 outline-none resize-none text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm leading-relaxed bg-transparent custom-scrollbar"
         disabled={isGenerating}
       />
-      <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 bg-slate-50/60 px-3 py-1.5 sm:py-2">
+      <div className="prompt-input-footer flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2">
         <div className="flex items-center min-w-0">
           {isChatActive && !isGenerating ? (
-            <div className="nav-segmented-group nav-segmented-compact" role="radiogroup" aria-label="Chat mode">
+            <div className="prompt-input-mode nav-segmented-group nav-segmented-compact" role="radiogroup" aria-label="Chat mode">
               <label className={`nav-segmented-btn cursor-pointer py-1 px-2.5 text-[11px] font-semibold ${chatMode === 'build' ? 'nav-segmented-btn-active' : ''}`}>
                 <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
                 <Wand2 size={12} aria-hidden="true" />
@@ -80,9 +80,9 @@ export default function PromptInput({
             </div>
           ) : (
             !isGenerating && (
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-slate-500 select-none">
+              <div className="prompt-input-hint flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-slate-500 select-none">
                 <span className="hidden sm:inline">Press</span>
-                <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-surface text-[10px] leading-none text-slate-600 font-mono font-semibold shadow-2xs" title="Shift+Enter for a new line">Enter</kbd>
+                <kbd className="prompt-input-kbd px-1.5 py-0.5 rounded text-[10px] leading-none text-slate-600 font-mono font-semibold" title="Shift+Enter for a new line">Enter</kbd>
                 <span className="hidden sm:inline">{isClarifying ? 'to answer' : (hasCode ? 'to update' : 'to build')}</span>
               </div>
             )
@@ -92,7 +92,7 @@ export default function PromptInput({
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 transition-colors cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 transition-colors cursor-pointer"
             >
               <X size={13} />
               Cancel
@@ -101,10 +101,10 @@ export default function PromptInput({
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            className={`prompt-input-action inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
-                ? 'brand-gradient text-white shadow-2xs hover:brightness-105 active:scale-[0.98] cursor-pointer'
-                : 'bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed shadow-none'
+                ? 'prompt-input-action-ready brand-gradient text-white hover:brightness-105 active:scale-[0.98] cursor-pointer'
+                : 'prompt-input-action-disabled bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed shadow-none'
             }`}
           >
             {isGenerating ? (
