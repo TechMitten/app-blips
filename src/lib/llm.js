@@ -94,6 +94,16 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
+      if (response.statusText === 'AppCheckFailed') {
+        let message = 'App Check verification failed. Please refresh or try again.';
+        try {
+          const errData = await response.clone().json();
+          if (errData?.error) message = errData.error;
+        } catch {
+          // ignore json parse error
+        }
+        throw new Error(message);
+      }
       throw new Error('Your session has expired. Please sign in again.');
     }
 
