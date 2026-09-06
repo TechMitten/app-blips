@@ -43,9 +43,44 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
+// Injects the Umami analytics script into <head> only for the hosted version
+// (SELF_HOSTED_MODE=false). In self-hosted mode (the default), this is omitted entirely.
+function umamiAnalyticsPlugin(mode) {
+  return {
+    name: 'appblips-umami-analytics',
+    transformIndexHtml() {
+      const env = loadEnv(mode, process.cwd(), '');
+      const isHosted = (process.env.SELF_HOSTED_MODE ?? env.SELF_HOSTED_MODE) === 'false';
+      if (isHosted) {
+        return [
+          {
+            tag: 'script',
+            attrs: {
+              defer: true,
+              src: 'https://umami.techmitten.com/script.js',
+              'data-website-id': 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3',
+            },
+            injectTo: 'head',
+          },
+          {
+            tag: 'script',
+            attrs: {
+              defer: true,
+              src: 'https://umami.techmitten.com/recorder.js',
+              'data-website-id': 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3',
+            },
+            injectTo: 'head',
+          },
+        ];
+      }
+      return [];
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), llmProxyDevMiddleware(mode)],
+  plugins: [react(), llmProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/firebase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
