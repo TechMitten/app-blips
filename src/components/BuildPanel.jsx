@@ -1,4 +1,4 @@
-import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare, Plus } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
@@ -27,6 +27,7 @@ export default function BuildPanel({
   onSubmit,
   onCancelGeneration,
   onChatModeChange,
+  onNewChat,
   chatBottomRef,
   interruptedJob = null,
   onRetryInterruptedJob,
@@ -88,37 +89,28 @@ export default function BuildPanel({
           </div>
         </div>
 
-        {/* Right: Quick actions / mode pill */}
-        {isChatActive && !isGenerating && (
+        {/* Right: Quick actions */}
+        {chatMode === 'ask' && isChatActive && !isGenerating && (
           <div className="flex items-center gap-2 shrink-0">
-            <div className="nav-segmented-group nav-segmented-compact p-0.5 bg-slate-100 dark:bg-white/[0.08] border-2 border-slate-200 dark:border-white/10 rounded-xl shadow-2xs" role="radiogroup" aria-label="Chat mode">
-              <button
-                type="button"
-                onClick={() => onChatModeChange('build')}
-                className={`nav-segmented-btn text-xs py-1 px-3 font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
-              >
-                <Wand2 size={12} aria-hidden="true" />
-                <span>Build</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onChatModeChange('ask')}
-                className={`nav-segmented-btn text-xs py-1 px-3 font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
-              >
-                <MessageSquare size={12} aria-hidden="true" />
-                <span>Ask</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onNewChat}
+              className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-white hover:text-white/80 hover:scale-110 transition-all cursor-pointer"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <Plus size={20} strokeWidth={3} aria-hidden="true" />
+            </button>
           </div>
         )}
       </div>
 
       <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 flex flex-col relative z-[1] chat-scrollbar">
-        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'my-auto'}`}>
+        <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'mt-4 sm:mt-8 mb-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}
           {isChatActive ? (
-            <header className="chat-status p-4 rounded-2xl border-2 border-slate-300/90 dark:border-white/15 bg-white dark:bg-[#181a24] shadow-sm space-y-2">
+            <header className="chat-status p-4 rounded-2xl border border-slate-900/8 dark:border-white/15 dark:border-2 bg-white/55 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#181a24] shadow-none dark:shadow-sm space-y-2">
               <div className="flex items-center justify-between gap-2 min-h-[22px]">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2 shrink-0">
@@ -146,39 +138,32 @@ export default function BuildPanel({
               </p>
             </header>
           ) : (
-            <div className="relative p-5 sm:p-6 rounded-3xl border-2 border-indigo-500/30 dark:border-indigo-500/40 bg-white dark:bg-[#181a24] shadow-md space-y-3.5 overflow-hidden">
-              {/* Top vibrant rainbow/gradient accent bar */}
-              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-600 via-blue-500 to-cyan-400" />
-              
-              {/* Background ambient radial glow */}
-              <div className="absolute -right-10 -bottom-10 w-44 h-44 bg-gradient-to-br from-indigo-500/15 via-blue-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
-
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-600 dark:bg-indigo-500 text-white font-mono text-[11px] font-black uppercase tracking-[0.16em] shadow-sm">
-                  <span className="orion-belt" aria-hidden="true">
-                    <span className="orion-dot bg-white" />
-                    <span className="orion-dot orion-dot-mid bg-amber-300" />
-                    <span className="orion-dot bg-white" />
-                  </span>
-                  AI Studio
+            <div className="hero-card relative p-5 sm:p-6 rounded-3xl space-y-3">
+              <div className="flex items-center gap-2.5">
+                <span className="hero-blips" aria-hidden="true">
+                  <span className="hero-blip hero-blip-cyan" />
+                  <span className="hero-blip hero-blip-brand" />
+                  <span className="hero-blip hero-blip-coral" />
+                </span>
+                <span className="font-mono text-[10px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-slate-600 dark:text-white/50">
+                  {chatMode === 'ask' ? 'Plain answers, no build' : 'Prompt in, app out'}
                 </span>
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white leading-tight">
-                What do you want to{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 dark:from-indigo-400 dark:via-blue-400 dark:to-cyan-400">
-                  build?
-                </span>
+                {chatMode === 'ask' ? 'How can I help you today?' : 'What do you want to build?'}
               </h2>
 
               <p className="text-slate-700 dark:text-white/80 text-xs sm:text-sm font-medium leading-relaxed">
-                Describe your idea in plain words to generate an interactive app in seconds.
+                {chatMode === 'ask'
+                  ? 'Get a plain answer about your app, or anything else — no build required.'
+                  : "Describe it in plain words. We'll ship a working app in seconds."}
               </p>
             </div>
           )}
 
           {/* Starter Prompts */}
-          {showStarterIdeas && (
+          {showStarterIdeas && chatMode !== 'ask' && (
             <StarterIdeas
               ideas={starterIdeas}
               onPick={(starter) => onPickStarter(starter.prompt)}

@@ -95,5 +95,4 @@ Both `vite.config.js` (dev server headers) and `index.html` (meta CSP) set `fram
 
 ## Testing Guidelines
 
-- **Default to manual testing for simple edits:** Do not run Playwright tests for every single edit. It is faster for the user to test straightforward, routine, or isolated UI changes manually.
-- **Use Playwright only for complex edits:** Run Playwright tests when making architectural changes, modifying complex state logic, or executing multi-file refactors where automated testing provides more value and reliability than manual verification.
+- Always ask for permission before using a headless browser (e.g. Playwright, `chromium-cli`) to test changes. Don't launch one on your own initiative.

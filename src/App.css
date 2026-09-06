@@ -963,27 +963,28 @@ body {
   animation: glowPulse 2.5s ease-in-out infinite;
 }
 
-/* Prompt/build command dock — POP OUT 3D physical elevation & extrusion */
+/* Prompt/build command dock — light theme: frosted glass over the pastel
+   mesh, hairline border, no heavy elevation. Dark keeps its pop-out physical
+   extrusion untouched below. */
 .prompt-input-dock {
-  border: 2px solid #cbd5e1;
-  border-bottom: 5px solid #94a3b8;
-  background: #ffffff;
+  border: 1.5px solid rgba(15, 23, 42, 0.4);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
   border-radius: 1.15rem;
   box-shadow:
-    0 12px 28px -4px rgba(15, 23, 42, 0.18),
-    0 4px 10px -2px rgba(15, 23, 42, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 6px 16px -4px rgba(15, 23, 42, 0.16),
+    0 14px 32px -10px rgba(15, 23, 42, 0.2);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .prompt-input-dock:focus-within {
-  border-color: #6366f1;
-  border-bottom-color: #4338ca;
+  border-color: rgba(15, 23, 42, 0.55);
   box-shadow:
-    0 0 0 4px rgba(99, 102, 241, 0.22),
-    0 18px 40px -4px rgba(99, 102, 241, 0.28),
-    0 8px 16px -2px rgba(15, 23, 42, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 8px 20px -4px rgba(15, 23, 42, 0.2),
+    0 18px 40px -10px rgba(15, 23, 42, 0.26);
   transform: translateY(-2px);
 }
 
@@ -991,6 +992,8 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.18);
   border-bottom: 5px solid #000000;
   background: #161824;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow:
     0 16px 36px -4px rgba(0, 0, 0, 0.85),
     0 6px 14px -2px rgba(0, 0, 0, 0.6),
@@ -998,50 +1001,96 @@ body {
 }
 
 :is(html.dark, .force-dark) .prompt-input-dock:focus-within {
-  border-color: #818cf8;
-  border-bottom-color: #4f46e5;
   box-shadow:
-    0 0 0 4px rgba(129, 140, 248, 0.25),
     0 22px 48px -4px rgba(0, 0, 0, 0.95),
-    0 8px 18px -2px rgba(99, 102, 241, 0.3),
+    0 8px 18px -2px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transform: translateY(-2px);
 }
 
-/* Starter Idea Cards — Refined 3D physical elevation & extrusion */
-.starter-pop-card {
-  border: 1.5px solid #cbd5e1;
-  border-bottom: 3.5px solid #94a3b8;
-  background: #ffffff;
-  border-radius: 1.15rem;
+/* Hero card (empty-state prompt) — same pop-out family as the composer dock
+   below it, so the two read as one physical console rather than a generic
+   soft "gradient card" bolted above an unrelated input. */
+.hero-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+:is(html.dark, .force-dark) .hero-card {
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 4px solid rgba(255, 255, 255, 0.2);
+  background: #181a24;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow:
-    0 6px 16px -3px rgba(15, 23, 42, 0.10),
-    0 2px 4px -1px rgba(15, 23, 42, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, border-bottom-color 0.18s ease;
+    0 16px 34px -6px rgba(0, 0, 0, 0.8),
+    0 6px 14px -2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* "Blips" — the three shard colours from the AppBlips mark, standing in for
+   the eyebrow badge this card used to carry. Quiet and small on purpose. */
+.hero-blips {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.hero-blip {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  animation: blip-breathe 3.6s ease-in-out infinite;
+}
+.hero-blip-brand {
+  width: 8px;
+  height: 8px;
+  margin-top: -1px;
+  animation-delay: 0.5s;
+  background: var(--color-indigo-600);
+}
+.hero-blip-cyan { background: #22d3ee; animation-delay: 0s; }
+.hero-blip-coral { background: #fb7185; animation-delay: 1s; }
+
+@keyframes blip-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.88); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-blip { animation: none; opacity: 0.9; }
+}
+
+/* Starter Idea Cards — light theme: frosted glass + hairline border, no
+   heavy elevation. Dark keeps its pop-out physical extrusion untouched. */
+.starter-pop-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-radius: 1.15rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
 }
 
 .starter-pop-card:hover {
   transform: translateY(-2px);
-  border-color: #6366f1;
-  border-bottom-color: #4338ca;
-  box-shadow:
-    0 12px 24px -4px rgba(15, 23, 42, 0.14),
-    0 4px 10px -2px rgba(99, 102, 241, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border-color: rgba(30, 89, 143, 0.35);
+  box-shadow: 0 6px 18px -6px rgba(15, 23, 42, 0.12);
 }
 
 .starter-pop-card:active {
-  transform: translateY(1px);
-  border-bottom-width: 2px;
-  box-shadow:
-    0 2px 6px -1px rgba(15, 23, 42, 0.10);
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 :is(html.dark, .force-dark) .starter-pop-card {
   border: 1.5px solid rgba(255, 255, 255, 0.12);
   border-bottom: 3.5px solid rgba(0, 0, 0, 0.7);
   background: #181a24;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-radius: 1.15rem;
   box-shadow:
     0 8px 20px -4px rgba(0, 0, 0, 0.6),
@@ -1262,13 +1311,109 @@ body {
   box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 rgb(255 255 255 / 0.42);
 }
 
-/* Light-theme build pane — bold, high contrast & modern depth */
+/* Light-theme build pane — clean SaaS surface: off-white canvas, a quiet
+   pastel mesh, and frosted glass cards on top of it (hairline borders, no
+   heavy elevation). Dark theme is untouched below in its own :is() block. */
 .build-panel {
-  background: #edf2f7;
-  border-right: 2px solid #cbd5e1;
-  box-shadow: 
-    1px 0 0 0 rgb(255 255 255 / 0.9),
-    6px 0 24px -8px rgba(15, 23, 42, 0.08);
+  background-color: #fafafa;
+  background-image:
+    radial-gradient(38% 30% at 20% 42%, rgba(125, 211, 252, 0.14), transparent 74%),
+    radial-gradient(34% 28% at 84% 66%, rgba(253, 186, 140, 0.10), transparent 74%);
+  /* The pane is seated in a chassis: content is inset by --bezel and the
+     reserved strip is painted as a machined rail (::after). The rail is a
+     cross-section — seam, specular highlight, body falloff, outer seam —
+     read left-to-right across its thickness, not a stripe running down it. */
+  --bezel: 10px;
+  border: 0;
+  box-shadow: 5px 0 18px -7px rgba(15, 23, 42, 0.35);
+}
+
+/* Recessed well — a hairline + soft vignette drawn OVER the children, so the
+   header/composer read as sitting down inside the frame on every edge. */
+.build-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: var(--bezel);
+  pointer-events: none;
+  z-index: 40;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.07),
+    inset 0 0 26px -14px rgba(15, 23, 42, 0.55);
+}
+
+/* The rail. Middle background layer is a knurled grip at the vertical centre,
+   which lands exactly on the drag divider — decoration doubling as affordance. */
+.build-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--bezel);
+  pointer-events: none;
+  z-index: 41;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(15, 23, 42, 0.34) 0 1px,
+      rgba(255, 255, 255, 0.85) 1px 2px,
+      transparent 2px 4px
+    ),
+    linear-gradient(
+      to right,
+      rgba(15, 23, 42, 0.26) 0 1px,
+      rgba(255, 255, 255, 0.95) 1px 2px,
+      #eef2f7 2px,
+      #dbe2ea 5px,
+      #c2ccd9 8px,
+      #a3aebd 10px,
+      #8b95a5 11px,
+      rgba(15, 23, 42, 0.4) 11px 12px
+    );
+  background-size: 6px 30px, 100% 100%;
+  background-position: center center, 0 0;
+  background-repeat: no-repeat, no-repeat;
+}
+
+@media (max-width: 767px) {
+  .build-panel {
+    box-shadow: 0 5px 18px -7px rgba(15, 23, 42, 0.35);
+  }
+
+  .build-panel::before {
+    right: 0;
+    bottom: var(--bezel);
+  }
+
+  .build-panel::after {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: var(--bezel);
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        rgba(15, 23, 42, 0.34) 0 1px,
+        rgba(255, 255, 255, 0.85) 1px 2px,
+        transparent 2px 4px
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(15, 23, 42, 0.26) 0 1px,
+        rgba(255, 255, 255, 0.95) 1px 2px,
+        #eef2f7 2px,
+        #dbe2ea 5px,
+        #c2ccd9 8px,
+        #a3aebd 10px,
+        #8b95a5 11px,
+        rgba(15, 23, 42, 0.4) 11px 12px
+      );
+    background-size: 30px 6px, 100% 100%;
+  }
 }
 
 .build-panel-header,
@@ -1289,14 +1434,45 @@ body {
 }
 
 .build-panel-header {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 3px 10px -2px rgba(15, 23, 42, 0.05);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
+/* Net-neutral inset: the scroll box (and with it the 10px scrollbar) steps in
+   by the bezel width and hands the same amount back out of its own right
+   padding, so the text column keeps exactly the width it had before the frame
+   existed. Reserving the strip with padding on .build-panel instead would
+   narrow this column, reflow the empty state, and — because the stage pins
+   itself with mt-auto/mb-auto — surface the overflow as empty scroll space. */
 .build-panel-scroll {
-  background: #edf2f7;
-  box-shadow: inset 0 2px 6px 0 rgba(15, 23, 42, 0.05);
+  background: transparent;
+  box-shadow: none;
+  margin-right: var(--bezel);
+  padding-right: calc(1rem - var(--bezel, 10px));
+}
+
+@media (min-width: 640px) {
+  .build-panel-scroll {
+    padding-right: calc(1.25rem - var(--bezel, 10px));
+  }
+}
+
+/* Stacked layout puts the rail on the bottom edge, where it overlays the
+   composer's own padding — the scroll column needs no inset at all. */
+@media (max-width: 767px) {
+  .build-panel-scroll {
+    margin-right: 0;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .build-panel-scroll {
+    padding-right: 1.25rem;
+  }
 }
 
 .build-panel-stage {
@@ -1307,34 +1483,92 @@ body {
 }
 
 .build-panel-composer {
-  background: #ffffff;
-  border-top: 2px solid #e2e8f0;
-  box-shadow: 
-    0 -6px 20px -4px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 0 rgb(255 255 255 / 0.9);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 /* Dark mode overrides — high contrast, refined borders & depth */
 :is(html.dark, .force-dark) .build-panel {
   background: #0f1117;
-  border-right: 2px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    1px 0 0 0 rgb(0 0 0 / 0.6),
-    8px 0 32px -8px rgba(0, 0, 0, 0.6);
+  border: 0;
+  box-shadow: 7px 0 24px -8px rgba(0, 0, 0, 0.85);
+}
+
+:is(html.dark, .force-dark) .build-panel::before {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 26px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* Same cross-section, gunmetal: black seams, a dimmer specular line, and a
+   body that falls off to near-black at the outer edge. */
+:is(html.dark, .force-dark) .build-panel::after {
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.7) 0 1px,
+      rgba(255, 255, 255, 0.22) 1px 2px,
+      transparent 2px 4px
+    ),
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.75) 0 1px,
+      rgba(255, 255, 255, 0.22) 1px 2px,
+      #454d5c 2px,
+      #363d4a 5px,
+      #272d38 8px,
+      #1a1f27 10px,
+      #12151b 11px,
+      rgba(0, 0, 0, 0.85) 11px 12px
+    );
+}
+
+@media (max-width: 767px) {
+  :is(html.dark, .force-dark) .build-panel {
+    box-shadow: 0 7px 24px -8px rgba(0, 0, 0, 0.85);
+  }
+
+  :is(html.dark, .force-dark) .build-panel::after {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.7) 0 1px,
+        rgba(255, 255, 255, 0.22) 1px 2px,
+        transparent 2px 4px
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.75) 0 1px,
+        rgba(255, 255, 255, 0.22) 1px 2px,
+        #454d5c 2px,
+        #363d4a 5px,
+        #272d38 8px,
+        #1a1f27 10px,
+        #12151b 11px,
+        rgba(0, 0, 0, 0.85) 11px 12px
+      );
+  }
 }
 
 :is(html.dark, .force-dark) .build-panel-header {
   background: #14161f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 
+  box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.05),
     0 4px 16px -4px rgba(0, 0, 0, 0.5);
 }
 
 :is(html.dark, .force-dark) .build-panel-composer {
   background: #14161f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-top: 2px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 
+  box-shadow:
     0 -6px 24px -4px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 0 rgb(255 255 255 / 0.06);
 }
@@ -1630,6 +1864,17 @@ body {
   font-size: 0.75rem;
 }
 
+/* Build/Ask mode toggle: active pill is red, overriding the generic
+   white/surface active-tab styling shared by other segmented controls. */
+.chat-mode-toggle .nav-segmented-btn-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+:is(html.dark, .force-dark) .chat-mode-toggle .nav-segmented-btn-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
 /* History section: a lit card floating above the canvas, so it rides
    --color-surface (white on light, #141414 on dark) with a gentle
    top-lit tilt rather than the old darker-than-canvas slate wash. The
@@ -1680,38 +1925,6 @@ body {
     radial-gradient(46% 32% at 22% 10%, rgb(from var(--hero-glow-secondary) r g b / calc(var(--glow-a1) * 0.85)), transparent 70%),
     radial-gradient(ellipse 80% 60% at 50% 40%, rgb(from var(--color-accent) r g b / calc(var(--glow-a1) * 0.3)), transparent),
     radial-gradient(ellipse 60% 40% at 30% 60%, rgb(from var(--color-accent) r g b / calc(var(--glow-a1) * 0.3)), transparent);
-}
-
-/* Orion's belt — three stars, the middle one brighter (Alnilam) */
-.orion-belt {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 5px;
-  line-height: 1;
-}
-.orion-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--color-indigo-300), var(--color-indigo-200));
-  box-shadow: 0 0 0 1px rgb(from var(--color-accent) r g b / var(--glow-a1));
-}
-.orion-dot-mid {
-  width: 7px;
-  height: 7px;
-  margin-top: -4px;
-  background: var(--accent-gradient);
-  box-shadow:
-    0 0 0 1px rgb(from var(--color-accent) r g b / var(--glow-a2)),
-    0 0 12px 1px rgb(from var(--color-accent) r g b / var(--glow-a3));
-  animation: belt-glow 4.5s ease-in-out infinite;
-}
-@keyframes belt-glow {
-  0%, 100% { box-shadow: 0 0 0 1px rgb(from var(--color-accent) r g b / var(--glow-a2)), 0 0 10px 1px rgb(from var(--color-accent) r g b / var(--glow-a2)); }
-  50% { box-shadow: 0 0 0 1px rgb(from var(--color-accent) r g b / var(--glow-a3)), 0 0 16px 2px rgb(from var(--color-accent) r g b / var(--glow-a3)); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .orion-dot-mid { animation: none; }
 }
 
 /* --- Build pane & chat font size setting ---

@@ -45,7 +45,7 @@ export default function PromptInput({
   };
 
   return (
-    <div className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md focus-within:border-indigo-600 dark:focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/20 flex flex-col">
+    <div className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md flex flex-col">
       <textarea
         ref={textareaRef}
         id="prompt"
@@ -56,23 +56,25 @@ export default function PromptInput({
         placeholder={
           isClarifying
             ? "Type your answer here..."
-            : isChatActive
-              ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...")
-              : "e.g. A minimalist task manager with categories..."
+            : chatMode === 'ask'
+              ? (isChatActive ? "Ask a question about the code..." : "Ask anything...")
+              : isChatActive
+                ? "e.g. Make the background dark, add a reset button..."
+                : "e.g. A minimalist task manager with categories..."
         }
         className="prompt-input-field w-full min-h-[52px] sm:min-h-[62px] max-h-40 px-4 pt-3.5 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar"
         disabled={isGenerating}
       />
       <div className="prompt-input-footer flex items-center justify-between gap-2 px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
         <div className="flex items-center min-w-0">
-          {isChatActive && !isGenerating ? (
-            <div className="prompt-input-mode nav-segmented-group nav-segmented-compact p-0.5 rounded-xl border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
-              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
+          {!isGenerating ? (
+            <div className="chat-mode-toggle prompt-input-mode nav-segmented-group nav-segmented-compact p-0.5 rounded-xl border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
+              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
                 <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
                 <Wand2 size={13} aria-hidden="true" />
                 <span>Build</span>
               </label>
-              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
+              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
                 <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => onChatModeChange('ask')} className="sr-only" />
                 <MessageSquare size={13} aria-hidden="true" />
                 <span>Ask</span>
@@ -107,7 +109,7 @@ export default function PromptInput({
             ) : (
               <>
                 {chatMode === 'ask' ? <MessageSquare size={15} /> : (isClarifying ? <MessageSquare size={15} /> : (isChatActive ? <Edit2 size={15} /> : <Wand2 size={15} />))}
-                <span>{chatMode === 'ask' ? "Ask" : (isClarifying ? "Answer" : (isChatActive ? "Update App" : "Build App"))}</span>
+                <span>{chatMode === 'ask' ? "Send" : (isClarifying ? "Answer" : (isChatActive ? "Update App" : "Build App"))}</span>
               </>
             )}
           </button>
