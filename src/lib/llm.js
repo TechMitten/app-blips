@@ -193,6 +193,7 @@ export const requestModelText = async ({
 
 export const MAX_REFINEMENT_TURNS = 8;
 export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
+export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
@@ -275,25 +276,45 @@ export const generateAppCode = async (
     ];
     
     const tools = askClarifyingQuestions ? [ASK_CLARIFYING_QUESTIONS_TOOL] : undefined;
-    const message = await requestModelText({ messages, onChunk, tools, signal });
-    
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      const clarifyTool = message.tool_calls.find(t => t.function?.name === 'ask_clarifying_questions');
-      if (clarifyTool) {
-        const { question: q, options } = parseClarifyingQuestionArgs(clarifyTool.function.arguments);
 
-        return {
-          code: currentCode || '',
-          editMode: 'clarify',
-          editSummary: prompt,
-          reply: q,
-          options
-        };
+    // The model occasionally returns only a conversational reply with no code
+    // at all (e.g. a truncated/incomplete turn) -- sanitizeHtmlResponse
+    // signals this with `null`. Retry a couple of times rather than silently
+    // saving that reply text as if it were the app.
+    let rawText;
+    let code = null;
+    for (let attempt = 0; attempt <= MAX_EMPTY_GENERATION_RETRIES; attempt++) {
+      if (attempt > 0) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (onChunk) onChunk('No code returned — retrying…', 'status');
       }
+
+      const message = await requestModelText({ messages, onChunk, tools, signal });
+
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        const clarifyTool = message.tool_calls.find(t => t.function?.name === 'ask_clarifying_questions');
+        if (clarifyTool) {
+          const { question: q, options } = parseClarifyingQuestionArgs(clarifyTool.function.arguments);
+
+          return {
+            code: currentCode || '',
+            editMode: 'clarify',
+            editSummary: prompt,
+            reply: q,
+            options
+          };
+        }
+      }
+
+      rawText = message.content || message;
+      code = sanitizeHtmlResponse(rawText);
+      if (code !== null) break;
     }
 
-    const rawText = message.content || message;
-    let code = sanitizeHtmlResponse(rawText);
+    if (code === null) {
+      throw new Error('The model did not return any app code. Please try again.');
+    }
+
     const reply = extractLeadingReply(rawText) || undefined;
 
     // End-of-generation syntax gate: parse the finished document, and if it

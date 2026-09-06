@@ -16,7 +16,10 @@ export const sanitizeHtmlResponse = (text) => {
     return content.replace(/\n?```$/, '').trim();
   }
 
-  return text.replace(/^```html\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '').trim();
+  // No code fence, DOCTYPE, or <html> tag anywhere -- the model didn't return
+  // any code at all (e.g. a truncated turn that only produced a reply
+  // sentence). Callers must treat this as a failed generation, not code.
+  return null;
 };
 
 // Complementary to sanitizeHtmlResponse: returns the text BEFORE the HTML boundary
