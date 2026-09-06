@@ -63,7 +63,7 @@ The generated app's HTML is never rendered directly. `injectPreviewBridge` (in `
 Consequences that matter when editing this code:
 - The bridge is computed in a `useMemo` in `App.jsx` and is **never** written back into `generatedCode`. It must stay out of downloads, the clipboard, the code panel, `localStorage['orion-projects']`, and especially out of reach of `applySurgicalEdits`'s fuzzy matcher (which would otherwise happily "fix" bridge code during a refinement pass).
 - Parent↔frame communication is `postMessage` only, authenticated by a per-render random `token` plus checking `event.source === iframe.contentWindow` (never `event.origin`, which is always the string `"null"` for an opaque origin). `targetOrigin: '*'` is required and is safe only because the protocol never carries a secret — don't add one.
-- The bridge shims `localStorage`/`sessionStorage`/`document.cookie` inside the frame (real APIs throw `SecurityError` on an opaque origin) and implements the mobile touch-scroll/momentum simulation, toggled on/off via a `configure` message keyed to `previewMode === 'mobile'`.
+- The bridge shims `localStorage`/`sessionStorage`/`document.cookie` inside the frame (real APIs throw `SecurityError` on an opaque origin); `localStorage` is hydrated from project-scoped storage (`orion-preview-storage:<projectId>`) and syncs mutations over postMessage, preserving data across reloads and revisions. The bridge also implements the mobile touch-scroll/momentum simulation, toggled on/off via a `configure` message keyed to `previewMode === 'mobile'`.
 - `BRIDGE_SOURCE` is checked at module load to contain no literal `</`, which would truncate the injected `<script>` tag.
 
 ### LLM proxy
