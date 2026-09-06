@@ -180,6 +180,38 @@ const injectFavicon = (html) => {
   return faviconTag + html;
 };
 
+const LOCK_PROTECTION_SCRIPT = `<script>
+  document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+  window.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); e.stopPropagation(); return false; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.keyCode === 85)) { e.preventDefault(); e.stopPropagation(); return false; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83)) { e.preventDefault(); e.stopPropagation(); return false; }
+    if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && (
+      e.key === 'I' || e.key === 'i' || e.keyCode === 73 ||
+      e.key === 'J' || e.key === 'j' || e.keyCode === 74 ||
+      e.key === 'C' || e.key === 'c' || e.keyCode === 67
+    )) { e.preventDefault(); e.stopPropagation(); return false; }
+  }, true);
+  document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; }, true);
+</script>`;
+
+const injectLockProtection = (html) => {
+  if (!html.includes('id="unlock-form"') || html.includes('contextmenu')) return html;
+
+  let modified = html;
+  if (/<body\b[^>]*>/i.test(modified) && !modified.includes('oncontextmenu')) {
+    modified = modified.replace(/<body\b/i, '<body oncontextmenu="return false;"');
+  }
+
+  const at = modified.lastIndexOf('</body>');
+  if (at !== -1) {
+    return modified.slice(0, at) + LOCK_PROTECTION_SCRIPT + '\n' + modified.slice(at);
+  }
+
+  return modified + LOCK_PROTECTION_SCRIPT;
+};
+
 const notice = (status, title, body) =>
   new Response(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
@@ -356,7 +388,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectAnalytics(injectFavicon(await object.text()), env);
+    const html = injectLockProtection(injectAnalytics(injectFavicon(await object.text()), env));
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,
