@@ -1,6 +1,6 @@
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw
+  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, Trash2
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -39,6 +39,7 @@ export default function PreviewPane({
   iframeRef,
   previewSrcDoc,
   onReloadPreview,
+  onClearStorage,
   isGenerating,
   generationStatus,
   isAutoFixing,
@@ -182,9 +183,9 @@ export default function PreviewPane({
             </div>
           )}
 
-          {/* Reload preview (when in preview tab and code generated) */}
+          {/* Reload preview & Clear storage (when in preview tab and code generated) */}
           {activeTab === 'preview' && hasCode && (
-            <div className="nav-segmented-group" title="Reload Preview">
+            <div className="nav-segmented-group" title="Preview Controls">
               <button
                 onClick={onReloadPreview}
                 className="nav-segmented-btn nav-segmented-btn-icon"
@@ -193,6 +194,16 @@ export default function PreviewPane({
               >
                 <RefreshCw size={14} />
               </button>
+              {onClearStorage && (
+                <button
+                  onClick={onClearStorage}
+                  className="nav-segmented-btn nav-segmented-btn-icon hover:text-rose-500"
+                  title="Reset app data (clear preview localStorage)"
+                  aria-label="Reset app data (clear preview localStorage)"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           )}
 

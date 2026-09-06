@@ -49,33 +49,83 @@ const BRIDGE_SOURCE = `(function () {
   var CHANNEL = '${BRIDGE_CHANNEL}';
   var VERSION = ${BRIDGE_PROTOCOL_VERSION};
 
+  function post(type, payload) {
+    try {
+      // targetOrigin '*' is required: this frame has an opaque origin and
+      // cannot know the parent's. It is only acceptable because no message
+      // in this protocol carries a secret. Do not add one.
+      parent.postMessage(
+        { __orion: CHANNEL, v: VERSION, token: TOKEN, type: type, payload: payload },
+        '*'
+      );
+    } catch (err) { /* parent gone */ }
+  }
+
   // ------------------------------------------------------------------
   // 1. Storage shim
   //
   // The probe is what makes this a no-op if origin isolation is ever
   // relaxed: if the real API works, we leave it completely alone.
+  // In preview, localStorage is hydrated from the parent's persisted
+  // snapshot and mutations are synchronized back over postMessage.
   // ------------------------------------------------------------------
 
-  function memStorage() {
+  var INITIAL_STORAGE = __ORION_INITIAL_STORAGE__;
+
+  function memStorage(initialData, isPersistent) {
     var m = Object.create(null);
+    if (initialData && typeof initialData === 'object') {
+      for (var k in initialData) {
+        if (Object.prototype.hasOwnProperty.call(initialData, k)) {
+          m[String(k)] = String(initialData[k]);
+        }
+      }
+    }
     var api = {
-      getItem: function (k) { k = String(k); return k in m ? m[k] : null; },
-      setItem: function (k, v) { m[String(k)] = String(v); },
-      removeItem: function (k) { delete m[String(k)]; },
-      clear: function () { m = Object.create(null); },
-      key: function (i) { var ks = Object.keys(m); i = Number(i); return i >= 0 && i < ks.length ? ks[i] : null; }
+      getItem: function (k) {
+        k = String(k);
+        return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null;
+      },
+      setItem: function (k, v) {
+        var sk = String(k);
+        var sv = String(v);
+        m[sk] = sv;
+        if (isPersistent) {
+          post('storage_set', { key: sk, value: sv });
+        }
+      },
+      removeItem: function (k) {
+        var sk = String(k);
+        delete m[sk];
+        if (isPersistent) {
+          post('storage_remove', { key: sk });
+        }
+      },
+      clear: function () {
+        m = Object.create(null);
+        if (isPersistent) {
+          post('storage_clear', {});
+        }
+      },
+      key: function (i) {
+        var ks = Object.keys(m);
+        i = Number(i);
+        return i >= 0 && i < ks.length ? ks[i] : null;
+      }
     };
-    Object.defineProperty(api, 'length', { get: function () { return Object.keys(m).length; } });
+    Object.defineProperty(api, 'length', {
+      get: function () { return Object.keys(m).length; }
+    });
     return api;
   }
 
-  function shimStorage(name) {
+  function shimStorage(name, initialData, isPersistent) {
     try {
       // Touching .length is enough to trip the SecurityError.
       void window[name].length;
       return;
     } catch (probeErr) { /* opaque origin -- fall through and shim */ }
-    var store = memStorage();
+    var store = memStorage(initialData, isPersistent);
     try {
       Object.defineProperty(window, name, { value: store, configurable: true, writable: false });
       return;
@@ -110,8 +160,8 @@ const BRIDGE_SOURCE = `(function () {
     } catch (protoErr) { /* nothing more we can do */ }
   }
 
-  shimStorage('localStorage');
-  shimStorage('sessionStorage');
+  shimStorage('localStorage', INITIAL_STORAGE, true);
+  shimStorage('sessionStorage', null, false);
   shimCookie();
 
   // ------------------------------------------------------------------
@@ -364,18 +414,6 @@ const BRIDGE_SOURCE = `(function () {
   var desiredEnabled = false;
   var teardownFn = null;
 
-  function post(type, payload) {
-    try {
-      // targetOrigin '*' is required: this frame has an opaque origin and
-      // cannot know the parent's. It is only acceptable because no message
-      // in this protocol carries a secret. Do not add one.
-      parent.postMessage(
-        { __orion: CHANNEL, v: VERSION, token: TOKEN, type: type, payload: payload },
-        '*'
-      );
-    } catch (err) { /* parent gone */ }
-  }
-
   function sync() {
     if (!domReady) return;
     try {
@@ -444,8 +482,21 @@ const SCRIPT_OPEN = '<script>';
 // Assembled so this module's own source never contains the literal sequence.
 const SCRIPT_CLOSE = '</' + 'script>';
 
-const buildTag = (token) =>
-  SCRIPT_OPEN + BRIDGE_SOURCE.replace('__ORION_TOKEN__', token) + SCRIPT_CLOSE;
+const buildTag = (token, initialStorage) => {
+  const safeData = JSON.stringify(
+    initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
+  ).replace(/</g, '\\u003c');
+
+  const source = BRIDGE_SOURCE
+    .replace('__ORION_TOKEN__', token)
+    .replace('__ORION_INITIAL_STORAGE__', safeData);
+
+  if (source.indexOf('</') !== -1) {
+    throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');
+  }
+
+  return SCRIPT_OPEN + source + SCRIPT_CLOSE;
+};
 
 /**
  * Splice the bridge into a generated document.
@@ -456,16 +507,19 @@ const buildTag = (token) =>
  * before the app's own script -- so the storage shim is in place by the time
  * anything touches `localStorage`.
  *
+ * @param {string} code
+ * @param {{ initialStorage?: Record<string, string> }} [options]
  * @returns {{ srcDoc: string, token: string }}
  */
-export const injectPreviewBridge = (code) => {
+export const injectPreviewBridge = (code, options = {}) => {
   const token = makeToken();
 
   if (typeof code !== 'string' || !code) {
     return { srcDoc: '', token };
   }
 
-  const tag = buildTag(token);
+  const initialStorage = options?.initialStorage;
+  const tag = buildTag(token, initialStorage);
   const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
 
   // A leading <!DOCTYPE html> needs no special case -- it falls out of this

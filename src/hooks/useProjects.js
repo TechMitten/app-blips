@@ -5,6 +5,7 @@ import { isValidUuid } from '../lib/helpers';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
+import { migratePreviewStorage, clearPreviewStorage } from '../lib/previewStorage';
 
 // Project persistence: the saved-apps list (local rows when signed out or
 // self-hosted, Firestore rows when signed in with Firebase enabled),
@@ -172,6 +173,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       }
 
       if (!currentProjectId || currentProjectId !== projectId) {
+        migratePreviewStorage(currentProjectId || 'draft', projectId);
         setCurrentProjectId(projectId);
         localStorage.setItem('orion-current-project-id', projectId);
       }
@@ -297,6 +299,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
       }
 
+      clearPreviewStorage(projectId);
       setMyProjects(prev => prev.filter((p) => p.id !== projectId));
       loadUserProjects();
       return true;
