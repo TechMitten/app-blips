@@ -8,6 +8,7 @@ import HistorySidebar from './components/HistorySidebar';
 import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
+import HelpModal from './components/HelpModal';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
 import NamingModal from './components/NamingModal';
@@ -88,6 +89,7 @@ export default function App() {
     return stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
@@ -696,6 +698,7 @@ export default function App() {
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenHelp={() => setIsHelpOpen(true)}
         authStatus={authStatus}
         isSignedIn={isSignedIn}
         userEmail={user?.email}
@@ -738,6 +741,10 @@ export default function App() {
           skipSplash={skipSplash}
           onSkipSplashChange={setSkipSplash}
         />
+      )}
+
+      {isHelpOpen && (
+        <HelpModal onClose={() => setIsHelpOpen(false)} />
       )}
 
       {isProjectsListOpen && (

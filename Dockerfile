@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # ---- Build stage -----------------------------------------------------------
-# Builds the static client in self-hosted mode (VITE_USE_FIREBASE=false is the
+# Builds the static client in self-hosted mode (SELF_HOSTED_MODE=true is the
 # default already, set explicitly here for clarity). No Firebase env vars are
 # needed: self-hosted mode never touches src/firebase.js's Firebase init.
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-ENV VITE_USE_FIREBASE=false
+ENV SELF_HOSTED_MODE=true
 
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -23,7 +23,7 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV USE_FIREBASE=false
+ENV SELF_HOSTED_MODE=true
 ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist

@@ -34,6 +34,7 @@ AppBlips is self-hosted software: you run it yourself, on your own machine or se
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app for you, no code required
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app looks on different screen sizes, with adjustable zoom
+- **Export to HTML** — download any generated app as a single self-contained HTML file, ready to host or share anywhere
 
 ## Quick start
 
