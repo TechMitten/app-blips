@@ -177,7 +177,7 @@ CRITICAL RULES:
 6. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 7. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 8. For mobile-focused apps, build a native smartphone app, not a shrunk-down website. Do not use website conventions like top nav bars with a logo, hamburger menus, hero sections, or footers. Instead use native app patterns: a fixed bottom tab bar or top app bar, full-bleed screens, card-based lists, sheets/modals that slide up from the bottom, large tappable rows, and a floating action button where appropriate. Always include a viewport-fit=cover meta tag and safe-area-inset padding.
-9. The app runs in a sandboxed preview frame with no origin. localStorage, sessionStorage and document.cookie ARE available and safe to call -- in the preview they are backed by an in-memory shim, and once the app is deployed to a real origin the same code persists for real. So never assume saved data exists: always read defensively, tolerate an empty store, and keep the app fully usable on a first run. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
+9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when deployed. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, or harm users (e.g., fake login screens, credential harvesters, scams). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
 12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. The user will type in a custom answer to your question. If you call this tool, do NOT generate any HTML or code.
@@ -190,6 +190,7 @@ SURGICAL EDIT GUIDELINES:
 - Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
 - If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
 - If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- PERSISTENCE IN EDITS: When adding features that introduce state, user-created data, preferences, or settings, use localStorage so the data persists, unless specified otherwise. Exercise best judgment: do not unnecessarily rewrite or disrupt existing working in-memory state if the edit is simply a visual, styling, or minor behavioral tweak that does not require persistence.
 
 REPLY GUIDELINES:
 - You MUST ALWAYS add ONE short, plain-English sentence of conversational reply (max ~15 words) acknowledging the request or explaining what you will do. Never more than one sentence, never a list, never a restatement of your plan.
@@ -218,15 +219,16 @@ export const getSafeAreaInstruction = (layoutTarget) => {
 export const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
   const trimmedPrompt = prompt.trim();
   const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
+  const persistenceInstruction = ' Unless specified otherwise, always use localStorage for any data or state persistence needs (e.g. saved items, user progress, settings, preferences) so data persists across reloads.';
 
   switch (layoutTarget) {
     case 'mobile':
-      return `Create a native-feeling smartphone app based on this request: ${trimmedPrompt}. It must look and feel like a real native iOS/Android app running full-screen on a 375px device -- not a website viewed on a phone. Use native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals, large thumb-friendly controls) instead of website conventions (top nav bars, hamburger menus, hero sections, footers).${safeAreaInstruction}`;
+      return `Create a native-feeling smartphone app based on this request: ${trimmedPrompt}.${persistenceInstruction} It must look and feel like a real native iOS/Android app running full-screen on a 375px device -- not a website viewed on a phone. Use native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals, large thumb-friendly controls) instead of website conventions (top nav bars, hamburger menus, hero sections, footers).${safeAreaInstruction}`;
     case 'desktop':
-      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}. Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
+      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}.${persistenceInstruction} Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
     case 'both':
     default:
-      return `Create a responsive app based on this request: ${trimmedPrompt}. On phone widths it must look and feel like a native iOS/Android app -- not a website viewed on a phone -- using native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals) instead of website conventions (top nav bars, hamburger menus, hero sections, footers). On larger screens, present a true desktop layout instead of staying in a phone-width column.${safeAreaInstruction}`;
+      return `Create a responsive app based on this request: ${trimmedPrompt}.${persistenceInstruction} On phone widths it must look and feel like a native iOS/Android app -- not a website viewed on a phone -- using native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals) instead of website conventions (top nav bars, hamburger menus, hero sections, footers). On larger screens, present a true desktop layout instead of staying in a phone-width column.${safeAreaInstruction}`;
   }
 };
 
