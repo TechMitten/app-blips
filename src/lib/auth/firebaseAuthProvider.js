@@ -19,11 +19,43 @@ import { getToken } from 'firebase/app-check';
 // only ever selected by ./index.js when that's the case, so none of these
 // Firebase SDK calls run in a self-hosted build.
 
-const toUser = (firebaseUser) =>
-  firebaseUser ? Object.assign({}, firebaseUser, { id: firebaseUser.uid }) : null;
+const toUser = (firebaseUser) => {
+  if (!firebaseUser) return null;
+  const username = firebaseUser.displayName || '';
+  return Object.assign({}, firebaseUser, {
+    id: firebaseUser.uid,
+    displayName: username,
+    username,
+    user_metadata: {
+      ...firebaseUser.user_metadata,
+      username,
+    },
+  });
+};
 
-const onAuthStateChanged = (callback) =>
-  firebaseOnAuthStateChanged(auth, (firebaseUser) => callback(toUser(firebaseUser)));
+const listeners = new Set();
+
+const notifyListeners = (user) => {
+  listeners.forEach((callback) => {
+    try {
+      callback(user);
+    } catch (e) {
+      console.error('Error in auth listener:', e);
+    }
+  });
+};
+
+const onAuthStateChanged = (callback) => {
+  listeners.add(callback);
+  const unsubscribe = firebaseOnAuthStateChanged(auth, (firebaseUser) => {
+    callback(toUser(firebaseUser));
+  });
+
+  return () => {
+    listeners.delete(callback);
+    unsubscribe();
+  };
+};
 
 const signIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
 
@@ -40,7 +72,10 @@ const signOut = () => firebaseSignOut(auth);
 
 const updatePassword = (newPassword) => firebaseUpdatePassword(auth.currentUser, newPassword);
 
-const updateProfile = (profile) => firebaseUpdateProfile(auth.currentUser, profile);
+const updateProfile = async (profile) => {
+  await firebaseUpdateProfile(auth.currentUser, profile);
+  notifyListeners(toUser(auth.currentUser));
+};
 
 const deleteAccount = () => deleteUser(auth.currentUser);
 

@@ -3,7 +3,7 @@
 // unaware of which one is active. Selection happens in ./index.js, based on
 // firebaseEnabled (src/firebase.js, driven by SELF_HOSTED_MODE).
 //
-// User shape: { id, email, displayName } | null
+// User shape: { id, email, displayName, username, user_metadata: { username } } | null
 //
 // authProvider.onAuthStateChanged(callback) -> unsubscribe
 // authProvider.signIn(email, password) -> Promise<void>

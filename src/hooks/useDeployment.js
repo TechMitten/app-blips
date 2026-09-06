@@ -60,8 +60,9 @@ export default function useDeployment({
       let desiredSlug = deployment?.slug;
       if (!desiredSlug) {
         const baseSlug = customSlug || makePublicSlug(projectName);
-        if (user?.user_metadata?.username) {
-          desiredSlug = `${user.user_metadata.username}/${baseSlug}`;
+        const username = user?.displayName || user?.username || user?.user_metadata?.username;
+        if (username) {
+          desiredSlug = `${username}/${baseSlug}`;
         } else {
           desiredSlug = baseSlug;
         }

@@ -37,7 +37,7 @@ export default function DeployModal({
   const [favicon, setFavicon] = useState(null);
   const [faviconError, setFaviconError] = useState('');
 
-  const username = user?.user_metadata?.username;
+  const username = user?.displayName || user?.username || user?.user_metadata?.username || '';
 
   const passwordValid =
     password.length === 0 ||

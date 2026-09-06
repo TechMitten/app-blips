@@ -3,14 +3,41 @@
 // renders in this mode (see Header.jsx/App.jsx), so signIn/signUp/etc. are
 // unreachable in practice -- they're no-ops here only for safety.
 
-const MOCK_USER = { id: 'local-user', email: 'local@localhost', displayName: 'Local User' };
+let currentMockUser = {
+  id: 'local-user',
+  uid: 'local-user',
+  email: 'local@localhost',
+  displayName: 'Local User',
+  username: 'Local User',
+  user_metadata: { username: 'Local User' },
+};
+
+const listeners = new Set();
 
 const onAuthStateChanged = (callback) => {
-  Promise.resolve().then(() => callback(MOCK_USER));
-  return () => {};
+  listeners.add(callback);
+  Promise.resolve().then(() => callback(currentMockUser));
+  return () => {
+    listeners.delete(callback);
+  };
 };
 
 const noop = async () => {};
+
+const updateProfile = async (profile) => {
+  const displayName = profile?.displayName || currentMockUser.displayName;
+  currentMockUser = {
+    ...currentMockUser,
+    ...profile,
+    displayName,
+    username: displayName,
+    user_metadata: {
+      ...currentMockUser.user_metadata,
+      username: displayName,
+    },
+  };
+  listeners.forEach((callback) => callback(currentMockUser));
+};
 
 export default {
   onAuthStateChanged,
@@ -20,7 +47,7 @@ export default {
   signInWithGoogle: noop,
   signOut: noop,
   updatePassword: noop,
-  updateProfile: noop,
+  updateProfile,
   deleteAccount: noop,
   getIdToken: async () => 'local-mode',
   getAppCheckToken: async () => null,

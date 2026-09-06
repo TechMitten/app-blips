@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import authProvider from '../lib/auth';
 import { User, Mail, KeyRound, Trash2, X, AlertTriangle, LogOut } from 'lucide-react';
 
@@ -6,10 +6,15 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState(user?.displayName || '');
+  const currentUsername = user?.displayName || user?.username || user?.user_metadata?.username || '';
+  const [username, setUsername] = useState(currentUsername);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setUsername(currentUsername);
+  }, [currentUsername]);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -33,12 +38,13 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    if (!username.trim()) {
+    const cleanUsername = username.trim().toLowerCase();
+    if (!cleanUsername) {
       setError('Username cannot be empty');
       return;
     }
     // Basic username validation: only letters, numbers, hyphens
-    if (!/^[a-zA-Z0-9-]+$/.test(username)) {
+    if (!/^[a-zA-Z0-9-]+$/.test(cleanUsername)) {
       setError('Username can only contain letters, numbers, and hyphens');
       return;
     }
@@ -46,7 +52,8 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
     setError('');
     setMessage('');
     try {
-      await authProvider.updateProfile({ displayName: username.toLowerCase() });
+      await authProvider.updateProfile({ displayName: cleanUsername });
+      setUsername(cleanUsername);
       setMessage('Profile updated successfully.');
     } catch (updateError) {
       setError(updateError.message);
@@ -159,7 +166,7 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading || !username || username === user?.displayName}
+                  disabled={loading || !username.trim() || username.trim().toLowerCase() === currentUsername}
                   className="brand-fill-text w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Updating...' : 'Save Profile'}

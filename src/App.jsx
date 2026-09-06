@@ -134,6 +134,12 @@ export default function App() {
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
   const runtimeErrorRetriesRef = useRef(0);
+  const isGeneratingRef = useRef(false);
+  const isAutoFixingRef = useRef(false);
+  const isEvaluatingNewCodeRef = useRef(false);
+  const pendingRuntimeErrorRef = useRef(null);
+  const prevProjectIdRef = useRef(currentProjectId);
+  const [projectStorageVersion, setProjectStorageVersion] = useState(0);
   const reloadStateRef = useRef({
     pending: false,
     token: null,
@@ -210,13 +216,24 @@ export default function App() {
 
   const handleReloadPreview = useCallback(() => {
     cancelPendingReload();
+    runtimeErrorRetriesRef.current = 0;
+    pendingRuntimeErrorRef.current = null;
+    isEvaluatingNewCodeRef.current = false;
+    setIsAutoFixing(false);
+    isAutoFixingRef.current = false;
+    setAutoFixMessage(null);
     setPreviewReloadCount((n) => n + 1);
   }, [cancelPendingReload]);
+
+  const scheduleReloadSettlementRef = useRef(null);
 
   const confirmAndExecuteReload = useCallback(() => {
     reloadStateRef.current.timerId = null;
     if (!reloadStateRef.current.pending) return;
-    if (isGenerating || isAutoFixing) return;
+    if (isGeneratingRef.current || isAutoFixingRef.current) {
+      scheduleReloadSettlementRef.current?.(400);
+      return;
+    }
     if (chatMode !== 'build') return;
 
     // Check syntax one more time to ensure code integrity
@@ -233,13 +250,14 @@ export default function App() {
     if (reloadStateRef.current.isAutoFix || runtimeErrorRetriesRef.current > 0) {
       runtimeErrorRetriesRef.current = 0;
       setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
       setAutoFixMessage(null);
     }
 
     // Mark pending false BEFORE triggering the reload so the reloaded frame doesn't re-trigger.
     reloadStateRef.current.pending = false;
     handleReloadPreview();
-  }, [isGenerating, isAutoFixing, chatMode, generatedCode, handleReloadPreview]);
+  }, [chatMode, generatedCode, handleReloadPreview]);
 
   const scheduleReloadSettlement = useCallback((delayMs = 400) => {
     if (reloadStateRef.current.timerId) {
@@ -249,6 +267,7 @@ export default function App() {
       confirmAndExecuteReload();
     }, delayMs);
   }, [confirmAndExecuteReload]);
+  scheduleReloadSettlementRef.current = scheduleReloadSettlement;
 
   const handlePreviewReady = useCallback(() => {
     // If a preview reload is pending for the latest build/edit/auto-fix,
@@ -265,21 +284,43 @@ export default function App() {
     // or interfere with auto-fixing.
     cancelPendingReload();
 
-    if (isGenerating || chatMode !== 'build') return;
+    if (chatMode !== 'build') return;
+
+    if (isGeneratingRef.current) {
+      // If code generation is still in flight, only queue the error if we are
+      // already evaluating the newly generated code (post-generateAppCode),
+      // ensuring stale errors from prior versions are not auto-fixed.
+      if (isEvaluatingNewCodeRef.current) {
+        if (!pendingRuntimeErrorRef.current) {
+          pendingRuntimeErrorRef.current = payload;
+        }
+      }
+      return;
+    }
+
+    if (isAutoFixingRef.current) {
+      // Already actively auto-fixing; prevent secondary error storms in the same broken preview
+      // from incrementing retries or firing duplicate auto-fix jobs.
+      return;
+    }
+
     if (runtimeErrorRetriesRef.current >= 2) {
       console.warn('Runtime error auto-fix limit reached.');
       setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
       setAutoFixMessage(null);
       return;
     }
+
     runtimeErrorRetriesRef.current += 1;
     const errorDetails = payload?.message || 'Runtime error detected';
     const promptText = `Fix this runtime error:\n${errorDetails}${payload?.line ? ` at line ${payload.line}` : ''}`;
     setIsAutoFixing(true);
+    isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
     setGenerationStatus(`Fixing runtime error: ${errorDetails}`);
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
-  }, [cancelPendingReload, isGenerating, chatMode]);
+  }, [cancelPendingReload, chatMode]);
 
   const previewStorageRef = useRef({});
 
@@ -303,6 +344,15 @@ export default function App() {
     handleReloadPreview();
   }, [currentProjectId, handleReloadPreview]);
 
+  useEffect(() => {
+    // Only bump preview storage version when switching between distinct existing projects,
+    // avoiding spurious iframe reloads during initial project auto-save (null -> newId).
+    if (currentProjectId && prevProjectIdRef.current && currentProjectId !== prevProjectIdRef.current) {
+      setProjectStorageVersion((v) => v + 1);
+    }
+    prevProjectIdRef.current = currentProjectId;
+  }, [currentProjectId]);
+
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
       generatedCode
@@ -313,7 +363,7 @@ export default function App() {
     // previewReloadCount is intentionally "unused": bumping it re-runs the
     // injection so a fresh token forces the iframe to navigate (reload).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generatedCode, previewReloadCount, currentProjectId]
+    [generatedCode, previewReloadCount, projectStorageVersion]
   );
 
   usePreviewBridge({
@@ -402,17 +452,24 @@ export default function App() {
     if (!isAutoFix) {
       cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
+      pendingRuntimeErrorRef.current = null;
+      isEvaluatingNewCodeRef.current = false;
       setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
       setAutoFixMessage(null);
     } else {
       cancelPendingReload();
+      pendingRuntimeErrorRef.current = null;
+      isEvaluatingNewCodeRef.current = false;
       setIsAutoFixing(true);
+      isAutoFixingRef.current = true;
       setAutoFixMessage(autoFixError || 'Runtime error detected');
     }
 
     if (!isSignedIn) {
       if (isAutoFix) {
         setIsAutoFixing(false);
+        isAutoFixingRef.current = false;
         setAutoFixMessage(null);
         setGenerationStatus(null);
       }
@@ -424,6 +481,7 @@ export default function App() {
     if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
       if (isAutoFix) {
         setIsAutoFixing(false);
+        isAutoFixingRef.current = false;
         setAutoFixMessage(null);
         setGenerationStatus(null);
       }
@@ -435,6 +493,7 @@ export default function App() {
 
     setHasSentFirstPrompt(true);
     setIsGenerating(true);
+    isGeneratingRef.current = true;
     setIsSuggestionsExpanded(false);
     setMobileView('preview');
     clearStreamingState();
@@ -503,6 +562,7 @@ export default function App() {
           }
         }
       }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions);
+      isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
       const newVersion = {
@@ -559,6 +619,8 @@ export default function App() {
 
     } catch (err) {
       cancelPendingReload();
+      pendingRuntimeErrorRef.current = null;
+      isEvaluatingNewCodeRef.current = false;
       if (err.name === 'AbortError') {
         // Explicit user cancel — clear the job so no spurious resume banner.
         clearPendingJob();
@@ -571,11 +633,22 @@ export default function App() {
       clearPendingJob();
     } finally {
       setIsGenerating(false);
+      isGeneratingRef.current = false;
+      isEvaluatingNewCodeRef.current = false;
       setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
       setAutoFixMessage(null);
       setPendingPrompt('');
       setGenerationStatus(null);
       clearStreamingState();
+
+      if (pendingRuntimeErrorRef.current && chatMode === 'build') {
+        const pendingError = pendingRuntimeErrorRef.current;
+        pendingRuntimeErrorRef.current = null;
+        setTimeout(() => {
+          handleRuntimeError(pendingError);
+        }, 0);
+      }
     }
   };
 
@@ -588,7 +661,11 @@ export default function App() {
       abortControllerRef.current = null;
     }
     setIsGenerating(false);
+    isGeneratingRef.current = false;
     setIsAutoFixing(false);
+    isAutoFixingRef.current = false;
+    isEvaluatingNewCodeRef.current = false;
+    pendingRuntimeErrorRef.current = null;
     setAutoFixMessage(null);
     setGenerationStatus(null);
     clearStreamingState();
@@ -672,6 +749,13 @@ export default function App() {
 
   const switchVersion = (index) => {
     if (index >= 0 && index < versions.length) {
+      cancelPendingReload();
+      runtimeErrorRetriesRef.current = 0;
+      pendingRuntimeErrorRef.current = null;
+      isEvaluatingNewCodeRef.current = false;
+      setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
+      setAutoFixMessage(null);
       clearStreamingState();
       setCurrentVersionIndex(index);
       setGeneratedCode(versions[index].code);
@@ -751,6 +835,14 @@ export default function App() {
   }, []);
 
   const resetCurrentWorkspace = () => {
+    cancelPendingReload();
+    runtimeErrorRetriesRef.current = 0;
+    pendingRuntimeErrorRef.current = null;
+    isEvaluatingNewCodeRef.current = false;
+    isGeneratingRef.current = false;
+    setIsAutoFixing(false);
+    isAutoFixingRef.current = false;
+    setAutoFixMessage(null);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
