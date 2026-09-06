@@ -21,10 +21,12 @@ const proj = {
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width, height } });
-await page.addInitScript((proj) => {
+await page.addInitScript(({ proj, isDark }) => {
   localStorage.setItem('orion-projects', JSON.stringify([proj]));
   localStorage.setItem('orion-current-project-id', proj.id);
-}, proj);
+  localStorage.setItem('orion-skip-splash', 'true');
+  localStorage.setItem('orion-theme', isDark ? 'dark' : 'light');
+}, { proj, isDark: dark });
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForTimeout(2500);
 await page.screenshot({ path: out });

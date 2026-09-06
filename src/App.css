@@ -17,15 +17,14 @@
      every "raised" surface (segmented tabs, cards, buttons) looked pasted
      flat onto the page. Raised across the board, and given its own hairline
      (light theme has one too now, not just dark) so raised edges get a crisp
-     line to close the shape when the shadow's blur alone isn't enough. */
-  --shadow-color: 30 41 59;
-  --shadow-a1: 0.09;
-  --shadow-a2: 0.15;
-  --shadow-a3: 0.22;
-  --hairline: rgb(15 23 42 / 0.07);
+  --shadow-color: 15 23 42;
+  --shadow-a1: 0.05;
+  --shadow-a2: 0.08;
+  --shadow-a3: 0.12;
+  --hairline: rgb(15 23 42 / 0.08);
 
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.11), 0 2px 4px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.14), 0 4px 6px -4px rgb(0 0 0 / 0.07);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
 
   /* Accent used for glows and atmospherics. Distinct from --color-brand (the
      button fill): this one has to stay visible AS light on the page ground,
@@ -36,33 +35,24 @@
   --glow-a2: 0.22;
   --glow-a3: 0.35;
 
-  --grid-dot: var(--color-slate-400);
+  --grid-dot: #94a3b8;
   --seg-active-bg: var(--color-surface);
-  --seg-active-fg: var(--color-brand);
+  --seg-active-fg: var(--color-slate-900);
   --focus-halo: var(--color-surface);
   --pulse-ring: rgb(30 89 143 / 0.08);
-  --inset-highlight: rgb(255 255 255 / 0.8);
+  --inset-highlight: rgb(255 255 255 / 0.9);
   --accent-gradient: linear-gradient(135deg, #1e598f, #3081a6);
   --hero-glow-secondary: #3081a6;
 
-  /* Depth kit. On dark a black shadow cannot darken a near-black ground, so
-     depth has to come from a lit top edge, a containment ring, and a deeper
-     well -- light was left to drop shadows alone, but at the low alphas
-     above that read as no depth at all, so it now gets its own (quieter)
-     version of the same tricks: a real recessed stage and a well that's
-     visibly cut into the panel rather than just bordered. */
+  /* Depth kit for light theme */
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0);
-  --stage-bg: rgb(203 213 225 / 0.65);
-  --stage-inset: inset 0 14px 30px -12px rgb(30 41 59 / 0.16),
-    inset 0 0 0 1px rgb(30 41 59 / 0.07);
+  --stage-bg: #edf2f7;
+  --stage-inset: inset 0 1px 0 0 rgb(15 23 42 / 0.06);
   --ambient: none;
-  --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0);
-  /* Inputs read as wells cut INTO the panel. On light a border used to carry
-     that alone; it now also drops a shade below the panel and gets a soft
-     inner shadow so the "cut in" reads even where a border can't. */
-  --well-bg: color-mix(in oklab, var(--color-surface) 96%, var(--color-slate-900) 4%);
-  --well-inset: inset 0 1px 3px rgb(15 23 42 / 0.07), inset 0 0 0 1px rgb(15 23 42 / 0.05);
+  --panel-edge: 1px 0 0 0 rgb(15 23 42 / 0.06);
+  --well-bg: #ffffff;
+  --well-inset: none;
 }
 
 :is(html.dark, .force-dark) {
@@ -815,18 +805,20 @@ body {
    pane, so it needs a darker well, a crisp rim, and controls that read as
    intentionally raised rather than as a light row attached to a textarea. */
 .prompt-input-dock {
-  border: 2px solid #1d4ed8;
-  background:
-    linear-gradient(145deg, color-mix(in oklab, var(--well-bg) 88%, var(--color-surface) 12%), var(--well-bg));
+  border: 1px solid rgb(15 23 42 / 0.12);
+  background: var(--color-surface);
+  border-radius: 0.75rem;
   box-shadow:
-    var(--well-inset),
-    var(--edge-top),
-    0 12px 24px -20px rgb(var(--shadow-color) / calc(var(--shadow-a3) * 1.7)),
-    0 0 0 1px var(--hairline);
+    0 1px 3px rgb(15 23 42 / 0.05),
+    0 1px 2px rgb(15 23 42 / 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .prompt-input-dock:focus-within {
-  border-color: #2563eb;
+  border-color: var(--color-indigo-400);
+  box-shadow:
+    0 0 0 3px rgb(37 109 177 / 0.12),
+    0 2px 6px rgb(15 23 42 / 0.06);
 }
 
 .prompt-input-field {
@@ -835,34 +827,34 @@ body {
 }
 
 .prompt-input-field::placeholder {
-  color: color-mix(in oklab, var(--color-slate-500) 82%, transparent);
+  color: #64748b;
   font-weight: 450;
 }
 
 .prompt-input-footer {
-  border-top: 1px solid color-mix(in oklab, var(--color-slate-400) 42%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in oklab, var(--color-slate-100) 72%, transparent), color-mix(in oklab, var(--color-slate-200) 48%, transparent));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.38);
+  border-top: 1px solid rgb(15 23 42 / 0.08);
+  background: #f8fafc;
 }
 
 .prompt-input-mode {
-  border-color: color-mix(in oklab, var(--color-slate-400) 55%, var(--color-slate-200));
-  background: color-mix(in oklab, var(--color-slate-200) 72%, var(--color-surface));
-  box-shadow: inset 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+  border-color: rgb(15 23 42 / 0.08);
+  background: #f1f5f9;
 }
 
 .prompt-input-mode .nav-segmented-btn-active {
+  background: #ffffff !important;
+  color: #0f172a !important;
   box-shadow:
-    0 2px 5px rgb(var(--shadow-color) / var(--shadow-a2)),
-    0 0 0 1px var(--hairline),
-    inset 0 1px 0 var(--inset-highlight);
+    0 1px 3px rgb(0 0 0 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 0 0 1px rgb(15 23 42 / 0.06);
 }
 
 .prompt-input-kbd {
-  border: 1px solid color-mix(in oklab, var(--color-slate-400) 55%, var(--color-slate-200));
-  background: var(--color-surface);
-  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 var(--inset-highlight);
+  border: 1px solid rgb(15 23 42 / 0.12);
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
 .prompt-input-action {
@@ -874,95 +866,86 @@ body {
 .prompt-input-action-ready {
   border-color: color-mix(in oklab, var(--color-brand-hover) 70%, transparent);
   box-shadow:
-    0 5px 11px -5px rgb(from var(--color-accent) r g b / calc(var(--glow-a3) * 1.5)),
     0 2px 4px rgb(var(--shadow-color) / var(--shadow-a2)),
     inset 0 1px 0 rgb(255 255 255 / 0.28);
 }
 
 .prompt-input-action-ready:hover {
   box-shadow:
-    0 7px 14px -5px rgb(from var(--color-accent) r g b / calc(var(--glow-a3) * 1.65)),
-    0 3px 5px rgb(var(--shadow-color) / var(--shadow-a2)),
+    0 4px 8px rgb(var(--shadow-color) / var(--shadow-a2)),
     inset 0 1px 0 rgb(255 255 255 / 0.34);
 }
 
 .prompt-input-action-disabled {
-  border-color: color-mix(in oklab, var(--color-slate-300) 75%, transparent) !important;
+  border-color: rgb(15 23 42 / 0.08) !important;
   opacity: 0.82;
 }
 
 .prompt-input-cancel {
-  box-shadow: 0 2px 5px -2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 rgb(255 255 255 / 0.42);
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 rgb(255 255 255 / 0.42);
 }
 
-/* Light-theme build pane: establish three levels of elevation so the work
-   area feels like a composed tool rather than a flat column of white. */
+/* Light-theme build pane */
 .build-panel {
-  background:
-    linear-gradient(180deg, #f8fbff 0%, #edf4fa 100%);
-  /* Match the Preview pane's recessed top edge so both panels meet the
-     workspace header on the same visual baseline. */
-  box-shadow:
-    var(--stage-inset),
-    inset -1px 0 0 rgb(30 89 143 / 0.1);
+  background: #f8fafc;
+  border-right: 1px solid rgb(15 23 42 / 0.08);
 }
 
 .build-panel-header {
-  /* Preview's toolbar is 70px tall at wide desktop sizes. The compact Build
-     title pill is shorter, so pin the shell to the same height and keep the
-     two pane dividers on one continuous horizontal line. */
-  min-height: 4.375rem;
-  background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(239 246 255 / 0.94));
-  border-bottom-color: rgb(30 89 143 / 0.18);
-  box-shadow:
-    0 5px 16px -13px rgb(15 23 42 / 0.42),
-    inset 0 -1px 0 rgb(255 255 255 / 0.82);
+  min-height: 3.5rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid rgb(15 23 42 / 0.08);
 }
 
 .build-panel-scroll {
-  background:
-    radial-gradient(80% 45% at 50% 0%, rgb(37 109 177 / 0.09), transparent 68%),
-    linear-gradient(180deg, rgb(239 246 255 / 0.6), transparent 40%);
+  background: #f8fafc;
 }
 
 .build-panel-stage {
-  padding: 1.15rem;
-  border: 1px solid rgb(30 89 143 / 0.16);
-  border-radius: 1rem;
-  background:
-    linear-gradient(145deg, rgb(255 255 255 / 0.96), rgb(248 251 255 / 0.91));
-  box-shadow:
-    0 14px 30px -25px rgb(15 23 42 / 0.5),
-    0 4px 10px -8px rgb(30 89 143 / 0.2),
-    inset 0 1px 0 rgb(255 255 255 / 0.95);
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .build-panel-composer {
-  background:
-    linear-gradient(180deg, rgb(244 249 255 / 0.96), rgb(255 255 255 / 0.98));
-  border-top-color: rgb(30 89 143 / 0.22);
-  box-shadow:
-    0 -8px 20px -18px rgb(15 23 42 / 0.48),
-    inset 0 1px 0 rgb(255 255 255 / 0.88);
+  background: var(--color-surface);
+  border-top: 1px solid rgb(15 23 42 / 0.08);
 }
 
-/* Compact capability row: the original low-contrast slate labels receded
-   into the light card surface, making useful product cues feel disabled. */
+/* Compact capability row */
 .build-panel-capabilities {
-  color: #1e293b;
-  border-top-color: rgb(30 89 143 / 0.2);
-  background: linear-gradient(90deg, rgb(219 234 254 / 0.4), transparent 78%);
+  color: #334155;
+  border-top: 1px solid rgb(15 23 42 / 0.08);
+  background: transparent;
   font-weight: 600;
 }
 
 .build-panel-capabilities svg {
   color: var(--color-indigo-600);
-  filter: drop-shadow(0 1px 1px rgb(30 89 143 / 0.14));
 }
 
-/* The dark palette has its own near-black depth system; retain it instead of
-   carrying the light pane's blue-white surfaces into dark mode. */
+/* Dark mode overrides */
+:is(html.dark, .force-dark) .prompt-input-dock {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .prompt-input-dock:focus-within {
+  border-color: var(--color-slate-400);
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .prompt-input-field::placeholder {
+  color: rgb(255 255 255 / 0.4);
+}
+
+:is(html.dark, .force-dark) .prompt-input-footer {
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  background: transparent;
+}
+
 :is(html.dark, .force-dark) .build-panel {
   background: var(--color-surface);
   box-shadow: none;
@@ -1280,11 +1263,16 @@ body {
 .nav-segmented-group {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem;
+  padding: 0.2rem;
   border-radius: 0.65rem;
-  background: var(--color-slate-100);
-  border: 1px solid var(--color-slate-200);
+  background: #f1f5f9;
+  border: 1px solid rgb(15 23 42 / 0.08);
   gap: 0.2rem;
+}
+
+:is(html.dark, .force-dark) .nav-segmented-group {
+  background: var(--color-slate-100);
+  border-color: var(--color-slate-200);
 }
 
 .nav-segmented-btn {
@@ -1292,11 +1280,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.38rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-slate-600);
+  color: #475569;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -1306,7 +1294,16 @@ body {
   touch-action: manipulation;
 }
 
+:is(html.dark, .force-dark) .nav-segmented-btn {
+  color: var(--color-slate-600);
+}
+
 .nav-segmented-btn:hover:not(:disabled) {
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.6);
+}
+
+:is(html.dark, .force-dark) .nav-segmented-btn:hover:not(:disabled) {
   color: var(--color-slate-900);
   background: color-mix(in oklab, var(--color-surface) 65%, transparent);
 }
@@ -1316,9 +1313,18 @@ body {
 }
 
 .nav-segmented-btn-active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600;
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 0 0 1px rgb(15 23 42 / 0.06);
+}
+
+:is(html.dark, .force-dark) .nav-segmented-btn-active {
   background: var(--seg-active-bg) !important;
   color: var(--seg-active-fg) !important;
-  font-weight: 600;
   box-shadow:
     0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)),
     0 0 0 1px rgb(var(--shadow-color) / var(--shadow-a1));
