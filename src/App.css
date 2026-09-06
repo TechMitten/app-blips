@@ -1190,11 +1190,19 @@ body {
     radial-gradient(ellipse 60% 40% at 30% 60%, rgb(from var(--color-accent) r g b / calc(var(--glow-a1) * 0.3)), transparent);
 }
 
-/* Ambient glow behind the empty-state hero question */
-.hero-atmosphere {
+/* Empty-state hero glow. Layered onto the SAME full-panel inset-0 box as
+   .prompt-atmosphere rather than a separate small fixed-height element, so
+   its falloff is sized against the panel's real (tall) height -- the same
+   trick .inset-shadow-preview's --ambient uses: the light source sits above
+   the visible area (negative %) and only its smooth tail ever renders. A
+   small box with the old percentages clipped hard mid-fade, showing a visible
+   seam in dark theme against the near-black surface. */
+.prompt-atmosphere.prompt-atmosphere-hero {
   background:
-    radial-gradient(70% 56% at 50% 8%, rgb(from var(--color-accent) r g b / var(--glow-a1)), transparent 70%),
-    radial-gradient(52% 44% at 22% 66%, rgb(from var(--hero-glow-secondary) r g b / var(--glow-a1)), transparent 72%);
+    radial-gradient(60% 42% at 50% -6%, rgb(from var(--color-accent) r g b / var(--glow-a1)), transparent 68%),
+    radial-gradient(46% 32% at 22% 10%, rgb(from var(--hero-glow-secondary) r g b / calc(var(--glow-a1) * 0.85)), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgb(from var(--color-accent) r g b / calc(var(--glow-a1) * 0.3)), transparent),
+    radial-gradient(ellipse 60% 40% at 30% 60%, rgb(from var(--color-accent) r g b / calc(var(--glow-a1) * 0.3)), transparent);
 }
 
 /* Orion's belt — three stars, the middle one brighter (Alnilam) */

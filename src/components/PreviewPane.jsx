@@ -40,6 +40,8 @@ export default function PreviewPane({
   previewSrcDoc,
   isGenerating,
   generationStatus,
+  isAutoFixing,
+  autoFixMessage,
   code,
   copied,
   onCopyCode,
@@ -239,6 +241,8 @@ export default function PreviewPane({
             isGenerating={isGenerating}
             generationStatus={generationStatus}
             hasCode={hasCode}
+            isAutoFixing={isAutoFixing}
+            autoFixMessage={autoFixMessage}
           />
         ) : (
           <CodeView

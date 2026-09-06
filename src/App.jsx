@@ -37,6 +37,7 @@ import useDeployment from './hooks/useDeployment';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import useSuggestions from './hooks/useSuggestions';
+import useBuildPaneResize from './hooks/useBuildPaneResize';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -98,6 +99,7 @@ export default function App() {
   const { themePreference, setThemePreference, resolvedTheme } = useTheme();
   const handleToggleTheme = () => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark');
   const { chatFont, setChatFont } = useChatFont();
+  const { panelWidth, isResizing, startResize, resetWidth } = useBuildPaneResize();
 
   // --- Auth ---
   const {
@@ -116,6 +118,8 @@ export default function App() {
   const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
+  const [isAutoFixing, setIsAutoFixing] = useState(false);
+  const [autoFixMessage, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [pendingPrompt, setPendingPrompt] = useState('');
@@ -224,8 +228,12 @@ export default function App() {
       return;
     }
     runtimeErrorRetriesRef.current += 1;
-    const promptText = `Fix this runtime error:\n${payload.message}${payload.line ? ` at line ${payload.line}` : ''}`;
-    handleGenerateRef.current?.(null, promptText, true);
+    const errorDetails = payload?.message || 'Runtime error detected';
+    const promptText = `Fix this runtime error:\n${errorDetails}${payload?.line ? ` at line ${payload.line}` : ''}`;
+    setIsAutoFixing(true);
+    setAutoFixMessage(errorDetails);
+    setGenerationStatus(`Fixing runtime error: ${errorDetails}`);
+    handleGenerateRef.current?.(null, promptText, true, errorDetails);
   }, [isGenerating, chatMode]);
 
   usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError: handleRuntimeError });
@@ -327,22 +335,37 @@ export default function App() {
   };
 
 
-  const handleGenerate = async (e, overridePrompt, isAutoFix = false) => {
+  const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
 
     if (!isAutoFix) {
       runtimeErrorRetriesRef.current = 0;
+      setIsAutoFixing(false);
+      setAutoFixMessage(null);
+    } else {
+      setIsAutoFixing(true);
+      setAutoFixMessage(autoFixError || 'Runtime error detected');
     }
 
     if (!isSignedIn) {
+      if (isAutoFix) {
+        setIsAutoFixing(false);
+        setAutoFixMessage(null);
+        setGenerationStatus(null);
+      }
       setIsAuthModalOpen(true);
       return;
     }
 
     // Require naming for transition from Untitled or New App
     if ((projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
+      if (isAutoFix) {
+        setIsAutoFixing(false);
+        setAutoFixMessage(null);
+        setGenerationStatus(null);
+      }
       setTempProjectName('');
       setShouldGenerateAfterNaming(true);
       setIsNamingModalOpen(true);
@@ -365,12 +388,14 @@ export default function App() {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+    const shouldAskClarifyingQuestions = !isAutoFix && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
 
     setGenerationStatus(
-      shouldAskClarifyingQuestions
-        ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
-        : null
+      isAutoFix
+        ? `Fixing runtime error${autoFixError ? `: ${autoFixError}` : '…'}`
+        : shouldAskClarifyingQuestions
+          ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
+          : null
     );
     abortControllerRef.current = new AbortController();
 
@@ -426,8 +451,7 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
-        reply: generationResult.reply || null,
-        options: generationResult.options || null
+        reply: generationResult.reply || null
       };
 
       const finalVersions = [...updatedVersions, newVersion];
@@ -456,6 +480,8 @@ export default function App() {
       clearPendingJob();
     } finally {
       setIsGenerating(false);
+      setIsAutoFixing(false);
+      setAutoFixMessage(null);
       setPendingPrompt('');
       setGenerationStatus(null);
       clearStreamingState();
@@ -469,6 +495,11 @@ export default function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    setIsGenerating(false);
+    setIsAutoFixing(false);
+    setAutoFixMessage(null);
+    setGenerationStatus(null);
+    clearStreamingState();
   };
 
   const handleOpenInNewTab = () => {
@@ -849,7 +880,10 @@ export default function App() {
         <main className="flex-1 min-h-0 flex overflow-hidden relative">
 
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
-          <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-auto flex-1 md:flex-none min-h-0`}>
+          <div
+            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-[var(--build-panel-width)] flex-1 md:flex-none min-h-0 relative`}
+            style={{ '--build-panel-width': `${panelWidth}px` }}
+          >
             <BuildPanel
               isChatActive={isChatActive}
               isResumingProject={isResumingProject}
@@ -867,6 +901,7 @@ export default function App() {
               streamingReply={streamingReply}
               isGenerating={isGenerating}
               generationStatus={generationStatus}
+              isAutoFixing={isAutoFixing}
               error={error}
               prompt={prompt}
               onPromptChange={setPrompt}
@@ -883,7 +918,24 @@ export default function App() {
               onRetryInterruptedJob={handleRetryInterruptedJob}
               onDismissInterruptedJob={handleDismissInterruptedJob}
             />
+
+            {/* Draggable Resize Divider */}
+            <div
+              onMouseDown={startResize}
+              onDoubleClick={resetWidth}
+              className="hidden md:flex absolute top-0 -right-1 w-2.5 h-full cursor-col-resize z-30 group items-center justify-center select-none"
+              title="Drag to resize pane (double-click to reset)"
+              aria-label="Resize edit pane"
+            >
+              <div className={`w-[2px] h-full transition-colors ${isResizing ? 'bg-indigo-500' : 'group-hover:bg-indigo-400/80 bg-transparent'}`} />
+              <div className="absolute top-1/2 -translate-y-1/2 w-1 h-7 rounded-full bg-slate-400/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            </div>
           </div>
+
+          {/* Iframe shielding overlay while dragging */}
+          {isResizing && (
+            <div className="fixed inset-0 z-50 cursor-col-resize select-none bg-transparent" />
+          )}
 
           {/* Preview/Device Area (Right) */}
           <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-h-0`}>
@@ -919,6 +971,8 @@ export default function App() {
               previewSrcDoc={previewSrcDoc}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
+              isAutoFixing={isAutoFixing}
+              autoFixMessage={autoFixMessage}
               code={codePanelCode}
               copied={copied}
               onCopyCode={handleCopyCode}

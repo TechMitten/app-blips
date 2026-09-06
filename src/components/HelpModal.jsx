@@ -182,8 +182,8 @@ function BuildingSection() {
             <strong> New</strong> fetches a different set.
           </HelpItem>
           <HelpItem icon={MessageCircleQuestion} name="Clarifying questions">
-            Sometimes you&rsquo;ll get a short question before the build starts, with answers you
-            can tap. Turn it off in Settings to always build straight away.
+            Sometimes you&rsquo;ll get a short question before the build starts, so you can type
+            your custom answer. Turn it off in Settings to always build straight away.
           </HelpItem>
           <HelpItem icon={Layers} name="Version ticks">
             Replies in the conversation are tagged v1, v2, v3&hellip; so you can match a message

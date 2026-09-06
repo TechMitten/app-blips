@@ -40,15 +40,10 @@ export const ASK_CLARIFYING_QUESTIONS_TOOL = {
       properties: {
         question: {
           type: 'string',
-          description: 'A single, specific clarifying question you need answered to build the perfect app. Keep it short and focused on one topic.'
-        },
-        options: {
-          type: ['array', 'null'],
-          items: { type: 'string' },
-          description: 'Optional list of 2 to 5 short, mutually-exclusive answer choices for the question (e.g. ["Dark", "Light", "Colorful", "Minimal"]), each under ~20 characters -- rendered as clickable buttons alongside a free-text field. For a genuinely yes/no question, pass ["Yes", "No"]. Use null only when the question does not reduce to a short discrete set of choices (e.g. "What should the app be called?").'
+          description: 'A single, specific clarifying question you need answered to build the perfect app. Keep it short and focused on one topic. The user will type in their custom answer.'
         }
       },
-      required: ['question', 'options'],
+      required: ['question'],
       additionalProperties: false
     },
     strict: true
@@ -171,7 +166,7 @@ CRITICAL RULES:
    - Charts, graphs, stats dashboards -> Chart.js.
    - 3D scenes -> Three.js.
    - Physics, particles, simulations -> Matter.js.
-   - Icon sets (more than a couple of one-off icons) -> lucide.
+   - Icon sets (more than a couple of one-off icons) -> lucide-preact (for Preact apps) or lucide.
    - Drag-and-drop or sortable lists -> SortableJS.
 
    The entries below are verified working. Copy the specifier and import shape exactly, and include ONLY the entries the app actually uses:
@@ -179,6 +174,7 @@ CRITICAL RULES:
      "preact": "https://esm.sh/preact@10",
      "preact/hooks": "https://esm.sh/preact@10/hooks",
      "htm/preact": "https://esm.sh/htm@3/preact",
+     "lucide-preact": "https://esm.sh/lucide-preact@0.400.0",
      "chart.js/auto": "https://esm.sh/chart.js@4/auto",
      "three": "https://esm.sh/three@0.160.0",
      "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
@@ -189,7 +185,8 @@ CRITICAL RULES:
    <script type="module">
      import { render } from 'preact';
      import { html } from 'htm/preact';
-     import { useState } from 'preact/hooks';
+     import { useState, useEffect } from 'preact/hooks';
+     import { Sparkles, Heart } from 'lucide-preact';
      import Chart from 'chart.js/auto';
      import * as THREE from 'three';
      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -197,20 +194,31 @@ CRITICAL RULES:
      import Sortable from 'sortablejs';
      import { createIcons, icons } from 'lucide';
    </script>
+   Preact + htm syntax rules (CRITICAL to avoid silent blank screens and broken interactivity):
+   - Components MUST be interpolated with \${}: write <\${App} /> or <\${Card} title=\${val} />, NEVER <App /> or <Card />. Bare tags without \${} are parsed as literal custom HTML tags (e.g. <app></app>); the component function never executes and leaves a blank screen with zero errors.
+   - Self-closing component tags MUST include the trailing slash: write <\${Button} />, not <\${Button}>.
+   - Mount to a container element: put <div id="app"></div> in the <body> and mount with:
+     render(html\`<\${App} />\`, document.getElementById('app'));
+     (Never mount directly to document.body, which breaks when preview or extension scripts inject into the body).
+   - Form inputs: use onInput=\${(e) => setText(e.target.value)} for real-time text input state updates (Preact onChange only fires on blur).
+   - Event handlers: use onClick=\${handleClick}, onSubmit=\${handleSubmit}, etc.
+   - Dynamic classes: class="p-4 \${active ? 'bg-blue-600' : 'bg-slate-100'}" (Preact supports class and className).
+   - Lists: \${items.map(item => html\`<li key=\${item.id}>\${item.name}</li>\`)} (always wrap mapped templates in html\`...\`).
+   - For icons in Preact apps, prefer 'lucide-preact' components (e.g. <\${Sparkles} size=\${20} />) which re-render cleanly with VDOM, rather than vanilla lucide DOM mutation.
    Import shapes that silently break if you get them wrong:
    - Preact hooks come from 'preact/hooks', NOT from 'htm/preact' (which exports only html and its bindings).
    - Every preact subpath in the import map must point at the SAME pinned version, or you get two Preact instances and hooks stop working.
    - 'three/addons/' needs the trailing slash on BOTH the map key and its value, and addon imports need the full '.js' path.
    - Chart.js must come from the 'chart.js/auto' subpath (it self-registers the controllers) and is a DEFAULT export.
    - matter-js and sortablejs are CommonJS: default import (Matter.Engine, Sortable.create), never named imports.
-   NEVER emit JSX syntax and NEVER load Babel standalone: nothing can compile them.
+   - NEVER emit JSX syntax and NEVER load Babel standalone: browsers cannot parse JSX natively and nothing can compile them. Always use Preact with htm tagged templates.
 6. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 7. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 8. For mobile-focused apps, build a native smartphone app, not a shrunk-down website. Do not use website conventions like top nav bars with a logo, hamburger menus, hero sections, or footers. Instead use native app patterns: a fixed bottom tab bar or top app bar, full-bleed screens, card-based lists, sheets/modals that slide up from the bottom, large tappable rows, and a floating action button where appropriate. Always include a viewport-fit=cover meta tag and safe-area-inset padding.
 9. The app runs in a sandboxed preview frame with no origin. localStorage, sessionStorage and document.cookie ARE available and safe to call -- in the preview they are backed by an in-memory shim, and once the app is deployed to a real origin the same code persists for real. So never assume saved data exists: always read defensively, tolerate an empty store, and keep the app fully usable on a first run. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, or harm users (e.g., fake login screens, credential harvesters, scams). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
-12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. When the question naturally reduces to a small set of discrete choices (including plain yes/no), populate "options" with 2-5 short button-friendly labels so the user can answer with one click; otherwise leave "options" null and rely on free-text. If you call this tool, do NOT generate any HTML or code.
+12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. The user will type in a custom answer to your question. If you call this tool, do NOT generate any HTML or code.
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
@@ -289,6 +297,8 @@ Suggest 3-4 specific next-step prompts for this app.`;
 export const buildSyntaxRepairInstruction = (errors) => `The current app code contains JavaScript syntax errors that will break the app:
 
 ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
+
+CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html\`<div class="...">\${content}</div>\` and <\${Component} /> for components).
 
 Fix these with apply_surgical_edits before finishing. If a search anchor around the broken code is unclear, call view_code first. Change as little as possible -- only what is needed to make the code parse.`;
 

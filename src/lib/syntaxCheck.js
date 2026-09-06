@@ -51,6 +51,61 @@ export const extractInlineScripts = (html) => {
   return blocks;
 };
 
+const HTML_TAGS = new Set([
+  'A', 'ABBR', 'ADDRESS', 'AREA', 'ARTICLE', 'ASIDE', 'AUDIO', 'B', 'BASE', 'BDI', 'BDO',
+  'BLOCKQUOTE', 'BODY', 'BR', 'BUTTON', 'CANVAS', 'CAPTION', 'CITE', 'CODE', 'COL', 'COLGROUP',
+  'DATA', 'DATALIST', 'DD', 'DEL', 'DETAILS', 'DFN', 'DIALOG', 'DIV', 'DL', 'DT', 'EM', 'EMBED',
+  'FIELDSET', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+  'HEAD', 'HEADER', 'HGROUP', 'HR', 'HTML', 'I', 'IFRAME', 'IMG', 'INPUT', 'INS', 'KBD',
+  'LABEL', 'LEGEND', 'LI', 'LINK', 'MAIN', 'MAP', 'MARK', 'MENU', 'META', 'METER', 'NAV',
+  'NOSCRIPT', 'OBJECT', 'OL', 'OPTGROUP', 'OPTION', 'OUTPUT', 'P', 'PICTURE', 'PRE', 'PROGRESS',
+  'Q', 'RP', 'RT', 'RUBY', 'S', 'SAMP', 'SCRIPT', 'SEARCH', 'SECTION', 'SELECT', 'SLOT',
+  'SMALL', 'SOURCE', 'SPAN', 'STRONG', 'STYLE', 'SUB', 'SUMMARY', 'SUP', 'SVG', 'TABLE',
+  'TBODY', 'TD', 'TEMPLATE', 'TEXTAREA', 'TFOOT', 'TH', 'THEAD', 'TIME', 'TITLE', 'TR',
+  'TRACK', 'U', 'UL', 'VAR', 'VIDEO', 'WBR', 'PATH', 'RECT', 'CIRCLE', 'G'
+]);
+
+const walk = (node, visitor) => {
+  if (!node || typeof node !== 'object') return;
+  visitor(node);
+  for (const key of Object.keys(node)) {
+    if (key === 'loc' || key === 'range') continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      for (const c of child) walk(c, visitor);
+    } else if (child && typeof child === 'object') {
+      walk(child, visitor);
+    }
+  }
+};
+
+const findBareHtmComponents = (ast, baseStartLine, errors) => {
+  walk(ast, (node) => {
+    if (
+      node.type === 'TaggedTemplateExpression' &&
+      node.tag &&
+      node.tag.type === 'Identifier' &&
+      node.tag.name === 'html'
+    ) {
+      for (const quasi of node.quasi.quasis) {
+        const text = quasi.value.raw;
+        const compRe = /<\s*([A-Z][a-zA-Z0-9]*)\b/g;
+        let match;
+        while ((match = compRe.exec(text)) !== null) {
+          const name = match[1];
+          if (name === name.toUpperCase() && HTML_TAGS.has(name)) continue;
+          const linesBefore = text.slice(0, match.index).split('\n').length - 1;
+          const line = (quasi.loc ? quasi.loc.start.line : 1) + linesBefore + baseStartLine - 1;
+          errors.push({
+            line,
+            message: `Uninterpolated Preact component <${name} /> in htm template: in htm/preact, components must be written as <\${${name}} />, not <${name} /> (bare tags are parsed as inert HTML custom elements and will not render).`
+          });
+        }
+      }
+    }
+  });
+};
+
 // Static, parse-only syntax check of a generated HTML document. Never executes
 // any code. Browsers never hard-fail on malformed HTML (error recovery), so
 // only JavaScript parse errors -- where generated apps actually break -- are
@@ -68,14 +123,25 @@ export const checkSyntax = (html) => {
       continue;
     }
     try {
-      acorn.parse(block.code, {
+      const ast = acorn.parse(block.code, {
         ecmaVersion: 'latest',
-        sourceType: block.type === 'module' ? 'module' : 'script'
+        sourceType: block.type === 'module' ? 'module' : 'script',
+        locations: true
       });
+      findBareHtmComponents(ast, block.startLine, errors);
     } catch (err) {
+      let message = err.message.replace(/ \(\d+:\d+\)$/, '');
+      if (err.loc) {
+        const lines = block.code.split(/\r?\n/);
+        const errLine = lines[err.loc.line - 1] || '';
+        const snippet = errLine.slice(err.loc.column);
+        if (/^<\s*\/?[a-zA-Z]/.test(snippet) || /^<>/ .test(snippet)) {
+          message += ' — JSX syntax is not supported in browser ES modules. Use Preact with htm tagged templates instead (e.g. html`<div class="...">...</div>` and `<${Component} />`).';
+        }
+      }
       errors.push({
         line: err.loc ? block.startLine + err.loc.line - 1 : block.startLine,
-        message: err.message.replace(/ \(\d+:\d+\)$/, '')
+        message
       });
     }
   }

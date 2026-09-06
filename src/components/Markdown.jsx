@@ -33,7 +33,7 @@ const renderInline = (tokens, keyPrefix) =>
             href={tok.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline text-indigo-600 dark:text-emerald-400 break-all hover:opacity-80"
+            className="underline text-indigo-600 dark:text-indigo-400 break-all hover:opacity-80"
           >
             {tok.text}
           </a>
