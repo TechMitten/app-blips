@@ -78,15 +78,7 @@ export default function PromptInput({
                 <span>Ask</span>
               </label>
             </div>
-          ) : (
-            !isGenerating && (
-              <div className="prompt-input-hint flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white/70 select-none">
-                <span className="hidden sm:inline text-slate-500 dark:text-white/45 font-medium">Press</span>
-                <kbd className="prompt-input-kbd px-2 py-0.5 rounded-md text-[11px] leading-none text-white bg-slate-900 dark:bg-white/15 dark:text-white dark:border dark:border-white/20 font-mono font-black shadow-xs" title="Shift+Enter for a new line">Enter ↵</kbd>
-                <span className="hidden sm:inline text-slate-700 dark:text-white/70 font-medium">{isClarifying ? 'to answer' : (hasCode ? 'to update' : 'to build')}</span>
-              </div>
-            )
-          )}
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {isGenerating && (
