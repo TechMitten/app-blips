@@ -3,57 +3,49 @@ import { Sparkles, ArrowUpRight } from 'lucide-react';
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
     return {
-      bg: 'bg-amber-500 text-white shadow-sm shadow-amber-500/30',
-      badge: 'starter-badge-amber',
-      hoverBorder: 'hover:border-amber-500 dark:hover:border-amber-400 hover:shadow-amber-500/10',
+      bg: 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-md shadow-amber-500/25',
+      glow: 'bg-amber-500',
     };
   }
   if (colorString.includes('sky')) {
     return {
-      bg: 'bg-sky-500 text-white shadow-sm shadow-sky-500/30',
-      badge: 'starter-badge-sky',
-      hoverBorder: 'hover:border-sky-500 dark:hover:border-sky-400 hover:shadow-sky-500/10',
+      bg: 'bg-gradient-to-br from-sky-400 to-sky-600 text-white shadow-md shadow-sky-500/25',
+      glow: 'bg-sky-500',
     };
   }
   if (colorString.includes('emerald')) {
     return {
-      bg: 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30',
-      badge: 'starter-badge-emerald',
-      hoverBorder: 'hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-emerald-500/10',
+      bg: 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md shadow-emerald-500/25',
+      glow: 'bg-emerald-500',
     };
   }
   if (colorString.includes('violet')) {
     return {
-      bg: 'bg-violet-600 text-white shadow-sm shadow-violet-500/30',
-      badge: 'starter-badge-violet',
-      hoverBorder: 'hover:border-violet-500 dark:hover:border-violet-400 hover:shadow-violet-500/10',
+      bg: 'bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-md shadow-violet-500/25',
+      glow: 'bg-violet-500',
     };
   }
   if (colorString.includes('rose')) {
     return {
-      bg: 'bg-rose-500 text-white shadow-sm shadow-rose-500/30',
-      badge: 'starter-badge-rose',
-      hoverBorder: 'hover:border-rose-500 dark:hover:border-rose-400 hover:shadow-rose-500/10',
+      bg: 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-md shadow-rose-500/25',
+      glow: 'bg-rose-500',
     };
   }
   if (colorString.includes('blue')) {
     return {
-      bg: 'bg-blue-600 text-white shadow-sm shadow-blue-500/30',
-      badge: 'starter-badge-blue',
-      hoverBorder: 'hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-blue-500/10',
+      bg: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/25',
+      glow: 'bg-blue-500',
     };
   }
   if (colorString.includes('teal')) {
     return {
-      bg: 'bg-teal-500 text-white shadow-sm shadow-teal-500/30',
-      badge: 'starter-badge-teal',
-      hoverBorder: 'hover:border-teal-500 dark:hover:border-teal-400 hover:shadow-teal-500/10',
+      bg: 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-md shadow-teal-500/25',
+      glow: 'bg-teal-500',
     };
   }
   return {
-    bg: 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30',
-    badge: 'starter-badge-indigo',
-    hoverBorder: 'hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-indigo-500/10',
+    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25',
+    glow: 'bg-indigo-500',
   };
 };
 
@@ -73,7 +65,7 @@ export default function StarterIdeas({ ideas, onPick }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
         {ideas.slice(0, 4).map((starter) => {
           const IconComponent = starter.icon || Sparkles;
           const theme = getColorClasses(starter.color);
@@ -83,40 +75,34 @@ export default function StarterIdeas({ ideas, onPick }) {
               type="button"
               onClick={() => onPick(starter)}
               title={`${starter.title} — ${starter.prompt}`}
-              className="starter-pop-card group relative flex flex-col justify-between text-left p-4 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20"
+              className="starter-pop-card group relative flex items-center gap-3 text-left p-2.5 sm:p-3 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20"
             >
-              <div className="relative z-10 flex flex-col h-full justify-between w-full">
-                <div>
-                  <div className="flex items-center justify-between gap-1.5 mb-3">
-                    <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-bold ${theme.bg} border-b-2 border-black/25 shadow-md transition-transform duration-200 group-hover:scale-110`}>
-                      <IconComponent size={18} strokeWidth={2.5} />
-                    </div>
+              {/* Subtle ambient colored corner glow on hover */}
+              <div
+                className={`absolute -right-6 -top-6 w-20 h-20 rounded-full blur-xl opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
+                aria-hidden="true"
+              />
 
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {starter.category && (
-                        <span className={`text-[10px] font-mono font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md border-b-2 shadow-xs truncate max-w-[95px] ${theme.badge}`}>
-                          {starter.category}
-                        </span>
-                      )}
-                      <ArrowUpRight
-                        size={15}
-                        aria-hidden="true"
-                        className="shrink-0 text-slate-400 dark:text-white/40 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 duration-150"
-                      />
-                    </div>
-                  </div>
-
-                  <h4 className="text-sm font-black text-slate-950 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug line-clamp-1">
-                    {starter.title}
-                  </h4>
-
-                  {starter.prompt && (
-                    <p className="starter-card-desc text-xs line-clamp-2 leading-relaxed mt-1.5 font-medium transition-colors">
-                      {starter.prompt}
-                    </p>
-                  )}
-                </div>
+              <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
+                <IconComponent size={15} strokeWidth={2.2} />
               </div>
+
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight">
+                  {starter.title}
+                </h4>
+              </div>
+
+              <span
+                aria-hidden="true"
+                className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/10 text-slate-400 dark:text-white/40 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 group-hover:border-indigo-300 dark:group-hover:border-indigo-500/40 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/20 transition-all duration-150 shadow-2xs"
+              >
+                <ArrowUpRight
+                  size={12}
+                  strokeWidth={2.5}
+                  className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-150"
+                />
+              </span>
             </button>
           );
         })}

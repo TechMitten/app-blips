@@ -43,7 +43,6 @@ import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
-import useSuggestions from './hooks/useSuggestions';
 import useBuildPaneResize from './hooks/useBuildPaneResize';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
@@ -157,12 +156,6 @@ export default function App() {
     replyFrozenRef.current = false;
   }, []);
 
-  // --- Contextual suggestions ---
-  const {
-    contextualSuggestions, isSuggestionsLoading, isSuggestionsExpanded,
-    setIsSuggestionsExpanded, handleRefreshSuggestions,
-  } = useSuggestions({ generatedCode, versions, projectName, isGenerating });
-
   // --- Projects (list / persistence) ---
   const {
     myProjects, isProjectsListOpen, setIsProjectsListOpen,
@@ -175,7 +168,7 @@ export default function App() {
       versions, currentVersionIndex, projectName, currentProjectId, deployment,
       setProjectName, setVersions, setCurrentVersionIndex, setDeployment,
       setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
-      setIsResumingProject, setIsSuggestionsExpanded, clearStreamingState,
+      setIsResumingProject, clearStreamingState,
     },
   });
 
@@ -494,7 +487,6 @@ export default function App() {
     setHasSentFirstPrompt(true);
     setIsGenerating(true);
     isGeneratingRef.current = true;
-    setIsSuggestionsExpanded(false);
     setMobileView('preview');
     clearStreamingState();
     setError(null);
@@ -1092,12 +1084,6 @@ export default function App() {
               onSubmit={handleGenerate}
               onCancelGeneration={handleCancelGeneration}
               chatBottomRef={chatBottomRef}
-              contextualSuggestions={contextualSuggestions}
-              isSuggestionsLoading={isSuggestionsLoading}
-              isSuggestionsExpanded={isSuggestionsExpanded}
-              setIsSuggestionsExpanded={setIsSuggestionsExpanded}
-              onRefreshSuggestions={handleRefreshSuggestions}
-              onPickSuggestion={setPrompt}
               interruptedJob={interruptedJob}
               onRetryInterruptedJob={handleRetryInterruptedJob}
               onDismissInterruptedJob={handleDismissInterruptedJob}

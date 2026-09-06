@@ -26,7 +26,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     versions, currentVersionIndex, projectName, currentProjectId, deployment,
     setProjectName, setVersions, setCurrentVersionIndex, setDeployment,
     setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
-    setIsResumingProject, setIsSuggestionsExpanded, clearStreamingState
+    setIsResumingProject, clearStreamingState
   } = workspace;
 
   const useCloud = isSignedIn && firebaseEnabled;
@@ -241,7 +241,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   // Loading a project straight from the saved-apps list.
   const loadProject = (project) => {
     clearStreamingState();
-    setIsSuggestionsExpanded(false);
     setCurrentProjectId(project.id);
     setProjectName(project.name);
     setVersions(project.versions);

@@ -92,7 +92,7 @@ export default function PromptInput({
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 shadow-md transition-all active:translate-y-0.5 active:border-b-2 cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all active:translate-y-0.5 active:border-b-2 cursor-pointer"
             >
               <X size={14} />
               Cancel
@@ -103,7 +103,7 @@ export default function PromptInput({
             disabled={!canSubmit}
             className={`prompt-input-action inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
-                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 cursor-pointer'
+                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 dark:border-b-black/80 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 cursor-pointer'
                 : 'bg-slate-200/90 dark:bg-white/[0.08] text-slate-600 dark:text-white/40 border-2 border-slate-300 dark:border-white/15 border-b-[3px] border-b-slate-400/80 dark:border-b-black/80 cursor-not-allowed shadow-xs'
             }`}
           >

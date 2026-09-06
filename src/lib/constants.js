@@ -7,8 +7,6 @@ import {
   Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard
 } from 'lucide-react';
 
-export const SUGGESTIONS_CODE_CHAR_BUDGET = 12000;
-
 // Cloudflare Turnstile site key for Supabase auth bot protection. Public by
 // design (the matching secret lives in Supabase Auth > Bot and Abuse Protection).
 export const TURNSTILE_SITE_KEY = '0x4AAAAAAEj8I1oDBw3Rwb8l';

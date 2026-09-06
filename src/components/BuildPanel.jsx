@@ -1,11 +1,10 @@
 import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
-import SuggestionsBar from './SuggestionsBar';
 import PromptInput from './PromptInput';
 
 // Left-hand prompt/chat pane: studio header, starter ideas, chat transcript and
-// the fixed bottom input area (suggestions + prompt). The generation flow and
+// the fixed bottom input area (prompt). The generation flow and
 // all state live in App; this is presentational composition.
 export default function BuildPanel({
   isChatActive,
@@ -29,12 +28,6 @@ export default function BuildPanel({
   onCancelGeneration,
   onChatModeChange,
   chatBottomRef,
-  contextualSuggestions,
-  isSuggestionsLoading,
-  isSuggestionsExpanded,
-  setIsSuggestionsExpanded,
-  onRefreshSuggestions,
-  onPickSuggestion,
   interruptedJob = null,
   onRetryInterruptedJob,
   onDismissInterruptedJob,
@@ -257,16 +250,6 @@ export default function BuildPanel({
 
       {/* Fixed Bottom Input Area */}
       <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-[1]">
-        {generatedCode && !isGenerating && chatMode === 'build' && (isSuggestionsLoading || contextualSuggestions.length > 0) && (
-          <SuggestionsBar
-            suggestions={contextualSuggestions}
-            isLoading={isSuggestionsLoading}
-            isExpanded={isSuggestionsExpanded}
-            setIsExpanded={setIsSuggestionsExpanded}
-            onRefresh={onRefreshSuggestions}
-            onPick={onPickSuggestion}
-          />
-        )}
         <PromptInput
           prompt={prompt}
           onPromptChange={onPromptChange}
