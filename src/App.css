@@ -1430,39 +1430,27 @@ body {
 /* ===== Empty-state preview overlay (shown before first generation) ===== */
 
 .preview-empty-backdrop {
-  /* Richer mesh — deeper base + stronger radials so the palette actually shows */
+  /* Soft, luminous gradient mesh — subtle tints that keep foreground elements crisp and legible */
   background:
-    radial-gradient(ellipse 85% 60% at 50% -8%, rgb(165 180 252 / 0.65) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 45% at 85% 75%, rgb(147 210 253 / 0.5) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 42% at 15% 82%, rgb(192 132 252 / 0.35) 0%, transparent 52%),
-    linear-gradient(170deg, #eaedff 0%, #e2e8ff 40%, #dce3f8 100%);
+    radial-gradient(ellipse 80% 55% at 50% -5%, rgb(165 180 252 / 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 85% 75%, rgb(147 210 253 / 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 42% at 15% 82%, rgb(192 132 252 / 0.08) 0%, transparent 52%),
+    linear-gradient(175deg, #ffffff 0%, #f8faff 45%, #eff3fc 100%);
 }
 
-/* Subtle bokeh dot layer for light mode */
 .preview-empty-backdrop::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(circle 3px at 22% 28%, rgb(99 102 241 / 0.3) 100%, transparent 100%),
-    radial-gradient(circle 2px at 75% 18%, rgb(56 189 248 / 0.35) 100%, transparent 100%),
-    radial-gradient(circle 4px at 65% 75%, rgb(167 139 250 / 0.25) 100%, transparent 100%),
-    radial-gradient(circle 2px at 30% 70%, rgb(251 146 60 / 0.2) 100%, transparent 100%),
-    radial-gradient(circle 3px at 85% 50%, rgb(99 102 241 / 0.22) 100%, transparent 100%),
-    radial-gradient(circle 2px at 12% 52%, rgb(56 189 248 / 0.25) 100%, transparent 100%);
+  content: none;
 }
 
 :is(html.dark, .force-dark) .preview-empty-backdrop {
   background: linear-gradient(160deg, #111827 0%, #0f172a 55%, #0c1120 100%);
 }
 
-/* Ambient glow blob */
+/* Ambient glow blob — softened for high legibility */
 .preview-empty-glow {
   background:
-    radial-gradient(ellipse 72% 48% at 50% 28%, rgb(99 102 241 / 0.3) 0%, transparent 58%),
-    radial-gradient(ellipse 50% 34% at 68% 18%, rgb(56 189 248 / 0.22) 0%, transparent 52%),
-    radial-gradient(ellipse 44% 30% at 30% 32%, rgb(167 139 250 / 0.18) 0%, transparent 50%);
+    radial-gradient(ellipse 65% 42% at 50% 28%, rgb(99 102 241 / 0.08) 0%, transparent 58%),
+    radial-gradient(ellipse 45% 30% at 65% 20%, rgb(56 189 248 / 0.06) 0%, transparent 52%);
 }
 
 :is(html.dark, .force-dark) .preview-empty-glow {
@@ -1484,10 +1472,7 @@ body {
 
 /* Headline */
 .preview-empty-title {
-  color: #0a0f1e;
-  text-shadow:
-    0 1px 6px rgb(255 255 255 / 0.55),
-    0 0 16px rgb(255 255 255 / 0.3);
+  color: #0f172a;
 }
 
 :is(html.dark, .force-dark) .preview-empty-title {
@@ -1497,10 +1482,7 @@ body {
 
 /* Subtitle */
 .preview-empty-subtitle {
-  color: #2d3a50;
-  text-shadow:
-    0 1px 5px rgb(255 255 255 / 0.5),
-    0 0 12px rgb(255 255 255 / 0.25);
+  color: #475569;
 }
 
 :is(html.dark, .force-dark) .preview-empty-subtitle {
@@ -1515,10 +1497,7 @@ body {
   -webkit-backdrop-filter: none;
   border: none;
   box-shadow: none;
-  color: #0f172a;
-  text-shadow:
-    0 1px 5px rgb(255 255 255 / 0.5),
-    0 0 12px rgb(255 255 255 / 0.25);
+  color: #1e293b;
 }
 
 :is(html.dark, .force-dark) .preview-empty-pill {

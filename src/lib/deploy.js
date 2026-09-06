@@ -4,7 +4,7 @@ import { ref, uploadString } from 'firebase/storage';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
-import { injectNoindexSnippet, injectFaviconSnippet } from './seo';
+import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 
 // --- Deployment ---
 //
@@ -100,16 +100,15 @@ export const unregisterDeployment = async (slug) => {
 };
 
 export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon }) => {
+  const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   let withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
   if (preventIndexing) {
     withExtras = injectNoindexSnippet(withExtras);
   }
-  if (favicon) {
-    withExtras = injectFaviconSnippet(withExtras, favicon);
-  }
-  const finalHtml = password ? await encryptApp(withExtras, password) : withExtras;
+  withExtras = injectFaviconSnippet(withExtras, deployFavicon);
+  const finalHtml = password ? await encryptApp(withExtras, password, deployFavicon) : withExtras;
 
   try {
     const storageRef = ref(storage, `${DEPLOY_BUCKET}/${path}`);

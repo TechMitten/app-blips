@@ -1,22 +1,28 @@
+export const DEFAULT_FAVICON_URL = '/favicon.ico';
 export const NOINDEX_META_TAG = '<meta name="robots" content="noindex">';
 
-export const injectFaviconSnippet = (html, faviconDataUrl) => {
-  if (typeof html !== 'string' || !html || !faviconDataUrl) return html;
-  
-  const faviconTag = `<link rel="icon" href="${faviconDataUrl}">`;
-  const insertAt = (index) => html.slice(0, index) + faviconTag + html.slice(index);
+export const injectFaviconSnippet = (html, faviconDataUrl = DEFAULT_FAVICON_URL) => {
+  if (typeof html !== 'string' || !html) return html;
+  const targetFavicon = faviconDataUrl || DEFAULT_FAVICON_URL;
 
-  const headMatch = /<head\b[^>]*>/i.exec(html);
+  // Replace any existing favicon link so the new icon takes precedence
+  const existingIconRegex = /<link\b[^>]*\brel=["'](?:shortcut )?icon["'][^>]*>/gi;
+  const cleanHtml = html.replace(existingIconRegex, '');
+
+  const faviconTag = `<link rel="icon" href="${targetFavicon}">`;
+  const insertAt = (index) => cleanHtml.slice(0, index) + faviconTag + cleanHtml.slice(index);
+
+  const headMatch = /<head\b[^>]*>/i.exec(cleanHtml);
   if (headMatch) {
     return insertAt(headMatch.index + headMatch[0].length);
   }
 
-  const htmlMatch = /<html\b[^>]*>/i.exec(html);
+  const htmlMatch = /<html\b[^>]*>/i.exec(cleanHtml);
   if (htmlMatch) {
     return insertAt(htmlMatch.index + htmlMatch[0].length);
   }
 
-  return faviconTag + html;
+  return faviconTag + cleanHtml;
 };
 
 export const injectNoindexSnippet = (html) => {

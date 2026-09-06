@@ -2,14 +2,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /projects/{projectId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow read, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow update: if request.auth != null 
+                    && request.auth.uid == resource.data.user_id
+                    && request.resource.data.user_id == resource.data.user_id;
     }
     
     match /deployments/{slug} {
       allow read: if true;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow create: if request.auth != null 
+                    && request.auth.uid == request.resource.data.user_id
+                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
+      allow update: if request.auth != null 
+                    && request.auth.uid == resource.data.user_id
+                    && request.resource.data.user_id == resource.data.user_id
+                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
     }
   }
 }
