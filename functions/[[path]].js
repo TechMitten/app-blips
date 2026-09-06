@@ -98,10 +98,30 @@ const injectAnalytics = (html) => {
   return html;
 };
 
+const injectFavicon = (html) => {
+  if (/<link\b[^>]*\brel=["'](?:shortcut )?icon["']/i.test(html)) return html;
+
+  const faviconTag = '<link rel="icon" href="/favicon.ico">';
+  const headMatch = /<head\b[^>]*>/i.exec(html);
+  if (headMatch) {
+    const at = headMatch.index + headMatch[0].length;
+    return html.slice(0, at) + faviconTag + html.slice(at);
+  }
+
+  const htmlMatch = /<html\b[^>]*>/i.exec(html);
+  if (htmlMatch) {
+    const at = htmlMatch.index + htmlMatch[0].length;
+    return html.slice(0, at) + faviconTag + html.slice(at);
+  }
+
+  return faviconTag + html;
+};
+
 const notice = (status, title, body) =>
   new Response(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<link rel="icon" href="/favicon.ico">` +
       `<title>${title}</title><style>` +
       `body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;display:flex;align-items:center;` +
       `justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#334155}` +
@@ -259,7 +279,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectAnalytics(await object.text());
+    const html = injectAnalytics(injectFavicon(await object.text()));
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,
