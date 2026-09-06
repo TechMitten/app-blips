@@ -21,6 +21,164 @@
 // restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
 // if they expose it beyond localhost.
 
+let jwksCache = { keys: [], expiry: 0 };
+const cryptoKeysCache = new Map();
+
+const base64UrlToUint8Array = (base64Url) => {
+  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4) base64 += '=';
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const getAppCheckCryptoKey = async (kid) => {
+  const now = Date.now();
+  if (!jwksCache.keys.length || now > jwksCache.expiry) {
+    const res = await fetch('https://firebaseappcheck.googleapis.com/v1/jwks');
+    if (!res.ok) {
+      throw new Error(`Failed to fetch App Check JWKS: ${res.status}`);
+    }
+    const data = await res.json();
+    jwksCache = {
+      keys: data.keys || [],
+      expiry: now + 6 * 60 * 60 * 1000,
+    };
+    cryptoKeysCache.clear();
+  }
+
+  if (cryptoKeysCache.has(kid)) {
+    return cryptoKeysCache.get(kid);
+  }
+
+  let jwk = jwksCache.keys.find((k) => k.kid === kid && k.alg === 'RS256');
+  if (!jwk) {
+    const res = await fetch('https://firebaseappcheck.googleapis.com/v1/jwks');
+    if (res.ok) {
+      const data = await res.json();
+      jwksCache = {
+        keys: data.keys || [],
+        expiry: now + 6 * 60 * 60 * 1000,
+      };
+      cryptoKeysCache.clear();
+      jwk = jwksCache.keys.find((k) => k.kid === kid && k.alg === 'RS256');
+    }
+  }
+
+  if (!jwk) return null;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  cryptoKeysCache.set(kid, cryptoKey);
+  return cryptoKey;
+};
+
+export const verifyAppCheckToken = async (token, env) => {
+  if (!token || typeof token !== 'string') {
+    return { ok: false, error: 'App Check token missing or invalid.' };
+  }
+
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return { ok: false, error: 'Malformed App Check token.' };
+  }
+
+  const [rawHeader, rawPayload, rawSig] = parts;
+
+  let header;
+  let payload;
+  try {
+    const headerStr = new TextDecoder().decode(base64UrlToUint8Array(rawHeader));
+    const payloadStr = new TextDecoder().decode(base64UrlToUint8Array(rawPayload));
+    header = JSON.parse(headerStr);
+    payload = JSON.parse(payloadStr);
+  } catch {
+    return { ok: false, error: 'Malformed App Check token JSON.' };
+  }
+
+  if (header.alg !== 'RS256' || header.typ !== 'JWT' || !header.kid) {
+    return { ok: false, error: 'Invalid App Check token header.' };
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!payload.exp || payload.exp < nowSeconds - 10) {
+    return { ok: false, error: 'App Check token has expired.' };
+  }
+
+  const projectNumber = env.FIREBASE_PROJECT_NUMBER || env.VITE_FIREBASE_PROJECT_NUMBER;
+  const projectId = env.VITE_FIREBASE_PROJECT_ID || env.FIREBASE_PROJECT_ID;
+
+  if (projectNumber) {
+    if (payload.iss !== `https://firebaseappcheck.googleapis.com/${projectNumber}`) {
+      return { ok: false, error: 'App Check token issuer mismatch.' };
+    }
+  } else if (!payload.iss?.startsWith('https://firebaseappcheck.googleapis.com/')) {
+    return { ok: false, error: 'Invalid App Check token issuer.' };
+  }
+
+  const audArray = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+  const expectedAuds = [
+    ...(projectNumber ? [`projects/${projectNumber}`] : []),
+    ...(projectId ? [`projects/${projectId}`] : []),
+  ];
+
+  if (expectedAuds.length > 0) {
+    const matches = expectedAuds.some((expected) => audArray.includes(expected));
+    if (!matches) {
+      return { ok: false, error: 'App Check token audience mismatch.' };
+    }
+  }
+
+  try {
+    const cryptoKey = await getAppCheckCryptoKey(header.kid);
+    if (!cryptoKey) {
+      return { ok: false, error: 'App Check signing key not found.' };
+    }
+
+    const sigBytes = base64UrlToUint8Array(rawSig);
+    const signedData = new TextEncoder().encode(`${rawHeader}.${rawPayload}`);
+
+    const isValid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      sigBytes,
+      signedData
+    );
+
+    if (!isValid) {
+      return { ok: false, error: 'Invalid App Check token signature.' };
+    }
+
+    return { ok: true, payload };
+  } catch (err) {
+    return { ok: false, error: `App Check verification failed: ${err.message}` };
+  }
+};
+
+const verifyAppCheck = async (request, env) => {
+  if (env.SELF_HOSTED_MODE !== 'false') return { ok: true };
+  if (env.FIREBASE_APPCHECK_ENFORCE === 'false') return { ok: true };
+
+  const appCheckToken =
+    request.headers.get('x-firebase-appcheck') ||
+    request.headers.get('X-Firebase-AppCheck') ||
+    '';
+
+  if (!appCheckToken) {
+    return { ok: false, error: 'App Check token required.' };
+  }
+
+  return verifyAppCheckToken(appCheckToken, env);
+};
+
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
   if (!trimmed) return '';
@@ -115,6 +273,14 @@ export async function handleChatProxy(request, env) {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Sign in required.' }), {
       status: 401, statusText: "ProxyAuthFailed",
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  const appCheck = await verifyAppCheck(request, env);
+  if (!appCheck.ok) {
+    return new Response(JSON.stringify({ error: appCheck.error || 'App Check failed.' }), {
+      status: 401, statusText: "AppCheckFailed",
       headers: { 'content-type': 'application/json' },
     });
   }
