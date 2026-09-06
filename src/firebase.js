@@ -45,7 +45,8 @@ if (firebaseEnabled) {
   app = initializeApp(firebaseConfig);
 
   if (typeof self !== 'undefined' && import.meta.env.DEV) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    const debugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken || true;
   }
 
   const recaptchaSiteKey = import.meta.env.VITE_FIREBASE_RECAPTCHA_SITE_KEY;

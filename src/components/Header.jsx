@@ -5,7 +5,7 @@ import {
 
 
 // Top bar: brand + current-app pill on the left; New App / Apps / History /
-// theme / Settings / Help / auth on the right.
+// Settings / Help / auth / theme on the right.
 export default function Header({
   projectName,
   onNewApp,
@@ -90,20 +90,6 @@ export default function Header({
           )}
         </button>
 
-        {/* Theme Toggle -- the icon names the destination, not the current state */}
-        <button
-          onClick={onToggleTheme}
-          className="nav-btn nav-btn-secondary nav-btn-icon group hidden sm:flex"
-          title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        >
-          {resolvedTheme === 'dark' ? (
-            <Sun size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
-          ) : (
-            <Moon size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-          )}
-        </button>
-
         {/* Settings Modal Trigger */}
         <button
           onClick={onOpenSettings}
@@ -155,6 +141,20 @@ export default function Header({
             </button>
           </div>
         ) : null}
+
+        {/* Theme Toggle -- the icon names the destination, not the current state */}
+        <button
+          onClick={onToggleTheme}
+          className="nav-btn nav-btn-secondary nav-btn-icon group hidden sm:flex"
+          title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun size={15} className="text-slate-500 group-hover:text-indigo-600 group-hover:rotate-45 transition-all duration-300" />
+          ) : (
+            <Moon size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+          )}
+        </button>
       </div>
     </header>
   );
