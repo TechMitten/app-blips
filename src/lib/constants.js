@@ -4,7 +4,7 @@ import {
   Edit2, Clock, ListTodo, Wallet, Undo2, Redo2, FolderOpen, X, Copy, Check, Trash2, ZoomIn, ZoomOut,
   Monitor, Tablet, RotateCw, Moon, Sun, PanelLeftOpen, PanelLeftClose, TriangleAlert, Eye, EyeOff,
   Calculator, KeyRound, Ruler, LogIn, LogOut, User, CloudUpload, Mail, ExternalLink, Zap, Layers,
-  Search, Rocket, Globe, MessageSquare, Trophy
+  Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard
 } from 'lucide-react';
 
 export const SUGGESTIONS_CODE_CHAR_BUDGET = 12000;
@@ -27,36 +27,36 @@ export const PRESET_COLORS = [
 ];
 
 export const AVAILABLE_ICONS = {
-  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, Trophy
+  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, Trophy, Radio, Keyboard, Rocket
 };
 
 export const STARTER_PRESETS = [
   {
-    title: "Focus Pet",
-    prompt: "A pomodoro timer with a pixel pet that hatches and levels up when you finish focus sessions, plus a weekly streak history.",
-    category: "Productivity",
-    icon: Timer,
-    color: "text-amber-600 bg-amber-50"
-  },
-  {
-    title: "Word Gambit",
-    prompt: "A five-letter word guessing game with color-coded hints, an on-screen keyboard, and a win streak counter.",
-    category: "Games",
-    icon: Trophy,
-    color: "text-rose-600 bg-rose-50"
-  },
-  {
-    title: "Pixel Painter",
-    prompt: "A retro pixel art studio with a 32×32 canvas, a chunky color palette, an eraser, and one-click PNG download.",
-    category: "Creative",
-    icon: Layout,
+    title: "Nimbus Weather",
+    prompt: "A high-quality weather app built with Material You design and dynamic color palettes. Includes live conditions, 7-day forecast cards, hourly charts, animated weather artwork, and air quality metrics.",
+    category: "Weather",
+    icon: CloudSun,
     color: "text-sky-600 bg-sky-50"
   },
   {
-    title: "Dinner Roulette",
-    prompt: "A dinner decision wheel that spins through your saved meals, with a surprise-me wildcard and a no-repeats memory.",
-    category: "Food",
-    icon: Wand2,
+    title: "Cosmic Strike",
+    prompt: "A complete, fully functional arcade space shooter with touchscreen virtual controls and keyboard support. Features laser cannons, wave-based alien fleets, shield power-ups, and particle explosion effects.",
+    category: "Arcade",
+    icon: Rocket,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "LiveWave Radio",
+    prompt: "A free live radio streaming app streaming real online radio stations across Lo-Fi, Jazz, Chillwave, and Classical, with an interactive tuner dial, playback controls, and live audio visualizer.",
+    category: "Audio",
+    icon: Radio,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "TypePulse Studio",
+    prompt: "A modern typing test app to improve typing skills with a sleek UI, real-time WPM and accuracy metrics, smooth jumping caret, mistyped heatmaps, sound feedback, and practice drill modes.",
+    category: "Typing",
+    icon: Keyboard,
     color: "text-emerald-600 bg-emerald-50"
   },
   {

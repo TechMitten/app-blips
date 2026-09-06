@@ -31,7 +31,7 @@ export default function HistorySidebar({
         isOpen ? 'w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
       }`}>
         {/* Header */}
-        <div className="shrink-0 px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
+        <div className="h-14 sm:h-16 shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <button
               onClick={onCollapse}
