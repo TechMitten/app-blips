@@ -23,6 +23,12 @@ import { TriangleAlert, Loader2 } from 'lucide-react';
 import { generateAppCode } from './lib/llm';
 import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
+import {
+  loadPreviewStorage,
+  savePreviewStorage,
+  clearPreviewStorage,
+  applyStorageChange,
+} from './lib/previewStorage';
 import { sanitizeHtmlResponse } from './lib/edits';
 import { checkSyntax } from './lib/syntaxCheck';
 import {
@@ -275,12 +281,39 @@ export default function App() {
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
   }, [cancelPendingReload, isGenerating, chatMode]);
 
+  const previewStorageRef = useRef({});
+
+  useEffect(() => {
+    previewStorageRef.current = loadPreviewStorage(currentProjectId);
+  }, [currentProjectId]);
+
+  const handleStorageChange = useCallback(
+    (type, payload) => {
+      const changed = applyStorageChange(previewStorageRef.current, type, payload);
+      if (changed) {
+        savePreviewStorage(currentProjectId, previewStorageRef.current);
+      }
+    },
+    [currentProjectId]
+  );
+
+  const handleClearPreviewStorage = useCallback(() => {
+    clearPreviewStorage(currentProjectId);
+    previewStorageRef.current = {};
+    handleReloadPreview();
+  }, [currentProjectId, handleReloadPreview]);
+
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
-    () => (generatedCode ? injectPreviewBridge(generatedCode) : { srcDoc: '', token: '' }),
+    () =>
+      generatedCode
+        ? injectPreviewBridge(generatedCode, {
+            initialStorage: loadPreviewStorage(currentProjectId),
+          })
+        : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
     // injection so a fresh token forces the iframe to navigate (reload).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generatedCode, previewReloadCount]
+    [generatedCode, previewReloadCount, currentProjectId]
   );
 
   usePreviewBridge({
@@ -290,6 +323,7 @@ export default function App() {
     previewMode,
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
+    onStorageChange: handleStorageChange,
   });
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
@@ -741,6 +775,8 @@ export default function App() {
     setIsNamingModalOpen(false);
     setProjectName('Untitled App');
     localStorage.removeItem('orion-current-project-id');
+    clearPreviewStorage(null);
+    previewStorageRef.current = {};
     setInterruptedJob(null);
     clearPendingJob();
   };
@@ -1026,6 +1062,7 @@ export default function App() {
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
               onReloadPreview={handleReloadPreview}
+              onClearStorage={handleClearPreviewStorage}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
               isAutoFixing={isAutoFixing}
