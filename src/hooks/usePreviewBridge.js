@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 
@@ -15,6 +15,27 @@ export default function usePreviewBridge({
   onReady,
   onStorageChange,
 }) {
+  const onRuntimeErrorRef = useRef(onRuntimeError);
+  const onReadyRef = useRef(onReady);
+  const onStorageChangeRef = useRef(onStorageChange);
+  const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
+
+  useEffect(() => {
+    onRuntimeErrorRef.current = onRuntimeError;
+    onReadyRef.current = onReady;
+    onStorageChangeRef.current = onStorageChange;
+  });
+
+  useEffect(() => {
+    if (previewToken) {
+      recentTokensRef.current.add(previewToken);
+      if (recentTokensRef.current.size > 5) {
+        const oldestToken = recentTokensRef.current.values().next().value;
+        recentTokensRef.current.delete(oldestToken);
+      }
+    }
+  }, [previewToken]);
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe || !previewSrcDoc) return;
@@ -66,26 +87,28 @@ export default function usePreviewBridge({
       const data = event.data;
       // The token only disambiguates a stale document from the current one. It is
       // NOT a secret: the generated app can read it out of its own DOM.
-      if (!data || data.__orion !== BRIDGE_CHANNEL || data.token !== previewToken) return;
+      if (!data || data.__orion !== BRIDGE_CHANNEL) return;
+      if (!recentTokensRef.current.has(data.token)) return;
+
       if (data.type === 'ready') {
         push();
         forceRepaint();
-        if (onReady) onReady({ token: previewToken });
+        if (onReadyRef.current) onReadyRef.current({ token: data.token });
       }
       else if (data.type === 'error') console.warn('[preview bridge]', data.payload?.message);
-      else if (data.type === 'runtime_error' && onRuntimeError) onRuntimeError(data.payload);
+      else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
-        onStorageChange
+        onStorageChangeRef.current
       ) {
-        onStorageChange(data.type, data.payload);
+        onStorageChangeRef.current(data.type, data.payload);
       }
     };
 
     const handleLoad = () => {
       push();
       forceRepaint();
-      if (onReady) onReady({ token: previewToken });
+      if (onReadyRef.current) onReadyRef.current({ token: previewToken });
     };
 
     window.addEventListener('message', onMessage);
@@ -105,5 +128,5 @@ export default function usePreviewBridge({
       // listeners, injected styles and cursor inside it.
       send('configure', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef, onRuntimeError, onReady, onStorageChange]);
+  }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
 }
