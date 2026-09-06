@@ -119,10 +119,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             type="button"
             onClick={handleGithubSignIn}
             disabled={authLoading || oauthLoading}
-            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] ${
+            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] border ${
               oauthLoading
-                ? 'bg-slate-700 text-slate-300 cursor-not-allowed'
-                : 'bg-slate-900 text-white hover:bg-black'
+                ? 'border-transparent bg-slate-700 text-slate-300 dark:bg-white/5 dark:text-white/40 dark:border-white/10 cursor-not-allowed'
+                : 'border-transparent bg-slate-900 text-white hover:bg-black dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15'
             }`}
           >
             {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : <Github size={18} />}
@@ -133,10 +133,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={authLoading || oauthLoading}
-            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] border border-slate-200 ${
+            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] border ${
               oauthLoading
-                ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
-                : 'bg-white text-slate-700 hover:bg-slate-50'
+                ? 'border-slate-200 bg-slate-50 text-slate-400 dark:bg-white/5 dark:text-white/40 dark:border-white/10 cursor-not-allowed'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15'
             }`}
           >
             {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : (
