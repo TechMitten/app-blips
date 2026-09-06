@@ -309,11 +309,17 @@ export async function handleChatProxy(request, env) {
 
   const { messages, tools, tool_choice, stream, reasoning_effort } = payload;
 
+  let temperature = 0.2;
+  if (env.APPBLIPS_LLM_TEMPERATURE !== undefined && env.APPBLIPS_LLM_TEMPERATURE !== '') {
+    const parsedTemperature = parseFloat(env.APPBLIPS_LLM_TEMPERATURE);
+    if (!isNaN(parsedTemperature)) temperature = parsedTemperature;
+  }
+
   const bodyObj = {
     model,
     stream: !!stream,
     messages,
-    temperature: 0.2,
+    temperature,
   };
 
   const effort = reasoning_effort ?? env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
