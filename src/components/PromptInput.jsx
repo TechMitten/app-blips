@@ -45,7 +45,7 @@ export default function PromptInput({
   };
 
   return (
-    <div className="prompt-input-dock bg-surface rounded-xl border border-slate-200/90 dark:border-white/10 overflow-hidden transition-all input-glow flex flex-col">
+    <div className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md focus-within:border-indigo-600 dark:focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/20 flex flex-col">
       <textarea
         ref={textareaRef}
         id="prompt"
@@ -60,61 +60,61 @@ export default function PromptInput({
               ? (chatMode === 'ask' ? "Ask a question about the code..." : "e.g. Make the background dark, add a reset button...")
               : "e.g. A minimalist task manager with categories..."
         }
-        className="prompt-input-field w-full min-h-[48px] sm:min-h-[58px] max-h-40 px-3.5 pt-2.5 sm:pt-3 pb-1.5 outline-none resize-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 text-xs sm:text-sm leading-relaxed bg-transparent custom-scrollbar"
+        className="prompt-input-field w-full min-h-[52px] sm:min-h-[62px] max-h-40 px-4 pt-3.5 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar"
         disabled={isGenerating}
       />
-      <div className="prompt-input-footer flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2">
+      <div className="prompt-input-footer flex items-center justify-between gap-2 px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
         <div className="flex items-center min-w-0">
           {isChatActive && !isGenerating ? (
-            <div className="prompt-input-mode nav-segmented-group nav-segmented-compact" role="radiogroup" aria-label="Chat mode">
-              <label className={`nav-segmented-btn cursor-pointer py-1 px-2.5 text-[11px] font-semibold ${chatMode === 'build' ? 'nav-segmented-btn-active' : ''}`}>
+            <div className="prompt-input-mode nav-segmented-group nav-segmented-compact p-0.5 rounded-xl border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
+              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
                 <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
-                <Wand2 size={12} aria-hidden="true" />
+                <Wand2 size={13} aria-hidden="true" />
                 <span>Build</span>
               </label>
-              <label className={`nav-segmented-btn cursor-pointer py-1 px-2.5 text-[11px] font-semibold ${chatMode === 'ask' ? 'nav-segmented-btn-active' : ''}`}>
+              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-indigo-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
                 <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => onChatModeChange('ask')} className="sr-only" />
-                <MessageSquare size={12} aria-hidden="true" />
+                <MessageSquare size={13} aria-hidden="true" />
                 <span>Ask</span>
               </label>
             </div>
           ) : (
             !isGenerating && (
-              <div className="prompt-input-hint flex items-center gap-1.5 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-slate-400 select-none">
-                <span className="hidden sm:inline">Press</span>
-                <kbd className="prompt-input-kbd px-1.5 py-0.5 rounded text-[10px] leading-none text-slate-700 dark:text-slate-300 font-mono font-semibold" title="Shift+Enter for a new line">Enter</kbd>
-                <span className="hidden sm:inline">{isClarifying ? 'to answer' : (hasCode ? 'to update' : 'to build')}</span>
+              <div className="prompt-input-hint flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white/70 select-none">
+                <span className="hidden sm:inline text-slate-500 dark:text-white/45 font-medium">Press</span>
+                <kbd className="prompt-input-kbd px-2 py-0.5 rounded-md text-[11px] leading-none text-white bg-slate-900 dark:bg-white/15 dark:text-white dark:border dark:border-white/20 font-mono font-black shadow-xs" title="Shift+Enter for a new line">Enter ↵</kbd>
+                <span className="hidden sm:inline text-slate-700 dark:text-white/70 font-medium">{isClarifying ? 'to answer' : (hasCode ? 'to update' : 'to build')}</span>
               </div>
             )
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 shadow-md transition-all active:translate-y-0.5 active:border-b-2 cursor-pointer"
             >
-              <X size={13} />
+              <X size={14} />
               Cancel
             </button>
           )}
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className={`prompt-input-action inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            className={`prompt-input-action inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
-                ? 'prompt-input-action-ready brand-gradient text-white hover:brightness-105 active:scale-[0.98] cursor-pointer'
-                : 'prompt-input-action-disabled bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-white/10 cursor-not-allowed shadow-none'
+                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 cursor-pointer'
+                : 'bg-slate-200/90 dark:bg-white/[0.08] text-slate-600 dark:text-white/40 border-2 border-slate-300 dark:border-white/15 border-b-[3px] border-b-slate-400/80 dark:border-b-black/80 cursor-not-allowed shadow-xs'
             }`}
           >
             {isGenerating ? (
               <>
-                <Loader2 className="animate-spin" size={14} />
+                <Loader2 className="animate-spin" size={15} />
                 <span>{chatMode === 'ask' ? "Thinking..." : (isClarifying ? "Answering..." : (hasCode ? "Updating..." : "Building..."))}</span>
               </>
             ) : (
               <>
-                {chatMode === 'ask' ? <MessageSquare size={14} /> : (isClarifying ? <MessageSquare size={14} /> : (isChatActive ? <Edit2 size={14} /> : <Wand2 size={14} />))}
+                {chatMode === 'ask' ? <MessageSquare size={15} /> : (isClarifying ? <MessageSquare size={15} /> : (isChatActive ? <Edit2 size={15} /> : <Wand2 size={15} />))}
                 <span>{chatMode === 'ask' ? "Ask" : (isClarifying ? "Answer" : (isChatActive ? "Update App" : "Build App"))}</span>
               </>
             )}

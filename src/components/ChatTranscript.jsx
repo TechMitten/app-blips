@@ -15,13 +15,13 @@ export default function ChatTranscript({
   chatBottomRef,
 }) {
   return (
-    <div className="chat-log space-y-3 pb-1" role="log" aria-label="Build conversation">
+    <div className="chat-log space-y-3.5 pb-1" role="log" aria-label="Build conversation">
       {versions.slice(0, currentVersionIndex + 1).map((ver, idx) => {
         const isActive = idx === currentVersionIndex;
         return (
           <div key={ver.id} className="space-y-1.5">
             <div className="flex justify-end">
-              <div className="max-w-[88%] rounded-xl rounded-br-xs bg-indigo-600 dark:bg-blue-400 text-white px-3.5 py-2 text-[length:var(--chat-prompt-text)] font-medium shadow-2xs">
+              <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-indigo-500 text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40">
                 {ver.prompt}
               </div>
             </div>
@@ -31,7 +31,7 @@ export default function ChatTranscript({
                   <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
                   <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{idx + 1}</span>
                 </span>
-                <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-800 dark:text-slate-700 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed">
+                <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white dark:bg-white/[0.05] border border-slate-200/90 dark:border-white/[0.12] shadow-xs text-slate-900 dark:text-slate-100 px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
                   <Markdown text={ver.reply} />
                 </div>
               </div>
@@ -42,7 +42,7 @@ export default function ChatTranscript({
       {pendingPrompt && (
         <div className="space-y-1.5">
           <div className="flex justify-end">
-            <div className="max-w-[88%] rounded-xl rounded-br-xs bg-indigo-600 dark:bg-blue-400 text-white px-3.5 py-2 text-[length:var(--chat-prompt-text)] font-medium shadow-2xs animate-fade-in">
+            <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-indigo-500 text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 animate-fade-in">
               {pendingPrompt}
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-800 dark:text-slate-700 px-3.5 py-2.5 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white dark:bg-white/[0.05] border border-slate-200/90 dark:border-white/[0.12] shadow-xs text-slate-900 dark:text-slate-100 px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
                 <Markdown text={streamingReply} />
               </div>
             </div>
@@ -60,9 +60,9 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-xl rounded-bl-xs bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-2xs text-slate-600 dark:text-slate-400 px-3.5 py-2 text-[length:var(--chat-prompt-text)] flex items-center gap-2 animate-fade-in">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white dark:bg-white/[0.05] border border-slate-200/90 dark:border-white/[0.12] shadow-xs text-slate-800 dark:text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] flex items-center gap-2.5 animate-fade-in">
                 <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={14} />
-                <span className="text-[length:var(--chat-label-text)] font-medium text-slate-700 dark:text-slate-400">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
+                <span className="text-[length:var(--chat-label-text)] font-bold text-slate-800 dark:text-white">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
               </div>
             </div>
           ) : null}
