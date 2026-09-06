@@ -98,7 +98,7 @@ export default function SettingsModal({
             </div>
           </div>
           <p className="text-xs text-slate-600 leading-snug">
-            Text size for the entire build pane, including starter ideas, suggestions, chat conversation, and prompt input.
+            Text size for the entire build pane, including starter ideas, chat conversation, and prompt input.
           </p>
         </section>
 

@@ -27,7 +27,7 @@ The app is split into `App.jsx` (workspace/generation state + composition), `src
 - **[src/previewBridge.js](src/previewBridge.js)** — a self-contained script injected into the generated app's HTML at render time, documented in detail in its file header.
 - **[src/firebase.js](src/firebase.js)** — the single Firebase SDK init point, gated on `firebaseEnabled` (`SELF_HOSTED_MODE === 'false'`). When disabled, `app`/`auth`/`db`/`storage` all stay `null` and no Firebase code (including the App Check network call) runs.
 - **src/lib/** — pure logic, no React:
-  - `llm.js` — `requestModelText` / `generateAppCode` / `generateClarifyingQuestion` / `generateContextualSuggestions` (the API layer; attaches the Firebase ID token + App Check token to every `/api/chat` call)
+  - `llm.js` — `requestModelText` / `generateAppCode` / `generateClarifyingQuestion` (the API layer; attaches the Firebase ID token + App Check token to every `/api/chat` call)
   - `edits.js` — `sanitizeHtmlResponse` + the surgical-edit engine (`applySurgicalEdits` and friends)
   - `prompts.js` — system prompts and tool schemas; `constants.js` — presets, `PREVIEW_MODES`, marquee/streaming constants
   - `config.js` — theme/UI-preference persistence helpers; `helpers.js` — syntax highlighter, preview-box math, misc
@@ -37,8 +37,8 @@ The app is split into `App.jsx` (workspace/generation state + composition), `src
   - `pwa.js` / `analytics.js` / `seo.js` — snippets spliced into deployed HTML at deploy time (and re-injected at serve time in `functions/[[path]].js`) for installability, Umami analytics (hosted mode only), and noindex/favicon tags
   - `pendingJob.js` — persists an in-flight generation to `localStorage` so an interrupted build can be detected and offered for retry on next load
   - `auth/` — the auth adapter; see "Hosting modes" below
-- **src/hooks/** — `useTheme`, `useChatFont`, `useAuth` (session + one-time local→cloud import offer), `useProjects` (list/persistence/resume), `useDeployment`, `usePreviewViewport` (mode/orientation/zoom), `useBuildPaneResize`, `usePreviewBridge` (the postMessage driver), `useSuggestions`.
-- **src/components/** — `Header`, `HistorySidebar`, `BuildPanel` (with `StarterIdeas`, `ChatTranscript`, `SuggestionsBar`, `PromptInput`), `PreviewPane` (with `DeviceMockup`, `CodeView`), `SplashScreen`, `AuthToast`, and modals: `Modal`/`ConfirmModal` (shared shells), `SettingsModal`, `ProjectsListModal`, `DeployModal`, `NamingModal`, `AuthModal`, `ImportModal`, `AccountSettingsModal`. Self-contained modals (`AuthModal`, `SettingsModal`, `AccountSettingsModal`) own their form state and talk to `firebase`/`lib/config` directly. Auth-related UI (`AuthModal`, sign-in affordances in `Header`) only renders when `firebaseEnabled`.
+- **src/hooks/** — `useTheme`, `useChatFont`, `useAuth` (session + one-time local→cloud import offer), `useProjects` (list/persistence/resume), `useDeployment`, `usePreviewViewport` (mode/orientation/zoom), `useBuildPaneResize`, `usePreviewBridge` (the postMessage driver).
+- **src/components/** — `Header`, `HistorySidebar`, `BuildPanel` (with `StarterIdeas`, `ChatTranscript`, `PromptInput`), `PreviewPane` (with `DeviceMockup`, `CodeView`), `SplashScreen`, `AuthToast`, and modals: `Modal`/`ConfirmModal` (shared shells), `SettingsModal`, `ProjectsListModal`, `DeployModal`, `NamingModal`, `AuthModal`, `ImportModal`, `AccountSettingsModal`. Self-contained modals (`AuthModal`, `SettingsModal`, `AccountSettingsModal`) own their form state and talk to `firebase`/`lib/config` directly. Auth-related UI (`AuthModal`, sign-in affordances in `Header`) only renders when `firebaseEnabled`.
 
 ### Hosting modes: self-hosted vs. Firebase-hosted
 
