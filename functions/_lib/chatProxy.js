@@ -56,9 +56,34 @@ const authorize = async (request, env) => {
   }
 };
 
-// Rate limiting stub - fails open until natively implemented on Firebase
+const rateLimitMap = new Map();
+
 const checkRateLimit = async (userId, env) => {
+  const max = parseInt(env.APPBLIPS_CHAT_RATE_LIMIT_MAX, 10) || 60;
   const windowSeconds = parseInt(env.APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS, 10) || 300;
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+
+  let record = rateLimitMap.get(userId);
+  if (!record || now - record.startTime > windowMs) {
+    record = { startTime: now, count: 1 };
+    rateLimitMap.set(userId, record);
+
+    // Evict stale records when cache grows
+    if (rateLimitMap.size > 1000) {
+      for (const [key, val] of rateLimitMap.entries()) {
+        if (now - val.startTime > windowMs) rateLimitMap.delete(key);
+      }
+    }
+    return { allowed: true, windowSeconds };
+  }
+
+  record.count += 1;
+  if (record.count > max) {
+    const remainingSeconds = Math.max(1, Math.ceil((record.startTime + windowMs - now) / 1000));
+    return { allowed: false, windowSeconds: remainingSeconds };
+  }
+
   return { allowed: true, windowSeconds };
 };
 

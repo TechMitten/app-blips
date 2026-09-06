@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db, firebaseEnabled } from '../firebase';
-import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { isValidUuid } from '../lib/helpers';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
@@ -35,11 +35,31 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const previousAuthStatusRef = useRef(null);
 
   const fetchCloudProjects = useCallback(async () => {
-    const q = query(collection(db, 'projects'), orderBy('updated_at', 'desc'));
-    const snapshot = await getDocs(q);
-    const data = snapshot.docs.map(d => d.data());
-    return cloudRowsToProjects(data);
-  }, []);
+    if (!user?.id) return [];
+    try {
+      const q = query(
+        collection(db, 'projects'),
+        where('user_id', '==', user.id),
+        orderBy('updated_at', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(d => d.data());
+      return cloudRowsToProjects(data);
+    } catch (err) {
+      // If composite index is still building, fall back to where-only query and sort client-side
+      if (err?.code === 'failed-precondition') {
+        const fallbackQ = query(
+          collection(db, 'projects'),
+          where('user_id', '==', user.id)
+        );
+        const snapshot = await getDocs(fallbackQ);
+        const data = snapshot.docs.map(d => d.data());
+        const projects = cloudRowsToProjects(data);
+        return projects.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+      }
+      throw err;
+    }
+  }, [user?.id]);
 
   const loadUserProjects = useCallback(async () => {
     try {

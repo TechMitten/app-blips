@@ -1,6 +1,6 @@
 import { PWA_HEAD_SNIPPET } from './pwa';
 import { UMAMI_SCRIPT_TAG } from './analytics';
-import { NOINDEX_META_TAG } from './seo';
+import { NOINDEX_META_TAG, DEFAULT_FAVICON_URL } from './seo';
 
 // Derives a PBKDF2 key from a string password and a random salt
 const deriveKey = async (password, salt) => {
@@ -36,7 +36,7 @@ const payloadToBase64 = (payload) => {
   });
 };
 
-export const encryptApp = async (html, password) => {
+export const encryptApp = async (html, password, favicon = DEFAULT_FAVICON_URL) => {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(password, salt);
@@ -60,16 +60,18 @@ export const encryptApp = async (html, password) => {
   
   const base64 = await payloadToBase64(payload);
   
-  return wrapWithUnlockScreen(base64);
+  return wrapWithUnlockScreen(base64, favicon);
 };
 
-const wrapWithUnlockScreen = (encryptedBase64) => {
+const wrapWithUnlockScreen = (encryptedBase64, favicon = DEFAULT_FAVICON_URL) => {
+  const faviconTag = `<link rel="icon" href="${favicon || DEFAULT_FAVICON_URL}">`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Protected App</title>
+  ${faviconTag}
   ${NOINDEX_META_TAG}
   ${PWA_HEAD_SNIPPET}
   ${UMAMI_SCRIPT_TAG}
