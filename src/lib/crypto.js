@@ -74,8 +74,7 @@ const wrapWithUnlockScreen = (encryptedBase64, favicon = DEFAULT_FAVICON_URL) =>
   ${faviconTag}
   ${NOINDEX_META_TAG}
   ${PWA_HEAD_SNIPPET}
-  ${UMAMI_SCRIPT_TAG}
-  <style>
+${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
     body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #334155; }
     .card { background: white; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); width: 100%; max-width: 24rem; text-align: center; }
     h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 1.5rem; color: #0f172a; }

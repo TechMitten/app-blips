@@ -78,10 +78,25 @@ const CSP = [
 // src/lib/analytics.js via uploadDeploy) -- the includes() check keeps the
 // script single-load so events are never double-counted.
 const UMAMI_SCRIPT_TAG =
-  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
+  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>\n' +
+  '<script defer src="https://umami.techmitten.com/recorder.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
+const UMAMI_RECORDER_TAG =
+  '<script defer src="https://umami.techmitten.com/recorder.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
 
-const injectAnalytics = (html) => {
-  if (html.includes('umami.techmitten.com/script.js')) return html;
+const injectAnalytics = (html, env) => {
+  if (env?.SELF_HOSTED_MODE && env.SELF_HOSTED_MODE !== 'false') return html;
+
+  if (html.includes('umami.techmitten.com/script.js')) {
+    if (!html.includes('umami.techmitten.com/recorder.js')) {
+      const at = html.indexOf('umami.techmitten.com/script.js');
+      const tagEnd = html.indexOf('</script>', at);
+      if (tagEnd !== -1) {
+        const insertPos = tagEnd + '</script>'.length;
+        return html.slice(0, insertPos) + '\n' + UMAMI_RECORDER_TAG + html.slice(insertPos);
+      }
+    }
+    return html;
+  }
 
   const headMatch = /<head\b[^>]*>/i.exec(html);
   if (headMatch) {
@@ -153,7 +168,7 @@ const fetchDeploymentRow = async (slug) => {
 };
 
 export async function onRequest(context) {
-  const { request, next } = context;
+  const { request, env, next } = context;
 
   let url;
   try {
@@ -279,7 +294,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectAnalytics(injectFavicon(await object.text()));
+    const html = injectAnalytics(injectFavicon(await object.text()), env);
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,
