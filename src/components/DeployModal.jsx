@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Rocket, Globe, KeyRound, TriangleAlert, Trash2, Copy, Check,
-  ExternalLink, LogIn, Loader2, X, Lock
+  ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
@@ -78,7 +78,7 @@ export default function DeployModal({
   if (!firebaseEnabled) {
     return (
       <Modal zIndex={70}>
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
           <h2 className="text-base 2xl:text-lg font-semibold text-slate-900 flex items-center gap-2">
             <Rocket size={18} className="text-brand" />
             Deploy your app
@@ -86,19 +86,19 @@ export default function DeployModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             aria-label="Close"
           >
             <X size={18} />
           </button>
         </div>
         <div className="p-6">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+          <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <Globe size={18} className="text-slate-400 shrink-0 mt-0.5" />
             <span>Deploy is not available in self-hosted mode.</span>
           </div>
         </div>
-        <div className="bg-slate-50 px-6 py-4 flex justify-end">
+        <div className="bg-slate-50 border-t border-slate-200 dark:border-white/10 px-6 py-4 flex justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -113,13 +113,13 @@ export default function DeployModal({
 
   return (
     <Modal zIndex={70}>
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="px-6 py-4.5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
         <div>
           <h2 className="text-base 2xl:text-lg font-semibold text-slate-900 flex items-center gap-2">
             <Rocket size={18} className="text-brand" />
             {deployment ? 'Deployment' : 'Deploy your app'}
           </h2>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-500 mt-0.5">
             {deployment ? 'Your app is live at this link.' : 'Publish this app to a public URL.'}
           </p>
         </div>
@@ -127,7 +127,7 @@ export default function DeployModal({
           type="button"
           onClick={onClose}
           disabled={isDeploying}
-          className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Close"
         >
           <X size={18} />
@@ -136,7 +136,7 @@ export default function DeployModal({
 
       <div className="p-6 space-y-4">
         {deployError && (
-          <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl text-sm text-rose-700 flex items-start gap-3 animate-fade-in">
+          <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-sm text-rose-700 flex items-start gap-3 animate-fade-in">
             <TriangleAlert size={18} className="text-rose-500 shrink-0 mt-0.5" />
             <span>{deployError}</span>
           </div>
@@ -150,19 +150,28 @@ export default function DeployModal({
         ) : deployment ? (
           <>
             {!isSignedIn && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+              <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
                 <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
                 <span>Sign in to update or remove this deployment.</span>
               </div>
             )}
             {isSignedIn && isDeployStale && (
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 leading-relaxed flex items-start gap-3">
                 <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
                 <span>The live version is older than what&rsquo;s in your workspace. Redeploy to update the link.</span>
               </div>
             )}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Public URL</label>
+
+            {/* Section 1: Public URL */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Globe size={12} />
+                </div>
+                <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Public URL
+                </label>
+              </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Globe size={16} />
@@ -171,18 +180,197 @@ export default function DeployModal({
                   readOnly
                   value={deploymentUrl}
                   onFocus={(e) => e.target.select()}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 dark:border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all select-all shadow-2xs"
                 />
               </div>
               <p className="text-xs text-slate-400">
                 Deployed {formatModifiedTime(deployment.deployedAt)}.
               </p>
-            </div>
+            </section>
+
             {isSignedIn && (
               <>
-                <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect (optional)</label>
-                <p className="text-xs text-slate-400 !mt-1">Set a password to redeploy this link as protected, or leave it blank for a public link.</p>
+                {/* Section 2: Password Protect */}
+                <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <Lock size={12} />
+                      </div>
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Password Protect <span className="font-normal text-slate-500 lowercase text-[11px]">(optional)</span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Set a password to redeploy this link as protected, or leave it blank for a public link.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <Lock size={16} />
+                      </div>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter a password"
+                        className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
+                      />
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <Check size={16} />
+                      </div>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm password"
+                        className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <p className={`text-xs ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
+                    Password must be at least 8 characters with uppercase, lowercase, numbers, and symbol.
+                  </p>
+                  {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
+                    <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
+                  )}
+                </section>
+
+                {/* Section 3: Search Engine Visibility */}
+                <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Search size={12} />
+                    </div>
+                    <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Search Engine Visibility
+                    </label>
+                  </div>
+                  <div
+                    onClick={() => setPreventIndexing(!preventIndexing)}
+                    className="flex items-center justify-between gap-4 mt-1 cursor-pointer"
+                  >
+                    <span className="text-sm text-slate-700 leading-tight">
+                      Prevent search engines from indexing this app
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={preventIndexing}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                        preventIndexing
+                          ? 'bg-brand border-transparent'
+                          : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                          preventIndexing ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </section>
+
+                {/* Section 4: Custom Favicon */}
+                <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <ImageIcon size={12} />
+                      </div>
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Custom Favicon
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Upload an image file to use as the browser tab icon.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 mt-1.5">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFaviconUpload}
+                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-3.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
+                    />
+                    {favicon && (
+                      <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 dark:border-white/10 object-cover shrink-0" />
+                    )}
+                  </div>
+                  {faviconError && (
+                    <p className="text-xs text-rose-500 font-medium">{faviconError}</p>
+                  )}
+                </section>
+              </>
+            )}
+          </>
+        ) : !isSignedIn ? (
+          <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
+            <span>Deploying needs an account, so your app can be stored and stay reachable at a stable link.</span>
+          </div>
+        ) : !username ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>You must set a username in Account Settings before you can deploy apps.</span>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+              <Globe size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <span>
+                We&rsquo;ll upload this app and give you a link you can share. Redeploying reuses the same link, so it always shows your latest version.
+              </span>
+            </div>
+
+            {/* Section 1: Custom URL Path */}
+            <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Globe size={12} />
+                  </div>
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Custom URL Path
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">Leave blank to auto-generate a random path.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 whitespace-nowrap font-mono">
+                  {username} /
+                </span>
+                <input
+                  type="text"
+                  value={customSlug}
+                  onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="my-app-name"
+                  className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg px-4 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
+                />
+              </div>
+            </section>
+
+            {/* Section 2: Password Protect */}
+            <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Lock size={12} />
+                  </div>
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Password Protect <span className="font-normal text-slate-500 lowercase text-[11px]">(optional)</span>
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">Leave blank for a public link, or set a password to require it before the app loads.</p>
+              </div>
+
+              <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Lock size={16} />
@@ -192,10 +380,10 @@ export default function DeployModal({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter a password"
-                    className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
+                    className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
                   />
                 </div>
-                <div className="relative group mt-2">
+                <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Check size={16} />
                   </div>
@@ -204,134 +392,34 @@ export default function DeployModal({
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
-                    className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
+                    className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
                   />
                 </div>
-                <p className={`text-xs ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
-                  Password must be at least 8 characters with uppercase, lowercase, numbers, and symbol.
-                </p>
-                {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
-                  <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
-                )}
               </div>
-              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Engine Visibility</label>
-                <div className="flex items-center justify-between gap-4 mt-2" onClick={() => setPreventIndexing(!preventIndexing)} style={{ cursor: 'pointer' }}>
-                  <span className="text-sm text-slate-600 leading-tight">
-                    Prevent search engines from indexing this app
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={preventIndexing}
-                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
-                      preventIndexing
-                        ? 'bg-brand border-transparent'
-                        : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        preventIndexing ? 'translate-x-[23px]' : 'translate-x-[3px]'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Favicon</label>
-                <p className="text-xs text-slate-400 !mt-1">Upload an image file to use as the browser tab icon.</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFaviconUpload}
-                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
-                  />
-                  {favicon && (
-                    <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 object-cover shrink-0" />
-                  )}
-                </div>
-                {faviconError && (
-                  <p className="text-xs text-rose-500 font-medium">{faviconError}</p>
-                )}
-              </div>
-              </>
-            )}
-          </>
-        ) : !isSignedIn ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
-            <span>Deploying needs an account, so your app can be stored and stay reachable at a stable link.</span>
-          </div>
-        ) : !username ? (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-            <span>You must set a username in Account Settings before you can deploy apps.</span>
-          </div>
-        ) : (
-          <>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-              <Globe size={18} className="text-slate-400 shrink-0 mt-0.5" />
-              <span>
-                We&rsquo;ll upload this app and give you a link you can share. Redeploying reuses the same link, so it always shows your latest version.
-              </span>
-            </div>
-            
-            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom URL Path</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 whitespace-nowrap">
-                  {username} /
-                </span>
-                <input
-                  type="text"
-                  value={customSlug}
-                  onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="my-app-name"
-                  className="w-full bg-surface border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
-                />
-              </div>
-              <p className="text-xs text-slate-400">Leave blank to auto-generate a random path.</p>
-            </div>
-            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Password Protect (optional)</label>
-              <p className="text-xs text-slate-400 !mt-1">Leave blank for a public link, or set a password to require it before the app loads.</p>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Lock size={16} />
-                </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter a password"
-                  className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
-                />
-              </div>
-              <div className="relative group mt-2">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Check size={16} />
-                </div>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm password"
-                  className="w-full bg-surface border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm text-slate-700 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-400"
-                />
-              </div>
+
               <p className={`text-xs ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
                 Password must be at least 8 characters with uppercase, lowercase, numbers, and symbol.
               </p>
               {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
                 <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
               )}
-            </div>
-            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Search Engine Visibility</label>
-              <div className="flex items-center justify-between gap-4 mt-2" onClick={() => setPreventIndexing(!preventIndexing)} style={{ cursor: 'pointer' }}>
-                <span className="text-sm text-slate-600 leading-tight">
+            </section>
+
+            {/* Section 3: Search Engine Visibility */}
+            <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Search size={12} />
+                </div>
+                <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Search Engine Visibility
+                </label>
+              </div>
+              <div
+                onClick={() => setPreventIndexing(!preventIndexing)}
+                className="flex items-center justify-between gap-4 mt-1 cursor-pointer"
+              >
+                <span className="text-sm text-slate-700 leading-tight">
                   Prevent search engines from indexing this app
                 </span>
                 <button
@@ -341,7 +429,7 @@ export default function DeployModal({
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
                     preventIndexing
                       ? 'bg-brand border-transparent'
-                      : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70'
+                      : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
                   }`}
                 >
                   <span
@@ -351,30 +439,43 @@ export default function DeployModal({
                   />
                 </button>
               </div>
-            </div>
-            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Favicon</label>
-              <p className="text-xs text-slate-400 !mt-1">Upload an image file to use as the browser tab icon.</p>
-              <div className="flex items-center gap-4 mt-2">
+            </section>
+
+            {/* Section 4: Custom Favicon */}
+            <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <ImageIcon size={12} />
+                  </div>
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Custom Favicon
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Upload an image file to use as the browser tab icon.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 mt-1.5">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleFaviconUpload}
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
+                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-3.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 transition-colors cursor-pointer"
                 />
                 {favicon && (
-                  <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 object-cover shrink-0" />
+                  <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded border border-slate-200 dark:border-white/10 object-cover shrink-0" />
                 )}
               </div>
               {faviconError && (
                 <p className="text-xs text-rose-500 font-medium">{faviconError}</p>
               )}
-            </div>
+            </section>
           </>
         )}
       </div>
 
-      <div className="bg-slate-50 px-6 py-4 flex flex-wrap items-center justify-end gap-3">
+      <div className="bg-slate-50 border-t border-slate-200 dark:border-white/10 px-6 py-4 flex flex-wrap items-center justify-end gap-3">
         {deployment ? (
           <>
             {isSignedIn && (
