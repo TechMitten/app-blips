@@ -16,11 +16,10 @@ import { firebaseEnabled } from '../firebase';
 // functions/[[path]].js also injects it at serve time (deduped) so
 // deployments uploaded before this existed are tracked as well.
 export const UMAMI_SCRIPT_SRC = 'https://umami.techmitten.com/script.js';
-export const UMAMI_RECORDER_SRC = 'https://umami.techmitten.com/recorder.js';
 export const UMAMI_WEBSITE_ID = 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3';
 
 export const UMAMI_SCRIPT_TAG = firebaseEnabled
-  ? `<script defer src="${UMAMI_SCRIPT_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>\n  <script defer src="${UMAMI_RECORDER_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>`
+  ? `<script defer src="${UMAMI_SCRIPT_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>`
   : '';
 
 // Splice the tag into the earliest sensible point in <head>/<html>/<body>,
@@ -63,13 +62,5 @@ export const initAnalytics = () => {
     script.src = UMAMI_SCRIPT_SRC;
     script.setAttribute('data-website-id', UMAMI_WEBSITE_ID);
     document.head.appendChild(script);
-  }
-
-  if (!document.querySelector(`script[src="${UMAMI_RECORDER_SRC}"]`)) {
-    const recorder = document.createElement('script');
-    recorder.defer = true;
-    recorder.src = UMAMI_RECORDER_SRC;
-    recorder.setAttribute('data-website-id', UMAMI_WEBSITE_ID);
-    document.head.appendChild(recorder);
   }
 };
