@@ -62,15 +62,6 @@ function umamiAnalyticsPlugin(mode) {
             },
             injectTo: 'head',
           },
-          {
-            tag: 'script',
-            attrs: {
-              defer: true,
-              src: 'https://umami.techmitten.com/recorder.js',
-              'data-website-id': 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3',
-            },
-            injectTo: 'head',
-          },
         ];
       }
       return [];

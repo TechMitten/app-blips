@@ -126,39 +126,40 @@ const CSP = [
 // src/lib/analytics.js via uploadDeploy) -- the includes() check keeps the
 // script single-load so events are never double-counted.
 const UMAMI_SCRIPT_TAG =
-  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>\n' +
-  '<script defer src="https://umami.techmitten.com/recorder.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
-const UMAMI_RECORDER_TAG =
-  '<script defer src="https://umami.techmitten.com/recorder.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
+  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
 
 const injectAnalytics = (html, env) => {
   if (env?.SELF_HOSTED_MODE && env.SELF_HOSTED_MODE !== 'false') return html;
 
-  if (html.includes('umami.techmitten.com/script.js')) {
-    if (!html.includes('umami.techmitten.com/recorder.js')) {
-      const at = html.indexOf('umami.techmitten.com/script.js');
-      const tagEnd = html.indexOf('</script>', at);
-      if (tagEnd !== -1) {
-        const insertPos = tagEnd + '</script>'.length;
-        return html.slice(0, insertPos) + '\n' + UMAMI_RECORDER_TAG + html.slice(insertPos);
-      }
-    }
-    return html;
+  let modifiedHtml = html;
+
+  // Remove the old recorder.js tag if it exists in the deployed HTML
+  const oldRecorderRegex = /<script[^>]*src=["']https:\/\/umami\.techmitten\.com\/recorder\.js["'][^>]*><\/script>\s*/gi;
+  modifiedHtml = modifiedHtml.replace(oldRecorderRegex, '');
+
+  // Also strip it from previously encrypted apps by intercepting document.write
+  modifiedHtml = modifiedHtml.replace(
+    'document.write(html);',
+    'document.write(html.replace(/<script[^>]*src=["\']https:\\/\\/umami\\.techmitten\\.com\\/recorder\\.js["\'][^>]*><\\/script>\\s*/gi, ""));'
+  );
+
+  if (modifiedHtml.includes('umami.techmitten.com/script.js')) {
+    return modifiedHtml;
   }
 
-  const headMatch = /<head\b[^>]*>/i.exec(html);
+  const headMatch = /<head\b[^>]*>/i.exec(modifiedHtml);
   if (headMatch) {
     const at = headMatch.index + headMatch[0].length;
-    return html.slice(0, at) + UMAMI_SCRIPT_TAG + html.slice(at);
+    return modifiedHtml.slice(0, at) + UMAMI_SCRIPT_TAG + modifiedHtml.slice(at);
   }
 
-  const htmlMatch = /<html\b[^>]*>/i.exec(html);
+  const htmlMatch = /<html\b[^>]*>/i.exec(modifiedHtml);
   if (htmlMatch) {
     const at = htmlMatch.index + htmlMatch[0].length;
-    return html.slice(0, at) + UMAMI_SCRIPT_TAG + html.slice(at);
+    return modifiedHtml.slice(0, at) + UMAMI_SCRIPT_TAG + modifiedHtml.slice(at);
   }
 
-  return html;
+  return modifiedHtml;
 };
 
 const injectFavicon = (html) => {
