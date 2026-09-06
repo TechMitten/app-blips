@@ -448,7 +448,57 @@ export default function DeviceMockup({
           )}
         </div>
 
-        {PREVIEW_MODES[mode].isTouchChrome ? (
+        {mode === 'mobile' ? (
+          orientation === 'landscape' ? (
+            <>
+              {/* Speaker slit & Front camera & Sensor */}
+              <div className="device-speaker-slit-landscape animate-fade-in" aria-hidden="true" />
+              <div className="device-front-camera-landscape animate-fade-in" aria-hidden="true" />
+              <div className="device-sensor-dot-landscape animate-fade-in" aria-hidden="true" />
+
+              {/* Antenna bands */}
+              <div className="device-antenna device-antenna-h -top-[2.5px] left-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -top-[2.5px] right-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -bottom-[2.5px] left-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -bottom-[2.5px] right-[68px]" aria-hidden="true" />
+
+              {/* Hardware buttons */}
+              <div className="device-hw-btn-landscape -top-[3px] left-[80px] h-[3px] w-6 rounded-t-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn-landscape -top-[3px] left-[118px] h-[3px] w-11 rounded-t-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn-landscape -top-[3px] left-[172px] h-[3px] w-11 rounded-t-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn-landscape -bottom-[3px] left-[130px] h-[3px] w-16 rounded-b-[2px] animate-fade-in" aria-hidden="true" />
+
+              {/* Home Indicator (right bezel) */}
+              <div className="absolute right-[9px] inset-y-0 flex items-center justify-center z-20 pointer-events-none animate-fade-in">
+                <div className="device-home-indicator-bar-landscape"></div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Speaker slit & Front camera & Sensor */}
+              <div className="device-speaker-slit animate-fade-in" aria-hidden="true" />
+              <div className="device-front-camera animate-fade-in" aria-hidden="true" />
+              <div className="device-sensor-dot animate-fade-in" aria-hidden="true" />
+
+              {/* Antenna bands */}
+              <div className="device-antenna device-antenna-v -left-[2.5px] top-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -left-[2.5px] bottom-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -right-[2.5px] top-[68px]" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -right-[2.5px] bottom-[68px]" aria-hidden="true" />
+
+              {/* Hardware buttons */}
+              <div className="device-hw-btn -left-[3px] top-[80px] w-[3px] h-6 rounded-l-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn -left-[3px] top-[118px] w-[3px] h-11 rounded-l-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn -left-[3px] top-[172px] w-[3px] h-11 rounded-l-[2px] animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn -right-[3px] top-[130px] w-[3px] h-16 rounded-r-[2px] animate-fade-in" aria-hidden="true" />
+
+              {/* Home Indicator (bottom bezel) */}
+              <div className="absolute bottom-[9px] inset-x-0 flex justify-center z-20 pointer-events-none animate-fade-in">
+                <div className="device-home-indicator-bar"></div>
+              </div>
+            </>
+          )
+        ) : mode === 'tablet' ? (
           orientation === 'landscape' ? (
             <>
               {/* Side Buttons Visuals (rotated to top/bottom edges) */}
@@ -457,7 +507,7 @@ export default function DeviceMockup({
               <div className="absolute -bottom-1 left-36 h-1 w-20 bg-slate-700 rounded-t-sm shadow-sm animate-fade-in"></div>
 
               {/* Home Indicator (rotated to right edge) */}
-              <div className="absolute right-3 inset-y-0 flex items-center justify-center z-20 animate-fade-in">
+              <div className="absolute right-2 inset-y-0 flex items-center justify-center z-20 pointer-events-none animate-fade-in">
                 <div className="h-32 w-1.5 rounded-full bg-slate-200/70"></div>
               </div>
             </>
@@ -469,7 +519,7 @@ export default function DeviceMockup({
               <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm animate-fade-in"></div>
 
               {/* Home Indicator */}
-              <div className="absolute bottom-3 inset-x-0 flex justify-center z-20 animate-fade-in">
+              <div className="absolute bottom-2 inset-x-0 flex justify-center z-20 pointer-events-none animate-fade-in">
                 <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
               </div>
             </>
