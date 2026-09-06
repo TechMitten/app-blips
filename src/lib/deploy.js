@@ -65,7 +65,7 @@ export const registerDeployment = async ({ slug, userId, projectId, storagePath,
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       await runTransaction(db, async (transaction) => {
-        const docRef = doc(db, 'deployments', candidate);
+        const docRef = doc(db, 'deployments', encodeURIComponent(candidate));
         const docSnap = await transaction.get(docRef);
         if (docSnap.exists() && docSnap.data().user_id !== userId) {
           throw new Error('taken');
@@ -93,7 +93,7 @@ export const registerDeployment = async ({ slug, userId, projectId, storagePath,
 
 export const unregisterDeployment = async (slug) => {
   try {
-    await deleteDoc(doc(db, 'deployments', slug));
+    await deleteDoc(doc(db, 'deployments', encodeURIComponent(slug)));
   } catch (error) {
     throw new Error(error.message || 'Failed to remove the deploy link.');
   }

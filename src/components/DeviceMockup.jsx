@@ -393,7 +393,7 @@ export default function DeviceMockup({
               </div>
             )}
           </div>
-          {isGenerating && (
+          {(isGenerating || isRuntimeErrorAutoFix) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
               <div 
                 className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"

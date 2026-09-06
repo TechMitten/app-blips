@@ -456,8 +456,12 @@ const BRIDGE_SOURCE = `(function () {
   // 4. Runtime error capture
   // ------------------------------------------------------------------
   window.addEventListener('error', function(e) {
-    if (e.message && e.message !== 'Script error.') {
-      post('runtime_error', { message: e.message, line: e.lineno, col: e.colno });
+    var msg = e.message;
+    if ((!msg || msg === 'Script error.') && e.error && e.error.message) {
+      msg = e.error.message;
+    }
+    if (msg && msg !== 'Script error.') {
+      post('runtime_error', { message: msg, line: e.lineno, col: e.colno });
     }
   });
 

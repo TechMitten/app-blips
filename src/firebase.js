@@ -45,7 +45,10 @@ if (firebaseEnabled) {
   app = initializeApp(firebaseConfig);
 
   if (typeof self !== 'undefined' && import.meta.env.DEV) {
-    const debugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+    let debugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+    if (typeof debugToken === 'string') {
+      debugToken = debugToken.trim().replace(/^["']+|["']+$/g, '').trim();
+    }
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken || true;
   }
 
