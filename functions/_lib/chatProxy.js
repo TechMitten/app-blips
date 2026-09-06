@@ -12,12 +12,12 @@
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
 // which is UI-only) and spend the LLM budget behind APPBLIPS_LLM_API_KEY. So,
-// in hosted mode (USE_FIREBASE=true), every request must carry a valid
+// in hosted mode (SELF_HOSTED_MODE=false), every request must carry a valid
 // Firebase ID token, verified against Firebase itself (not just "a token was
-// present"). Self-hosted mode is the default (USE_FIREBASE unset or anything
-// other than "true"): there's no Firebase project to verify against, so
-// every request is treated as coming from the single local user, on the
-// assumption that self-hosters put their own access control (network
+// present"). Self-hosted mode is the default (SELF_HOSTED_MODE unset or
+// anything other than "false"): there's no Firebase project to verify
+// against, so every request is treated as coming from the single local user,
+// on the assumption that self-hosters put their own access control (network
 // restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
 // if they expose it beyond localhost.
 
@@ -28,7 +28,7 @@ const toChatCompletionsUrl = (baseUrl) => {
 };
 
 const authorize = async (request, env) => {
-  if (env.USE_FIREBASE !== 'true') return { id: 'local-user' };
+  if (env.SELF_HOSTED_MODE !== 'false') return { id: 'local-user' };
 
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -63,13 +63,13 @@ const checkRateLimit = async (userId, env) => {
 };
 
 // Core keys are required in every hosting mode; FIREBASE_API_KEY is only
-// needed to verify tokens in hosted mode (USE_FIREBASE=true).
+// needed to verify tokens in hosted mode (SELF_HOSTED_MODE=false).
 const validateEnv = (env) => {
   const missing = [];
   if (!env.APPBLIPS_LLM_BASE_URL) missing.push('APPBLIPS_LLM_BASE_URL');
   if (!env.APPBLIPS_LLM_API_KEY) missing.push('APPBLIPS_LLM_API_KEY');
   if (!env.APPBLIPS_LLM_MODEL) missing.push('APPBLIPS_LLM_MODEL');
-  if (env.USE_FIREBASE === 'true' && !env.FIREBASE_API_KEY) missing.push('FIREBASE_API_KEY');
+  if (env.SELF_HOSTED_MODE === 'false' && !env.FIREBASE_API_KEY) missing.push('FIREBASE_API_KEY');
   return missing;
 };
 

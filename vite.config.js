@@ -46,6 +46,11 @@ function llmProxyDevMiddleware(mode) {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react(), llmProxyDevMiddleware(mode)],
+  // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
+  // in .env), but it's the one flag both the client bundle (src/firebase.js)
+  // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
+  // so it's allow-listed here to reach import.meta.env too.
+  envPrefix: ['VITE_', 'SELF_HOSTED_MODE'],
   server: {
     host: true,
     port: 5173,

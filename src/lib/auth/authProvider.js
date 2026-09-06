@@ -1,7 +1,7 @@
 // Shared shape both providers (firebaseAuthProvider, mockAuthProvider)
 // implement, so useAuth/AuthModal/AccountSettingsModal/llm.js can stay
 // unaware of which one is active. Selection happens in ./index.js, based on
-// firebaseEnabled (src/firebase.js, driven by VITE_USE_FIREBASE).
+// firebaseEnabled (src/firebase.js, driven by SELF_HOSTED_MODE).
 //
 // User shape: { id, email, displayName } | null
 //

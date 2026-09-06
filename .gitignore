@@ -38,3 +38,4 @@ coverage/
 .devcontainer/
 .opencode/
 .playwright-mcp/
+.env copy.example

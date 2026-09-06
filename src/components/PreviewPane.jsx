@@ -1,6 +1,6 @@
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCw, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket
+  ZoomIn, ZoomOut, ExternalLink, Rocket, Download
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -33,6 +33,8 @@ export default function PreviewPane({
   isDeployStale,
   isSignedIn,
   onOpenDeployModal,
+  firebaseEnabled,
+  onExportHtml,
   containerRef,
   iframeRef,
   previewSrcDoc,
@@ -189,8 +191,8 @@ export default function PreviewPane({
             </button>
           )}
 
-          {/* Deploy to a public URL */}
-          {hasCode && (
+          {/* Deploy to a public URL (hosted mode) / Export the HTML file (self-hosted) */}
+          {hasCode && (firebaseEnabled ? (
             <button
               onClick={onOpenDeployModal}
               className="nav-btn brand-fill-text relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
@@ -204,7 +206,16 @@ export default function PreviewPane({
                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand" />
               )}
             </button>
-          )}
+          ) : (
+            <button
+              onClick={onExportHtml}
+              className="nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+              title="Download this app as an HTML file"
+            >
+              <Download size={14} />
+              <span className="hidden md:inline">Export</span>
+            </button>
+          ))}
         </div>
       </div>
 

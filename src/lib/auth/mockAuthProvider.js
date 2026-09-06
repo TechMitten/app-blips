@@ -1,4 +1,4 @@
-// Local provider for self-hosted builds (VITE_USE_FIREBASE=false): a single
+// Local provider for self-hosted builds (SELF_HOSTED_MODE=true, the default): a single
 // fixed user, always signed in, no real backend behind it. Auth UI never
 // renders in this mode (see Header.jsx/App.jsx), so signIn/signUp/etc. are
 // unreachable in practice -- they're no-ops here only for safety.

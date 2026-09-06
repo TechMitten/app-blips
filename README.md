@@ -3,43 +3,52 @@
 </p>
 
 <p align="center">
-  Generate small, single-file HTML apps from a text prompt via an LLM, and preview them live in a sandboxed iframe.
+  <strong>The simple way to turn an idea into a working app.</strong><br />
+  Describe what you want in plain English, watch it get built in seconds, and use it right away.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
+  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
+
+## Why AppBlips?
+
+Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app you generate is just one file, the interface is a single prompt box and a live preview, and there's nothing extra to learn. If you want to describe an idea and get a real, working website or app back — without wading through a complicated tool built for professional developers — AppBlips is for you.
 
 ## What it is
 
-AppBlips is a React single-page app that turns a text prompt into a self-contained HTML app (markup, styles, and script all in one file) using an OpenAI-chat-completions-compatible LLM API, then renders it live inside a sandboxed preview iframe. There's no application backend beyond a single `/api/chat` proxy endpoint — the LLM base URL, API key, model, and tuning knobs are fixed server-side via environment variables (not user-configurable), and the browser always talks to AppBlips's own origin rather than the LLM provider directly.
+AppBlips lets you describe an app or website in plain language and get back a working version you can preview, tweak, and use immediately. Type what you want, and AppBlips builds it as a single, self-contained file — no project setup, no separate files to manage, no build step to run before you can see it.
 
-The app runs in one of two modes, chosen entirely by environment variables (no runtime toggle):
+Under the hood, AppBlips is a React app that sends your prompt to an AI model through a single, built-in proxy and renders the result live in a safely sandboxed preview. Whoever sets up AppBlips (see [Quick start](#quick-start)) configures the AI connection once — as a user of the app, you never have to manage API keys or model settings yourself.
 
-- **Self-hosted** (default) — single local user, no sign-in, no cloud sync, no deploy-to-public-URL. Nothing talks to Firebase.
-- **Hosted** — Firebase Auth + Firestore (projects, deployments) + Storage (deployed HTML), fronted by a Cloudflare Pages Function that verifies ID tokens before relaying to the LLM.
+AppBlips is self-hosted software: you run it yourself, on your own machine or server. There's no sign-in, no account, and no cloud sync — just you and the app. Get it running with one command (see below).
 
 ## Features
 
-- Live preview in a sandboxed iframe, isolated from the parent app (see [Security notes](#security-notes))
-- AI-driven "surgical edits" for refinements — the model edits existing apps via targeted search/replace blocks instead of regenerating the whole file
-- Undo/redo version history for every generation and edit
-- Mobile and desktop preview modes with adjustable zoom
-- Optional hosted mode: account sign-in, cloud-synced projects, and one-click deploy to a public URL
-- Self-hosted mode: no account required, runs entirely on your own infrastructure
+- **One simple prompt box** — describe your idea in plain English and get a working app back
+- **Instant live preview** — see exactly what you built, right next to the prompt, with no extra deploy step
+- **Ask for changes in plain English** — request a tweak and AppBlips edits the app for you, no code required
+- **Undo/redo** — every generation and edit is saved as a version you can always go back to
+- **Mobile and desktop views** — check how your app looks on different screen sizes, with adjustable zoom
 
 ## Quick start
 
-**Prerequisites:** Node.js 20+ and npm.
+AppBlips is software you run yourself — there's no signup, and once it's running, using it is as simple as typing a prompt. Setup takes a few steps:
+
+**Prerequisites:** [Node.js](https://nodejs.org/) 20+ and npm (npm comes bundled with Node.js).
 
 ```bash
-git clone https://github.com/techmitten/app-blips.git
-cd app-blips
-npm install
-cp .env.example .env
+git clone https://github.com/techmitten/app-blips.git   # download the project
+cd app-blips                                            # move into the project folder
+npm install                                              # install dependencies
+cp .env.example .env                                     # create your local config file
 ```
 
-Edit `.env` and set at minimum:
+Open the new `.env` file and set at minimum an AI provider to use:
 
 ```
 APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
@@ -47,13 +56,13 @@ APPBLIPS_LLM_API_KEY=your-api-key
 APPBLIPS_LLM_MODEL=gpt-4o
 ```
 
-Then start the dev server:
+Then start AppBlips:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:5173`. This runs in self-hosted mode by default — no sign-in, no Firebase.
+Open `http://localhost:5173` in your browser — that's it, you're ready to build.
 
 ## Running with Docker
 
@@ -63,20 +72,22 @@ A `Dockerfile` and `docker-compose.yml` are provided for self-hosted deployments
 docker compose up --build
 ```
 
-This reads environment variables from `.env` (same file as above) and serves the app on `http://localhost:3000`. Docker deployment currently only supports self-hosted mode.
+This reads environment variables from `.env` (same file as above) and serves the app on `http://localhost:3000`.
 
 ## Configuration
 
-All configuration is via environment variables — see [`.env.example`](.env.example) for the full, authoritative list. The key groups:
+Everything about how AppBlips runs is set once, in your `.env` file — as a user you'll never see or touch this. All configuration is via environment variables — see [`.env.example`](.env.example) for the full, authoritative list. The key groups:
 
 | Group | Variables | Notes |
 | --- | --- | --- |
 | LLM (required) | `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL`, `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_REASONING_EFFORT` | Server-side only, never exposed to the browser bundle |
 | Rate limiting (optional) | `APPBLIPS_CHAT_RATE_LIMIT_MAX`, `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` | Config exists, but the underlying check is currently a stub that always allows requests |
-| Hosting mode | `VITE_USE_FIREBASE`, `USE_FIREBASE` | Both must be set the same way (`"true"` for hosted mode) — one is read by the browser bundle, the other by the server-side proxy |
-| Firebase (hosted mode only) | `VITE_FIREBASE_*`, `FIREBASE_API_KEY` | Leave unset for self-hosting |
 
-> **Note:** In self-hosted mode, `/api/chat` performs no authentication — every request is treated as the same local user. If you expose the app beyond localhost, you're responsible for putting your own access control in front of it.
+> **Note:** `/api/chat` performs no authentication — every request is treated as the same local user. If you expose the app beyond localhost, you're responsible for putting your own access control in front of it.
+
+---
+
+*The sections below are for developers and self-hosters. If you just want to build apps, you're already set — open AppBlips and start typing.*
 
 ## Available scripts
 
@@ -109,12 +120,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 ## Security notes
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and the parent can't reach the app's DOM. See `src/previewBridge.js` for details.
-- In self-hosted mode, `/api/chat` has no token verification. In hosted mode, every request must carry a valid Firebase ID token, verified server-side.
-- Deployed apps (hosted mode) are served from a dedicated hostname, never the main app's origin, since they're LLM-generated code with full script privileges.
-
-## Deploying (hosted mode only)
-
-Deploy-to-public-URL uploads the generated HTML to Firebase Storage and registers it in Firestore. Deployed apps are served from a separate hostname via a Cloudflare Pages Function that resolves the slug and re-serves the HTML with a locked-down CSP — never from the main app's own origin or Firebase Storage's public URL directly.
+- `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Don't expose it beyond localhost without adding your own access control.
 
 ## Contributing
 

@@ -20,6 +20,7 @@ import SplashScreen from './components/SplashScreen';
 import { Code2, TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, generateNewStarterIdeas } from './lib/llm';
+import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { sanitizeHtmlResponse } from './lib/edits';
 import {
@@ -475,6 +476,21 @@ export default function App() {
     window.open(url, '_blank');
   };
 
+  // Self-hosted mode's stand-in for Deploy: no public-URL hosting without
+  // Firebase Storage, so hand the user the raw file instead.
+  const handleExportHtml = () => {
+    if (!generatedCode) return;
+    const blob = new Blob([generatedCode], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${slugifyName(projectName) || 'app'}.html`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleNewApp = () => {
     if (generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt) {
       setIsNewChatConfirmOpen(true);
@@ -889,6 +905,8 @@ export default function App() {
               isDeployStale={isDeployStale}
               isSignedIn={isSignedIn}
               onOpenDeployModal={openDeployModal}
+              firebaseEnabled={firebaseEnabled}
+              onExportHtml={handleExportHtml}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
