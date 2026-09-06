@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
-  Lock, Star, Plus, X, MoreVertical
+  Lock, Star, Plus, X, MoreVertical, Wrench
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
@@ -252,8 +252,16 @@ export default function DeviceMockup({
   isGenerating,
   generationStatus,
   hasCode,
+  isAutoFixing = false,
+  autoFixMessage = null,
 }) {
   const box = getEffectivePreviewBox(mode, orientation);
+  const isRuntimeErrorAutoFix = isAutoFixing || Boolean(generationStatus?.toLowerCase().includes('runtime error'));
+  const displayAutoFixMessage = autoFixMessage || (
+    generationStatus?.toLowerCase().includes('runtime error:')
+      ? generationStatus.split(/runtime error:\s*/i)[1]
+      : null
+  );
 
   return (
     <div
@@ -392,18 +400,43 @@ export default function DeviceMockup({
                 style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
               >
                 <div className="relative w-16 h-16 mb-6">
-                  <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                  <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                  <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
+                  {isRuntimeErrorAutoFix ? (
+                    <>
+                      <div className="absolute inset-0 border-4 border-amber-100 rounded-full"></div>
+                      <div className="absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin"></div>
+                      <Wrench className="absolute inset-0 m-auto text-amber-600" size={22} />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                      <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                      <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
+                    </>
+                  )}
                 </div>
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
-                  {generationStatus?.startsWith('Analyzing') 
-                    ? 'Planning...'
-                    : generationStatus?.includes('Syntax errors found') 
-                      ? 'Fixing errors...' 
-                      : 'Building...'}
+                  {isRuntimeErrorAutoFix
+                    ? 'Auto-fixing runtime error...'
+                    : generationStatus?.startsWith('Analyzing') 
+                      ? 'Planning...'
+                      : generationStatus?.includes('Syntax errors found') 
+                        ? 'Fixing errors...' 
+                        : 'Building...'}
                 </h3>
-                {generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                {isRuntimeErrorAutoFix ? (
+                  <div className="space-y-1.5 max-w-[260px] sm:max-w-[300px] animate-fade-in-up">
+                    <p className="text-xs sm:text-sm text-amber-700 font-medium">
+                      {generationStatus && !generationStatus.startsWith('Fixing runtime error') && generationStatus !== 'Synthesizing your app from your prompt.'
+                        ? generationStatus
+                        : 'Detected a runtime error in preview. Automatically applying a fix...'}
+                    </p>
+                    {displayAutoFixMessage && (
+                      <p className="text-[11px] font-mono text-slate-500 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1 text-center truncate" title={displayAutoFixMessage}>
+                        {displayAutoFixMessage}
+                      </p>
+                    )}
+                  </div>
+                ) : generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
                   <p className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
                     {generationStatus}
                   </p>
