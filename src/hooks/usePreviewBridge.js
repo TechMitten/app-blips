@@ -6,7 +6,7 @@ import { PREVIEW_MODES } from '../lib/constants';
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
 // can no longer touch its document. The mobile touch-scroll simulation now runs
 // inside the frame (src/previewBridge.js); this effect just drives it.
-export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError }) {
+export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToken, previewMode, onRuntimeError, onReady }) {
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe || !previewSrcDoc) return;
@@ -59,12 +59,20 @@ export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToke
       // The token only disambiguates a stale document from the current one. It is
       // NOT a secret: the generated app can read it out of its own DOM.
       if (!data || data.__orion !== BRIDGE_CHANNEL || data.token !== previewToken) return;
-      if (data.type === 'ready') { push(); forceRepaint(); }
+      if (data.type === 'ready') {
+        push();
+        forceRepaint();
+        if (onReady) onReady({ token: previewToken });
+      }
       else if (data.type === 'error') console.warn('[preview bridge]', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeError) onRuntimeError(data.payload);
     };
 
-    const handleLoad = () => { push(); forceRepaint(); };
+    const handleLoad = () => {
+      push();
+      forceRepaint();
+      if (onReady) onReady({ token: previewToken });
+    };
 
     window.addEventListener('message', onMessage);
     // Three-way handshake: answer `ready`, re-push on load, and push once eagerly
@@ -83,5 +91,5 @@ export default function usePreviewBridge({ iframeRef, previewSrcDoc, previewToke
       // listeners, injected styles and cursor inside it.
       send('configure', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef, onRuntimeError]);
+  }, [previewSrcDoc, previewToken, previewMode, iframeRef, onRuntimeError, onReady]);
 }

@@ -174,7 +174,7 @@ function BuildingSection() {
         <HelpItems>
           <HelpItem icon={Sparkles} name="Starter ideas">
             Ready-made app ideas on the empty screen. Clicking one fills the box, it
-            doesn&rsquo;t send. <strong>Refresh</strong> swaps in a new set.
+            doesn&rsquo;t send.
           </HelpItem>
           <HelpItem icon={Lightbulb} name="Suggestions">
             After a build, a <strong>Suggestions</strong> strip offers sensible next steps for
