@@ -7,9 +7,13 @@ import { getStorage } from 'firebase/storage';
 // Self-hosted builds run with no Firebase project at all: every VITE_FIREBASE_*
 // var (and the SDK init below, including the network call initializeAppCheck
 // makes to Google's reCAPTCHA endpoint) is skipped entirely unless
-// VITE_USE_FIREBASE=true. See src/lib/auth/ for the adapter that picks a real
-// vs. mock auth provider based on this same flag.
-export const firebaseEnabled = import.meta.env.VITE_USE_FIREBASE === 'true';
+// SELF_HOSTED_MODE=false. Self-hosted is the default when unset. See
+// src/lib/auth/ for the adapter that picks a real vs. mock auth provider
+// based on this same flag, and functions/_lib/chatProxy.js for the
+// server-side half (SELF_HOSTED_MODE has no VITE_ prefix but is allow-listed
+// into the client bundle too, via vite.config.js's envPrefix, so this one var
+// drives both runtimes).
+export const firebaseEnabled = import.meta.env.SELF_HOSTED_MODE === 'false';
 
 let app = null;
 let appCheck = null;
@@ -35,7 +39,7 @@ if (firebaseEnabled) {
     firebaseConfig[configKey] = value;
   }
   if (missing.length) {
-    throw new Error(`VITE_USE_FIREBASE is true but missing required env vars: ${missing.join(', ')}`);
+    throw new Error(`SELF_HOSTED_MODE is false but missing required env vars: ${missing.join(', ')}`);
   }
 
   app = initializeApp(firebaseConfig);
