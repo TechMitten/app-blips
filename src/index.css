@@ -73,7 +73,11 @@
      steps can be softened without touching the JSX:
 
        slate-50   canvas: soft muted neutral so the white panels float
-                  above it as physical cards (was stock #f8fafc)
+                  above it as physical cards (was stock #f8fafc, then
+                  #f1f3f5 -- both sit within a couple percent of white
+                  lightness, so the "floating card" effect barely showed;
+                  stepped down again so the canvas actually reads as a
+                  distinct plane behind the white surface)
        slate-900  primary text: soft charcoal instead of near-black ink
        slate-950  darkest text: pinned to the same charcoal
 
@@ -82,7 +86,7 @@
      .palette-stock is a no-op here (it only re-pins under html.dark), and
      the code panel paints from literal hex, so neither is affected. */
   html:not(.dark) {
-    --color-slate-50: #f1f3f5;
+    --color-slate-50: #e7ebf0;
     --color-slate-900: #1e293b;
     --color-slate-950: #1e293b;
   }

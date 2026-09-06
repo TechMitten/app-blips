@@ -10,15 +10,22 @@
   /* Shadows: near-black at low alpha reads as depth on a light ground, but
      disappears entirely on a dark one -- so dark raises the alpha and adds a
      light hairline instead of relying on the shadow alone. The ink matches
-     the softened slate-900 charcoal (#1e293b). */
-  --shadow-color: 30 41 59;
-  --shadow-a1: 0.06;
-  --shadow-a2: 0.08;
-  --shadow-a3: 0.12;
-  --hairline: transparent;
+     the softened slate-900 charcoal (#1e293b).
 
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+     Light was previously tuned too subtle -- a1/a2/a3 sat at 0.06/0.08/0.12,
+     which reads as almost no shadow at all against a near-white canvas, so
+     every "raised" surface (segmented tabs, cards, buttons) looked pasted
+     flat onto the page. Raised across the board, and given its own hairline
+     (light theme has one too now, not just dark) so raised edges get a crisp
+     line to close the shape when the shadow's blur alone isn't enough. */
+  --shadow-color: 30 41 59;
+  --shadow-a1: 0.09;
+  --shadow-a2: 0.15;
+  --shadow-a3: 0.22;
+  --hairline: rgb(15 23 42 / 0.07);
+
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.11), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.14), 0 4px 6px -4px rgb(0 0 0 / 0.07);
 
   /* Accent used for glows and atmospherics. Distinct from --color-brand (the
      button fill): this one has to stay visible AS light on the page ground,
@@ -38,20 +45,24 @@
   --accent-gradient: linear-gradient(135deg, #1e598f, #3081a6);
   --hero-glow-secondary: #3081a6;
 
-  /* Depth kit. Mostly inert on light, where drop shadows already do the work.
-     On dark a black shadow cannot darken a near-black ground, so depth has to
-     come from a lit top edge, a containment ring, and a deeper well. */
+  /* Depth kit. On dark a black shadow cannot darken a near-black ground, so
+     depth has to come from a lit top edge, a containment ring, and a deeper
+     well -- light was left to drop shadows alone, but at the low alphas
+     above that read as no depth at all, so it now gets its own (quieter)
+     version of the same tricks: a real recessed stage and a well that's
+     visibly cut into the panel rather than just bordered. */
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0);
-  --stage-bg: rgb(226 232 240 / 0.6);
-  --stage-inset: inset 0 10px 24px -10px rgb(30 41 59 / 0.1),
-    inset 0 0 0 1px rgb(30 41 59 / 0.05);
+  --stage-bg: rgb(203 213 225 / 0.65);
+  --stage-inset: inset 0 14px 30px -12px rgb(30 41 59 / 0.16),
+    inset 0 0 0 1px rgb(30 41 59 / 0.07);
   --ambient: none;
   --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0);
-  /* Inputs read as wells cut INTO the panel. On light a border carries that;
-     on dark the fill has to actually drop below its container. */
-  --well-bg: var(--color-surface);
-  --well-inset: none;
+  /* Inputs read as wells cut INTO the panel. On light a border used to carry
+     that alone; it now also drops a shade below the panel and gets a soft
+     inner shadow so the "cut in" reads even where a border can't. */
+  --well-bg: color-mix(in oklab, var(--color-surface) 96%, var(--color-slate-900) 4%);
+  --well-inset: inset 0 1px 3px rgb(15 23 42 / 0.07), inset 0 0 0 1px rgb(15 23 42 / 0.05);
 }
 
 :is(html.dark, .force-dark) {
