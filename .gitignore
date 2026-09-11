@@ -39,3 +39,4 @@ coverage/
 .opencode/
 .playwright-mcp/
 .env copy.example
+.vscode/
