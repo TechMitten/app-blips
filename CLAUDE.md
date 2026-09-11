@@ -83,6 +83,11 @@ Consequences that matter when editing this code:
 - Optional deploy-time extras, all spliced into the HTML before upload (and some re-injected at serve time for older deploys): PWA installability (`pwa.js`, plus the `_pwa/{slug}/{manifest.webmanifest,sw.js}` route in `functions/[[path]].js`), Umami analytics (`analytics.js`, hosted mode only), noindex/custom favicon (`seo.js`), and password protection (`crypto.js` — PBKDF2+AES-GCM, wraps the app in a standalone unlock-screen page that decrypts and `document.write`s the real HTML client-side).
 - Some in-repo comments still describe the pre-migration Supabase-backed serving story (why a Cloudflare Function is needed to fix `text/plain` responses); the mechanism they explain still applies, but the code path is Firebase Storage + Firestore, not Supabase. A few `src/lib/*` files (`constants.js`, `deploy.js`, `helpers.js`, `projectsStorage.js`) likewise still reference "Supabase" in comments/naming despite operating on Firestore/Storage now.
 
+### Generated-app AI relay
+
+Projects opt in with an `aiEnabled` boolean (default off). Enabled previews receive a render-time-only `blip.ai.text` shim (with the legacy `window.ai.chat` alias); requests cross the existing token-authenticated, source-checked `postMessage` bridge and the parent calls authenticated `/api/chat`. Enabled deployments receive a separate deploy-time bridge containing a freshly rotated 32-byte opaque token and call same-origin `/ai/chat`. The token is public by design and only binds and rate-limits requests to a real deployment; provider credentials and configuration remain server-only. The relay allowlists request fields, forces server configuration, caps payloads and output, rejects cross-origin requests, and uses a best-effort per-isolate token bucket configured by `APPBLIPS_AI_RATE_LIMIT_MAX` and `APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS`. A distributed limiter can later replace it with KV or Durable Objects.
+
+
 ### Preview rendering
 
 `PREVIEW_MODES` defines fixed mobile (399×820) / desktop (1468×1022) viewport presets rendered inside a scaled container; zoom is either auto-fit (recalculated on resize via `previewContainerRef`) or manual (`handleManualZoom`), independent per `previewMode`.

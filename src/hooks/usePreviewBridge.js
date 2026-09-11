@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
+import { requestModelText } from '../lib/llm';
 
 // --- Preview bridge ---
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -15,6 +16,7 @@ export default function usePreviewBridge({
   onRuntimeError,
   onReady,
   onStorageChange,
+  aiEnabled = false,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
   const onReadyRef = useRef(onReady);
@@ -68,7 +70,7 @@ export default function usePreviewBridge({
     const iframe = iframeRef.current;
     if (!iframe || !previewSrcDoc) return;
 
-    const send = (type, payload) => {
+    const send = (type, payload, token = currentTokenRef.current) => {
       try {
         // targetOrigin '*' is required -- the frame's origin is opaque, so it
         // cannot know ours and we cannot address it by origin. Acceptable only
@@ -77,7 +79,7 @@ export default function usePreviewBridge({
         // handler must address the frame with the CURRENT token or the
         // freshly-navigated document silently rejects the configure.
         iframe.contentWindow?.postMessage(
-          { __orion: BRIDGE_CHANNEL, v: BRIDGE_PROTOCOL_VERSION, token: currentTokenRef.current, type, payload },
+          { __orion: BRIDGE_CHANNEL, v: BRIDGE_PROTOCOL_VERSION, token, type, payload },
           '*'
         );
       } catch { /* frame torn down mid-send */ }
@@ -127,7 +129,32 @@ export default function usePreviewBridge({
         forceRepaint();
         if (onReadyRef.current) onReadyRef.current({ token: data.token });
       }
-      else if (data.type === 'error') console.warn('[preview bridge]', data.payload?.message);
+      else if (data.type === "ai-chat-request") {
+        const requestId = data.payload?.requestId;
+        if (!aiEnabled || !requestId || !Array.isArray(data.payload?.messages)) {
+          send("ai-chat-error", { requestId, code: "unauthorized", message: "AI capabilities are disabled." }, data.token);
+          return;
+        }
+        const messages = data.payload.messages.slice(0, 64).map((message) => ({
+          role: ["system", "user", "assistant"].includes(message?.role) ? message.role : "user",
+          content: typeof message?.content === "string" ? message.content : String(message?.content ?? ""),
+        }));
+        requestModelText({
+          messages,
+          onChunk: (chunk, kind) => {
+            if (kind === "content") send("ai-chat-chunk", { requestId, text: chunk }, data.token);
+          },
+        }).then((message) => {
+          send("ai-chat-response", { requestId, text: String(message?.content || "") }, data.token);
+        }).catch((error) => {
+          send("ai-chat-error", {
+            requestId,
+            code: error?.isRateLimit ? "rate_limited" : (/session|sign in|App Check/i.test(error?.message || "") ? "unauthorized" : "upstream_error"),
+            message: "AI request failed.",
+          }, data.token);
+        });
+      }
+      else if (data.type === "error") console.warn('[preview bridge]', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
@@ -177,7 +204,7 @@ export default function usePreviewBridge({
       // listeners, injected styles and cursor inside it.
       send('configure', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
+  }, [previewSrcDoc, previewToken, previewMode, iframeRef, aiEnabled]);
 
   // Imperative request/response wrapper on top of the otherwise push-only
   // protocol -- see the pendingCapturesRef/onMessage handling above for the
