@@ -58,6 +58,7 @@ export default function Header({
 
         {/* Apps Modal Trigger */}
         <button
+          data-tour="apps"
           onClick={onOpenApps}
           className="nav-btn nav-btn-secondary nav-btn-icon group"
           title="My Saved Apps"
@@ -74,6 +75,7 @@ export default function Header({
 
         {/* History Panel Toggle */}
         <button
+          data-tour="history"
           onClick={onToggleHistory}
           className={`nav-btn nav-btn-icon nav-btn-history ${isHistoryOpen ? 'nav-btn-secondary-active' : 'nav-btn-secondary'} group`}
           title={isHistoryOpen ? "Hide history drawer" : "Show history drawer"}
@@ -92,6 +94,7 @@ export default function Header({
 
         {/* Settings Modal Trigger */}
         <button
+          data-tour="settings"
           onClick={onOpenSettings}
           className="nav-btn nav-btn-secondary nav-btn-icon group"
           title="Settings"
@@ -104,6 +107,7 @@ export default function Header({
         {/* Help Modal Trigger -- label held back to xl so the lg row keeps
             room for the account pill. */}
         <button
+          data-tour="help"
           onClick={onOpenHelp}
           className="nav-btn nav-btn-secondary nav-btn-icon group"
           title="How AppBlips works"

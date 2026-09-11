@@ -9,6 +9,7 @@ import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
+import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
 import NamingModal from './components/NamingModal';
@@ -68,6 +69,8 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+  const tourLayoutRef = useRef(null);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -1026,6 +1029,20 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
+  const startTour = () => {
+    tourLayoutRef.current = { mobileView, activeTab };
+    setIsHelpOpen(false);
+    setActiveTab('preview');
+    setIsTourOpen(true);
+  };
+  const closeTour = () => {
+    setIsTourOpen(false);
+    if (tourLayoutRef.current) {
+      setMobileView(tourLayoutRef.current.mobileView);
+      setActiveTab(tourLayoutRef.current.activeTab);
+    }
+  };
+
   // Only session restore blocks the UI; signed-out visitors can look around
   // freely and are only prompted to sign in when they try to generate or use
   // an account-only feature (see handleGenerate, DeployModal's onRequireSignIn).
@@ -1079,6 +1096,11 @@ export default function App() {
         </div>
       </div>
 
+      <TourInvitation onStart={startTour} />
+      {isTourOpen && (
+        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} />
+      )}
+
       {isSettingsOpen && (
         <SettingsModal
           onClose={() => setIsSettingsOpen(false)}
@@ -1097,7 +1119,7 @@ export default function App() {
       )}
 
       {isHelpOpen && (
-        <HelpModal onClose={() => setIsHelpOpen(false)} />
+        <HelpModal onClose={() => setIsHelpOpen(false)} onStartTour={startTour} />
       )}
 
       {isProjectsListOpen && (
@@ -1260,7 +1282,7 @@ export default function App() {
           )}
 
           {/* Preview/Device Area (Right) */}
-          <div className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-h-0`}>
+          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-h-0`}>
             <PreviewPane
               activeTab={activeTab}
               onTabChange={setActiveTab}
