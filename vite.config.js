@@ -43,8 +43,11 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
-// Injects the Umami analytics script into <head> only for the hosted version
-// (SELF_HOSTED_MODE=false). In self-hosted mode (the default), this is omitted entirely.
+// Injects the Umami analytics + session recorder scripts into <head> only for
+// the hosted version (SELF_HOSTED_MODE=false). In self-hosted mode (the
+// default), this is omitted entirely. The recorder is main-app-only -- it
+// must never reach deployed apps, which get script.js alone (or nothing) via
+// deploy.js/crypto.js/functions/[[path]].js.
 function umamiAnalyticsPlugin(mode) {
   return {
     name: 'appblips-umami-analytics',
@@ -52,13 +55,23 @@ function umamiAnalyticsPlugin(mode) {
       const env = loadEnv(mode, process.cwd(), '');
       const isHosted = (process.env.SELF_HOSTED_MODE ?? env.SELF_HOSTED_MODE) === 'false';
       if (isHosted) {
+        const websiteId = 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3';
         return [
           {
             tag: 'script',
             attrs: {
               defer: true,
               src: 'https://umami.techmitten.com/script.js',
-              'data-website-id': 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3',
+              'data-website-id': websiteId,
+            },
+            injectTo: 'head',
+          },
+          {
+            tag: 'script',
+            attrs: {
+              defer: true,
+              src: 'https://umami.techmitten.com/recorder.js',
+              'data-website-id': websiteId,
             },
             injectTo: 'head',
           },
