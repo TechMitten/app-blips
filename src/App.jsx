@@ -137,6 +137,7 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
 
   // --- Interrupted build job (persisted across page reloads) ---
   const [interruptedJob, setInterruptedJob] = useState(null);
@@ -198,8 +199,8 @@ export default function App() {
     isSignedIn,
     user,
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled,
       setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
     },
@@ -213,7 +214,7 @@ export default function App() {
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
   } = useDeployment({
     generatedCode, isSignedIn, user, username, projectName, currentProjectId,
-    currentVersionId, deployment, setDeployment, saveProject,
+    currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
   });
 
   // --- Preview viewport (mode / orientation / zoom) ---
@@ -392,6 +393,7 @@ export default function App() {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
+            aiEnabled,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -402,7 +404,7 @@ export default function App() {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generatedCode, previewReloadCount, projectStorageVersion]
+    [generatedCode, previewReloadCount, projectStorageVersion, aiEnabled]
   );
 
   const { requestScreenshot } = usePreviewBridge({
@@ -413,6 +415,7 @@ export default function App() {
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
+    aiEnabled,
   });
 
   const handleAttachScreenshot = useCallback(async () => {
@@ -675,7 +678,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -869,6 +872,7 @@ export default function App() {
       setChatContextStartIndex(0);
       setCurrentChatSessionId(newChatSessionId());
       setDeployment(null);
+      setAiEnabled(false);
     }
 
     setProjectName(trimmedName);
@@ -999,6 +1003,7 @@ export default function App() {
     setCurrentChatSessionId(newChatSessionId());
     setCurrentProjectId(null);
     setDeployment(null);
+    setAiEnabled(false);
     setDeployError(null);
     setConfirmUndeploy(false);
     setIsDeployModalOpen(false);
@@ -1159,6 +1164,8 @@ export default function App() {
           usernameLoading={usernameLoading}
           onClaimUsername={claimUsername}
           deployment={deployment}
+          aiEnabled={aiEnabled}
+          onAiEnabledChange={(enabled) => { setAiEnabled(enabled); saveProject({ aiEnabledToSave: enabled, force: true }); }}
           deploymentUrl={deploymentUrl}
           isDeployStale={isDeployStale}
           isDeploying={isDeploying}
@@ -1235,6 +1242,8 @@ export default function App() {
               isChatActive={isChatActive}
               isResumingProject={isResumingProject}
               chatMode={chatMode}
+              aiEnabled={aiEnabled}
+              onAiEnabledChange={(enabled) => { setAiEnabled(enabled); saveProject({ aiEnabledToSave: enabled, force: true }); }}
               onChatModeChange={setChatMode}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
@@ -1288,7 +1297,7 @@ export default function App() {
           )}
 
           {/* Preview/Device Area (Right) */}
-          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-h-0`}>
+          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-w-0 min-h-0`}>
             <PreviewPane
               activeTab={activeTab}
               onTabChange={setActiveTab}

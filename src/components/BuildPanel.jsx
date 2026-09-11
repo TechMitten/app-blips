@@ -10,6 +10,8 @@ export default function BuildPanel({
   isChatActive,
   isResumingProject,
   chatMode,
+  aiEnabled = false,
+  onAiEnabledChange,
   generatedCode,
   showStarterIdeas,
   starterIdeas,
@@ -77,8 +79,8 @@ export default function BuildPanel({
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
       <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         {/* Left: Section identity & status */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="build-badge flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white">
+        <div className="flex flex-1 items-center gap-2 min-w-0">
+          <div className="build-badge flex min-w-0 items-center gap-2.5 px-3 py-1.5 rounded-xl text-white">
             <span className="build-badge-icon w-5 h-5 rounded-lg text-white flex items-center justify-center shrink-0">
               {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
             </span>
@@ -99,6 +101,22 @@ export default function BuildPanel({
           </div>
         </div>
 
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aiEnabled}
+          aria-label={"AI text generation " + (aiEnabled ? "on" : "off")}
+          onClick={() => onAiEnabledChange?.(!aiEnabled)}
+          className={"inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-bold transition-colors " + (aiEnabled ? "border-indigo-400 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-white/15 dark:bg-white/5 dark:text-slate-300")}
+          title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
+        >
+          <span className={"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors " + (aiEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-600")}>
+            <span className={"h-4 w-4 rounded-full bg-white shadow-sm transition-transform " + (aiEnabled ? "translate-x-4" : "translate-x-0")} />
+          </span>
+          AI
+        </button>
+
         {/* Right: Quick actions */}
         {isChatActive && versions.length > 0 && !isGenerating && (
           <div className="flex items-center gap-2 shrink-0">
@@ -113,6 +131,7 @@ export default function BuildPanel({
             </button>
           </div>
         )}
+        </div>
       </div>
 
       <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 flex flex-col relative z-[1] chat-scrollbar">

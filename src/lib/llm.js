@@ -2,7 +2,7 @@ import authProvider from './auth';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
 import {
-  HTML_SYSTEM_PROMPT,
+  buildHtmlSystemPrompt,
   SURGICAL_EDIT_TOOL,
   REFINEMENT_TOOLS,
   VIEW_CODE_TOOL,
@@ -306,7 +306,8 @@ export const generateAppCode = async (
   signal = null,
   isAskMode = false,
   askClarifyingQuestions = true,
-  attachment = null
+  attachment = null,
+  aiEnabled = false
 ) => {
   if (isAskMode) {
     const messages = [
@@ -369,7 +370,7 @@ export const generateAppCode = async (
     });
 
     const messages = [
-      { role: 'system', content: HTML_SYSTEM_PROMPT },
+      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
       ...formattedChatHistory,
       {
         role: 'user',
@@ -412,7 +413,7 @@ export const generateAppCode = async (
     const syntaxAutoFixAttempted = check.errors.length > 0;
     if (check.errors.length) {
       let repairMessages = [
-        { role: 'system', content: HTML_SYSTEM_PROMPT },
+        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
         { role: 'user', content: `Current App Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
       ];
 
@@ -486,7 +487,7 @@ export const generateAppCode = async (
   // turns in one conversation, self-correcting from real tool-result errors instead of
   // blindly restarting from scratch each attempt.
   const messages = [
-    { role: 'system', content: HTML_SYSTEM_PROMPT },
+    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
     ...chatHistory,
     {
       role: 'user',

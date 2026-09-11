@@ -3,7 +3,7 @@ import { storage, firebaseEnabled } from '../firebase';
 import { ref, deleteObject } from 'firebase/storage';
 import {
   registerDeployment, unregisterDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
-  deployUrlForSlug, deployObjectPath, DEPLOY_BUCKET
+  deployUrlForSlug, deployObjectPath, makeAiToken, DEPLOY_BUCKET
 } from '../lib/deploy';
 import { createAnalyticsWebsite } from '../lib/appAnalytics';
 
@@ -14,7 +14,7 @@ import { createAnalyticsWebsite } from '../lib/appAnalytics';
 // firebaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
   generatedCode, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
-  deployment, setDeployment, saveProject
+  deployment, setDeployment, saveProject, aiEnabled
 }) {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -23,7 +23,7 @@ export default function useDeployment({
   const [confirmUndeploy, setConfirmUndeploy] = useState(false);
 
   // The live deployment is one version behind the workspace.
-  const isDeployStale = Boolean(deployment) && deployment.versionId !== currentVersionId;
+  const isDeployStale = Boolean(deployment) && (deployment.versionId !== currentVersionId || Boolean(deployment.aiEnabled) !== Boolean(aiEnabled));
   const deploymentUrl = deployment
     ? (deployment.slug ? deployUrlForSlug(deployment.slug) : deployment.url)
     : '';
@@ -64,13 +64,17 @@ export default function useDeployment({
 
       // Reuse the existing Umami website on redeploy/re-enable rather than
       // creating a second one and orphaning prior stats.
+      // Every redeploy rotates the public deployment binding token. Old copied HTML
+      // therefore loses AI access after the relay cache expires, by design.
+      const aiToken = aiEnabled ? makeAiToken() : null;
+
       let websiteId = null;
       if (analyticsEnabled) {
         websiteId = deployment?.analyticsWebsiteId || await createAnalyticsWebsite(desiredSlug);
       }
 
       // `generatedCode` only -- never the bridge-injected preview srcDoc.
-      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
+      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon, analyticsWebsiteId: websiteId, aiEnabled, aiToken });
 
       const slug = await registerDeployment({
         slug: desiredSlug,
@@ -79,7 +83,9 @@ export default function useDeployment({
         storagePath: path,
         name: projectName,
         analyticsEnabled,
-        analyticsWebsiteId: websiteId
+        analyticsWebsiteId: websiteId,
+        aiEnabled,
+        aiToken
       });
 
       const next = {
@@ -89,7 +95,8 @@ export default function useDeployment({
         deployedAt: new Date().toISOString(),
         versionId: currentVersionId,
         analyticsEnabled,
-        analyticsWebsiteId: websiteId
+        analyticsWebsiteId: websiteId,
+        aiEnabled
       };
       setDeployment(next);
       saveProject({ deploymentToSave: next, force: true });

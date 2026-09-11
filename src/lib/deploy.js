@@ -7,6 +7,7 @@ import { injectAnalyticsSnippet } from './analytics';
 import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 import { injectRemixBadgeSnippet } from './remixBadge';
+import { injectAiBridge } from './aiBridge';
 
 // --- Deployment ---
 //
@@ -38,6 +39,12 @@ export const randomToken = (length) => {
 // Storage object names stay opaque; only the public slug is human-readable.
 export const makeStorageToken = () => randomToken(10);
 
+export const makeAiToken = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
 export const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
 
 // `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal-a7f3`. The
@@ -62,7 +69,7 @@ export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 // the primary key, so a collision with someone else's app is refused by RLS
 // rather than silently stealing their link; retry with a longer tail.
 export const registerDeployment = async ({
-  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId
+  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId, aiEnabled, aiToken
 }) => {
   let candidate = slug;
 
@@ -82,6 +89,9 @@ export const registerDeployment = async ({
           name: name || null,
           analyticsEnabled: Boolean(analyticsEnabled),
           analyticsWebsiteId: analyticsWebsiteId || null,
+          aiEnabled: Boolean(aiEnabled),
+          // Public by design: this binds/rate-limits a real deployment; it is not a provider secret.
+          aiToken: aiEnabled ? aiToken : null,
           updated_at: new Date().toISOString()
         });
       });
@@ -105,11 +115,12 @@ export const unregisterDeployment = async (slug) => {
   }
 };
 
-export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon, analyticsWebsiteId }) => {
+export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon, analyticsWebsiteId, aiEnabled, aiToken }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   let withExtras = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
+  if (aiEnabled) withExtras = injectAiBridge(withExtras, aiToken);
   if (analyticsWebsiteId) {
     withExtras = injectAppAnalyticsSnippet(withExtras, analyticsWebsiteId);
   }

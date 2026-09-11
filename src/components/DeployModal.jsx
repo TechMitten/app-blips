@@ -264,8 +264,7 @@ export default function DeployModal({
                     <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
                   )}
                 </section>
-
-                {/* Section 3: Search Engine Visibility */}
+            {/* Section 4: Search Engine Visibility */}
                 <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -502,8 +501,7 @@ export default function DeployModal({
                 <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
               )}
             </section>
-
-            {/* Section 3: Search Engine Visibility */}
+            {/* Section 4: Search Engine Visibility */}
             <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">

@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Readable } from 'node:stream'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
+import { handleAiChat } from './functions/_lib/aiRelay.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 
 // Runs the same LLM proxy handler used by the production Cloudflare Pages
@@ -39,6 +40,30 @@ function llmProxyDevMiddleware(mode) {
         } else {
           res.end()
         }
+      })
+    },
+  }
+}
+
+function aiRelayDevMiddleware(mode) {
+  return {
+    name: 'appblips-ai-relay-dev-middleware',
+    configureServer(server) {
+      const env = loadEnv(mode, process.cwd(), '')
+      server.middlewares.use('/ai/chat', async (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
+        const chunks = []
+        for await (const chunk of req) chunks.push(chunk)
+        const request = new Request('http://' + (req.headers.host || 'localhost') + '/ai/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(req.headers.origin ? { origin: req.headers.origin } : {}) },
+          body: Buffer.concat(chunks),
+        })
+        const response = await handleAiChat(request, env)
+        res.statusCode = response.status
+        response.headers.forEach((value, key) => res.setHeader(key, value))
+        if (response.body) Readable.fromWeb(response.body).pipe(res)
+        else res.end()
       })
     },
   }
@@ -148,7 +173,7 @@ function umamiAnalyticsPlugin(mode) {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), llmProxyDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
+  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/firebase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,

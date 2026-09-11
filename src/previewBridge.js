@@ -180,7 +180,38 @@ const BRIDGE_SOURCE = `(function () {
   shimCookie();
 
   // ------------------------------------------------------------------
-  // 2. Touch-scroll simulation
+  // 2. Optional AI shim
+  // ------------------------------------------------------------------
+
+  var AI_ENABLED = __ORION_AI_ENABLED__;
+  var aiRequests = Object.create(null);
+  var aiSequence = 0;
+
+  function aiError(code, message) {
+    var error = new Error(message || "AI request failed.");
+    error.code = code;
+    return error;
+  }
+
+  function aiChat(messages, options) {
+    options = options || {};
+    if (!AI_ENABLED) return Promise.reject(aiError("unauthorized", "AI capabilities are disabled."));
+    var requestId = "ai-" + Date.now().toString(36) + "-" + (++aiSequence).toString(36);
+    return new Promise(function (resolve, reject) {
+      aiRequests[requestId] = { resolve: resolve, reject: reject, onChunk: typeof options.onChunk === "function" ? options.onChunk : null, text: "" };
+      post("ai-chat-request", { requestId: requestId, messages: messages, temperature: options.temperature, maxTokens: options.maxTokens });
+    });
+  }
+
+  if (AI_ENABLED) {
+    window.blip = Object.freeze({ ai: Object.freeze({ text: aiChat }) });
+    window.BLIP = Object.freeze({ AI: Object.freeze({ TEXT: aiChat }) });
+    // Compatibility for apps generated before the branded API was introduced.
+    window.ai = Object.freeze({ chat: aiChat });
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Touch-scroll simulation
   // ------------------------------------------------------------------
 
   var SCROLLBAR_CSS =
@@ -460,7 +491,19 @@ const BRIDGE_SOURCE = `(function () {
     if (d.type === 'configure') {
       desiredEnabled = !!(d.payload && d.payload.enabled);
       sync();
-    } else if (d.type === 'capture-screenshot') {
+    } else if (d.type === "ai-chat-chunk" || d.type === "ai-chat-response" || d.type === "ai-chat-error") {
+      var aiPayload = d.payload || {};
+      var pendingAi = aiRequests[aiPayload.requestId];
+      if (!pendingAi) return;
+      if (d.type === "ai-chat-chunk") {
+        pendingAi.text += String(aiPayload.text || "");
+        if (pendingAi.onChunk) pendingAi.onChunk(String(aiPayload.text || ""));
+      } else {
+        delete aiRequests[aiPayload.requestId];
+        if (d.type === "ai-chat-error") pendingAi.reject(aiError(aiPayload.code || "upstream_error", aiPayload.message));
+        else pendingAi.resolve({ text: String(aiPayload.text || pendingAi.text || "") });
+      }
+    } else if (d.type === "capture-screenshot") {
       captureDomSnapshot(d.payload && d.payload.requestId);
     }
   });
@@ -746,7 +789,7 @@ const SCRIPT_OPEN = '<script data-orion-bridge="true">';
 // Assembled so this module's own source never contains the literal sequence.
 const SCRIPT_CLOSE = '</' + 'script>';
 
-const buildTag = (token, initialStorage, touchEnabled) => {
+const buildTag = (token, initialStorage, touchEnabled, aiEnabled) => {
   const safeData = JSON.stringify(
     initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
   ).replace(/</g, '\\u003c');
@@ -754,7 +797,8 @@ const buildTag = (token, initialStorage, touchEnabled) => {
   const source = BRIDGE_SOURCE
     .replace('__ORION_TOKEN__', token)
     .replace('__ORION_INITIAL_STORAGE__', safeData)
-    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false');
+    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false')
+    .replace('__ORION_AI_ENABLED__', aiEnabled ? 'true' : 'false');
 
   if (source.indexOf('</') !== -1) {
     throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');
@@ -773,7 +817,7 @@ const buildTag = (token, initialStorage, touchEnabled) => {
  * anything touches `localStorage`.
  *
  * @param {string} code
- * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean }} [options]
+ * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, aiEnabled?: boolean }} [options]
  *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
  *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
  *   initial state, so the touch-scroll simulation and scrollbar hiding are
@@ -789,7 +833,7 @@ export const injectPreviewBridge = (code, options = {}) => {
   }
 
   const initialStorage = options?.initialStorage;
-  const tag = buildTag(token, initialStorage, options?.touchEnabled === true);
+  const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.aiEnabled === true);
   const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
 
   // A leading <!DOCTYPE html> needs no special case -- it falls out of this
