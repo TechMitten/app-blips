@@ -841,8 +841,9 @@ body {
 .device-screen {
   position: relative;
   width: 100%;
-  height: 100%;
-  background: white;
+  flex: 1;
+  min-height: 0;
+  background: #000;
   border-radius: 38px;
   overflow: hidden;
   box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
@@ -871,8 +872,6 @@ body {
 }
 
 .device-preview-surface-mobile {
-  position: absolute;
-  inset: 0;
   border-radius: inherit;
   overflow: hidden;
   touch-action: none;
@@ -894,9 +893,8 @@ body {
 
 .device-desktop .device-screen {
   flex: 1;
-  height: auto;
   border-radius: 0 0 15px 15px;
-  background: #fff;
+  background: #000;
   box-shadow: none;
 }
 

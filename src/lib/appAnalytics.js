@@ -79,7 +79,7 @@ export const createAnalyticsWebsite = async (slug) => {
   return data.websiteId;
 };
 
-// type: 'summary' | 'pageviews' | 'urls' | 'referrers'
+// type: 'summary' | 'pageviews' | 'urls' | 'referrers' | 'active' | 'countries' | 'entryPages'
 export const fetchAnalyticsStats = async (slug, { type = 'summary', startAt, endAt, unit } = {}) => {
   const headers = await withAuthHeaders();
   const params = new URLSearchParams({ slug, type });

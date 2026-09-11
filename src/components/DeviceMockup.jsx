@@ -254,6 +254,7 @@ export default function DeviceMockup({
   hasCode,
   isAutoFixing = false,
   autoFixMessage = null,
+  isTransitioning = false,
 }) {
   const box = getEffectivePreviewBox(mode, orientation);
   const isRuntimeErrorAutoFix = isAutoFixing || Boolean(generationStatus?.toLowerCase().includes('runtime error'));
@@ -345,7 +346,8 @@ export default function DeviceMockup({
               ref={iframeRef}
               title="Generated App Preview"
               srcDoc={srcDoc}
-              className="w-full h-full border-none"
+              className={`w-full h-full border-none ${isTransitioning ? 'overflow-hidden pointer-events-none' : ''}`}
+              scrolling={isTransitioning ? 'no' : 'auto'}
               sandbox="allow-scripts allow-forms allow-popups"
               referrerPolicy="no-referrer"
               allow=""

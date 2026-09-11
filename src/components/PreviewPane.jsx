@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
   ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, Trash2
@@ -48,6 +49,27 @@ export default function PreviewPane({
   copied,
   onCopyCode,
 }) {
+  const [transitionState, setTransitionState] = useState({ 
+    mode: previewMode, 
+    orientation: previewOrientation, 
+    isTransitioning: false 
+  });
+
+  if (transitionState.mode !== previewMode || transitionState.orientation !== previewOrientation) {
+    setTransitionState({ mode: previewMode, orientation: previewOrientation, isTransitioning: true });
+  }
+
+  const { isTransitioning } = transitionState;
+
+  useEffect(() => {
+    if (isTransitioning) {
+      const timer = setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, isTransitioning: false }));
+      }, 550); // Slightly longer than 500ms CSS transition
+      return () => clearTimeout(timer);
+    }
+  }, [isTransitioning]);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col relative z-0 inset-shadow-preview noise-texture">
 
@@ -252,7 +274,7 @@ export default function PreviewPane({
       {/* Container for Device or Code */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 flex items-center-safe justify-center-safe p-6 overflow-auto relative custom-scrollbar"
+        className={`flex-1 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning ? 'overflow-hidden' : 'overflow-auto'}`}
       >
         {/* Subtle workspace grid */}
         <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>
@@ -271,6 +293,7 @@ export default function PreviewPane({
             hasCode={hasCode}
             isAutoFixing={isAutoFixing}
             autoFixMessage={autoFixMessage}
+            isTransitioning={isTransitioning}
           />
         ) : (
           <CodeView
