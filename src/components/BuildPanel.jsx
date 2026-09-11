@@ -16,6 +16,7 @@ export default function BuildPanel({
   onPickStarter,
   versions,
   currentVersionIndex,
+  chatContextStartIndex = 0,
   pendingPrompt,
   streamingReply,
   isGenerating,
@@ -73,7 +74,7 @@ export default function BuildPanel({
               {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
             </span>
             <span className="build-badge-label font-black text-xs sm:text-sm tracking-tight truncate">
-              {isChatActive ? (chatMode === 'ask' ? 'Assistant' : 'Builder') : 'Prompt & Build'}
+              {isChatActive ? (chatMode === 'ask' ? 'Ask' : 'Build') : 'Prompt & Build'}
             </span>
             {(isGenerating || isResumingProject) && (
               <span className="relative flex h-2 w-2 shrink-0">
@@ -90,14 +91,14 @@ export default function BuildPanel({
         </div>
 
         {/* Right: Quick actions */}
-        {chatMode === 'ask' && isChatActive && !isGenerating && (
+        {isChatActive && versions.length > 0 && !isGenerating && (
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onNewChat}
-              className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-white hover:text-white/80 hover:scale-110 transition-all cursor-pointer"
-              aria-label="New chat"
-              title="New chat"
+              className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer"
+              aria-label="New chat (keeps version history)"
+              title="New chat (keeps version history)"
             >
               <Plus size={20} strokeWidth={3} aria-hidden="true" />
             </button>
@@ -206,6 +207,7 @@ export default function BuildPanel({
               <ChatTranscript
                 versions={versions}
                 currentVersionIndex={currentVersionIndex}
+                startIndex={chatContextStartIndex}
                 pendingPrompt={pendingPrompt}
                 streamingReply={streamingReply}
                 isGenerating={isGenerating}

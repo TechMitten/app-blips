@@ -8,6 +8,7 @@ import Markdown from './Markdown';
 export default function ChatTranscript({
   versions,
   currentVersionIndex,
+  startIndex = 0,
   pendingPrompt,
   streamingReply,
   isGenerating,
@@ -16,8 +17,22 @@ export default function ChatTranscript({
 }) {
   return (
     <div className="chat-log space-y-3.5 pb-1" role="log" aria-label="Build conversation">
-      {versions.slice(0, currentVersionIndex + 1).map((ver, idx) => {
-        const isActive = idx === currentVersionIndex;
+      {startIndex > 0 && (
+        <div
+          className="flex items-center gap-3 pt-1"
+          role="separator"
+          aria-label="New chat started"
+          title="Earlier messages remain in version history — restore a version to bring them back."
+        >
+          <div className="h-px flex-1 bg-slate-300/80 dark:bg-white/10" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-white/40 whitespace-nowrap">
+            New chat
+          </span>
+          <div className="h-px flex-1 bg-slate-300/80 dark:bg-white/10" />
+        </div>
+      )}
+      {versions.slice(startIndex, currentVersionIndex + 1).map((ver, idx) => {
+        const isActive = startIndex + idx === currentVersionIndex;
         return (
           <div key={ver.id} className="space-y-1.5">
             <div className="flex justify-end">
@@ -29,7 +44,7 @@ export default function ChatTranscript({
               <div className="relative flex justify-start">
                 <span className="star-anchor" aria-hidden="true">
                   <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
-                  <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{idx + 1}</span>
+                  <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{startIndex + idx + 1}</span>
                 </span>
                 <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white/60 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1a237e] border border-slate-900/8 dark:border-[#283593] shadow-none dark:shadow-xs text-slate-900 dark:text-white px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
                   <Markdown text={ver.reply} />
