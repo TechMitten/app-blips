@@ -1949,6 +1949,19 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 
+/* Icon buttons living on the history panel (panel-close, per-checkpoint
+   restore). In dark theme --color-slate-100 is pinned equal to
+   --color-surface (see the slate ladder above), so a plain border-slate-200
+   / hover:bg-surface combo that reads fine in light theme is completely
+   invisible in dark -- no shadow either, since --shadow-color is black and
+   disappears against a near-black ground. --hairline flips per theme (a
+   faint dark line on light, a faint light line on dark), so this box-shadow
+   gives every one of these buttons a visible edge regardless of theme or
+   what happens to sit behind it. */
+.history-icon-btn {
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
 /* Active version highlight card */
 .active-version-glow {
   box-shadow:
