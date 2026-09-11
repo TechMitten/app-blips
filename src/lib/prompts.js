@@ -175,12 +175,18 @@ Beyond the short reply described above, do not include any explanations, markdow
 
 const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
 - Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. It resolves to { text }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling.
-- Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this platform text API.
-- Handle loading and error states. Error codes are: unauthorized, rate_limited, payload_too_large, upstream_error, and network.
-- Never call an AI provider directly, invent an AI endpoint, or ask the end-user for an API key. No provider key is available in the generated app.`;
+- Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this text API.
+- Handle loading and error states. Error codes are: configuration_required, unauthorized, rate_limited, payload_too_large, upstream_error, and network.`;
 
-export const buildHtmlSystemPrompt = (aiEnabled = false) =>
-  aiEnabled ? HTML_SYSTEM_PROMPT + '\n\n' + AI_CAPABILITIES_PROMPT : HTML_SYSTEM_PROMPT;
+const HOSTED_AI_PROMPT = `The hosted platform supplies AI. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
+const BYOK_AI_PROMPT = `This is a self-hosted BYOK app. The injected blip.ai bridge opens its standard provider configuration dialog on the first text request. Do not build or store custom API-key fields. You may provide an AI Settings action that calls blip.ai.configure(), and a disconnect action that calls blip.ai.clearConfiguration(). Explain that each person using a shared static app supplies their own key.`;
+const RELAY_AI_PROMPT = `This self-hosted operator configured a server relay. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
+
+export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted") => {
+  if (!aiEnabled) return HTML_SYSTEM_PROMPT;
+  const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : (aiMode === "relay" ? RELAY_AI_PROMPT : HOSTED_AI_PROMPT);
+  return HTML_SYSTEM_PROMPT + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;
+};
 
 export const PROMPT_ENHANCEMENT_SYSTEM_PROMPT = `You improve short, rough instructions before they are sent to another AI that builds or edits a single-file web app.
 Rewrite the user's instruction to be clearer, more specific, and more actionable -- fill in concrete detail about missing functionality, layout, and interactions ONLY where it naturally extends their intent. Do not invent an unrelated feature set, change what they're asking for, or contradict any detail they already gave.

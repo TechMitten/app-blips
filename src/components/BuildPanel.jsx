@@ -71,7 +71,7 @@ export default function BuildPanel({
 
   return (
     <div
-      className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-300/90 dark:border-white/10"
+      className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200/80 dark:border-white/10"
     >
       {/* Subtle atmospheric gradient */}
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
@@ -98,25 +98,24 @@ export default function BuildPanel({
                 v{Math.min(currentVersionIndex + 1, versions.length)}
               </span>
             )}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiEnabled}
+              aria-label={"AI text generation " + (aiEnabled ? "on" : "off")}
+              onClick={() => onAiEnabledChange?.(!aiEnabled)}
+              className="ml-0.5 inline-flex shrink-0 items-center gap-1.5 border-l border-white/20 pl-2 text-xs font-bold text-white/90 transition-colors hover:text-white"
+              title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
+            >
+              <span className={"relative inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors " + (aiEnabled ? "bg-blue-500" : "bg-white/25")}>
+                <span className={"h-3 w-3 rounded-full bg-white shadow-sm transition-transform " + (aiEnabled ? "translate-x-3" : "translate-x-0")} />
+              </span>
+              AI
+            </button>
           </div>
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={aiEnabled}
-          aria-label={"AI text generation " + (aiEnabled ? "on" : "off")}
-          onClick={() => onAiEnabledChange?.(!aiEnabled)}
-          className={"inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-bold transition-colors " + (aiEnabled ? "border-indigo-400 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-white/15 dark:bg-white/5 dark:text-slate-300")}
-          title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
-        >
-          <span className={"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors " + (aiEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-600")}>
-            <span className={"h-4 w-4 rounded-full bg-white shadow-sm transition-transform " + (aiEnabled ? "translate-x-4" : "translate-x-0")} />
-          </span>
-          AI
-        </button>
-
         {/* Right: Quick actions */}
         {isChatActive && versions.length > 0 && !isGenerating && (
           <div className="flex items-center gap-2 shrink-0">
@@ -134,7 +133,7 @@ export default function BuildPanel({
         </div>
       </div>
 
-      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 flex flex-col relative z-[1] chat-scrollbar">
+      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-[1] chat-scrollbar">
         <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'mt-4 sm:mt-8 mb-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}

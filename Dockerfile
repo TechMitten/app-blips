@@ -7,7 +7,11 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+ARG APPBLIPS_GENERATED_AI_MODE=byok
+ARG APPBLIPS_APP_AI_RELAY_URL=
 ENV SELF_HOSTED_MODE=true
+ENV APPBLIPS_GENERATED_AI_MODE=$APPBLIPS_GENERATED_AI_MODE
+ENV APPBLIPS_APP_AI_RELAY_URL=$APPBLIPS_APP_AI_RELAY_URL
 
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -16,9 +20,8 @@ COPY . .
 RUN npm run build
 
 # ---- Runtime stage ----------------------------------------------------------
-# server.js and functions/_lib/chatProxy.js use only Node built-ins (fetch,
-# Request, Response are globals since Node 18+), so the runtime image needs
-# no node_modules at all -- just the built client and the two server files.
+# The server handlers use only Node built-ins (fetch, Request, and Response
+# are globals since Node 18+), so the runtime image needs no node_modules.
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
@@ -28,6 +31,8 @@ ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/functions/_lib/chatProxy.js ./functions/_lib/chatProxy.js
+COPY --from=builder /app/functions/_lib/selfHostedAiRelay.js ./functions/_lib/selfHostedAiRelay.js
+COPY --from=builder /app/functions/_lib/rateLimit.js ./functions/_lib/rateLimit.js
 COPY server.js ./server.js
 
 USER node

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { Readable } from 'node:stream'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
 import { handleAiChat } from './functions/_lib/aiRelay.js'
+import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 
 // Runs the same LLM proxy handler used by the production Cloudflare Pages
@@ -60,6 +61,33 @@ function aiRelayDevMiddleware(mode) {
           body: Buffer.concat(chunks),
         })
         const response = await handleAiChat(request, env)
+        res.statusCode = response.status
+        response.headers.forEach((value, key) => res.setHeader(key, value))
+        if (response.body) Readable.fromWeb(response.body).pipe(res)
+        else res.end()
+      })
+    },
+  }
+}
+
+function selfHostedAppAiDevMiddleware(mode) {
+  return {
+    name: "appblips-self-hosted-app-ai-dev-middleware",
+    configureServer(server) {
+      const env = loadEnv(mode, process.cwd(), "")
+      server.middlewares.use("/api/app-ai/chat", async (req, res) => {
+        const chunks = []
+        if (req.method === "POST") for await (const chunk of req) chunks.push(chunk)
+        const request = new Request("http://" + (req.headers.host || "localhost") + "/api/app-ai/chat", {
+          method: req.method,
+          headers: {
+            ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+            ...(req.headers["x-forwarded-for"] ? { "x-forwarded-for": req.headers["x-forwarded-for"] } : {}),
+            ...(req.method === "POST" ? { "content-type": "application/json" } : {}),
+          },
+          ...(req.method === "POST" ? { body: Buffer.concat(chunks) } : {}),
+        })
+        const response = await handleSelfHostedAiChat(request, env)
         res.statusCode = response.status
         response.headers.forEach((value, key) => res.setHeader(key, value))
         if (response.body) Readable.fromWeb(response.body).pipe(res)
@@ -173,12 +201,12 @@ function umamiAnalyticsPlugin(mode) {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
+  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/firebase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
   // so it's allow-listed here to reach import.meta.env too.
-  envPrefix: ['VITE_', 'SELF_HOSTED_MODE'],
+  envPrefix: ['VITE_', 'SELF_HOSTED_MODE', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL'],
   server: {
     host: true,
     port: 5175,

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
+import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
+import { generatedAiMode, generatedAiRelayUrl } from './lib/generatedAiMode';
 import { firebaseEnabled } from './firebase';
 
 import Header from './components/Header';
@@ -48,7 +50,6 @@ import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
-import useBuildPaneResize from './hooks/useBuildPaneResize';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -78,7 +79,6 @@ export default function App() {
   const { themePreference, setThemePreference, resolvedTheme } = useTheme();
   const handleToggleTheme = () => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark');
   const { chatFont, setChatFont } = useChatFont();
-  const { panelWidth, isResizing, startResize, resetWidth } = useBuildPaneResize();
 
   // --- Auth ---
   const {
@@ -383,7 +383,11 @@ export default function App() {
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
       generatedCode
-        ? injectPreviewBridge(generatedCode, {
+        ? injectPreviewBridge(
+            (!firebaseEnabled && aiEnabled)
+              ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
+              : generatedCode,
+          {
             initialStorage: loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
@@ -393,7 +397,7 @@ export default function App() {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
-            aiEnabled,
+            aiEnabled: firebaseEnabled && aiEnabled,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -415,7 +419,7 @@ export default function App() {
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
-    aiEnabled,
+    aiEnabled: firebaseEnabled && aiEnabled,
   });
 
   const handleAttachScreenshot = useCallback(async () => {
@@ -678,7 +682,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -817,7 +821,10 @@ export default function App() {
 
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
-    const blob = new Blob([generatedCode], { type: 'text/html' });
+    const outputHtml = (!firebaseEnabled && aiEnabled)
+      ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
+      : generatedCode;
+    const blob = new Blob([outputHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   };
@@ -826,7 +833,10 @@ export default function App() {
   // Firebase Storage, so hand the user the raw file instead.
   const handleExportHtml = () => {
     if (!generatedCode) return;
-    const blob = new Blob([generatedCode], { type: 'text/html' });
+    const outputHtml = (!firebaseEnabled && aiEnabled)
+      ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
+      : generatedCode;
+    const blob = new Blob([outputHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1235,8 +1245,7 @@ export default function App() {
 
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
           <div
-            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-[var(--build-panel-width)] flex-1 md:flex-none min-h-0 relative`}
-            style={{ '--build-panel-width': `${panelWidth}px` }}
+            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-[clamp(320px,35vw,420px)] flex-1 md:flex-none min-h-0 relative`}
           >
             <BuildPanel
               isChatActive={isChatActive}
@@ -1277,24 +1286,7 @@ export default function App() {
               onRetryInterruptedJob={handleRetryInterruptedJob}
               onDismissInterruptedJob={handleDismissInterruptedJob}
             />
-
-            {/* Draggable Resize Divider */}
-            <div
-              onMouseDown={startResize}
-              onDoubleClick={resetWidth}
-              className="hidden md:flex absolute top-0 -right-1 w-2.5 h-full cursor-col-resize z-30 group items-center justify-center select-none"
-              title="Drag to resize pane (double-click to reset)"
-              aria-label="Resize edit pane"
-            >
-              <div className={`w-[2px] h-full transition-colors ${isResizing ? 'bg-indigo-500' : 'group-hover:bg-indigo-400/80 bg-transparent'}`} />
-              <div className="absolute top-1/2 -translate-y-1/2 w-1 h-7 rounded-full bg-slate-400/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-            </div>
           </div>
-
-          {/* Iframe shielding overlay while dragging */}
-          {isResizing && (
-            <div className="fixed inset-0 z-50 cursor-col-resize select-none bg-transparent" />
-          )}
 
           {/* Preview/Device Area (Right) */}
           <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-w-0 min-h-0`}>
