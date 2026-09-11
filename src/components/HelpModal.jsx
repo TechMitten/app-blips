@@ -486,7 +486,7 @@ function buildHelpSections(hasDeploy) {
   ];
 }
 
-export default function HelpModal({ onClose }) {
+export default function HelpModal({ onClose, onStartTour }) {
   const sections = useMemo(() => buildHelpSections(firebaseEnabled), []);
   const [activeId, setActiveId] = useState(sections[0].id);
 
@@ -527,6 +527,11 @@ export default function HelpModal({ onClose }) {
         >
           <X size={18} />
         </button>
+      </div>
+
+      <div className="shrink-0 flex items-center justify-between gap-3 px-6 sm:px-8 py-3 border-b border-slate-200 bg-indigo-50">
+        <p className="text-xs text-slate-600">Prefer a walkthrough?</p>
+        <button type="button" onClick={onStartTour} className="tour-button brand-fill-text bg-brand text-white hover:bg-brand-hover"><Play size={14} aria-hidden="true" /> Start guided tour</button>
       </div>
 
       {/* Section rail -- phones: a horizontally scrolling chip strip */}

@@ -66,7 +66,7 @@ export default function PromptInput({
     : (chatMode === 'ask' ? 'Send' : (isClarifying ? 'Answer' : (isChatActive ? 'Update App' : 'Build App')));
 
   return (
-    <div className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md flex flex-col">
+    <div data-tour="prompt" className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md flex flex-col">
       {attachment && (
         <div className="flex items-center gap-2 px-3 sm:px-4 pt-3">
           <div className="relative shrink-0">

@@ -222,6 +222,7 @@ export default function PreviewPane({
           {/* Deploy to a public URL (hosted mode) / Export the HTML file (self-hosted) */}
           {hasCode && (firebaseEnabled ? (
             <button
+              data-tour="share"
               onClick={onOpenDeployModal}
               className="nav-btn brand-fill-text relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
@@ -236,6 +237,7 @@ export default function PreviewPane({
             </button>
           ) : (
             <button
+              data-tour="share"
               onClick={onExportHtml}
               className="nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title="Download this app as an HTML file"
