@@ -6,6 +6,7 @@ import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
 import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
+import { injectRemixBadgeSnippet } from './remixBadge';
 
 // --- Deployment ---
 //
@@ -108,7 +109,7 @@ export const uploadDeploy = async ({ path, html, password, preventIndexing, favi
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
-  let withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
+  let withExtras = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
   if (analyticsWebsiteId) {
     withExtras = injectAppAnalyticsSnippet(withExtras, analyticsWebsiteId);
   }
