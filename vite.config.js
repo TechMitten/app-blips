@@ -79,7 +79,7 @@ export default defineConfig(({ mode }) => ({
   envPrefix: ['VITE_', 'SELF_HOSTED_MODE'],
   server: {
     host: true,
-    port: 5173,
+    port: 5175,
     strictPort: false,
     watch: {
       usePolling: true
