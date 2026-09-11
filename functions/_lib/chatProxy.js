@@ -185,7 +185,7 @@ const toChatCompletionsUrl = (baseUrl) => {
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 
-const authorize = async (request, env) => {
+export const authorize = async (request, env) => {
   if (env.SELF_HOSTED_MODE !== 'false') return { id: 'local-user' };
 
   const authHeader = request.headers.get('authorization') || '';

@@ -1,6 +1,6 @@
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, LogIn
+  Settings, CircleHelp, LogIn, BarChart3
 } from 'lucide-react';
 
 
@@ -24,6 +24,7 @@ export default function Header({
   onOpenAccountSettings,
   onSignIn,
   firebaseEnabled,
+  onOpenAnalytics,
 }) {
   return (
     <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -116,6 +117,19 @@ export default function Header({
           <CircleHelp size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
           <span className="hidden xl:inline">Help</span>
         </button>
+
+        {/* Analytics Dashboard Trigger -- hosted mode + signed-in only, same gate as the account pill below */}
+        {firebaseEnabled && isSignedIn && (
+          <button
+            onClick={onOpenAnalytics}
+            className="nav-btn nav-btn-secondary nav-btn-icon group"
+            title="Analytics"
+            aria-label="Analytics"
+          >
+            <BarChart3 size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+            <span className="hidden xl:inline">Analytics</span>
+          </button>
+        )}
 
         {/* Auth Section -- hidden entirely in self-hosted mode, no accounts to sign into */}
         {!firebaseEnabled ? null : isSignedIn ? (

@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { doc, writeBatch } from 'firebase/firestore';
 import authProvider, { firebaseEnabled } from '../lib/auth';
 import { readProjectRows } from '../lib/projectsStorage';
+import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/username';
 
 // One-time local -> cloud project import flag, keyed per user.
 const importFlagKey = (userId) => `orion-imported-${userId}`;
@@ -22,6 +23,10 @@ export default function useAuth() {
   // Transient 'signedIn' | 'signedOut' notification (null when hidden).
   const [authToast, setAuthToast] = useState(null);
   const prevAuthStatusRef = useRef(null);
+  // Permanent per-user handle, stored in Firestore (users/{uid}.username) --
+  // see src/lib/username.js. Not part of the Firebase Auth user object.
+  const [username, setUsername] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
 
   const isSignedIn = authStatus === 'signedIn';
   const user = session?.user ?? null;
@@ -42,6 +47,28 @@ export default function useAuth() {
       unsubscribe?.();
     };
   }, []);
+
+  // --- Load the permanent username once per signed-in user ---
+  useEffect(() => {
+    if (!firebaseEnabled || !user?.id) {
+      setUsername('');
+      return;
+    }
+    let active = true;
+    setUsernameLoading(true);
+    fetchUsername(user.id)
+      .then((name) => { if (active) setUsername(name); })
+      .catch((err) => console.error('Failed to load username:', err))
+      .finally(() => { if (active) setUsernameLoading(false); });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  const claimUsername = useCallback(async (rawUsername) => {
+    if (!user?.id) throw new Error('Sign in required.');
+    const claimed = await claimUsernameForUid(user.id, rawUsername);
+    setUsername(claimed);
+    return claimed;
+  }, [user?.id]);
 
   // --- One-time local → cloud project import (offered after first sign-in) ---
   const maybeOfferImport = useCallback(() => {
@@ -133,6 +160,9 @@ export default function useAuth() {
     authStatus,
     isSignedIn,
     user,
+    username,
+    usernameLoading,
+    claimUsername,
     authToast,
     dismissAuthToast: () => setAuthToast(null),
     isAuthModalOpen,

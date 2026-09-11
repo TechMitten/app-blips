@@ -5,6 +5,7 @@ import {
   registerDeployment, unregisterDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
   deployUrlForSlug, deployObjectPath, DEPLOY_BUCKET
 } from '../lib/deploy';
+import { createAnalyticsWebsite } from '../lib/appAnalytics';
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
 // the project's data blob by `saveProject`) plus the modal/UI state around
@@ -12,7 +13,7 @@ import {
 // self-hosted equivalent, so every action here is a no-op unless
 // firebaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
-  generatedCode, isSignedIn, user, projectName, currentProjectId, currentVersionId,
+  generatedCode, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
   deployment, setDeployment, saveProject
 }) {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
@@ -39,7 +40,7 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null) => {
+  const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
     if (!generatedCode || isDeploying) return;
     if (!firebaseEnabled) {
       setDeployError('Deploy is not available in self-hosted mode.');
@@ -54,26 +55,31 @@ export default function useDeployment({
     try {
       // Reuse the existing path and slug so the shared link stays stable.
       const path = deployment?.path || deployObjectPath(user.id, makeStorageToken());
-      // `generatedCode` only -- never the bridge-injected preview srcDoc.
-      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon });
 
       let desiredSlug = deployment?.slug;
       if (!desiredSlug) {
         const baseSlug = customSlug || makePublicSlug(projectName);
-        const username = user?.displayName || user?.username || user?.user_metadata?.username;
-        if (username) {
-          desiredSlug = `${username}/${baseSlug}`;
-        } else {
-          desiredSlug = baseSlug;
-        }
+        desiredSlug = username ? `${username}/${baseSlug}` : baseSlug;
       }
+
+      // Reuse the existing Umami website on redeploy/re-enable rather than
+      // creating a second one and orphaning prior stats.
+      let websiteId = null;
+      if (analyticsEnabled) {
+        websiteId = deployment?.analyticsWebsiteId || await createAnalyticsWebsite(desiredSlug);
+      }
+
+      // `generatedCode` only -- never the bridge-injected preview srcDoc.
+      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
 
       const slug = await registerDeployment({
         slug: desiredSlug,
         userId: user.id,
         projectId: currentProjectId,
         storagePath: path,
-        name: projectName
+        name: projectName,
+        analyticsEnabled,
+        analyticsWebsiteId: websiteId
       });
 
       const next = {
@@ -81,7 +87,9 @@ export default function useDeployment({
         url: deployUrlForSlug(slug),
         path,
         deployedAt: new Date().toISOString(),
-        versionId: currentVersionId
+        versionId: currentVersionId,
+        analyticsEnabled,
+        analyticsWebsiteId: websiteId
       };
       setDeployment(next);
       saveProject({ deploymentToSave: next, force: true });

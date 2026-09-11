@@ -4,6 +4,7 @@ import { ref, uploadString } from 'firebase/storage';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
+import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 
 // --- Deployment ---
@@ -59,7 +60,9 @@ export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 // Publishes the slug -> storage-object mapping the Pages Function reads. Slug is
 // the primary key, so a collision with someone else's app is refused by RLS
 // rather than silently stealing their link; retry with a longer tail.
-export const registerDeployment = async ({ slug, userId, projectId, storagePath, name }) => {
+export const registerDeployment = async ({
+  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId
+}) => {
   let candidate = slug;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -76,6 +79,8 @@ export const registerDeployment = async ({ slug, userId, projectId, storagePath,
           project_id: String(projectId ?? ''),
           storage_path: storagePath,
           name: name || null,
+          analyticsEnabled: Boolean(analyticsEnabled),
+          analyticsWebsiteId: analyticsWebsiteId || null,
           updated_at: new Date().toISOString()
         });
       });
@@ -99,11 +104,14 @@ export const unregisterDeployment = async (slug) => {
   }
 };
 
-export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon }) => {
+export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon, analyticsWebsiteId }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   let withExtras = injectAnalyticsSnippet(injectPwaSnippet(html));
+  if (analyticsWebsiteId) {
+    withExtras = injectAppAnalyticsSnippet(withExtras, analyticsWebsiteId);
+  }
   if (preventIndexing) {
     withExtras = injectNoindexSnippet(withExtras);
   }
