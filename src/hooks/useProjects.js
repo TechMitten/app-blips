@@ -6,6 +6,7 @@ import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
 import { migratePreviewStorage, clearPreviewStorage } from '../lib/previewStorage';
+import { migrateChatSessions } from '../lib/chatSessions';
 
 // Project persistence: the saved-apps list (local rows when signed out or
 // self-hosted, Firestore rows when signed in with Firebase enabled),
@@ -23,8 +24,8 @@ import { migratePreviewStorage, clearPreviewStorage } from '../lib/previewStorag
 // all stable React state setters.
 export default function useProjects({ authStatus, isSignedIn, user, workspace }) {
   const {
-    versions, currentVersionIndex, projectName, currentProjectId, deployment,
-    setProjectName, setVersions, setCurrentVersionIndex, setDeployment,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment,
     setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState
   } = workspace;
@@ -104,11 +105,18 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       clearStreamingState();
       setProjectName(row.name || 'Untitled App');
       const projectData = row.data || {};
-      setVersions(projectData.versions || []);
+      // Upgrade legacy rows (no per-version session ids) to the grouped
+      // chat-session model using the old single cutoff.
+      const migrated = migrateChatSessions(
+        projectData.versions, projectData.chatContextStartIndex, projectData.currentChatSessionId
+      );
+      setVersions(migrated.versions);
       setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
+      setChatContextStartIndex(Math.min(projectData.chatContextStartIndex ?? 0, migrated.versions.length));
+      setCurrentChatSessionId(migrated.currentChatSessionId);
       setDeployment(projectData.deployment || null);
-      if (projectData.versions && projectData.versions[projectData.currentVersionIndex]) {
-        setGeneratedCode(projectData.versions[projectData.currentVersionIndex].code);
+      if (migrated.versions[projectData.currentVersionIndex]) {
+        setGeneratedCode(migrated.versions[projectData.currentVersionIndex].code);
       }
       setCurrentProjectId(projectId);
       setHasSentFirstPrompt(Boolean(projectData.versions?.length));
@@ -116,7 +124,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setDeployment, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -124,7 +132,9 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       indexToSave = currentVersionIndex,
       nameToSave = projectName,
       idToSave = currentProjectId,
-      deploymentToSave = deployment
+      deploymentToSave = deployment,
+      chatContextStartToSave = chatContextStartIndex,
+      sessionIdToSave = currentChatSessionId
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
@@ -136,6 +146,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         versions: versionsToSave,
         currentVersionIndex: indexToSave,
         deployment: deploymentToSave || null,
+        chatContextStartIndex: Math.min(chatContextStartToSave ?? 0, versionsToSave.length),
+        currentChatSessionId: sessionIdToSave ?? null,
       };
 
       if (useCloud) {
@@ -181,7 +193,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, chatContextStartIndex, currentChatSessionId, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -243,10 +255,15 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     clearStreamingState();
     setCurrentProjectId(project.id);
     setProjectName(project.name);
-    setVersions(project.versions);
+    const migrated = migrateChatSessions(
+      project.versions, project.chatContextStartIndex, project.currentChatSessionId
+    );
+    setVersions(migrated.versions);
     setCurrentVersionIndex(project.currentVersionIndex);
-    if (project.versions && project.versions[project.currentVersionIndex]) {
-      setGeneratedCode(project.versions[project.currentVersionIndex].code);
+    setChatContextStartIndex(Math.min(project.chatContextStartIndex ?? 0, migrated.versions.length));
+    setCurrentChatSessionId(migrated.currentChatSessionId);
+    if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
+      setGeneratedCode(migrated.versions[project.currentVersionIndex].code);
     }
     setIsProjectsListOpen(false);
     setHasSentFirstPrompt(Boolean(project.versions?.length));

@@ -5,7 +5,7 @@ import {
   MessageCircleQuestion, Square, TriangleAlert, Layers, Eye, Smartphone, RotateCw,
   Undo2, ZoomIn, ExternalLink, Info, PanelLeftOpen, Clock, Play, Copy, Pencil,
   Check, Trash2, Plus, RotateCcw, RefreshCw, Link, Globe, KeyRound, EyeOff,
-  Image, Settings2, Code2, Upload, Sun, Type
+  Image, Settings2, Code2, Upload, Sun, Type, MessagesSquare
 } from 'lucide-react';
 import Modal from './Modal';
 import { firebaseEnabled } from '../firebase';
@@ -248,24 +248,25 @@ function HistorySection() {
   return (
     <HelpSection
       title="Versions &amp; history"
-      intro="Every build makes a version. History is the whole trail, newest first."
+      intro="Every build makes a version. History groups them by chat session, newest chat first."
     >
       <HelpItems>
         <HelpItem icon={PanelLeftOpen} name="The History drawer">
           The <strong>History</strong> button in the top bar opens and closes it, on wider screens.
+        </HelpItem>
+        <HelpItem icon={MessagesSquare} name="Chat sessions">
+          Versions are grouped under the chat they were built in. <strong>+</strong> (new chat)
+          starts a fresh group; earlier groups and their conversation stay put.
         </HelpItem>
         <HelpItem icon={Clock} name="What a row shows">
           The version number, the prompt that made it, and when. <strong>Initial</strong> marks
           the first build; <strong>Active</strong> marks the one you&rsquo;re looking at.
         </HelpItem>
         <HelpItem icon={Play} name="Restore">
-          Puts that version back in the preview.
-        </HelpItem>
-        <HelpItem icon={Copy} name="Copy">
-          Copies that version&rsquo;s HTML to your clipboard.
-        </HelpItem>
-        <HelpItem icon={Download} name="Save">
-          Downloads that version as an HTML file, named after its version number.
+          Click any version to put it back in the preview &mdash; it also brings
+          back the chat session it belongs to, so its conversation continues from
+          there. Restoring an <strong>Ask</strong> answer rewinds only the
+          conversation; your app in the preview stays exactly as it is.
         </HelpItem>
       </HelpItems>
       <HelpNote>
@@ -321,8 +322,8 @@ function OtherWaysOut() {
         <HelpItem icon={Code2} name="Code tab → Copy">
           Copies the full HTML of the version you&rsquo;re looking at.
         </HelpItem>
-        <HelpItem icon={History} name="History → Copy or Save">
-          Does the same for any earlier version.
+        <HelpItem icon={History} name="History → Restore">
+          Restores any earlier version&rsquo;s HTML into the code tab and preview.
         </HelpItem>
         <HelpItem icon={ExternalLink} name="Open">
           Opens the current version in a new browser tab, where you can save it from your browser.

@@ -19,11 +19,22 @@ export default function usePreviewBridge({
   const onReadyRef = useRef(onReady);
   const onStorageChangeRef = useRef(onStorageChange);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
+  // The token of the document the iframe is navigating TO. `send` reads this
+  // ref instead of closing over the prop so a `load` handler attached by a
+  // PREVIOUS effect run still addresses the frame with the live token: a
+  // srcdoc document can finish loading before passive effects re-attach (the
+  // heavy commit when a generation completes is exactly that race), and a
+  // configure pushed with a stale token is silently rejected by the new
+  // document. The frame no longer NEEDS that push to boot configured (the
+  // touch state is baked in at injection time -- see injectPreviewBridge),
+  // but every push that does go out should be deliverable.
+  const currentTokenRef = useRef(previewToken);
 
   useEffect(() => {
     onRuntimeErrorRef.current = onRuntimeError;
     onReadyRef.current = onReady;
     onStorageChangeRef.current = onStorageChange;
+    currentTokenRef.current = previewToken;
   });
 
   useEffect(() => {
@@ -45,8 +56,11 @@ export default function usePreviewBridge({
         // targetOrigin '*' is required -- the frame's origin is opaque, so it
         // cannot know ours and we cannot address it by origin. Acceptable only
         // because no message in this protocol carries a secret. Do not add one.
+        // token: see the currentTokenRef comment above -- a stale `load`
+        // handler must address the frame with the CURRENT token or the
+        // freshly-navigated document silently rejects the configure.
         iframe.contentWindow?.postMessage(
-          { __orion: BRIDGE_CHANNEL, v: BRIDGE_PROTOCOL_VERSION, token: previewToken, type, payload },
+          { __orion: BRIDGE_CHANNEL, v: BRIDGE_PROTOCOL_VERSION, token: currentTokenRef.current, type, payload },
           '*'
         );
       } catch { /* frame torn down mid-send */ }
