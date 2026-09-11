@@ -52,7 +52,7 @@ const getColorClasses = (colorString = '') => {
 // Empty-state idea cards (presets).
 export default function StarterIdeas({ ideas, onPick }) {
   return (
-    <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+    <div className="space-y-3 animate-fade-in hidden [@media(min-height:720px)]:block" style={{ animationDelay: '0.08s' }}>
       <div className="flex items-center justify-between pt-0.5">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-4 rounded-full bg-indigo-600 dark:bg-indigo-400" />

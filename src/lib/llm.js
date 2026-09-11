@@ -307,7 +307,8 @@ export const generateAppCode = async (
   isAskMode = false,
   askClarifyingQuestions = true,
   attachment = null,
-  aiEnabled = false
+  aiEnabled = false,
+  aiMode = 'hosted'
 ) => {
   if (isAskMode) {
     const messages = [
@@ -370,7 +371,7 @@ export const generateAppCode = async (
     });
 
     const messages = [
-      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
+      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
       ...formattedChatHistory,
       {
         role: 'user',
@@ -413,7 +414,7 @@ export const generateAppCode = async (
     const syntaxAutoFixAttempted = check.errors.length > 0;
     if (check.errors.length) {
       let repairMessages = [
-        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
+        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
         { role: 'user', content: `Current App Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
       ];
 
@@ -487,7 +488,7 @@ export const generateAppCode = async (
   // turns in one conversation, self-correcting from real tool-result errors instead of
   // blindly restarting from scratch each attempt.
   const messages = [
-    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled) },
+    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
     ...chatHistory,
     {
       role: 'user',
