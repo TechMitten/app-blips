@@ -12,6 +12,7 @@ import HelpModal from './components/HelpModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
+import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
 import NamingModal from './components/NamingModal';
 import AuthModal from './components/AuthModal';
 import AuthToast from './components/AuthToast';
@@ -46,6 +47,7 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
+import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import useBuildPaneResize from './hooks/useBuildPaneResize';
@@ -83,6 +85,7 @@ export default function App() {
   // --- Auth ---
   const {
     authStatus, isSignedIn, user,
+    username, usernameLoading, claimUsername,
     authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
     isImportModalOpen, importLocalCount, isImporting,
@@ -211,9 +214,18 @@ export default function App() {
     deployCopied, confirmUndeploy, setConfirmUndeploy, isDeployStale, deploymentUrl,
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
   } = useDeployment({
-    generatedCode, isSignedIn, user, projectName, currentProjectId,
+    generatedCode, isSignedIn, user, username, projectName, currentProjectId,
     currentVersionId, deployment, setDeployment, saveProject,
   });
+
+  // --- Analytics dashboard ---
+  const {
+    isAnalyticsOpen, openAnalytics, closeAnalytics,
+    myAnalyticsApps, appsLoading: analyticsAppsLoading,
+    selectedSlug: analyticsSelectedSlug, selectApp: selectAnalyticsApp,
+    range: analyticsRange, changeRange: changeAnalyticsRange,
+    stats: analyticsStats, statsLoading: analyticsStatsLoading, error: analyticsError,
+  } = useAnalytics({ isSignedIn, user });
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -1076,6 +1088,7 @@ export default function App() {
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
         firebaseEnabled={firebaseEnabled}
+        onOpenAnalytics={() => openAnalytics()}
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
@@ -1154,7 +1167,9 @@ export default function App() {
       {isDeployModalOpen && (
         <DeployModal
           isSignedIn={isSignedIn}
-          user={user}
+          username={username}
+          usernameLoading={usernameLoading}
+          onClaimUsername={claimUsername}
           deployment={deployment}
           deploymentUrl={deploymentUrl}
           isDeployStale={isDeployStale}
@@ -1172,6 +1187,21 @@ export default function App() {
         />
       )}
 
+      {isAnalyticsOpen && firebaseEnabled && isSignedIn && (
+        <AnalyticsDashboardModal
+          apps={myAnalyticsApps}
+          appsLoading={analyticsAppsLoading}
+          selectedSlug={analyticsSelectedSlug}
+          onSelectApp={selectAnalyticsApp}
+          range={analyticsRange}
+          onRangeChange={changeAnalyticsRange}
+          stats={analyticsStats}
+          statsLoading={analyticsStatsLoading}
+          error={analyticsError}
+          onClose={closeAnalytics}
+        />
+      )}
+
       {isNamingModalOpen && (
         <NamingModal
           name={tempProjectName}
@@ -1184,6 +1214,8 @@ export default function App() {
       {isAccountSettingsOpen && isSignedIn && firebaseEnabled && (
         <AccountSettingsModal
           user={user}
+          username={username}
+          usernameLoading={usernameLoading}
           onClose={() => setIsAccountSettingsOpen(false)}
           onSignOut={handleSignOut}
         />

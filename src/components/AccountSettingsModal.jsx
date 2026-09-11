@@ -1,20 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import authProvider from '../lib/auth';
 import { User, Mail, KeyRound, Trash2, X, AlertTriangle, LogOut } from 'lucide-react';
 
-export default function AccountSettingsModal({ user, onClose, onSignOut }) {
+export default function AccountSettingsModal({ user, username, usernameLoading, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const currentUsername = user?.displayName || user?.username || user?.user_metadata?.username || '';
-  const [username, setUsername] = useState(currentUsername);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    setUsername(currentUsername);
-  }, [currentUsername]);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -30,31 +24,6 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
       setMessage('Password updated successfully.');
       setPassword('');
       setConfirmPassword('');
-    } catch (updateError) {
-      setError(updateError.message);
-    }
-    setLoading(false);
-  };
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    const cleanUsername = username.trim().toLowerCase();
-    if (!cleanUsername) {
-      setError('Username cannot be empty');
-      return;
-    }
-    // Basic username validation: only letters, numbers, hyphens
-    if (!/^[a-zA-Z0-9-]+$/.test(cleanUsername)) {
-      setError('Username can only contain letters, numbers, and hyphens');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setMessage('');
-    try {
-      await authProvider.updateProfile({ displayName: cleanUsername });
-      setUsername(cleanUsername);
-      setMessage('Profile updated successfully.');
     } catch (updateError) {
       setError(updateError.message);
     }
@@ -148,30 +117,18 @@ export default function AccountSettingsModal({ user, onClose, onSignOut }) {
                 </div>
                 <p className="mt-2 text-xs text-slate-500">Your email address is used for sign in and notifications.</p>
               </div>
-              <form onSubmit={handleUpdateProfile} className="space-y-4 mt-4 pt-4 border-t border-slate-100">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
-                  <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 bg-surface border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="Choose a username"
-                      required
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">Your username is used for custom app URLs.</p>
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm">
+                  <User size={16} />
+                  <span>{usernameLoading ? 'Loading...' : (username || 'Not set yet')}</span>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading || !username.trim() || username.trim().toLowerCase() === currentUsername}
-                  className="brand-fill-text w-full py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Updating...' : 'Save Profile'}
-                </button>
-              </form>
+                <p className="mt-2 text-xs text-slate-500">
+                  {username
+                    ? "Your username is permanent and used in your app's public URLs."
+                    : "You'll choose a username the first time you deploy an app. It can't be changed once set."}
+                </p>
+              </div>
             </div>
           )}
 
