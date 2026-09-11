@@ -181,6 +181,46 @@ const injectFavicon = (html) => {
   return faviconTag + html;
 };
 
+// "Remix Blip!" CTA badge -- see src/lib/remixBadge.js for the source of
+// truth on the markup/rationale; duplicated here (like the favicon/analytics
+// tags above) so deployments uploaded before this existed get it too.
+const REMIX_BADGE_ID = 'appblips-remix-badge';
+const REMIX_BADGE_SNIPPET = `<style>
+#${REMIX_BADGE_ID}{position:fixed;bottom:16px;right:16px;z-index:2147483000;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#${REMIX_BADGE_ID} .ablips-remix-link{all:unset;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:9999px;background:linear-gradient(135deg,#7c3aed,#4f46e5);box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;transition:transform .15s ease}
+#${REMIX_BADGE_ID} .ablips-remix-link:hover,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible{transform:scale(1.08)}
+#${REMIX_BADGE_ID} .ablips-remix-tip{position:absolute;right:52px;bottom:11px;white-space:nowrap;background:#111827;color:#fff;font-size:12px;line-height:1;padding:6px 10px;border-radius:6px;opacity:0;transform:translateX(4px);transition:opacity .15s ease,transform .15s ease;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+#${REMIX_BADGE_ID} .ablips-remix-link:hover + .ablips-remix-tip,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible + .ablips-remix-tip{opacity:1;transform:translateX(0)}
+</style>
+<div id="${REMIX_BADGE_ID}">
+  <a class="ablips-remix-link" href="https://appblips.com" target="_blank" rel="noopener noreferrer" aria-label="Remix Blip!" title="Remix Blip!">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <polyline points="16 3 21 3 21 8"></polyline>
+      <line x1="4" y1="20" x2="21" y2="3"></line>
+      <polyline points="21 16 21 21 16 21"></polyline>
+      <line x1="15" y1="15" x2="21" y2="21"></line>
+      <line x1="4" y1="4" x2="9" y2="9"></line>
+    </svg>
+  </a>
+  <span class="ablips-remix-tip" aria-hidden="true">Remix Blip!</span>
+</div>`;
+
+const injectRemixBadge = (html) => {
+  if (html.includes(`id="${REMIX_BADGE_ID}"`)) return html;
+
+  const bodyCloseAt = html.lastIndexOf('</body>');
+  if (bodyCloseAt !== -1) {
+    return html.slice(0, bodyCloseAt) + REMIX_BADGE_SNIPPET + html.slice(bodyCloseAt);
+  }
+
+  const htmlCloseAt = html.lastIndexOf('</html>');
+  if (htmlCloseAt !== -1) {
+    return html.slice(0, htmlCloseAt) + REMIX_BADGE_SNIPPET + html.slice(htmlCloseAt);
+  }
+
+  return html + REMIX_BADGE_SNIPPET;
+};
+
 const LOCK_PROTECTION_SCRIPT = `<script>
   document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
   window.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
@@ -389,7 +429,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectLockProtection(injectAnalytics(injectFavicon(await object.text()), env));
+    const html = injectLockProtection(injectRemixBadge(injectAnalytics(injectFavicon(await object.text()), env)));
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,
