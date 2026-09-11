@@ -193,6 +193,16 @@ const STATS_ENDPOINTS = {
   // "path" for pages, not "url".
   urls: (id) => `/api/websites/${id}/metrics?type=path`,
   referrers: (id) => `/api/websites/${id}/metrics?type=referrer`,
+  // Visitors with a pageview/event in the last 5 minutes -- {"visitors": n}.
+  // Doesn't take a date range, but forwarding startAt/endAt is harmless (Umami
+  // ignores unused query params on this endpoint).
+  active: (id) => `/api/websites/${id}/active`,
+  // ISO 3166-1 alpha-2 codes (e.g. "US") -- the client turns these into flag
+  // emoji + display names, so no geo/flag data needs to live server-side.
+  countries: (id) => `/api/websites/${id}/metrics?type=country`,
+  // First page of the session, as opposed to `urls` which counts every
+  // pageview regardless of position.
+  entryPages: (id) => `/api/websites/${id}/metrics?type=entry`,
 };
 
 // Query params forwarded verbatim to Umami; anything else on the incoming
