@@ -44,6 +44,10 @@ export default function PromptInput({
     }
   };
 
+  const submitLabel = isGenerating
+    ? (chatMode === 'ask' ? 'Thinking...' : (isClarifying ? 'Answering...' : (hasCode ? 'Updating...' : 'Building...')))
+    : (chatMode === 'ask' ? 'Send' : (isClarifying ? 'Answer' : (isChatActive ? 'Update App' : 'Build App')));
+
   return (
     <div className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md flex flex-col">
       <textarea
@@ -65,19 +69,25 @@ export default function PromptInput({
         className="prompt-input-field w-full min-h-[52px] sm:min-h-[62px] max-h-40 px-4 pt-3.5 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar"
         disabled={isGenerating}
       />
-      <div className="prompt-input-footer flex items-center justify-between gap-2 px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
+      <div className="prompt-input-footer flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
         <div className="flex items-center min-w-0">
           {!isGenerating ? (
-            <div className="chat-mode-toggle prompt-input-mode nav-segmented-group nav-segmented-compact p-0.5 rounded-xl border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
-              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
+            <div className="chat-mode-toggle prompt-input-mode nav-segmented-group p-0.5 rounded-full border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
+              <label
+                className={`nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
+                title="Build mode"
+              >
                 <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
-                <Wand2 size={13} aria-hidden="true" />
-                <span>Build</span>
+                <Wand2 size={15} aria-hidden="true" />
+                <span className="sr-only">Build</span>
               </label>
-              <label className={`nav-segmented-btn cursor-pointer py-1.5 px-3 text-xs font-black rounded-lg transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}>
+              <label
+                className={`nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
+                title="Ask mode"
+              >
                 <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => onChatModeChange('ask')} className="sr-only" />
-                <MessageSquare size={13} aria-hidden="true" />
-                <span>Ask</span>
+                <MessageSquare size={15} aria-hidden="true" />
+                <span className="sr-only">Ask</span>
               </label>
             </div>
           ) : null}
@@ -86,31 +96,34 @@ export default function PromptInput({
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all active:translate-y-0.5 active:border-b-2 cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center justify-center w-9 h-9 rounded-full bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer"
+              aria-label="Cancel"
+              title="Cancel"
             >
-              <X size={14} />
-              Cancel
+              <X size={16} />
             </button>
           )}
           <button
             onClick={onSubmit}
             disabled={!canSubmit}
-            className={`prompt-input-action inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            aria-label={submitLabel}
+            title={submitLabel}
+            className={`prompt-input-action inline-flex items-center justify-center w-10 h-10 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
-                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 dark:border-b-black/80 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 cursor-pointer'
+                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 dark:border-b-black/80 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer'
                 : 'bg-slate-200/90 dark:bg-white/[0.08] text-slate-600 dark:text-white/40 border-2 border-slate-300 dark:border-white/15 border-b-[3px] border-b-slate-400/80 dark:border-b-black/80 cursor-not-allowed shadow-xs'
             }`}
           >
             {isGenerating ? (
-              <>
-                <Loader2 className="animate-spin" size={15} />
-                <span>{chatMode === 'ask' ? "Thinking..." : (isClarifying ? "Answering..." : (hasCode ? "Updating..." : "Building..."))}</span>
-              </>
+              <Loader2 className="animate-spin" size={17} />
+            ) : chatMode === 'ask' ? (
+              <MessageSquare size={17} />
+            ) : isClarifying ? (
+              <MessageSquare size={17} />
+            ) : isChatActive ? (
+              <Edit2 size={17} />
             ) : (
-              <>
-                {chatMode === 'ask' ? <MessageSquare size={15} /> : (isClarifying ? <MessageSquare size={15} /> : (isChatActive ? <Edit2 size={15} /> : <Wand2 size={15} />))}
-                <span>{chatMode === 'ask' ? "Send" : (isClarifying ? "Answer" : (isChatActive ? "Update App" : "Build App"))}</span>
-              </>
+              <Wand2 size={17} />
             )}
           </button>
         </div>
