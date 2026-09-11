@@ -10,6 +10,7 @@ export default function ChatTranscript({
   currentVersionIndex,
   startIndex = 0,
   pendingPrompt,
+  pendingAttachment = null,
   streamingReply,
   isGenerating,
   chatMode,
@@ -36,7 +37,7 @@ export default function ChatTranscript({
         return (
           <div key={ver.id} className="space-y-1.5">
             <div className="flex justify-end">
-              <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#f5f4f0] text-white dark:text-black px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[#f5f4f0]/60">
+              <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#262A34] text-white dark:text-[#F1F5F9] px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[rgba(255,255,255,0.12)]">
                 {ver.prompt}
               </div>
             </div>
@@ -46,7 +47,7 @@ export default function ChatTranscript({
                   <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
                   <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{startIndex + idx + 1}</span>
                 </span>
-                <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white/60 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1a237e] border border-slate-900/8 dark:border-[#283593] shadow-none dark:shadow-xs text-slate-900 dark:text-white px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
+                <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-900 dark:text-[#E2E8F0] px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
                   <Markdown text={ver.reply} />
                 </div>
               </div>
@@ -56,8 +57,17 @@ export default function ChatTranscript({
       })}
       {pendingPrompt && (
         <div className="space-y-1.5">
+          {pendingAttachment && (
+            <div className="flex justify-end">
+              <img
+                src={pendingAttachment.dataUrl}
+                alt={pendingAttachment.name || 'Attached image'}
+                className="w-16 h-16 rounded-xl object-cover border-2 border-indigo-500/40 dark:border-white/15 shadow-xs animate-fade-in"
+              />
+            </div>
+          )}
           <div className="flex justify-end">
-            <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#f5f4f0] text-white dark:text-black px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[#f5f4f0]/60 animate-fade-in">
+            <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#262A34] text-white dark:text-[#F1F5F9] px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[rgba(255,255,255,0.12)] animate-fade-in">
               {pendingPrompt}
             </div>
           </div>
@@ -66,7 +76,7 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white/60 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1a237e] border border-slate-900/8 dark:border-[#283593] shadow-none dark:shadow-xs text-slate-900 dark:text-white px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-900 dark:text-[#E2E8F0] px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
                 <Markdown text={streamingReply} />
               </div>
             </div>
@@ -75,9 +85,9 @@ export default function ChatTranscript({
               <span className="star-anchor" aria-hidden="true">
                 <span className="star-node star-node-pending" />
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-white/60 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1a237e] border border-slate-900/8 dark:border-[#283593] shadow-none dark:shadow-xs text-slate-800 dark:text-white px-4 py-2.5 text-[length:var(--chat-prompt-text)] flex items-center gap-2.5 animate-fade-in">
+              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-800 dark:text-[#E2E8F0] px-4 py-2.5 text-[length:var(--chat-prompt-text)] flex items-center gap-2.5 animate-fade-in">
                 <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={14} />
-                <span className="text-[length:var(--chat-label-text)] font-bold text-slate-800 dark:text-white">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
+                <span className="text-[length:var(--chat-label-text)] font-bold text-slate-800 dark:text-[#E2E8F0]">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
               </div>
             </div>
           ) : null}

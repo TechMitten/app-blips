@@ -1,16 +1,24 @@
 import { useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen, History, Clock, ChevronRight } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, History, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 
 // One checkpoint row inside a chat-session group. The whole row is a
 // one-click restore target. `idx` is the index into the flat `versions`
-// array so restores keep working against App's undo/redo state.
-function CheckpointCard({ ver, idx, isActive, onSwitchVersion, reversedIdx }) {
+// array so restores keep working against App's undo/redo state. The
+// restore icon doesn't itself restore -- clicking the row already did
+// that -- it just closes the history pane so the user can see the result.
+function CheckpointCard({ ver, idx, isActive, onSwitchVersion, onCollapse, reversedIdx }) {
   const handleKeyDown = (e) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       onSwitchVersion(idx);
     }
+  };
+
+  const handleRestoreClick = (e) => {
+    e.stopPropagation();
+    onSwitchVersion(idx);
+    onCollapse();
   };
 
   return (
@@ -33,7 +41,7 @@ function CheckpointCard({ ver, idx, isActive, onSwitchVersion, reversedIdx }) {
         className={`group relative cursor-pointer rounded-xl px-3 py-2 transition-all duration-150 outline-none ${
           isActive
             ? 'bg-surface border-2 border-indigo-600 active-version-glow shadow-sm'
-            : 'border-2 border-transparent hover:bg-surface hover:border-slate-200 hover:shadow-2xs focus-visible:border-indigo-400'
+            : 'history-icon-btn bg-slate-200/60 border-2 border-slate-300 shadow-2xs hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm focus-visible:border-indigo-400'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -64,6 +72,18 @@ function CheckpointCard({ ver, idx, isActive, onSwitchVersion, reversedIdx }) {
               )}
             </div>
           </div>
+
+          {/* Restoring already happens on row click -- this button just
+              closes the history pane so the restored app is visible. */}
+          <button
+            type="button"
+            onClick={handleRestoreClick}
+            title="Restore and close history"
+            aria-label={`Restore version ${idx + 1} and close history`}
+            className="history-icon-btn shrink-0 p-1.5 rounded-lg text-slate-400 border border-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-blue-100 hover:border-blue-300 hover:text-blue-600 transition-all duration-150"
+          >
+            <RotateCcw size={13} />
+          </button>
         </div>
       </div>
     </div>
@@ -74,7 +94,7 @@ function CheckpointCard({ ver, idx, isActive, onSwitchVersion, reversedIdx }) {
 // parent so it remounts -- resetting collapse overrides to the default (only
 // the active session expanded) -- whenever the active checkpoint moves into a
 // different session via restore, undo/redo, or a new chat's first build.
-function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVersionIndex, onSwitchVersion }) {
+function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVersionIndex, onSwitchVersion, onCollapse }) {
   const [collapsedSessions, setCollapsedSessions] = useState(() => ({}));
 
   const isSessionCollapsed = (session, position) =>
@@ -123,8 +143,8 @@ function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVers
               isCollapsed ? 'text-slate-400' : 'rotate-90 text-slate-500'
             }`}
           />
-          <span className={`shrink-0 text-[10px] 2xl:text-[11px] font-bold uppercase tracking-[0.12em] ${
-            isActiveSession ? 'text-indigo-600' : 'text-slate-400'
+          <span className={`shrink-0 text-[10px] 2xl:text-[11px] font-bold uppercase tracking-[0.12em] text-white px-1.5 py-[1px] rounded-full ${
+            isActiveSession ? 'bg-blue-600' : 'bg-blue-400'
           }`}>
             {sessionLabel}
           </span>
@@ -152,6 +172,7 @@ function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVers
                   idx={idx}
                   isActive={currentVersionIndex === idx}
                   onSwitchVersion={onSwitchVersion}
+                  onCollapse={onCollapse}
                   reversedIdx={rIdx}
                 />
               );
@@ -188,7 +209,7 @@ export default function HistorySidebar({
           again toggles back rather than only ever opening. */}
       <button
         onClick={isOpen ? onCollapse : onExpand}
-        className="hidden md:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+        className="history-icon-btn hidden md:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
         title={isOpen ? 'Hide history panel' : 'Show history panel'}
       >
         {isOpen ? (
@@ -206,7 +227,7 @@ export default function HistorySidebar({
           <div className="flex items-center gap-2.5">
             <button
               onClick={onCollapse}
-              className="text-slate-400 hover:text-slate-700 hover:bg-surface p-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all duration-200 flex-shrink-0"
+              className="history-icon-btn text-slate-400 hover:text-slate-700 bg-surface hover:bg-slate-200 p-1.5 rounded-lg border border-slate-200/70 hover:border-slate-300 transition-all duration-200 flex-shrink-0"
               title="Hide history panel"
             >
               <PanelLeftClose size={16} />
@@ -245,6 +266,7 @@ export default function HistorySidebar({
               activeSessionIndex={activeSessionIndex}
               currentVersionIndex={currentVersionIndex}
               onSwitchVersion={onSwitchVersion}
+              onCollapse={onCollapse}
             />
           )}
         </div>

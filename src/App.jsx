@@ -20,7 +20,8 @@ import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode } from './lib/llm';
+import { generateAppCode, enhancePrompt } from './lib/llm';
+import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import {
@@ -88,7 +89,20 @@ export default function App() {
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
+  // Pending image attachment for the next prompt -- a screenshot of the
+  // preview or a manually-picked file. Ephemeral: sent with the one request
+  // and never written into `versions`/localStorage/Firestore (see
+  // CLAUDE.md-adjacent plan notes -- avoids Firestore's 1MiB per-project doc
+  // cap and keeps applySurgicalEdits/history untouched). { dataUrl, name, source }
+  const [attachment, setAttachment] = useState(null);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(null);
+  // Mirrors `attachment` for the duration of one in-flight request, purely so
+  // the pending/"sending..." chat bubble can show the thumbnail -- see the
+  // attachmentForRequest capture in handleGenerate.
+  const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
   const [error, setError] = useState(null);
@@ -144,6 +158,7 @@ export default function App() {
   const streamingReplyRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
+  const enhanceAbortControllerRef = useRef(null);
   const runtimeErrorRetriesRef = useRef(0);
   const isGeneratingRef = useRef(false);
   const isAutoFixingRef = useRef(false);
@@ -386,7 +401,7 @@ export default function App() {
     [generatedCode, previewReloadCount, projectStorageVersion]
   );
 
-  usePreviewBridge({
+  const { requestScreenshot } = usePreviewBridge({
     iframeRef,
     previewSrcDoc,
     previewToken,
@@ -395,6 +410,50 @@ export default function App() {
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
   });
+
+  const handleAttachScreenshot = useCallback(async () => {
+    setAttachmentError(null);
+    setIsCapturingScreenshot(true);
+    try {
+      const { dataUrl } = await requestScreenshot();
+      const compressed = await compressImageDataUrl(dataUrl);
+      setAttachment({ dataUrl: compressed, name: 'Preview screenshot', source: 'screenshot' });
+    } catch (err) {
+      setAttachmentError(err?.message || 'Failed to capture the preview screenshot.');
+    } finally {
+      setIsCapturingScreenshot(false);
+    }
+  }, [requestScreenshot]);
+
+  const handleAttachFile = useCallback(async (file) => {
+    if (!file) return;
+    setAttachmentError(null);
+    if (!file.type?.startsWith('image/')) {
+      setAttachmentError('Please choose an image file.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setAttachmentError('Image must be smaller than 8MB.');
+      return;
+    }
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read the image file.'));
+        reader.readAsDataURL(file);
+      });
+      const compressed = await compressImageDataUrl(dataUrl);
+      setAttachment({ dataUrl: compressed, name: file.name, source: 'upload' });
+    } catch (err) {
+      setAttachmentError(err?.message || 'Failed to attach the image.');
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback(() => {
+    setAttachment(null);
+    setAttachmentError(null);
+  }, []);
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
   const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
@@ -462,6 +521,30 @@ export default function App() {
   const handleShowCodeViewChange = (value) => {
     setShowCodeView(value);
     if (!value) setActiveTab('preview');
+  };
+
+  // Rewrites the draft prompt in place via a quick non-streaming LLM call --
+  // never submits it. Build mode only; ask mode has no app-idea to enhance.
+  const handleEnhancePrompt = async () => {
+    if (chatMode !== 'build' || isGenerating || isEnhancingPrompt || !prompt.trim()) return;
+
+    setIsEnhancingPrompt(true);
+    setError(null);
+    enhanceAbortControllerRef.current = new AbortController();
+
+    try {
+      const enhanced = await enhancePrompt({
+        prompt,
+        currentCode: generatedCode || null,
+        signal: enhanceAbortControllerRef.current.signal,
+      });
+      if (enhanced) setPrompt(enhanced);
+    } catch (err) {
+      if (err?.name !== 'AbortError') setError(err.message || 'Failed to enhance prompt.');
+    } finally {
+      setIsEnhancingPrompt(false);
+      enhanceAbortControllerRef.current = null;
+    }
   };
 
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
@@ -542,6 +625,12 @@ export default function App() {
 
     setPrompt(''); // Clear input so user can easily type their next refinement
     setPendingPrompt(currentPrompt);
+    // Captured before clearing so this request still carries it -- the
+    // attachment is ephemeral (never persisted onto the version/chat history).
+    const attachmentForRequest = attachment;
+    setAttachment(null);
+    setAttachmentError(null);
+    setPendingAttachment(attachmentForRequest);
 
     const chatHistory = updatedVersions.slice(chatContextStartIndex).flatMap(v => [
       { role: 'user', content: v.prompt },
@@ -582,7 +671,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -662,6 +751,7 @@ export default function App() {
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
       setPendingPrompt('');
+      setPendingAttachment(null);
       setGenerationStatus(null);
       clearStreamingState();
 
@@ -707,8 +797,11 @@ export default function App() {
     setChatContextStartIndex(cutoff);
     setCurrentChatSessionId(nextSessionId);
     setPendingPrompt('');
+    setPendingAttachment(null);
     setError(null);
     setPrompt('');
+    setAttachment(null);
+    setAttachmentError(null);
     clearStreamingState();
     if (currentProjectId) {
       saveProject({ chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
@@ -889,7 +982,10 @@ export default function App() {
     clearStreamingState();
     setGeneratedCode('');
     setPrompt('');
+    setAttachment(null);
+    setAttachmentError(null);
     setPendingPrompt('');
+    setPendingAttachment(null);
     setHasSentFirstPrompt(false);
     setChatMode('build');
     setError(null);
@@ -1120,6 +1216,7 @@ export default function App() {
               currentVersionIndex={currentVersionIndex}
               chatContextStartIndex={chatContextStartIndex}
               pendingPrompt={pendingPrompt}
+              pendingAttachment={pendingAttachment}
               streamingReply={streamingReply}
               isGenerating={isGenerating}
               generationStatus={generationStatus}
@@ -1128,7 +1225,15 @@ export default function App() {
               prompt={prompt}
               onPromptChange={setPrompt}
               onSubmit={handleGenerate}
+              onEnhancePrompt={handleEnhancePrompt}
+              isEnhancingPrompt={isEnhancingPrompt}
               onCancelGeneration={handleCancelGeneration}
+              attachment={attachment}
+              attachmentError={attachmentError}
+              isCapturingScreenshot={isCapturingScreenshot}
+              onAttachScreenshot={handleAttachScreenshot}
+              onAttachFile={handleAttachFile}
+              onRemoveAttachment={handleRemoveAttachment}
               onNewChat={handleStartNewChat}
               chatBottomRef={chatBottomRef}
               interruptedJob={interruptedJob}

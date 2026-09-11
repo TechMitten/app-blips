@@ -18,6 +18,7 @@ export default function BuildPanel({
   currentVersionIndex,
   chatContextStartIndex = 0,
   pendingPrompt,
+  pendingAttachment = null,
   streamingReply,
   isGenerating,
   generationStatus,
@@ -26,6 +27,8 @@ export default function BuildPanel({
   prompt,
   onPromptChange,
   onSubmit,
+  onEnhancePrompt,
+  isEnhancingPrompt = false,
   onCancelGeneration,
   onChatModeChange,
   onNewChat,
@@ -33,6 +36,12 @@ export default function BuildPanel({
   interruptedJob = null,
   onRetryInterruptedJob,
   onDismissInterruptedJob,
+  attachment = null,
+  attachmentError = null,
+  isCapturingScreenshot = false,
+  onAttachScreenshot,
+  onAttachFile,
+  onRemoveAttachment,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
   const statusWord = isResumingProject
@@ -209,6 +218,7 @@ export default function BuildPanel({
                 currentVersionIndex={currentVersionIndex}
                 startIndex={chatContextStartIndex}
                 pendingPrompt={pendingPrompt}
+                pendingAttachment={pendingAttachment}
                 streamingReply={streamingReply}
                 isGenerating={isGenerating}
                 chatMode={chatMode}
@@ -241,6 +251,8 @@ export default function BuildPanel({
           prompt={prompt}
           onPromptChange={onPromptChange}
           onSubmit={onSubmit}
+          onEnhancePrompt={onEnhancePrompt}
+          isEnhancingPrompt={isEnhancingPrompt}
           onCancelGeneration={onCancelGeneration}
           isGenerating={isGenerating}
           isChatActive={isChatActive}
@@ -248,6 +260,12 @@ export default function BuildPanel({
           chatMode={chatMode}
           onChatModeChange={onChatModeChange}
           isClarifying={isClarifying}
+          attachment={attachment}
+          attachmentError={attachmentError}
+          isCapturingScreenshot={isCapturingScreenshot}
+          onAttachScreenshot={onAttachScreenshot}
+          onAttachFile={onAttachFile}
+          onRemoveAttachment={onRemoveAttachment}
         />
       </div>
     </div>

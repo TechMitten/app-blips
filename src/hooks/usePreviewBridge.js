@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
+import { rasterizeDomSnapshot } from '../lib/attachments';
 
 // --- Preview bridge ---
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -29,6 +30,12 @@ export default function usePreviewBridge({
   // touch state is baked in at injection time -- see injectPreviewBridge),
   // but every push that does go out should be deliverable.
   const currentTokenRef = useRef(previewToken);
+  // Set inside the effect below on every run, so requestScreenshot (called
+  // imperatively, outside that effect) always addresses the live frame.
+  const sendRef = useRef(() => {});
+  // requestId -> { resolve, reject, timeoutId }, for correlating the one
+  // request/response pair in this otherwise push-only protocol.
+  const pendingCapturesRef = useRef(new Map());
 
   useEffect(() => {
     onRuntimeErrorRef.current = onRuntimeError;
@@ -36,6 +43,16 @@ export default function usePreviewBridge({
     onStorageChangeRef.current = onStorageChange;
     currentTokenRef.current = previewToken;
   });
+
+  // Reject any still-pending screenshot request on unmount so its promise
+  // doesn't hang forever.
+  useEffect(() => () => {
+    pendingCapturesRef.current.forEach(({ reject, timeoutId }) => {
+      clearTimeout(timeoutId);
+      reject(new Error('Preview unmounted before the screenshot was captured.'));
+    });
+    pendingCapturesRef.current.clear();
+  }, []);
 
   useEffect(() => {
     if (previewToken) {
@@ -65,6 +82,7 @@ export default function usePreviewBridge({
         );
       } catch { /* frame torn down mid-send */ }
     };
+    sendRef.current = send;
 
     const push = () => send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
 
@@ -117,6 +135,23 @@ export default function usePreviewBridge({
       ) {
         onStorageChangeRef.current(data.type, data.payload);
       }
+      else if (data.type === 'dom-snapshot' || data.type === 'screenshot-error') {
+        const requestId = data.payload?.requestId;
+        const pending = pendingCapturesRef.current.get(requestId);
+        if (!pending) return;
+        pendingCapturesRef.current.delete(requestId);
+        clearTimeout(pending.timeoutId);
+        if (data.type === 'screenshot-error') {
+          pending.reject(new Error(data.payload?.message || 'Screenshot capture failed.'));
+          return;
+        }
+        // The frame only clones markup + collects CSS text (see
+        // previewBridge.js's module header for why); rasterizing that into a
+        // canvas happens here, in this unsandboxed parent window.
+        rasterizeDomSnapshot(data.payload)
+          .then((dataUrl) => pending.resolve({ dataUrl }))
+          .catch(pending.reject);
+      }
     };
 
     const handleLoad = () => {
@@ -143,4 +178,26 @@ export default function usePreviewBridge({
       send('configure', { enabled: false });
     };
   }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
+
+  // Imperative request/response wrapper on top of the otherwise push-only
+  // protocol -- see the pendingCapturesRef/onMessage handling above for the
+  // response half.
+  const requestScreenshot = useCallback((timeoutMs = 15000) => {
+    return new Promise((resolve, reject) => {
+      const iframe = iframeRef.current;
+      if (!iframe || !iframe.contentWindow) {
+        reject(new Error('Preview is not ready.'));
+        return;
+      }
+      const requestId = 'cap-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const timeoutId = setTimeout(() => {
+        pendingCapturesRef.current.delete(requestId);
+        reject(new Error('Screenshot capture timed out.'));
+      }, timeoutMs);
+      pendingCapturesRef.current.set(requestId, { resolve, reject, timeoutId });
+      sendRef.current('capture-screenshot', { requestId });
+    });
+  }, [iframeRef]);
+
+  return { requestScreenshot };
 }
