@@ -32,7 +32,10 @@ import {
 import { sanitizeHtmlResponse } from './lib/edits';
 import { checkSyntax } from './lib/syntaxCheck';
 import {
-  STARTER_PRESETS, HTML_STREAM_START_RE
+  newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
+} from './lib/chatSessions';
+import {
+  STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY } from './lib/config';
 
@@ -59,13 +62,13 @@ export default function App() {
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
+
     return stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expandedVersionIndex, setExpandedVersionIndex] = useState(null);
 
   // --- Theme ---
   const { themePreference, setThemePreference, resolvedTheme } = useTheme();
@@ -94,6 +97,15 @@ export default function App() {
   const [autoFixMessage, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
+  // Index into `versions` where the current chat begins. Turns before it are
+  // excluded from the LLM's chat history and hidden from the transcript after
+  // "New chat", but stay in version history; restoring a version from another
+  // chat session re-activates that session (the cutoff moves to its start).
+  const [chatContextStartIndex, setChatContextStartIndex] = useState(0);
+  // Id of the chat session new prompts will join. Each version records the
+  // session it was created in; clicking "+ new chat" starts a fresh id without
+  // discarding earlier sessions (they stay grouped in version history).
+  const [currentChatSessionId, setCurrentChatSessionId] = useState(newChatSessionId);
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [hasSentFirstPrompt, setHasSentFirstPrompt] = useState(false);
   // True from first paint whenever a previously-open project might still be
@@ -139,6 +151,8 @@ export default function App() {
   const pendingRuntimeErrorRef = useRef(null);
   const prevProjectIdRef = useRef(currentProjectId);
   const [projectStorageVersion, setProjectStorageVersion] = useState(0);
+  // Chat sessions derived from the flat versions array (see lib/chatSessions).
+  const chatSessions = useMemo(() => groupVersionsByChatSession(versions), [versions]);
   const reloadStateRef = useRef({
     pending: false,
     token: null,
@@ -165,8 +179,8 @@ export default function App() {
     isSignedIn,
     user,
     workspace: {
-      versions, currentVersionIndex, projectName, currentProjectId, deployment,
-      setProjectName, setVersions, setCurrentVersionIndex, setDeployment,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment,
       setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
     },
@@ -351,10 +365,23 @@ export default function App() {
       generatedCode
         ? injectPreviewBridge(generatedCode, {
             initialStorage: loadPreviewStorage(currentProjectId),
+            // Baked into the bridge as its initial desiredEnabled so the
+            // touch-scroll simulation + scrollbar hiding are live from the
+            // frame's first paint. The configure push from usePreviewBridge
+            // can lose the load race on a srcdoc navigation (heaviest right
+            // when a generation completes), which before this left the fresh
+            // frame unconfigured -- visible scrollbar, dead touch controls --
+            // until a manual reload.
+            touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
     // injection so a fresh token forces the iframe to navigate (reload).
+    // previewMode is intentionally read without being a dependency: a device
+    // switch must NOT recompute srcDoc (that would reload the frame). It only
+    // matters when a new document is produced, and every recompute picks up
+    // the mode current at that moment; later mode switches are delivered to
+    // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [generatedCode, previewReloadCount, projectStorageVersion]
   );
@@ -516,7 +543,7 @@ export default function App() {
     setPrompt(''); // Clear input so user can easily type their next refinement
     setPendingPrompt(currentPrompt);
 
-    const chatHistory = updatedVersions.flatMap(v => [
+    const chatHistory = updatedVersions.slice(chatContextStartIndex).flatMap(v => [
       { role: 'user', content: v.prompt },
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
@@ -566,7 +593,9 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
-        reply: generationResult.reply || null
+        reply: generationResult.reply || null,
+        chatMode,
+        sessionId: currentChatSessionId
       };
 
       const finalVersions = [...updatedVersions, newVersion];
@@ -665,23 +694,25 @@ export default function App() {
     clearStreamingState();
   };
 
-  // Ask mode's "new chat": drops trailing ask-mode turns so the next question
-  // starts with no prior Q&A context, without touching any build/version
-  // history the app may already have underneath it.
+  // "New chat": starts a fresh chat session. The next prompt is sent with no
+  // prior chat turns (the app code itself is still sent), while the versions
+  // and chat history of earlier sessions stay untouched and grouped in version
+  // history -- restoring one of their checkpoints re-activates that session.
   const handleStartNewChat = () => {
     if (isGenerating) {
       handleCancelGeneration();
     }
-    const activeVersions = versions.slice(0, currentVersionIndex + 1);
-    let cut = activeVersions.length;
-    while (cut > 0 && activeVersions[cut - 1].editMode === 'ask') cut -= 1;
-    const trimmed = activeVersions.slice(0, cut);
-    setVersions(trimmed);
-    setCurrentVersionIndex(trimmed.length - 1);
+    const cutoff = currentVersionIndex + 1;
+    const nextSessionId = newChatSessionId();
+    setChatContextStartIndex(cutoff);
+    setCurrentChatSessionId(nextSessionId);
     setPendingPrompt('');
     setError(null);
     setPrompt('');
     clearStreamingState();
+    if (currentProjectId) {
+      saveProject({ chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
+    }
   };
 
   const handleOpenInNewTab = () => {
@@ -738,6 +769,8 @@ export default function App() {
       setError(null);
       setVersions([]);
       setCurrentVersionIndex(-1);
+      setChatContextStartIndex(0);
+      setCurrentChatSessionId(newChatSessionId());
       setDeployment(null);
     }
 
@@ -770,10 +803,30 @@ export default function App() {
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
       clearStreamingState();
+      // Restoring (or undoing to) a checkpoint re-activates the chat session it
+      // was created in: the transcript and the LLM's chat context switch to
+      // that session's turns, and its grouped history stays together. Restores
+      // within the current session keep the context trimmed as before.
+      const targetSessionId = versions[index].sessionId ?? null;
+      const sessionStart = getChatSessionStartIndex(versions, index);
+      setCurrentChatSessionId(targetSessionId);
+      setChatContextStartIndex(sessionStart);
       setCurrentVersionIndex(index);
-      setGeneratedCode(versions[index].code);
+      // Ask-mode turns never changed the app, so restoring one rewinds only
+      // the conversation: the preview keeps showing the current code and the
+      // user can continue chatting where they left off. (An ask version's
+      // stored `code` is just a snapshot from when it was asked -- empty if
+      // nothing was built yet -- so restoring it would roll back or blank
+      // the mockup for no reason.)
+      if (versions[index].editMode !== 'ask') {
+        setGeneratedCode(versions[index].code);
+      }
       if (currentProjectId) {
-        saveProject({ indexToSave: index });
+        saveProject({
+          indexToSave: index,
+          chatContextStartToSave: sessionStart,
+          sessionIdToSave: targetSessionId ?? undefined,
+        });
       }
     }
   };
@@ -799,34 +852,6 @@ export default function App() {
     } catch (err) {
       console.error('Failed to copy code:', err);
     }
-  };
-
-  const copyVersionCode = async (ver) => {
-    if (!ver || !ver.code) return;
-    try {
-      await navigator.clipboard.writeText(ver.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy version code:', err);
-    }
-  };
-
-  const downloadVersion = (ver) => {
-    if (!ver || !ver.code) return;
-    const blob = new Blob([ver.code], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `miniapp-v${ver.id || Date.now()}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const toggleExpandVersion = (idx) => {
-    setExpandedVersionIndex(prev => prev === idx ? null : idx);
   };
 
   // --- Interrupted job handlers ---
@@ -870,6 +895,8 @@ export default function App() {
     setError(null);
     setVersions([]);
     setCurrentVersionIndex(-1);
+    setChatContextStartIndex(0);
+    setCurrentChatSessionId(newChatSessionId());
     setCurrentProjectId(null);
     setDeployment(null);
     setDeployError(null);
@@ -1065,12 +1092,9 @@ export default function App() {
         <HistorySidebar
           isOpen={isHistoryOpen}
           versions={versions}
+          chatSessions={chatSessions}
           currentVersionIndex={currentVersionIndex}
-          expandedVersionIndex={expandedVersionIndex}
-          onToggleExpand={toggleExpandVersion}
           onSwitchVersion={switchVersion}
-          onCopyVersion={copyVersionCode}
-          onDownloadVersion={downloadVersion}
           onCollapse={() => setIsHistoryOpen(false)}
           onExpand={() => setIsHistoryOpen(true)}
         />
@@ -1094,6 +1118,7 @@ export default function App() {
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
+              chatContextStartIndex={chatContextStartIndex}
               pendingPrompt={pendingPrompt}
               streamingReply={streamingReply}
               isGenerating={isGenerating}

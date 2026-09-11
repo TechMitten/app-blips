@@ -29,6 +29,8 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   name: row.name,
   versions: row.data?.versions || [],
   currentVersionIndex: row.data?.currentVersionIndex ?? -1,
+  chatContextStartIndex: Math.min(row.data?.chatContextStartIndex ?? 0, (row.data?.versions || []).length),
+  currentChatSessionId: row.data?.currentChatSessionId ?? null,
   deployment: row.data?.deployment || null,
   lastModified: row.updated_at
 }));

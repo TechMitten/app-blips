@@ -411,7 +411,15 @@ const BRIDGE_SOURCE = `(function () {
   // ------------------------------------------------------------------
 
   var domReady = false;
-  var desiredEnabled = false;
+  // Seeded at injection time from the parent's current device mode (see the
+  // touchEnabled option of injectPreviewBridge) so the simulation -- and the
+  // scrollbar-hiding CSS that ships with it -- is active from first paint. A
+  // configure message from the parent cannot be relied on for this: a srcdoc
+  // document can finish loading BEFORE the parent's post-load effect
+  // listeners re-attach (the heavy commit when a generation completes is
+  // exactly that race), which would otherwise leave the frame unconfigured
+  // until a manual reload. Later pushes still toggle this at runtime.
+  var desiredEnabled = __ORION_INITIAL_TOUCH_ENABLED__;
   var teardownFn = null;
 
   function sync() {
@@ -486,14 +494,15 @@ const SCRIPT_OPEN = '<script>';
 // Assembled so this module's own source never contains the literal sequence.
 const SCRIPT_CLOSE = '</' + 'script>';
 
-const buildTag = (token, initialStorage) => {
+const buildTag = (token, initialStorage, touchEnabled) => {
   const safeData = JSON.stringify(
     initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
   ).replace(/</g, '\\u003c');
 
   const source = BRIDGE_SOURCE
     .replace('__ORION_TOKEN__', token)
-    .replace('__ORION_INITIAL_STORAGE__', safeData);
+    .replace('__ORION_INITIAL_STORAGE__', safeData)
+    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false');
 
   if (source.indexOf('</') !== -1) {
     throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');
@@ -512,7 +521,12 @@ const buildTag = (token, initialStorage) => {
  * anything touches `localStorage`.
  *
  * @param {string} code
- * @param {{ initialStorage?: Record<string, string> }} [options]
+ * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean }} [options]
+ *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
+ *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
+ *   initial state, so the touch-scroll simulation and scrollbar hiding are
+ *   active from the frame's first paint without waiting for a configure
+ *   message that can lose the load race on srcdoc documents.
  * @returns {{ srcDoc: string, token: string }}
  */
 export const injectPreviewBridge = (code, options = {}) => {
@@ -523,7 +537,7 @@ export const injectPreviewBridge = (code, options = {}) => {
   }
 
   const initialStorage = options?.initialStorage;
-  const tag = buildTag(token, initialStorage);
+  const tag = buildTag(token, initialStorage, options?.touchEnabled === true);
   const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
 
   // A leading <!DOCTYPE html> needs no special case -- it falls out of this
