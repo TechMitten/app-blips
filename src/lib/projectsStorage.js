@@ -32,5 +32,6 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   chatContextStartIndex: Math.min(row.data?.chatContextStartIndex ?? 0, (row.data?.versions || []).length),
   currentChatSessionId: row.data?.currentChatSessionId ?? null,
   deployment: row.data?.deployment || null,
+  aiEnabled: Boolean(row.data?.aiEnabled),
   lastModified: row.updated_at
 }));

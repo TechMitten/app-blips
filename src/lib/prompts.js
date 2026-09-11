@@ -173,6 +173,15 @@ REPLY GUIDELINES:
 
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
+const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
+- Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. It resolves to { text }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling.
+- Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this platform text API.
+- Handle loading and error states. Error codes are: unauthorized, rate_limited, payload_too_large, upstream_error, and network.
+- Never call an AI provider directly, invent an AI endpoint, or ask the end-user for an API key. No provider key is available in the generated app.`;
+
+export const buildHtmlSystemPrompt = (aiEnabled = false) =>
+  aiEnabled ? HTML_SYSTEM_PROMPT + '\n\n' + AI_CAPABILITIES_PROMPT : HTML_SYSTEM_PROMPT;
+
 export const PROMPT_ENHANCEMENT_SYSTEM_PROMPT = `You improve short, rough instructions before they are sent to another AI that builds or edits a single-file web app.
 Rewrite the user's instruction to be clearer, more specific, and more actionable -- fill in concrete detail about missing functionality, layout, and interactions ONLY where it naturally extends their intent. Do not invent an unrelated feature set, change what they're asking for, or contradict any detail they already gave.
 If "Current App Code" is provided, the instruction is an edit/refinement request for that existing app -- ground the rewrite in what's already built (its actual features, terminology, and structure), not a generic new app.

@@ -1,0 +1,95 @@
+import assert from 'node:assert/strict';
+import { handleAiChat } from '../functions/_lib/aiRelay.js';
+import { clearRateLimitsForTesting } from '../functions/_lib/rateLimit.js';
+
+const secret = 'server-only-test-key';
+const baseEnv = {
+  FIREBASE_PROJECT_ID: 'test-project',
+  APPBLIPS_LLM_BASE_URL: 'https://provider.invalid/v1',
+  APPBLIPS_LLM_API_KEY: secret,
+  APPBLIPS_LLM_MODEL: 'forced-model',
+  APPBLIPS_LLM_MAX_TOKENS: '100',
+  APPBLIPS_AI_RATE_LIMIT_MAX: '20',
+  APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS: '60',
+};
+
+const request = (body) => new Request('https://my.appblips.com/ai/chat', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', origin: 'https://my.appblips.com' },
+  body: typeof body === 'string' ? body : JSON.stringify(body),
+});
+
+const installFetch = ({ validToken, inspectUpstream, upstreamStatus = 200 }) => {
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes('firestore.googleapis.com')) {
+      const query = JSON.parse(options.body);
+      assert.equal(query.structuredQuery.where.fieldFilter.value.stringValue, validToken);
+      return Response.json([{ document: { fields: {
+        aiEnabled: { booleanValue: true },
+        aiToken: { stringValue: validToken },
+      } } }]);
+    }
+    const body = JSON.parse(options.body);
+    inspectUpstream?.(url, options, body);
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), {
+      status: upstreamStatus,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+};
+
+const assertNoSecret = async (response) => {
+  const body = await response.clone().text();
+  assert.equal(body.includes(secret), false, 'server key leaked in response');
+};
+
+clearRateLimitsForTesting();
+let response = await handleAiChat(request({ messages: [{ role: 'user', content: 'hi' }] }), baseEnv);
+assert.equal(response.status, 403);
+await assertNoSecret(response);
+
+const forcedToken = `force-${Date.now()}`;
+installFetch({
+  validToken: forcedToken,
+  inspectUpstream(url, options, body) {
+    assert.equal(url, 'https://provider.invalid/v1/chat/completions');
+    assert.equal(options.headers.authorization, `Bearer ${secret}`);
+    assert.equal(body.model, 'forced-model');
+    assert.equal(body.max_tokens, 100);
+    assert.equal(body.base_url, undefined);
+    assert.equal(body.tools, undefined);
+    assert.deepEqual(body.messages, [{ role: 'user', content: 'hello' }]);
+  },
+});
+response = await handleAiChat(request({
+  token: forcedToken,
+  messages: [{ role: 'user', content: 'hello', tools: ['discard'] }],
+  model: 'attacker-model',
+  base_url: 'https://attacker.invalid',
+  tools: ['discard'],
+  max_tokens: 99999,
+}), baseEnv);
+assert.equal(response.status, 200);
+await assertNoSecret(response);
+
+response = await handleAiChat(request('x'.repeat((256 * 1024) + 1)), baseEnv);
+assert.equal(response.status, 413);
+await assertNoSecret(response);
+
+clearRateLimitsForTesting();
+const limitedToken = `limited-${Date.now()}`;
+installFetch({ validToken: limitedToken });
+const limitedEnv = { ...baseEnv, APPBLIPS_AI_RATE_LIMIT_MAX: '1' };
+assert.equal((await handleAiChat(request({ token: limitedToken, messages: [{ role: 'user', content: 'one' }] }), limitedEnv)).status, 200);
+response = await handleAiChat(request({ token: limitedToken, messages: [{ role: 'user', content: 'two' }] }), limitedEnv);
+assert.equal(response.status, 429);
+assert.ok(response.headers.get('Retry-After'));
+await assertNoSecret(response);
+
+const failureToken = `failure-${Date.now()}`;
+installFetch({ validToken: failureToken, upstreamStatus: 500 });
+response = await handleAiChat(request({ token: failureToken, messages: [{ role: 'user', content: 'fail' }] }), baseEnv);
+assert.equal(response.status, 502);
+await assertNoSecret(response);
+
+console.log('AI relay security checks passed.');
