@@ -15,6 +15,12 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
 
+<p align="center">
+  <a href="https://appblips.com">
+    <img src="https://s13.gifyu.com/images/buqof.gif" alt="Typing a prompt in AppBlips and watching a working game get built live" width="700" />
+  </a>
+</p>
+
 ## Why AppBlips?
 
 Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app you generate is just one file, the interface is a single prompt box and a live preview, and there's nothing extra to learn. If you want to describe an idea and get a real, working website or app back — without wading through a complicated tool built for professional developers — AppBlips is for you.

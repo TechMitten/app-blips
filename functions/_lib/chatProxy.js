@@ -335,7 +335,14 @@ export async function handleChatProxy(request, env) {
   }
 
   if (tools) bodyObj.tools = tools;
-  if (tool_choice) bodyObj.tool_choice = tool_choice;
+  if (tool_choice) {
+    // Thinking backends can reject both required and named tool choices. Resolve
+    // this here, where the effective server/client reasoning setting is known.
+    // The refinement loop already nudges the model if auto returns no tool call.
+    const reasoningEnabled = bodyObj.reasoning_effort && bodyObj.reasoning_effort !== 'none';
+    const forcedToolChoice = tool_choice === 'required' || tool_choice?.type === 'function';
+    bodyObj.tool_choice = reasoningEnabled && forcedToolChoice ? 'auto' : tool_choice;
+  }
 
   let upstream;
   try {

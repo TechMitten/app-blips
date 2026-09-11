@@ -246,7 +246,7 @@ export const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, retryCount: retryCount + 1, signal
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
