@@ -110,7 +110,7 @@ export default function SplashScreen({ skip = false }) {
         preload="auto"
         onCanPlay={() => setIsVideoReady(true)}
         onEnded={handleVideoEnd}
-        className={`relative z-10 w-[72rem] max-w-[220vw] sm:max-w-[180vw] md:max-w-[115vw] h-auto shrink-0 object-contain mix-blend-screen transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+        className={`relative z-10 w-72 sm:w-96 md:w-[32rem] max-w-[90vw] h-auto object-contain mix-blend-screen transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
         style={{
           maskImage: 'radial-gradient(circle, black 50%, transparent 95%)',
           WebkitMaskImage: 'radial-gradient(circle, black 50%, transparent 95%)'

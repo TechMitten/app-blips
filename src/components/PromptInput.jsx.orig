@@ -158,22 +158,22 @@ export default function PromptInput({
                   {isCapturingScreenshot ? <Loader2 className="animate-spin" size={15} /> : <Camera size={15} aria-hidden="true" />}
                 </button>
               </div>
-              <div className="chat-mode-toggle prompt-input-mode" role="radiogroup" aria-label="Chat mode">
+              <div className="chat-mode-toggle prompt-input-mode nav-segmented-group p-0.5 rounded-full border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs" role="radiogroup" aria-label="Chat mode">
                 <label
-                  className={`chat-mode-option ${chatMode === 'build' ? 'chat-mode-option-active' : ''}`}
+                  className={`nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all ${chatMode === 'build' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
                   title="Build mode"
                 >
                   <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
                   <Wand2 size={15} aria-hidden="true" />
-                  <span>Build</span>
+                  <span className="sr-only">Build</span>
                 </label>
                 <label
-                  className={`chat-mode-option ${chatMode === 'ask' ? 'chat-mode-option-active' : ''}`}
+                  className={`nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all ${chatMode === 'ask' ? 'nav-segmented-btn-active shadow-sm text-white bg-red-600' : 'text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white'}`}
                   title="Ask mode"
                 >
                   <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => onChatModeChange('ask')} className="sr-only" />
                   <MessageSquare size={15} aria-hidden="true" />
-                  <span>Ask</span>
+                  <span className="sr-only">Ask</span>
                 </label>
               </div>
             </>
