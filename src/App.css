@@ -1441,6 +1441,34 @@ body {
   box-shadow: none;
 }
 
+/* Identity badge. It's the one dark mass in a pale frosted header, so a flat
+   fill reads as a blob — it gets the same convex treatment as the pane bezel:
+   gradient body, lit top edge, contact shadow + ambient falloff. The edge is
+   an inset ring rather than a border so the badge measures identically in both
+   themes (dark previously carried a 1px border that light did not). */
+.build-badge {
+  background: linear-gradient(180deg, #1e293b 0%, #0b1120 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(15, 23, 42, 0.32),
+    0 5px 12px -4px rgba(15, 23, 42, 0.36);
+}
+
+.build-badge-label {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+/* Lit key, not a coloured square: gradient face, bright top bevel, and a small
+   royal-blue bloom so it holds its own against the near-black body. */
+.build-badge-icon {
+  background: linear-gradient(180deg, #5182f0 0%, #1e4fd0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 1px 2px rgba(15, 23, 42, 0.45),
+    0 0 10px -2px rgba(65, 105, 225, 0.7);
+}
+
 /* Net-neutral inset: the scroll box (and with it the 10px scrollbar) steps in
    by the bezel width and hands the same amount back out of its own right
    padding, so the text column keeps exactly the width it had before the frame
@@ -1561,6 +1589,30 @@ body {
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.05),
     0 4px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark: the washed white/10 haze had almost no edge against the header. A
+   solid elevated surface with a lit top edge gives it the same physical
+   extrusion the rest of the dark theme uses. */
+:is(html.dark, .force-dark) .build-badge {
+  background: linear-gradient(180deg, #272d3b 0%, #171b24 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 5px -1px rgba(0, 0, 0, 0.7),
+    0 8px 18px -8px rgba(0, 0, 0, 0.9);
+}
+
+:is(html.dark, .force-dark) .build-badge-icon {
+  background: linear-gradient(180deg, #6d97f7 0%, #2a5ee0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 0 12px -2px rgba(90, 130, 240, 0.75);
+}
+
+:is(html.dark, .force-dark) .build-badge-label {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
 }
 
 :is(html.dark, .force-dark) .build-panel-composer {

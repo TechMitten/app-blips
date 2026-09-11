@@ -68,21 +68,21 @@ export default function BuildPanel({
       <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         {/* Left: Section identity & status */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-white/10 dark:text-white dark:border dark:border-white/15 shadow-sm">
-            <span className="w-5 h-5 rounded-lg bg-indigo-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+          <div className="build-badge flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-white">
+            <span className="build-badge-icon w-5 h-5 rounded-lg text-white flex items-center justify-center shrink-0">
               {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
             </span>
-            <span className="font-black text-xs sm:text-sm tracking-tight truncate">
+            <span className="build-badge-label font-black text-xs sm:text-sm tracking-tight truncate">
               {isChatActive ? (chatMode === 'ask' ? 'Assistant' : 'Builder') : 'Prompt & Build'}
             </span>
             {(isGenerating || isResumingProject) && (
               <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-400" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400" />
               </span>
             )}
             {generatedCode && versions.length > 0 && (
-              <span className="shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md bg-indigo-600 text-white shadow-2xs">
+              <span className="shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md bg-blue-600 text-white shadow-2xs">
                 v{Math.min(currentVersionIndex + 1, versions.length)}
               </span>
             )}
