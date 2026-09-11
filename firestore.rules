@@ -12,13 +12,36 @@ service cloud.firestore {
     match /deployments/{slug} {
       allow read: if true;
       allow delete: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null 
+      allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.user_id
                     && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
-      allow update: if request.auth != null 
+      allow update: if request.auth != null
                     && request.auth.uid == resource.data.user_id
                     && request.resource.data.user_id == resource.data.user_id
                     && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
+    }
+
+    // Username reservation: doc ID is the username itself, so a second
+    // account can never `create` the same doc (Firestore evaluates a write
+    // to an existing doc as an update, and no `allow update` is granted here,
+    // so once claimed a username is permanently locked). Read is public so
+    // deploy-time slug lookups and availability checks don't need auth.
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.uid
+                    && username.matches('^[a-z0-9-]{3,39}$');
+      allow update, delete: if false;
+    }
+
+    // Per-user profile. `username` is set at most once: the update rule
+    // pins it the same way projects/{projectId} pins user_id above.
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && (!('username' in resource.data) || !resource.data.username
+                        || request.resource.data.username == resource.data.username);
     }
   }
 }

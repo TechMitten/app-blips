@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Rocket, Globe, KeyRound, TriangleAlert, Trash2, Copy, Check,
-  ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon
+  ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon, User, BarChart3
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
@@ -14,7 +14,9 @@ import { firebaseEnabled } from '../firebase';
 // !firebaseEnabled -- self-hosted builds never reach the rest of this UI.
 export default function DeployModal({
   isSignedIn,
-  user,
+  username,
+  usernameLoading,
+  onClaimUsername,
   deployment,
   deploymentUrl,
   isDeployStale,
@@ -34,10 +36,20 @@ export default function DeployModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [customSlug, setCustomSlug] = useState('');
   const [preventIndexing, setPreventIndexing] = useState(false);
+  // Deliberate exception to every other toggle in this file: preventIndexing/
+  // password/favicon all reset to their defaults each time the modal opens --
+  // that's fine for a password you must re-enter, but wrong for analytics,
+  // since toggling it off and back on should reuse the same Umami website
+  // (and its history), not silently lose the association. A lazy initializer
+  // is enough (rather than a useEffect) because DeployModal fully unmounts on
+  // close -- see its `{isDeployModalOpen && <DeployModal ... />}` guard in
+  // App.jsx -- so this re-runs every time the modal opens.
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(() => Boolean(deployment?.analyticsEnabled));
   const [favicon, setFavicon] = useState(null);
   const [faviconError, setFaviconError] = useState('');
-
-  const username = user?.displayName || user?.username || user?.user_metadata?.username || '';
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [claimingUsername, setClaimingUsername] = useState(false);
 
   const passwordValid =
     password.length === 0 ||
@@ -71,8 +83,20 @@ export default function DeployModal({
 
   const handleDeployClick = () => {
     if (canSubmitPassword && (deployment || username)) {
-      onDeploy(password, customSlug, preventIndexing, favicon);
+      onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled);
     }
+  };
+
+  const handleClaimUsername = async (e) => {
+    e.preventDefault();
+    setClaimingUsername(true);
+    setUsernameError('');
+    try {
+      await onClaimUsername(usernameInput);
+    } catch (err) {
+      setUsernameError(err.message || 'Failed to set username.');
+    }
+    setClaimingUsername(false);
   };
 
   if (!firebaseEnabled) {
@@ -277,6 +301,47 @@ export default function DeployModal({
                   </div>
                 </section>
 
+                {/* Section 3b: Analytics */}
+                <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <BarChart3 size={12} />
+                      </div>
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Analytics
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Track visits to this app using your self-hosted analytics.
+                    </p>
+                  </div>
+                  <div
+                    onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
+                    className="flex items-center justify-between gap-4 mt-1 cursor-pointer"
+                  >
+                    <span className="text-sm text-slate-700 leading-tight">
+                      Enable analytics for this app
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={analyticsEnabled}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                        analyticsEnabled
+                          ? 'bg-brand border-transparent'
+                          : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                          analyticsEnabled ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </section>
+
                 {/* Section 4: Custom Favicon */}
                 <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
                   <div>
@@ -315,10 +380,43 @@ export default function DeployModal({
             <KeyRound size={18} className="text-slate-400 shrink-0 mt-0.5" />
             <span>Deploying needs an account, so your app can be stored and stay reachable at a stable link.</span>
           </div>
+        ) : usernameLoading ? (
+          <div className="flex items-center gap-3 px-4 py-6 text-sm text-slate-600">
+            <Loader2 size={18} className="animate-spin text-brand" />
+            <span>Checking your account...</span>
+          </div>
         ) : !username ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-            <span>You must set a username in Account Settings before you can deploy apps.</span>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 leading-relaxed flex items-start gap-3">
+              <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+              <span>Choose a username first. It&rsquo;s used in your app&rsquo;s URL and can&rsquo;t be changed once set.</span>
+            </div>
+            <form onSubmit={handleClaimUsername} className="space-y-2">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <User size={16} />
+                </div>
+                <input
+                  type="text"
+                  value={usernameInput}
+                  onChange={(e) => { setUsernameInput(e.target.value); setUsernameError(''); }}
+                  placeholder="Choose a username"
+                  autoFocus
+                  className="w-full bg-surface border border-slate-300 dark:border-white/15 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:border-slate-400 dark:hover:border-white/25 shadow-2xs"
+                />
+              </div>
+              {usernameError && (
+                <p className="text-xs text-rose-500 font-medium">{usernameError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={claimingUsername || !usernameInput.trim()}
+                className="brand-fill-text w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {claimingUsername ? <Loader2 size={15} className="animate-spin" /> : <User size={15} />}
+                {claimingUsername ? 'Setting username...' : 'Set username'}
+              </button>
+            </form>
           </div>
         ) : (
           <>
@@ -435,6 +533,47 @@ export default function DeployModal({
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
                       preventIndexing ? 'translate-x-[23px]' : 'translate-x-[3px]'
+                    }`}
+                  />
+                </button>
+              </div>
+            </section>
+
+            {/* Section 3b: Analytics */}
+            <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-white/10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <BarChart3 size={12} />
+                  </div>
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Analytics
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Track visits to this app using your self-hosted analytics.
+                </p>
+              </div>
+              <div
+                onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
+                className="flex items-center justify-between gap-4 mt-1 cursor-pointer"
+              >
+                <span className="text-sm text-slate-700 leading-tight">
+                  Enable analytics for this app
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={analyticsEnabled}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                    analyticsEnabled
+                      ? 'bg-brand border-transparent'
+                      : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      analyticsEnabled ? 'translate-x-[23px]' : 'translate-x-[3px]'
                     }`}
                   />
                 </button>
@@ -558,15 +697,17 @@ export default function DeployModal({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleDeployClick}
-              disabled={isDeploying || !hasCode || !canSubmitPassword || !username}
-              className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Rocket size={15} />
-              Deploy
-            </button>
+            {username && (
+              <button
+                type="button"
+                onClick={handleDeployClick}
+                disabled={isDeploying || !hasCode || !canSubmitPassword}
+                className="whitespace-nowrap brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Rocket size={15} />
+                Deploy
+              </button>
+            )}
           </>
         )}
       </div>

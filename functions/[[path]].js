@@ -31,7 +31,7 @@ const BUCKET = 'orion-deploys';
 let cachedAppCheckToken = null;
 let tokenExpiry = 0;
 
-const getAppCheckToken = async (env) => {
+export const getAppCheckToken = async (env) => {
   const now = Date.now();
   if (cachedAppCheckToken && now < tokenExpiry) {
     return cachedAppCheckToken;

@@ -370,8 +370,8 @@ function DeploySection() {
         </HelpItem>
       </HelpItems>
       <HelpNote icon={Info}>
-        Deploying needs an account and a username, so your app can be stored and stay reachable
-        at a stable link. You can set your username in Account Settings.
+        Deploying needs an account, so your app can be stored and stay reachable at a stable link.
+        The first time you deploy, you&rsquo;ll choose a permanent username used in your app&rsquo;s URL.
       </HelpNote>
       <OtherWaysOut />
     </HelpSection>
