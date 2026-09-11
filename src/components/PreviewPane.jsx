@@ -168,9 +168,9 @@ export default function PreviewPane({
               <button
                 onClick={onResetZoom}
                 className={`nav-segmented-btn text-xs sm:text-sm font-semibold px-2.5 ${isAutoZoom ? 'nav-segmented-btn-active' : ''}`}
-                title={isAutoZoom ? "Auto-Zoom active (click to reset)" : "Reset to Auto-Zoom"}
+                title={isAutoZoom ? "Auto-Zoom active (click to reset)" : `${Math.round(zoomLevel * 100)}% — click to reset to Auto-Zoom`}
               >
-                {isAutoZoom ? 'Auto' : `${Math.round(zoomLevel * 100)}%`}
+                {isAutoZoom ? 'Auto' : 'Reset'}
               </button>
               <button
                 onClick={() => onZoomIn(0.1)}
