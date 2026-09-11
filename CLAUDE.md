@@ -12,7 +12,7 @@ The app runs in one of two modes, chosen entirely by env vars (see "Hosting mode
 
 ## Commands
 
-- `npm run dev` — start Vite dev server (port 5173, `host: true` for LAN/devcontainer access)
+- `npm run dev` — start Vite dev server (port 5175, `host: true` for LAN/devcontainer access)
 - `npm run build` — production build
 - `npm run lint` — ESLint (flat config, `eslint.config.js`)
 - `npm run preview` — preview the production build
