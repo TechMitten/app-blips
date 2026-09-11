@@ -22,6 +22,16 @@ export const UMAMI_SCRIPT_TAG = firebaseEnabled
   ? `<script defer src="${UMAMI_SCRIPT_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>`
   : '';
 
+// Session recorder: main AppBlips app only, never deployed apps.
+//
+// Intentionally NOT wired into injectAnalyticsSnippet/uploadDeploy/crypto.js's
+// unlock wrapper -- those are the deployed-app path, and a recorder tag was
+// previously removed from there (see functions/[[path]].js's oldRecorderRegex
+// stripping, kept in place as a guard against it reappearing in old or
+// re-uploaded deploys). It's only ever injected via umamiAnalyticsPlugin
+// (vite.config.js) and initAnalytics below, both scoped to the SPA itself.
+export const UMAMI_RECORDER_SRC = 'https://umami.techmitten.com/recorder.js';
+
 // Splice the tag into the earliest sensible point in <head>/<html>/<body>,
 // mirroring the insertion strategy in pwa.js's injectPwaSnippet (index-based,
 // single insertion point, rest of the document untouched).
@@ -51,8 +61,9 @@ export const injectAnalyticsSnippet = (html) => {
   return UMAMI_SCRIPT_TAG + html;
 };
 
-// Initializes Umami analytics in the main AppBlips web app for hosted mode.
-// Dedupes if the script was already injected by Vite's HTML transform.
+// Initializes Umami analytics (+ session recorder) in the main AppBlips web
+// app for hosted mode. Dedupes if either script was already injected by
+// Vite's HTML transform.
 export const initAnalytics = () => {
   if (!firebaseEnabled || typeof document === 'undefined') return;
 
@@ -62,5 +73,13 @@ export const initAnalytics = () => {
     script.src = UMAMI_SCRIPT_SRC;
     script.setAttribute('data-website-id', UMAMI_WEBSITE_ID);
     document.head.appendChild(script);
+  }
+
+  if (!document.querySelector(`script[src="${UMAMI_RECORDER_SRC}"]`)) {
+    const recorder = document.createElement('script');
+    recorder.defer = true;
+    recorder.src = UMAMI_RECORDER_SRC;
+    recorder.setAttribute('data-website-id', UMAMI_WEBSITE_ID);
+    document.head.appendChild(recorder);
   }
 };
