@@ -40,7 +40,7 @@ const BRIDGE_SOURCE = `(function () {
       function pump() {
         return reader.read().then(function (result) {
           buffer += decoder.decode(result.value || new Uint8Array(), { stream: !result.done });
-          var lines = buffer.split('\n');
+          var lines = buffer.split('\\n');
           buffer = result.done ? '' : lines.pop();
           for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim();

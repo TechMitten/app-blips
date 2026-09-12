@@ -115,6 +115,8 @@ This reads environment variables from the same `.env` file as above and serves t
 
 Builder and operator settings live in the `.env` file. In self-hosted BYOK mode, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for the full, authoritative list. The key groups:
 
+For a plain-English walkthrough of who provides which AI key and what finished-app users see, read [`docs/AI_SETUP_AND_USAGE.md`](docs/AI_SETUP_AND_USAGE.md).
+
 | Group | Variables | Notes |
 | --- | --- | --- |
 | LLM (required) | `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL` | Server-side only, never exposed to the browser bundle |

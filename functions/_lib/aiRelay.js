@@ -1,4 +1,5 @@
 import { consumeToken } from './rateLimit.js';
+import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -11,22 +12,6 @@ const json = (body, status, headers = {}) => new Response(JSON.stringify(body), 
 
 const errorResponse = (code, status, message, headers) => json({ error: { code, message } }, status, headers);
 
-const projectId = (env) => env.FIREBASE_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || 'appblips';
-
-const getAppCheckToken = async (env) => {
-  const debugToken = env.FIREBASE_APPCHECK_DEBUG_TOKEN || env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
-  const appId = env.FIREBASE_APP_ID || env.VITE_FIREBASE_APP_ID;
-  const apiKey = env.FIREBASE_API_KEY || env.VITE_FIREBASE_API_KEY;
-  if (!debugToken || !appId || !apiKey) return null;
-  const response = await fetch(`https://firebaseappcheck.googleapis.com/v1/projects/${projectId(env)}/apps/${appId}:exchangeDebugToken?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ debugToken }),
-  });
-  if (!response.ok) return null;
-  return (await response.json()).token || null;
-};
-
 export const validateDeploymentToken = async (token, env) => {
   if (!token || typeof token !== 'string' || token.length > 128) return false;
   const cached = deploymentCache.get(token);
@@ -36,7 +21,7 @@ export const validateDeploymentToken = async (token, env) => {
   const appCheckToken = await getAppCheckToken(env);
   if (appCheckToken) headers['X-Firebase-AppCheck'] = appCheckToken;
   const response = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId(env)}/databases/(default)/documents:runQuery`,
+    `https://firestore.googleapis.com/v1/projects/${firebaseProjectId(env)}/databases/(default)/documents:runQuery`,
     {
       method: 'POST',
       headers,
@@ -49,7 +34,10 @@ export const validateDeploymentToken = async (token, env) => {
       }),
     },
   );
-  if (!response.ok) throw new Error('deployment lookup failed');
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`deployment lookup failed: ${response.status} ${detail.slice(0, 200)}`);
+  }
   const rows = await response.json();
   const fields = rows?.[0]?.document?.fields;
   const valid = Boolean(fields?.aiEnabled?.booleanValue && fields?.aiToken?.stringValue === token);
@@ -83,7 +71,12 @@ export async function handleAiChat(request, env) {
   }
 
   let valid;
-  try { valid = await validateDeploymentToken(token, env); } catch { return errorResponse('upstream_error', 502, 'Deployment validation failed.'); }
+  try {
+    valid = await validateDeploymentToken(token, env);
+  } catch (err) {
+    console.error('[ai-relay]', err?.message || err);
+    return errorResponse('upstream_error', 502, 'Deployment validation failed.');
+  }
   if (!valid) return errorResponse('unauthorized', 403, 'Invalid deployment token.');
 
   const max = parseInt(env.APPBLIPS_AI_RATE_LIMIT_MAX, 10) || 20;
@@ -91,7 +84,9 @@ export async function handleAiChat(request, env) {
   const rate = consumeToken(`chat:${token}`, { max, windowSeconds });
   if (!rate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(rate.retryAfter) });
 
-  if (!env.APPBLIPS_LLM_BASE_URL || !env.APPBLIPS_LLM_API_KEY || !env.APPBLIPS_LLM_MODEL) {
+  const missingEnv = ['APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_API_KEY', 'APPBLIPS_LLM_MODEL'].filter((key) => !env[key]);
+  if (missingEnv.length) {
+    console.error('[ai-relay] missing env:', missingEnv.join(', '));
     return errorResponse('upstream_error', 502, 'AI service is unavailable.');
   }
 
@@ -107,23 +102,36 @@ export async function handleAiChat(request, env) {
     content: typeof message?.content === 'string' ? message.content : String(message?.content ?? ''),
   }));
 
+  const bodyObj = {
+    model: env.APPBLIPS_LLM_MODEL,
+    messages: safeMessages,
+    temperature: finalTemperature,
+    max_tokens: Math.min(cap, requestedMax),
+    stream: Boolean(stream),
+  };
+  const effort = env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
+  if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
+    bodyObj.reasoning_effort = 'none';
+  } else if (effort) {
+    bodyObj.reasoning_effort = effort;
+  }
+
   let upstream;
   try {
     upstream = await fetch(chatUrl(env.APPBLIPS_LLM_BASE_URL), {
       method: 'POST',
       headers: { authorization: `Bearer ${env.APPBLIPS_LLM_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: env.APPBLIPS_LLM_MODEL,
-        messages: safeMessages,
-        temperature: finalTemperature,
-        max_tokens: Math.min(cap, requestedMax),
-        stream: Boolean(stream),
-      }),
+      body: JSON.stringify(bodyObj),
     });
-  } catch {
+  } catch (err) {
+    console.error('[ai-relay] upstream fetch failed:', err?.message || err);
     return errorResponse('upstream_error', 502, 'AI service request failed.');
   }
-  if (!upstream.ok) return errorResponse('upstream_error', 502, 'AI service request failed.');
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => '');
+    console.error('[ai-relay] upstream', upstream.status, detail.slice(0, 300));
+    return errorResponse('upstream_error', 502, 'AI service request failed.');
+  }
   return new Response(upstream.body, {
     status: 200,
     headers: { 'content-type': upstream.headers.get('content-type') || (stream ? 'text/event-stream' : 'application/json') },
