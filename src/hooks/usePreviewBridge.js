@@ -56,10 +56,20 @@ export default function usePreviewBridge({
     pendingCapturesRef.current.clear();
   }, []);
 
+  // Ensure the live token is registered synchronously to prevent race conditions
+  // where the sandboxed frame loads and messages before effects commit.
+  if (previewToken && !recentTokensRef.current.has(previewToken)) {
+    recentTokensRef.current.add(previewToken);
+    if (recentTokensRef.current.size > 10) {
+      const oldestToken = recentTokensRef.current.values().next().value;
+      recentTokensRef.current.delete(oldestToken);
+    }
+  }
+
   useEffect(() => {
     if (previewToken) {
       recentTokensRef.current.add(previewToken);
-      if (recentTokensRef.current.size > 5) {
+      if (recentTokensRef.current.size > 10) {
         const oldestToken = recentTokensRef.current.values().next().value;
         recentTokensRef.current.delete(oldestToken);
       }
