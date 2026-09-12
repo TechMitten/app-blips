@@ -1060,16 +1060,58 @@ body {
   .hero-blip { animation: none; opacity: 0.9; }
 }
 
-/* Starter Ideas Carousel — single horizontal row instead of a stacked grid,
-   so the empty-state doesn't eat vertical space above the prompt box. */
+/* Starter Ideas Automatic Rotation — Each row rotates individually in alternating directions */
+@keyframes starter-rotate {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 .starter-carousel {
-  /* No scroll-snap: with drag-to-scroll as the primary interaction, snap
-     would yank the row to the nearest card the instant a drag ends (it
-     doesn't stop at wherever the pointer released), reading as a jump. */
   scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
 }
 .starter-carousel::-webkit-scrollbar {
   display: none;
+}
+
+.starter-row {
+  overflow: hidden;
+}
+
+.starter-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation-name: starter-rotate;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.starter-row:hover .starter-track,
+.starter-row:focus-within .starter-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starter-track {
+    animation: none !important;
+  }
+  .starter-carousel {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .starter-row {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .starter-row::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Starter Idea Cards — light theme: frosted glass + hairline border, no
