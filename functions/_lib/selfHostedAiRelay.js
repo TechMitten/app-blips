@@ -76,20 +76,28 @@ export async function handleSelfHostedAiChat(request, env) {
     content: typeof message?.content === 'string' ? message.content : String(message?.content ?? ''),
   }));
 
+  const bodyObj = {
+    model: env.APPBLIPS_APP_LLM_MODEL,
+    messages: safeMessages,
+    temperature: Number.isFinite(requestedTemperature)
+      ? Math.min(2, Math.max(0, requestedTemperature))
+      : (Number.isFinite(configuredTemperature) ? configuredTemperature : 0.2),
+    max_tokens: Math.min(cap, requestedMax),
+    stream: Boolean(stream),
+  };
+  const effort = env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none';
+  if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
+    bodyObj.reasoning_effort = 'none';
+  } else if (effort) {
+    bodyObj.reasoning_effort = effort;
+  }
+
   let upstream;
   try {
     upstream = await fetch(chatUrl(env.APPBLIPS_APP_LLM_BASE_URL), {
       method: 'POST',
       headers: { authorization: `Bearer ${env.APPBLIPS_APP_LLM_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: env.APPBLIPS_APP_LLM_MODEL,
-        messages: safeMessages,
-        temperature: Number.isFinite(requestedTemperature)
-          ? Math.min(2, Math.max(0, requestedTemperature))
-          : (Number.isFinite(configuredTemperature) ? configuredTemperature : 0.2),
-        max_tokens: Math.min(cap, requestedMax),
-        stream: Boolean(stream),
-      }),
+      body: JSON.stringify(bodyObj),
     });
   } catch { return failure('upstream_error', 502, 'App AI request failed.', cors.headers); }
   if (!upstream.ok) return failure('upstream_error', 502, 'App AI request failed.', cors.headers);

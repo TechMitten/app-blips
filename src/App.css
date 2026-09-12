@@ -1060,6 +1060,18 @@ body {
   .hero-blip { animation: none; opacity: 0.9; }
 }
 
+/* Starter Ideas Carousel — single horizontal row instead of a stacked grid,
+   so the empty-state doesn't eat vertical space above the prompt box. */
+.starter-carousel {
+  /* No scroll-snap: with drag-to-scroll as the primary interaction, snap
+     would yank the row to the nearest card the instant a drag ends (it
+     doesn't stop at wherever the pointer released), reading as a jump. */
+  scrollbar-width: none;
+}
+.starter-carousel::-webkit-scrollbar {
+  display: none;
+}
+
 /* Starter Idea Cards — light theme: frosted glass + hairline border, no
    heavy elevation. Dark keeps its pop-out physical extrusion untouched. */
 .starter-pop-card {
@@ -1214,18 +1226,6 @@ body {
   background: rgba(99, 102, 241, 0.20) !important;
   color: #a5b4fc !important;
   border-color: rgba(129, 140, 248, 0.50) !important;
-}
-
-/* Templates Section Pill */
-.starter-templates-badge {
-  color: #4338ca;
-  background: rgba(224, 231, 255, 0.85);
-  border: 1px solid #c7d2fe;
-}
-:is(html.dark, .force-dark) .starter-templates-badge {
-  color: #c7d2fe !important;
-  background: rgba(99, 102, 241, 0.22) !important;
-  border-color: rgba(165, 180, 252, 0.35) !important;
 }
 
 

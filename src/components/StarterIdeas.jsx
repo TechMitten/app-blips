@@ -1,4 +1,9 @@
-import { Sparkles, ArrowUpRight } from 'lucide-react';
+import { useMemo, useRef } from 'react';
+import { Sparkles } from 'lucide-react';
+
+// Drag-to-scroll threshold (px) below which a mouse interaction still
+// counts as a click rather than a pan, so picking a card stays reliable.
+const DRAG_CLICK_THRESHOLD = 5;
 
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
@@ -49,60 +54,117 @@ const getColorClasses = (colorString = '') => {
   };
 };
 
-// Empty-state idea cards (presets).
+const shuffle = (items) => {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Empty-state idea cards (presets). This component mounts fresh each time
+// showStarterIdeas flips true (new/empty project), so shuffling once on
+// mount re-randomizes the order every time it's shown.
 export default function StarterIdeas({ ideas, onPick }) {
+  const shuffledIdeas = useMemo(() => shuffle(ideas), [ideas]);
+  const scrollerRef = useRef(null);
+  const dragRef = useRef({ isDown: false, startX: 0, startScrollLeft: 0, moved: false, pendingDelta: 0, rafId: null });
+
+  const applyPendingScroll = () => {
+    const drag = dragRef.current;
+    const scroller = scrollerRef.current;
+    drag.rafId = null;
+    if (scroller) scroller.scrollLeft = drag.startScrollLeft - drag.pendingDelta;
+  };
+
+  const handlePointerDown = (e) => {
+    // Touch/pen already get native drag-scroll from overflow-x-auto; only
+    // take over panning for mouse so we don't fight the browser's own
+    // momentum scrolling on touch devices.
+    if (e.pointerType !== 'mouse') return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.setPointerCapture(e.pointerId);
+    dragRef.current = { isDown: true, startX: e.clientX, startScrollLeft: scroller.scrollLeft, moved: false, pendingDelta: 0, rafId: null };
+  };
+
+  const handlePointerMove = (e) => {
+    const drag = dragRef.current;
+    if (!drag.isDown) return;
+    const delta = e.clientX - drag.startX;
+    if (Math.abs(delta) > DRAG_CLICK_THRESHOLD) drag.moved = true;
+    if (drag.moved) {
+      e.preventDefault();
+      drag.pendingDelta = delta;
+      if (drag.rafId == null) drag.rafId = requestAnimationFrame(applyPendingScroll);
+    }
+  };
+
+  const endDrag = (e) => {
+    const drag = dragRef.current;
+    const scroller = scrollerRef.current;
+    if (drag.rafId != null) {
+      cancelAnimationFrame(drag.rafId);
+      drag.rafId = null;
+    }
+    drag.isDown = false;
+    if (scroller && e?.pointerId != null && scroller.hasPointerCapture?.(e.pointerId)) {
+      scroller.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePick = (starter) => {
+    // Swallow the click that follows a drag-release so panning the
+    // carousel doesn't also fire the card underneath the cursor.
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    onPick(starter);
+  };
+
   return (
     <div className="space-y-3 animate-fade-in hidden [@media(min-height:720px)]:block" style={{ animationDelay: '0.08s' }}>
-      <div className="flex items-center justify-between pt-0.5">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-4 rounded-full bg-indigo-600 dark:bg-indigo-400" />
-          <h3 className="font-mono text-xs font-black uppercase tracking-[0.14em] text-slate-900 dark:text-white">
-            Starter ideas
-          </h3>
-        </div>
-        <span className="starter-templates-badge text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full shadow-2xs">
-          Templates
-        </span>
+      <div className="flex items-center gap-2 pt-0.5">
+        <span className="w-1.5 h-4 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+        <h3 className="font-mono text-xs font-black uppercase tracking-[0.14em] text-slate-900 dark:text-white">
+          Starter ideas
+        </h3>
       </div>
 
-      <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2.5">
-        {ideas.map((starter) => {
+      <div
+        ref={scrollerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className="starter-carousel flex gap-2 overflow-x-auto -mx-0.5 px-0.5 py-0.5 cursor-grab active:cursor-grabbing select-none"
+      >
+        {shuffledIdeas.map((starter) => {
           const IconComponent = starter.icon || Sparkles;
           const theme = getColorClasses(starter.color);
           return (
             <button
               key={starter.title}
               type="button"
-              onClick={() => onPick(starter)}
+              onClick={() => handlePick(starter)}
               title={`${starter.title} — ${starter.prompt}`}
-              className="starter-pop-card group relative flex items-center gap-3 text-left p-2.5 sm:p-3 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20"
+              className="starter-pop-card group relative shrink-0 flex items-center gap-2 text-left pl-2 pr-3 py-2 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20"
             >
               {/* Subtle ambient colored corner glow on hover */}
               <div
-                className={`absolute -right-6 -top-6 w-20 h-20 rounded-full blur-xl opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
+                className={`absolute -right-4 -top-4 w-14 h-14 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
                 aria-hidden="true"
               />
 
-              <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
-                <IconComponent size={15} strokeWidth={2.2} />
+              <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
+                <IconComponent size={13} strokeWidth={2.2} />
               </div>
 
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight">
-                  {starter.title}
-                </h4>
-              </div>
-
-              <span
-                aria-hidden="true"
-                className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/10 text-slate-400 dark:text-white/40 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 group-hover:border-indigo-300 dark:group-hover:border-indigo-500/40 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/20 transition-all duration-150 shadow-2xs"
-              >
-                <ArrowUpRight
-                  size={12}
-                  strokeWidth={2.5}
-                  className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-150"
-                />
-              </span>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
+                {starter.title}
+              </h4>
             </button>
           );
         })}
