@@ -14,6 +14,7 @@ import HelpModal from './components/HelpModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
+import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
 import NamingModal from './components/NamingModal';
 import AuthModal from './components/AuthModal';
 import AuthToast from './components/AuthToast';
@@ -48,6 +49,7 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
+import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 
@@ -217,6 +219,15 @@ export default function App() {
     generatedCode, isSignedIn, user, username, projectName, currentProjectId,
     currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
   });
+
+  // --- Analytics dashboard ---
+  const {
+    isAnalyticsOpen, openAnalytics, closeAnalytics,
+    myAnalyticsApps, appsLoading: analyticsAppsLoading,
+    selectedSlug: analyticsSelectedSlug, selectApp: selectAnalyticsApp,
+    range: analyticsRange, changeRange: changeAnalyticsRange,
+    stats: analyticsStats, statsLoading: analyticsStatsLoading, error: analyticsError,
+  } = useAnalytics({ isSignedIn, user });
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -1148,6 +1159,7 @@ export default function App() {
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
         firebaseEnabled={firebaseEnabled}
+        onOpenAnalytics={() => openAnalytics()}
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
@@ -1248,6 +1260,21 @@ export default function App() {
         />
       )}
 
+
+      {isAnalyticsOpen && firebaseEnabled && isSignedIn && (
+        <AnalyticsDashboardModal
+          apps={myAnalyticsApps}
+          appsLoading={analyticsAppsLoading}
+          selectedSlug={analyticsSelectedSlug}
+          onSelectApp={selectAnalyticsApp}
+          range={analyticsRange}
+          onRangeChange={changeAnalyticsRange}
+          stats={analyticsStats}
+          statsLoading={analyticsStatsLoading}
+          error={analyticsError}
+          onClose={closeAnalytics}
+        />
+      )}
 
       {isNamingModalOpen && (
         <NamingModal
