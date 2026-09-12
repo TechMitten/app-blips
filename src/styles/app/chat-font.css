@@ -1,0 +1,80 @@
+/* --- Build pane & chat font size setting ---
+
+   The Settings modal exposes small/default/large/xlarge; the choice is mirrored
+   onto <html data-chat-font> and these variables feed every font size across the
+   entire build pane (including chat transcript, starter ideas, composer, and headers).
+   The default set matches the original sizes, so 'default' is visually identical. */
+:root,
+[data-chat-font='default'] {
+  --chat-text: 0.875rem;        /* reply body (14px) */
+  --chat-prompt-text: 0.9375rem;/* user prompt bubble (15px) */
+  --chat-code-text: 0.78125rem; /* inline + fenced code (12.5px) */
+  --chat-h1: 1rem;              /* markdown headings (16/15/14px) */
+  --chat-h2: 0.9375rem;
+  --chat-h3: 0.875rem;
+  --chat-label-text: 0.8125rem; /* "Thinking"/"Building app" label (13px) */
+}
+[data-chat-font='small'] {
+  --chat-text: 0.8125rem;       /* 13px */
+  --chat-prompt-text: 0.875rem;
+  --chat-code-text: 0.71875rem; /* 11.5px */
+  --chat-h1: 0.9375rem;
+  --chat-h2: 0.875rem;
+  --chat-h3: 0.84375rem;        /* 13.5px */
+  --chat-label-text: 0.75rem;
+}
+[data-chat-font='large'] {
+  --chat-text: 1rem;            /* 16px */
+  --chat-prompt-text: 1.0625rem;/* 17px */
+  --chat-code-text: 0.875rem;
+  --chat-h1: 1.125rem;          /* 18px */
+  --chat-h2: 1.0625rem;
+  --chat-h3: 1rem;
+  --chat-label-text: 0.875rem;
+}
+[data-chat-font='xlarge'] {
+  --chat-text: 1.125rem;        /* 18px */
+  --chat-prompt-text: 1.1875rem;/* 19px */
+  --chat-code-text: 0.96875rem; /* 15.5px */
+  --chat-h1: 1.25rem;           /* 20px */
+  --chat-h2: 1.1875rem;
+  --chat-h3: 1.125rem;
+  --chat-label-text: 0.9375rem;
+}
+
+/* Build pane overall text scaling for small / large / xlarge (default is unchanged) */
+[data-chat-font='small'] .build-panel {
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.375rem;
+}
+[data-chat-font='small'] .build-panel [class*='text-[9.5px]'] { font-size: 8.5px !important; }
+[data-chat-font='small'] .build-panel [class*='text-[10px]'] { font-size: 9px !important; }
+[data-chat-font='small'] .build-panel [class*='text-[11px]'] { font-size: 10px !important; }
+
+[data-chat-font='large'] .build-panel {
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+}
+[data-chat-font='large'] .build-panel [class*='text-[9.5px]'] { font-size: 10.5px !important; }
+[data-chat-font='large'] .build-panel [class*='text-[10px]'] { font-size: 11px !important; }
+[data-chat-font='large'] .build-panel [class*='text-[11px]'] { font-size: 12px !important; }
+
+[data-chat-font='xlarge'] .build-panel {
+  --text-xs: 0.875rem;
+  --text-sm: 1rem;
+  --text-base: 1.125rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.75rem;
+}
+[data-chat-font='xlarge'] .build-panel [class*='text-[9.5px]'] { font-size: 11.5px !important; }
+[data-chat-font='xlarge'] .build-panel [class*='text-[10px]'] { font-size: 12px !important; }
+[data-chat-font='xlarge'] .build-panel [class*='text-[11px]'] { font-size: 13px !important; }

@@ -1,0 +1,283 @@
+/* Premium button style */
+.btn-premium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+}
+.btn-premium-primary {
+  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-hover));
+  color: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(from var(--color-accent) r g b / 0.3), 0 4px 8px -4px rgb(from var(--color-accent) r g b / 0.2);
+}
+.btn-premium-primary:hover {
+  background: linear-gradient(135deg, var(--color-brand-hover), var(--color-brand));
+  box-shadow: 0 2px 4px rgb(from var(--color-accent) r g b / 0.35), 0 6px 14px -4px rgb(from var(--color-accent) r g b / 0.25);
+  transform: translateY(-0.5px);
+}
+.btn-premium-primary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 1px 2px rgb(from var(--color-accent) r g b / 0.25);
+}
+.btn-premium-secondary {
+  background: var(--color-surface);
+  color: var(--color-slate-700);
+  border: 1px solid var(--color-slate-200);
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1)), 0 0 0 1px var(--hairline);
+}
+.btn-premium-secondary:hover {
+  background: var(--color-slate-50);
+  border-color: var(--color-slate-300);
+  box-shadow: 0 2px 6px rgb(var(--shadow-color) / var(--shadow-a2)), 0 0 0 1px var(--hairline);
+}
+
+/* --- Navigation Header Buttons & Segmented Controls --- */
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.65rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.nav-btn:active {
+  transform: scale(0.96);
+}
+
+.nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-halo), 0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
+}
+
+/* Square variant for icon-only buttons, so they don't carry the wide
+   horizontal padding meant for text labels. position: relative anchors
+   the mobile tap-target extension below. */
+.nav-btn-icon {
+  position: relative;
+  justify-content: center;
+  padding: 0.5rem 0.6rem;
+}
+
+/* The history drawer itself is md+ only, so its header toggle hides on
+   phones rather than dead-ending. Pure CSS (not a `hidden md:inline-flex`
+   utility) because this unlayered sheet outruns Tailwind's layered
+   utilities on `display`. */
+.nav-btn-history {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .nav-btn-history {
+    display: inline-flex;
+  }
+}
+
+/* Phone-width header: the toolbar holds six controls beside the brand in
+   as little as 320px, so buttons compact to icon-sized squares and gain a
+   4px invisible tap apron (::after) that tiles exactly between neighbors
+   (gap-1) instead of growing visual chrome. */
+@media (max-width: 639px) {
+  .nav-btn {
+    gap: 0.35rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8125rem;
+  }
+
+  .nav-btn-icon {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.5rem;
+  }
+
+  .nav-btn-icon::after {
+    content: '';
+    position: absolute;
+    inset: -0.25rem;
+  }
+}
+
+.nav-btn-primary {
+  background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-hover) 100%);
+  color: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 2px rgb(from var(--color-accent) r g b / var(--glow-a2)), 0 3px 8px -2px rgb(from var(--color-accent) r g b / var(--glow-a2));
+  font-weight: 600;
+}
+
+.nav-btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-brand-hover) 0%, var(--color-brand) 100%);
+  box-shadow: 0 2px 4px rgb(from var(--color-accent) r g b / var(--glow-a3)), 0 5px 12px -2px rgb(from var(--color-accent) r g b / var(--glow-a2));
+  transform: translateY(-0.5px);
+}
+
+.nav-btn-primary:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.nav-btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-slate-700);
+  border: 1px solid var(--color-slate-200);
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1)), 0 0 0 1px var(--hairline);
+}
+
+.nav-btn-secondary:hover {
+  background: var(--color-slate-50);
+  color: var(--color-slate-900);
+  border-color: var(--color-slate-300);
+  box-shadow: 0 2px 5px rgb(var(--shadow-color) / var(--shadow-a2)), 0 0 0 1px var(--hairline);
+}
+
+.nav-btn-secondary-active {
+  background: var(--color-indigo-50);
+  color: var(--color-brand);
+  border: 1px solid var(--color-indigo-200);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(from var(--color-accent) r g b / var(--glow-a1)), inset 0 1px 0 var(--inset-highlight);
+}
+
+.nav-btn-secondary-active:hover {
+  background: var(--color-indigo-100);
+  border-color: var(--color-indigo-300);
+  color: var(--color-brand-hover);
+}
+
+:is(html.dark, .force-dark) .nav-btn-secondary-active {
+  background: var(--color-slate-200);
+  color: var(--color-slate-950);
+  border-color: var(--color-slate-300);
+}
+
+:is(html.dark, .force-dark) .nav-btn-secondary-active:hover {
+  background: var(--color-slate-300);
+  border-color: var(--color-slate-400);
+  color: var(--color-slate-950);
+}
+
+.nav-segmented-group {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem;
+  border-radius: 0.65rem;
+  background: #f1f5f9;
+  border: 1px solid rgb(15 23 42 / 0.08);
+  gap: 0.2rem;
+}
+
+:is(html.dark, .force-dark) .nav-segmented-group {
+  background: var(--color-slate-100);
+  border-color: var(--color-slate-200);
+}
+
+.nav-segmented-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+:is(html.dark, .force-dark) .nav-segmented-btn {
+  color: var(--color-slate-600);
+}
+
+.nav-segmented-btn:hover:not(:disabled) {
+  color: #0f172a;
+  background: rgb(255 255 255 / 0.6);
+}
+
+:is(html.dark, .force-dark) .nav-segmented-btn:hover:not(:disabled) {
+  color: var(--color-slate-900);
+  background: color-mix(in oklab, var(--color-surface) 65%, transparent);
+}
+
+.nav-segmented-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.nav-segmented-btn-active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600;
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 0 0 1px rgb(15 23 42 / 0.06);
+}
+
+:is(html.dark, .force-dark) .nav-segmented-btn-active {
+  background: var(--seg-active-bg) !important;
+  color: var(--seg-active-fg) !important;
+  box-shadow:
+    0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)),
+    0 0 0 1px rgb(var(--shadow-color) / var(--shadow-a1));
+}
+
+.nav-segmented-btn:disabled {
+  color: var(--color-slate-300);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.nav-segmented-btn-icon {
+  padding: 0.38rem 0.55rem;
+}
+
+/* Compact variant for the prompt-input footer, where horizontal space is
+   tight (360px pane shared with the submit button). */
+.nav-segmented-compact {
+  padding: 0.2rem;
+}
+.nav-segmented-compact .nav-segmented-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+/* Build/Ask mode toggle: active pill is red, overriding the generic
+   white/surface active-tab styling shared by other segmented controls. */
+.chat-mode-toggle .nav-segmented-btn-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+:is(html.dark, .force-dark) .chat-mode-toggle .nav-segmented-btn-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* Force dark text on white brand buttons in dark mode. .brand-gradient lives
+   in base.css, but the override is grouped with the button classes it mostly
+   targets (.nav-btn-primary, .btn-premium-primary) rather than split across
+   files. */
+:is(html.dark, .force-dark) .brand-gradient,
+:is(html.dark, .force-dark) .nav-btn-primary,
+:is(html.dark, .force-dark) .btn-premium-primary,
+:is(html.dark, .force-dark) .brand-fill-text {
+  color: #080808 !important;
+}
