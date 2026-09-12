@@ -1,5 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { Sparkles } from 'lucide-react';
+
+// Drag-to-scroll threshold (px) below which a mouse interaction still
+// counts as a click rather than a pan, so picking a card stays reliable.
+const DRAG_CLICK_THRESHOLD = 5;
 
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
@@ -59,55 +63,219 @@ const shuffle = (items) => {
   return shuffled;
 };
 
-// Row rotation configurations: each row moves individually in alternating directions
-// with distinct speeds and phase offsets so they never feel synchronized.
-const ROW_CONFIGS = [
-  { direction: 'normal', duration: '34s', delay: '0s' },
-  { direction: 'reverse', duration: '38s', delay: '-6s' },
-  { direction: 'normal', duration: '30s', delay: '-14s' },
-];
+function StarterRow({ ideas, rowIndex, onPick }) {
+  const scrollerRef = useRef(null);
+  const singleWidthRef = useRef(0);
+  const dragRef = useRef({
+    isDown: false,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+    captured: false,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+    momentumRaf: null,
+    moveResetTimeout: null,
+  });
 
-const getRowConfig = (rowIndex) => {
-  if (ROW_CONFIGS[rowIndex]) return ROW_CONFIGS[rowIndex];
-  return {
-    direction: rowIndex % 2 === 1 ? 'reverse' : 'normal',
-    duration: `${32 + (rowIndex * 4) % 10}s`,
-    delay: `-${(rowIndex * 7) % 20}s`,
+  // Render 3 sets of ideas so the row can wrap seamlessly in either direction
+  const tripleIdeas = useMemo(() => [...ideas, ...ideas, ...ideas], [ideas]);
+
+  const getSingleWidth = () => {
+    if (singleWidthRef.current > 0) return singleWidthRef.current;
+    const scroller = scrollerRef.current;
+    if (scroller && scroller.scrollWidth > 0) {
+      singleWidthRef.current = scroller.scrollWidth / 3;
+      return singleWidthRef.current;
+    }
+    return 0;
   };
-};
 
-// Empty-state idea cards (presets). Shuffling once on mount re-randomizes
-// the order every time it's shown. Each row rotates continuously in its
-// own direction, pausing on hover so the user can easily read and pick an idea.
-export default function StarterIdeas({ ideas, onPick }) {
-  const shuffledIdeas = useMemo(() => shuffle(ideas), [ideas]);
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
 
-  const rows = useMemo(() => {
-    return [0, 1, 2].map((rowIndex) => {
-      const items = shuffledIdeas.filter((_, i) => i % 3 === rowIndex);
-      // Ensure each copy has enough cards to span beyond wide viewports before looping
-      let extended = [...items];
-      while (extended.length > 0 && extended.length < 8) {
-        extended = [...extended, ...items];
+    const applyOffset = () => {
+      if (!scrollerRef.current) return;
+      const sw = scrollerRef.current.scrollWidth / 3;
+      if (sw > 0) {
+        singleWidthRef.current = sw;
+        // Stagger row 1 so rows are not stacked evenly, while seamless wrapping
+        // ensures no empty gaps appear at the left margin.
+        const initialOffset = rowIndex === 1 ? 75 : 0;
+        scrollerRef.current.scrollLeft = sw + initialOffset;
       }
-      return extended;
-    });
-  }, [shuffledIdeas]);
+    };
 
-  const renderCard = (starter, key, isDuplicate = false) => {
+    applyOffset();
+    const raf = requestAnimationFrame(applyOffset);
+    return () => cancelAnimationFrame(raf);
+  }, [rowIndex, ideas]);
+
+  useEffect(() => {
+    return () => {
+      if (dragRef.current.momentumRaf != null) {
+        cancelAnimationFrame(dragRef.current.momentumRaf);
+      }
+      if (dragRef.current.moveResetTimeout != null) {
+        clearTimeout(dragRef.current.moveResetTimeout);
+      }
+    };
+  }, []);
+
+  const handlePointerDown = (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    if (dragRef.current.momentumRaf != null) {
+      cancelAnimationFrame(dragRef.current.momentumRaf);
+      dragRef.current.momentumRaf = null;
+    }
+    if (dragRef.current.moveResetTimeout != null) {
+      clearTimeout(dragRef.current.moveResetTimeout);
+      dragRef.current.moveResetTimeout = null;
+    }
+
+    getSingleWidth();
+
+    const now = performance.now();
+    dragRef.current = {
+      isDown: true,
+      startX: e.clientX,
+      startScrollLeft: scroller.scrollLeft,
+      moved: false,
+      captured: false,
+      lastX: e.clientX,
+      lastTime: now,
+      velocity: 0,
+      momentumRaf: null,
+      moveResetTimeout: null,
+    };
+  };
+
+  const handlePointerMove = (e) => {
+    const drag = dragRef.current;
+    if (!drag.isDown) return;
+
+    const delta = e.clientX - drag.startX;
+    if (Math.abs(delta) > DRAG_CLICK_THRESHOLD) {
+      drag.moved = true;
+      const scroller = scrollerRef.current;
+      if (scroller && !drag.captured) {
+        scroller.setPointerCapture(e.pointerId);
+        drag.captured = true;
+        scroller.classList.add('is-dragging');
+      }
+    }
+
+    if (drag.moved && scrollerRef.current) {
+      e.preventDefault();
+      const now = performance.now();
+      const dt = now - drag.lastTime;
+      if (dt > 0) {
+        const instantVelocity = (drag.lastX - e.clientX) / dt;
+        drag.velocity = 0.7 * instantVelocity + 0.3 * drag.velocity;
+      }
+      drag.lastX = e.clientX;
+      drag.lastTime = now;
+
+      const scroller = scrollerRef.current;
+      let newScrollLeft = drag.startScrollLeft - delta;
+      const sw = getSingleWidth();
+      if (sw > 0) {
+        if (newScrollLeft < sw * 0.5) {
+          newScrollLeft += sw;
+          drag.startScrollLeft += sw;
+        } else if (newScrollLeft > sw * 1.5) {
+          newScrollLeft -= sw;
+          drag.startScrollLeft -= sw;
+        }
+      }
+      scroller.scrollLeft = newScrollLeft;
+    }
+  };
+
+  const endDrag = (e) => {
+    const drag = dragRef.current;
+    if (!drag.isDown) return;
+    drag.isDown = false;
+
+    const scroller = scrollerRef.current;
+    if (scroller) {
+      scroller.classList.remove('is-dragging');
+      if (drag.captured && e?.pointerId != null && scroller.hasPointerCapture?.(e.pointerId)) {
+        scroller.releasePointerCapture(e.pointerId);
+      }
+    }
+    drag.captured = false;
+
+    if (drag.moved) {
+      drag.moveResetTimeout = setTimeout(() => {
+        drag.moved = false;
+      }, 60);
+
+      const timeSinceMove = performance.now() - drag.lastTime;
+      if (timeSinceMove < 80 && Math.abs(drag.velocity) > 0.1 && scroller) {
+        let vel = drag.velocity;
+        const glide = () => {
+          vel *= 0.94;
+          if (scrollerRef.current) {
+            const sw = getSingleWidth();
+            let sl = scrollerRef.current.scrollLeft + vel * 16;
+            if (sw > 0) {
+              if (sl < sw * 0.5) sl += sw;
+              else if (sl > sw * 1.5) sl -= sw;
+            }
+            scrollerRef.current.scrollLeft = sl;
+          }
+          if (Math.abs(vel) > 0.05) {
+            drag.momentumRaf = requestAnimationFrame(glide);
+          } else {
+            drag.momentumRaf = null;
+          }
+        };
+        drag.momentumRaf = requestAnimationFrame(glide);
+      }
+    }
+  };
+
+  const handleScroll = () => {
+    const sw = getSingleWidth();
+    if (sw <= 0) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (scroller.scrollLeft < sw * 0.5) {
+      scroller.scrollLeft += sw;
+      if (dragRef.current.isDown) dragRef.current.startScrollLeft += sw;
+    } else if (scroller.scrollLeft > sw * 1.5) {
+      scroller.scrollLeft -= sw;
+      if (dragRef.current.isDown) dragRef.current.startScrollLeft -= sw;
+    }
+  };
+
+  const handlePick = (starter) => {
+    if (dragRef.current.moved) return;
+    onPick(starter);
+  };
+
+  const renderCard = (starter, index) => {
     const IconComponent = starter.icon || Sparkles;
     const theme = getColorClasses(starter.color);
+    const isPrimarySet = index >= ideas.length && index < ideas.length * 2;
+
     return (
       <button
-        key={key}
+        key={`${starter.title}-${index}`}
         type="button"
         draggable={false}
-        tabIndex={isDuplicate ? -1 : 0}
-        onClick={() => onPick(starter)}
+        tabIndex={isPrimarySet ? 0 : -1}
+        aria-hidden={!isPrimarySet}
+        onClick={() => handlePick(starter)}
         title={`${starter.title} — ${starter.prompt}`}
         className="starter-pop-card group relative shrink-0 flex items-center gap-2.5 text-left pl-3 pr-4 py-2.5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20 select-none"
       >
-        {/* Subtle ambient colored corner glow on hover */}
         <div
           className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
           aria-hidden="true"
@@ -125,6 +293,31 @@ export default function StarterIdeas({ ideas, onPick }) {
   };
 
   return (
+    <div
+      ref={scrollerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onScroll={handleScroll}
+      onDragStart={(e) => e.preventDefault()}
+      className="starter-row flex gap-2 overflow-x-auto py-0.5 cursor-grab active:cursor-grabbing select-none"
+    >
+      {tripleIdeas.map((starter, i) => renderCard(starter, i))}
+    </div>
+  );
+}
+
+export default function StarterIdeas({ ideas, onPick }) {
+  const shuffledIdeas = useMemo(() => shuffle(ideas), [ideas]);
+
+  const rows = useMemo(() => {
+    return [0, 1, 2].map((rowIndex) => {
+      return shuffledIdeas.filter((_, i) => i % 3 === rowIndex);
+    });
+  }, [shuffledIdeas]);
+
+  return (
     <div className="space-y-3 animate-fade-in hidden [@media(min-height:720px)]:block" style={{ animationDelay: '0.08s' }}>
       <div className="flex items-center gap-2 pt-0.5">
         <span className="w-1.5 h-4 rounded-full bg-indigo-600 dark:bg-indigo-400" />
@@ -134,33 +327,14 @@ export default function StarterIdeas({ ideas, onPick }) {
       </div>
 
       <div className="starter-carousel flex flex-col gap-2 -mx-1 px-1 py-1 select-none overflow-hidden">
-        {rows.map((rowIdeas, rowIndex) => {
-          const config = getRowConfig(rowIndex);
-          return (
-            <div
-              key={rowIndex}
-              className="starter-row relative overflow-hidden py-1"
-            >
-              <div
-                className="starter-track flex w-max items-center"
-                style={{
-                  animationDuration: config.duration,
-                  animationDirection: config.direction,
-                  animationDelay: config.delay,
-                }}
-              >
-                {/* Primary copy */}
-                <div className="flex shrink-0 items-center gap-2 pr-2">
-                  {rowIdeas.map((starter, i) => renderCard(starter, `row-${rowIndex}-c1-${i}`, false))}
-                </div>
-                {/* Loop copy for seamless rotation */}
-                <div className="flex shrink-0 items-center gap-2 pr-2" aria-hidden="true">
-                  {rowIdeas.map((starter, i) => renderCard(starter, `row-${rowIndex}-c2-${i}`, true))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {rows.map((rowIdeas, rowIndex) => (
+          <StarterRow
+            key={rowIndex}
+            ideas={rowIdeas}
+            rowIndex={rowIndex}
+            onPick={onPick}
+          />
+        ))}
       </div>
     </div>
   );
