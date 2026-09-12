@@ -1060,58 +1060,26 @@ body {
   .hero-blip { animation: none; opacity: 0.9; }
 }
 
-/* Starter Ideas Automatic Rotation — Each row rotates individually in alternating directions */
-@keyframes starter-rotate {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
+/* Starter Ideas Carousel */
 .starter-carousel {
   scrollbar-width: none;
-  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  -ms-overflow-style: none;
 }
 .starter-carousel::-webkit-scrollbar {
   display: none;
 }
-
 .starter-row {
-  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-
-.starter-track {
-  display: flex;
-  width: max-content;
-  will-change: transform;
-  animation-name: starter-rotate;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+.starter-row::-webkit-scrollbar {
+  display: none;
 }
-
-.starter-row:hover .starter-track,
-.starter-row:focus-within .starter-track {
-  animation-play-state: paused;
+.starter-row.is-dragging {
+  cursor: grabbing;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .starter-track {
-    animation: none !important;
-  }
-  .starter-carousel {
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-  .starter-row {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .starter-row::-webkit-scrollbar {
-    display: none;
-  }
+.starter-row.is-dragging .starter-pop-card {
+  pointer-events: none;
 }
 
 /* Starter Idea Cards — light theme: frosted glass + hairline border, no
