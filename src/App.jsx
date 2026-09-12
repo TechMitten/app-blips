@@ -34,7 +34,7 @@ import {
   applyStorageChange,
 } from './lib/previewStorage';
 import { sanitizeHtmlResponse } from './lib/edits';
-import { checkSyntax } from './lib/syntaxCheck';
+import { checkSyntax, formatSyntaxErrors } from './lib/syntaxCheck';
 import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
@@ -165,6 +165,7 @@ export default function App() {
   const abortControllerRef = useRef(null);
   const enhanceAbortControllerRef = useRef(null);
   const runtimeErrorRetriesRef = useRef(0);
+  const syntaxErrorRetriesRef = useRef(0);
   const isGeneratingRef = useRef(false);
   const isAutoFixingRef = useRef(false);
   const isEvaluatingNewCodeRef = useRef(false);
@@ -244,6 +245,7 @@ export default function App() {
   const handleReloadPreview = useCallback(() => {
     cancelPendingReload();
     runtimeErrorRetriesRef.current = 0;
+    syntaxErrorRetriesRef.current = 0;
     pendingRuntimeErrorRef.current = null;
     isEvaluatingNewCodeRef.current = false;
     setIsAutoFixing(false);
@@ -253,6 +255,34 @@ export default function App() {
   }, [cancelPendingReload]);
 
   const scheduleReloadSettlementRef = useRef(null);
+
+  const handleSyntaxError = useCallback((errors) => {
+    cancelPendingReload();
+
+    if (chatMode !== 'build') return;
+    if (isGeneratingRef.current) return;
+    if (isAutoFixingRef.current) return;
+
+    const errorList = Array.isArray(errors) ? errors : (errors?.errors || []);
+    if (syntaxErrorRetriesRef.current >= 2) {
+      console.warn('Syntax error auto-fix limit reached.');
+      setIsAutoFixing(false);
+      isAutoFixingRef.current = false;
+      setAutoFixMessage(null);
+      const formatted = formatSyntaxErrors(errorList);
+      setError(`Syntax errors detected in code:\n${formatted}`);
+      return;
+    }
+
+    syntaxErrorRetriesRef.current += 1;
+    const errorDetails = formatSyntaxErrors(errorList) || 'JavaScript syntax error detected';
+    const promptText = `Fix these JavaScript syntax errors in the app code:\n${errorDetails}`;
+    setIsAutoFixing(true);
+    isAutoFixingRef.current = true;
+    setAutoFixMessage(errorDetails);
+    setGenerationStatus(`Fixing syntax error: ${errorList[0]?.message || 'Syntax error'}`);
+    handleGenerateRef.current?.(null, promptText, true, errorDetails);
+  }, [cancelPendingReload, chatMode]);
 
   const confirmAndExecuteReload = useCallback(() => {
     reloadStateRef.current.timerId = null;
@@ -268,14 +298,18 @@ export default function App() {
       const syntax = checkSyntax(generatedCode);
       if (syntax.errors && syntax.errors.length > 0) {
         reloadStateRef.current.pending = false;
+        if (!isAutoFixingRef.current && syntaxErrorRetriesRef.current < 2) {
+          handleSyntaxError(syntax.errors);
+        }
         return;
       }
     }
 
     // When auto-fixing was in progress and the settlement period passes with no
     // runtime errors, auto-fixing is confirmed complete.
-    if (reloadStateRef.current.isAutoFix || runtimeErrorRetriesRef.current > 0) {
+    if (reloadStateRef.current.isAutoFix || runtimeErrorRetriesRef.current > 0 || syntaxErrorRetriesRef.current > 0) {
       runtimeErrorRetriesRef.current = 0;
+      syntaxErrorRetriesRef.current = 0;
       setIsAutoFixing(false);
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
@@ -284,7 +318,7 @@ export default function App() {
     // Mark pending false BEFORE triggering the reload so the reloaded frame doesn't re-trigger.
     reloadStateRef.current.pending = false;
     handleReloadPreview();
-  }, [chatMode, generatedCode, handleReloadPreview]);
+  }, [chatMode, generatedCode, handleReloadPreview, handleSyntaxError]);
 
   const scheduleReloadSettlement = useCallback((delayMs = 400) => {
     if (reloadStateRef.current.timerId) {
@@ -336,6 +370,7 @@ export default function App() {
       setIsAutoFixing(false);
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
+      setError(`Runtime error in preview: ${payload?.message || 'Runtime error detected'}`);
       return;
     }
 
@@ -625,9 +660,12 @@ export default function App() {
     const prevVersion = updatedVersions[updatedVersions.length - 1];
     const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
 
+    const isSyntaxAutoFix = isAutoFix && autoFixError?.toLowerCase().includes('syntax');
     setGenerationStatus(
       isAutoFix
-        ? `Fixing runtime error${autoFixError ? `: ${autoFixError}` : '…'}`
+        ? (isSyntaxAutoFix
+            ? `Fixing syntax error${autoFixError ? `: ${autoFixError.slice(0, 80)}` : '…'}`
+            : `Fixing runtime error${autoFixError ? `: ${autoFixError.slice(0, 80)}` : '…'}`)
         : shouldAskClarifyingQuestions
           ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
           : null
@@ -713,31 +751,45 @@ export default function App() {
 
       // Check syntax: verify code is valid and has no unclosed/broken syntax.
       const syntaxCheck = checkSyntax(generationResult.code);
-      const hasSyntaxErrors = Boolean(
-        (syntaxCheck.errors && syntaxCheck.errors.length > 0) ||
-        (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
-      );
+      const syntaxErrors = (syntaxCheck.errors && syntaxCheck.errors.length > 0)
+        ? syntaxCheck.errors
+        : (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
+          ? generationResult.syntaxErrors
+          : [];
+      const hasSyntaxErrors = syntaxErrors.length > 0;
       const syntaxAutoFixed = Boolean(
         (generationResult.syntaxAutoFixAttempted || generationResult.syntaxRepairCycles > 0) && !hasSyntaxErrors
       );
 
-      // If syntax errors remain, auto-fixing was not confirmed complete (it failed).
-      // Do not trigger or schedule reload.
       if (hasSyntaxErrors) {
         cancelPendingReload();
-      } else if (generationResult.editMode !== 'clarify' && generationResult.editMode !== 'ask') {
-        // At the end of each build or edit, or when auto-fixing (syntax or runtime)
-        // is complete, schedule a single preview reload once the iframe settles cleanly.
-        cancelPendingReload();
-        reloadStateRef.current = {
-          pending: true,
-          token: null,
-          isAutoFix: Boolean(isAutoFix),
-          syntaxAutoFixed,
-          timerId: null,
-        };
-        // Fallback settlement timer in case bridge ready event is delayed or skipped
-        scheduleReloadSettlement(800);
+        if (syntaxErrorRetriesRef.current < 2) {
+          setTimeout(() => {
+            handleSyntaxError(syntaxErrors);
+          }, 0);
+        } else {
+          const formatted = formatSyntaxErrors(syntaxErrors);
+          setError(`Syntax errors in generated code:\n${formatted}`);
+          setIsAutoFixing(false);
+          isAutoFixingRef.current = false;
+          setAutoFixMessage(null);
+        }
+      } else {
+        syntaxErrorRetriesRef.current = 0;
+        if (generationResult.editMode !== 'clarify' && generationResult.editMode !== 'ask') {
+          // At the end of each build or edit, or when auto-fixing (syntax or runtime)
+          // is complete, schedule a single preview reload once the iframe settles cleanly.
+          cancelPendingReload();
+          reloadStateRef.current = {
+            pending: true,
+            token: null,
+            isAutoFix: Boolean(isAutoFix),
+            syntaxAutoFixed,
+            timerId: null,
+          };
+          // Fallback settlement timer in case bridge ready event is delayed or skipped
+          scheduleReloadSettlement(800);
+        }
       }
 
     } catch (err) {
@@ -758,9 +810,11 @@ export default function App() {
       setIsGenerating(false);
       isGeneratingRef.current = false;
       isEvaluatingNewCodeRef.current = false;
-      setIsAutoFixing(false);
-      isAutoFixingRef.current = false;
-      setAutoFixMessage(null);
+      if (!isAutoFix && !pendingRuntimeErrorRef.current) {
+        setIsAutoFixing(false);
+        isAutoFixingRef.current = false;
+        setAutoFixMessage(null);
+      }
       setPendingPrompt('');
       setPendingAttachment(null);
       setGenerationStatus(null);
@@ -784,6 +838,8 @@ export default function App() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    runtimeErrorRetriesRef.current = 0;
+    syntaxErrorRetriesRef.current = 0;
     setIsGenerating(false);
     isGeneratingRef.current = false;
     setIsAutoFixing(false);

@@ -62,7 +62,9 @@ export default function BuildPanel({
         ? 'Answer the question above to continue editing.'
         : 'Answer the question above to continue building.')
       : isAutoFixing
-        ? 'Repairing runtime error in preview.'
+        ? (generationStatus?.toLowerCase().includes('syntax')
+          ? 'Repairing syntax error in code.'
+          : 'Repairing runtime error in preview.')
         : generatedCode
           ? (chatMode === 'ask'
             ? 'Ask anything about this app.'

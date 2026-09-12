@@ -427,7 +427,7 @@ export const generateAppCode = async (
           repairMessage = await requestModelText({
             messages: repairMessages,
             tools: REFINEMENT_TOOLS,
-            tool_choice: 'auto',
+            tool_choice: 'required',
             signal
           });
         } catch {
@@ -446,7 +446,8 @@ export const generateAppCode = async (
         });
 
         if (!repairMessage.tool_calls || repairMessage.tool_calls.length === 0) {
-          break; // Exit if model didn't use any tools
+          repairMessages.push({ role: 'user', content: 'You must call the apply_surgical_edits tool to fix the syntax errors.' });
+          continue;
         }
 
         let editsApplied = false;

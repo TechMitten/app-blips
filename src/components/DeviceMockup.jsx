@@ -257,11 +257,20 @@ export default function DeviceMockup({
   isTransitioning = false,
 }) {
   const box = getEffectivePreviewBox(mode, orientation);
-  const isRuntimeErrorAutoFix = isAutoFixing || Boolean(generationStatus?.toLowerCase().includes('runtime error'));
+  const isSyntaxErrorAutoFix = Boolean(
+    generationStatus?.toLowerCase().includes('syntax') ||
+    autoFixMessage?.toLowerCase().includes('syntax')
+  );
+  const isErrorAutoFix = isAutoFixing || Boolean(
+    generationStatus?.toLowerCase().includes('runtime error') ||
+    generationStatus?.toLowerCase().includes('syntax error')
+  );
   const displayAutoFixMessage = autoFixMessage || (
     generationStatus?.toLowerCase().includes('runtime error:')
       ? generationStatus.split(/runtime error:\s*/i)[1]
-      : null
+      : generationStatus?.toLowerCase().includes('syntax error:')
+        ? generationStatus.split(/syntax error:\s*/i)[1]
+        : null
   );
 
   return (
@@ -395,14 +404,14 @@ export default function DeviceMockup({
               </div>
             )}
           </div>
-          {(isGenerating || isRuntimeErrorAutoFix) && (
+          {(isGenerating || isErrorAutoFix) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
               <div 
                 className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                 style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
               >
                 <div className="relative w-16 h-16 mb-6">
-                  {isRuntimeErrorAutoFix ? (
+                  {isErrorAutoFix ? (
                     <>
                       <div className="absolute inset-0 border-4 border-amber-100 rounded-full"></div>
                       <div className="absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin"></div>
@@ -417,20 +426,22 @@ export default function DeviceMockup({
                   )}
                 </div>
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
-                  {isRuntimeErrorAutoFix
-                    ? 'Auto-fixing runtime error...'
+                  {isErrorAutoFix
+                    ? (isSyntaxErrorAutoFix ? 'Auto-fixing syntax error...' : 'Auto-fixing runtime error...')
                     : generationStatus?.startsWith('Analyzing') 
                       ? 'Planning...'
                       : generationStatus?.includes('Syntax errors found') 
                         ? 'Fixing errors...' 
                         : 'Building...'}
                 </h3>
-                {isRuntimeErrorAutoFix ? (
+                {isErrorAutoFix ? (
                   <div className="space-y-1.5 max-w-[260px] sm:max-w-[300px] animate-fade-in-up">
                     <p className="text-xs sm:text-sm text-amber-700 font-medium">
-                      {generationStatus && !generationStatus.startsWith('Fixing runtime error') && generationStatus !== 'Synthesizing your app from your prompt.'
+                      {generationStatus && !generationStatus.startsWith('Fixing runtime error') && !generationStatus.startsWith('Auto-fixing') && generationStatus !== 'Synthesizing your app from your prompt.'
                         ? generationStatus
-                        : 'Detected a runtime error in preview. Automatically applying a fix...'}
+                        : isSyntaxErrorAutoFix
+                          ? 'Detected syntax error in code. Automatically applying a fix...'
+                          : 'Detected a runtime error in preview. Automatically applying a fix...'}
                     </p>
                     {displayAutoFixMessage && (
                       <p className="text-[11px] font-mono text-slate-500 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1 text-center truncate" title={displayAutoFixMessage}>
