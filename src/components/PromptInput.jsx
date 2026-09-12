@@ -162,7 +162,7 @@ export default function PromptInput({
               </div>
               <div className="chat-mode-toggle prompt-input-mode" aria-label="Toggle chat mode">
                 <label
-                  className="chat-mode-option chat-mode-option-active cursor-pointer"
+                  className={`chat-mode-option chat-mode-option-active cursor-pointer ${chatMode === 'ask' ? 'is-ask' : 'is-build'}`}
                   title={`Click to switch to ${chatMode === 'build' ? 'Ask' : 'Build'} mode`}
                 >
                   <input 

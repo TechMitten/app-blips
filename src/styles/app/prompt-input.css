@@ -174,8 +174,17 @@
     0 0 0 1px rgb(15 23 42 / 0.08);
 }
 
+.chat-mode-option-active.is-build,
+.chat-mode-option-active.is-build:hover {
+  color: #1d4ed8;
+}
+
 .chat-mode-option-active svg {
   color: #dc2626;
+}
+
+.chat-mode-option-active.is-build svg {
+  color: #2563eb;
 }
 
 :is(html.dark, .force-dark) .prompt-input-mode {
@@ -198,6 +207,11 @@
   color: #ffffff;
   background: #dc2626;
   box-shadow: 0 2px 5px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+
+:is(html.dark, .force-dark) .chat-mode-option-active.is-build,
+:is(html.dark, .force-dark) .chat-mode-option-active.is-build:hover {
+  background: #2563eb;
 }
 
 :is(html.dark, .force-dark) .chat-mode-option-active svg {
