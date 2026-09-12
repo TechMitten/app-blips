@@ -1,0 +1,101 @@
+/* AppBlips design tokens.
+
+   The Tailwind colour ramps (--color-slate-*, --color-indigo-* ...) are the
+   real palette and are re-themed in src/index.css. Everything here that can be
+   expressed in terms of those ramps is, so it follows the theme for free. Only
+   the values below genuinely differ between light and dark. */
+:root {
+  --accent-border: var(--color-indigo-200);
+
+  /* Shadows: near-black at low alpha reads as depth on a light ground, but
+     disappears entirely on a dark one -- so dark raises the alpha and adds a
+     light hairline instead of relying on the shadow alone. The ink matches
+     the softened slate-900 charcoal (#1e293b).
+
+     Light was previously tuned too subtle -- a1/a2/a3 sat at 0.06/0.08/0.12,
+     which reads as almost no shadow at all against a near-white canvas, so
+     every "raised" surface (segmented tabs, cards, buttons) looked pasted
+     flat onto the page. Raised across the board, and given its own hairline
+     (light theme has one too now, not just dark) so raised edges get a crisp
+  --shadow-color: 15 23 42;
+  --shadow-a1: 0.05;
+  --shadow-a2: 0.08;
+  --shadow-a3: 0.12;
+  --hairline: rgb(15 23 42 / 0.08);
+
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+
+  /* Accent used for glows and atmospherics. Distinct from --color-brand (the
+     button fill): this one has to stay visible AS light on the page ground,
+     so dark lifts it well above the brand fill. Light tracks the desaturated
+     brand (#1e598f). */
+  --color-accent: #1e598f;
+  --glow-a1: 0.10;
+  --glow-a2: 0.22;
+  --glow-a3: 0.35;
+
+  --grid-dot: #94a3b8;
+  --seg-active-bg: var(--color-surface);
+  --seg-active-fg: var(--color-slate-900);
+  --focus-halo: var(--color-surface);
+  --pulse-ring: rgb(30 89 143 / 0.08);
+  --inset-highlight: rgb(255 255 255 / 0.9);
+  --accent-gradient: linear-gradient(135deg, #1e598f, #3081a6);
+  --hero-glow-secondary: #3081a6;
+
+  /* Depth kit for light theme */
+  --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0);
+  --stage-bg: #edf2f7;
+  --stage-inset: inset 0 1px 0 0 rgb(15 23 42 / 0.06);
+  --ambient: none;
+  --panel-edge: 1px 0 0 0 rgb(15 23 42 / 0.06);
+  --well-bg: #ffffff;
+  --well-inset: none;
+}
+
+:is(html.dark, .force-dark) {
+  --shadow-color: 0 0 0;
+  --shadow-a1: 0.35;
+  --shadow-a2: 0.45;
+  --shadow-a3: 0.6;
+  --hairline: rgb(255 255 255 / 0.05);
+
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+
+  --color-accent: #ffffff;
+  --glow-a1: 0.10;
+  --glow-a2: 0.22;
+  --glow-a3: 0.35;
+
+  --grid-dot: #333333;
+  --seg-active-bg: var(--color-slate-200);
+  --seg-active-fg: #ffffff;
+  --focus-halo: var(--color-surface);
+  --pulse-ring: rgb(255 255 255 / 0.14);
+  --inset-highlight: rgb(255 255 255 / 0.06);
+  --accent-gradient: linear-gradient(135deg, #a3a3a3, #ffffff);
+  --hero-glow-secondary: #737373;
+
+  --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.055);
+  --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0.035);
+  /* The stage is a well the device floats in, so it has to sit BELOW the
+     panels. bg-slate-200/60 inverts the wrong way here -- lighter than the
+     canvas -- so the stage gets its own token rather than riding the ramp. */
+  --stage-bg: #171717;
+  --stage-inset: inset 0 18px 44px -18px rgb(0 0 0 / 0.9),
+    inset 0 -12px 32px -20px rgb(0 0 0 / 0.7),
+    inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  /* One soft light source above the workspace, so the space has a direction
+     instead of reading as uniform fill. */
+  --ambient: radial-gradient(
+    120% 70% at 50% -12%,
+    rgb(from var(--color-accent) r g b / 0.1),
+    transparent 62%
+  );
+  --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0.045);
+  --well-bg: #0a0a0a;
+  --well-inset: inset 0 1px 3px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(0 0 0 / 0.3);
+}

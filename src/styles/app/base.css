@@ -1,0 +1,140 @@
+body {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-600);
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Shared brand fill. Paired with text-white in the JSX, so it must stay
+   saturated enough for white to clear AA in both themes. */
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-brand), var(--color-brand-hover));
+}
+
+/* Header logo mark. A fixed gradient rather than --color-brand: that token
+   inverts to white in dark mode so text stays legible on filled buttons
+   (see the html.dark override below), but the logo is an identity mark and
+   has to read as the same blue in both themes. Shares the desaturated
+   brand family (#1e598f). */
+.brand-mark {
+  background: linear-gradient(155deg, #2c70af 0%, #1e598f 55%, #184672 100%);
+  box-shadow:
+    0 1px 2px rgb(24 70 114 / 0.35),
+    0 4px 12px -3px rgb(24 70 114 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+/* Ambient ring behind the empty-state icon. */
+.pulse-ring {
+  box-shadow: 0 0 0 4px var(--pulse-ring);
+}
+
+/* Code terminal-style syntax colors (One Dark inspired) */
+.token-comment { color: #5c6370; font-style: italic; }
+.token-doctype { color: #c678dd; }
+.token-tag-name { color: #e06c75; }
+.token-attr-name { color: #d19a66; }
+.token-string { color: #98c379; }
+.token-keyword { color: #c678dd; }
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-slate-400) var(--color-slate-100);
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-slate-100);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-slate-400);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-slate-500);
+}
+
+/* Subtle workspace grid */
+.workspace-grid {
+  background-image:
+    radial-gradient(circle, var(--grid-dot) 0.8px, transparent 0.8px);
+  background-size: 24px 24px;
+}
+
+/* Inset shadow for preview area depth — stronger recessed feel */
+.inset-shadow-preview {
+  background-color: var(--stage-bg);
+  background-image: var(--ambient);
+  box-shadow: var(--stage-inset);
+}
+
+/* Header depth — crisp separation from workspace */
+.header-shadow {
+  box-shadow:
+    0 1px 3px rgb(var(--shadow-color) / var(--shadow-a1)),
+    0 8px 28px -8px rgb(var(--shadow-color) / var(--shadow-a3)),
+    0 1px 0 0 var(--hairline),
+    var(--edge-top);
+}
+
+/* Version expand animation */
+@keyframes expandDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+.version-expand-enter {
+  animation: expandDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden;
+}
+
+/* Staggered fade-in for lists */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-stagger-1 { animation: fadeInUp 0.35s 0.05s ease-out both; }
+.animate-stagger-2 { animation: fadeInUp 0.35s 0.10s ease-out both; }
+.animate-stagger-3 { animation: fadeInUp 0.35s 0.15s ease-out both; }
+.animate-stagger-4 { animation: fadeInUp 0.35s 0.20s ease-out both; }
+.animate-stagger-5 { animation: fadeInUp 0.35s 0.25s ease-out both; }
+.animate-fade-in-up { animation: fadeInUp 0.35s ease-out both; }
+
+/* Vertical panel separator. A 1px border alone vanishes against the canvas on
+   dark, so panels also carry a faint lit edge on their leading side. */
+.panel-edge-right {
+  box-shadow: var(--panel-edge), 4px 0 18px -6px rgb(var(--shadow-color) / var(--shadow-a2));
+}

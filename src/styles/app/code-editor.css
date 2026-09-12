@@ -1,0 +1,24 @@
+/* Code Editor Polish */
+.code-line {
+  display: flex;
+  transition: background 0.2s;
+}
+
+.code-line:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.line-number {
+  min-width: 3.5rem;
+  text-align: right;
+  padding-right: 1.5rem;
+  color: #444b6a;
+  user-select: none;
+  font-size: 0.8rem;
+}
+
+.line-content {
+  flex: 1;
+  color: #cfd8f3;
+  padding-left: 0.5rem;
+}
