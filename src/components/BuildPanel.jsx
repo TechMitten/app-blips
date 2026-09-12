@@ -179,7 +179,7 @@ export default function BuildPanel({
           )}
 
           {/* Starter Prompts */}
-          {showStarterIdeas && chatMode !== 'ask' && (
+          {showStarterIdeas && (
             <StarterIdeas
               ideas={starterIdeas}
               onPick={(starter) => onPickStarter(starter.prompt)}

@@ -40,7 +40,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
+  STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY } from './lib/config';
 
@@ -57,7 +57,6 @@ import usePreviewBridge from './hooks/usePreviewBridge';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-const starterIdeas = STARTER_PRESETS;
 
 export default function App() {
   // --- Layout / chrome state ---
@@ -1339,7 +1338,7 @@ export default function App() {
               onChatModeChange={setChatMode}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
-              starterIdeas={starterIdeas}
+              starterIdeas={chatMode === 'ask' ? ASK_STARTER_PRESETS : STARTER_PRESETS}
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
