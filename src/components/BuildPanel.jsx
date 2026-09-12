@@ -83,9 +83,15 @@ export default function BuildPanel({
         {/* Left: Section identity & status */}
         <div className="flex flex-1 items-center gap-2 min-w-0">
           <div className="build-badge flex min-w-0 items-center gap-2.5 px-3 py-1.5 rounded-xl text-white">
-            <span className="build-badge-icon w-5 h-5 rounded-lg text-white flex items-center justify-center shrink-0">
-              {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
-            </span>
+            {generatedCode && versions.length > 0 ? (
+              <span className={`shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md text-white shadow-2xs ${chatMode === 'ask' ? 'bg-red-500' : 'bg-blue-600'}`}>
+                v{Math.min(currentVersionIndex + 1, versions.length)}
+              </span>
+            ) : (
+              <span className={`build-badge-icon w-5 h-5 rounded-lg text-white flex items-center justify-center shrink-0 ${chatMode === 'ask' ? 'is-ask' : 'is-build'}`}>
+                {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
+              </span>
+            )}
             <span className="build-badge-label font-black text-xs sm:text-sm tracking-tight truncate">
               {isChatActive ? (chatMode === 'ask' ? 'Ask' : 'Build') : 'Prompt & Build'}
             </span>
@@ -93,11 +99,6 @@ export default function BuildPanel({
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400" />
-              </span>
-            )}
-            {generatedCode && versions.length > 0 && (
-              <span className="shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md bg-blue-600 text-white shadow-2xs">
-                v{Math.min(currentVersionIndex + 1, versions.length)}
               </span>
             )}
           </div>
@@ -121,13 +122,13 @@ export default function BuildPanel({
         </div>
       </div>
 
-      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-[1] chat-scrollbar">
+      <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-1 chat-scrollbar">
         <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'mt-4 sm:mt-8 mb-auto'}`}>
 
           {/* Header: compact hero while empty, instrument status once conversation exists */}
           {isChatActive ? (
             <header className="chat-status p-4 rounded-2xl border border-slate-900/8 dark:border-white/15 dark:border-2 bg-white/55 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#181a24] shadow-none dark:shadow-sm space-y-2">
-              <div className="flex items-center justify-between gap-2 min-h-[22px]">
+              <div className="flex items-center justify-between gap-2 min-h-5.5">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2 w-2 shrink-0">
                     {(isGenerating || isResumingProject) ? (
@@ -191,7 +192,7 @@ export default function BuildPanel({
               {interruptedJob && (
                 <div role="alert" className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
                   <div className="flex items-start gap-2.5">
-                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/50 flex-shrink-0 mt-0.5 shadow-2xs">
+                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/50 shrink-0 mt-0.5 shadow-2xs">
                       <TriangleAlert size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -202,7 +203,7 @@ export default function BuildPanel({
                     </div>
                     <button
                       onClick={onDismissInterruptedJob}
-                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/60 transition-colors flex-shrink-0 cursor-pointer"
+                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/60 transition-colors shrink-0 cursor-pointer"
                       aria-label="Dismiss"
                     >
                       <X size={13} />
@@ -236,7 +237,7 @@ export default function BuildPanel({
           {error && (
             <div role="alert" className="bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
               <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-700/50 flex-shrink-0 shadow-2xs">
+                <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-700/50 shrink-0 shadow-2xs">
                   <TriangleAlert size={14} />
                 </div>
                 <div>
@@ -252,7 +253,7 @@ export default function BuildPanel({
       </div>
 
       {/* Fixed Bottom Input Area */}
-      <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-[1]">
+      <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-1">
         <PromptInput
           prompt={prompt}
           onPromptChange={onPromptChange}

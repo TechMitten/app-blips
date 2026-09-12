@@ -1163,7 +1163,7 @@ export default function App() {
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
       <div className="md:hidden shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex justify-center z-30">
-        <div className="nav-segmented-group nav-segmented-compact w-full max-w-[260px]" role="radiogroup" aria-label="Mobile View">
+        <div className="nav-segmented-group nav-segmented-compact w-full max-w-65" role="radiogroup" aria-label="Mobile View">
           <button
             onClick={() => setMobileView('chat')}
             className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
