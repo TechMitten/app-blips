@@ -1276,12 +1276,12 @@ body {
 
 .chat-mode-option {
   display: inline-flex;
-  min-width: 4.25rem;
+  min-width: 3.5rem;
   height: 2rem;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0 0.7rem;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
   border-radius: 0.55rem;
   color: #475569;
   font-size: 0.75rem;

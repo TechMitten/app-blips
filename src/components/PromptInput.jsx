@@ -23,6 +23,8 @@ export default function PromptInput({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  aiEnabled,
+  onAiEnabledChange,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -126,8 +128,8 @@ export default function PromptInput({
           </button>
         )}
       </div>
-      <div className="prompt-input-footer flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="prompt-input-footer flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           {!isGenerating ? (
             <>
               <div className="prompt-input-attach nav-segmented-group p-0.5 rounded-full border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs flex items-center">
@@ -158,36 +160,49 @@ export default function PromptInput({
                   {isCapturingScreenshot ? <Loader2 className="animate-spin" size={15} /> : <Camera size={15} aria-hidden="true" />}
                 </button>
               </div>
-              <div className="chat-mode-toggle prompt-input-mode" role="radiogroup" aria-label="Chat mode">
+              <div className="chat-mode-toggle prompt-input-mode" aria-label="Toggle chat mode">
                 <label
-                  className={`chat-mode-option ${chatMode === 'build' ? 'chat-mode-option-active' : ''}`}
-                  title="Build mode"
+                  className="chat-mode-option chat-mode-option-active cursor-pointer"
+                  title={`Click to switch to ${chatMode === 'build' ? 'Ask' : 'Build'} mode`}
                 >
-                  <input type="radio" name="chatMode" value="build" checked={chatMode === 'build'} onChange={() => onChatModeChange('build')} className="sr-only" />
-                  <Wand2 size={15} aria-hidden="true" />
-                  <span>Build</span>
-                </label>
-                <label
-                  className={`chat-mode-option ${chatMode === 'ask' ? 'chat-mode-option-active' : ''}`}
-                  title="Ask mode"
-                >
-                  <input type="radio" name="chatMode" value="ask" checked={chatMode === 'ask'} onChange={() => onChatModeChange('ask')} className="sr-only" />
-                  <MessageSquare size={15} aria-hidden="true" />
-                  <span>Ask</span>
+                  <input 
+                    type="checkbox" 
+                    checked={chatMode === 'build'} 
+                    onChange={() => onChatModeChange(chatMode === 'build' ? 'ask' : 'build')} 
+                    className="sr-only" 
+                  />
+                  {chatMode === 'build' ? <Wand2 size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
+                  <span>{chatMode === 'build' ? 'Build' : 'Ask'}</span>
                 </label>
               </div>
             </>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {!isGenerating && (
+            <div className="chat-mode-toggle prompt-input-mode" aria-label="AI text generation toggle">
+              <label
+                className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active' : ''} cursor-pointer`}
+                title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
+              >
+                <input 
+                  type="checkbox" 
+                  checked={aiEnabled} 
+                  onChange={() => onAiEnabledChange?.(!aiEnabled)} 
+                  className="sr-only" 
+                />
+                <span>AI</span>
+              </label>
+            </div>
+          )}
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center justify-center w-9 h-9 rounded-full bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer"
+              className="prompt-input-cancel inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer"
               aria-label="Cancel"
               title="Cancel"
             >
-              <X size={16} />
+              <X size={15} className="sm:w-[16px] sm:h-[16px]" />
             </button>
           )}
           <button
@@ -195,7 +210,7 @@ export default function PromptInput({
             disabled={!canSubmit}
             aria-label={submitLabel}
             title={submitLabel}
-            className={`prompt-input-action inline-flex items-center justify-center w-10 h-10 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+            className={`prompt-input-action inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
               canSubmit
                 ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 dark:border-b-black/80 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer'
                 : 'bg-slate-200/90 dark:bg-white/[0.08] text-slate-600 dark:text-white/40 border-2 border-slate-300 dark:border-white/15 border-b-[3px] border-b-slate-400/80 dark:border-b-black/80 cursor-not-allowed shadow-xs'

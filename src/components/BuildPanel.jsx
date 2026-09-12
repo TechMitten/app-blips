@@ -100,20 +100,6 @@ export default function BuildPanel({
                 v{Math.min(currentVersionIndex + 1, versions.length)}
               </span>
             )}
-            <button
-              type="button"
-              role="switch"
-              aria-checked={aiEnabled}
-              aria-label={"AI text generation " + (aiEnabled ? "on" : "off")}
-              onClick={() => onAiEnabledChange?.(!aiEnabled)}
-              className="ml-0.5 inline-flex shrink-0 items-center gap-1.5 border-l border-white/20 pl-2 text-xs font-bold text-white/90 transition-colors hover:text-white"
-              title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
-            >
-              <span className={"relative inline-flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors " + (aiEnabled ? "bg-blue-500" : "bg-white/25")}>
-                <span className={"h-3 w-3 rounded-full bg-white shadow-sm transition-transform " + (aiEnabled ? "translate-x-3" : "translate-x-0")} />
-              </span>
-              AI
-            </button>
           </div>
         </div>
 
@@ -286,6 +272,8 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
+          aiEnabled={aiEnabled}
+          onAiEnabledChange={onAiEnabledChange}
         />
       </div>
     </div>
