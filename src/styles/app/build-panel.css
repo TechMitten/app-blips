@@ -1,0 +1,324 @@
+/* Light-theme build pane — clean SaaS surface: off-white canvas, a quiet
+   pastel mesh, and frosted glass cards on top of it (hairline borders, no
+   heavy elevation). Dark theme is untouched below in its own :is() block. */
+.build-panel {
+  background-color: #fafafa;
+  background-image:
+    radial-gradient(38% 30% at 20% 42%, rgba(125, 211, 252, 0.14), transparent 74%),
+    radial-gradient(34% 28% at 84% 66%, rgba(253, 186, 140, 0.10), transparent 74%);
+  /* The pane is seated in a chassis: content is inset by --bezel and the
+     reserved strip is painted as a machined rail (::after). The rail is a
+     cross-section — seam, specular highlight, body falloff, outer seam —
+     read left-to-right across its thickness, not a stripe running down it. */
+  --bezel: 10px;
+  border: 0;
+  box-shadow: 5px 0 18px -7px rgba(15, 23, 42, 0.35);
+}
+
+/* Recessed well — a hairline + soft vignette drawn OVER the children, so the
+   header/composer read as sitting down inside the frame on every edge. */
+.build-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: var(--bezel);
+  pointer-events: none;
+  z-index: 40;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.07),
+    inset 0 0 26px -14px rgba(15, 23, 42, 0.55);
+}
+
+/* The rail. Middle background layer is a knurled grip at the vertical centre,
+   which lands exactly on the drag divider — decoration doubling as affordance. */
+.build-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--bezel);
+  pointer-events: none;
+  z-index: 41;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(15, 23, 42, 0.34) 0 1px,
+      rgba(255, 255, 255, 0.85) 1px 2px,
+      transparent 2px 4px
+    ),
+    linear-gradient(
+      to right,
+      rgba(15, 23, 42, 0.26) 0 1px,
+      rgba(255, 255, 255, 0.95) 1px 2px,
+      #eef2f7 2px,
+      #dbe2ea 5px,
+      #c2ccd9 8px,
+      #a3aebd 10px,
+      #8b95a5 11px,
+      rgba(15, 23, 42, 0.4) 11px 12px
+    );
+  background-size: 6px 30px, 100% 100%;
+  background-position: center center, 0 0;
+  background-repeat: no-repeat, no-repeat;
+}
+
+@media (max-width: 767px) {
+  .build-panel {
+    box-shadow: 0 5px 18px -7px rgba(15, 23, 42, 0.35);
+  }
+
+  .build-panel::before {
+    right: 0;
+    bottom: var(--bezel);
+  }
+
+  .build-panel::after {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: var(--bezel);
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        rgba(15, 23, 42, 0.34) 0 1px,
+        rgba(255, 255, 255, 0.85) 1px 2px,
+        transparent 2px 4px
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(15, 23, 42, 0.26) 0 1px,
+        rgba(255, 255, 255, 0.95) 1px 2px,
+        #eef2f7 2px,
+        #dbe2ea 5px,
+        #c2ccd9 8px,
+        #a3aebd 10px,
+        #8b95a5 11px,
+        rgba(15, 23, 42, 0.4) 11px 12px
+      );
+    background-size: 30px 6px, 100% 100%;
+  }
+}
+
+.build-panel-header,
+.preview-pane-header {
+  height: 3.5rem;
+  min-height: 3.5rem;
+  max-height: 3.5rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .build-panel-header,
+  .preview-pane-header {
+    height: 4rem;
+    min-height: 4rem;
+    max-height: 4rem;
+  }
+}
+
+.build-panel-header {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: none;
+}
+
+/* Identity badge. It's the one dark mass in a pale frosted header, so a flat
+   fill reads as a blob — it gets the same convex treatment as the pane bezel:
+   gradient body, lit top edge, contact shadow + ambient falloff. The edge is
+   an inset ring rather than a border so the badge measures identically in both
+   themes (dark previously carried a 1px border that light did not). */
+.build-badge {
+  background: linear-gradient(180deg, #1e293b 0%, #0b1120 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(15, 23, 42, 0.32),
+    0 5px 12px -4px rgba(15, 23, 42, 0.36);
+}
+
+.build-badge-label {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+/* Lit key, not a coloured square: gradient face, bright top bevel, and a small
+   royal-blue bloom so it holds its own against the near-black body. */
+.build-badge-icon {
+  background: linear-gradient(180deg, #5182f0 0%, #1e4fd0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 1px 2px rgba(15, 23, 42, 0.45),
+    0 0 10px -2px rgba(65, 105, 225, 0.7);
+}
+
+/* Net-neutral inset: the scroll box (and with it the 10px scrollbar) steps in
+   by the bezel width and hands the same amount back out of its own right
+   padding, so the text column keeps exactly the width it had before the frame
+   existed. Reserving the strip with padding on .build-panel instead would
+   narrow this column, reflow the empty state, and — because the stage pins
+   itself with mt-auto/mb-auto — surface the overflow as empty scroll space. */
+.build-panel-scroll {
+  background: transparent;
+  box-shadow: none;
+  margin-right: var(--bezel);
+  padding-right: calc(1rem - var(--bezel, 10px));
+}
+
+@media (min-width: 640px) {
+  .build-panel-scroll {
+    padding-right: calc(1.25rem - var(--bezel, 10px));
+  }
+}
+
+/* Stacked layout puts the rail on the bottom edge, where it overlays the
+   composer's own padding — the scroll column needs no inset at all. */
+@media (max-width: 767px) {
+  .build-panel-scroll {
+    margin-right: 0;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .build-panel-scroll {
+    padding-right: 1.25rem;
+  }
+}
+
+.build-panel-stage {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.build-panel-composer {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: none;
+}
+
+/* Dark mode overrides — high contrast, refined borders & depth */
+:is(html.dark, .force-dark) .build-panel {
+  background: #0f1117;
+  border: 0;
+  box-shadow: 7px 0 24px -8px rgba(0, 0, 0, 0.85);
+}
+
+:is(html.dark, .force-dark) .build-panel::before {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 26px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* Same cross-section, gunmetal: black seams, a dimmer specular line, and a
+   body that falls off to near-black at the outer edge. */
+:is(html.dark, .force-dark) .build-panel::after {
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.7) 0 1px,
+      rgba(255, 255, 255, 0.22) 1px 2px,
+      transparent 2px 4px
+    ),
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.75) 0 1px,
+      rgba(255, 255, 255, 0.22) 1px 2px,
+      #454d5c 2px,
+      #363d4a 5px,
+      #272d38 8px,
+      #1a1f27 10px,
+      #12151b 11px,
+      rgba(0, 0, 0, 0.85) 11px 12px
+    );
+}
+
+@media (max-width: 767px) {
+  :is(html.dark, .force-dark) .build-panel {
+    box-shadow: 0 7px 24px -8px rgba(0, 0, 0, 0.85);
+  }
+
+  :is(html.dark, .force-dark) .build-panel::after {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.7) 0 1px,
+        rgba(255, 255, 255, 0.22) 1px 2px,
+        transparent 2px 4px
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.75) 0 1px,
+        rgba(255, 255, 255, 0.22) 1px 2px,
+        #454d5c 2px,
+        #363d4a 5px,
+        #272d38 8px,
+        #1a1f27 10px,
+        #12151b 11px,
+        rgba(0, 0, 0, 0.85) 11px 12px
+      );
+  }
+}
+
+:is(html.dark, .force-dark) .build-panel-header {
+  background: #14161f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.05),
+    0 4px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark: the washed white/10 haze had almost no edge against the header. A
+   solid elevated surface with a lit top edge gives it the same physical
+   extrusion the rest of the dark theme uses. */
+:is(html.dark, .force-dark) .build-badge {
+  background: linear-gradient(180deg, #272d3b 0%, #171b24 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 5px -1px rgba(0, 0, 0, 0.7),
+    0 8px 18px -8px rgba(0, 0, 0, 0.9);
+}
+
+:is(html.dark, .force-dark) .build-badge-icon {
+  background: linear-gradient(180deg, #6d97f7 0%, #2a5ee0 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 0 12px -2px rgba(90, 130, 240, 0.75);
+}
+
+:is(html.dark, .force-dark) .build-badge-label {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+:is(html.dark, .force-dark) .build-panel-composer {
+  background: #14161f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: 2px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 -6px 24px -4px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .build-panel-scroll {
+  background: #0b0d13;
+  box-shadow: inset 0 3px 12px -2px rgba(0, 0, 0, 0.6);
+}
+
+:is(html.dark, .force-dark) .build-panel-stage {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}

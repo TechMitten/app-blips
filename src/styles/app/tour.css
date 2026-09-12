@@ -1,0 +1,11 @@
+/* Optional workspace walkthrough, portaled above the app's modal stack. */
+.tour-layer { position: fixed; inset: 0; z-index: 90; isolation: isolate; }
+.tour-spotlight { position: absolute; border: 2px solid #81afda; border-radius: 12px; box-shadow: 0 0 0 100vmax rgb(2 6 23 / 0.64); pointer-events: none; }
+.tour-dimmer { position: absolute; inset: 0; background: rgb(2 6 23 / 0.64); }
+.tour-card { position: absolute; padding: 20px; overflow-y: auto; overscroll-behavior: contain; }
+.tour-card:focus { outline: none; }
+.tour-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.tour-button:disabled { cursor: default; }
+.tour-close { display: grid; place-items: center; width: 36px; height: 36px; cursor: pointer; }
+.tour-step { min-height: 28px; cursor: pointer; }
+.tour-card button:focus-visible, .tour-invite-button:focus-visible { outline: 2px solid #3987d0; outline-offset: 3px; }
