@@ -1,9 +1,5 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
-
-// Drag-to-scroll threshold (px) below which a mouse interaction still
-// counts as a click rather than a pan, so picking a card stays reliable.
-const DRAG_CLICK_THRESHOLD = 5;
 
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
@@ -63,71 +59,69 @@ const shuffle = (items) => {
   return shuffled;
 };
 
-// Empty-state idea cards (presets). This component mounts fresh each time
-// showStarterIdeas flips true (new/empty project), so shuffling once on
-// mount re-randomizes the order every time it's shown.
+// Row rotation configurations: each row moves individually in alternating directions
+// with distinct speeds and phase offsets so they never feel synchronized.
+const ROW_CONFIGS = [
+  { direction: 'normal', duration: '34s', delay: '0s' },
+  { direction: 'reverse', duration: '38s', delay: '-6s' },
+  { direction: 'normal', duration: '30s', delay: '-14s' },
+];
+
+const getRowConfig = (rowIndex) => {
+  if (ROW_CONFIGS[rowIndex]) return ROW_CONFIGS[rowIndex];
+  return {
+    direction: rowIndex % 2 === 1 ? 'reverse' : 'normal',
+    duration: `${32 + (rowIndex * 4) % 10}s`,
+    delay: `-${(rowIndex * 7) % 20}s`,
+  };
+};
+
+// Empty-state idea cards (presets). Shuffling once on mount re-randomizes
+// the order every time it's shown. Each row rotates continuously in its
+// own direction, pausing on hover so the user can easily read and pick an idea.
 export default function StarterIdeas({ ideas, onPick }) {
   const shuffledIdeas = useMemo(() => shuffle(ideas), [ideas]);
-  const scrollerRef = useRef(null);
-  const dragRef = useRef({ isDown: false, startX: 0, startScrollLeft: 0, moved: false, pendingDelta: 0, rafId: null });
 
-  const applyPendingScroll = () => {
-    const drag = dragRef.current;
-    const scroller = scrollerRef.current;
-    drag.rafId = null;
-    if (scroller) scroller.scrollLeft = drag.startScrollLeft - drag.pendingDelta;
-  };
-
-  const handlePointerDown = (e) => {
-    // Touch/pen already get native drag-scroll from overflow-x-auto; only
-    // take over panning for mouse so we don't fight the browser's own
-    // momentum scrolling on touch devices.
-    if (e.pointerType !== 'mouse') return;
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    scroller.setPointerCapture(e.pointerId);
-    dragRef.current = { isDown: true, startX: e.clientX, startScrollLeft: scroller.scrollLeft, moved: false, pendingDelta: 0, rafId: null };
-  };
-
-  const handlePointerMove = (e) => {
-    const drag = dragRef.current;
-    if (!drag.isDown) return;
-    const delta = e.clientX - drag.startX;
-    if (Math.abs(delta) > DRAG_CLICK_THRESHOLD) {
-      drag.moved = true;
-      if (scrollerRef.current) scrollerRef.current.classList.add('is-dragging');
-    }
-    if (drag.moved) {
-      e.preventDefault();
-      drag.pendingDelta = delta;
-      if (drag.rafId == null) drag.rafId = requestAnimationFrame(applyPendingScroll);
-    }
-  };
-
-  const endDrag = (e) => {
-    const drag = dragRef.current;
-    const scroller = scrollerRef.current;
-    if (drag.rafId != null) {
-      cancelAnimationFrame(drag.rafId);
-      drag.rafId = null;
-    }
-    drag.isDown = false;
-    if (scroller) {
-      scroller.classList.remove('is-dragging');
-      if (e?.pointerId != null && scroller.hasPointerCapture?.(e.pointerId)) {
-        scroller.releasePointerCapture(e.pointerId);
+  const rows = useMemo(() => {
+    return [0, 1, 2].map((rowIndex) => {
+      const items = shuffledIdeas.filter((_, i) => i % 3 === rowIndex);
+      // Ensure each copy has enough cards to span beyond wide viewports before looping
+      let extended = [...items];
+      while (extended.length > 0 && extended.length < 8) {
+        extended = [...extended, ...items];
       }
-    }
-  };
+      return extended;
+    });
+  }, [shuffledIdeas]);
 
-  const handlePick = (starter) => {
-    // Swallow the click that follows a drag-release so panning the
-    // carousel doesn't also fire the card underneath the cursor.
-    if (dragRef.current.moved) {
-      dragRef.current.moved = false;
-      return;
-    }
-    onPick(starter);
+  const renderCard = (starter, key, isDuplicate = false) => {
+    const IconComponent = starter.icon || Sparkles;
+    const theme = getColorClasses(starter.color);
+    return (
+      <button
+        key={key}
+        type="button"
+        draggable={false}
+        tabIndex={isDuplicate ? -1 : 0}
+        onClick={() => onPick(starter)}
+        title={`${starter.title} — ${starter.prompt}`}
+        className="starter-pop-card group relative shrink-0 flex items-center gap-2.5 text-left pl-3 pr-4 py-2.5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20 select-none"
+      >
+        {/* Subtle ambient colored corner glow on hover */}
+        <div
+          className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
+          aria-hidden="true"
+        />
+
+        <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
+          <IconComponent size={15} strokeWidth={2.2} />
+        </div>
+
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
+          {starter.title}
+        </h4>
+      </button>
+    );
   };
 
   return (
@@ -139,46 +133,34 @@ export default function StarterIdeas({ ideas, onPick }) {
         </h3>
       </div>
 
-      <div
-        ref={scrollerRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        className="starter-carousel flex flex-col gap-2 overflow-x-auto -mx-0.5 px-0.5 py-0.5 cursor-grab active:cursor-grabbing select-none"
-      >
-        {[0, 1, 2].map(rowIndex => (
-          <div key={rowIndex} className={`flex gap-2 w-max ${rowIndex === 1 ? 'ml-12' : ''}`}>
-            {shuffledIdeas.filter((_, i) => i % 3 === rowIndex).map((starter) => {
-              const IconComponent = starter.icon || Sparkles;
-              const theme = getColorClasses(starter.color);
-              return (
-                <button
-                  key={starter.title}
-                  type="button"
-                  draggable={false}
-                  onClick={() => handlePick(starter)}
-                  title={`${starter.title} — ${starter.prompt}`}
-                  className="starter-pop-card group relative shrink-0 flex items-center gap-2.5 text-left pl-3 pr-4 py-2.5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20 select-none"
-                >
-                  {/* Subtle ambient colored corner glow on hover */}
-                  <div
-                    className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
-                    aria-hidden="true"
-                  />
-
-                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
-                    <IconComponent size={15} strokeWidth={2.2} />
-                  </div>
-
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
-                    {starter.title}
-                  </h4>
-                </button>
-              );
-            })}
-          </div>
-        ))}
+      <div className="starter-carousel flex flex-col gap-2 -mx-1 px-1 py-1 select-none overflow-hidden">
+        {rows.map((rowIdeas, rowIndex) => {
+          const config = getRowConfig(rowIndex);
+          return (
+            <div
+              key={rowIndex}
+              className="starter-row relative overflow-hidden py-1"
+            >
+              <div
+                className="starter-track flex w-max items-center"
+                style={{
+                  animationDuration: config.duration,
+                  animationDirection: config.direction,
+                  animationDelay: config.delay,
+                }}
+              >
+                {/* Primary copy */}
+                <div className="flex shrink-0 items-center gap-2 pr-2">
+                  {rowIdeas.map((starter, i) => renderCard(starter, `row-${rowIndex}-c1-${i}`, false))}
+                </div>
+                {/* Loop copy for seamless rotation */}
+                <div className="flex shrink-0 items-center gap-2 pr-2" aria-hidden="true">
+                  {rowIdeas.map((starter, i) => renderCard(starter, `row-${rowIndex}-c2-${i}`, true))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
