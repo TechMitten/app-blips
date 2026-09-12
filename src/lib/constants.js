@@ -1,10 +1,11 @@
-import { 
+import {
   Wand2, ShieldAlert, Smartphone, Code2, Play, Loader2, History, Settings, Layout, Download,
   RefreshCw, Sparkles, ChevronRight, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Plus,
   Edit2, Clock, ListTodo, Wallet, Undo2, Redo2, FolderOpen, X, Copy, Check, Trash2, ZoomIn, ZoomOut,
   Monitor, Tablet, RotateCw, Moon, Sun, PanelLeftOpen, PanelLeftClose, TriangleAlert, Eye, EyeOff,
   Calculator, KeyRound, Ruler, LogIn, LogOut, User, CloudUpload, Mail, ExternalLink, Zap, Layers,
-  Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard
+  Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard, ChefHat, Grid3x3, Brain,
+  GraduationCap, Music, Dumbbell
 } from 'lucide-react';
 
 // Cloudflare Turnstile site key for Supabase auth bot protection. Public by
@@ -56,6 +57,76 @@ export const STARTER_PRESETS = [
     category: "Typing",
     icon: Keyboard,
     color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Recipe Finder",
+    prompt: "A polished recipe discovery app with a searchable, filterable card grid, step-by-step cook mode with a built-in timer, adjustable ingredient serving sizes, and a save-to-favorites collection.",
+    category: "Cooking",
+    icon: ChefHat,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Focus Timer",
+    prompt: "A Pomodoro-style focus timer with a smooth animated countdown ring, customizable work/break intervals, an ambient session soundtrack, daily streak tracking, and a running log of completed sessions.",
+    category: "Productivity",
+    icon: Timer,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Budget Planner",
+    prompt: "A personal budget tracker with quick expense entry, category breakdown charts, a monthly spending vs. income summary, savings goal progress bars, and a clean ledger of recent transactions.",
+    category: "Finance",
+    icon: Wallet,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Sudoku Puzzle",
+    prompt: "A fully playable Sudoku game with three difficulty levels, pencil-mark notes, mistake highlighting, a solve timer with best-time tracking, and satisfying animations on row/column/box completion.",
+    category: "Puzzle",
+    icon: Grid3x3,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Trivia Quiz",
+    prompt: "A fast-paced multi-category trivia quiz with a countdown timer per question, animated score reveal, streak bonuses, a results summary screen, and a high-score leaderboard saved between sessions.",
+    category: "Quiz",
+    icon: Brain,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Flashcard Study",
+    prompt: "A spaced-repetition flashcard app with swipeable cards, deck creation and editing, a flip animation, confidence-based review scheduling, and per-deck mastery progress tracking.",
+    category: "Education",
+    icon: GraduationCap,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Habit Tracker",
+    prompt: "A daily habit tracker with a clean weekly grid view, one-tap check-ins, streak counters with milestone celebrations, per-habit color coding, and a monthly completion heatmap.",
+    category: "Productivity",
+    icon: ListChecks,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Drum Machine",
+    prompt: "A playable step-sequencer drum machine with multiple synthesized drum kits, an adjustable BPM, a 16-step pattern grid, pattern save/load slots, and reactive visual pulses on each beat.",
+    category: "Audio",
+    icon: Music,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Workout Log",
+    prompt: "A gym workout logger with exercise search, per-set weight and rep tracking, automatic rest timers between sets, a personal-record tracker, and progress charts across past sessions.",
+    category: "Fitness",
+    icon: Dumbbell,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Unit Converter",
+    prompt: "An elegant unit converter covering length, weight, temperature, volume, and currency with live two-way conversion as you type, a recent-conversions history, and quick-swap unit buttons.",
+    category: "Utility",
+    icon: Ruler,
+    color: "text-blue-600 bg-blue-50"
   }
 ];
 

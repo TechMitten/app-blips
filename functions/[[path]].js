@@ -19,59 +19,13 @@
 
 const APPS_HOSTNAME = 'my.appblips.com';
 
-const FIREBASE_PROJECT_ID = 'appbips-f46e2';
-const FIREBASE_APP_ID = '1:472626328876:web:2800d30e2a40acfbf26889';
-const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
-const FIREBASE_APPCHECK_DEBUG_TOKEN = 'a96e675f-24b0-444f-9cff-ea0075345af1';
-const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+import { firebaseProjectId, getAppCheckToken } from './_lib/firebaseServer.js';
+export { getAppCheckToken } from './_lib/firebaseServer.js';
+
+const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId()}/databases/(default)/documents`;
 const STORAGE_BUCKET = 'appbips-f46e2.firebasestorage.app';
 const FIREBASE_STORAGE_URL = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o`;
 const BUCKET = 'orion-deploys';
-
-let cachedAppCheckToken = null;
-let tokenExpiry = 0;
-
-export const getAppCheckToken = async (env) => {
-  const now = Date.now();
-  if (cachedAppCheckToken && now < tokenExpiry) {
-    return cachedAppCheckToken;
-  }
-
-  const projectId = env?.FIREBASE_PROJECT_ID || env?.VITE_FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
-  const appId = env?.FIREBASE_APP_ID || env?.VITE_FIREBASE_APP_ID || FIREBASE_APP_ID;
-  const apiKey = env?.FIREBASE_API_KEY || env?.VITE_FIREBASE_API_KEY || FIREBASE_API_KEY;
-  const debugToken =
-    env?.FIREBASE_APPCHECK_DEBUG_TOKEN ||
-    env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ||
-    FIREBASE_APPCHECK_DEBUG_TOKEN;
-
-  if (!debugToken) return null;
-
-  try {
-    const res = await fetch(
-      `https://firebaseappcheck.googleapis.com/v1/projects/${projectId}/apps/${appId}:exchangeDebugToken?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ debugToken }),
-      }
-    );
-    if (!res.ok) {
-      console.warn('Failed to exchange App Check debug token:', res.status);
-      return null;
-    }
-    const data = await res.json();
-    if (data.token) {
-      cachedAppCheckToken = data.token;
-      const ttlSeconds = parseInt(data.ttl, 10) || 3600;
-      tokenExpiry = now + (ttlSeconds - 60) * 1000;
-      return cachedAppCheckToken;
-    }
-  } catch (err) {
-    console.warn('Error obtaining App Check token:', err);
-  }
-  return null;
-};
 
 const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
 const STORAGE_PATH_PATTERN =

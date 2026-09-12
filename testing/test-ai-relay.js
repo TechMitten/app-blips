@@ -21,7 +21,11 @@ const request = (body) => new Request('https://my.appblips.com/ai/chat', {
 
 const installFetch = ({ validToken, inspectUpstream, upstreamStatus = 200 }) => {
   globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes('firebaseappcheck.googleapis.com')) {
+      return Response.json({ token: 'server-app-check', ttl: '3600s' });
+    }
     if (String(url).includes('firestore.googleapis.com')) {
+      assert.equal(options.headers['X-Firebase-AppCheck'], 'server-app-check');
       const query = JSON.parse(options.body);
       assert.equal(query.structuredQuery.where.fieldFilter.value.stringValue, validToken);
       return Response.json([{ document: { fields: {
@@ -55,6 +59,7 @@ installFetch({
     assert.equal(url, 'https://provider.invalid/v1/chat/completions');
     assert.equal(options.headers.authorization, `Bearer ${secret}`);
     assert.equal(body.model, 'forced-model');
+    assert.equal(body.reasoning_effort, 'none');
     assert.equal(body.max_tokens, 100);
     assert.equal(body.base_url, undefined);
     assert.equal(body.tools, undefined);
@@ -93,3 +98,30 @@ assert.equal(response.status, 502);
 await assertNoSecret(response);
 
 console.log('AI relay security checks passed.');
+
+// Published Functions may lack the build-time VITE_FIREBASE_* variables.
+// AI must use the same project and App Check identity as the app-serving route.
+const fallbackToken = 'production-defaults-regression';
+const originalMock = globalThis.fetch;
+globalThis.fetch = async (url, options) => {
+  if (String(url).includes('firebaseappcheck.googleapis.com')) {
+    assert.ok(String(url).includes('/projects/appbips-f46e2/apps/'));
+    return Response.json({ token: 'server-app-check', ttl: '3600s' });
+  }
+  if (String(url).includes('firestore.googleapis.com')) {
+    assert.ok(String(url).includes('/projects/appbips-f46e2/'));
+    assert.equal(options.headers['X-Firebase-AppCheck'], 'server-app-check');
+    return Response.json([{ document: { fields: {
+      aiEnabled: { booleanValue: true },
+      aiToken: { stringValue: fallbackToken },
+    } } }]);
+  }
+  if (String(url).includes('provider.invalid')) return Response.json({ choices: [{ message: { content: 'ok' } }] });
+  return originalMock(url, options);
+};
+const productionEnv = { ...baseEnv };
+delete productionEnv.FIREBASE_PROJECT_ID;
+response = await handleAiChat(request({ token: fallbackToken, messages: [{ role: 'user', content: 'hi' }] }), productionEnv);
+assert.equal(response.status, 200);
+assert.equal((await response.json()).choices[0].message.content, 'ok');
+console.log('Published Firebase configuration regression passed.');
