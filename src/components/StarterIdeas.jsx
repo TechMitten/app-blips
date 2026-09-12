@@ -93,7 +93,10 @@ export default function StarterIdeas({ ideas, onPick }) {
     const drag = dragRef.current;
     if (!drag.isDown) return;
     const delta = e.clientX - drag.startX;
-    if (Math.abs(delta) > DRAG_CLICK_THRESHOLD) drag.moved = true;
+    if (Math.abs(delta) > DRAG_CLICK_THRESHOLD) {
+      drag.moved = true;
+      if (scrollerRef.current) scrollerRef.current.classList.add('is-dragging');
+    }
     if (drag.moved) {
       e.preventDefault();
       drag.pendingDelta = delta;
@@ -109,8 +112,11 @@ export default function StarterIdeas({ ideas, onPick }) {
       drag.rafId = null;
     }
     drag.isDown = false;
-    if (scroller && e?.pointerId != null && scroller.hasPointerCapture?.(e.pointerId)) {
-      scroller.releasePointerCapture(e.pointerId);
+    if (scroller) {
+      scroller.classList.remove('is-dragging');
+      if (e?.pointerId != null && scroller.hasPointerCapture?.(e.pointerId)) {
+        scroller.releasePointerCapture(e.pointerId);
+      }
     }
   };
 
@@ -139,35 +145,40 @@ export default function StarterIdeas({ ideas, onPick }) {
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        className="starter-carousel flex gap-2 overflow-x-auto -mx-0.5 px-0.5 py-0.5 cursor-grab active:cursor-grabbing select-none"
+        className="starter-carousel flex flex-col gap-2 overflow-x-auto -mx-0.5 px-0.5 py-0.5 cursor-grab active:cursor-grabbing select-none"
       >
-        {shuffledIdeas.map((starter) => {
-          const IconComponent = starter.icon || Sparkles;
-          const theme = getColorClasses(starter.color);
-          return (
-            <button
-              key={starter.title}
-              type="button"
-              onClick={() => handlePick(starter)}
-              title={`${starter.title} — ${starter.prompt}`}
-              className="starter-pop-card group relative shrink-0 flex items-center gap-2 text-left pl-2 pr-3 py-2 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20"
-            >
-              {/* Subtle ambient colored corner glow on hover */}
-              <div
-                className={`absolute -right-4 -top-4 w-14 h-14 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
-                aria-hidden="true"
-              />
+        {[0, 1, 2].map(rowIndex => (
+          <div key={rowIndex} className={`flex gap-2 w-max ${rowIndex === 1 ? 'ml-12' : ''}`}>
+            {shuffledIdeas.filter((_, i) => i % 3 === rowIndex).map((starter) => {
+              const IconComponent = starter.icon || Sparkles;
+              const theme = getColorClasses(starter.color);
+              return (
+                <button
+                  key={starter.title}
+                  type="button"
+                  draggable={false}
+                  onClick={() => handlePick(starter)}
+                  title={`${starter.title} — ${starter.prompt}`}
+                  className="starter-pop-card group relative shrink-0 flex items-center gap-2.5 text-left pl-3 pr-4 py-2.5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20 select-none"
+                >
+                  {/* Subtle ambient colored corner glow on hover */}
+                  <div
+                    className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
+                    aria-hidden="true"
+                  />
 
-              <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
-                <IconComponent size={13} strokeWidth={2.2} />
-              </div>
+                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
+                    <IconComponent size={15} strokeWidth={2.2} />
+                  </div>
 
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
-                {starter.title}
-              </h4>
-            </button>
-          );
-        })}
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
+                    {starter.title}
+                  </h4>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
