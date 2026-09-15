@@ -8,8 +8,10 @@ const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverif
 
 export const verifyTurnstile = async (token, env, remoteIp) => {
   const secret = env?.TURNSTILE_SECRET;
-  if (!secret) return { configured: false, success: false };
-  if (!token || typeof token !== 'string' || token.length > 4096) return { configured: true, success: false };
+  if (!secret) return { configured: false, success: false, errorCodes: [] };
+  if (!token || typeof token !== 'string' || token.length > 4096) {
+    return { configured: true, success: false, errorCodes: ['missing-input-response'] };
+  }
 
   const body = new URLSearchParams({ secret, response: token });
   if (remoteIp && remoteIp !== 'unknown') body.set('remoteip', remoteIp);
@@ -21,8 +23,12 @@ export const verifyTurnstile = async (token, env, remoteIp) => {
       body,
     });
     const data = await response.json().catch(() => ({}));
-    return { configured: true, success: Boolean(data?.success) };
+    return {
+      configured: true,
+      success: Boolean(data?.success),
+      errorCodes: Array.isArray(data?.['error-codes']) ? data['error-codes'] : [],
+    };
   } catch {
-    return { configured: true, success: false };
+    return { configured: true, success: false, errorCodes: ['siteverify-unreachable'] };
   }
 };

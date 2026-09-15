@@ -91,8 +91,16 @@ const BRIDGE_SOURCE = `(function () {
         turnstileResolve = resolve;
         turnstileReject = reject;
         if (turnstileWidget === null) {
+          // 'interaction-only' keeps the widget invisible until the visitor
+          // must solve an interactive challenge -- so the container has to be
+          // somewhere it can actually be seen and clicked when that moment
+          // comes. A display:none container here made interactive challenges
+          // unsolvable and every mint time out.
           var holder = document.createElement('div');
-          holder.style.display = 'none';
+          holder.style.position = 'fixed';
+          holder.style.right = '16px';
+          holder.style.bottom = '16px';
+          holder.style.zIndex = '2147483000';
           document.body.appendChild(holder);
           turnstileWidget = turnstile.render(holder, {
             sitekey: TURNSTILE_SITE_KEY,
