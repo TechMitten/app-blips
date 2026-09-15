@@ -104,12 +104,11 @@
   }
   .mobile-view-switch .nav-segmented-btn { min-height: 40px; }
   .prompt-input-field { font-size: 16px; max-height: min(176px, 28dvh); }
-  .prompt-input-footer { flex-wrap: wrap; padding-inline: 8px; gap: 6px; }
+  /* The composer rank is 4 keys + Build: ~316px at the default key size, so it
+     holds one line on a 360px phone. flex-wrap stays as the escape hatch for
+     narrower hardware rather than something the normal layout relies on. */
+  .prompt-input-footer { flex-wrap: wrap; gap: 8px; }
   .prompt-input-footer > div:last-child { margin-left: auto; }
-  .prompt-input-footer button { min-height: 40px; min-width: 40px; }
-  .prompt-input-footer .chat-mode-option { min-height: 40px; min-width: 40px; padding-inline: 6px; letter-spacing: 0; }
-  .prompt-input-footer .nav-segmented-btn { width: 40px; }
-  .prompt-input-footer .nav-segmented-group { gap: 0; }
   .prompt-input-dock:focus-within { transform: none; }
   .preview-canvas {
     padding-left: max(12px, env(safe-area-inset-left));
@@ -175,4 +174,193 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .history-sidebar, .mobile-side-menu { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Phone top section: menu key, CHAT/PREVIEW switch, preview toolbar.
+
+   The desktop chrome builds depth by seating raised light-gradient keys
+   (.nav-btn-secondary, --seg-active-bg) inside sunken segmented tracks. On a
+   phone those three bands stack directly on top of one another, and a track
+   wrapped around a pair of 40px keys doubles their visual weight -- the rows
+   read as nested containers rather than controls. So the whole top section
+   flattens to one language here: evenly spaced outlined keys sitting straight
+   on the band, no tracks, and the active workspace view marked by a blue rim
+   instead of a raised light key (with the keys detached there's no track left
+   to read a selection against, so the state has to live on the rim).
+
+   Everything below is scoped to phone widths / a narrow preview pane. The
+   desktop header and toolbar keep the raised-key-in-track treatment.
+   --------------------------------------------------------------------------- */
+
+/* --- Header menu trigger ------------------------------------------------ */
+/* .app-header is `dark force-dark` at every width, so this key only ever
+   renders dark and needs no light-theme branch. */
+.header-menu-key {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  color: #e2e8f0;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.header-menu-key:hover {
+  background: linear-gradient(180deg, #272b36 0%, #1d2028 100%);
+  border-color: rgb(255 255 255 / 0.22);
+  color: #ffffff;
+}
+
+/* --- CHAT / PREVIEW switch ---------------------------------------------- */
+/* Two standalone keys with air between them, not one segmented track. */
+.mobile-view-switch .nav-segmented-group {
+  gap: 0.625rem;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.mobile-view-switch .nav-segmented-btn {
+  min-height: 2.75rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-surface);
+  color: var(--color-slate-600);
+  letter-spacing: 0.1em;
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+}
+
+:is(html.dark, .force-dark) .mobile-view-switch .nav-segmented-btn {
+  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+  border-color: rgb(255 255 255 / 0.1);
+  color: var(--color-slate-600);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.mobile-view-switch .nav-segmented-btn:hover:not(:disabled) {
+  border-color: var(--color-slate-300);
+  background: var(--color-surface);
+}
+
+:is(html.dark, .force-dark) .mobile-view-switch .nav-segmented-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #272b36 0%, #1d2028 100%);
+  border-color: rgb(255 255 255 / 0.18);
+}
+
+/* The !important pair mirrors .nav-segmented-btn-active's own !important
+   background/color, which this has to outrank rather than merely follow. */
+.mobile-view-switch .nav-segmented-btn-active {
+  background: var(--color-surface) !important;
+  color: var(--color-slate-900) !important;
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 1px rgb(59 130 246 / 0.5),
+    0 0 16px -3px rgb(59 130 246 / 0.6);
+}
+
+:is(html.dark, .force-dark) .mobile-view-switch .nav-segmented-btn-active {
+  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%) !important;
+  color: #ffffff !important;
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 1px rgb(59 130 246 / 0.55),
+    0 0 18px -3px rgb(59 130 246 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* --- Preview toolbar ----------------------------------------------------- */
+/* Divider between the two key groups. Hidden by default; the container query
+   below reveals it exactly when the device presets that normally occupy this
+   slot are gone. */
+.preview-header-divider {
+  display: none;
+  flex: none;
+  width: 1px;
+  height: 1.5rem;
+  border-radius: 1px;
+  background: var(--color-slate-200);
+}
+
+:is(html.dark, .force-dark) .preview-header-divider {
+  background: rgb(255 255 255 / 0.12);
+}
+
+@container (max-width: 640px) {
+  .preview-header-divider { display: block; }
+
+  /* Child combinators throughout: the sliders dropdown (.preview-tools-menu)
+     nests its own segmented groups inside .preview-actions, and it is a
+     floating panel that still wants the seated-track treatment. */
+  .preview-tabs > .nav-segmented-group,
+  .preview-actions > .nav-segmented-group {
+    gap: 4px;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .preview-tabs > .nav-segmented-group > .nav-segmented-btn,
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn,
+  .preview-actions .nav-btn-secondary,
+  .preview-actions .nav-btn.brand-fill-text {
+    border-radius: 0.75rem;
+  }
+
+  .preview-tabs > .nav-segmented-group > .nav-segmented-btn,
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn,
+  .preview-actions .nav-btn-secondary {
+    border: 1px solid var(--color-slate-200);
+    background: var(--color-surface);
+    color: var(--color-slate-600);
+    box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+  }
+
+  :is(html.dark, .force-dark)
+    :is(
+      .preview-tabs > .nav-segmented-group > .nav-segmented-btn,
+      .preview-actions > .nav-segmented-group > .nav-segmented-btn,
+      .preview-actions .nav-btn-secondary
+    ) {
+    background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+    border-color: rgb(255 255 255 / 0.1);
+    color: var(--color-slate-700);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.45),
+      inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  /* Active view tab. Kept to a lifted face + brighter icon rather than the
+     blue rim used by the CHAT/PREVIEW switch above -- two blue-lit controls
+     stacked 44px apart would compete, and this pair only picks the right
+     pane's contents. */
+  .preview-tabs > .nav-segmented-group > .nav-segmented-btn-active {
+    background: var(--color-slate-100) !important;
+    color: var(--color-slate-900) !important;
+    border-color: var(--color-slate-300);
+  }
+
+  :is(html.dark, .force-dark) .preview-tabs > .nav-segmented-group > .nav-segmented-btn-active {
+    background: linear-gradient(180deg, #2f3440 0%, #232730 100%) !important;
+    color: #ffffff !important;
+    border-color: rgb(255 255 255 / 0.18);
+  }
+
+  /* 14px glyphs were sized for a label beside them; alone in a 40px key they
+     read as undersized. */
+  .preview-tabs > .nav-segmented-group > .nav-segmented-btn svg,
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn svg,
+  .preview-actions .nav-btn svg {
+    width: 18px;
+    height: 18px;
+  }
 }

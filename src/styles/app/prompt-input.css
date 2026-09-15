@@ -6,7 +6,7 @@
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border-radius: 1.15rem;
+  border-radius: 1.5rem;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.7) inset,
     0 6px 16px -4px rgba(15, 23, 42, 0.16),
@@ -23,16 +23,18 @@
   transform: translateY(-2px);
 }
 
+/* The dock used to carry a 2px rim over a 5px black under-edge -- a physical
+   extrusion that fought the flat outlined keys now sitting inside it. One
+   hairline rim and a wide soft drop reads as a single surface instead. */
 :is(html.dark, .force-dark) .prompt-input-dock {
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  border-bottom: 5px solid #000000;
-  background: #161824;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #12151e;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow:
-    0 16px 36px -4px rgba(0, 0, 0, 0.85),
-    0 6px 14px -2px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    0 18px 40px -8px rgba(0, 0, 0, 0.8),
+    0 6px 14px -2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 :is(html.dark, .force-dark) .prompt-input-dock:focus-within {
@@ -112,42 +114,50 @@
 }
 
 .prompt-input-footer {
-  border-top: 1px solid rgb(15 23 42 / 0.10);
-  background: #f8fafc;
+  border-top: none;
+  background: transparent;
 }
 
 :is(html.dark, .force-dark) .prompt-input-footer {
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border-top: none;
+  background: transparent;
 }
 
 .prompt-input-mode {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.2rem;
-  border: 1px solid rgb(15 23 42 / 0.10);
-  border-radius: 0.75rem;
-  background: #eef2f7;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: calc(var(--composer-key-radius) + 4px);
+  background: var(--color-surface);
   box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
 .chat-mode-option {
   display: inline-flex;
-  min-width: 3.5rem;
-  height: 2rem;
+  min-width: 72px;
+  height: var(--composer-key-size);
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  padding: 0 0.5rem;
-  border-radius: 0.55rem;
+  gap: 6px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: var(--composer-key-radius);
   color: #475569;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1;
   letter-spacing: -0.01em;
   cursor: pointer;
   transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+
+/* The AI switch carries no glyph, so it collapses to the same square as the
+   attach/submit keys instead of keeping the Build pill's width. */
+.prompt-input-ai .chat-mode-option {
+  min-width: var(--composer-key-size);
+  padding: 0;
 }
 
 .chat-mode-option:hover {
@@ -233,7 +243,7 @@
 }
 
 .prompt-input-action {
-  min-height: 2rem;
+  min-height: 32px;
   border: 1px solid transparent;
   letter-spacing: -0.01em;
 }
@@ -258,4 +268,168 @@
 
 .prompt-input-cancel {
   box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a2)), inset 0 1px 0 rgb(255 255 255 / 0.42);
+}
+
+/* ---------------------------------------------------------------------------
+   Composer keys.
+
+   The footer is one rank of equally weighted controls -- attach, screenshot,
+   AI, submit -- with Build as the single accent. They share the outlined-key
+   language the phone header and preview toolbar use (see responsive.css), so
+   the whole app reads as one instrument rather than three unrelated toolbars.
+   --------------------------------------------------------------------------- */
+/* Pixel keys, not rem: the build pane is width-capped, so its composer must
+   keep a fixed control size instead of riding the root font scaling on large
+   monitors (see the min-width:1280px block in build-panel.css). At the 16px
+   baseline below that breakpoint these are identical to the old rem values. */
+:root {
+  --composer-key-size: 46px;
+  --composer-key-radius: 14px;
+}
+
+.composer-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--composer-key-size);
+  height: var(--composer-key-size);
+  padding: 0;
+  border-radius: var(--composer-key-radius);
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-surface);
+  color: var(--color-slate-600);
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease, transform 120ms ease;
+}
+
+.composer-key:hover:not(:disabled) {
+  color: var(--color-slate-900);
+  border-color: var(--color-slate-300);
+}
+
+.composer-key:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.composer-key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.composer-key:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-halo), 0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
+}
+
+/* Submit with nothing to send: present but plainly inert, so the eye lands on
+   Build instead. */
+.composer-key-off {
+  cursor: not-allowed;
+  color: var(--color-slate-400);
+}
+
+.composer-key-accent {
+  border-color: #1d4ed8;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px -1px rgb(37 99 235 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.composer-key-accent:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #4c8dfa 0%, #2f6fe4 100%);
+}
+
+.composer-key-danger {
+  border-color: #b91c1c;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px -1px rgb(220 38 38 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.composer-key-danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: linear-gradient(180deg, #f15757 0%, #e02f2f 100%);
+}
+
+:is(html.dark, .force-dark) :is(.composer-key, .chat-mode-option) {
+  border-color: rgb(255 255 255 / 0.1);
+  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+  color: var(--color-slate-700);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+:is(html.dark, .force-dark) :is(.composer-key, .chat-mode-option):hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 0.18);
+  background: linear-gradient(180deg, #272b36 0%, #1d2028 100%);
+  color: #ffffff;
+}
+
+:is(html.dark, .force-dark) .composer-key-off {
+  color: var(--color-slate-500);
+}
+
+/* Accent/danger keys keep their fill in dark -- they are the one place in the
+   composer that is meant to read as lit. */
+:is(html.dark, .force-dark) .composer-key-accent,
+:is(html.dark, .force-dark) .composer-key-accent:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+:is(html.dark, .force-dark) .composer-key-danger,
+:is(html.dark, .force-dark) .composer-key-danger:hover:not(:disabled) {
+  border-color: #dc2626;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -1px rgb(239 68 68 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+/* Build / Ask: the composer's one lit control, so it gets a real fill and a
+   halo rather than the white chip the segmented controls elsewhere use. */
+.chat-mode-option-active.is-build,
+.chat-mode-option-active.is-build:hover,
+:is(html.dark, .force-dark) .chat-mode-option-active.is-build,
+:is(html.dark, .force-dark) .chat-mode-option-active.is-build:hover {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.chat-mode-option-active.is-ask,
+.chat-mode-option-active.is-ask:hover,
+:is(html.dark, .force-dark) .chat-mode-option-active.is-ask,
+:is(html.dark, .force-dark) .chat-mode-option-active.is-ask:hover {
+  border-color: #dc2626;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -1px rgb(239 68 68 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.chat-mode-option-active.is-build svg,
+.chat-mode-option-active.is-ask svg,
+:is(html.dark, .force-dark) .chat-mode-option-active svg {
+  color: currentColor;
+}
+
+/* The AI switch has no is-build/is-ask class, so it used to fall through to the
+   Ask toggle's red. It is a feature switch, not a mode, and it now has to beat
+   the shared key face defined above -- hence its own explicit "on" rule. */
+.prompt-input-ai .chat-mode-option-active,
+.prompt-input-ai .chat-mode-option-active:hover,
+:is(html.dark, .force-dark) .prompt-input-ai .chat-mode-option-active,
+:is(html.dark, .force-dark) .prompt-input-ai .chat-mode-option-active:hover {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }

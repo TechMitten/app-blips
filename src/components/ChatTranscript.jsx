@@ -1,10 +1,60 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
 import Markdown from './Markdown';
 
-// Prompt/reply bubbles drawn as the project's star path: a hairline meridian
-// with one star node per version (echoing the History sidebar's v-badges), a
-// hollow "forming" node on the in-flight turn, and a mono caret while
-// streaming. `chatBottomRef` anchors the auto-scroll-to-bottom effect in App.
+// Prompt/reply bubbles as a two-sided conversation: the person's turn on the
+// right behind a neutral avatar, the app's reply on the left behind the
+// AppBlips mark. `chatBottomRef` anchors the auto-scroll-to-bottom effect in
+// App.
+//
+// This replaced an earlier "star path" treatment (a hairline meridian with one
+// node + mono vN tick per version). The version each reply produced is still
+// worth knowing, so it moved to the avatar's tooltip rather than disappearing
+// -- the status header above the log carries the live "vN of N" readout.
+
+const BUBBLE_MAX = 'max-w-[calc(100%-3.25rem)]';
+
+function UserAvatar() {
+  return (
+    <span className="chat-avatar chat-avatar-user" aria-hidden="true">
+      <User size={18} />
+    </span>
+  );
+}
+
+function BotAvatar({ title }) {
+  return (
+    <span className="chat-avatar chat-avatar-bot" title={title} aria-hidden="true">
+      <img src="/android-chrome-192x192.png" alt="" />
+    </span>
+  );
+}
+
+function PromptRow({ children, className = '' }) {
+  return (
+    <div className="flex items-start justify-end gap-2.5">
+      <div
+        className={`${BUBBLE_MAX} chat-bubble chat-bubble-user rounded-2xl px-4 py-3 text-[length:var(--chat-prompt-text)] font-medium ${className}`}
+      >
+        {children}
+      </div>
+      <UserAvatar />
+    </div>
+  );
+}
+
+function ReplyRow({ title, className = '', children }) {
+  return (
+    <div className="flex items-start justify-start gap-2.5">
+      <BotAvatar title={title} />
+      <div
+        className={`${BUBBLE_MAX} chat-bubble chat-bubble-bot rounded-2xl px-4 py-3 text-[length:var(--chat-text)] leading-relaxed ${className}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function ChatTranscript({
   versions,
   currentVersionIndex,
@@ -17,7 +67,7 @@ export default function ChatTranscript({
   chatBottomRef,
 }) {
   return (
-    <div className="chat-log space-y-3.5 pb-1" role="log" aria-label="Build conversation">
+    <div className="chat-log space-y-4 pb-1" role="log" aria-label="Build conversation">
       {startIndex > 0 && (
         <div
           className="flex items-center gap-3 pt-1"
@@ -33,63 +83,41 @@ export default function ChatTranscript({
         </div>
       )}
       {versions.slice(startIndex, currentVersionIndex + 1).map((ver, idx) => {
-        const isActive = startIndex + idx === currentVersionIndex;
+        const versionNumber = startIndex + idx + 1;
         return (
-          <div key={ver.id} className="space-y-1.5">
-            <div className="flex justify-end">
-              <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#262A34] text-white dark:text-[#F1F5F9] px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[rgba(255,255,255,0.12)]">
-                {ver.prompt}
-              </div>
-            </div>
+          <div key={ver.id} className="space-y-2.5">
+            <PromptRow>{ver.prompt}</PromptRow>
             {ver.reply && (
-              <div className="relative flex justify-start">
-                <span className="star-anchor" aria-hidden="true">
-                  <span className={`star-node ${isActive ? 'star-node-active' : ''}`} />
-                  <span className={`star-tick ${isActive ? 'star-tick-active' : ''}`}>v{startIndex + idx + 1}</span>
-                </span>
-                <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-900 dark:text-[#E2E8F0] px-4 py-3 text-[length:var(--chat-text)] leading-relaxed">
-                  <Markdown text={ver.reply} />
-                </div>
-              </div>
+              <ReplyRow title={`Version ${versionNumber}`}>
+                <Markdown text={ver.reply} />
+              </ReplyRow>
             )}
           </div>
         );
       })}
       {pendingPrompt && (
-        <div className="space-y-1.5">
+        <div className="space-y-2.5">
           {pendingAttachment && (
-            <div className="flex justify-end">
+            <div className="flex justify-end pr-[3.25rem]">
               <img
                 src={pendingAttachment.dataUrl}
                 alt={pendingAttachment.name || 'Attached image'}
-                className="w-16 h-16 rounded-xl object-cover border-2 border-indigo-500/40 dark:border-white/15 shadow-xs animate-fade-in"
+                className="w-16 h-16 rounded-xl object-cover border border-slate-300 dark:border-white/15 shadow-xs animate-fade-in"
               />
             </div>
           )}
-          <div className="flex justify-end">
-            <div className="max-w-[88%] rounded-2xl rounded-br-xs bg-indigo-600 dark:bg-[#262A34] text-white dark:text-[#F1F5F9] px-4 py-2.5 text-[length:var(--chat-prompt-text)] font-semibold shadow-xs border border-indigo-500/40 dark:border-[rgba(255,255,255,0.12)] animate-fade-in">
-              {pendingPrompt}
-            </div>
-          </div>
+          <PromptRow className="animate-fade-in">{pendingPrompt}</PromptRow>
           {streamingReply ? (
-            <div className="relative flex justify-start">
-              <span className="star-anchor" aria-hidden="true">
-                <span className="star-node star-node-pending" />
-              </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-900 dark:text-[#E2E8F0] px-4 py-3 text-[length:var(--chat-text)] leading-relaxed animate-fade-in">
-                <Markdown text={streamingReply} />
-              </div>
-            </div>
+            <ReplyRow className="animate-fade-in">
+              <Markdown text={streamingReply} />
+            </ReplyRow>
           ) : isGenerating ? (
-            <div className="relative flex justify-start">
-              <span className="star-anchor" aria-hidden="true">
-                <span className="star-node star-node-pending" />
+            <ReplyRow className="animate-fade-in flex items-center gap-2.5">
+              <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-300" size={14} />
+              <span className="text-[length:var(--chat-label-text)] font-bold">
+                {chatMode === 'ask' ? 'Thinking...' : 'Building app...'}
               </span>
-              <div className="max-w-[88%] rounded-2xl rounded-bl-xs bg-blue-50/80 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#1D2A4A] border border-blue-200/60 dark:border-[#2D3E6B] shadow-none dark:shadow-xs text-slate-800 dark:text-[#E2E8F0] px-4 py-2.5 text-[length:var(--chat-prompt-text)] flex items-center gap-2.5 animate-fade-in">
-                <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={14} />
-                <span className="text-[length:var(--chat-label-text)] font-bold text-slate-800 dark:text-[#E2E8F0]">{chatMode === 'ask' ? 'Thinking...' : 'Building app...'}</span>
-              </div>
-            </div>
+            </ReplyRow>
           ) : null}
         </div>
       )}
