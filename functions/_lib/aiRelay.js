@@ -84,15 +84,15 @@ export async function handleAiChat(request, env) {
   const rate = consumeToken(`chat:${token}`, { max, windowSeconds });
   if (!rate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(rate.retryAfter) });
 
-  const missingEnv = ['APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_API_KEY', 'APPBLIPS_LLM_MODEL'].filter((key) => !env[key]);
+  const missingEnv = ['APPBLIPS_APP_LLM_BASE_URL', 'APPBLIPS_APP_LLM_API_KEY', 'APPBLIPS_APP_LLM_MODEL'].filter((key) => !env[key]);
   if (missingEnv.length) {
     console.error('[ai-relay] missing env:', missingEnv.join(', '));
     return errorResponse('upstream_error', 502, 'AI service is unavailable.');
   }
 
-  const cap = Math.max(1, parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10) || 4096);
+  const cap = Math.max(1, parseInt(env.APPBLIPS_APP_LLM_MAX_TOKENS, 10) || 4096);
   const requestedMax = Number.isFinite(Number(max_tokens)) ? Math.max(1, Math.floor(Number(max_tokens))) : cap;
-  const configuredTemperature = Number.parseFloat(env.APPBLIPS_LLM_TEMPERATURE);
+  const configuredTemperature = Number.parseFloat(env.APPBLIPS_APP_LLM_TEMPERATURE);
   const requestedTemperature = Number.parseFloat(temperature);
   const finalTemperature = Number.isFinite(requestedTemperature)
     ? Math.min(2, Math.max(0, requestedTemperature))
@@ -103,13 +103,13 @@ export async function handleAiChat(request, env) {
   }));
 
   const bodyObj = {
-    model: env.APPBLIPS_LLM_MODEL,
+    model: env.APPBLIPS_APP_LLM_MODEL,
     messages: safeMessages,
     temperature: finalTemperature,
     max_tokens: Math.min(cap, requestedMax),
     stream: Boolean(stream),
   };
-  const effort = env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
+  const effort = env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none';
   if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
     bodyObj.reasoning_effort = 'none';
   } else if (effort) {
@@ -118,9 +118,9 @@ export async function handleAiChat(request, env) {
 
   let upstream;
   try {
-    upstream = await fetch(chatUrl(env.APPBLIPS_LLM_BASE_URL), {
+    upstream = await fetch(chatUrl(env.APPBLIPS_APP_LLM_BASE_URL), {
       method: 'POST',
-      headers: { authorization: `Bearer ${env.APPBLIPS_LLM_API_KEY}`, 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${env.APPBLIPS_APP_LLM_API_KEY}`, 'content-type': 'application/json' },
       body: JSON.stringify(bodyObj),
     });
   } catch (err) {

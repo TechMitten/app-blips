@@ -99,7 +99,7 @@ In the default self-hosted `byok` mode, the first AI request in the preview or e
 
 The generated app can also expose a settings action that calls `blip.ai.configure()`. It can check `blip.ai.isConfigured()` and disconnect with `blip.ai.clearConfiguration()`. App authors do not need to design their own API-key form.
 
-If a self-hosted operator wants to pay for generated-app AI instead, set `APPBLIPS_GENERATED_AI_MODE=relay` and configure the separate `APPBLIPS_APP_LLM_*` variables. The browser receives only the public relay URL; the provider key remains on the server. Hosted AppBlips always uses its managed platform relay, so nontechnical hosted customers never enter a provider key.
+If the operator wants to pay for generated-app AI instead of using BYOK, configure the server-side `APPBLIPS_APP_LLM_*` variables. This provider is used by hosted AppBlips and by self-hosted instances set to `APPBLIPS_GENERATED_AI_MODE=relay`. The browser receives only a public relay token or URL; the provider key remains on the server, so nontechnical hosted customers never enter a provider key.
 
 ## Running with Docker
 
@@ -123,7 +123,7 @@ For a plain-English walkthrough of who provides which AI key and what finished-a
 | LLM tuning (optional) | `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_TEMPERATURE`, `APPBLIPS_LLM_REASONING_EFFORT` | `APPBLIPS_LLM_TEMPERATURE` defaults to `0.2` |
 | Rate limiting (optional) | `APPBLIPS_CHAT_RATE_LIMIT_MAX`, `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` | Per-user limit on `/api/chat`, defaulting to 60 requests per 300s. Tracked in memory per server instance, so treat it as a speed bump rather than a hard budget cap |
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. `byok` is the safe default; `relay` makes the operator fund app AI |
-| Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` | Relay mode only; separate from the builder provider and server-side only |
+| Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |
 | Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, `APPBLIPS_APP_AI_RATE_LIMIT_MAX`, `APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS` | Exact cross-origin allowlist and per-IP in-memory rate limit |
 | Hosting mode | `SELF_HOSTED_MODE` | Defaults to self-hosted. Only `false` enables the Firebase-backed hosted mode |
 
