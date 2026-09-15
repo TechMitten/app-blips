@@ -50,6 +50,7 @@ export default function PreviewPane({
   code,
   copied,
   onCopyCode,
+  autoFollowCode,
 }) {
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
@@ -79,7 +80,7 @@ export default function PreviewPane({
       <div className="preview-pane-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-white/10 bg-surface/95 backdrop-blur-md z-10">
         {/* Left: View Tabs */}
         <div className="preview-tabs flex items-center gap-2 sm:gap-2.5">
-          <div className="nav-segmented-group -ml-1 sm:-ml-[5px]">
+          <div className="nav-segmented-group -ml-1 sm:-ml-1.25">
             <button
               onClick={() => onTabChange('preview')}
               aria-label="Preview"
@@ -312,6 +313,7 @@ export default function PreviewPane({
             isGenerating={isGenerating}
             copied={copied}
             onCopy={onCopyCode}
+            autoFollow={autoFollowCode}
           />
         )}
       </div>

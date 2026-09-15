@@ -79,6 +79,20 @@ export const loadSkipSplash = () => {
   }
 };
 
+export const AUTO_FOLLOW_CODE_KEY = 'orion-auto-follow-code';
+
+// Boolean: whether the Code tab auto-scrolls to follow the latest streamed
+// line during generation. On by default; an explicitly saved user choice is
+// preserved.
+export const loadAutoFollowCode = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(AUTO_FOLLOW_CODE_KEY);
+    return stored === null || stored === undefined ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+};
+
 export const AI_INTRO_DISMISSED_KEY = 'orion-ai-intro-dismissed';
 
 // Boolean: whether the user ticked "don't show this again" on the explainer for

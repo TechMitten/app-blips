@@ -1,8 +1,32 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Code2, Check, Copy, Loader2 } from 'lucide-react';
 import { syntaxHighlightHtml } from '../lib/helpers';
 
 // Editor-styled read-only view of the generated (or streaming) HTML.
-export default function CodeView({ code, isGenerating, copied, onCopy }) {
+export default function CodeView({ code, isGenerating, copied, onCopy, autoFollow = true }) {
+  const scrollRef = useRef(null);
+  // Tracks whether the view should keep following new lines as they stream in;
+  // cleared when the user scrolls away from the bottom to read earlier code.
+  const stickToBottomRef = useRef(true);
+
+  useLayoutEffect(() => {
+    if (isGenerating) stickToBottomRef.current = true;
+  }, [isGenerating]);
+
+  useLayoutEffect(() => {
+    if (!autoFollow || !isGenerating || !stickToBottomRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [code, isGenerating, autoFollow]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 48;
+  };
+
   return (
     <div className="code-view palette-stock min-w-0 w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
       <div className="bg-[#24253a] px-4 py-2 flex items-center border-b border-black/30">
@@ -28,7 +52,7 @@ export default function CodeView({ code, isGenerating, copied, onCopy }) {
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-auto bg-[#1a1b26] custom-scrollbar">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-auto bg-[#1a1b26] custom-scrollbar">
         {code ? (
           <>
             {isGenerating && (
