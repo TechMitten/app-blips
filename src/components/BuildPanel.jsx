@@ -136,20 +136,20 @@ export default function BuildPanel({
           {(versions.length > 0 || pendingPrompt) && (
             <>
               {interruptedJob && (
-                <div role="alert" className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
+                <div role="alert" className="bg-amber-50/90 border border-amber-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
                   <div className="flex items-start gap-2.5">
-                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/50 shrink-0 mt-0.5 shadow-2xs">
+                    <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 border border-amber-200/80 shrink-0 mt-0.5 shadow-2xs">
                       <TriangleAlert size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-[0.14em] mb-0.5">Build interrupted</p>
-                      <p className="text-xs text-amber-950 dark:text-amber-100 font-semibold leading-snug truncate" title={interruptedJob.prompt}>
+                      <p className="font-mono text-[10px] font-bold text-amber-800 uppercase tracking-[0.14em] mb-0.5">Build interrupted</p>
+                      <p className="text-xs text-amber-950 font-semibold leading-snug truncate" title={interruptedJob.prompt}>
                         &ldquo;{interruptedJob.prompt}&rdquo;
                       </p>
                     </div>
                     <button
                       onClick={onDismissInterruptedJob}
-                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-100/80 dark:hover:bg-amber-900/60 transition-colors shrink-0 cursor-pointer"
+                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-100/80 transition-colors shrink-0 cursor-pointer"
                       aria-label="Dismiss"
                     >
                       <X size={13} />
@@ -158,7 +158,7 @@ export default function BuildPanel({
                   <div className="mt-2.5 pl-8">
                     <button
                       onClick={onRetryInterruptedJob}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-100 bg-amber-100/90 dark:bg-amber-900/70 hover:bg-amber-200 dark:hover:bg-amber-800 border border-amber-300/80 dark:border-amber-700/60 transition-all px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100/90 hover:bg-amber-200 border border-amber-300/80 transition-all px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
                     >
                       <RotateCcw size={11} />
                       Retry
@@ -181,14 +181,14 @@ export default function BuildPanel({
           )}
 
           {error && (
-            <div role="alert" className="bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700/50 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
+            <div role="alert" className="bg-rose-50/90 border border-rose-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
               <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-700/50 shrink-0 shadow-2xs">
+                <div className="p-1.5 bg-rose-100 rounded-xl text-rose-700 border border-rose-200/80 shrink-0 shadow-2xs">
                   <TriangleAlert size={14} />
                 </div>
                 <div>
-                  <p className="font-mono text-[10px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-[0.14em] mb-0.5">Error</p>
-                  <p className="text-xs text-rose-950 dark:text-rose-100 font-semibold leading-snug">
+                  <p className="font-mono text-[10px] font-bold text-rose-800 uppercase tracking-[0.14em] mb-0.5">Error</p>
+                  <p className="text-xs text-rose-950 font-semibold leading-snug">
                     {error}
                   </p>
                 </div>

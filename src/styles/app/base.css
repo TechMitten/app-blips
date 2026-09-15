@@ -32,8 +32,8 @@ body {
   box-shadow: 0 0 0 4px var(--pulse-ring);
 }
 
-/* Code terminal-style syntax colors (One Dark inspired) */
-.token-comment { color: #5c6370; font-style: italic; }
+/* Code terminal-style syntax colors (One Dark inspired, tuned for black ground) */
+.token-comment { color: #8b949e; font-style: italic; }
 .token-doctype { color: #c678dd; }
 .token-tag-name { color: #e06c75; }
 .token-attr-name { color: #d19a66; }

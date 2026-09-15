@@ -2,7 +2,7 @@ import { consumeToken } from './rateLimit.js';
 import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
-import { trackApiUsage } from './usageTracking.js';
+import { wrapWithTokenTracking } from './trackTokens.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -294,6 +294,11 @@ export async function handleAiChat(request, env, waitUntil) {
     max_tokens: Math.min(cap, requestedMax),
     stream: Boolean(stream),
   };
+  
+  if (bodyObj.stream) {
+    bodyObj.stream_options = { include_usage: true };
+  }
+
   const effort = env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none';
   if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
     bodyObj.reasoning_effort = 'none';
@@ -317,10 +322,13 @@ export async function handleAiChat(request, env, waitUntil) {
     console.error('[ai-relay] upstream', upstream.status, detail.slice(0, 300));
     return errorResponse('upstream_error', 502, 'AI service request failed.');
   }
-  if (ownerUid) trackApiUsage(env, { uid: ownerUid, kind: 'deployed' }, waitUntil);
 
-  return new Response(upstream.body, {
-    status: 200,
-    headers: { 'content-type': upstream.headers.get('content-type') || (stream ? 'text/event-stream' : 'application/json') },
-  });
+  if (ownerUid) {
+    return wrapWithTokenTracking(env, upstream, bodyObj, { uid: ownerUid, kind: 'deployed' }, waitUntil);
+  } else {
+    return new Response(upstream.body, {
+      status: 200,
+      headers: { 'content-type': upstream.headers.get('content-type') || (stream ? 'text/event-stream' : 'application/json') },
+    });
+  }
 }

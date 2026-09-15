@@ -12,6 +12,7 @@
 import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 
 const COUNTER_FIELDS = { builder: 'builderRequests', deployed: 'deployedRequests' };
+const TOKEN_FIELDS = { builder: 'builderTokens', deployed: 'deployedTokens' };
 
 const commitUrl = (env) =>
   `https://firestore.googleapis.com/v1/projects/${firebaseProjectId(env)}/databases/(default)/documents:commit`;
@@ -21,8 +22,9 @@ const todayUtc = () => new Date().toISOString().slice(0, 10);
 // Best-effort: a Firestore hiccup here must never break app generation or a
 // deployed app's AI feature, so every failure is caught and logged, never
 // thrown. Self-hosted mode has no Firebase project to write to.
-export async function recordApiUsage(env, { uid, kind }) {
+export async function recordApiUsage(env, { uid, kind, tokens }) {
   const counterField = COUNTER_FIELDS[kind];
+  const tokenField = TOKEN_FIELDS[kind];
   if (!uid || !counterField) return;
   if (env?.SELF_HOSTED_MODE !== 'false') return;
 
@@ -39,6 +41,15 @@ export async function recordApiUsage(env, { uid, kind }) {
     // timestamp) -- the same shape the Admin SDK compiles
     // set({...}, {merge:true}) + FieldValue.increment() down to. Creates the
     // doc on the first write of the day, increments it thereafter, atomically.
+    
+    const updateTransforms = [
+      { fieldPath: counterField, increment: { integerValue: '1' } },
+      { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+    ];
+    if (tokens) {
+      updateTransforms.push({ fieldPath: tokenField, increment: { integerValue: String(tokens) } });
+    }
+
     const response = await fetch(commitUrl(env), {
       method: 'POST',
       headers,
@@ -53,10 +64,7 @@ export async function recordApiUsage(env, { uid, kind }) {
               },
             },
             updateMask: { fieldPaths: ['user_id', 'date'] },
-            updateTransforms: [
-              { fieldPath: counterField, increment: { integerValue: '1' } },
-              { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
-            ],
+            updateTransforms,
           },
         ],
       }),

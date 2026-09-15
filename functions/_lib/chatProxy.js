@@ -21,7 +21,7 @@
 // restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
 // if they expose it beyond localhost.
 
-import { trackApiUsage } from './usageTracking.js';
+import { wrapWithTokenTracking } from './trackTokens.js';
 
 let jwksCache = { keys: [], expiry: 0 };
 const cryptoKeysCache = new Map();
@@ -328,6 +328,10 @@ export async function handleChatProxy(request, env, waitUntil) {
     temperature,
   };
 
+  if (bodyObj.stream) {
+    bodyObj.stream_options = { include_usage: true };
+  }
+
   const effort = reasoning_effort ?? env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
   if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
     bodyObj.reasoning_effort = 'none';
@@ -367,10 +371,5 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  if (upstream.ok) trackApiUsage(env, { uid: user.id, kind: 'builder' }, waitUntil);
-
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' },
-  });
+  return wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);
 }
