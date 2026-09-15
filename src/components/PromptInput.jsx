@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Wand2, MessageSquare, Edit2, Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
 
 // Prompt textarea with the Build/Ask mode toggle and submit/cancel footer.
-// Enter sends (Shift+Enter for a newline); Cmd/Ctrl+Enter keeps working too.
+// Desktop Enter sends; touch keyboards keep Enter for newlines. Cmd/Ctrl+Enter sends.
 // The textarea auto-grows to a cap before scrolling.
 export default function PromptInput({
   prompt,
@@ -33,12 +33,21 @@ export default function PromptInput({
   const showEnhanceButton = chatMode === 'build' && !isClarifying;
 
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    const newHeight = Math.min(el.scrollHeight, 176);
-    el.style.height = `${newHeight}px`;
-    el.style.overflowY = el.scrollHeight > 176 ? 'auto' : 'hidden';
+    const resize = () => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.style.height = 'auto';
+      const maxHeight = Math.min(176, parseFloat(getComputedStyle(el).maxHeight) || 176);
+      el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
+      el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+    };
   }, [prompt]);
 
   useEffect(() => {
@@ -48,7 +57,8 @@ export default function PromptInput({
   }, [isClarifying, isGenerating]);
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !(e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)) {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && !window.matchMedia('(pointer: coarse)').matches && !(e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)) {
       e.preventDefault();
       if (canSubmit) onSubmit();
     } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

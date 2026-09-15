@@ -15,8 +15,8 @@ export default function Modal({
   children,
 }) {
   return (
-    <div className={scrimClass} style={{ zIndex }}>
-      <div className={cardClass} {...cardProps}>
+    <div className={`modal-scrim ${scrimClass}`} style={{ zIndex }}>
+      <div className={`modal-card ${cardClass}`} {...cardProps}>
         {children}
       </div>
     </div>

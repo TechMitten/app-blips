@@ -83,7 +83,7 @@ export default function ProjectsListModal({
               <FolderOpen size={20} className="drop-shadow-xs" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Your Saved Apps</h2>
                 <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                   {projects.length}
