@@ -38,6 +38,9 @@
   --grid-dot: #94a3b8;
   --seg-active-bg: var(--color-surface);
   --seg-active-fg: var(--color-slate-900);
+  --seg-track-bg: #f1f5f9;
+  --seg-track-border: rgb(15 23 42 / 0.08);
+  --seg-track-inset: none;
   --focus-halo: var(--color-surface);
   --pulse-ring: rgb(30 89 143 / 0.08);
   --inset-highlight: rgb(255 255 255 / 0.9);
@@ -71,8 +74,19 @@
   --glow-a3: 0.35;
 
   --grid-dot: #333333;
-  --seg-active-bg: var(--color-slate-200);
+  /* Active segment is a raised key, not a flat fill: a wide top-lit gradient
+     (dark depth has to come from lightness steps, not shadow) plus the crown
+     applied in buttons.css. */
+  --seg-active-bg: linear-gradient(180deg, #4a4a4a 0%, #333333 100%);
   --seg-active-fg: #ffffff;
+  /* Track is a well sunk below the pane header: translucent so it recesses
+     against whatever surface it sits on (header, modal, composer), with a
+     faint rim and a real top inset so segments read as seated rather than
+     floating. slate-100 previously made it identical to --color-surface
+     (#141414) -- invisible on every dark header. */
+  --seg-track-bg: rgb(0 0 0 / 0.42);
+  --seg-track-border: rgb(255 255 255 / 0.07);
+  --seg-track-inset: inset 0 2px 4px rgb(0 0 0 / 0.55);
   --focus-halo: var(--color-surface);
   --pulse-ring: rgb(255 255 255 / 0.14);
   --inset-highlight: rgb(255 255 255 / 0.06);

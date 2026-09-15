@@ -115,6 +115,7 @@ export default function SplashScreen({ skip = false }) {
         onEnded={handleVideoEnd}
         className={`relative z-10 w-[72rem] max-w-[220vw] sm:max-w-[180vw] md:max-w-[115vw] h-auto shrink-0 object-contain mix-blend-screen transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
         style={{
+          transform: 'scale(0.8)',
           maskImage: 'radial-gradient(circle, black 50%, transparent 95%)',
           WebkitMaskImage: 'radial-gradient(circle, black 50%, transparent 95%)'
         }}
