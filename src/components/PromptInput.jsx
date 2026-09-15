@@ -139,7 +139,7 @@ export default function PromptInput({
         )}
       </div>
       <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-x-0.5 gap-y-2">
           {!isGenerating ? (
             <>
               <input
@@ -181,11 +181,21 @@ export default function PromptInput({
                     onChange={() => onChatModeChange(chatMode === 'build' ? 'ask' : 'build')} 
                     className="sr-only" 
                   />
-                  {chatMode === 'build' ? <Wand2 size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
-                  <span>{chatMode === 'build' ? 'Build' : 'Ask'}</span>
+                  {/* The ghost "Build" row reserves the wider label's width, so
+                      toggling to the shorter "Ask" doesn't shrink the pill. */}
+                  <span className="grid">
+                    <span className="col-start-1 row-start-1 flex items-center gap-1 invisible" aria-hidden="true">
+                      <Wand2 size={15} aria-hidden="true" />
+                      <span>Build</span>
+                    </span>
+                    <span className="col-start-1 row-start-1 flex items-center gap-1">
+                      {chatMode === 'build' ? <Wand2 size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
+                      <span>{chatMode === 'build' ? 'Build' : 'Ask'}</span>
+                    </span>
+                  </span>
                 </label>
                 <label
-                  className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active is-build' : ''} cursor-pointer !min-w-[var(--composer-key-size)] !p-0`}
+                  className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active is-ai' : ''} cursor-pointer`}
                   title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
                 >
                   <input 

@@ -63,7 +63,7 @@ const shuffle = (items) => {
   return shuffled;
 };
 
-function StarterRow({ ideas, rowIndex, onPick }) {
+function StarterRow({ ideas, rowIndex, onPick, className = '' }) {
   const scrollerRef = useRef(null);
   const trackRef = useRef(null);
   const singleWidthRef = useRef(0);
@@ -400,7 +400,7 @@ function StarterRow({ ideas, rowIndex, onPick }) {
       onDragStart={(e) => e.preventDefault()}
       onMouseEnter={() => { autoPausedRef.current = true; }}
       onMouseLeave={() => { autoPausedRef.current = false; }}
-      className="starter-row overflow-x-auto py-0.5 cursor-grab active:cursor-grabbing select-none"
+      className={`starter-row overflow-x-auto py-0.5 cursor-grab active:cursor-grabbing select-none ${className}`}
     >
       <div ref={trackRef} className="flex gap-2 w-max">
         {tripleIdeas.map((starter, i) => renderCard(starter, i))}
@@ -434,6 +434,9 @@ export default function StarterIdeas({ ideas, onPick }) {
             ideas={rowIdeas}
             rowIndex={rowIndex}
             onPick={onPick}
+            // Mobile shows two rows; the third returns with the wider
+            // side-by-side layout at the lg breakpoint.
+            className={rowIndex === 2 ? 'hidden lg:block' : ''}
           />
         ))}
       </div>
