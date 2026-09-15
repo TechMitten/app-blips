@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
+import PreviewTools from './PreviewTools';
 import { PREVIEW_MODES } from '../lib/constants';
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
@@ -72,15 +73,17 @@ export default function PreviewPane({
   }, [isTransitioning]);
 
   return (
-    <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col relative z-0 inset-shadow-preview noise-texture">
+    <div className="preview-pane flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col relative z-0 inset-shadow-preview noise-texture">
 
       {/* Canvas Studio Header Bar */}
       <div className="preview-pane-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-white/10 bg-surface/95 backdrop-blur-md z-10">
         {/* Left: View Tabs */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="preview-tabs flex items-center gap-2 sm:gap-2.5">
           <div className="nav-segmented-group -ml-1 sm:-ml-[5px]">
             <button
               onClick={() => onTabChange('preview')}
+              aria-label="Preview"
+              aria-pressed={activeTab === 'preview'}
               className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
                 activeTab === 'preview' ? 'nav-segmented-btn-active' : ''
               }`}
@@ -91,6 +94,8 @@ export default function PreviewPane({
             {showCodeView && (
               <button
                 onClick={() => onTabChange('code')}
+                aria-label="Code"
+                aria-pressed={activeTab === 'code'}
                 className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
                   activeTab === 'code' ? 'nav-segmented-btn-active' : ''
                 }`}
@@ -112,7 +117,7 @@ export default function PreviewPane({
 
         {/* Center: Device Presets (when in preview tab) */}
         {activeTab === 'preview' && (
-          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
+          <div className="preview-wide-tools hidden sm:flex items-center gap-1.5 sm:gap-2">
             <div className="nav-segmented-group" title="Device Viewport Preset">
               <button
                 onClick={() => onPreviewModeChange('mobile')}
@@ -154,10 +159,11 @@ export default function PreviewPane({
         )}
 
         {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out) */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="preview-actions flex items-center gap-1.5 sm:gap-2">
+          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
           {/* Undo/Redo when versions > 1 */}
           {versions.length > 1 && (
-            <div className="hidden md:flex nav-segmented-group" title="Undo / Redo Version">
+            <div className="preview-wide-tools hidden md:flex nav-segmented-group" title="Undo / Redo Version">
               <button
                 onClick={onUndo}
                 disabled={currentVersionIndex <= 0}
@@ -179,7 +185,7 @@ export default function PreviewPane({
 
           {/* Zoom Controls (when in preview tab) */}
           {activeTab === 'preview' && (
-            <div className="hidden sm:flex nav-segmented-group" title="Zoom Controls">
+            <div className="preview-wide-tools hidden sm:flex nav-segmented-group" title="Zoom Controls">
               <button
                 onClick={() => onZoomOut(-0.1)}
                 disabled={zoomLevel <= 0.2}
@@ -236,6 +242,7 @@ export default function PreviewPane({
               onClick={onOpenNewTab}
               className="nav-btn nav-btn-secondary font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title="Open preview in new browser tab"
+              aria-label="Open preview in new browser tab"
             >
               <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
               <span className="hidden lg:inline">Open</span>
@@ -246,6 +253,7 @@ export default function PreviewPane({
           {hasCode && (firebaseEnabled ? (
             <button
               data-tour="share"
+              aria-label="Manage deployment"
               onClick={onOpenDeployModal}
               className="nav-btn brand-fill-text relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
@@ -264,6 +272,7 @@ export default function PreviewPane({
               onClick={onExportHtml}
               className="nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title="Download this app as an HTML file"
+              aria-label="Export app"
             >
               <Download size={14} />
               <span className="hidden md:inline">Export</span>
@@ -275,7 +284,7 @@ export default function PreviewPane({
       {/* Container for Device or Code */}
       <div
         ref={containerRef}
-        className={`flex-1 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning ? 'overflow-hidden' : 'overflow-auto'}`}
+        className={`preview-canvas flex-1 min-w-0 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning ? 'overflow-hidden' : 'overflow-auto'}`}
       >
         {/* Subtle workspace grid */}
         <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>

@@ -48,10 +48,10 @@ export default function AccountSettingsModal({ user, username, usernameLoading, 
   };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-md xl:max-w-lg bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
+    <div className="modal-scrim fixed inset-0 z-[80] bg-scrim backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="modal-card w-full max-w-md xl:max-w-lg bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
               <User size={18} />
             </div>
@@ -74,7 +74,7 @@ export default function AccountSettingsModal({ user, username, usernameLoading, 
           </div>
         </div>
 
-        <div className="flex border-b border-slate-100 px-2">
+        <div className="flex flex-wrap border-b border-slate-100 px-2">
           <button 
             onClick={() => { setActiveTab('profile'); setMessage(''); setError(''); }}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'profile' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}

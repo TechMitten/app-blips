@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, CircleHelp, LogIn, BarChart3, Menu, X
@@ -29,6 +30,40 @@ export default function Header({
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const menuRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const trigger = triggerRef.current;
+    const root = document.getElementById('root');
+    const previousInert = root?.inert;
+    if (root) root.inert = true;
+    menuRef.current?.querySelector('button')?.focus({ preventScroll: true });
+    const query = window.matchMedia('(min-width: 1024px)');
+    const onResize = () => { if (query.matches) setIsMobileMenuOpen(false); };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+      if (event.key !== 'Tab') return;
+      const buttons = [...menuRef.current.querySelectorAll('button:not(:disabled)')];
+      const first = buttons[0];
+      const last = buttons.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    query.addEventListener('change', onResize);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      query.removeEventListener('change', onResize);
+      if (root) root.inert = previousInert;
+      trigger?.focus({ preventScroll: true });
+    };
+  }, [isMobileMenuOpen]);
+
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const runMobileAction = (action) => {
@@ -37,9 +72,9 @@ export default function Header({
   };
 
   return (
-    <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
+    <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
       {/* Left: Brand / Logo */}
-      <div className="flex items-center gap-2.5 shrink-0 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
         <img src="/appblips-logo.png" alt="AppBlips" className="h-20 2xl:h-24 w-auto object-contain -my-4 -ml-2" />
         <div className="flex items-center gap-2.5 min-w-0">
           {projectName && projectName !== 'Untitled App' && (
@@ -55,7 +90,7 @@ export default function Header({
       </div>
 
       {/* Right: Actions and Controls */}
-      <div className="hidden sm:flex items-center gap-1 sm:gap-1.5 shrink-0">
+      <div className="hidden lg:flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Primary Action: New App */}
         <button
           onClick={onNewApp}
@@ -185,9 +220,11 @@ export default function Header({
         </button>
       </div>
 
-      <div className="sm:hidden relative shrink-0">
+      <div className="lg:hidden relative shrink-0">
         <button
           type="button"
+          ref={triggerRef}
+          data-tour="menu"
           onClick={() => setIsMobileMenuOpen((open) => !open)}
           className="nav-btn nav-btn-secondary nav-btn-icon group"
           title={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -202,15 +239,21 @@ export default function Header({
           )}
         </button>
 
-        <>
+        {createPortal(
+          <div className="mobile-menu-layer dark force-dark lg:hidden">
           <button
             type="button"
-            className={`fixed inset-0 z-40 cursor-default bg-black/20 transition-opacity duration-300 ease-out ${isMobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-            aria-label="Close menu"
-            tabIndex={isMobileMenuOpen ? 0 : -1}
+            className={`mobile-menu-backdrop fixed inset-0 z-40 cursor-default bg-black/20 transition-opacity duration-300 ease-out ${isMobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            aria-hidden="true"
+            tabIndex={-1}
             onClick={closeMobileMenu}
           />
           <div
+            ref={menuRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            inert={!isMobileMenuOpen}
             id="mobile-header-menu"
             className={`mobile-side-menu ${isMobileMenuOpen ? 'mobile-side-menu-open' : ''}`}
             aria-hidden={!isMobileMenuOpen}
@@ -238,12 +281,24 @@ export default function Header({
               <button
                 type="button"
                 data-tour="apps"
+                aria-label="Apps"
                 onClick={() => runMobileAction(onOpenApps)}
                 className="mobile-menu-item"
               >
                 <FolderOpen size={16} />
                 <span>Apps</span>
                 {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
+              </button>
+              <button
+                type="button"
+                aria-label="History"
+                onClick={() => runMobileAction(onToggleHistory)}
+                className="mobile-menu-item"
+                aria-expanded={isHistoryOpen}
+              >
+                <PanelLeftOpen size={16} />
+                <span>History</span>
+                {versionsCount > 0 && <span className="mobile-menu-count">{versionsCount}</span>}
               </button>
               <button
                 type="button"
@@ -305,7 +360,8 @@ export default function Header({
                 <span>{resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
               </button>
           </div>
-        </>
+          </div>, document.body
+        )}
       </div>
     </header>
   );

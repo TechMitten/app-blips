@@ -209,7 +209,7 @@ export default function HistorySidebar({
           again toggles back rather than only ever opening. */}
       <button
         onClick={isOpen ? onCollapse : onExpand}
-        className="history-icon-btn hidden md:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+        className="history-icon-btn hidden xl:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
         title={isOpen ? 'Hide history panel' : 'Show history panel'}
       >
         {isOpen ? (
@@ -218,9 +218,12 @@ export default function HistorySidebar({
           <PanelLeftOpen size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
         )}
       </button>
+      {isOpen && (
+        <button type="button" className="history-backdrop absolute inset-0 z-30 bg-scrim xl:hidden" aria-label="Close history" onClick={onCollapse} />
+      )}
       {/* History Sidebar */}
-      <aside className={`hidden md:flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 panel-edge-right ${
-        isOpen ? 'w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
+      <aside aria-label="Version history" inert={!isOpen} className={`history-sidebar flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 panel-edge-right ${
+        isOpen ? 'history-sidebar-open w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
       }`}>
         {/* Header */}
         <div className="h-14 sm:h-16 shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
@@ -229,6 +232,7 @@ export default function HistorySidebar({
               onClick={onCollapse}
               className="history-icon-btn text-slate-400 hover:text-slate-700 bg-surface hover:bg-slate-200 p-1.5 rounded-lg border border-slate-200/70 hover:border-slate-300 transition-all duration-200 flex-shrink-0"
               title="Hide history panel"
+              aria-label="Hide history panel"
             >
               <PanelLeftClose size={16} />
             </button>
@@ -247,7 +251,7 @@ export default function HistorySidebar({
         </div>
 
         {/* Version List */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-0 chat-scrollbar relative z-[1]">
+        <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3.5 space-y-0 chat-scrollbar relative z-[1]">
           {versions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">

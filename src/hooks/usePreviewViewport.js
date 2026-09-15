@@ -84,8 +84,8 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
         newZoom = Math.min(newZoom, portraitZoom);
       }
 
-      // Fluid zoom ranging from 0.25x up to 2.5x to fill large 1440p / 4K / UHD screens
-      const clampedZoom = Math.max(0.25, Math.min(newZoom, 2.5));
+      // Auto-fit may go below manual zoom limits on small or short screens.
+      const clampedZoom = Math.max(0.05, Math.min(newZoom, 2.5));
       setZoomLevel(Number(clampedZoom.toFixed(3)));
     };
 

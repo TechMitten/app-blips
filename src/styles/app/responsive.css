@@ -1,0 +1,178 @@
+/* Shared viewport sizing also follows the space above a mobile keyboard. */
+.app-shell {
+  top: var(--app-viewport-top, 0px);
+  bottom: auto;
+  height: var(--app-viewport-height, 100dvh);
+}
+
+.preview-pane { container-type: inline-size; }
+.preview-compact-tools { display: none; }
+.preview-compact-tools > summary { list-style: none; }
+.preview-compact-tools > summary::-webkit-details-marker { display: none; }
+.preview-tools-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 30;
+  width: min(272px, calc(100cqw - 16px));
+  max-height: max(100px, calc(var(--app-viewport-height, 100dvh) - 220px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+}
+.preview-tools-menu > .nav-segmented-group {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.preview-tools-menu > .nav-segmented-group:last-child { margin-bottom: 0; }
+.preview-tools-menu .nav-segmented-btn { min-height: 40px; min-width: 40px; }
+
+/* Available panel width matters more than the device's screen width. */
+@container (max-width: 900px) {
+  .preview-wide-tools { display: none; }
+  .preview-compact-tools { display: block; }
+  .preview-pane-header { position: relative; gap: 8px; padding-inline: 12px; }
+  .preview-actions { flex-shrink: 0; }
+  .preview-actions > .nav-btn > span { display: none; }
+}
+@container (max-width: 420px) {
+  .preview-pane-header { padding-inline: 8px; gap: 4px; }
+  .preview-tabs { min-width: 0; }
+  .preview-tabs > span,
+  .preview-tabs button > span { display: none; }
+  .preview-tabs .nav-segmented-group { margin-left: 0; }
+  .preview-tabs button,
+  .preview-actions .nav-btn,
+  .preview-actions .nav-segmented-btn { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .preview-actions { gap: 4px; }
+  .preview-canvas { padding: 12px; }
+}
+
+.mobile-menu-layer { position: relative; z-index: 80; }
+.mobile-side-menu {
+  top: var(--app-viewport-top, 0px);
+  height: var(--app-viewport-height, 100dvh);
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+  visibility: hidden;
+  transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 260ms;
+}
+.mobile-side-menu-open {
+  visibility: visible;
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s;
+}
+.mobile-menu-backdrop {
+  top: var(--app-viewport-top, 0px);
+  bottom: auto;
+  height: var(--app-viewport-height, 100dvh);
+}
+.mobile-menu-item svg { flex-shrink: 0; }
+.mobile-side-menu .nav-btn-icon { min-width: 44px; min-height: 44px; }
+
+@media (max-width: 1279px) {
+  .history-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 35;
+    width: min(340px, calc(100% - 24px));
+    max-width: 100%;
+    opacity: 1;
+    transform: translateX(-105%);
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .history-sidebar-open { transform: translateX(0); }
+}
+
+@media (max-width: 1023px) {
+  .app-header {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  .app-header .nav-btn-icon { min-width: 44px; min-height: 44px; }
+  .build-panel { --bezel: 0px; }
+  .build-panel::after { display: none; }
+  .build-panel-scroll { margin-right: 0; padding-inline: 16px; }
+  .build-panel-stage { min-width: 0; overflow-wrap: anywhere; }
+  .build-panel-composer {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .mobile-view-switch .nav-segmented-btn { min-height: 40px; }
+  .prompt-input-field { font-size: 16px; max-height: min(176px, 28dvh); }
+  .prompt-input-footer { flex-wrap: wrap; padding-inline: 8px; gap: 6px; }
+  .prompt-input-footer > div:last-child { margin-left: auto; }
+  .prompt-input-footer button { min-height: 40px; min-width: 40px; }
+  .prompt-input-footer .chat-mode-option { min-height: 40px; min-width: 40px; padding-inline: 6px; letter-spacing: 0; }
+  .prompt-input-footer .nav-segmented-btn { width: 40px; }
+  .prompt-input-footer .nav-segmented-group { gap: 0; }
+  .prompt-input-dock:focus-within { transform: none; }
+  .preview-canvas {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .code-view > div:first-child { flex-shrink: 0; padding-inline: 12px; }
+  .code-view > div:first-child > div:first-child { display: none; }
+  .code-view button { min-height: 40px; }
+}
+
+/* All dialog variants, including tall deployment/account forms, stay reachable. */
+@media (max-width: 1023px), (max-height: 600px) {
+  .modal-scrim:not(.pointer-events-none) {
+    top: var(--app-viewport-top, 0px);
+    bottom: auto;
+    height: var(--app-viewport-height, 100dvh);
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  .modal-card {
+    min-width: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    overflow-wrap: anywhere;
+  }
+  .modal-card > * { min-width: 0; }
+  .modal-card input:not([type='checkbox']):not([type='radio']),
+  .modal-card textarea,
+  .modal-card select { font-size: 16px; min-width: 0; max-width: 100%; }
+  .modal-card button:not([role='switch']) { min-height: 40px; }
+  .modal-card button[aria-label='Close'],
+  .modal-card button[aria-label='Dismiss'] { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+}
+@media (max-width: 639px) {
+  .modal-card { border-radius: 12px; }
+  .modal-card > div { padding-left: 16px; padding-right: 16px; }
+  .modal-card > .flex { gap: 12px; }
+  .modal-card .nav-segmented-group { max-width: 100%; flex-wrap: wrap; }
+  .modal-card .nav-segmented-btn { padding-inline: 8px; }
+  .modal-card > .border-b { flex-shrink: 0; }
+  .modal-card > .border-t { flex-wrap: wrap; }
+  .modal-card h2 { font-size: 18px; }
+  .modal-card [role='tabpanel'] { padding: 16px; }
+}
+@media (max-height: 500px) and (max-width: 1023px) {
+  .app-header { padding-block: 4px; }
+  .app-header img { height: 64px; }
+  .mobile-view-switch { padding-block: 4px; }
+  .build-panel-header { height: 44px; min-height: 44px; max-height: 44px; }
+  .build-panel-composer { padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+  .prompt-input-field { min-height: 44px; padding-top: 8px; }
+  .prompt-input-footer { padding-block: 4px; }
+  .build-panel-stage { margin-top: 0; }
+}
+@media (max-height: 600px) {
+  .modal-card { height: auto; }
+  .modal-card > * { flex-shrink: 0; }
+  .modal-card > .flex-1 { flex: none; min-height: 200px; }
+}
+@media (hover: none) {
+  .history-sidebar .history-icon-btn { opacity: 1; min-width: 40px; min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-sidebar, .mobile-side-menu { transition: none; }
+}

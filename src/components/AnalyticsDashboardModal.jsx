@@ -147,7 +147,7 @@ export default function AnalyticsDashboardModal({
 
       <div className="flex-1 overflow-hidden flex flex-col sm:flex-row min-h-0">
         {/* App list */}
-        <div className="sm:w-64 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-white/10 overflow-y-auto custom-scrollbar p-3 space-y-1">
+        <div className="max-h-40 sm:max-h-none sm:w-52 lg:w-64 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-white/10 overflow-y-auto custom-scrollbar p-3 space-y-1">
           {appsLoading ? (
             <div className="flex items-center justify-center py-8 text-slate-400">
               <Loader2 size={18} className="animate-spin" />
@@ -179,7 +179,7 @@ export default function AnalyticsDashboardModal({
         </div>
 
         {/* Detail pane */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5">
+        <div className="min-w-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5">
           {error && (
             <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-sm text-rose-700 flex items-start gap-3">
               <TriangleAlert size={18} className="text-rose-500 shrink-0 mt-0.5" />
@@ -217,7 +217,7 @@ export default function AnalyticsDashboardModal({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-3">
                     <StatTile label="Pageviews" value={formatNumber(metricValue(summary?.pageviews))} />
                     <StatTile label="Visitors" value={formatNumber(metricValue(summary?.visitors))} />
                     <StatTile label="Visits" value={formatNumber(metricValue(summary?.visits))} />
