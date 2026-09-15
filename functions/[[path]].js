@@ -72,6 +72,8 @@ const CSP = [
   "img-src * data: blob:",
   "media-src * data: blob:",
   "connect-src https:",
+  // Turnstile renders a challenge iframe for the /ai/session browser check.
+  "frame-src https://challenges.cloudflare.com",
   "base-uri 'none'",
 ].join('; ');
 

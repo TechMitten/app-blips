@@ -4,7 +4,7 @@ import {
   Edit2, Clock, ListTodo, Wallet, Undo2, Redo2, FolderOpen, X, Copy, Check, Trash2, ZoomIn, ZoomOut,
   Monitor, Tablet, RotateCw, Moon, Sun, PanelLeftOpen, PanelLeftClose, TriangleAlert, Eye, EyeOff,
   Calculator, KeyRound, Ruler, LogIn, LogOut, User, CloudUpload, Mail, ExternalLink, Zap, Layers,
-  Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard, ChefHat, Grid3x3, Brain,
+  Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard, ChefHat,
   GraduationCap, Music, Dumbbell, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost,
   Worm, WholeWord, CalendarCheck, PiggyBank, Shapes, Drum, Hammer, CircleDot, CircleDotDashed,
   Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins
@@ -103,32 +103,11 @@ export const STARTER_PRESETS = [
     color: "text-teal-600 bg-teal-50"
   },
   {
-    title: "Brick Breaker",
-    prompt: "An action-packed arcade brick breaker with responsive paddle movement, physics-driven ball bounces, power-ups like multi-ball and laser paddles, sound effects, and multi-tier brick layouts.",
-    category: "Arcade",
-    icon: Blocks,
-    color: "text-indigo-600 bg-indigo-50"
-  },
-  {
-    title: "Sudoku Puzzle",
-    prompt: "A fully playable Sudoku game with three difficulty levels, pencil-mark notes, mistake highlighting, a solve timer with best-time tracking, and satisfying animations on row/column/box completion.",
-    category: "Puzzle",
-    icon: Grid3x3,
-    color: "text-indigo-600 bg-indigo-50"
-  },
-  {
     title: "Flashcard Study",
     prompt: "A spaced-repetition flashcard app with swipeable cards, deck creation and editing, a flip animation, confidence-based review scheduling, and per-deck mastery progress tracking.",
     category: "Education",
     icon: GraduationCap,
     color: "text-sky-600 bg-sky-50"
-  },
-  {
-    title: "Word Guess",
-    prompt: "A daily 5-letter word guessing game with animated flip tiles, green/yellow/gray letter feedback, an interactive on-screen keyboard, guess distribution stats, and win streak counters.",
-    category: "Word",
-    icon: WholeWord,
-    color: "text-emerald-600 bg-emerald-50"
   },
   {
     title: "Habit Tracker",
@@ -143,13 +122,6 @@ export const STARTER_PRESETS = [
     category: "Arcade",
     icon: Bird,
     color: "text-sky-600 bg-sky-50"
-  },
-  {
-    title: "Trivia Quiz",
-    prompt: "A fast-paced multi-category trivia quiz with a countdown timer per question, animated score reveal, streak bonuses, a results summary screen, and a high-score leaderboard saved between sessions.",
-    category: "Quiz",
-    icon: Brain,
-    color: "text-amber-600 bg-amber-50"
   },
   {
     title: "Drum Machine",
@@ -173,25 +145,11 @@ export const STARTER_PRESETS = [
     color: "text-rose-600 bg-rose-50"
   },
   {
-    title: "Retro Pong",
-    prompt: "A fast-paced neon Pong table tennis arcade game with single-player vs smart AI or 2-player local mode, dynamic ball spin, speed acceleration, sound synth pulses, and score display.",
-    category: "Arcade",
-    icon: Gamepad2,
-    color: "text-blue-600 bg-blue-50"
-  },
-  {
     title: "Unit Converter",
     prompt: "An elegant unit converter covering length, weight, temperature, volume, and currency with live two-way conversion as you type, a recent-conversions history, and quick-swap unit buttons.",
     category: "Utility",
     icon: Ruler,
     color: "text-blue-600 bg-blue-50"
-  },
-  {
-    title: "Whack-a-Mole",
-    prompt: "A rapid-reaction whack-a-mole game with animated pop-up critters, bonus gold moles, combo multipliers, hammer smash effects, a 60-second frenzy timer, and local leaderboards.",
-    category: "Arcade",
-    icon: Hammer,
-    color: "text-amber-600 bg-amber-50"
   },
   {
     title: "Connect Four",

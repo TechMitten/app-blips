@@ -307,10 +307,14 @@ export async function handleChatProxy(request, env) {
     });
   }
 
-  const { messages, tools, tool_choice, stream, reasoning_effort } = payload;
+  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
 
   let temperature = 0.2;
-  if (env.APPBLIPS_LLM_TEMPERATURE !== undefined && env.APPBLIPS_LLM_TEMPERATURE !== '') {
+  if (auto_fix === true) {
+    // Error auto-fix requests (runtime or syntax) must be deterministic, so
+    // pin temperature to 0.0 regardless of APPBLIPS_LLM_TEMPERATURE.
+    temperature = 0;
+  } else if (env.APPBLIPS_LLM_TEMPERATURE !== undefined && env.APPBLIPS_LLM_TEMPERATURE !== '') {
     const parsedTemperature = parseFloat(env.APPBLIPS_LLM_TEMPERATURE);
     if (!isNaN(parsedTemperature)) temperature = parsedTemperature;
   }
