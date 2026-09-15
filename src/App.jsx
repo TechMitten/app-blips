@@ -45,6 +45,7 @@ import {
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAiIntroDismissed, saveAiIntroDismissed } from './lib/config';
 
 import useTheme from './hooks/useTheme';
+import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
@@ -59,6 +60,7 @@ import usePreviewBridge from './hooks/usePreviewBridge';
 
 
 export default function App() {
+  useVisualViewport();
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
@@ -67,7 +69,7 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
-    return stored !== null ? stored === 'true' : false;
+    return window.matchMedia('(min-width: 1280px)').matches && stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -1158,7 +1160,7 @@ export default function App() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
+    <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen skip={skipSplash} />
       <Header
         projectName={projectName}
@@ -1183,16 +1185,18 @@ export default function App() {
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
-      <div className="md:hidden shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex justify-center z-30">
-        <div className="nav-segmented-group nav-segmented-compact w-full max-w-65" role="radiogroup" aria-label="Mobile View">
+      <div className="mobile-view-switch lg:hidden shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex justify-center z-30">
+        <div className="nav-segmented-group nav-segmented-compact w-full max-w-65" role="group" aria-label="Workspace view">
           <button
             onClick={() => setMobileView('chat')}
+            aria-pressed={mobileView === 'chat'}
             className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
           >
             Chat
           </button>
           <button
             onClick={() => setMobileView('preview')}
+            aria-pressed={mobileView === 'preview'}
             className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
           >
             Preview
@@ -1327,7 +1331,7 @@ export default function App() {
         <AuthModal onClose={() => setIsAuthModalOpen(false)} />
       )}
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative">
         <HistorySidebar
           isOpen={isHistoryOpen}
           versions={versions}
@@ -1339,11 +1343,11 @@ export default function App() {
         />
 
         {/* Main Workspace */}
-        <main className="flex-1 min-h-0 flex overflow-hidden relative">
+        <main className="flex-1 min-w-0 min-h-0 flex overflow-hidden relative">
 
           {/* Prompt/Chat Sidebar (Left) - Build Panel */}
           <div
-            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex h-full w-full md:w-[clamp(320px,35vw,420px)] flex-1 md:flex-none min-h-0 relative`}
+            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full lg:w-[clamp(320px,35vw,420px)] flex-1 lg:flex-none min-w-0 min-h-0 relative`}
           >
             <BuildPanel
               isChatActive={isChatActive}
@@ -1387,7 +1391,7 @@ export default function App() {
           </div>
 
           {/* Preview/Device Area (Right) */}
-          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} md:flex h-full w-full flex-1 min-w-0 min-h-0`}>
+          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
             <PreviewPane
               activeTab={activeTab}
               onTabChange={setActiveTab}

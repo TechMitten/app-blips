@@ -252,7 +252,7 @@ function HistorySection() {
     >
       <HelpItems>
         <HelpItem icon={PanelLeftOpen} name="The History drawer">
-          The <strong>History</strong> button in the top bar opens and closes it, on wider screens.
+          Open <strong>History</strong> from the top bar or the menu on smaller screens.
         </HelpItem>
         <HelpItem icon={MessagesSquare} name="Chat sessions">
           Versions are grouped under the chat they were built in. <strong>+</strong> (new chat)
@@ -529,7 +529,7 @@ export default function HelpModal({ onClose, onStartTour }) {
         </button>
       </div>
 
-      <div className="shrink-0 flex items-center justify-between gap-3 px-6 sm:px-8 py-3 border-b border-slate-200 bg-indigo-50">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 px-6 sm:px-8 py-3 border-b border-slate-200 bg-indigo-50">
         <p className="text-xs text-slate-600">Prefer a walkthrough?</p>
         <button type="button" onClick={onStartTour} className="tour-button brand-fill-text bg-brand text-white hover:bg-brand-hover"><Play size={14} aria-hidden="true" /> Start guided tour</button>
       </div>

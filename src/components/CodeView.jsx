@@ -4,7 +4,7 @@ import { syntaxHighlightHtml } from '../lib/helpers';
 // Editor-styled read-only view of the generated (or streaming) HTML.
 export default function CodeView({ code, isGenerating, copied, onCopy }) {
   return (
-    <div className="palette-stock w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
+    <div className="code-view palette-stock min-w-0 w-full h-full bg-[#1a1b26] rounded-lg overflow-hidden shadow-lg border border-slate-800/50 flex flex-col">
       <div className="bg-[#24253a] px-4 py-2 flex items-center border-b border-black/30">
         <div className="flex space-x-1.5 mr-4">
           <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>

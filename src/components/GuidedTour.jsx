@@ -26,9 +26,9 @@ export function TourInvitation({ onStart }) {
 
 export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, hasCode, showCodeView }) {
   const [index, setIndex] = useState(0);
-  const [wideScreen, setWideScreen] = useState(() => window.matchMedia('(min-width: 768px)').matches);
+  const [wideScreen, setWideScreen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   useEffect(() => {
-    const query = window.matchMedia('(min-width: 768px)');
+    const query = window.matchMedia('(min-width: 1024px)');
     const update = () => setWideScreen(query.matches);
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
@@ -38,12 +38,12 @@ export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, has
   const steps = [
     { target: 'prompt', view: 'chat', title: 'Start with an idea', body: 'Describe the app you want in the prompt box. Include who it is for and what it should do. Starter ideas, when shown, fill the box so you can edit before sending.' },
     { target: 'prompt', view: 'chat', title: 'Build, refine, or ask', body: 'Build mode creates or changes your app. Ask mode answers questions without changing it. Send with Enter; use Shift + Enter for a new line. A new app needs a name before its first build.' },
-    { target: 'preview', view: 'preview', title: 'See your app in action', body: `After a build, the Preview tab runs your app so you can try it. On phones, use Chat and Preview to switch panels. On wider screens, the device buttons let you check different sizes.${showCodeView ? ' The Code tab shows the generated HTML.' : ' You can enable the Code tab in Settings.'}` },
+    { target: 'preview', view: 'preview', title: 'See your app in action', body: `After a build, the Preview tab runs your app so you can try it. On phones, use Chat and Preview to switch panels. Preview tools let you check different device sizes and orientations.${showCodeView ? ' The Code tab shows the generated HTML.' : ' You can enable the Code tab in Settings.'}` },
     { target: hasCode ? 'share' : 'preview', view: 'preview', title: firebaseEnabled ? 'Share a live app' : 'Take your app with you', body: firebaseEnabled ? 'Once an app is built, Deploy appears in the preview toolbar. Sign in to publish it to a public URL or manage an existing deployment.' : 'Once an app is built, Export appears in the preview toolbar and downloads an HTML file. Open launches the current app in a new browser tab.' },
-    { target: wideScreen ? 'history' : 'preview', view: 'preview', title: 'Return to an earlier version', body: wideScreen ? 'History opens your saved versions, grouped by chat session. Select a checkpoint to return to it. Once you have more than one version, the preview toolbar also shows Undo and Redo.' : 'Builds are saved as versions. To browse those checkpoints, open AppBlips on a wider screen: History groups them by chat session, and the preview toolbar offers Undo and Redo when more than one version exists.' },
-    { target: 'apps', title: 'Keep your apps organized', body: 'Your work saves after builds. Apps lists your saved projects so you can reopen, rename, or delete them. Use New App when you are ready to start another idea.' },
-    { target: 'settings', title: 'Make the workspace yours', body: 'Settings lets you choose a theme and chat font, show the Code tab, and control clarifying questions. You can also skip the intro animation.' },
-    { target: 'help', title: 'You are ready to explore', body: 'Help has the full guide to building, previewing, and sharing. You can restart this tour there anytime. Try describing one small, useful app to begin.' },
+    { target: wideScreen ? 'history' : 'preview', view: 'preview', title: 'Return to an earlier version', body: wideScreen ? 'History opens your saved versions, grouped by chat session. Select a checkpoint to return to it. Once you have more than one version, the preview toolbar also shows Undo and Redo.' : 'Builds are saved as versions. Open the menu and choose History to browse checkpoints grouped by chat session. Preview tools also offers Previous and Next version controls.' },
+    { target: wideScreen ? 'apps' : 'menu', title: 'Keep your apps organized', body: 'Your work saves after builds. Apps lists your saved projects so you can reopen, rename, or delete them. Use New App when you are ready to start another idea.' },
+    { target: wideScreen ? 'settings' : 'menu', title: 'Make the workspace yours', body: 'Settings lets you choose a theme and chat font, show the Code tab, and control clarifying questions. You can also skip the intro animation.' },
+    { target: wideScreen ? 'help' : 'menu', title: 'You are ready to explore', body: 'Help has the full guide to building, previewing, and sharing. You can restart this tour there anytime. Try describing one small, useful app to begin.' },
   ];
   const step = steps[index];
 
@@ -55,7 +55,7 @@ export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, has
   useLayoutEffect(() => {
     let frame;
     const measure = () => {
-      const element = document.querySelector(`[data-tour="${step.target}"]`);
+      const element = [...document.querySelectorAll(`[data-tour="${step.target}"]`)].find(el => el.getBoundingClientRect().width > 0);
       const rect = element?.getBoundingClientRect();
       const viewport = window.visualViewport;
       const width = viewport?.width || window.innerWidth;
@@ -113,7 +113,8 @@ export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, has
     return () => {
       cancelAnimationFrame(focusFrame);
       if (root) root.inert = previousInert;
-      const restore = previousFocus?.isConnected && previousFocus !== document.body ? previousFocus : document.querySelector('[data-tour="help"]');
+      const fallback = document.querySelector('[data-tour="menu"]')?.getBoundingClientRect().width ? document.querySelector('[data-tour="menu"]') : document.querySelector('[data-tour="help"]');
+      const restore = previousFocus?.isConnected && previousFocus !== document.body ? previousFocus : fallback;
       restore?.focus({ preventScroll: true });
     };
   }, []);
