@@ -1,4 +1,26 @@
 /* Code Editor Polish */
+.code-view {
+  background-color: #000000;
+  color: #cfd8f3;
+}
+
+.code-view .custom-scrollbar {
+  scrollbar-color: #3f3f46 #000000;
+}
+
+.code-view .custom-scrollbar::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+.code-view .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 10px;
+}
+
+.code-view .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
 .code-line {
   display: flex;
   transition: background 0.2s;
@@ -12,7 +34,7 @@
   min-width: 3.5rem;
   text-align: right;
   padding-right: 1.5rem;
-  color: #444b6a;
+  color: #858b98;
   user-select: none;
   font-size: 0.8rem;
 }

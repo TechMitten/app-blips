@@ -42,4 +42,4 @@ USAGE_TRACKING.md
 .opencode/
 .playwright-mcp/
 .env copy.example
-.vscode/
+.vscode/users.json

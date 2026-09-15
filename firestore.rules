@@ -58,23 +58,20 @@ service cloud.firestore {
     }
 
     // Per-account, per-day API usage counters (functions/_lib/usageTracking.js).
-    // Written server-side by the /api/chat and /ai/chat proxies -- the callers
-    // there are, respectively, a signed-in account (whose own ID token isn't
-    // the right thing to authorize *this* write with) and an anonymous visitor
-    // of a deployed app (no user auth at all), so both write using the
-    // server's own App Check credential instead of `request.auth`. This is
-    // observability, not a billing boundary: writes are constrained to the
-    // known fields with each counter allowed to move by at most 1 per call,
-    // so the worst a forged write can do is inflate a counter, not read or
-    // corrupt anything else.
+    // Written server-side by the /api/chat and /ai/chat proxies. The writes do
+    // carry the server's App Check token, but that credential is a debug token
+    // (firebaseServer.js), and debug attestation never populates request.app
+    // in rules (verified live 2026-09-15 against ENFORCED Firestore) -- a
+    // request.app gate here made every write fail silently. So the rules gate
+    // purely by shape: known fields only, each counter at most +1 per call,
+    // reads owner-only, no deletes. This is observability, not a billing
+    // boundary; the worst an unauthenticated writer can do is inflate a counter.
     match /usage/{docId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.app != null
-                    && request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
+      allow create: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
                     && usageCounterValid(request.resource.data, 'builderRequests')
                     && usageCounterValid(request.resource.data, 'deployedRequests');
-      allow update: if request.app != null
-                    && request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
+      allow update: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
                     && request.resource.data.user_id == resource.data.user_id
                     && request.resource.data.date == resource.data.date
                     && usageCounterDelta(resource.data, request.resource.data, 'builderRequests')
