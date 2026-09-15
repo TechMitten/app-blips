@@ -2,6 +2,7 @@ import { consumeToken } from './rateLimit.js';
 import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
+import { trackApiUsage } from './usageTracking.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -187,7 +188,7 @@ export async function handleAiSession(request, env) {
   return json({ token: signed.token, expiresIn: signed.ttl, expiresAt: Date.now() + signed.ttl * 1000 }, 200);
 }
 
-export async function handleAiChat(request, env) {
+export async function handleAiChat(request, env, waitUntil) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   if (!originAllowed(request, env)) return errorResponse('unauthorized', 403, 'Request origin is not allowed.');
 
@@ -214,6 +215,10 @@ export async function handleAiChat(request, env) {
   // Accept a short-lived session token first; fall back to the legacy public
   // deployment token unless APPBLIPS_AI_REQUIRE_SESSION=true.
   let rateKey;
+  // Only resolved for the session-token path -- the legacy static-token path
+  // (below) doesn't currently carry the deployment's fields through, so those
+  // (deprecated) deployments' usage isn't counted.
+  let ownerUid;
   const session = await verifySessionToken(token, env);
   if (session) {
     let fields;
@@ -242,6 +247,7 @@ export async function handleAiChat(request, env) {
         return errorResponse('unauthorized', 403, 'AI session is no longer valid.');
       }
     }
+    ownerUid = fields?.user_id?.stringValue;
     rateKey = `chat:${session.slug}`;
   } else if (env.APPBLIPS_AI_REQUIRE_SESSION === 'true') {
     return errorResponse('unauthorized', 403, 'Invalid deployment token.');
@@ -311,6 +317,8 @@ export async function handleAiChat(request, env) {
     console.error('[ai-relay] upstream', upstream.status, detail.slice(0, 300));
     return errorResponse('upstream_error', 502, 'AI service request failed.');
   }
+  if (ownerUid) trackApiUsage(env, { uid: ownerUid, kind: 'deployed' }, waitUntil);
+
   return new Response(upstream.body, {
     status: 200,
     headers: { 'content-type': upstream.headers.get('content-type') || (stream ? 'text/event-stream' : 'application/json') },

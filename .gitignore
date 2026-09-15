@@ -30,6 +30,9 @@ coverage/
 .env.local
 .env.*.local
 
+# Operator notes, not for the repo
+USAGE_TRACKING.md
+
 # Misc
 .eslintcache
 .agents/
