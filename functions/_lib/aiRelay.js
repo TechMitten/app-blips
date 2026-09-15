@@ -5,8 +5,29 @@ import { verifyTurnstile } from './turnstile.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
+const CACHE_TTL_MS = 60_000;
+const MAX_CACHE_ENTRIES = 1000;
 const tokenCache = new Map();
 const slugCache = new Map();
+
+// Both caches are keyed by attacker-supplied input (an arbitrary bearer token,
+// an arbitrary slug). An entry's `expiresAt` only ever made reads miss --
+// nothing deleted it -- so a stream of unique keys grew the Map until the
+// isolate was recycled. Sweep expired entries first (cheap, and it keeps hot
+// keys resident); only if that is not enough drop oldest-inserted, which Map's
+// insertion-order iteration gives us for free.
+const cacheSet = (cache, key, value) => {
+  cache.set(key, { ...value, expiresAt: Date.now() + CACHE_TTL_MS });
+  if (cache.size <= MAX_CACHE_ENTRIES) return;
+  const now = Date.now();
+  for (const [entryKey, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(entryKey);
+  }
+  for (const entryKey of cache.keys()) {
+    if (cache.size <= MAX_CACHE_ENTRIES) break;
+    cache.delete(entryKey);
+  }
+};
 
 const json = (body, status, headers = {}) => new Response(JSON.stringify(body), {
   status,
@@ -49,7 +70,7 @@ export const validateDeploymentToken = async (token, env) => {
 
   const fields = await runDeploymentQuery('aiToken', token, env);
   const valid = Boolean(fields?.aiEnabled?.booleanValue && fields?.aiToken?.stringValue === token);
-  tokenCache.set(token, { valid, expiresAt: Date.now() + 60_000 });
+  cacheSet(tokenCache, token, { valid });
   return valid;
 };
 
@@ -63,7 +84,7 @@ export const fetchDeploymentBySlug = async (slug, env, { fresh = false } = {}) =
     if (cached && cached.expiresAt > Date.now()) return cached.fields;
   }
   const fields = await runDeploymentQuery('slug', slug, env);
-  slugCache.set(slug, { fields, expiresAt: Date.now() + 60_000 });
+  cacheSet(slugCache, slug, { fields });
   return fields;
 };
 
@@ -78,6 +99,8 @@ export const clearAiCachesForTesting = () => {
   tokenCache.clear();
   slugCache.clear();
 };
+
+export const aiCacheSizesForTesting = () => ({ tokens: tokenCache.size, slugs: slugCache.size, limit: MAX_CACHE_ENTRIES });
 
 const ownOrigin = (request) => {
   try { return new URL(request.url).origin; } catch { return ''; }
@@ -96,6 +119,20 @@ const clientIp = (request) =>
   request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
 const chatUrl = (base) => `${String(base).replace(/\/$/, '').replace(/\/chat\/completions$/, '')}/chat/completions`;
+
+// Two independent budgets. The per-IP bucket bounds one caller; the
+// per-deployment bucket bounds an app's total spend across every visitor, so it
+// has to be the looser of the two. Sharing a single number meant a busy app hit
+// its ceiling exactly as fast as a lone abuser did.
+const ipRateLimit = (env) => ({
+  max: parseInt(env?.APPBLIPS_AI_RATE_LIMIT_MAX, 10) || 20,
+  windowSeconds: parseInt(env?.APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS, 10) || 60,
+});
+
+const deploymentRateLimit = (env) => ({
+  max: parseInt(env?.APPBLIPS_AI_DEPLOYMENT_RATE_LIMIT_MAX, 10) || 120,
+  windowSeconds: parseInt(env?.APPBLIPS_AI_DEPLOYMENT_RATE_LIMIT_WINDOW_SECONDS, 10) || 60,
+});
 
 // Mints a short-lived, signed session token for an AI-enabled deployment.
 // Optionally gated by Cloudflare Turnstile; when TURNSTILE_SECRET is set a
@@ -120,9 +157,7 @@ export async function handleAiSession(request, env) {
   }
 
   const ip = clientIp(request);
-  const max = parseInt(env.APPBLIPS_AI_RATE_LIMIT_MAX, 10) || 20;
-  const windowSeconds = parseInt(env.APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS, 10) || 60;
-  const rate = consumeToken(`session:${ip}`, { max, windowSeconds });
+  const rate = consumeToken(`session:${ip}`, ipRateLimit(env));
   if (!rate.allowed) {
     return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(rate.retryAfter) });
   }
@@ -155,6 +190,13 @@ export async function handleAiSession(request, env) {
 export async function handleAiChat(request, env) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   if (!originAllowed(request, env)) return errorResponse('unauthorized', 403, 'Request origin is not allowed.');
+
+  // Ahead of the body read and of every Firestore lookup below. Token
+  // validation costs a database query per request and used to run with no
+  // limiter in front of it, so an unauthenticated caller could drive unbounded
+  // Firestore reads (and unbounded cache growth) with a stream of junk tokens.
+  const ipRate = consumeToken(`chat-ip:${clientIp(request)}`, ipRateLimit(env));
+  if (!ipRate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(ipRate.retryAfter) });
 
   let raw;
   try { raw = await request.text(); } catch { return errorResponse('payload_too_large', 413, 'Request payload is too large.'); }
@@ -215,14 +257,11 @@ export async function handleAiChat(request, env) {
     rateKey = `chat:${token}`;
   }
 
-  const max = parseInt(env.APPBLIPS_AI_RATE_LIMIT_MAX, 10) || 20;
-  const windowSeconds = parseInt(env.APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS, 10) || 60;
-  const rate = consumeToken(rateKey, { max, windowSeconds });
+  // Consumed only once the caller's own IP budget and the token have both
+  // cleared, so a rejected abuser can no longer drain the deployment's shared
+  // budget and deny AI to the app's real visitors.
+  const rate = consumeToken(rateKey, deploymentRateLimit(env));
   if (!rate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(rate.retryAfter) });
-
-  // Second bucket per client IP, so one caller cannot drain a deployment's whole budget.
-  const ipRate = consumeToken(`chat-ip:${clientIp(request)}`, { max, windowSeconds });
-  if (!ipRate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(ipRate.retryAfter) });
 
   const missingEnv = ['APPBLIPS_APP_LLM_BASE_URL', 'APPBLIPS_APP_LLM_API_KEY', 'APPBLIPS_APP_LLM_MODEL'].filter((key) => !env[key]);
   if (missingEnv.length) {
