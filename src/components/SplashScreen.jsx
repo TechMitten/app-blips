@@ -108,7 +108,10 @@ export default function SplashScreen({ skip = false }) {
         muted
         playsInline
         preload="auto"
-        onCanPlay={() => setIsVideoReady(true)}
+        onCanPlay={(e) => {
+          e.currentTarget.playbackRate = 1.35;
+          setIsVideoReady(true);
+        }}
         onEnded={handleVideoEnd}
         className={`relative z-10 w-[72rem] max-w-[220vw] sm:max-w-[180vw] md:max-w-[115vw] h-auto shrink-0 object-contain mix-blend-screen transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
         style={{
