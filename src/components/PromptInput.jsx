@@ -122,7 +122,7 @@ export default function PromptInput({
                   ? "e.g. Make the background dark, add a reset button..."
                   : "e.g. A minimalist task manager with categories..."
           }
-          className={`prompt-input-field w-full min-h-[52px] sm:min-h-[62px] max-h-40 px-4 pt-3.5 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar ${showEnhanceButton ? 'pr-11' : ''}`}
+          className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar ${showEnhanceButton ? 'pr-11' : ''}`}
           disabled={isGenerating || isEnhancingPrompt}
         />
         {showEnhanceButton && prompt.trim().length > 0 && (
@@ -138,26 +138,26 @@ export default function PromptInput({
           </button>
         )}
       </div>
-      <div className="prompt-input-footer flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 border-t-2 border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.04]">
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+      <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
+        <div className="flex items-center gap-2">
           {!isGenerating ? (
             <>
-              <div className="prompt-input-attach nav-segmented-group p-0.5 rounded-full border-2 border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.08] shadow-2xs flex items-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <div className="prompt-input-mode">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Attach an image from your device"
                   title="Attach an image from your device"
-                  className="nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white"
+                  className="chat-mode-option !min-w-[var(--composer-key-size)] !p-0"
                 >
-                  <Paperclip size={15} aria-hidden="true" />
+                  <Paperclip size={18} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -165,9 +165,9 @@ export default function PromptInput({
                   disabled={!hasCode || isCapturingScreenshot}
                   aria-label={isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview'}
                   title={!hasCode ? 'Build an app first to screenshot the preview' : (isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview')}
-                  className="nav-segmented-btn cursor-pointer w-8 h-8 !p-0 rounded-full transition-all text-slate-700 dark:text-white/70 hover:text-indigo-600 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-700 dark:disabled:hover:text-white/70"
+                  className="chat-mode-option !min-w-[var(--composer-key-size)] !p-0"
                 >
-                  {isCapturingScreenshot ? <Loader2 className="animate-spin" size={15} /> : <Camera size={15} aria-hidden="true" />}
+                  {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
                 </button>
               </div>
               <div className="chat-mode-toggle prompt-input-mode" aria-label="Toggle chat mode">
@@ -184,35 +184,31 @@ export default function PromptInput({
                   {chatMode === 'build' ? <Wand2 size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
                   <span>{chatMode === 'build' ? 'Build' : 'Ask'}</span>
                 </label>
+                <label
+                  className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active is-build' : ''} cursor-pointer !min-w-[var(--composer-key-size)] !p-0`}
+                  title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
+                >
+                  <input 
+                    type="checkbox" 
+                    checked={aiEnabled} 
+                    onChange={() => onAiEnabledChange?.(!aiEnabled)} 
+                    className="sr-only" 
+                  />
+                  <span>AI</span>
+                </label>
               </div>
             </>
           ) : null}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {!isGenerating && (
-            <div className="chat-mode-toggle prompt-input-mode" aria-label="AI text generation toggle">
-              <label
-                className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active' : ''} cursor-pointer`}
-                title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
-              >
-                <input 
-                  type="checkbox" 
-                  checked={aiEnabled} 
-                  onChange={() => onAiEnabledChange?.(!aiEnabled)} 
-                  className="sr-only" 
-                />
-                <span>AI</span>
-              </label>
-            </div>
-          )}
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-500 border-b-[3px] border-b-rose-900 dark:border-b-black/80 shadow-md transition-all hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer"
+              className="prompt-input-cancel composer-key composer-key-danger !rounded-full"
               aria-label="Cancel"
               title="Cancel"
             >
-              <X size={15} className="sm:w-[16px] sm:h-[16px]" />
+              <X size={18} />
             </button>
           )}
           <button
@@ -220,22 +216,18 @@ export default function PromptInput({
             disabled={!canSubmit}
             aria-label={submitLabel}
             title={submitLabel}
-            className={`prompt-input-action inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              canSubmit
-                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-600 text-white border-2 border-indigo-500/50 border-b-[4px] border-b-indigo-950 dark:border-b-black/80 shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 hover:scale-105 active:translate-y-0.5 active:scale-100 active:border-b-2 cursor-pointer'
-                : 'bg-slate-200/90 dark:bg-white/[0.08] text-slate-600 dark:text-white/40 border-2 border-slate-300 dark:border-white/15 border-b-[3px] border-b-slate-400/80 dark:border-b-black/80 cursor-not-allowed shadow-xs'
-            }`}
+            className={`prompt-input-action composer-key !rounded-full ${canSubmit ? 'composer-key-accent' : 'composer-key-off'}`}
           >
             {isGenerating ? (
-              <Loader2 className="animate-spin" size={17} />
+              <Loader2 className="animate-spin" size={18} />
             ) : chatMode === 'ask' ? (
-              <MessageSquare size={17} />
+              <MessageSquare size={18} />
             ) : isClarifying ? (
-              <MessageSquare size={17} />
+              <MessageSquare size={18} />
             ) : isChatActive ? (
-              <Edit2 size={17} />
+              <Edit2 size={18} />
             ) : (
-              <Send size={17} />
+              <Send size={18} />
             )}
           </button>
         </div>

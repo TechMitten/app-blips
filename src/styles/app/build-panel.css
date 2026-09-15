@@ -1,3 +1,37 @@
+/* The build pane is a width-capped column (~320-420px), so it must NOT ride
+   the root font scaling in index.css that grows the base from 16px to 25px on
+   large/ultra-wide monitors. Otherwise its rem-based text, padding and control
+   sizes scale up while the pane width stays fixed, and every element reads as
+   oversized. At those same breakpoints, re-pin the pane's Tailwind sizing
+   variables to their 16px-baseline pixel values; below 1280px the root is 16px
+   anyway, so phones, tablets and normal desktops are visually unchanged.
+
+   A user-chosen chat font size still wins: the [data-chat-font] rules in
+   chat-font.css have higher specificity than the plain .build-panel selector. */
+@media (min-width: 1280px) {
+  .build-panel {
+    --spacing: 4px;
+
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: 30px;
+
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --radius-3xl: 24px;
+
+    --container-xl: 576px;
+  }
+}
+
 /* Light-theme build pane — clean SaaS surface: off-white canvas, a quiet
    pastel mesh, and frosted glass cards on top of it (hairline borders, no
    heavy elevation). Dark theme is untouched below in its own :is() block. */
