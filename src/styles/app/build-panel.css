@@ -286,6 +286,20 @@
     0 4px 16px -4px rgba(0, 0, 0, 0.5);
 }
 
+/* Mirrors .build-panel-header above: the two pane headers sit side by side
+   and must read as one continuous chrome band. The JSX's bg-surface/95 is
+   #141414 here -- neutral where the left header is gunmetal, and identical
+   to --color-surface, which is why the segmented tracks used to vanish on
+   it. This unlayered rule outranks the Tailwind bg utility. */
+:is(html.dark, .force-dark) .preview-pane-header {
+  background: #14161f;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.05),
+    0 4px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
 /* Dark: the washed white/10 haze had almost no edge against the header. A
    solid elevated surface with a lit top edge gives it the same physical
    extrusion the rest of the dark theme uses. */

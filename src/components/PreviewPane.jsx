@@ -102,7 +102,7 @@ export default function PreviewPane({
 
           {/* Version indicator pill */}
           {versions.length > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200 dark:bg-black/30 dark:border-white/[0.07]">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
               v{currentVersionIndex + 1}
             </span>
@@ -233,7 +233,7 @@ export default function PreviewPane({
           {hasCode && (
             <button
               onClick={onOpenNewTab}
-              className="nav-btn bg-surface hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200/90 shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
+              className="nav-btn nav-btn-secondary font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
               title="Open preview in new browser tab"
             >
               <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
