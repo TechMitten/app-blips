@@ -52,6 +52,25 @@ let response = await handleAiChat(request({ messages: [{ role: 'user', content: 
 assert.equal(response.status, 403);
 await assertNoSecret(response);
 
+// Missing/foreign Origin is rejected (no durable non-browser clients allowed).
+const noOrigin = new Request('https://my.appblips.com/ai/chat', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+});
+response = await handleAiChat(noOrigin, baseEnv);
+assert.equal(response.status, 403);
+await assertNoSecret(response);
+
+const foreignOrigin = new Request('https://my.appblips.com/ai/chat', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', origin: 'https://attacker.invalid' },
+  body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+});
+response = await handleAiChat(foreignOrigin, baseEnv);
+assert.equal(response.status, 403);
+await assertNoSecret(response);
+
 const forcedToken = `force-${Date.now()}`;
 installFetch({
   validToken: forcedToken,
@@ -93,6 +112,7 @@ await assertNoSecret(response);
 
 const failureToken = `failure-${Date.now()}`;
 installFetch({ validToken: failureToken, upstreamStatus: 500 });
+clearRateLimitsForTesting();
 response = await handleAiChat(request({ token: failureToken, messages: [{ role: 'user', content: 'fail' }] }), baseEnv);
 assert.equal(response.status, 502);
 await assertNoSecret(response);

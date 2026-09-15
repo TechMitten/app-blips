@@ -78,3 +78,24 @@ export const loadSkipSplash = () => {
     return false;
   }
 };
+
+export const AI_INTRO_DISMISSED_KEY = 'orion-ai-intro-dismissed';
+
+// Boolean: whether the user ticked "don't show this again" on the explainer for
+// the generated-app AI toggle. Off by default, so the explainer shows whenever
+// AI is switched on until the user opts out.
+export const loadAiIntroDismissed = () => {
+  try {
+    return safeStorage('local')?.getItem(AI_INTRO_DISMISSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const saveAiIntroDismissed = () => {
+  try {
+    safeStorage('local')?.setItem(AI_INTRO_DISMISSED_KEY, 'true');
+  } catch {
+    // Optional preference; unreadable storage just means it shows again.
+  }
+};

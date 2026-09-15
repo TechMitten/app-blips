@@ -114,3 +114,208 @@
   background-size: 28px 28px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
 }
+
+/* ===== Building overlay, dark theme ("plotter at night") =====
+
+   The sandbox screen while an app is generating. Light keeps its frosted
+   white card untouched -- every rule below is scoped to html.dark/.force-dark
+   and keyed off .building-* hooks that carry no styling of their own, so the
+   light DOM is identical to before.
+
+   On dark the screen becomes a drafting surface: blueprint rules receding
+   into the void under a cold indigo worklight, a ticked plotter dial sweeping
+   at the center, and the rotating status line spoken in the instrument (mono)
+   voice rather than the human one -- echoing the empty state's grid so the
+   two states read as the same place. */
+
+:is(html.dark, .force-dark) .building-overlay {
+  --build-void: #0b0d16;
+  --build-void-deep: #090a11;
+  --build-rule: rgb(148 163 255 / 0.07);
+  --build-worklight: #7c89ff;
+  --build-beam: #cdd5ff;
+  --build-ink: #e9ecf6;
+  --build-muted: #8b93a8;
+  --build-amber-ink: #f5c97a;
+
+  background:
+    radial-gradient(120% 78% at 50% 6%, rgb(124 137 255 / 0.16), transparent 58%),
+    radial-gradient(90% 70% at 50% 118%, rgb(28 32 68 / 0.55), transparent 62%),
+    linear-gradient(180deg, var(--build-void) 0%, var(--build-void-deep) 100%);
+}
+
+/* Blueprint field, faded at the edges so it reads as a surface receding into
+   the dark rather than tiled wallpaper. */
+:is(html.dark, .force-dark) .building-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--build-rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--build-rule) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center;
+  -webkit-mask-image: radial-gradient(ellipse 78% 72% at 50% 42%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 78% 72% at 50% 42%, #000 0%, transparent 78%);
+}
+
+:is(html.dark, .force-dark) .building-overlay > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- Plotter dial: a static tick ring under a rotating sweep head --- */
+:is(html.dark, .force-dark) .building-spinner-track {
+  border-color: transparent;
+  border-radius: 999px;
+  background: repeating-conic-gradient(
+    from -0.8deg,
+    rgb(124 137 255 / 0.45) 0deg 1.6deg,
+    transparent 1.6deg 10deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+}
+
+:is(html.dark, .force-dark) .building-spinner-ring {
+  border-color: transparent;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 0deg,
+    rgb(124 137 255 / 0) 0deg,
+    rgb(124 137 255 / 0) 232deg,
+    rgb(124 137 255 / 0.35) 300deg,
+    var(--build-beam) 352deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  animation: build-sweep 1.8s linear infinite;
+}
+
+:is(html.dark, .force-dark) .building-spinner-glyph {
+  color: var(--build-beam);
+  filter: drop-shadow(0 0 7px rgb(124 137 255 / 0.75));
+}
+
+/* --- Typography: title in the human voice, status in the instrument voice --- */
+:is(html.dark, .force-dark) .building-title {
+  color: var(--build-ink);
+  letter-spacing: -0.01em;
+}
+
+:is(html.dark, .force-dark) .building-status {
+  font-family: var(--font-mono);
+  color: var(--build-muted);
+  letter-spacing: 0.005em;
+}
+
+/* Live build-log caret: the machine is mid-sentence. */
+:is(html.dark, .force-dark) .building-status-live::after {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 0.95em;
+  margin-left: 0.4em;
+  vertical-align: -0.14em;
+  background: var(--build-worklight);
+  animation: build-caret 1.15s steps(1, end) infinite;
+}
+
+/* --- Auto-fix / repair: same instrument, amber worklight --- */
+:is(html.dark, .force-dark) .building-overlay-error .building-spinner-track {
+  background: repeating-conic-gradient(
+    from -0.8deg,
+    rgb(245 185 63 / 0.45) 0deg 1.6deg,
+    transparent 1.6deg 10deg
+  );
+}
+
+:is(html.dark, .force-dark) .building-overlay-error .building-spinner-ring {
+  background: conic-gradient(
+    from 0deg,
+    rgb(245 185 63 / 0) 0deg,
+    rgb(245 185 63 / 0) 232deg,
+    rgb(245 185 63 / 0.35) 300deg,
+    var(--build-amber-ink) 352deg,
+    transparent 360deg
+  );
+}
+
+:is(html.dark, .force-dark) .building-overlay-error .building-spinner-glyph {
+  color: var(--build-amber-ink);
+  filter: drop-shadow(0 0 7px rgb(245 185 63 / 0.7));
+}
+
+:is(html.dark, .force-dark) .building-error-text {
+  color: var(--build-amber-ink);
+}
+
+:is(html.dark, .force-dark) .building-error-code {
+  background: rgb(0 0 0 / 0.42);
+  border-color: rgb(245 185 63 / 0.28);
+  color: #d8c7a2;
+}
+
+/* Cancel control on the auto-fix overlay. Present in both themes: a quiet
+   stop button that stays out of the spinner's way until hovered. */
+.building-cancel {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+  cursor: pointer;
+}
+
+.building-cancel:hover {
+  color: #e11d48;
+  border-color: #fda4af;
+  background: #fff1f2;
+}
+
+.building-cancel:active {
+  transform: translateY(0.5px) scale(0.98);
+}
+
+.building-cancel:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgb(225 29 72 / 0.4);
+}
+
+:is(html.dark, .force-dark) .building-cancel {
+  background: rgb(255 255 255 / 0.04);
+  color: var(--build-muted);
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .building-cancel:hover {
+  color: #fecdd3;
+  border-color: rgb(244 63 94 / 0.5);
+  background: rgb(244 63 94 / 0.12);
+}
+
+:is(html.dark, .force-dark) .building-cancel:focus-visible {
+  box-shadow: 0 0 0 2px #0b0d16, 0 0 0 4px rgb(244 63 94 / 0.55);
+}
+
+@keyframes build-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes build-caret {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(html.dark, .force-dark) .building-spinner-ring {
+    animation: none;
+  }
+  :is(html.dark, .force-dark) .building-status-live::after {
+    animation: none;
+    opacity: 1;
+  }
+}

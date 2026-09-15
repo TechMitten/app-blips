@@ -7,7 +7,7 @@ import { injectAnalyticsSnippet } from './analytics';
 import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 import { injectRemixBadgeSnippet } from './remixBadge';
-import { injectAiBridge } from './aiBridge';
+import { injectAiBridge, AI_SESSION_ENABLED } from './aiBridge';
 
 // --- Deployment ---
 //
@@ -92,6 +92,9 @@ export const registerDeployment = async ({
           aiEnabled: Boolean(aiEnabled),
           // Public by design: this binds/rate-limits a real deployment; it is not a provider secret.
           aiToken: aiEnabled ? aiToken : null,
+          // Bumping this invalidates every outstanding short-lived AI session
+          // token for the deployment. Redeploying (or toggling AI) rotates it.
+          aiTokenGeneration: aiEnabled ? (Number(docSnap.exists() ? docSnap.data()?.aiTokenGeneration : 0) || 0) + 1 : null,
           updated_at: new Date().toISOString()
         });
       });
@@ -120,7 +123,9 @@ export const uploadDeploy = async ({ path, html, password, preventIndexing, favi
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   let withExtras = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
-  if (aiEnabled) withExtras = injectAiBridge(withExtras, aiToken);
+  // Session mode stops embedding the durable deployment token in the shipped
+  // HTML entirely; the page mints short-lived tokens at runtime instead.
+  if (aiEnabled) withExtras = injectAiBridge(withExtras, { token: AI_SESSION_ENABLED ? null : aiToken });
   if (analyticsWebsiteId) {
     withExtras = injectAppAnalyticsSnippet(withExtras, analyticsWebsiteId);
   }
