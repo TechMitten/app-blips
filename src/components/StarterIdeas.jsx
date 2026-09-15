@@ -80,6 +80,22 @@ function StarterRow({ ideas, rowIndex, onPick }) {
     moveResetTimeout: null,
   });
   const autoPausedRef = useRef(false);
+  // Touch has no hover, so the marquee pause can't rely on mouseenter/leave:
+  // this stays true while a finger is down and for a settle window after
+  // lift-off/momentum scrolling, extended on every scroll event so native
+  // touch momentum isn't fought by the auto-scroll RAF loop.
+  const touchPausedRef = useRef(false);
+  const touchSettleTimeoutRef = useRef(null);
+
+  const scheduleTouchResume = () => {
+    if (touchSettleTimeoutRef.current != null) {
+      clearTimeout(touchSettleTimeoutRef.current);
+    }
+    touchSettleTimeoutRef.current = setTimeout(() => {
+      touchPausedRef.current = false;
+      touchSettleTimeoutRef.current = null;
+    }, 400);
+  };
 
   // Render 3 sets of ideas so the row can wrap seamlessly in either direction
   const tripleIdeas = useMemo(() => [...ideas, ...ideas, ...ideas], [ideas]);
@@ -123,6 +139,9 @@ function StarterRow({ ideas, rowIndex, onPick }) {
       if (dragRef.current.moveResetTimeout != null) {
         clearTimeout(dragRef.current.moveResetTimeout);
       }
+      if (touchSettleTimeoutRef.current != null) {
+        clearTimeout(touchSettleTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -149,7 +168,7 @@ function StarterRow({ ideas, rowIndex, onPick }) {
       raf = requestAnimationFrame(step);
       const scroller = scrollerRef.current;
       const drag = dragRef.current;
-      if (!scroller || autoPausedRef.current || reducedMotion.matches || drag.isDown || drag.moved || drag.momentumRaf != null) {
+      if (!scroller || autoPausedRef.current || touchPausedRef.current || reducedMotion.matches || drag.isDown || drag.moved || drag.momentumRaf != null) {
         lastTime = now;
         pos = null;
         clearSubpixel();
@@ -185,9 +204,23 @@ function StarterRow({ ideas, rowIndex, onPick }) {
   }, [rowIndex]);
 
   const handlePointerDown = (e) => {
-    if (e.pointerType !== 'mouse') return;
     const scroller = scrollerRef.current;
     if (!scroller) return;
+
+    if (e.pointerType !== 'mouse') {
+      // Let the browser handle touch/pen panning natively (overflow-x-auto
+      // already supports it); we only need to pause the auto-scroll RAF
+      // loop so it stops overwriting scrollLeft out from under the user.
+      if (touchSettleTimeoutRef.current != null) {
+        clearTimeout(touchSettleTimeoutRef.current);
+        touchSettleTimeoutRef.current = null;
+      }
+      touchPausedRef.current = true;
+      getSingleWidth();
+      const track = trackRef.current;
+      if (track) track.style.transform = '';
+      return;
+    }
 
     if (dragRef.current.momentumRaf != null) {
       cancelAnimationFrame(dragRef.current.momentumRaf);
@@ -260,6 +293,10 @@ function StarterRow({ ideas, rowIndex, onPick }) {
   };
 
   const endDrag = (e) => {
+    if (e?.pointerType && e.pointerType !== 'mouse') {
+      scheduleTouchResume();
+      return;
+    }
     const drag = dragRef.current;
     if (!drag.isDown) return;
     drag.isDown = false;
@@ -304,6 +341,9 @@ function StarterRow({ ideas, rowIndex, onPick }) {
   };
 
   const handleScroll = () => {
+    if (touchPausedRef.current && touchSettleTimeoutRef.current != null) {
+      scheduleTouchResume();
+    }
     const sw = getSingleWidth();
     if (sw <= 0) return;
     const scroller = scrollerRef.current;
