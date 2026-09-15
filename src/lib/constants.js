@@ -5,7 +5,9 @@ import {
   Monitor, Tablet, RotateCw, Moon, Sun, PanelLeftOpen, PanelLeftClose, TriangleAlert, Eye, EyeOff,
   Calculator, KeyRound, Ruler, LogIn, LogOut, User, CloudUpload, Mail, ExternalLink, Zap, Layers,
   Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard, ChefHat, Grid3x3, Brain,
-  GraduationCap, Music, Dumbbell, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost
+  GraduationCap, Music, Dumbbell, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost,
+  Worm, WholeWord, CalendarCheck, PiggyBank, Shapes, Drum, Hammer, CircleDot, CircleDotDashed,
+  Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins
 } from 'lucide-react';
 
 // Cloudflare Turnstile site key for Supabase auth bot protection. Public by
@@ -26,7 +28,7 @@ export const PRESET_COLORS = [
 ];
 
 export const AVAILABLE_ICONS = {
-  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, Trophy, Radio, Keyboard, Rocket, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost
+  Wand2, Smartphone, Code2, Layout, TerminalSquare, Timer, CloudSun, Receipt, ListChecks, Edit2, Clock, ListTodo, Wallet, Calculator, KeyRound, Ruler, Zap, Layers, Search, Monitor, Trophy, Radio, Keyboard, Rocket, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost, Worm, WholeWord, CalendarCheck, PiggyBank, Shapes, Drum, Hammer, CircleDot, CircleDotDashed, Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins
 };
 
 export const STARTER_PRESETS = [
@@ -55,7 +57,7 @@ export const STARTER_PRESETS = [
     title: "Retro Snake",
     prompt: "A classic retro arcade Snake game with smooth grid navigation, growing tail mechanics, collectible golden apples, speed multipliers, particle food bursts, and high-score tracking.",
     category: "Arcade",
-    icon: Gamepad2,
+    icon: Worm,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
@@ -97,14 +99,14 @@ export const STARTER_PRESETS = [
     title: "Budget Planner",
     prompt: "A personal budget tracker with quick expense entry, category breakdown charts, a monthly spending vs. income summary, savings goal progress bars, and a clean ledger of recent transactions.",
     category: "Finance",
-    icon: Wallet,
+    icon: PiggyBank,
     color: "text-teal-600 bg-teal-50"
   },
   {
     title: "Brick Breaker",
     prompt: "An action-packed arcade brick breaker with responsive paddle movement, physics-driven ball bounces, power-ups like multi-ball and laser paddles, sound effects, and multi-tier brick layouts.",
     category: "Arcade",
-    icon: Target,
+    icon: Blocks,
     color: "text-indigo-600 bg-indigo-50"
   },
   {
@@ -125,21 +127,21 @@ export const STARTER_PRESETS = [
     title: "Word Guess",
     prompt: "A daily 5-letter word guessing game with animated flip tiles, green/yellow/gray letter feedback, an interactive on-screen keyboard, guess distribution stats, and win streak counters.",
     category: "Word",
-    icon: Sparkles,
+    icon: WholeWord,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
     title: "Habit Tracker",
     prompt: "A daily habit tracker with a clean weekly grid view, one-tap check-ins, streak counters with milestone celebrations, per-habit color coding, and a monthly completion heatmap.",
     category: "Productivity",
-    icon: ListChecks,
+    icon: CalendarCheck,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
     title: "Pixel Bird",
     prompt: "A retro pixel-style bird flapping obstacle runner with one-tap physics, scrolling parallax pipes, collision detection, coin pickups, medal achievements, and instant restart.",
     category: "Arcade",
-    icon: Flame,
+    icon: Bird,
     color: "text-sky-600 bg-sky-50"
   },
   {
@@ -153,14 +155,14 @@ export const STARTER_PRESETS = [
     title: "Drum Machine",
     prompt: "A playable step-sequencer drum machine with multiple synthesized drum kits, an adjustable BPM, a 16-step pattern grid, pattern save/load slots, and reactive visual pulses on each beat.",
     category: "Audio",
-    icon: Music,
+    icon: Drum,
     color: "text-violet-600 bg-violet-50"
   },
   {
     title: "Memory Match",
     prompt: "A colorful card matching memory game with 3D flip card animations, emoji pair themes, move counter, accuracy score, combo streak multipliers, and star rating on completion.",
     category: "Memory",
-    icon: Puzzle,
+    icon: Shapes,
     color: "text-violet-600 bg-violet-50"
   },
   {
@@ -174,7 +176,7 @@ export const STARTER_PRESETS = [
     title: "Retro Pong",
     prompt: "A fast-paced neon Pong table tennis arcade game with single-player vs smart AI or 2-player local mode, dynamic ball spin, speed acceleration, sound synth pulses, and score display.",
     category: "Arcade",
-    icon: Swords,
+    icon: Gamepad2,
     color: "text-blue-600 bg-blue-50"
   },
   {
@@ -188,14 +190,14 @@ export const STARTER_PRESETS = [
     title: "Whack-a-Mole",
     prompt: "A rapid-reaction whack-a-mole game with animated pop-up critters, bonus gold moles, combo multipliers, hammer smash effects, a 60-second frenzy timer, and local leaderboards.",
     category: "Arcade",
-    icon: Ghost,
+    icon: Hammer,
     color: "text-amber-600 bg-amber-50"
   },
   {
     title: "Connect Four",
     prompt: "A modern Connect Four board game with gravity piece-drop physics, unbeatable Minimax AI mode or local pass-and-play, winning 4-in-a-row highlight animations, and round win stats.",
     category: "Strategy",
-    icon: Trophy,
+    icon: Coins,
     color: "text-rose-600 bg-rose-50"
   }
 ];
@@ -205,35 +207,35 @@ export const ASK_STARTER_PRESETS = [
     title: "Explain React Hooks",
     prompt: "Can you explain how React hooks work, specifically useState and useEffect, with simple examples?",
     category: "React",
-    icon: Code2,
+    icon: Atom,
     color: "text-blue-600 bg-blue-50"
   },
   {
     title: "Tailwind CSS Tips",
     prompt: "What are some best practices for using Tailwind CSS in a large React project?",
     category: "CSS",
-    icon: Layout,
+    icon: Palette,
     color: "text-sky-600 bg-sky-50"
   },
   {
     title: "Fix a Bug",
     prompt: "I have a bug in my JavaScript code where a variable is undefined. What are the common causes and how do I debug it?",
     category: "Debugging",
-    icon: TerminalSquare,
+    icon: Bug,
     color: "text-rose-600 bg-rose-50"
   },
   {
     title: "Optimize Performance",
     prompt: "What are the most effective ways to optimize the performance of a modern web application?",
     category: "Performance",
-    icon: Zap,
+    icon: Gauge,
     color: "text-amber-600 bg-amber-50"
   },
   {
     title: "Explain Async/Await",
     prompt: "Can you explain JavaScript Promises and the async/await syntax in a way that is easy to understand?",
     category: "JavaScript",
-    icon: Code2,
+    icon: Hourglass,
     color: "text-emerald-600 bg-emerald-50"
   },
   {
@@ -247,21 +249,21 @@ export const ASK_STARTER_PRESETS = [
     title: "Write a Regex",
     prompt: "Can you write and explain a regular expression that validates email addresses?",
     category: "Regex",
-    icon: Search,
+    icon: Regex,
     color: "text-violet-600 bg-violet-50"
   },
   {
     title: "Learn TypeScript",
     prompt: "What are the main benefits of using TypeScript over plain JavaScript, and how do I get started?",
     category: "TypeScript",
-    icon: Code2,
+    icon: Braces,
     color: "text-blue-600 bg-blue-50"
   },
   {
     title: "Database Design",
     prompt: "How should I structure a SQL database for a simple e-commerce store with users, products, and orders?",
     category: "Database",
-    icon: ListTodo,
+    icon: Database,
     color: "text-teal-600 bg-teal-50"
   }
 ];

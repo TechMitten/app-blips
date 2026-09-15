@@ -8,53 +8,50 @@ const DRAG_CLICK_THRESHOLD = 5;
 // Auto-scroll speed in px per ms (~14px/s) for the idle marquee drift.
 const AUTO_SCROLL_SPEED = 0.014;
 
+// Icon tile treatments keyed by hue. Tailwind's scanner only sees literal class
+// names, so each variant is spelled out in full rather than composed at runtime.
+//
+// Icon tile treatments keyed by hue.
+//
+// CAUTION: the dark theme mirrors every hue ramp (dark[n] == stock[1000-n]; see
+// index.css). Under .dark the LOW steps are the dark colors and the HIGH steps
+// are the light ones, so a step must not be reused across themes:
+//   Light — ink on paper: a -50 tint carrying a saturated -600 stroke.
+//   Dark  — low-alpha -500 tint with a bright -700 stroke. (Bright is a HIGH
+//   step here; reusing the light theme's -600 stroke would give a pale tile
+//   with white-on-pastel, and -300 would give a dark, invisible glyph.)
+// The hue lives only in the tile: card hover feedback comes from the lift,
+// border, and shadow, so no colored wash sits on top of the content.
+const ICON_THEMES = {
+  amber: {
+    tile: 'bg-amber-50 text-amber-600 dark:bg-amber-500/25 dark:text-amber-700',
+  },
+  sky: {
+    tile: 'bg-sky-50 text-sky-600 dark:bg-sky-500/25 dark:text-sky-700',
+  },
+  emerald: {
+    tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-700',
+  },
+  violet: {
+    tile: 'bg-violet-50 text-violet-600 dark:bg-violet-500/25 dark:text-violet-700',
+  },
+  rose: {
+    tile: 'bg-rose-50 text-rose-600 dark:bg-rose-500/25 dark:text-rose-700',
+  },
+  blue: {
+    tile: 'bg-blue-50 text-blue-600 dark:bg-blue-500/25 dark:text-blue-700',
+  },
+  teal: {
+    tile: 'bg-teal-50 text-teal-600 dark:bg-teal-500/25 dark:text-teal-700',
+  },
+  indigo: {
+    tile: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/25 dark:text-indigo-700',
+  },
+};
+
 const getColorClasses = (colorString = '') => {
-  if (colorString.includes('amber')) {
-    return {
-      bg: 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-md shadow-amber-500/25',
-      glow: 'bg-amber-500',
-    };
-  }
-  if (colorString.includes('sky')) {
-    return {
-      bg: 'bg-gradient-to-br from-sky-400 to-sky-600 text-white shadow-md shadow-sky-500/25',
-      glow: 'bg-sky-500',
-    };
-  }
-  if (colorString.includes('emerald')) {
-    return {
-      bg: 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md shadow-emerald-500/25',
-      glow: 'bg-emerald-500',
-    };
-  }
-  if (colorString.includes('violet')) {
-    return {
-      bg: 'bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-md shadow-violet-500/25',
-      glow: 'bg-violet-500',
-    };
-  }
-  if (colorString.includes('rose')) {
-    return {
-      bg: 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-md shadow-rose-500/25',
-      glow: 'bg-rose-500',
-    };
-  }
-  if (colorString.includes('blue')) {
-    return {
-      bg: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/25',
-      glow: 'bg-blue-500',
-    };
-  }
-  if (colorString.includes('teal')) {
-    return {
-      bg: 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-md shadow-teal-500/25',
-      glow: 'bg-teal-500',
-    };
-  }
-  return {
-    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25',
-    glow: 'bg-indigo-500',
-  };
+  const match = colorString.match(/amber|sky|emerald|violet|rose|blue|teal|indigo/);
+  return ICON_THEMES[match ? match[0] : 'indigo'];
 };
 
 const shuffle = (items) => {
@@ -341,16 +338,11 @@ function StarterRow({ ideas, rowIndex, onPick }) {
         title={`${starter.title} — ${starter.prompt}`}
         className="starter-pop-card group relative shrink-0 flex items-center gap-2.5 text-left pl-3 pr-4 py-2.5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/20 select-none"
       >
-        <div
-          className={`absolute -right-4 -top-4 w-16 h-16 rounded-full blur-lg opacity-0 group-hover:opacity-30 dark:group-hover:opacity-20 transition-opacity duration-300 pointer-events-none ${theme.glow}`}
-          aria-hidden="true"
-        />
-
-        <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold ${theme.bg} shadow-xs transition-transform duration-200 group-hover:scale-105`}>
-          <IconComponent size={15} strokeWidth={2.2} />
+        <div className={`shrink-0 w-9 h-9 rounded-[0.65rem] flex items-center justify-center transition-transform duration-200 group-hover:scale-[1.06] ${theme.tile}`}>
+          <IconComponent size={18} strokeWidth={2.1} />
         </div>
 
-        <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors leading-snug tracking-tight whitespace-nowrap">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors leading-snug tracking-tight whitespace-nowrap">
           {starter.title}
         </h4>
       </button>

@@ -52,6 +52,13 @@ export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analy
 If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build a game", "make an app", or "make it better" without specifying what kind of features or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
 Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
 
+// Produces the one-sentence chat acknowledgement for a build/edit turn. This is
+// deliberately a separate, reasoning-disabled completion that runs before the
+// heavy generation call, so the user sees a reply in the transcript immediately
+// instead of only after the model's (hidden) reasoning tokens have finished.
+export const CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in an app-building chat. The user has just asked to build a new single-file web app or change an existing one.
+Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The app itself is generated separately after your reply, so never include or describe code.`;
+
 export const VIEW_CODE_TOOL = {
   type: 'function',
   function: {
