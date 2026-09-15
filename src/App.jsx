@@ -11,6 +11,7 @@ import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
+import AiIntroModal from './components/AiIntroModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
@@ -42,7 +43,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAiIntroDismissed, saveAiIntroDismissed } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useChatFont from './hooks/useChatFont';
@@ -73,6 +74,7 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
+  const [isAiIntroOpen, setIsAiIntroOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -207,6 +209,21 @@ export default function App() {
       setIsResumingProject, clearStreamingState,
     },
   });
+
+  // Toggling generated-app AI from the prompt footer. The explainer shows each
+  // time AI is switched on until the user opts out from inside it.
+  const handleAiEnabledChange = useCallback((enabled) => {
+    setAiEnabled(enabled);
+    saveProject({ aiEnabledToSave: enabled, force: true });
+    if (enabled && !loadAiIntroDismissed()) {
+      setIsAiIntroOpen(true);
+    }
+  }, [saveProject]);
+
+  const handleAiIntroClose = useCallback((neverShowAgain) => {
+    if (neverShowAgain) saveAiIntroDismissed();
+    setIsAiIntroOpen(false);
+  }, []);
 
   // --- Deployment ---
   const currentVersionId = versions[currentVersionIndex]?.id ?? null;
@@ -739,7 +756,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -1214,6 +1231,10 @@ export default function App() {
         <HelpModal onClose={() => setIsHelpOpen(false)} onStartTour={startTour} />
       )}
 
+      {isAiIntroOpen && (
+        <AiIntroModal mode={generatedAiMode} onClose={handleAiIntroClose} />
+      )}
+
       {isProjectsListOpen && (
         <ProjectsListModal
           projects={myProjects}
@@ -1343,7 +1364,7 @@ export default function App() {
               isResumingProject={isResumingProject}
               chatMode={chatMode}
               aiEnabled={aiEnabled}
-              onAiEnabledChange={(enabled) => { setAiEnabled(enabled); saveProject({ aiEnabledToSave: enabled, force: true }); }}
+              onAiEnabledChange={handleAiEnabledChange}
               onChatModeChange={setChatMode}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
@@ -1417,6 +1438,7 @@ export default function App() {
               generationStatus={generationStatus}
               isAutoFixing={isAutoFixing}
               autoFixMessage={autoFixMessage}
+              onCancelGeneration={handleCancelGeneration}
               code={codePanelCode}
               copied={copied}
               onCopyCode={handleCopyCode}

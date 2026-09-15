@@ -141,7 +141,8 @@ export const requestModelText = async ({
   tool_choice = null,
   reasoningEffort = null,
   retryCount = 0,
-  signal = null
+  signal = null,
+  forceTemperatureZero = false
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
 
@@ -166,6 +167,9 @@ export const requestModelText = async ({
     if (reasoningEffort !== null) bodyObj.reasoning_effort = reasoningEffort;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
+    // Signals an error-repair request to the proxy, which pins temperature to
+    // 0.0 for deterministic fixes regardless of APPBLIPS_LLM_TEMPERATURE.
+    if (forceTemperatureZero) bodyObj.auto_fix = true;
 
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -294,7 +298,7 @@ export const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -356,7 +360,8 @@ export const generateAppCode = async (
   askClarifyingQuestions = true,
   attachment = null,
   aiEnabled = false,
-  aiMode = 'hosted'
+  aiMode = 'hosted',
+  isAutoFix = false
 ) => {
   if (isAskMode) {
     const messages = [
@@ -457,7 +462,13 @@ export const generateAppCode = async (
         if (onChunk) onChunk('No code returned — retrying…', 'status');
       }
 
-      const message = await requestModelText({ messages, onChunk, signal });
+      const message = await requestModelText({
+        messages,
+        onChunk,
+        signal,
+        forceTemperatureZero: isAutoFix,
+        reasoningEffort: isAutoFix ? 'none' : null
+      });
 
       rawText = message.content || message;
       code = sanitizeHtmlResponse(rawText);
@@ -491,14 +502,18 @@ export const generateAppCode = async (
             messages: repairMessages,
             tools: REFINEMENT_TOOLS,
             tool_choice: 'required',
-            signal
+            signal,
+            forceTemperatureZero: true,
+            reasoningEffort: 'none'
           });
         } catch {
           repairMessage = await requestModelText({
             messages: repairMessages,
             tools: REFINEMENT_TOOLS,
             tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
-            signal
+            signal,
+            forceTemperatureZero: true,
+            reasoningEffort: 'none'
           });
         }
 
@@ -592,7 +607,10 @@ export const generateAppCode = async (
         onChunk,
         tools: currentTools,
         tool_choice: turn === 1 ? 'required' : 'auto',
-        signal
+        signal,
+        // This loop only ever applies surgical edits, so keep it deterministic.
+        forceTemperatureZero: true,
+        reasoningEffort: 'none'
       });
     } catch (e) {
       if (turn !== 1 || signal?.aborted) throw e;
@@ -603,7 +621,10 @@ export const generateAppCode = async (
         onChunk,
         tools: currentTools,
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
-        signal
+        signal,
+        // This loop only ever applies surgical edits, so keep it deterministic.
+        forceTemperatureZero: true,
+        reasoningEffort: 'none'
       });
     }
 

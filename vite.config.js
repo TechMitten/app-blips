@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Readable } from 'node:stream'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
-import { handleAiChat } from './functions/_lib/aiRelay.js'
+import { handleAiChat, handleAiSession } from './functions/_lib/aiRelay.js'
 import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 
@@ -51,21 +51,25 @@ function aiRelayDevMiddleware(mode) {
     name: 'appblips-ai-relay-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
-      server.middlewares.use('/ai/chat', async (req, res) => {
-        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
-        const chunks = []
-        for await (const chunk of req) chunks.push(chunk)
-        const request = new Request('http://' + (req.headers.host || 'localhost') + '/ai/chat', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', ...(req.headers.origin ? { origin: req.headers.origin } : {}) },
-          body: Buffer.concat(chunks),
+      const handle = (path, handler) => {
+        server.middlewares.use(path, async (req, res) => {
+          if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
+          const chunks = []
+          for await (const chunk of req) chunks.push(chunk)
+          const request = new Request('http://' + (req.headers.host || 'localhost') + path, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', ...(req.headers.origin ? { origin: req.headers.origin } : {}) },
+            body: Buffer.concat(chunks),
+          })
+          const response = await handler(request, env)
+          res.statusCode = response.status
+          response.headers.forEach((value, key) => res.setHeader(key, value))
+          if (response.body) Readable.fromWeb(response.body).pipe(res)
+          else res.end()
         })
-        const response = await handleAiChat(request, env)
-        res.statusCode = response.status
-        response.headers.forEach((value, key) => res.setHeader(key, value))
-        if (response.body) Readable.fromWeb(response.body).pipe(res)
-        else res.end()
-      })
+      }
+      handle('/ai/chat', handleAiChat)
+      handle('/ai/session', handleAiSession)
     },
   }
 }

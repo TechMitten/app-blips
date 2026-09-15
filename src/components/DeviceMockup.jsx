@@ -232,7 +232,7 @@ function BuildingStatusMessage() {
   }, []);
 
   return (
-    <p key={messageIndex} className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+    <p key={messageIndex} className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
       {BUILDING_MESSAGES[messageIndex]}
     </p>
   );
@@ -255,6 +255,7 @@ export default function DeviceMockup({
   isAutoFixing = false,
   autoFixMessage = null,
   isTransitioning = false,
+  onCancelGeneration,
 }) {
   const box = getEffectivePreviewBox(mode, orientation);
   const isSyntaxErrorAutoFix = Boolean(
@@ -405,27 +406,27 @@ export default function DeviceMockup({
             )}
           </div>
           {(isGenerating || isErrorAutoFix) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
+            <div className={`building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center${isErrorAutoFix ? ' building-overlay-error' : ''}`}>
               <div 
                 className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                 style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
               >
-                <div className="relative w-16 h-16 mb-6">
+                <div className="building-spinner relative w-16 h-16 mb-6">
                   {isErrorAutoFix ? (
                     <>
-                      <div className="absolute inset-0 border-4 border-amber-100 rounded-full"></div>
-                      <div className="absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin"></div>
-                      <Wrench className="absolute inset-0 m-auto text-amber-600" size={22} />
+                      <div className="building-spinner-track absolute inset-0 border-4 border-amber-100 rounded-full"></div>
+                      <div className="building-spinner-ring absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin"></div>
+                      <Wrench className="building-spinner-glyph absolute inset-0 m-auto text-amber-600" size={22} />
                     </>
                   ) : (
                     <>
-                      <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                      <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                      <Sparkles className="absolute inset-0 m-auto text-blue-500" size={22} />
+                      <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                      <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                      <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
                     </>
                   )}
                 </div>
-                <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">
+                <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
                   {isErrorAutoFix
                     ? (isSyntaxErrorAutoFix ? 'Auto-fixing syntax error...' : 'Auto-fixing runtime error...')
                     : generationStatus?.startsWith('Analyzing') 
@@ -436,7 +437,7 @@ export default function DeviceMockup({
                 </h3>
                 {isErrorAutoFix ? (
                   <div className="space-y-1.5 max-w-[260px] sm:max-w-[300px] animate-fade-in-up">
-                    <p className="text-xs sm:text-sm text-amber-700 font-medium">
+                    <p className="building-error-text text-xs sm:text-sm text-amber-700 font-medium">
                       {generationStatus && !generationStatus.startsWith('Fixing runtime error') && !generationStatus.startsWith('Auto-fixing') && generationStatus !== 'Synthesizing your app from your prompt.'
                         ? generationStatus
                         : isSyntaxErrorAutoFix
@@ -444,17 +445,34 @@ export default function DeviceMockup({
                           : 'Detected a runtime error in preview. Automatically applying a fix...'}
                     </p>
                     {displayAutoFixMessage && (
-                      <p className="text-[11px] font-mono text-slate-500 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1 text-center truncate" title={displayAutoFixMessage}>
+                      <p className="building-error-code text-[11px] font-mono text-slate-500 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1 text-center truncate" title={displayAutoFixMessage}>
                         {displayAutoFixMessage}
                       </p>
                     )}
                   </div>
                 ) : generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
-                  <p className="text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                  <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
                     {generationStatus}
                   </p>
                 ) : (
                   <BuildingStatusMessage />
+                )}
+                {/* Auto-fix can run past the chat panel's cancel control -- it
+                    stays active through the preview settlement window, and the
+                    panel is hidden on mobile once the preview takes over. Give
+                    the overlay its own stop control so a repair loop is always
+                    escapable. */}
+                {isErrorAutoFix && onCancelGeneration && (
+                  <button
+                    type="button"
+                    onClick={onCancelGeneration}
+                    className="building-cancel mt-5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
+                    aria-label="Cancel auto-fix"
+                    title="Cancel auto-fix"
+                  >
+                    <X size={13} strokeWidth={2.75} aria-hidden="true" />
+                    <span>Cancel</span>
+                  </button>
                 )}
               </div>
             </div>

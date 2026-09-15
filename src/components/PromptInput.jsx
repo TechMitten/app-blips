@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Wand2, MessageSquare, Edit2, Loader2, X, Paperclip, Camera } from 'lucide-react';
+import { Wand2, MessageSquare, Edit2, Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
 
 // Prompt textarea with the Build/Ask mode toggle and submit/cancel footer.
 // Enter sends (Shift+Enter for a newline); Cmd/Ctrl+Enter keeps working too.
@@ -225,7 +225,7 @@ export default function PromptInput({
             ) : isChatActive ? (
               <Edit2 size={17} />
             ) : (
-              <Wand2 size={17} />
+              <Send size={17} />
             )}
           </button>
         </div>

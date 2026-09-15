@@ -64,8 +64,10 @@ export default function useDeployment({
 
       // Reuse the existing Umami website on redeploy/re-enable rather than
       // creating a second one and orphaning prior stats.
-      // Every redeploy rotates the public deployment binding token. Old copied HTML
-      // therefore loses AI access after the relay cache expires, by design.
+      // Every redeploy rotates the public deployment binding token and bumps the
+      // token generation. Old copied HTML therefore loses AI access after the
+      // relay cache expires (legacy token) or immediately (short-lived session
+      // tokens), by design.
       const aiToken = aiEnabled ? makeAiToken() : null;
 
       let websiteId = null;

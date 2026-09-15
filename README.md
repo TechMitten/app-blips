@@ -125,6 +125,7 @@ For a plain-English walkthrough of who provides which AI key and what finished-a
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. `byok` is the safe default; `relay` makes the operator fund app AI |
 | Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |
 | Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, `APPBLIPS_APP_AI_RATE_LIMIT_MAX`, `APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS` | Exact cross-origin allowlist and per-IP in-memory rate limit |
+| Deployed-app AI sessions | `APPBLIPS_SESSION_SECRET`, `APPBLIPS_AI_SESSION_TTL_SECONDS`, `APPBLIPS_AI_REQUIRE_SESSION`, `APPBLIPS_AI_REQUIRE_ORIGIN`, `TURNSTILE_SECRET`, `VITE_AI_SESSION_ENABLED`, `VITE_AI_TURNSTILE_SITE_KEY` | Hosted mode. Replaces the durable in-HTML deployment token with short-lived, server-signed session tokens minted at `/ai/session`; optional Turnstile gate |
 | Hosting mode | `SELF_HOSTED_MODE` | Defaults to self-hosted. Only `false` enables the Firebase-backed hosted mode |
 
 > **Note:** in self-hosted mode `/api/chat` performs no authentication — every request is treated as the same local user. If you expose the app beyond localhost, you're responsible for putting your own access control in front of it.

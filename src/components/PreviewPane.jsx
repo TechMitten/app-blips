@@ -45,6 +45,7 @@ export default function PreviewPane({
   generationStatus,
   isAutoFixing,
   autoFixMessage,
+  onCancelGeneration,
   code,
   copied,
   onCopyCode,
@@ -294,6 +295,7 @@ export default function PreviewPane({
             isAutoFixing={isAutoFixing}
             autoFixMessage={autoFixMessage}
             isTransitioning={isTransitioning}
+            onCancelGeneration={onCancelGeneration}
           />
         ) : (
           <CodeView
