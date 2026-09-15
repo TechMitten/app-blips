@@ -42,7 +42,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAiIntroDismissed, saveAiIntroDismissed } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadAiIntroDismissed, saveAiIntroDismissed } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -66,6 +66,7 @@ export default function App() {
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
+  const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
@@ -561,6 +562,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ASK_CLARIFYING_QUESTIONS_KEY, askClarifyingQuestions);
   }, [askClarifyingQuestions]);
+
+  useEffect(() => {
+    localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
+  }, [autoFollowCode]);
 
   useEffect(() => {
     localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
@@ -1223,6 +1228,8 @@ export default function App() {
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
           skipSplash={skipSplash}
           onSkipSplashChange={setSkipSplash}
+          autoFollowCode={autoFollowCode}
+          onAutoFollowCodeChange={setAutoFollowCode}
         />
       )}
 
@@ -1432,6 +1439,7 @@ export default function App() {
               code={codePanelCode}
               copied={copied}
               onCopyCode={handleCopyCode}
+              autoFollowCode={autoFollowCode}
             />
           </div>
         </main>

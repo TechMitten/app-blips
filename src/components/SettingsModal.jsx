@@ -23,6 +23,8 @@ export default function SettingsModal({
   onAskClarifyingQuestionsChange,
   skipSplash,
   onSkipSplashChange,
+  autoFollowCode,
+  onAutoFollowCodeChange,
 }) {
   return (
     <Modal
@@ -122,13 +124,43 @@ export default function SettingsModal({
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-                  showCodeView ? 'translate-x-[25px] bg-white' : 'translate-x-[3px] bg-white dark:bg-slate-300'
+                  showCodeView ? 'translate-x-5.75 bg-white' : 'translate-x-0.75 bg-white dark:bg-slate-300'
                 }`}
               />
             </button>
           </div>
           <p className="text-xs text-slate-600 leading-snug">
             Show the Code tab in the preview toolbar to inspect the generated HTML.
+          </p>
+        </section>
+
+        {/* Auto Follow Code toggle */}
+        <section className="space-y-2" aria-label="Auto follow code">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
+            <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
+              Auto Follow Code
+            </h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoFollowCode}
+              aria-label="Auto-scroll the Code tab while generating"
+              onClick={() => onAutoFollowCodeChange(!autoFollowCode)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
+                autoFollowCode
+                  ? 'bg-emerald-500 border-transparent'
+                  : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
+                  autoFollowCode ? 'translate-x-5.75 bg-white' : 'translate-x-0.75 bg-white dark:bg-slate-300'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">
+            Auto-scroll the Code tab to follow the latest line as the app is generated.
           </p>
         </section>
 
@@ -152,7 +184,7 @@ export default function SettingsModal({
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-                  askClarifyingQuestions ? 'translate-x-[25px] bg-white' : 'translate-x-[3px] bg-white dark:bg-slate-300'
+                  askClarifyingQuestions ? 'translate-x-5.75 bg-white' : 'translate-x-0.75 bg-white dark:bg-slate-300'
                 }`}
               />
             </button>
@@ -182,7 +214,7 @@ export default function SettingsModal({
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-                  skipSplash ? 'translate-x-[25px] bg-white' : 'translate-x-[3px] bg-white dark:bg-slate-300'
+                  skipSplash ? 'translate-x-5.75 bg-white' : 'translate-x-0.75 bg-white dark:bg-slate-300'
                 }`}
               />
             </button>
