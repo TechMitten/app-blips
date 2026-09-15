@@ -116,6 +116,12 @@ export default function PreviewPane({
           )}
         </div>
 
+        {/* Phone-only rule between the view tabs and the action keys. It sits
+            in the center slot of this justify-between row, so it lands in the
+            gap the hidden device presets leave behind; CSS hides it again as
+            soon as those presets come back. */}
+        <span className="preview-header-divider" aria-hidden="true" />
+
         {/* Center: Device Presets (when in preview tab) */}
         {activeTab === 'preview' && (
           <div className="preview-wide-tools hidden sm:flex items-center gap-1.5 sm:gap-2">

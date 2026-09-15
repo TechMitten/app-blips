@@ -226,17 +226,15 @@ export default function Header({
           ref={triggerRef}
           data-tour="menu"
           onClick={() => setIsMobileMenuOpen((open) => !open)}
-          className="nav-btn nav-btn-secondary nav-btn-icon group"
+          className="nav-btn nav-btn-icon header-menu-key"
           title={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={isMobileMenuOpen}
           aria-controls="mobile-header-menu"
         >
-          {isMobileMenuOpen ? (
-            <X size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-          ) : (
-            <Menu size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-          )}
+          {/* No text-* class: .header-menu-key owns the icon color so the key
+              can brighten as a whole on hover. */}
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
 
         {createPortal(

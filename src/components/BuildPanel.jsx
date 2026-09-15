@@ -23,8 +23,6 @@ export default function BuildPanel({
   pendingAttachment = null,
   streamingReply,
   isGenerating,
-  generationStatus,
-  isAutoFixing = false,
   error,
   prompt,
   onPromptChange,
@@ -46,30 +44,6 @@ export default function BuildPanel({
   onRemoveAttachment,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
-  const statusWord = isResumingProject
-    ? 'Restoring'
-    : isClarifying
-      ? 'Clarifying'
-      : isAutoFixing
-        ? 'Auto-fixing'
-        : generatedCode
-          ? (chatMode === 'ask' ? 'Ask' : 'Editing')
-          : 'Building';
-  const statusLine = isResumingProject
-    ? 'Opening your saved project.'
-    : isClarifying
-      ? (generatedCode
-        ? 'Answer the question above to continue editing.'
-        : 'Answer the question above to continue building.')
-      : isAutoFixing
-        ? (generationStatus?.toLowerCase().includes('syntax')
-          ? 'Repairing syntax error in code.'
-          : 'Repairing runtime error in preview.')
-        : generatedCode
-          ? (chatMode === 'ask'
-            ? 'Ask anything about this app.'
-            : 'Describe what to change, add, or fix.')
-          : 'Synthesizing your app from your prompt.';
 
   return (
     <div
@@ -125,36 +99,8 @@ export default function BuildPanel({
       <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-1 chat-scrollbar">
         <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'mt-4 sm:mt-8 mb-auto'}`}>
 
-          {/* Header: compact hero while empty, instrument status once conversation exists */}
-          {isChatActive ? (
-            <header className="chat-status p-4 rounded-2xl border border-slate-900/8 dark:border-white/15 dark:border-2 bg-white/55 backdrop-blur-md dark:backdrop-blur-none dark:bg-[#181a24] shadow-none dark:shadow-sm space-y-2">
-              <div className="flex items-center justify-between gap-2 min-h-5.5">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    {(isGenerating || isResumingProject) ? (
-                      <>
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600 dark:bg-indigo-400" />
-                      </>
-                    ) : (
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                    )}
-                  </span>
-                  <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-slate-900 dark:text-white">
-                    {statusWord}
-                  </span>
-                </div>
-                {generatedCode && versions.length > 0 && (
-                  <span className="status-tick text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/40 shadow-2xs">
-                    v{Math.min(currentVersionIndex + 1, versions.length)} of {versions.length}
-                  </span>
-                )}
-              </div>
-              <p className="text-slate-700 dark:text-white/80 text-xs leading-relaxed font-semibold">
-                {isGenerating && generationStatus ? generationStatus : statusLine}
-              </p>
-            </header>
-          ) : (
+          {/* Header: compact hero while empty */}
+          {!isChatActive && (
             <div className="hero-card relative p-5 sm:p-6 rounded-3xl space-y-3">
               <div className="flex items-center gap-2.5">
                 <span className="hero-blips" aria-hidden="true">

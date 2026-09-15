@@ -1,8 +1,8 @@
 /* --- Chat status (compact instrument header shown once a conversation exists) --- */
+/* A self-contained card: the rounded rim comes from the JSX, so no extra
+   bottom rule and no clipped bottom padding underneath it. */
 .chat-status {
-  padding-bottom: 0.9rem;
   margin-bottom: 0.25rem;
-  border-bottom: 1px solid var(--color-slate-200);
 }
 .status-dot {
   width: 6px;
@@ -26,102 +26,96 @@
   color: var(--color-indigo-700);
 }
 
-/* --- Constellation meridian transcript ---
+/* --- Avatar-led transcript ---
 
-   Every completed reply in AppBlips is a restorable version, so the conversation
-   is drawn as the project's star path: one hairline meridian, one star node
-   per version, mono ticks that echo the History sidebar's v-badges. The
-   pending turn gets a hollow "forming" star; nodes ignite on mount. */
+   Each turn is a bubble with its speaker's avatar beside it: the person on the
+   right, the AppBlips mark on the left. This replaced a "star path" drawing
+   (a hairline meridian down the log with one node + mono vN tick per version).
+   The version each reply produced now lives in the bot avatar's tooltip, and
+   the status header above the log carries the live "vN of N" readout. */
 .chat-log {
   position: relative;
-  padding-left: 32px;
-}
-.chat-log::before {
-  content: '';
-  position: absolute;
-  left: 15px;
-  top: 8px;
-  bottom: 8px;
-  width: 1px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    var(--color-slate-200) 28px,
-    var(--color-slate-200) calc(100% - 28px),
-    transparent
-  );
 }
 
-/* Anchors hang off each reply row; width:0 + align-items:center centers every
-   child on the anchor x, so node and tick both straddle the meridian. */
-.star-anchor {
-  position: absolute;
-  left: -17px;
-  top: 11px;
-  display: flex;
-  flex-direction: column;
+.chat-avatar {
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  width: 0;
-  z-index: 1;
-}
-.star-node {
-  width: 9px;
-  height: 9px;
+  justify-content: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-top: 0.125rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--color-indigo-300), var(--color-indigo-200));
-  box-shadow: 0 0 0 3px var(--color-slate-50);
-  animation: star-ignite 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-}
-.star-node-active {
-  background: var(--accent-gradient);
-  box-shadow:
-    0 0 0 3px var(--color-slate-50),
-    0 0 0 4.5px rgb(from var(--color-accent) r g b / var(--glow-a2)),
-    0 0 10px 1px rgb(from var(--color-accent) r g b / var(--glow-a3));
-}
-.star-node-pending {
-  background: transparent;
-  border: 1.5px solid var(--color-indigo-400);
-  box-shadow: 0 0 0 3px var(--color-slate-50);
-  animation: star-form 1.6s ease-in-out infinite;
-}
-.star-tick {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  line-height: 1;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  color: var(--color-slate-400);
-}
-.star-tick-active {
-  color: var(--color-indigo-600);
-}
-:is(html.dark, .force-dark) .star-tick-active {
-  color: var(--color-indigo-700);
+  overflow: hidden;
 }
 
-@keyframes star-ignite {
-  0% { transform: scale(0.3); }
-  60% { transform: scale(1.25); }
-  100% { transform: scale(1); }
-}
-@keyframes star-form {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+.chat-avatar-user {
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-surface);
+  color: var(--color-slate-500);
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
 }
 
+/* The mark sits in a lit ring so the reply side reads as the app speaking,
+   which is the job the active star node used to do. */
+.chat-avatar-bot {
+  border: 1px solid rgb(59 130 246 / 0.35);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px rgb(59 130 246 / 0.18), 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+}
 
-@media (prefers-reduced-motion: reduce) {
-  .star-node,
-  .star-node-active {
-    animation: none;
-  }
-  .star-node-pending {
-    animation: none;
-    opacity: 0.6;
-  }
+.chat-avatar-bot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+:is(html.dark, .force-dark) .chat-avatar-user {
+  border-color: rgb(255 255 255 / 0.1);
+  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+  color: var(--color-slate-600);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+}
+
+:is(html.dark, .force-dark) .chat-avatar-bot {
+  border-color: rgb(59 130 246 / 0.55);
+  background: #12151e;
+  box-shadow: 0 0 0 1px rgb(59 130 246 / 0.3), 0 0 14px -4px rgb(59 130 246 / 0.6);
+}
+
+.chat-bubble {
+  border: 1px solid transparent;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-bubble-user {
+  background: var(--color-indigo-600);
+  border-color: rgb(from var(--color-indigo-500) r g b / 0.4);
+  color: #ffffff;
+}
+
+.chat-bubble-bot {
+  background: rgb(from var(--color-blue-50) r g b / 0.8);
+  border-color: rgb(from var(--color-blue-200) r g b / 0.6);
+  color: var(--color-slate-900);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:is(html.dark, .force-dark) .chat-bubble-user {
+  background: #262a34;
+  border-color: rgb(255 255 255 / 0.12);
+  color: #f1f5f9;
+}
+
+:is(html.dark, .force-dark) .chat-bubble-bot {
+  background: #1d2a4a;
+  border-color: #2d3e6b;
+  color: #e2e8f0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 /* Chat scrollbar refinement */
