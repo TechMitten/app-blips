@@ -1,25 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { db } from '../firebase';
-import { doc, writeBatch } from 'firebase/firestore';
 import authProvider, { firebaseEnabled } from '../lib/auth';
-import { readProjectRows } from '../lib/projectsStorage';
 import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/username';
 
-// One-time local -> cloud project import flag, keyed per user.
-const importFlagKey = (userId) => `orion-imported-${userId}`;
-
 // Session lifecycle, driven by the auth adapter (Firebase or the self-hosted
-// mock, see src/lib/auth): restores the session on mount, keeps it in sync,
-// and owns the one-time local -> cloud import offer (hosted mode only -- a
-// self-hosted build has no cloud to import into). The auth modal's form state
-// lives in <AuthModal> (self-contained, like AccountSettingsModal).
+// mock, see src/lib/auth): restores the session on mount and keeps it in
+// sync. The auth modal's form state lives in <AuthModal> (self-contained,
+// like AccountSettingsModal).
 export default function useAuth() {
   const [session, setSession] = useState(null);
   const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'signedOut' | 'signedIn'
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importLocalCount, setImportLocalCount] = useState(0);
-  const [isImporting, setIsImporting] = useState(false);
   // Transient 'signedIn' | 'signedOut' notification (null when hidden).
   const [authToast, setAuthToast] = useState(null);
   const prevAuthStatusRef = useRef(null);
@@ -51,6 +41,7 @@ export default function useAuth() {
   // --- Load the permanent username once per signed-in user ---
   useEffect(() => {
     if (!firebaseEnabled || !user?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsername('');
       return;
     }
@@ -61,35 +52,21 @@ export default function useAuth() {
       .catch((err) => console.error('Failed to load username:', err))
       .finally(() => { if (active) setUsernameLoading(false); });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user]);
 
   const claimUsername = useCallback(async (rawUsername) => {
     if (!user?.id) throw new Error('Sign in required.');
     const claimed = await claimUsernameForUid(user.id, rawUsername);
     setUsername(claimed);
     return claimed;
-  }, [user?.id]);
+  }, [user]);
 
-  // --- One-time local → cloud project import (offered after first sign-in) ---
-  const maybeOfferImport = useCallback(() => {
-    if (!firebaseEnabled || !user?.id) return;
-    try {
-      if (localStorage.getItem(importFlagKey(user.id))) return;
-    } catch { /* storage unavailable */ }
-    const localRows = readProjectRows();
-    if (!localRows.length) return;
-    setImportLocalCount(localRows.length);
-    setIsImportModalOpen(true);
-  }, [user?.id]);
-
-  // Close the auth modal the moment a session lands; offer a one-time local
-  // project import right after signing in.
+  // Close the auth modal the moment a session lands.
   useEffect(() => {
     if (authStatus === 'signedIn') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAuthModalOpen(false);
-      maybeOfferImport();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus]);
 
   // Pop the "signed in/out" toast on real transitions only — the initial
@@ -97,6 +74,7 @@ export default function useAuth() {
   useEffect(() => {
     const prev = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (prev === 'signedOut' && authStatus === 'signedIn') setAuthToast('signedIn');
     if (prev === 'signedIn' && authStatus === 'signedOut') setAuthToast('signedOut');
   }, [authStatus]);
@@ -107,46 +85,6 @@ export default function useAuth() {
     const timer = setTimeout(() => setAuthToast(null), 4000);
     return () => clearTimeout(timer);
   }, [authToast]);
-
-  // `reloadProjects` is passed in by the caller (the projects hook owns the list).
-  const handleImportProjects = useCallback(async (reloadProjects) => {
-    if (!user?.id) return;
-    setIsImporting(true);
-    try {
-      const localRows = readProjectRows();
-      const rows = localRows.map((r) => ({
-        id: crypto.randomUUID(),
-        user_id: user.id,
-        name: r.name || 'Untitled App',
-        data: r.data || { versions: [], currentVersionIndex: -1 },
-        updated_at: r.updatedAt || new Date().toISOString()
-      }));
-      if (rows.length) {
-        const batch = writeBatch(db);
-        rows.forEach(r => {
-          const docRef = doc(db, 'projects', r.id);
-          batch.set(docRef, r);
-        });
-        await batch.commit();
-      }
-      localStorage.setItem(importFlagKey(user.id), '1');
-      setIsImportModalOpen(false);
-      setImportLocalCount(0);
-      await reloadProjects();
-    } catch (err) {
-      console.error('Error importing projects:', err);
-    } finally {
-      setIsImporting(false);
-    }
-  }, [user?.id]);
-
-  const handleSkipImport = useCallback(() => {
-    if (user?.id) {
-      try { localStorage.setItem(importFlagKey(user.id), '1'); } catch { /* ignore */ }
-    }
-    setIsImportModalOpen(false);
-    setImportLocalCount(0);
-  }, [user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -167,11 +105,6 @@ export default function useAuth() {
     dismissAuthToast: () => setAuthToast(null),
     isAuthModalOpen,
     setIsAuthModalOpen,
-    isImportModalOpen,
-    importLocalCount,
-    isImporting,
-    handleImportProjects,
-    handleSkipImport,
     handleSignOut,
   };
 }
