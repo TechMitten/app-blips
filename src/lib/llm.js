@@ -9,6 +9,7 @@ import {
   LIST_SECTIONS_TOOL,
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
+  CHAT_REPLY_SYSTEM_PROMPT,
   PROMPT_ENHANCEMENT_SYSTEM_PROMPT,
   buildInitialGenerationPrompt,
   buildSyntaxRepairInstruction
@@ -72,6 +73,44 @@ export const generateClarifyingQuestion = async ({
     return q;
   }
   return null;
+};
+
+// Streams the one-sentence conversational acknowledgement for a build/edit turn
+// as its own cheap, reasoning-disabled call. It runs BEFORE the heavy
+// generation/edit call so the chat shows the assistant's reply immediately,
+// instead of only once the (hidden) reasoning has finished and code starts
+// arriving. Deltas are forwarded as the 'reply' chunk kind so the UI can render
+// them without waiting for the HTML boundary.
+export const generateChatReply = async ({
+  prompt,
+  currentCode = null,
+  onChunk = null,
+  signal = null
+}) => {
+  const messages = [
+    { role: 'system', content: CHAT_REPLY_SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: currentCode
+        ? `The user is refining an existing app. Request: ${prompt}`
+        : `The user wants a new app. Request: ${prompt}`
+    }
+  ];
+
+  let streamed = '';
+  const message = await requestModelText({
+    messages,
+    reasoningEffort: 'none',
+    signal,
+    onChunk: (delta, kind) => {
+      if (kind !== 'content') return;
+      streamed += delta;
+      if (onChunk) onChunk(delta, 'reply');
+    }
+  });
+
+  const text = (streamed || message.content || '').trim();
+  return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
 };
 
 // Rewrites the user's draft prompt into a clearer, more actionable one via a
@@ -166,7 +205,12 @@ export const requestModelText = async ({
       } catch {
         // ignore json parse error
       }
-      throw new Error(message);
+      const err = new Error(message);
+      // 4xx responses are deterministic client errors (bad request, forbidden,
+      // not found, ...): re-sending the identical request only burns the backoff
+      // delays. 408 (timeout) is the one 4xx that can be transient.
+      err.isNonRetryable = response.status >= 400 && response.status < 500 && response.status !== 408;
+      throw err;
     }
 
     if (!onChunk) {
@@ -178,6 +222,7 @@ export const requestModelText = async ({
     const STREAM_READ_TIMEOUT_MS = 180000;
 
     let text = '';
+    let reasoning = '';
     let toolCallsBuffer = [];
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -219,9 +264,12 @@ export const requestModelText = async ({
             }
 
             if (delta?.reasoning_content) {
-              // Thinking tokens never become code. Reported only so the UI can
-              // flip to a "thinking" indicator instead of looking frozen during
-              // long reasoning -- the token text itself is discarded.
+              // Thinking tokens never become code, but they must be retained:
+              // DeepSeek requires reasoning_content from prior assistant turns to
+              // be passed back on every subsequent tool-calling request, or it
+              // returns a 400. Forwarding to the UI only flips a "thinking"
+              // indicator; the accumulated text is returned to the caller below.
+              reasoning += delta.reasoning_content;
               onChunk(delta.reasoning_content, 'reasoning');
             }
 
@@ -240,10 +288,10 @@ export const requestModelText = async ({
       }
     }
 
-    return { content: text, tool_calls: toolCallsBuffer.filter(Boolean) };
+    return { content: text, reasoning_content: reasoning || undefined, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit) {
+    if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
         messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal
@@ -362,6 +410,21 @@ export const generateAppCode = async (
     }
   }
 
+  // Reply first, then reason/code: send the chat acknowledgement now so the
+  // transcript shows the assistant responding before the model's hidden
+  // reasoning and code generation begin. A failure here is non-fatal -- the
+  // main generation still contributes its own in-stream reply as a fallback.
+  let introReply = '';
+  if (onChunk) {
+    try {
+      introReply = await generateChatReply({ prompt, currentCode, onChunk, signal });
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+      console.warn('[Orion] Intro reply failed, continuing with generation:', err);
+      introReply = '';
+    }
+  }
+
   if (!currentCode) {
     const formattedChatHistory = chatHistory.map((msg, idx) => {
       if (idx === 0 && msg.role === 'user') {
@@ -405,7 +468,7 @@ export const generateAppCode = async (
       throw new Error('The model did not return any app code. Please try again.');
     }
 
-    const reply = extractLeadingReply(rawText) || undefined;
+    const reply = introReply || extractLeadingReply(rawText) || undefined;
 
     // End-of-generation syntax gate: parse the finished document, and if it
     // doesn't parse, feed the errors back for correction. Repair requests use
@@ -442,6 +505,7 @@ export const generateAppCode = async (
         repairMessages.push({
           role: 'assistant',
           content: repairMessage.content || null,
+          reasoning_content: repairMessage.reasoning_content || undefined,
           tool_calls: repairMessage.tool_calls?.length ? repairMessage.tool_calls : undefined
         });
 
@@ -550,6 +614,7 @@ export const generateAppCode = async (
     messages.push({
       role: 'assistant',
       content: message.content || null,
+      reasoning_content: message.reasoning_content || undefined,
       tool_calls: message.tool_calls?.length ? message.tool_calls : undefined
     });
 
@@ -563,7 +628,7 @@ export const generateAppCode = async (
           code: workingCode,
           editMode: 'surgical',
           editSummary: prompt,
-          reply: replyParts.join(' ').trim() || undefined,
+          reply: introReply || replyParts.join(' ').trim() || undefined,
           syntaxAutoFixAttempted: syntaxRepairCycles > 0,
           syntaxAutoFixSuccess: syntaxRepairCycles > 0 ? syntaxErrors.length === 0 : undefined,
           ...syntaxResultFields()
@@ -627,7 +692,7 @@ export const generateAppCode = async (
       code: workingCode,
       editMode: 'surgical',
       editSummary: prompt,
-      reply: replyParts.join(' ').trim() || undefined,
+      reply: introReply || replyParts.join(' ').trim() || undefined,
       syntaxAutoFixAttempted: syntaxRepairCycles > 0,
       syntaxAutoFixSuccess: syntaxRepairCycles > 0 ? syntaxErrors.length === 0 : undefined,
       ...syntaxResultFields()

@@ -701,6 +701,15 @@ export default function App() {
         if (kind === 'reasoning') {
           return;
         }
+        if (kind === 'reply') {
+          // Pre-generation acknowledgement, streamed before the model starts
+          // reasoning/coding. Render it immediately and freeze it so the main
+          // generation's own leading reply doesn't overwrite it.
+          streamingReplyRef.current = `${streamingReplyRef.current}${chunk}`;
+          setStreamingReply(streamingReplyRef.current);
+          replyFrozenRef.current = true;
+          return;
+        }
         if (kind === 'clear_reply') {
           setStreamingReply('');
           streamingReplyRef.current = '';
