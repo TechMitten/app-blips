@@ -97,7 +97,7 @@ export default function SplashScreen({ skip = false }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black transition-opacity duration-500 ease-in-out ${
+      className={`fixed inset-0 z-[100] flex h-dvh flex-col items-center justify-center overflow-hidden bg-black transition-opacity duration-500 ease-in-out ${
         isFading ? 'opacity-0' : 'opacity-100'
       }`}
     >
@@ -113,7 +113,7 @@ export default function SplashScreen({ skip = false }) {
           setIsVideoReady(true);
         }}
         onEnded={handleVideoEnd}
-        className={`relative z-10 w-[72rem] max-w-[220vw] sm:max-w-[180vw] md:max-w-[115vw] h-auto shrink-0 object-contain mix-blend-screen transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+        className={`relative z-10 h-auto max-h-[76dvh] w-screen max-w-[100vw] shrink-0 object-contain mix-blend-screen transition-opacity duration-700 sm:w-[72rem] sm:max-w-[180vw] sm:max-h-none md:max-w-[115vw] ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
         style={{
           transform: 'scale(0.8)',
           maskImage: 'radial-gradient(circle, black 50%, transparent 95%)',

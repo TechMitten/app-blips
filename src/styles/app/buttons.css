@@ -354,3 +354,92 @@
 :is(html.dark, .force-dark) .brand-fill-text:hover {
   background: linear-gradient(180deg, #ffffff 0%, #e3e3e3 100%);
 }
+
+
+.mobile-side-menu {
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 50;
+  width: 18rem;
+  max-width: calc(100vw - 1.5rem);
+  height: 100dvh;
+  overflow-y: auto;
+  border-left: 1px solid rgb(255 255 255 / 0.1);
+  background: #20222b;
+  padding: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.65);
+  transform: translate3d(100%, 0, 0);
+  transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.mobile-side-menu-open {
+  transform: translate3d(0, 0, 0);
+  transition-duration: 340ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-side-menu:not(.mobile-side-menu-open) {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-side-menu {
+    transition-duration: 1ms;
+  }
+}
+
+
+.mobile-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  color: rgb(226 232 240);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.mobile-menu-item:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: white;
+}
+
+.mobile-menu-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-halo);
+}
+
+.mobile-menu-item-primary {
+  background: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
+  color: #171717;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 2px 6px rgb(0 0 0 / 0.35);
+}
+
+.mobile-menu-item-primary:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #e3e3e3 100%);
+  color: #111111;
+}
+
+.mobile-menu-count {
+  margin-left: auto;
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  color: rgb(226 232 240);
+  padding: 0 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}

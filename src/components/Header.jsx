@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, LogIn, BarChart3
+  Settings, CircleHelp, LogIn, BarChart3, Menu, X
 } from 'lucide-react';
 
 
@@ -26,6 +27,15 @@ export default function Header({
   firebaseEnabled,
   onOpenAnalytics,
 }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  const runMobileAction = (action) => {
+    closeMobileMenu();
+    action?.();
+  };
+
   return (
     <header className="dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-2 sm:px-6 2xl:px-8 py-2.5 2xl:py-3 flex items-center justify-between gap-1.5 sm:gap-3 sticky top-0 z-40 transition-colors">
       {/* Left: Brand / Logo */}
@@ -45,7 +55,7 @@ export default function Header({
       </div>
 
       {/* Right: Actions and Controls */}
-      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+      <div className="hidden sm:flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Primary Action: New App */}
         <button
           onClick={onNewApp}
@@ -173,6 +183,129 @@ export default function Header({
             <Moon size={15} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
           )}
         </button>
+      </div>
+
+      <div className="sm:hidden relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          className="nav-btn nav-btn-secondary nav-btn-icon group"
+          title={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="mobile-header-menu"
+        >
+          {isMobileMenuOpen ? (
+            <X size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+          ) : (
+            <Menu size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+          )}
+        </button>
+
+        <>
+          <button
+            type="button"
+            className={`fixed inset-0 z-40 cursor-default bg-black/20 transition-opacity duration-300 ease-out ${isMobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            aria-label="Close menu"
+            tabIndex={isMobileMenuOpen ? 0 : -1}
+            onClick={closeMobileMenu}
+          />
+          <div
+            id="mobile-header-menu"
+            className={`mobile-side-menu ${isMobileMenuOpen ? 'mobile-side-menu-open' : ''}`}
+            aria-hidden={!isMobileMenuOpen}
+          >
+              <div className="mb-3 flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <span className="text-sm font-semibold text-slate-100">Menu</span>
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  className="nav-btn nav-btn-secondary nav-btn-icon group"
+                  title="Close menu"
+                  aria-label="Close menu"
+                >
+                  <X size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => runMobileAction(onNewApp)}
+                className="mobile-menu-item mobile-menu-item-primary group"
+              >
+                <Plus size={16} strokeWidth={2.4} className="group-hover:rotate-90 transition-transform duration-200" />
+                <span>New App</span>
+              </button>
+              <button
+                type="button"
+                data-tour="apps"
+                onClick={() => runMobileAction(onOpenApps)}
+                className="mobile-menu-item"
+              >
+                <FolderOpen size={16} />
+                <span>Apps</span>
+                {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
+              </button>
+              <button
+                type="button"
+                data-tour="settings"
+                onClick={() => runMobileAction(onOpenSettings)}
+                className="mobile-menu-item"
+              >
+                <Settings size={16} />
+                <span>Settings</span>
+              </button>
+              <button
+                type="button"
+                data-tour="help"
+                onClick={() => runMobileAction(onOpenHelp)}
+                className="mobile-menu-item"
+              >
+                <CircleHelp size={16} />
+                <span>Help</span>
+              </button>
+              {firebaseEnabled && isSignedIn && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => runMobileAction(onOpenAnalytics)}
+                    className="mobile-menu-item"
+                  >
+                    <BarChart3 size={16} />
+                    <span>Analytics</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runMobileAction(onOpenAccountSettings)}
+                    className="mobile-menu-item"
+                    title={userEmail || 'Signed in'}
+                  >
+                    <span className="h-5 w-5 rounded-full brand-gradient text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
+                      {(userEmail?.[0] || '?').toUpperCase()}
+                    </span>
+                    <span className="truncate">{userEmail || 'Account'}</span>
+                  </button>
+                </>
+              )}
+              {firebaseEnabled && !isSignedIn && authStatus !== 'loading' && (
+                <button
+                  type="button"
+                  onClick={() => runMobileAction(onSignIn)}
+                  className="mobile-menu-item"
+                >
+                  <LogIn size={16} />
+                  <span>Sign in</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => runMobileAction(onToggleTheme)}
+                className="mobile-menu-item"
+              >
+                {resolvedTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                <span>{resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+              </button>
+          </div>
+        </>
       </div>
     </header>
   );
