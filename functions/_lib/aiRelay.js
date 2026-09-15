@@ -53,13 +53,15 @@ export const validateDeploymentToken = async (token, env) => {
   return valid;
 };
 
-// Session path: resolve the deployment by its public slug (cached, so revocation
-// via `aiTokenGeneration` takes effect within ~60s without a Firestore read per
-// request).
-export const fetchDeploymentBySlug = async (slug, env) => {
+// Session path: resolve the deployment by its public slug. Cached (so
+// revocation via `aiTokenGeneration` takes effect within ~60s without a
+// Firestore read per request); pass { fresh: true } to bypass the cache.
+export const fetchDeploymentBySlug = async (slug, env, { fresh = false } = {}) => {
   if (!slug || typeof slug !== 'string' || slug.length > 128) return null;
-  const cached = slugCache.get(slug);
-  if (cached && cached.expiresAt > Date.now()) return cached.fields;
+  if (!fresh) {
+    const cached = slugCache.get(slug);
+    if (cached && cached.expiresAt > Date.now()) return cached.fields;
+  }
   const fields = await runDeploymentQuery('slug', slug, env);
   slugCache.set(slug, { fields, expiresAt: Date.now() + 60_000 });
   return fields;
@@ -127,17 +129,21 @@ export async function handleAiSession(request, env) {
 
   const gate = await verifyTurnstile(payload?.turnstileToken, env, ip);
   if (gate.configured && !gate.success) {
+    console.error('[ai-session] turnstile rejected:', (gate.errorCodes || []).join(','));
     return errorResponse('unauthorized', 403, 'Browser verification failed.');
   }
 
   let fields;
   try {
-    fields = await fetchDeploymentBySlug(slug, env);
+    // Fresh read: signing a token with a stale generation (cache up to 60s old,
+    // e.g. right after a redeploy bumped it) would get it rejected at /ai/chat.
+    fields = await fetchDeploymentBySlug(slug, env, { fresh: true });
   } catch (err) {
     console.error('[ai-session]', err?.message || err);
     return errorResponse('upstream_error', 502, 'Deployment validation failed.');
   }
   if (!fields || !fields.aiEnabled?.booleanValue) {
+    console.error('[ai-session] mint rejected: deployment missing or AI disabled for slug');
     return errorResponse('unauthorized', 403, 'AI is not enabled for this app.');
   }
 
@@ -175,10 +181,24 @@ export async function handleAiChat(request, env) {
       console.error('[ai-relay]', err?.message || err);
       return errorResponse('upstream_error', 502, 'Deployment validation failed.');
     }
-    const enabled = Boolean(fields?.aiEnabled?.booleanValue);
-    const generation = fieldInt(fields?.aiTokenGeneration, 1);
+    let enabled = Boolean(fields?.aiEnabled?.booleanValue);
+    let generation = fieldInt(fields?.aiTokenGeneration, 1);
     if (!enabled || generation !== session.gen) {
-      return errorResponse('unauthorized', 403, 'AI session is no longer valid.');
+      // A stale cache (e.g. right after a redeploy bumped the generation on
+      // another isolate) must not strand freshly minted tokens -- re-check
+      // against live Firestore once before rejecting.
+      try {
+        fields = await fetchDeploymentBySlug(session.slug, env, { fresh: true });
+      } catch (err) {
+        console.error('[ai-relay]', err?.message || err);
+        return errorResponse('upstream_error', 502, 'Deployment validation failed.');
+      }
+      enabled = Boolean(fields?.aiEnabled?.booleanValue);
+      generation = fieldInt(fields?.aiTokenGeneration, 1);
+      if (!enabled || generation !== session.gen) {
+        console.error('[ai-relay] session rejected: revoked generation or AI disabled');
+        return errorResponse('unauthorized', 403, 'AI session is no longer valid.');
+      }
     }
     rateKey = `chat:${session.slug}`;
   } else if (env.APPBLIPS_AI_REQUIRE_SESSION === 'true') {
