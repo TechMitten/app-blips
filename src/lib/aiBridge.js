@@ -52,15 +52,11 @@ const BRIDGE_SOURCE = `(function () {
     turnstileLoading = new Promise(function (resolve, reject) {
       var node = document.createElement('script');
       node.src = TURNSTILE_SRC;
-      node.async = true;
-      node.defer = true;
-      node.onload = function () {
-        if (window.turnstile && typeof window.turnstile.ready === 'function') {
-          window.turnstile.ready(function () { resolve(window.turnstile); });
-        } else {
-          resolve(window.turnstile || null);
-        }
-      };
+      // onload fires after the API object exists, so turnstile.ready() is
+      // unnecessary -- and Turnstile throws a TurnstileError if ready() is
+      // called from a script tag loaded with async/defer, so never combine
+      // the two (this silently hung every AI call once).
+      node.onload = function () { resolve(window.turnstile || null); };
       node.onerror = function () { reject(makeError('configuration_required', 'Browser verification failed to load.')); };
       document.head.appendChild(node);
     });
@@ -76,10 +72,22 @@ const BRIDGE_SOURCE = `(function () {
     if (resolve) resolve(value);
   }
 
+  function withDeadline(promise, milliseconds, message) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(makeError('unauthorized', message)); }, milliseconds);
+      promise.then(
+        function (value) { clearTimeout(timer); resolve(value); },
+        function (error) { clearTimeout(timer); reject(error); }
+      );
+    });
+  }
+
   function turnstileToken() {
     return loadTurnstile().then(function (turnstile) {
       if (!turnstile) return null;
-      return new Promise(function (resolve, reject) {
+      // Watchdog: a stuck or blocked challenge must fail the mint (and fall
+      // back to the legacy token where one exists) instead of hanging forever.
+      return withDeadline(new Promise(function (resolve, reject) {
         turnstileResolve = resolve;
         turnstileReject = reject;
         if (turnstileWidget === null) {
@@ -99,7 +107,7 @@ const BRIDGE_SOURCE = `(function () {
         try { turnstile.execute(turnstileWidget); } catch (execError) {
           settleTurnstile(makeError('unauthorized', 'Browser verification failed.'));
         }
-      });
+      }), 15000, 'Browser verification timed out.');
     });
   }
 
