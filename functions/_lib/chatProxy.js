@@ -21,6 +21,8 @@
 // restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
 // if they expose it beyond localhost.
 
+import { trackApiUsage } from './usageTracking.js';
+
 let jwksCache = { keys: [], expiry: 0 };
 const cryptoKeysCache = new Map();
 
@@ -256,7 +258,7 @@ const validateEnv = (env) => {
   return missing;
 };
 
-export async function handleChatProxy(request, env) {
+export async function handleChatProxy(request, env, waitUntil) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -364,6 +366,8 @@ export async function handleChatProxy(request, env) {
       headers: { 'content-type': 'application/json' },
     });
   }
+
+  if (upstream.ok) trackApiUsage(env, { uid: user.id, kind: 'builder' }, waitUntil);
 
   return new Response(upstream.body, {
     status: upstream.status,
