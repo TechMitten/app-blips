@@ -2,7 +2,6 @@
 const FIREBASE_PROJECT_ID = 'appbips-f46e2';
 const FIREBASE_APP_ID = '1:472626328876:web:2800d30e2a40acfbf26889';
 const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
-const FIREBASE_APPCHECK_DEBUG_TOKEN = 'a96e675f-24b0-444f-9cff-ea0075345af1';
 
 export const firebaseProjectId = (env = {}) => env.FIREBASE_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
 
@@ -17,8 +16,7 @@ export const getAppCheckToken = async (env) => {
   const apiKey = env?.FIREBASE_API_KEY || env?.VITE_FIREBASE_API_KEY || FIREBASE_API_KEY;
   const debugToken =
     env?.FIREBASE_APPCHECK_DEBUG_TOKEN ||
-    env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN ||
-    FIREBASE_APPCHECK_DEBUG_TOKEN;
+    env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
 
   if (!debugToken) return null;
   const config = JSON.stringify([projectId, appId, apiKey, debugToken]);
