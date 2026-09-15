@@ -52,10 +52,6 @@ const BRIDGE_SOURCE = `(function () {
     turnstileLoading = new Promise(function (resolve, reject) {
       var node = document.createElement('script');
       node.src = TURNSTILE_SRC;
-      // onload fires after the API object exists, so turnstile.ready() is
-      // unnecessary -- and Turnstile throws a TurnstileError if ready() is
-      // called from a script tag loaded with async/defer, so never combine
-      // the two (this silently hung every AI call once).
       node.onload = function () { resolve(window.turnstile || null); };
       node.onerror = function () { reject(makeError('configuration_required', 'Browser verification failed to load.')); };
       document.head.appendChild(node);
@@ -85,17 +81,10 @@ const BRIDGE_SOURCE = `(function () {
   function turnstileToken() {
     return loadTurnstile().then(function (turnstile) {
       if (!turnstile) return null;
-      // Watchdog: a stuck or blocked challenge must fail the mint (and fall
-      // back to the legacy token where one exists) instead of hanging forever.
       return withDeadline(new Promise(function (resolve, reject) {
         turnstileResolve = resolve;
         turnstileReject = reject;
         if (turnstileWidget === null) {
-          // 'interaction-only' keeps the widget invisible until the visitor
-          // must solve an interactive challenge -- so the container has to be
-          // somewhere it can actually be seen and clicked when that moment
-          // comes. A display:none container here made interactive challenges
-          // unsolvable and every mint time out.
           var holder = document.createElement('div');
           holder.style.position = 'fixed';
           holder.style.right = '16px';
@@ -180,7 +169,7 @@ const BRIDGE_SOURCE = `(function () {
           try {
             var delta = JSON.parse(eventRaw).choices[0].delta.content;
             if (delta) { text += delta; options.onChunk(delta); }
-          } catch (err) { /* ignore malformed event */ }
+          } catch (err) {}
         }
         return result.done ? { text: text } : pump();
       });
@@ -217,7 +206,6 @@ const BRIDGE_SOURCE = `(function () {
   var textApi = chat;
   window.blip = Object.freeze({ ai: Object.freeze({ text: textApi }) });
   window.BLIP = Object.freeze({ AI: Object.freeze({ TEXT: textApi }) });
-  // Compatibility for apps generated before the branded API was introduced.
   window.ai = Object.freeze({ chat: textApi });
 })();`;
 

@@ -18,8 +18,8 @@ const BRIDGE_SOURCE = `(function () {
 
   function readStoredConfig() {
     var raw = null;
-    try { raw = sessionStorage.getItem(STORE_KEY); } catch (err) { /* unavailable */ }
-    if (!raw) try { raw = localStorage.getItem(STORE_KEY); } catch (err) { /* unavailable */ }
+    try { raw = sessionStorage.getItem(STORE_KEY); } catch (err) {}
+    if (!raw) try { raw = localStorage.getItem(STORE_KEY); } catch (err) {}
     if (!raw) return null;
     try {
       var parsed = JSON.parse(raw);
@@ -29,16 +29,16 @@ const BRIDGE_SOURCE = `(function () {
 
   function saveConfig(config, remember) {
     var raw = JSON.stringify(config);
-    try { sessionStorage.setItem(STORE_KEY, raw); } catch (err) { /* unavailable */ }
+    try { sessionStorage.setItem(STORE_KEY, raw); } catch (err) {}
     try {
       if (remember) localStorage.setItem(STORE_KEY, raw);
       else localStorage.removeItem(STORE_KEY);
-    } catch (err) { /* unavailable */ }
+    } catch (err) {}
   }
 
   function clearConfiguration() {
-    try { sessionStorage.removeItem(STORE_KEY); } catch (err) { /* unavailable */ }
-    try { localStorage.removeItem(STORE_KEY); } catch (err) { /* unavailable */ }
+    try { sessionStorage.removeItem(STORE_KEY); } catch (err) {}
+    try { localStorage.removeItem(STORE_KEY); } catch (err) {}
   }
 
   function field(labelText, type, value, placeholder) {
@@ -187,7 +187,7 @@ const BRIDGE_SOURCE = `(function () {
             try {
               var delta = JSON.parse(raw).choices[0].delta.content;
               if (delta) { text += delta; options.onChunk(delta); }
-            } catch (err) { /* malformed event */ }
+            } catch (err) {}
           }
           return result.done ? { text: text } : pump();
         });

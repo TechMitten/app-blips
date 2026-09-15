@@ -96,7 +96,6 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
     </form>
   </div>
   <script>
-    // Disable right-click context menu to prevent viewing source code while locked
     document.addEventListener('contextmenu', function(e) {
       e.preventDefault();
       return false;
@@ -106,7 +105,6 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
       return false;
     }, true);
 
-    // Disable keyboard shortcuts for viewing source or opening developer tools
     document.addEventListener('keydown', function(e) {
       if (e.key === 'F12' || e.keyCode === 123) {
         e.preventDefault();
@@ -195,12 +193,10 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
       errorDiv.style.display = 'none';
       submitBtn.disabled = true;
       submitBtn.textContent = 'Decrypting...';
-      
-      // Artificial delay to deter fast automated guesses
+
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       try {
-        // base64 to Uint8Array
         const binaryString = atob(encryptedBase64);
         const payload = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
