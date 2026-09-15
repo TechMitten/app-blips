@@ -5,6 +5,9 @@ import { Sparkles } from 'lucide-react';
 // counts as a click rather than a pan, so picking a card stays reliable.
 const DRAG_CLICK_THRESHOLD = 5;
 
+// Auto-scroll speed in px per ms (~14px/s) for the idle marquee drift.
+const AUTO_SCROLL_SPEED = 0.014;
+
 const getColorClasses = (colorString = '') => {
   if (colorString.includes('amber')) {
     return {
@@ -65,6 +68,7 @@ const shuffle = (items) => {
 
 function StarterRow({ ideas, rowIndex, onPick }) {
   const scrollerRef = useRef(null);
+  const trackRef = useRef(null);
   const singleWidthRef = useRef(0);
   const dragRef = useRef({
     isDown: false,
@@ -78,6 +82,7 @@ function StarterRow({ ideas, rowIndex, onPick }) {
     momentumRaf: null,
     moveResetTimeout: null,
   });
+  const autoPausedRef = useRef(false);
 
   // Render 3 sets of ideas so the row can wrap seamlessly in either direction
   const tripleIdeas = useMemo(() => [...ideas, ...ideas, ...ideas], [ideas]);
@@ -124,6 +129,64 @@ function StarterRow({ ideas, rowIndex, onPick }) {
     };
   }, []);
 
+  // Idle marquee: each row drifts very slowly on its own (alternating
+  // direction per row) and pauses while hovered, while the user is dragging
+  // or gliding, or when prefers-reduced-motion is set. The tripled card list
+  // plus the same wrap window used by drag/scroll keeps the loop seamless.
+  useEffect(() => {
+    const direction = rowIndex % 2 === 0 ? 1 : -1;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let raf = null;
+    let lastTime = null;
+    // Fractional accumulator: scrollLeft assignments are truncated to whole
+    // pixels on 1x displays, so sub-pixel per-frame steps must be summed here
+    // or the row would never actually move.
+    let pos = null;
+
+    const clearSubpixel = () => {
+      const track = trackRef.current;
+      if (track && track.style.transform) track.style.transform = '';
+    };
+
+    const step = (now) => {
+      raf = requestAnimationFrame(step);
+      const scroller = scrollerRef.current;
+      const drag = dragRef.current;
+      if (!scroller || autoPausedRef.current || reducedMotion.matches || drag.isDown || drag.moved || drag.momentumRaf != null) {
+        lastTime = now;
+        pos = null;
+        clearSubpixel();
+        return;
+      }
+      if (pos == null) pos = scroller.scrollLeft;
+      if (lastTime == null) {
+        lastTime = now;
+        return;
+      }
+      const dt = Math.min(now - lastTime, 64);
+      lastTime = now;
+      const sw = getSingleWidth();
+      pos += AUTO_SCROLL_SPEED * dt * direction;
+      if (sw > 0) {
+        if (pos < sw * 0.5) pos += sw;
+        else if (pos > sw * 1.5) pos -= sw;
+      }
+      // scrollLeft is integer-only on 1x displays, so put the whole-pixel
+      // part there and express the subpixel remainder as a composited
+      // translateX on the track for jitter-free motion.
+      const base = Math.floor(pos);
+      scroller.scrollLeft = base;
+      const track = trackRef.current;
+      if (track) track.style.transform = `translateX(${(base - pos).toFixed(3)}px)`;
+    };
+
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearSubpixel();
+    };
+  }, [rowIndex]);
+
   const handlePointerDown = (e) => {
     if (e.pointerType !== 'mouse') return;
     const scroller = scrollerRef.current;
@@ -139,6 +202,8 @@ function StarterRow({ ideas, rowIndex, onPick }) {
     }
 
     getSingleWidth();
+    const track = trackRef.current;
+    if (track) track.style.transform = '';
 
     const now = performance.now();
     dragRef.current = {
@@ -301,9 +366,13 @@ function StarterRow({ ideas, rowIndex, onPick }) {
       onPointerCancel={endDrag}
       onScroll={handleScroll}
       onDragStart={(e) => e.preventDefault()}
-      className="starter-row flex gap-2 overflow-x-auto py-0.5 cursor-grab active:cursor-grabbing select-none"
+      onMouseEnter={() => { autoPausedRef.current = true; }}
+      onMouseLeave={() => { autoPausedRef.current = false; }}
+      className="starter-row overflow-x-auto py-0.5 cursor-grab active:cursor-grabbing select-none"
     >
-      {tripleIdeas.map((starter, i) => renderCard(starter, i))}
+      <div ref={trackRef} className="flex gap-2 w-max">
+        {tripleIdeas.map((starter, i) => renderCard(starter, i))}
+      </div>
     </div>
   );
 }
