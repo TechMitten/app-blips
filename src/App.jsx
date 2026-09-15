@@ -19,7 +19,6 @@ import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
 import NamingModal from './components/NamingModal';
 import AuthModal from './components/AuthModal';
 import AuthToast from './components/AuthToast';
-import ImportModal from './components/ImportModal';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
@@ -89,9 +88,7 @@ export default function App() {
     username, usernameLoading, claimUsername,
     authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
-    isImportModalOpen, importLocalCount, isImporting,
-    handleImportProjects: runProjectImport,
-    handleSkipImport, handleSignOut,
+    handleSignOut,
   } = useAuth();
 
   // --- Workspace state (the generation flow owns these) ---
@@ -197,7 +194,7 @@ export default function App() {
   // --- Projects (list / persistence) ---
   const {
     myProjects, isProjectsListOpen, setIsProjectsListOpen,
-    loadUserProjects, loadProject, saveProject, renameProject, deleteProject,
+    loadProject, saveProject, renameProject, deleteProject,
   } = useProjects({
     authStatus,
     isSignedIn,
@@ -1130,8 +1127,6 @@ export default function App() {
     return ok;
   };
 
-  const handleImportProjects = () => runProjectImport(loadUserProjects);
-
   const handleRequireSignInFromDeploy = () => {
     setIsDeployModalOpen(false);
     setIsAuthModalOpen(true);
@@ -1330,15 +1325,6 @@ export default function App() {
 
       {isAuthModalOpen && firebaseEnabled && (
         <AuthModal onClose={() => setIsAuthModalOpen(false)} />
-      )}
-
-      {isImportModalOpen && (
-        <ImportModal
-          localCount={importLocalCount}
-          importing={isImporting}
-          onImport={handleImportProjects}
-          onSkip={handleSkipImport}
-        />
       )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
