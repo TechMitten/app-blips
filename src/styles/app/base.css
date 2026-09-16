@@ -94,11 +94,13 @@ body {
   box-shadow: var(--stage-inset);
 }
 
-/* Header depth — crisp separation from workspace */
+/* Header depth -- enough to separate from the workspace, quiet enough to
+   let the content lead. The bar is shorter now, so the long 28px spill read
+   as a halo; tightened to a contact shadow plus a short ambient falloff. */
 .header-shadow {
   box-shadow:
-    0 1px 3px rgb(var(--shadow-color) / var(--shadow-a1)),
-    0 8px 28px -8px rgb(var(--shadow-color) / var(--shadow-a3)),
+    0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1)),
+    0 5px 18px -10px rgb(var(--shadow-color) / var(--shadow-a2)),
     0 1px 0 0 var(--hairline),
     var(--edge-top);
 }

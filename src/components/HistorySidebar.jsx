@@ -209,7 +209,7 @@ export default function HistorySidebar({
           again toggles back rather than only ever opening. */}
       <button
         onClick={isOpen ? onCollapse : onExpand}
-        className="history-icon-btn hidden xl:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
+        className="history-icon-btn history-tab hidden xl:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
         title={isOpen ? 'Hide history panel' : 'Show history panel'}
       >
         {isOpen ? (

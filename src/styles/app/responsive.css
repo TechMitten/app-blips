@@ -156,7 +156,7 @@
 }
 @media (max-height: 500px) and (max-width: 1023px) {
   .app-header { padding-block: 4px; }
-  .app-header img { height: 64px; }
+  .app-header img { height: 40px; }
   .mobile-view-switch { padding-block: 4px; }
   .build-panel-header { height: 44px; min-height: 44px; max-height: 44px; }
   .build-panel-composer { padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
