@@ -1,5 +1,16 @@
-import { useEffect, useRef } from 'react';
-import { Wand2, MessageSquare, Edit2, Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Wand2, Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
+
+// The mode control is one slot-machine reel with three stops. "AI" means Build
+// with AI text generation enabled, so the three are mutually exclusive and
+// clicking the reel advances: Build -> Ask -> AI -> Build.
+const MODE_SEQUENCE = ['build', 'ask', 'ai'];
+const MODE_LABELS = { build: 'Build', ask: 'Ask', ai: 'AI' };
+const MODE_INDEX = { build: 0, ask: 1, ai: 2 };
+const REEL_EXTRA_CYCLES = 3;   // full extra turns added to every spin
+const REEL_NORMALIZE_AT = 30;  // multiple of 3; rewind here to keep it finite
+const REEL_ITEM_COUNT = 40;
+const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % 3]);
 
 // Prompt textarea with the Build/Ask mode toggle and submit/cancel footer.
 // Desktop Enter sends; touch keyboards keep Enter for newlines. Cmd/Ctrl+Enter sends.
@@ -31,6 +42,34 @@ export default function PromptInput({
   const canSubmit = !isGenerating && !isEnhancingPrompt && prompt.trim().length > 0;
   const canEnhance = chatMode === 'build' && !isClarifying && !isGenerating && !isEnhancingPrompt && prompt.trim().length > 0;
   const showEnhanceButton = chatMode === 'build' && !isClarifying;
+
+  // AI is the third reel stop and means "Build + AI", so the exposed mode is
+  // derived from both chatMode and aiEnabled; the reel animates to that stop.
+  const selectedMode = chatMode === 'ask' ? 'ask' : aiEnabled ? 'ai' : 'build';
+
+  const [reelIndex, setReelIndex] = useState(MODE_INDEX[selectedMode]);
+  const [spinning, setSpinning] = useState(false);
+  const [lastMode, setLastMode] = useState(selectedMode);
+  if (lastMode !== selectedMode) {
+    setLastMode(selectedMode);
+    setSpinning(true);
+    setReelIndex((index) => {
+      const delta = ((MODE_INDEX[selectedMode] - (index % 3)) % 3 + 3) % 3;
+      return index + delta + REEL_EXTRA_CYCLES;
+    });
+  }
+  const handleReelEnd = (event) => {
+    if (event.propertyName !== 'transform') return;
+    setSpinning(false);
+    setReelIndex((index) => (index >= REEL_NORMALIZE_AT ? index - REEL_NORMALIZE_AT : index));
+  };
+  const cycleMode = () => {
+    const next = MODE_SEQUENCE[(MODE_INDEX[selectedMode] + 1) % 3];
+    const wantsMode = next === 'ask' ? 'ask' : 'build';
+    const wantsAi = next === 'ai';
+    if (wantsMode !== chatMode) onChatModeChange(wantsMode);
+    if (wantsAi !== aiEnabled) onAiEnabledChange?.(wantsAi);
+  };
 
   useEffect(() => {
     const resize = () => {
@@ -139,7 +178,7 @@ export default function PromptInput({
         )}
       </div>
       <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
-        <div className="flex items-center gap-x-0.5 gap-y-2">
+        <div className="flex items-center gap-x-2 gap-y-2">
           {!isGenerating ? (
             <>
               <input
@@ -170,43 +209,25 @@ export default function PromptInput({
                   {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
                 </button>
               </div>
-              <div className="chat-mode-toggle prompt-input-mode" aria-label="Toggle chat mode">
-                <label
-                  className={`chat-mode-option chat-mode-option-active cursor-pointer ${chatMode === 'ask' ? 'is-ask' : 'is-build'}`}
-                  title={`Click to switch to ${chatMode === 'build' ? 'Ask' : 'Build'} mode`}
-                >
-                  <input 
-                    type="checkbox" 
-                    checked={chatMode === 'build'} 
-                    onChange={() => onChatModeChange(chatMode === 'build' ? 'ask' : 'build')} 
-                    className="sr-only" 
-                  />
-                  {/* The ghost "Build" row reserves the wider label's width, so
-                      toggling to the shorter "Ask" doesn't shrink the pill. */}
-                  <span className="grid">
-                    <span className="col-start-1 row-start-1 flex items-center gap-1 invisible" aria-hidden="true">
-                      <Wand2 size={15} aria-hidden="true" />
-                      <span>Build</span>
-                    </span>
-                    <span className="col-start-1 row-start-1 flex items-center gap-1">
-                      {chatMode === 'build' ? <Wand2 size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
-                      <span>{chatMode === 'build' ? 'Build' : 'Ask'}</span>
-                    </span>
+              <button
+                type="button"
+                onClick={cycleMode}
+                aria-label={`${MODE_LABELS[selectedMode]} mode. Activate to switch mode.`}
+                title={`${MODE_LABELS[selectedMode]} mode — click to switch`}
+                className={`chat-mode-reel${spinning ? ' is-spinning' : ''}`}
+              >
+                <span className="chat-mode-reel-window" aria-hidden="true">
+                  <span
+                    className={`chat-mode-reel-track ${spinning ? 'is-spinning' : ''}`}
+                    style={{ transform: `translateY(calc(${-reelIndex} * var(--composer-key-size)))` }}
+                    onTransitionEnd={handleReelEnd}
+                  >
+                    {REEL_ITEMS.map((word, index) => (
+                      <span key={index} className="chat-mode-reel-item">{MODE_LABELS[word]}</span>
+                    ))}
                   </span>
-                </label>
-                <label
-                  className={`chat-mode-option ${aiEnabled ? 'chat-mode-option-active is-ai' : ''} cursor-pointer`}
-                  title={aiEnabled ? "AI text generation enabled" : "Enable AI text generation"}
-                >
-                  <input 
-                    type="checkbox" 
-                    checked={aiEnabled} 
-                    onChange={() => onAiEnabledChange?.(!aiEnabled)} 
-                    className="sr-only" 
-                  />
-                  <span>AI</span>
-                </label>
-              </div>
+                </span>
+              </button>
             </>
           ) : null}
         </div>
@@ -226,16 +247,10 @@ export default function PromptInput({
             disabled={!canSubmit}
             aria-label={submitLabel}
             title={submitLabel}
-            className={`prompt-input-action composer-key !rounded-full ${canSubmit ? 'composer-key-accent' : 'composer-key-off'}`}
+            className="prompt-input-action composer-key prompt-input-send !rounded-full"
           >
             {isGenerating ? (
               <Loader2 className="animate-spin" size={18} />
-            ) : chatMode === 'ask' ? (
-              <MessageSquare size={18} />
-            ) : isClarifying ? (
-              <MessageSquare size={18} />
-            ) : isChatActive ? (
-              <Edit2 size={18} />
             ) : (
               <Send size={18} />
             )}
