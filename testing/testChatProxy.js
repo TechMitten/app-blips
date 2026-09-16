@@ -39,9 +39,7 @@ async function captureRequest(t, payload, settings = {}) {
 for (const effort of ['low', 'medium', 'high']) {
   for (const choice of ['required', namedChoice]) {
     test(`reasoning ${effort} uses auto for ${JSON.stringify(choice)}`, async (t) => {
-      const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true }, {
-        APPBLIPS_LLM_REASONING_EFFORT: effort,
-      });
+      const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true, reasoning_effort: effort });
       assert.equal(body.tool_choice, 'auto');
       assert.equal(body.reasoning_effort, effort);
       assert.deepEqual(body.tools, [editTool]);
@@ -52,9 +50,7 @@ for (const effort of ['low', 'medium', 'high']) {
 
 for (const effort of [undefined, false, 'none', 'off', 'disabled']) {
   test(`disabled reasoning ${effort} preserves forced tool choices`, async (t) => {
-    const body = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice }, {
-      APPBLIPS_LLM_REASONING_EFFORT: effort,
-    });
+    const body = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice, reasoning_effort: effort });
     assert.deepEqual(body.tool_choice, namedChoice);
     assert.equal(body.reasoning_effort, 'none');
   });
@@ -62,29 +58,25 @@ for (const effort of [undefined, false, 'none', 'off', 'disabled']) {
 
 for (const choice of ['auto', 'none', undefined]) {
   test(`reasoning preserves unforced tool choice ${choice}`, async (t) => {
-    const body = await captureRequest(t, { tools: [editTool], tool_choice: choice }, {
-      APPBLIPS_LLM_REASONING_EFFORT: 'high',
-    });
+    const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, reasoning_effort: 'high' });
     assert.equal(body.tool_choice, choice);
   });
 }
 
-test('client can disable server reasoning and retain required tool use', async (t) => {
-  const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'none' }, {
-    APPBLIPS_LLM_REASONING_EFFORT: 'high',
-  });
+test('client can disable reasoning and retain required tool use', async (t) => {
+  const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'none' });
   assert.equal(body.tool_choice, 'required');
   assert.equal(body.reasoning_effort, 'none');
 });
 
-test('client can enable reasoning over the server default', async (t) => {
+test('client can enable reasoning', async (t) => {
   const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'high' });
   assert.equal(body.tool_choice, 'auto');
   assert.equal(body.reasoning_effort, 'high');
 });
 
 test('initial generation keeps reasoning without adding tool choice', async (t) => {
-  const body = await captureRequest(t, { stream: true }, { APPBLIPS_LLM_REASONING_EFFORT: 'high' });
+  const body = await captureRequest(t, { stream: true, reasoning_effort: 'high' });
   assert.equal(body.reasoning_effort, 'high');
   assert.equal(Object.hasOwn(body, 'tool_choice'), false);
   assert.equal(Object.hasOwn(body, 'tools'), false);

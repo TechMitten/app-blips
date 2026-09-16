@@ -37,6 +37,7 @@ export const STARTER_PRESETS = [
     prompt: "A high-quality weather app built with Material You design and dynamic color palettes. Includes live conditions, 7-day forecast cards, hourly charts, animated weather artwork, and air quality metrics.",
     category: "Weather",
     icon: CloudSun,
+    featured: true,
     color: "text-sky-600 bg-sky-50"
   },
   {
@@ -44,6 +45,7 @@ export const STARTER_PRESETS = [
     prompt: "A complete, fully functional arcade space shooter with touchscreen virtual controls and keyboard support. Features laser cannons, wave-based alien fleets, shield power-ups, and particle explosion effects.",
     category: "Arcade",
     icon: Rocket,
+    featured: true,
     color: "text-violet-600 bg-violet-50"
   },
   {
@@ -72,6 +74,7 @@ export const STARTER_PRESETS = [
     prompt: "A polished recipe discovery app with a searchable, filterable card grid, step-by-step cook mode with a built-in timer, adjustable ingredient serving sizes, and a save-to-favorites collection.",
     category: "Cooking",
     icon: ChefHat,
+    featured: true,
     color: "text-rose-600 bg-rose-50"
   },
   {
@@ -79,6 +82,7 @@ export const STARTER_PRESETS = [
     prompt: "The addictive 2048 sliding number puzzle with animated tile merging, smooth swipe and keyboard arrow controls, score and best-score displays, undo move button, and victory celebration.",
     category: "Puzzle",
     icon: Dices,
+    featured: true,
     color: "text-amber-600 bg-amber-50"
   },
   {
@@ -86,6 +90,7 @@ export const STARTER_PRESETS = [
     prompt: "A Pomodoro-style focus timer with a smooth animated countdown ring, customizable work/break intervals, an ambient session soundtrack, daily streak tracking, and a running log of completed sessions.",
     category: "Productivity",
     icon: Timer,
+    featured: true,
     color: "text-blue-600 bg-blue-50"
   },
   {
@@ -128,6 +133,7 @@ export const STARTER_PRESETS = [
     prompt: "A playable step-sequencer drum machine with multiple synthesized drum kits, an adjustable BPM, a 16-step pattern grid, pattern save/load slots, and reactive visual pulses on each beat.",
     category: "Audio",
     icon: Drum,
+    featured: true,
     color: "text-violet-600 bg-violet-50"
   },
   {
