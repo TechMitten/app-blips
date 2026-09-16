@@ -120,7 +120,7 @@ For a plain-English walkthrough of who provides which AI key and what finished-a
 | Group | Variables | Notes |
 | --- | --- | --- |
 | LLM (required) | `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL` | Server-side only, never exposed to the browser bundle |
-| LLM tuning (optional) | `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_TEMPERATURE`, `APPBLIPS_LLM_REASONING_EFFORT` | `APPBLIPS_LLM_TEMPERATURE` defaults to `0.2` |
+| LLM tuning (optional) | `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_TEMPERATURE` | `APPBLIPS_LLM_TEMPERATURE` defaults to `0.2`. Reasoning effort is a per-user choice in the app's Settings modal |
 | Rate limiting (optional) | `APPBLIPS_CHAT_RATE_LIMIT_MAX`, `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` | Per-user limit on `/api/chat`, defaulting to 60 requests per 300s. Tracked in memory per server instance, so treat it as a speed bump rather than a hard budget cap |
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. `byok` is the safe default; `relay` makes the operator fund app AI |
 | Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |

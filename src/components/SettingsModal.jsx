@@ -1,14 +1,15 @@
 import { Sun, Moon, Monitor, X } from 'lucide-react';
 import Modal from './Modal';
-import { CHAT_FONT_OPTIONS } from '../lib/config';
+import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
 
 // Settings modal: appearance (theme preference comes from useTheme in App,
-// chat font size from useChatFont) and the code-view toggle. The LLM
-// endpoint/key/model are fixed server-side (see functions/api/chat.js) and are
-// not user-configurable.
+// chat font size from useChatFont), the code-view toggle, and reasoning effort.
+// The LLM endpoint/key/model are fixed server-side (see functions/api/chat.js)
+// and are not user-configurable; reasoning effort is a per-user choice.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
+const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', medium: 'Medium', high: 'High' };
 
 export default function SettingsModal({
   onClose,
@@ -25,6 +26,8 @@ export default function SettingsModal({
   onSkipSplashChange,
   autoFollowCode,
   onAutoFollowCodeChange,
+  reasoningEffort,
+  onReasoningEffortChange,
 }) {
   return (
     <Modal
@@ -161,6 +164,31 @@ export default function SettingsModal({
           </div>
           <p className="text-xs text-slate-600 leading-snug">
             Auto-scroll the Code tab to follow the latest line as the app is generated.
+          </p>
+        </section>
+
+        {/* Reasoning effort */}
+        <section className="space-y-2" aria-label="Reasoning effort">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5">
+            <h3 className="text-xs 2xl:text-sm font-bold uppercase tracking-[0.14em] text-indigo-600">
+              Reasoning Effort
+            </h3>
+            <div className="nav-segmented-group" role="group" aria-label="Reasoning effort">
+              {REASONING_EFFORT_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={reasoningEffort === option}
+                  onClick={() => onReasoningEffortChange(option)}
+                  className={`nav-segmented-btn ${reasoningEffort === option ? 'nav-segmented-btn-active' : ''}`}
+                >
+                  <span>{REASONING_EFFORT_LABELS[option]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 leading-snug">
+            How much the AI reasons before generating or answering. Higher effort can improve complex apps, but is slower and uses more tokens.
           </p>
         </section>
 

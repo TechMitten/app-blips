@@ -1,177 +1,53 @@
-/* Starter Ideas Carousel */
-.starter-carousel {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.starter-carousel::-webkit-scrollbar {
-  display: none;
-}
-.starter-row {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.starter-row::-webkit-scrollbar {
-  display: none;
-}
-.starter-row.is-dragging {
-  cursor: grabbing;
-}
-.starter-row.is-dragging .starter-pop-card {
-  pointer-events: none;
+/* Starter idea cards — a short, curated gallery of seed prompts. Static and
+   quiet: hairline border and a flat surface, with feedback on hover only. The
+   empty state's single accent surface is the composer, so these sit below it
+   in weight rather than competing. */
+.starter-card {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Starter Idea Cards — light theme: frosted glass + hairline border, no
-   heavy elevation. Dark keeps its pop-out physical extrusion untouched. */
-.starter-pop-card {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border-radius: 1.15rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
+.starter-card:hover {
+  border-color: rgba(15, 23, 42, 0.28);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px -6px rgba(15, 23, 42, 0.2);
 }
 
-.starter-pop-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(30, 89, 143, 0.35);
-  box-shadow: 0 6px 18px -6px rgba(15, 23, 42, 0.12);
+.starter-card:active {
+  transform: translateY(0.5px);
 }
 
-.starter-pop-card:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+.starter-card:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
-:is(html.dark, .force-dark) .starter-pop-card {
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 3.5px solid rgba(0, 0, 0, 0.7);
-  background: #181a24;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-radius: 1.15rem;
-  box-shadow:
-    0 8px 20px -4px rgba(0, 0, 0, 0.6),
-    0 2px 6px -1px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+:is(html.dark, .force-dark) .starter-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
 }
 
-:is(html.dark, .force-dark) .starter-pop-card:hover {
-  transform: translateY(-2px);
-  border-color: #818cf8;
-  border-bottom-color: #4f46e5;
-  box-shadow:
-    0 16px 32px -4px rgba(0, 0, 0, 0.85),
-    0 6px 14px -2px rgba(99, 102, 241, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+:is(html.dark, .force-dark) .starter-card:hover {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.6);
 }
 
-:is(html.dark, .force-dark) .starter-pop-card:active {
-  transform: translateY(1px);
-  border-bottom-width: 2px;
-  box-shadow:
-    0 2px 6px -1px rgba(0, 0, 0, 0.6);
-}
+/* Tile palettes. Six hues spaced around the wheel (~40° apart at the closest
+   pair) so every visible icon reads as a distinct colour. Values are explicit
+   rather than hue-ramp utilities: the app's ramps cluster too tightly to
+   guarantee that separation. Component picks the hue via [data-hue]. */
+.starter-card-tile[data-hue='rose'] { color: #be123c; background: #ffe4e6; }
+.starter-card-tile[data-hue='amber'] { color: #b45309; background: #fef3c7; }
+.starter-card-tile[data-hue='emerald'] { color: #047857; background: #d1fae5; }
+.starter-card-tile[data-hue='sky'] { color: #0369a1; background: #e0f2fe; }
+.starter-card-tile[data-hue='indigo'] { color: #4338ca; background: #e0e7ff; }
+.starter-card-tile[data-hue='fuchsia'] { color: #a21caf; background: #fae8ff; }
 
-/* Starter Card Description — High contrast & crisp in both light and dark themes */
-.starter-card-desc {
-  color: #475569;
-}
-.starter-pop-card:hover .starter-card-desc {
-  color: #0f172a;
-}
-:is(html.dark, .force-dark) .starter-card-desc {
-  color: rgba(255, 255, 255, 0.78) !important;
-}
-:is(html.dark, .force-dark) .starter-pop-card:hover .starter-card-desc {
-  color: #ffffff !important;
-}
-
-/* Starter Idea Category Badges — Vibrant & high-contrast in dark mode */
-.starter-badge-amber {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fcd34d;
-}
-:is(html.dark, .force-dark) .starter-badge-amber {
-  background: rgba(245, 158, 11, 0.20) !important;
-  color: #fcd34d !important;
-  border-color: rgba(251, 191, 36, 0.50) !important;
-}
-
-.starter-badge-sky {
-  background: #e0f2fe;
-  color: #0369a1;
-  border-color: #7dd3fc;
-}
-:is(html.dark, .force-dark) .starter-badge-sky {
-  background: rgba(14, 165, 233, 0.20) !important;
-  color: #38bdf8 !important;
-  border-color: rgba(56, 189, 248, 0.50) !important;
-}
-
-.starter-badge-emerald {
-  background: #d1fae5;
-  color: #065f46;
-  border-color: #6ee7b7;
-}
-:is(html.dark, .force-dark) .starter-badge-emerald {
-  background: rgba(16, 185, 129, 0.20) !important;
-  color: #34d399 !important;
-  border-color: rgba(52, 211, 153, 0.50) !important;
-}
-
-.starter-badge-violet {
-  background: #ede9fe;
-  color: #5b21b6;
-  border-color: #c4b5fd;
-}
-:is(html.dark, .force-dark) .starter-badge-violet {
-  background: rgba(139, 92, 246, 0.20) !important;
-  color: #c4b5fd !important;
-  border-color: rgba(167, 139, 250, 0.50) !important;
-}
-
-.starter-badge-rose {
-  background: #ffe4e6;
-  color: #9f1239;
-  border-color: #fda4af;
-}
-:is(html.dark, .force-dark) .starter-badge-rose {
-  background: rgba(244, 63, 94, 0.20) !important;
-  color: #fda4af !important;
-  border-color: rgba(251, 113, 133, 0.50) !important;
-}
-
-.starter-badge-blue {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
-}
-:is(html.dark, .force-dark) .starter-badge-blue {
-  background: rgba(59, 130, 246, 0.20) !important;
-  color: #60a5fa !important;
-  border-color: rgba(96, 165, 250, 0.50) !important;
-}
-
-.starter-badge-teal {
-  background: #ccfbf1;
-  color: #115e59;
-  border-color: #5eead4;
-}
-:is(html.dark, .force-dark) .starter-badge-teal {
-  background: rgba(20, 184, 166, 0.20) !important;
-  color: #2dd4bf !important;
-  border-color: rgba(45, 212, 191, 0.50) !important;
-}
-
-.starter-badge-indigo {
-  background: #e0e7ff;
-  color: #3730a3;
-  border-color: #a5b4fc;
-}
-:is(html.dark, .force-dark) .starter-badge-indigo {
-  background: rgba(99, 102, 241, 0.20) !important;
-  color: #a5b4fc !important;
-  border-color: rgba(129, 140, 248, 0.50) !important;
-}
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='rose'] { color: #fda4af; background: rgba(244, 63, 94, 0.18); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='amber'] { color: #fcd34d; background: rgba(245, 158, 11, 0.18); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='emerald'] { color: #34d399; background: rgba(16, 185, 129, 0.18); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='sky'] { color: #38bdf8; background: rgba(14, 165, 233, 0.18); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #a5b4fc; background: rgba(99, 102, 241, 0.2); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f0abfc; background: rgba(217, 70, 239, 0.18); }

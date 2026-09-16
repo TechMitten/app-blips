@@ -1,4 +1,4 @@
-import { TriangleAlert, RotateCcw, X, Wand2, MessageSquare, Plus } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Plus } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
@@ -8,7 +8,6 @@ import PromptInput from './PromptInput';
 // all state live in App; this is presentational composition.
 export default function BuildPanel({
   isChatActive,
-  isResumingProject,
   chatMode,
   aiEnabled = false,
   onAiEnabledChange,
@@ -53,74 +52,47 @@ export default function BuildPanel({
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
-        {/* Left: Section identity & status */}
-        <div className="flex flex-1 items-center gap-2 min-w-0">
-          <div className="build-badge flex min-w-0 items-center gap-2.5 px-3 py-1.5 rounded-xl text-white">
-            {generatedCode && versions.length > 0 ? (
-              <span className={`shrink-0 text-[10px] font-mono font-black py-0.5 px-1.5 rounded-md text-white shadow-2xs ${chatMode === 'ask' ? 'bg-red-500' : 'bg-blue-600'}`}>
-                v{Math.min(currentVersionIndex + 1, versions.length)}
-              </span>
-            ) : (
-              <span className={`build-badge-icon w-5 h-5 rounded-lg text-white flex items-center justify-center shrink-0 ${chatMode === 'ask' ? 'is-ask' : 'is-build'}`}>
-                {chatMode === 'ask' ? <MessageSquare size={13} strokeWidth={2.5} /> : <Wand2 size={13} strokeWidth={2.5} />}
-              </span>
-            )}
-            <span className="build-badge-label font-black text-xs sm:text-sm tracking-tight truncate">
-              {isChatActive ? (chatMode === 'ask' ? 'Ask' : 'Build') : 'Prompt & Build'}
-            </span>
-            {(isGenerating || isResumingProject) && (
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400" />
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-        {/* Right: Quick actions */}
+      <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-end px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
+        {/* Quick actions */}
         {isChatActive && versions.length > 0 && !isGenerating && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onNewChat}
-              className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer"
-              aria-label="New chat (keeps version history)"
-              title="New chat (keeps version history)"
-            >
-              <Plus size={20} strokeWidth={3} aria-hidden="true" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer"
+            aria-label="New chat (keeps version history)"
+            title="New chat (keeps version history)"
+          >
+            <Plus size={20} strokeWidth={3} aria-hidden="true" />
+          </button>
         )}
-        </div>
       </div>
 
       <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-1 chat-scrollbar">
         <div className={`build-panel-stage w-full max-w-xl mx-auto space-y-4 animate-fade-in ${isChatActive ? 'mt-auto' : 'mt-4 sm:mt-8 mb-auto'}`}>
 
-          {/* Header: compact hero while empty */}
+          {/* Empty-state intro: the brand blips carry the mark, and the
+              product's own mechanism is the headline. No card here — the
+              composer below is the single surface on this screen. */}
           {!isChatActive && (
-            <div className="hero-card relative p-5 sm:p-6 rounded-3xl space-y-3">
-              <div className="flex items-center gap-2.5">
-                <span className="hero-blips" aria-hidden="true">
-                  <span className="hero-blip hero-blip-cyan" />
-                  <span className="hero-blip hero-blip-brand" />
-                  <span className="hero-blip hero-blip-coral" />
-                </span>
-                <span className="font-mono text-[10px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-slate-600 dark:text-white/50">
-                  {chatMode === 'ask' ? 'Plain answers, no build' : 'Prompt in, app out'}
-                </span>
-              </div>
+            <div className="hero-intro relative space-y-3">
+              <span className="hero-blips" aria-hidden="true">
+                <span className="hero-blip hero-blip-cyan" />
+                <span className="hero-blip hero-blip-brand" />
+                <span className="hero-blip hero-blip-coral" />
+              </span>
 
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 dark:text-white leading-tight">
-                {chatMode === 'ask' ? 'How can I help you today?' : 'What do you want to build?'}
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-950 dark:text-white leading-[1.08]">
+                {chatMode === 'ask' ? (
+                  <>Ask anything.<br />Build nothing.</>
+                ) : (
+                  <>Prompt in.<br />App out.</>
+                )}
               </h2>
 
-              <p className="text-slate-700 dark:text-white/80 text-xs sm:text-sm font-medium leading-relaxed">
+              <p className="text-slate-700 dark:text-white/80 text-sm font-medium leading-relaxed max-w-[44ch]">
                 {chatMode === 'ask'
-                  ? 'Get a plain answer about your app, or anything else — no build required.'
-                  : "Describe it in plain words. We'll ship a working app in seconds."}
+                  ? 'Get a straight answer about your app, or anything else.'
+                  : "Describe the app you want in plain words. We'll build a working version in seconds."}
               </p>
             </div>
           )}

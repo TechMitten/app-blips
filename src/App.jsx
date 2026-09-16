@@ -41,7 +41,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadReasoningEffort, REASONING_EFFORT_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -66,6 +66,7 @@ export default function App() {
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
+  const [reasoningEffort, setReasoningEffort] = useState(loadReasoningEffort);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
@@ -561,6 +562,10 @@ export default function App() {
   }, [skipSplash]);
 
   useEffect(() => {
+    localStorage.setItem(REASONING_EFFORT_KEY, reasoningEffort);
+  }, [reasoningEffort]);
+
+  useEffect(() => {
     return () => {
       cancelPendingReload();
     };
@@ -749,7 +754,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -1219,6 +1224,8 @@ export default function App() {
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}
           onAutoFollowCodeChange={setAutoFollowCode}
+          reasoningEffort={reasoningEffort}
+          onReasoningEffortChange={setReasoningEffort}
         />
       )}
 

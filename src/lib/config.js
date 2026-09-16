@@ -92,3 +92,19 @@ export const loadAutoFollowCode = () => {
     return true;
   }
 };
+
+export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
+// Sent to /api/chat as `reasoning_effort` for the heavy generation call. 'none'
+// disables reasoning; the rest map straight to the OpenAI-compatible values.
+export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'medium', 'high'];
+
+// One of REASONING_EFFORT_OPTIONS; anything unrecognised falls back to 'none',
+// which is also the default so reasoning stays off until the user opts in.
+export const loadReasoningEffort = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(REASONING_EFFORT_KEY);
+    return REASONING_EFFORT_OPTIONS.includes(stored) ? stored : 'none';
+  } catch {
+    return 'none';
+  }
+};

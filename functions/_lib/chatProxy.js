@@ -332,7 +332,10 @@ export async function handleChatProxy(request, env, waitUntil) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  const effort = reasoning_effort ?? env.APPBLIPS_LLM_REASONING_EFFORT ?? 'none';
+  // Reasoning effort is a per-user setting chosen in the app's Settings modal
+  // and sent by the client; the server no longer reads it from env. Client
+  // requests omit it only for auxiliary calls, which default to 'none' here.
+  const effort = reasoning_effort ?? 'none';
   if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
     bodyObj.reasoning_effort = 'none';
   } else if (effort) {
