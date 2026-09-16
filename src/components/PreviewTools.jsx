@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { SlidersHorizontal, Smartphone, Tablet, Monitor, RotateCcwSquare, ZoomOut, ZoomIn, Undo2, Redo2 } from 'lucide-react';
 import { PREVIEW_MODES } from '../lib/constants';
 
-export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }) {
+export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo, studioMode = 'app' }) {
   const toolsRef = useRef(null);
   useEffect(() => {
     const dismiss = (event) => {
@@ -31,10 +31,12 @@ export default function PreviewTools({ activeTab, previewMode, onPreviewModeChan
         {activeTab === 'preview' && (
           <>
             <div className="nav-segmented-group" role="group" aria-label="Preview device">
+              {/* Desktop is offered to websites only; app mockups stay on
+                  touch devices. */}
               {[
-                { mode: 'mobile', label: 'Mobile', Icon: Smartphone },
+                { mode: 'mobile', label: 'Smartphone', Icon: Smartphone },
                 { mode: 'tablet', label: 'Tablet', Icon: Tablet },
-                { mode: 'desktop', label: 'Desktop', Icon: Monitor },
+                ...(studioMode === 'website' ? [{ mode: 'desktop', label: 'Desktop', Icon: Monitor }] : []),
               ].map((option) => {
                 const { mode, label, Icon } = option;
                 return (

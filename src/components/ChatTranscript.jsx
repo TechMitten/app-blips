@@ -64,6 +64,7 @@ export default function ChatTranscript({
   streamingReply,
   isGenerating,
   chatMode,
+  studioMode = 'app',
   chatBottomRef,
 }) {
   return (
@@ -115,7 +116,7 @@ export default function ChatTranscript({
             <ReplyRow className="animate-fade-in flex items-center gap-2.5">
               <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-300" size={14} />
               <span className="text-[length:var(--chat-label-text)] font-bold">
-                {chatMode === 'ask' ? 'Thinking...' : 'Building app...'}
+                {chatMode === 'ask' ? 'Thinking...' : `Building ${studioMode === 'website' ? 'website' : 'app'}...`}
               </span>
             </ReplyRow>
           ) : null}

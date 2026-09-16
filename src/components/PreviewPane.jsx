@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, Trash2
+  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, Trash2, MousePointerClick
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
+import ElementEditor from './ElementEditor';
 import { PREVIEW_MODES } from '../lib/constants';
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
@@ -51,6 +52,17 @@ export default function PreviewPane({
   copied,
   onCopyCode,
   autoFollowCode,
+  studioMode = 'app',
+  isEditMode = false,
+  onToggleEditMode,
+  selectedElement = null,
+  selectionKey = 0,
+  elementEditError = null,
+  isApplyingElementEdit = false,
+  onApplyElementEdit,
+  onElementEditWithAI,
+  onCancelElementSelection,
+  onSelectParentElement,
 }) {
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
@@ -132,7 +144,7 @@ export default function PreviewPane({
                 title={`${PREVIEW_MODES.mobile.label} View (${PREVIEW_MODES.mobile.width} × ${PREVIEW_MODES.mobile.height})`}
               >
                 <Smartphone size={14} />
-                <span className="hidden sm:inline">Mobile</span>
+                <span className="hidden sm:inline">Smartphone</span>
               </button>
               <button
                 onClick={() => onPreviewModeChange('tablet')}
@@ -142,14 +154,18 @@ export default function PreviewPane({
                 <Tablet size={14} />
                 <span className="hidden sm:inline">Tablet</span>
               </button>
-              <button
-                onClick={() => onPreviewModeChange('desktop')}
-                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
-                title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
-              >
-                <Monitor size={14} />
-                <span className="hidden sm:inline">Desktop</span>
-              </button>
+              {/* Desktop is a Website Studio preset (sites are desktop-first);
+                  app mockups stay on touch devices. */}
+              {studioMode === 'website' && (
+                <button
+                  onClick={() => onPreviewModeChange('desktop')}
+                  className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
+                  title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
+                >
+                  <Monitor size={14} />
+                  <span className="hidden sm:inline">Desktop</span>
+                </button>
+              )}
             </div>
             {PREVIEW_MODES[previewMode].isTouchChrome && (
               <div className="nav-segmented-group" title="Device Orientation">
@@ -167,7 +183,7 @@ export default function PreviewPane({
 
         {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out) */}
         <div className="preview-actions flex items-center gap-1.5 sm:gap-2">
-          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
+          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo, studioMode }} />
           {/* Undo/Redo when versions > 1 */}
           {versions.length > 1 && (
             <div className="preview-wide-tools hidden md:flex nav-segmented-group" title="Undo / Redo Version">
@@ -215,6 +231,23 @@ export default function PreviewPane({
                 title="Zoom In (+10%)"
               >
                 <ZoomIn size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Website Studio: click-to-edit picker toggle. While on, clicks in
+              the preview select elements for the inline editor instead of
+              interacting with the site. */}
+          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
+            <div className="nav-segmented-group" title="Click-to-edit mode">
+              <button
+                onClick={onToggleEditMode}
+                aria-pressed={isEditMode}
+                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${isEditMode ? 'nav-segmented-btn-active' : ''}`}
+                title={isEditMode ? 'Editing: click elements in the preview to edit them' : 'Turn on click-to-edit (click elements in the preview)'}
+              >
+                <MousePointerClick size={14} />
+                <span className="hidden sm:inline">Edit</span>
               </button>
             </div>
           )}
@@ -295,6 +328,25 @@ export default function PreviewPane({
       >
         {/* Subtle workspace grid */}
         <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>
+
+        {/* Click-to-edit inspector. Docked (not coordinate-anchored) on
+            purpose: the mockup is scaled by a CSS transform, so mapping the
+            frame's inner bounding box to parent coordinates reliably is a
+            rabbit hole; a docked card sidesteps it entirely. */}
+        {studioMode === 'website' && activeTab === 'preview' && selectedElement && (
+          <div className="absolute top-4 right-4 z-20 w-[300px] max-w-[calc(100%-2rem)] animate-fade-in">
+            <ElementEditor
+              key={selectionKey}
+              element={selectedElement}
+              isApplying={isApplyingElementEdit}
+              error={elementEditError}
+              onApply={onApplyElementEdit}
+              onEditWithAI={onElementEditWithAI}
+              onCancel={onCancelElementSelection}
+              onSelectParent={onSelectParentElement}
+            />
+          </div>
+        )}
 
         {activeTab === 'preview' ? (
           <DeviceMockup

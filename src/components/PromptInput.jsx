@@ -28,6 +28,7 @@ export default function PromptInput({
   chatMode,
   onChatModeChange,
   isClarifying,
+  studioMode = 'app',
   attachment = null,
   attachmentError = null,
   isCapturingScreenshot = false,
@@ -112,9 +113,12 @@ export default function PromptInput({
     if (file) onAttachFile?.(file);
   };
 
+  const isWebsite = studioMode === 'website';
+  const noun = isWebsite ? 'Website' : 'App';
+
   const submitLabel = isGenerating
-    ? (chatMode === 'ask' ? 'Thinking...' : (isClarifying ? 'Answering...' : (hasCode ? 'Updating...' : 'Building...')))
-    : (chatMode === 'ask' ? 'Send' : (isClarifying ? 'Answer' : (isChatActive ? 'Update App' : 'Build App')));
+    ? (chatMode === 'ask' ? 'Thinking...' : (isClarifying ? 'Answering...' : (hasCode ? `Updating ${noun}...` : `Building ${noun}...`)))
+    : (chatMode === 'ask' ? 'Send' : (isClarifying ? 'Answer' : (isChatActive ? `Update ${noun}` : `Build ${noun}`)));
 
   return (
     <div data-tour="prompt" className="prompt-input-dock bg-white dark:bg-[#161824] rounded-2xl border-2 border-slate-300 dark:border-white/20 overflow-hidden transition-all shadow-md flex flex-col">
@@ -157,9 +161,13 @@ export default function PromptInput({
               ? "Type your answer here..."
               : chatMode === 'ask'
                 ? (isChatActive ? "Ask a question about the code..." : "Ask anything...")
-                : isChatActive
-                  ? "e.g. Make the background dark, add a reset button..."
-                  : "e.g. A minimalist task manager with categories..."
+                : isWebsite
+                  ? (isChatActive
+                    ? "e.g. Change the hero photo, add a pricing section..."
+                    : "e.g. A one-page site for a cozy neighborhood bakery...")
+                  : (isChatActive
+                    ? "e.g. Make the background dark, add a reset button..."
+                    : "e.g. A minimalist task manager with categories...")
           }
           className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar ${showEnhanceButton ? 'pr-11' : ''}`}
           disabled={isGenerating || isEnhancingPrompt}

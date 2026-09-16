@@ -7,7 +7,7 @@
  * frame's DOM now lives inside the frame, injected as a single inline script,
  * and is driven over `postMessage`.
  *
- * The script does two jobs:
+ * The script does several jobs:
  *
  *  1. Shims `localStorage` / `sessionStorage` / `document.cookie`. On an opaque
  *     origin these THROW `SecurityError` on mere access, which would kill the
@@ -31,6 +31,11 @@
  *     the snapshot into a canvas happens in the PARENT window instead (see
  *     rasterizeDomSnapshot in src/lib/attachments.js), which is never
  *     sandboxed and hits none of this.
+ *  4. Website-studio visual editing: hover/click element picking that
+ *     reports a serialized description of the selected element to the
+ *     parent over the same token-authenticated channel (section 3 below).
+ *     The parent owns the actual editing UI and applies changes to the
+ *     source; this side only outlines and reports.
  *
  * IMPORTANT: the bridge is spliced in at RENDER time only (see the `useMemo`
  * feeding the iframe's `srcDoc` in App.jsx) and is never written into
@@ -211,7 +216,248 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   // ------------------------------------------------------------------
-  // 3. Touch-scroll simulation
+  // 3. Visual editing (website studio)
+  //
+  // When the parent enables editing, this frame becomes an element picker:
+  // hover outlines the element under the cursor, click selects it and
+  // reports a serialized description to the parent (which shows the editor
+  // panel and applies changes to the source HTML). This side never mutates
+  // the document -- outlines are inline styles that are restored on
+  // deselect. Escape clears the selection; select-parent walks the
+  // selection up one ancestor at a time so containers (section
+  // backgrounds, wallpaper) can be reached from their children.
+  // ------------------------------------------------------------------
+
+  var editingActive = false;
+  var editHoveredEl = null;
+  var editSelectedEl = null;
+  var editStyleEl = null;
+
+  var EDIT_HOVER_OUTLINE = '2px dashed rgba(99, 102, 241, 0.85)';
+  var EDIT_SELECT_OUTLINE = '3px solid rgba(99, 102, 241, 1)';
+  var EDIT_CURSOR_CSS = '* { cursor: crosshair !important; }';
+
+  function isBridgeNode(el) {
+    var node = el;
+    while (node && node !== document.documentElement) {
+      if (node.getAttribute && node.getAttribute('data-orion-bridge') === 'true') return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function isSelectable(el) {
+    if (!el || el.nodeType !== 1 || !el.tagName) return false;
+    if (el === document.documentElement) return false;
+    if (isBridgeNode(el)) return false;
+    return true;
+  }
+
+  function saveOutline(el) {
+    if (!el || el.__orionOutlineSaved) return;
+    el.__orionOutlineSaved = { outline: el.style.outline, offset: el.style.outlineOffset };
+  }
+
+  function restoreOutline(el) {
+    if (!el || !el.__orionOutlineSaved) return;
+    el.style.outline = el.__orionOutlineSaved.outline;
+    el.style.outlineOffset = el.__orionOutlineSaved.offset;
+    el.__orionOutlineSaved = null;
+  }
+
+  function paintHover(el) {
+    if (!el || el === editSelectedEl) return;
+    saveOutline(el);
+    el.style.outline = EDIT_HOVER_OUTLINE;
+    el.style.outlineOffset = '1px';
+  }
+
+  function clearHover() {
+    if (editHoveredEl && editHoveredEl !== editSelectedEl) restoreOutline(editHoveredEl);
+    editHoveredEl = null;
+  }
+
+  function paintSelection(el) {
+    if (!el) return;
+    saveOutline(el);
+    el.style.outline = EDIT_SELECT_OUTLINE;
+    el.style.outlineOffset = '1px';
+  }
+
+  function clearSelection(notify) {
+    if (editSelectedEl) restoreOutline(editSelectedEl);
+    editSelectedEl = null;
+    if (notify) post('element-deselected', {});
+  }
+
+  function detectRole(el) {
+    var tag = el.tagName.toLowerCase();
+    if (tag === 'img' || tag === 'picture' || tag === 'svg' || tag === 'video' || tag === 'canvas') return 'image';
+    if (tag === 'a') return 'link';
+    if (tag === 'button' || el.getAttribute('role') === 'button') return 'button';
+    if (/^h[1-6]$/.test(tag)) return 'heading';
+    if (tag === 'p' || tag === 'span' || tag === 'li' || tag === 'strong' || tag === 'em' ||
+        tag === 'small' || tag === 'label' || tag === 'blockquote' || tag === 'figcaption' ||
+        tag === 'td' || tag === 'th' || tag === 'dt' || tag === 'dd' || tag === 'time' ||
+        tag === 'figcaption' || tag === 'code' || tag === 'pre') {
+      return 'text';
+    }
+    return 'container';
+  }
+
+  function capString(str, n) {
+    str = String(str == null ? '' : str);
+    return str.length > n ? str.slice(0, n) : str;
+  }
+
+  function collapseText(el) {
+    try {
+      // Note: this lives inside a template literal -- backslashes must be
+      // doubled or the frame receives a backslash-less regex.
+      return capString(String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(), 600);
+    } catch (err) {
+      return '';
+    }
+  }
+
+  function describeElement(el) {
+    var tag = el.tagName.toLowerCase();
+    var ATTR_NAMES = ['src', 'srcset', 'href', 'alt', 'title', 'aria-label', 'placeholder', 'type', 'class', 'style', 'id'];
+    var attributes = {};
+    for (var i = 0; i < ATTR_NAMES.length; i++) {
+      var name = ATTR_NAMES[i];
+      var value;
+      try { value = el.getAttribute(name); } catch (attrErr) { value = null; }
+      if (value != null) attributes[name] = capString(value, name === 'class' || name === 'style' ? 3000 : 1500);
+    }
+
+    var computed = null;
+    try { computed = window.getComputedStyle(el); } catch (styleErr) { computed = null; }
+
+    var rect = null;
+    try {
+      var box = el.getBoundingClientRect();
+      rect = { x: box.left, y: box.top, width: box.width, height: box.height };
+    } catch (rectErr) { rect = null; }
+
+    var fullText = '';
+    try { fullText = String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(); } catch (textErr) { fullText = ''; }
+
+    var outerFull = '';
+    try { outerFull = el.outerHTML || ''; } catch (outerErr) { outerFull = ''; }
+
+    var parent = el.parentElement || null;
+    var parentSelectable = false;
+    var parentTag = null;
+    var parentText = null;
+    if (parent && parent !== document.documentElement) {
+      parentTag = parent.tagName ? parent.tagName.toLowerCase() : null;
+      parentSelectable = true;
+      parentText = collapseText(parent);
+    }
+
+    var childIndex = -1;
+    if (parent && parent.children) {
+      for (var c = 0; c < parent.children.length; c++) {
+        if (parent.children[c] === el) { childIndex = c; break; }
+      }
+    }
+
+    var payload = {
+      tag: tag,
+      role: detectRole(el),
+      text: capString(fullText, 600),
+      textTruncated: fullText.length > 600,
+      attributes: attributes,
+      backgroundColor: computed ? capString(computed.backgroundColor, 100) : null,
+      backgroundImage: computed && computed.backgroundImage && computed.backgroundImage !== 'none'
+        ? capString(computed.backgroundImage, 500)
+        : null,
+      color: computed ? capString(computed.color, 100) : null,
+      outerHTML: capString(outerFull, 4000),
+      outerHTMLTruncated: outerFull.length > 4000,
+      parentTag: parentTag,
+      parentSelectable: parentSelectable,
+      parentText: parentText,
+      childIndex: childIndex,
+      boundingBox: rect
+    };
+    post('element-selected', payload);
+  }
+
+  function editOnMouseOver(e) {
+    if (!editingActive) return;
+    var el = e.target;
+    if (!isSelectable(el)) return;
+    if (el === editHoveredEl) return;
+    clearHover();
+    editHoveredEl = el;
+    paintHover(el);
+  }
+
+  function editOnMouseOut(e) {
+    if (!editingActive) return;
+    if (e.target === editHoveredEl) clearHover();
+  }
+
+  function editOnClick(e) {
+    if (!editingActive) return;
+    var el = e.target;
+    if (!isSelectable(el)) return;
+    // Capture phase + both stops: the page must not react to selection
+    // clicks (no link navigation, no toggles) while picking.
+    e.preventDefault();
+    e.stopPropagation();
+    clearHover();
+    if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
+    editSelectedEl = el;
+    paintSelection(el);
+    describeElement(el);
+  }
+
+  function editOnKeyDown(e) {
+    if (!editingActive) return;
+    if (e.key === 'Escape' && editSelectedEl) {
+      clearSelection(true);
+    }
+  }
+
+  function editSelectParent() {
+    if (!editingActive || !editSelectedEl) return;
+    var parent = editSelectedEl.parentElement;
+    if (!parent || parent === document.documentElement) return;
+    clearHover();
+    restoreOutline(editSelectedEl);
+    editSelectedEl = parent;
+    paintSelection(parent);
+    describeElement(parent);
+  }
+
+  function setEditingEnabled(enabled) {
+    if (!!enabled === editingActive) return;
+    editingActive = !!enabled;
+    clearHover();
+    clearSelection(false);
+    if (editingActive) {
+      if (!editStyleEl) {
+        editStyleEl = document.createElement('style');
+        editStyleEl.setAttribute('data-orion-bridge', 'true');
+        editStyleEl.textContent = EDIT_CURSOR_CSS;
+        (document.head || document.documentElement).appendChild(editStyleEl);
+      }
+    } else if (editStyleEl) {
+      if (editStyleEl.parentNode) editStyleEl.parentNode.removeChild(editStyleEl);
+      editStyleEl = null;
+    }
+  }
+
+  document.addEventListener('mouseover', editOnMouseOver, true);
+  document.addEventListener('mouseout', editOnMouseOut, true);
+  document.addEventListener('click', editOnClick, true);
+  document.addEventListener('keydown', editOnKeyDown, true);
+
+  // ------------------------------------------------------------------
+  // 4. Touch-scroll simulation
   // ------------------------------------------------------------------
 
   var SCROLLBAR_CSS =
@@ -309,6 +555,9 @@ const BRIDGE_SOURCE = `(function () {
     function onPointerDown(e) {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (isFormControl(e.target)) return;
+      // While the element picker is active, every gesture belongs to the
+      // picker -- no drag-scrolling, so taps reliably reach editOnClick.
+      if (editingActive) return;
 
       if (momentumId) {
         cancelAnimationFrame(momentumId);
@@ -419,6 +668,7 @@ const BRIDGE_SOURCE = `(function () {
     }
 
     function onClick(e) {
+      if (editingActive) return;
       if (suppressClick) {
         e.preventDefault();
         e.stopPropagation();
@@ -453,7 +703,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   // ------------------------------------------------------------------
-  // 3. Message plumbing
+  // 5. Message plumbing
   // ------------------------------------------------------------------
 
   var domReady = false;
@@ -491,6 +741,12 @@ const BRIDGE_SOURCE = `(function () {
     if (d.type === 'configure') {
       desiredEnabled = !!(d.payload && d.payload.enabled);
       sync();
+    } else if (d.type === 'set-editing') {
+      setEditingEnabled(!!(d.payload && d.payload.enabled));
+    } else if (d.type === 'select-parent') {
+      editSelectParent();
+    } else if (d.type === 'deselect') {
+      clearSelection(false);
     } else if (d.type === "ai-chat-chunk" || d.type === "ai-chat-response" || d.type === "ai-chat-error") {
       var aiPayload = d.payload || {};
       var pendingAi = aiRequests[aiPayload.requestId];
@@ -521,7 +777,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   // ------------------------------------------------------------------
-  // 4. Screenshot capture (DOM + CSS extraction only)
+  // 6. Screenshot capture (DOM + CSS extraction only)
   //
   // No rasterization happens here -- see the module header comment for why:
   // any library that needs a helper iframe to compute styles gets blocked
@@ -754,7 +1010,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   // ------------------------------------------------------------------
-  // 5. Runtime error capture
+  // 7. Runtime error capture
   // ------------------------------------------------------------------
   var lastReportedError = '';
   var lastReportedTime = 0;

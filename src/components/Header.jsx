@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound
+  Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound, Smartphone, Globe
 } from 'lucide-react';
+import { STUDIO_MODES } from '../lib/constants';
 
 
-// Top bar: brand + current-app pill on the left; New App / Apps / History /
-// Settings / Help / auth / theme on the right.
+// Top bar: brand + current-app pill on the left; studio switch, New App /
+// Apps / History / Settings / Help / auth / theme on the right.
 export default function Header({
   projectName,
   onNewApp,
@@ -27,6 +28,8 @@ export default function Header({
   onSignIn,
   firebaseEnabled,
   onOpenAnalytics,
+  studioMode = 'app',
+  onStudioModeChange,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -71,8 +74,10 @@ export default function Header({
     action?.();
   };
 
-  const hasProjectName = Boolean(projectName && projectName !== 'Untitled App');
-  const displayName = hasProjectName ? projectName : 'Untitled App';
+  const hasProjectName = Boolean(projectName && projectName !== 'Untitled App' && projectName !== 'Untitled Website');
+  const untitledName = STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
+  const displayName = hasProjectName ? projectName : untitledName;
+  const article = STUDIO_MODES[studioMode]?.article || 'app';
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 py-2 2xl:py-2.5 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -82,7 +87,7 @@ export default function Header({
         <span className="nav-divider" aria-hidden="true" />
         <div
           className={`nav-nameplate max-w-[160px] xl:max-w-[300px] 2xl:max-w-[420px] ${hasProjectName ? 'text-slate-900' : 'text-slate-500'}`}
-          title={hasProjectName ? `Current app: ${projectName}` : 'Untitled app'}
+          title={hasProjectName ? `Current ${article}: ${projectName}` : untitledName}
         >
           {hasProjectName && <span className="nav-nameplate-dot" aria-hidden="true" />}
           <span className="truncate">{displayName}</span>
@@ -92,15 +97,38 @@ export default function Header({
       {/* Right: a ranked control strip -- one solid key, workspace controls,
           environment controls, then account/theme, split by hairlines. */}
       <nav className="hidden lg:flex items-center gap-3 shrink-0" aria-label="Workspace actions">
-        {/* Rank 1: Primary Action */}
+        {/* Rank 1: Studio mode + Primary Action. Switching studios starts a
+            fresh workspace (App confirms when work would be lost); every
+            project remembers which studio created it. */}
+        <div className="nav-segmented-group" role="group" aria-label="Studio mode" title="Switch studio">
+          <button
+            onClick={() => onStudioModeChange('app')}
+            aria-pressed={studioMode === 'app'}
+            className={`nav-segmented-btn px-3 py-1.5 text-xs font-semibold ${studioMode === 'app' ? 'nav-segmented-btn-active' : ''}`}
+            title="App Studio — prompt-to-app builder"
+          >
+            <Smartphone size={14} />
+            <span>App</span>
+          </button>
+          <button
+            onClick={() => onStudioModeChange('website')}
+            aria-pressed={studioMode === 'website'}
+            className={`nav-segmented-btn px-3 py-1.5 text-xs font-semibold ${studioMode === 'website' ? 'nav-segmented-btn-active' : ''}`}
+            title="Website Studio — prompt-to-website builder with click-to-edit"
+          >
+            <Globe size={14} />
+            <span>Website</span>
+          </button>
+        </div>
+
         <button
           onClick={onNewApp}
           className="nav-btn nav-btn-primary group"
-          title="Start a new app"
-          aria-label="Start a new app"
+          title={`Start a new ${article}`}
+          aria-label={`Start a new ${article}`}
         >
           <Plus size={16} strokeWidth={2.4} />
-          <span>New App</span>
+          <span>New {STUDIO_MODES[studioMode]?.label || 'App'}</span>
         </button>
 
         {/* Rank 2: Workspace -- the app you are building */}
@@ -270,13 +298,41 @@ export default function Header({
                   <X size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
                 </button>
               </div>
+              <div className="mb-3 grid grid-cols-2 gap-2" role="group" aria-label="Studio mode">
+                <button
+                  type="button"
+                  onClick={() => runMobileAction(() => onStudioModeChange('app'))}
+                  aria-pressed={studioMode === 'app'}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    studioMode === 'app'
+                      ? 'bg-indigo-500 text-white shadow-md'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  <Smartphone size={16} />
+                  <span>App Studio</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runMobileAction(() => onStudioModeChange('website'))}
+                  aria-pressed={studioMode === 'website'}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    studioMode === 'website'
+                      ? 'bg-indigo-500 text-white shadow-md'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  <Globe size={16} />
+                  <span>Website Studio</span>
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => runMobileAction(onNewApp)}
                 className="mobile-menu-item mobile-menu-item-primary group"
               >
           <Plus size={16} strokeWidth={2.4} />
-                <span>New App</span>
+                <span>New {STUDIO_MODES[studioMode]?.label || 'App'}</span>
               </button>
               <button
                 type="button"

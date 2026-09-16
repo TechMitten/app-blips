@@ -33,5 +33,9 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   currentChatSessionId: row.data?.currentChatSessionId ?? null,
   deployment: row.data?.deployment || null,
   aiEnabled: Boolean(row.data?.aiEnabled),
+  // Enumerated explicitly (local rows spread ...row.data instead): a field
+  // missing here silently vanishes for hosted users on load. Legacy rows
+  // predate the studio split and default to 'app'.
+  studioMode: row.data?.studioMode === 'website' ? 'website' : 'app',
   lastModified: row.updated_at
 }));

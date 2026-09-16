@@ -369,7 +369,7 @@ export default function DeviceMockup({
 
                 <div 
                   className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                  style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
+                  style={{ transform: `scale(${mode === 'desktop' ? 1.5 : mode === 'tablet' ? 1.35 : 1})` }}
                 >
                   <div className="relative mb-3">
                     <img
@@ -409,7 +409,7 @@ export default function DeviceMockup({
             <div className={`building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center${isErrorAutoFix ? ' building-overlay-error' : ''}`}>
               <div 
                 className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                style={{ transform: `scale(${mode === 'desktop' ? 1.75 : mode === 'tablet' ? 1.35 : 1})` }}
+                style={{ transform: `scale(${mode === 'desktop' ? 1.5 : mode === 'tablet' ? 1.35 : 1})` }}
               >
                 <div className="building-spinner relative w-16 h-16 mb-6">
                   {isErrorAutoFix ? (
