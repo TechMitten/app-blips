@@ -7,6 +7,11 @@
 :root {
   --accent-border: var(--color-indigo-200);
 
+  /* Control voice: a neutral grotesque for button labels, deliberately distinct
+     from Poppins (rounded/geometric) so controls read as crisp UI text rather
+     than display copy. */
+  --font-control: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
   /* Shadows: near-black at low alpha reads as depth on a light ground, but
      disappears entirely on a dark one -- so dark raises the alpha and adds a
      light hairline instead of relying on the shadow alone. The ink matches

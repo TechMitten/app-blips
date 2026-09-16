@@ -413,8 +413,8 @@ export default function StarterIdeas({ ideas, onPick }) {
   const shuffledIdeas = useMemo(() => shuffle(ideas), [ideas]);
 
   const rows = useMemo(() => {
-    return [0, 1, 2].map((rowIndex) => {
-      return shuffledIdeas.filter((_, i) => i % 3 === rowIndex);
+    return [0, 1].map((rowIndex) => {
+      return shuffledIdeas.filter((_, i) => i % 2 === rowIndex);
     });
   }, [shuffledIdeas]);
 
@@ -434,9 +434,6 @@ export default function StarterIdeas({ ideas, onPick }) {
             ideas={rowIdeas}
             rowIndex={rowIndex}
             onPick={onPick}
-            // Mobile shows two rows; the third returns with the wider
-            // side-by-side layout at the lg breakpoint.
-            className={rowIndex === 2 ? 'hidden lg:block' : ''}
           />
         ))}
       </div>

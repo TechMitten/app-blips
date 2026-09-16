@@ -11,7 +11,6 @@ import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
 import HelpModal from './components/HelpModal';
-import AiIntroModal from './components/AiIntroModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
@@ -42,7 +41,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadAiIntroDismissed, saveAiIntroDismissed } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -76,7 +75,6 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
-  const [isAiIntroOpen, setIsAiIntroOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -210,20 +208,11 @@ export default function App() {
     },
   });
 
-  // Toggling generated-app AI from the prompt footer. The explainer shows each
-  // time AI is switched on until the user opts out from inside it.
+  // Toggling generated-app AI from the prompt footer.
   const handleAiEnabledChange = useCallback((enabled) => {
     setAiEnabled(enabled);
     saveProject({ aiEnabledToSave: enabled, force: true });
-    if (enabled && !loadAiIntroDismissed()) {
-      setIsAiIntroOpen(true);
-    }
   }, [saveProject]);
-
-  const handleAiIntroClose = useCallback((neverShowAgain) => {
-    if (neverShowAgain) saveAiIntroDismissed();
-    setIsAiIntroOpen(false);
-  }, []);
 
   // --- Deployment ---
   const currentVersionId = versions[currentVersionIndex]?.id ?? null;
@@ -1235,10 +1224,6 @@ export default function App() {
 
       {isHelpOpen && (
         <HelpModal onClose={() => setIsHelpOpen(false)} onStartTour={startTour} />
-      )}
-
-      {isAiIntroOpen && (
-        <AiIntroModal mode={generatedAiMode} onClose={handleAiIntroClose} />
       )}
 
       {isProjectsListOpen && (
