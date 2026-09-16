@@ -361,7 +361,8 @@ export const generateAppCode = async (
   attachment = null,
   aiEnabled = false,
   aiMode = 'hosted',
-  isAutoFix = false
+  isAutoFix = false,
+  reasoningEffort = 'none'
 ) => {
   if (isAskMode) {
     const messages = [
@@ -381,7 +382,7 @@ export const generateAppCode = async (
         )
       }
     ];
-    const message = await requestModelText({ messages, onChunk, signal });
+    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort });
     const rawText = (message.content || message).trim();
     return {
       code: currentCode || '',
@@ -467,7 +468,7 @@ export const generateAppCode = async (
         onChunk,
         signal,
         forceTemperatureZero: isAutoFix,
-        reasoningEffort: isAutoFix ? 'none' : null
+        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
       });
 
       rawText = message.content || message;
