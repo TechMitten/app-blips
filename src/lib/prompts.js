@@ -52,12 +52,19 @@ export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analy
 If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build a game", "make an app", or "make it better" without specifying what kind of features or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
 Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
 
+export const WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build or edit single-file websites.
+If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build me a website", "a site for my business", or "make it better" without specifying what kind of site, content, or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
+Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
+
 // Produces the one-sentence chat acknowledgement for a build/edit turn. This is
 // deliberately a separate, reasoning-disabled completion that runs before the
 // heavy generation call, so the user sees a reply in the transcript immediately
 // instead of only after the model's (hidden) reasoning tokens have finished.
 export const CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in an app-building chat. The user has just asked to build a new single-file web app or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The app itself is generated separately after your reply, so never include or describe code.`;
+
+export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new single-file website or change an existing one.
+Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The website itself is generated separately after your reply, so never include or describe code.`;
 
 export const VIEW_CODE_TOOL = {
   type: 'function',
@@ -180,6 +187,49 @@ REPLY GUIDELINES:
 
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
+// The Website Studio variant: same delivery format and edit tooling as the
+// app prompt, but inverted content rules -- website anatomy (nav, hero,
+// sections, footer) is REQUIRED, JavaScript is demoted to progressive
+// enhancement, and every visible piece of content must live verbatim in the
+// static markup. The static-content rule is what makes the studio's
+// click-to-edit feature reliable: the parent string-matches clicked elements
+// back into this source, which only works when the rendered DOM mirrors the
+// markup.
+export const WEBSITE_HTML_SYSTEM_PROMPT = `You are an expert web designer and frontend developer.
+Generate a single self-contained HTML file that implements the user's requested website. "Self-contained" describes the delivery format -- one file, no build step -- with styling via a CDN-loaded Tailwind.
+
+CRITICAL RULES:
+1. Your response must be the HTML document itself, beginning at <!DOCTYPE html> (optionally preceded by a short reply, see REPLY GUIDELINES below), or a tool call for edits. This is a rule about the response envelope only. Never emit a bare .js/.jsx file, a description of the file, or a diff.
+2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
+3. Build a REAL WEBSITE with real website anatomy: a top navigation bar (site name, menu links, and a call-to-action button), a prominent hero section, several distinct content sections appropriate to the request, and a footer with useful links and contact info. Embrace website conventions -- these are features here, not anti-patterns.
+4. RESPONSIVE, DESKTOP-FIRST: design the layout for a wide (1440px) viewport first, then make it reflow gracefully down to phone widths using Tailwind responsive prefixes (sm:, md:, lg:, xl:). Never let content overflow or break at any width. Navigation collapses to a working hamburger menu on mobile (progressive enhancement, see rule 5).
+5. ALL VISIBLE CONTENT MUST BE STATIC HTML. Every heading, paragraph, label, price, image, and link the visitor can see MUST exist verbatim in the HTML markup. Do NOT render content from JavaScript and do NOT build visible DOM client-side (no Preact/React, no template literals constructing page content). The ONLY allowed JavaScript is progressive enhancement of markup that already exists without it: a mobile nav toggle, smooth scrolling, form validation, accordion open/close, simple scroll-reveal animations, and copy buttons. Each must degrade gracefully.
+6. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling. Do not load other frameworks or component libraries; a website of this scope needs none.
+7. Use real, high-quality photography from https://images.unsplash.com (stable photo URLs that work without an API key) or rich CSS gradients / inline SVG patterns for imagery and backgrounds. Give every image meaningful alt text. For icons use inline SVGs (e.g. hand-inlined lucide/heroicons paths) rather than icon-font CDNs.
+8. Aim for professional, modern design: strong typographic hierarchy (a display font via Google Fonts <link> plus a body font), a consistent color palette, generous whitespace, rounded corners, subtle shadows, tasteful hover states, and coherent dark or light theme.
+9. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, nav, hero, and each content section such as features, gallery, menu, pricing, testimonials, faq, contact, footer) so later edits have stable anchors.
+10. Forms (contact, signup, RSVP) have no backend: validate inputs with JavaScript and show an inline success message on submit. Do not use alert(), confirm(), or prompt() -- render inline UI instead.
+11. Websites are informational: do not add localStorage persistence, sign-in flows, dashboards, or app state unless the user explicitly asks for them.
+12. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create sites that are intended to deceive, defraud, phish, or harm users. If a request violates this, do NOT generate the requested site. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
+13. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. "a website for my business" without saying what the business does). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
+
+SURGICAL EDIT GUIDELINES:
+- Analyze the full code structure before deciding where and how to edit.
+- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
+- Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name -->. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
+- When you add a new region of markup, give it its own landmark in the matching syntax so it is anchorable next time.
+- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
+- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- PRESERVE STATIC CONTENT: when editing, keep every visible content element in the static HTML -- never move page content into JavaScript-rendered templates.
+
+REPLY GUIDELINES:
+- You MUST ALWAYS add ONE short, plain-English sentence of conversational reply (max ~15 words) acknowledging the request or explaining what you will do. Never more than one sentence, never a list, never a restatement of your plan.
+- Initial generation (no tools available yet): put your reply FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
+- Edits (tool-calling turns): your reply MUST accompany the tool call. Never skip a required tool call in order to reply instead, but always include the reply in the text content before calling the tool.
+
+Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
+
 const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
 - Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. It resolves to { text }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling.
 - Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this text API.
@@ -189,15 +239,22 @@ const HOSTED_AI_PROMPT = `The hosted platform supplies AI. Never call a provider
 const BYOK_AI_PROMPT = `This is a self-hosted BYOK app. The injected blip.ai bridge opens its standard provider configuration dialog on the first text request. Do not build or store custom API-key fields. You may provide an AI Settings action that calls blip.ai.configure(), and a disconnect action that calls blip.ai.clearConfiguration(). Explain that each person using a shared static app supplies their own key.`;
 const RELAY_AI_PROMPT = `This self-hosted operator configured a server relay. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
 
-export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted") => {
-  if (!aiEnabled) return HTML_SYSTEM_PROMPT;
+export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted", studioMode = "app") => {
+  const base = studioMode === "website" ? WEBSITE_HTML_SYSTEM_PROMPT : HTML_SYSTEM_PROMPT;
+  if (!aiEnabled) return base;
   const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : (aiMode === "relay" ? RELAY_AI_PROMPT : HOSTED_AI_PROMPT);
-  return HTML_SYSTEM_PROMPT + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;
+  return base + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;
 };
 
 export const PROMPT_ENHANCEMENT_SYSTEM_PROMPT = `You improve short, rough instructions before they are sent to another AI that builds or edits a single-file web app.
 Rewrite the user's instruction to be clearer, more specific, and more actionable -- fill in concrete detail about missing functionality, layout, and interactions ONLY where it naturally extends their intent. Do not invent an unrelated feature set, change what they're asking for, or contradict any detail they already gave.
 If "Current App Code" is provided, the instruction is an edit/refinement request for that existing app -- ground the rewrite in what's already built (its actual features, terminology, and structure), not a generic new app.
+Keep it as a single instruction written in the user's voice (first person or imperative, not a conversation, not addressed to "the developer"). Do not pad it with filler or exceed roughly 2-3x the original length.
+Respond with ONLY the rewritten instruction text -- no quotes, no markdown, no preamble, no explanation, no code.`;
+
+export const WEBSITE_PROMPT_ENHANCEMENT_SYSTEM_PROMPT = `You improve short, rough instructions before they are sent to another AI that builds or edits a single-file website.
+Rewrite the user's instruction to be clearer, more specific, and more actionable -- fill in concrete detail about missing content, sections, branding, and style ONLY where it naturally extends their intent. Do not invent an unrelated feature set, change what they're asking for, or contradict any detail they already gave.
+If "Current Website Code" is provided, the instruction is an edit/refinement request for that existing site -- ground the rewrite in what's already built (its actual sections, terminology, and content), not a generic new site.
 Keep it as a single instruction written in the user's voice (first person or imperative, not a conversation, not addressed to "the developer"). Do not pad it with filler or exceed roughly 2-3x the original length.
 Respond with ONLY the rewritten instruction text -- no quotes, no markdown, no preamble, no explanation, no code.`;
 
@@ -230,3 +287,14 @@ ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
 CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html\`<div class="...">\${content}</div>\` and <\${Component} /> for components).
 
 Fix these with apply_surgical_edits before finishing. If a search anchor around the broken code is unclear, call view_code first. Change as little as possible -- only what is needed to make the code parse.`;
+
+// The Website Studio's initial-generation instruction. Websites skip the app
+// prompt's layout-target switch (mobile/desktop/both): the site is always
+// desktop-first responsive, so one instruction covers it.
+export const buildWebsiteInitialGenerationPrompt = (prompt) => {
+  const trimmedPrompt = prompt.trim();
+
+  return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.
+
+Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.`;
+};

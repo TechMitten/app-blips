@@ -9,9 +9,13 @@ import {
   LIST_SECTIONS_TOOL,
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
+  WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   CHAT_REPLY_SYSTEM_PROMPT,
+  WEBSITE_CHAT_REPLY_SYSTEM_PROMPT,
   PROMPT_ENHANCEMENT_SYSTEM_PROMPT,
+  WEBSITE_PROMPT_ENHANCEMENT_SYSTEM_PROMPT,
   buildInitialGenerationPrompt,
+  buildWebsiteInitialGenerationPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
 
@@ -46,15 +50,17 @@ export const generateClarifyingQuestion = async ({
   prompt,
   currentCode = null,
   chatHistory = [],
-  signal = null
+  signal = null,
+  studioMode = 'app'
 }) => {
+  const isWebsite = studioMode === 'website';
   const messages = [
-    { role: 'system', content: CLARIFYING_QUESTIONS_SYSTEM_PROMPT },
+    { role: 'system', content: isWebsite ? WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT : CLARIFYING_QUESTIONS_SYSTEM_PROMPT },
     ...chatHistory,
     {
       role: 'user',
       content: currentCode
-        ? `Current App Code:\n\`\`\`html\n${currentCode.length > 8000 ? `${currentCode.slice(0, 4000)}\n...[truncated]...\n${currentCode.slice(-4000)}` : currentCode}\n\`\`\`\n\nRequest: ${prompt}`
+        ? `${isWebsite ? 'Current Website Code' : 'Current App Code'}:\n\`\`\`html\n${currentCode.length > 8000 ? `${currentCode.slice(0, 4000)}\n...[truncated]...\n${currentCode.slice(-4000)}` : currentCode}\n\`\`\`\n\nRequest: ${prompt}`
         : `Request: ${prompt}`
     }
   ];
@@ -85,15 +91,18 @@ export const generateChatReply = async ({
   prompt,
   currentCode = null,
   onChunk = null,
-  signal = null
+  signal = null,
+  studioMode = 'app'
 }) => {
+  const isWebsite = studioMode === 'website';
+  const noun = isWebsite ? 'website' : 'app';
   const messages = [
-    { role: 'system', content: CHAT_REPLY_SYSTEM_PROMPT },
+    { role: 'system', content: isWebsite ? WEBSITE_CHAT_REPLY_SYSTEM_PROMPT : CHAT_REPLY_SYSTEM_PROMPT },
     {
       role: 'user',
       content: currentCode
-        ? `The user is refining an existing app. Request: ${prompt}`
-        : `The user wants a new app. Request: ${prompt}`
+        ? `The user is refining an existing ${noun}. Request: ${prompt}`
+        : `The user wants a new ${noun}. Request: ${prompt}`
     }
   ];
 
@@ -117,13 +126,15 @@ export const generateChatReply = async ({
 // single non-streaming completion. Purely textual -- never touches app code
 // or triggers a build; the caller is responsible for putting the result back
 // into the prompt input without submitting it.
-export const enhancePrompt = async ({ prompt, currentCode = null, signal = null }) => {
+export const enhancePrompt = async ({ prompt, currentCode = null, signal = null, studioMode = 'app' }) => {
+  const isWebsite = studioMode === 'website';
+  const codeLabel = isWebsite ? 'Current Website Code' : 'Current App Code';
   const messages = [
-    { role: 'system', content: PROMPT_ENHANCEMENT_SYSTEM_PROMPT },
+    { role: 'system', content: isWebsite ? WEBSITE_PROMPT_ENHANCEMENT_SYSTEM_PROMPT : PROMPT_ENHANCEMENT_SYSTEM_PROMPT },
     {
       role: 'user',
       content: currentCode
-        ? `Current App Code:\n\`\`\`html\n${currentCode.length > 6000 ? `${currentCode.slice(0, 3000)}\n...[truncated]...\n${currentCode.slice(-3000)}` : currentCode}\n\`\`\`\n\nInstruction to improve: ${prompt}`
+        ? `${codeLabel}:\n\`\`\`html\n${currentCode.length > 6000 ? `${currentCode.slice(0, 3000)}\n...[truncated]...\n${currentCode.slice(-3000)}` : currentCode}\n\`\`\`\n\nInstruction to improve: ${prompt}`
         : `Instruction to improve: ${prompt}`
     }
   ];
@@ -362,8 +373,14 @@ export const generateAppCode = async (
   aiEnabled = false,
   aiMode = 'hosted',
   isAutoFix = false,
-  reasoningEffort = 'none'
+  reasoningEffort = 'none',
+  studioMode = 'app'
 ) => {
+  const isWebsite = studioMode === 'website';
+  const noun = isWebsite ? 'website' : 'app';
+  const buildInitialPrompt = isWebsite
+    ? buildWebsiteInitialGenerationPrompt
+    : (p) => buildInitialGenerationPrompt(p, layoutTarget);
   if (isAskMode) {
     const messages = [
       {
@@ -399,7 +416,8 @@ export const generateAppCode = async (
         prompt,
         currentCode,
         chatHistory,
-        signal
+        signal,
+        studioMode
       });
 
       if (clarifyingQuestion) {
@@ -423,7 +441,7 @@ export const generateAppCode = async (
   let introReply = '';
   if (onChunk) {
     try {
-      introReply = await generateChatReply({ prompt, currentCode, onChunk, signal });
+      introReply = await generateChatReply({ prompt, currentCode, onChunk, signal, studioMode });
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
       console.warn('[Orion] Intro reply failed, continuing with generation:', err);
@@ -434,18 +452,18 @@ export const generateAppCode = async (
   if (!currentCode) {
     const formattedChatHistory = chatHistory.map((msg, idx) => {
       if (idx === 0 && msg.role === 'user') {
-        return { ...msg, content: buildInitialGenerationPrompt(msg.content, layoutTarget) };
+        return { ...msg, content: buildInitialPrompt(msg.content) };
       }
       return msg;
     });
 
     const messages = [
-      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
+      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
       ...formattedChatHistory,
       {
         role: 'user',
         content: buildUserContent(
-          chatHistory.length > 0 ? prompt : buildInitialGenerationPrompt(prompt, layoutTarget),
+          chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt),
           attachment
         )
       }
@@ -477,7 +495,7 @@ export const generateAppCode = async (
     }
 
     if (code === null) {
-      throw new Error('The model did not return any app code. Please try again.');
+      throw new Error(`The model did not return any ${noun} code. Please try again.`);
     }
 
     const reply = introReply || extractLeadingReply(rawText) || undefined;
@@ -489,8 +507,8 @@ export const generateAppCode = async (
     const syntaxAutoFixAttempted = check.errors.length > 0;
     if (check.errors.length) {
       let repairMessages = [
-        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
-        { role: 'user', content: `Current App Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
+        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
+        { role: 'user', content: `Current ${noun} Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
       ];
 
       for (let repairs = 0; check.errors.length && repairs < MAX_SYNTAX_REPAIR_ATTEMPTS; repairs++) {
@@ -556,7 +574,7 @@ export const generateAppCode = async (
     return {
       code,
       editMode: 'full-generation',
-      editSummary: 'Initial app generation.',
+      editSummary: `Initial ${noun} generation.`,
       reply,
       syntaxAutoFixAttempted,
       syntaxAutoFixSuccess: syntaxAutoFixAttempted ? check.errors.length === 0 : undefined,
@@ -569,12 +587,12 @@ export const generateAppCode = async (
   // turns in one conversation, self-correcting from real tool-result errors instead of
   // blindly restarting from scratch each attempt.
   const messages = [
-    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode) },
+    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
     ...chatHistory,
     {
       role: 'user',
       content: buildUserContent(
-        `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the app. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`,
+        `Current ${noun} Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the ${noun}. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`,
         attachment
       )
     }

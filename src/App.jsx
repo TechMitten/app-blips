@@ -27,6 +27,7 @@ import { generateAppCode, enhancePrompt } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
+import { applyDirectEdit, buildElementEditPrompt } from './lib/directEdits';
 import {
   loadPreviewStorage,
   savePreviewStorage,
@@ -39,7 +40,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadReasoningEffort, REASONING_EFFORT_KEY } from './lib/config';
 
@@ -95,6 +96,21 @@ export default function App() {
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
+  // Which studio the workspace is in: 'app' (default) or 'website'. Drives
+  // prompt selection, starter ideas, preview defaults and copy; persisted
+  // per-project so reopening restores it. Switching studios starts a fresh
+  // workspace (with confirmation when work would be lost).
+  const [studioMode, setStudioMode] = useState('app');
+  const studioModeRef = useRef('app');
+  studioModeRef.current = studioMode;
+  // Website studio's click-to-edit picker state. `selectedElement` is the
+  // bridge's element-selected payload; `selectionKey` remounts the editor on
+  // every new selection so its local form state resets.
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [selectionKey, setSelectionKey] = useState(0);
+  const [elementEditError, setElementEditError] = useState(null);
+  const [pendingStudioSwitch, setPendingStudioSwitch] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
   // and never written into `versions`/localStorage/Firestore (see
@@ -202,8 +218,8 @@ export default function App() {
     isSignedIn,
     user,
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
       setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
     },
@@ -242,6 +258,20 @@ export default function App() {
     orientationFlipClass, setOrientationFlipClass, zoomLevel, isAutoZoom,
     handleManualZoom, resetZoom,
   } = usePreviewViewport({ activeTab, isHistoryOpen });
+
+  // Website workspaces live on the desktop preset (a site's primary
+  // viewport); the user can still switch devices per-preview. Re-fires when
+  // a project loads so opening a website project reasserts it. App studios
+  // offer no desktop preset (apps are touch-device mockups), so a desktop
+  // choice persisted from a website workspace snaps back to mobile.
+  useEffect(() => {
+    if (studioMode === 'website') {
+      setPreviewMode('desktop');
+    } else if (studioMode === 'app') {
+      setPreviewMode((mode) => (mode === 'desktop' ? 'mobile' : mode));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studioMode, currentProjectId]);
 
   // The preview bridge is spliced in at RENDER time only, so `generatedCode`
   // itself stays pristine: downloads, the code pane, the clipboard,
@@ -463,7 +493,23 @@ export default function App() {
     [generatedCode, previewReloadCount, projectStorageVersion, aiEnabled]
   );
 
-  const { requestScreenshot } = usePreviewBridge({
+  // Website studio: the picker is armed only while editing is toggled on in a
+  // website workspace. Selections/deselections arrive from the frame; the
+  // imperative senders walk or clear the frame's current selection.
+  const handleElementSelected = useCallback((payload) => {
+    setSelectedElement(payload);
+    setElementEditError(null);
+    setSelectionKey((n) => n + 1);
+  }, []);
+
+  const handleElementDeselected = useCallback(() => {
+    setSelectedElement(null);
+    setElementEditError(null);
+  }, []);
+
+  const isPreviewEditing = studioMode === 'website' && isEditMode;
+
+  const { requestScreenshot, selectParentElement, deselectElement } = usePreviewBridge({
     iframeRef,
     previewSrcDoc,
     previewToken,
@@ -472,7 +518,70 @@ export default function App() {
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
     aiEnabled: firebaseEnabled && aiEnabled,
+    editingEnabled: isPreviewEditing,
+    onElementSelected: handleElementSelected,
+    onElementDeselected: handleElementDeselected,
   });
+
+  const handleToggleEditMode = useCallback(() => {
+    setIsEditMode((on) => !on);
+    setSelectedElement(null);
+    setElementEditError(null);
+  }, []);
+
+  const handleCancelElementSelection = useCallback(() => {
+    deselectElement();
+    setSelectedElement(null);
+    setElementEditError(null);
+  }, [deselectElement]);
+
+  const handleSelectParentElement = useCallback(() => {
+    selectParentElement();
+  }, [selectParentElement]);
+
+  // Deterministic click-to-edit: apply the change straight to `generatedCode`
+  // (see lib/directEdits.js) and push the result as a normal version, so
+  // undo/redo, history and project persistence all work unchanged. When the
+  // anchor can't be matched unambiguously the edit falls back to the chat.
+  const handleApplyElementEdit = useCallback((changes) => {
+    if (!selectedElement || !generatedCode) return;
+    const result = applyDirectEdit(generatedCode, selectedElement, changes);
+    if (!result.ok) {
+      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Try "Edit with AI" below.');
+      return;
+    }
+    setElementEditError(null);
+    const updatedVersions = versions.slice(0, currentVersionIndex + 1);
+    const newVersion = {
+      id: Date.now(),
+      prompt: result.summary,
+      code: result.code,
+      timestamp: new Date().toLocaleTimeString(),
+      editMode: 'surgical',
+      editSummary: result.summary,
+      reply: null,
+      chatMode: 'build',
+      sessionId: currentChatSessionId,
+    };
+    const finalVersions = [...updatedVersions, newVersion];
+    setGeneratedCode(result.code);
+    setVersions(finalVersions);
+    setCurrentVersionIndex(updatedVersions.length);
+    setSelectedElement(null);
+    saveProject({
+      versionsToSave: finalVersions,
+      indexToSave: updatedVersions.length,
+    });
+  }, [selectedElement, generatedCode, versions, currentVersionIndex, currentChatSessionId, saveProject]);
+
+  const handleElementEditWithAI = useCallback((instruction) => {
+    if (!selectedElement) return;
+    const prefill = buildElementEditPrompt(selectedElement, instruction);
+    setPrompt((current) => (current.trim() ? `${current}\n${prefill}` : prefill));
+    setSelectedElement(null);
+    setElementEditError(null);
+    setMobileView('chat');
+  }, [selectedElement]);
 
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
@@ -608,6 +717,7 @@ export default function App() {
         prompt,
         currentCode: generatedCode || null,
         signal: enhanceAbortControllerRef.current.signal,
+        studioMode,
       });
       if (enhanced) setPrompt(enhanced);
     } catch (err) {
@@ -654,7 +764,8 @@ export default function App() {
     // Require naming for transition from Untitled or New App. Skipped in ask
     // mode before any app exists -- a plain question shouldn't force naming a
     // project that may never contain generated code.
-    if (chatMode !== 'ask' && (projectName === 'Untitled App' || !projectName.trim()) && !currentProjectId) {
+    const untitledName = STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
+    if (chatMode !== 'ask' && (projectName === untitledName || !projectName.trim()) && !currentProjectId) {
       if (isAutoFix) {
         setIsAutoFixing(false);
         isAutoFixingRef.current = false;
@@ -673,12 +784,17 @@ export default function App() {
     setMobileView('preview');
     clearStreamingState();
     setError(null);
+    // The preview reloads for the new code; any live picker selection is
+    // stale by then.
+    setSelectedElement(null);
+    setElementEditError(null);
     // Persist the in-flight job so a page close/reload can offer to resume it.
     setInterruptedJob(null);
     savePendingJob({
       projectId: currentProjectId,
       prompt: currentPrompt,
       chatMode,
+      studioMode,
       startedAt: Date.now(),
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
@@ -754,7 +870,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode);
       isEvaluatingNewCodeRef.current = true;
       setGeneratedCode(generationResult.code);
 
@@ -963,7 +1079,7 @@ export default function App() {
 
     // If we are confirming a name for a new project triggered by a prompt,
     // or if we explicitly clicked "New App", clear the workspace.
-    if (!shouldGenerateAfterNaming || (!currentProjectId && projectName === 'Untitled App')) {
+    if (!shouldGenerateAfterNaming || (!currentProjectId && (projectName === 'Untitled App' || projectName === 'Untitled Website'))) {
       setGeneratedCode('');
       setPrompt(shouldGenerateAfterNaming ? prompt : ''); // Keep prompt if we're about to generate
       setError(null);
@@ -1060,9 +1176,11 @@ export default function App() {
     if (!interruptedJob) return;
     const jobPrompt = interruptedJob.prompt;
     const jobChatMode = interruptedJob.chatMode || 'build';
+    const jobStudioMode = interruptedJob.studioMode === 'website' ? 'website' : 'app';
     setInterruptedJob(null);
     clearPendingJob();
     setChatMode(jobChatMode);
+    setStudioMode(jobStudioMode);
     setPrompt(jobPrompt);
     // Use setTimeout so state setters flush before handleGenerate reads them.
     setTimeout(() => handleGenerateRef.current?.(null, jobPrompt), 0);
@@ -1073,7 +1191,7 @@ export default function App() {
     clearPendingJob();
   }, []);
 
-  const resetCurrentWorkspace = () => {
+  const resetCurrentWorkspace = (nextStudioMode = studioModeRef.current) => {
     cancelPendingReload();
     runtimeErrorRetriesRef.current = 0;
     pendingRuntimeErrorRef.current = null;
@@ -1110,12 +1228,39 @@ export default function App() {
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
-    setProjectName('Untitled App');
+    setIsEditMode(false);
+    setSelectedElement(null);
+    setElementEditError(null);
+    setStudioMode(nextStudioMode);
+    setProjectName(STUDIO_MODES[nextStudioMode]?.untitledName || 'Untitled App');
+    if (nextStudioMode !== studioModeRef.current) {
+      setPreviewMode(STUDIO_MODES[nextStudioMode]?.defaultPreviewMode || 'mobile');
+    }
     localStorage.removeItem('orion-current-project-id');
     clearPreviewStorage(null);
     previewStorageRef.current = {};
     setInterruptedJob(null);
     clearPendingJob();
+  };
+
+  // Switching studios starts a fresh workspace in the target mode: the two
+  // studios' prompts, landmarks and (for websites) the click-to-edit contract
+  // are only coherent within one mode, so converting an app project in place
+  // is not offered. Confirm first when work would be lost.
+  const handleSwitchStudio = (mode) => {
+    if (mode === studioMode || !STUDIO_MODES[mode]) return;
+    const hasWork = generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt;
+    if (hasWork) {
+      setPendingStudioSwitch(mode);
+    } else {
+      resetCurrentWorkspace(mode);
+    }
+  };
+
+  const handleConfirmStudioSwitch = () => {
+    if (!pendingStudioSwitch) return;
+    resetCurrentWorkspace(pendingStudioSwitch);
+    setPendingStudioSwitch(null);
   };
 
   // Deleting the currently-open project also clears the workspace.
@@ -1181,6 +1326,8 @@ export default function App() {
         onSignOut={handleSignOut}
         firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
+        studioMode={studioMode}
+        onStudioModeChange={handleSwitchStudio}
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
@@ -1246,7 +1393,7 @@ export default function App() {
 
       {isNewChatConfirmOpen && (
         <ConfirmModal
-          title="Start a new app?"
+          title={studioMode === 'website' ? 'Start a new website?' : 'Start a new app?'}
           subtitle="This will clear your current workspace."
           onClose={() => setIsNewChatConfirmOpen(false)}
           onConfirm={handleConfirmNewChat}
@@ -1256,7 +1403,25 @@ export default function App() {
           <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <span>
-              You have unsaved changes. Starting a new app will discard your current work including any generated code and version history.
+              You have unsaved changes. Starting a new {studioMode === 'website' ? 'website' : 'app'} will discard your current work including any generated code and version history.
+            </span>
+          </div>
+        </ConfirmModal>
+      )}
+
+      {pendingStudioSwitch && (
+        <ConfirmModal
+          title={`Switch to the ${STUDIO_MODES[pendingStudioSwitch]?.label} studio?`}
+          subtitle="This will clear your current workspace."
+          onClose={() => setPendingStudioSwitch(null)}
+          onConfirm={handleConfirmStudioSwitch}
+          confirmLabel="Switch Studio"
+          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>
+              You have work in this {studioMode === 'website' ? 'website' : 'app'} workspace. Switching studios starts a fresh {STUDIO_MODES[pendingStudioSwitch]?.label.toLowerCase()} workspace and discards the current code and version history.
             </span>
           </div>
         </ConfirmModal>
@@ -1309,6 +1474,7 @@ export default function App() {
           onNameChange={setTempProjectName}
           onConfirm={handleConfirmNaming}
           onCancel={handleCancelNaming}
+          studioMode={studioMode}
         />
       )}
 
@@ -1352,12 +1518,19 @@ export default function App() {
               isChatActive={isChatActive}
               isResumingProject={isResumingProject}
               chatMode={chatMode}
+              studioMode={studioMode}
               aiEnabled={aiEnabled}
               onAiEnabledChange={handleAiEnabledChange}
               onChatModeChange={setChatMode}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
-              starterIdeas={chatMode === 'ask' ? ASK_STARTER_PRESETS : STARTER_PRESETS}
+              starterIdeas={
+                chatMode === 'ask'
+                  ? ASK_STARTER_PRESETS
+                  : studioMode === 'website'
+                    ? WEBSITE_STARTER_PRESETS
+                    : STARTER_PRESETS
+              }
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
@@ -1432,6 +1605,16 @@ export default function App() {
               copied={copied}
               onCopyCode={handleCopyCode}
               autoFollowCode={autoFollowCode}
+              studioMode={studioMode}
+              isEditMode={isEditMode}
+              onToggleEditMode={handleToggleEditMode}
+              selectedElement={selectedElement}
+              selectionKey={selectionKey}
+              elementEditError={elementEditError}
+              onApplyElementEdit={handleApplyElementEdit}
+              onElementEditWithAI={handleElementEditWithAI}
+              onCancelElementSelection={handleCancelElementSelection}
+              onSelectParentElement={handleSelectParentElement}
             />
           </div>
         </main>

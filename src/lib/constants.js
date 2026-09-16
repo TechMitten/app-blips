@@ -7,8 +7,29 @@ import {
   Search, Rocket, Globe, MessageSquare, Trophy, Radio, Keyboard, ChefHat,
   GraduationCap, Music, Dumbbell, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost,
   Worm, WholeWord, CalendarCheck, PiggyBank, Shapes, Drum, Hammer, CircleDot, CircleDotDashed,
-  Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins
+  Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins,
+  Briefcase, Camera, UtensilsCrossed, Store, Newspaper, BookOpen, Heart, Sprout, Package
 } from 'lucide-react';
+
+// The two studios share one workspace pipeline (prompt -> code -> versions);
+// the mode changes the prompts, starter ideas, default preview device and the
+// default project name. Persisted per-project as `studioMode`.
+export const STUDIO_MODES = {
+  app: {
+    key: 'app',
+    label: 'App',
+    article: 'app',
+    untitledName: 'Untitled App',
+    defaultPreviewMode: 'mobile',
+  },
+  website: {
+    key: 'website',
+    label: 'Website',
+    article: 'website',
+    untitledName: 'Untitled Website',
+    defaultPreviewMode: 'desktop',
+  },
+};
 
 // Cloudflare Turnstile site key for Supabase auth bot protection. Public by
 // design (the matching secret lives in Supabase Auth > Bot and Abuse Protection).
@@ -166,6 +187,96 @@ export const STARTER_PRESETS = [
   }
 ];
 
+export const WEBSITE_STARTER_PRESETS = [
+  {
+    title: "Portfolio",
+    prompt: "A striking personal portfolio website for a product designer with a bold hero, selected-projects grid with hover reveals, an about section with stats, client logos, testimonials, and a contact section with a working inline form.",
+    category: "Portfolio",
+    icon: Briefcase,
+    featured: true,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "SaaS Landing",
+    prompt: "A high-converting SaaS landing page with a navbar, gradient hero with product screenshot mockup, three-tier pricing cards with a monthly/yearly toggle, feature grid with icons, FAQ accordion, and a footer with links and social icons.",
+    category: "Marketing",
+    icon: Rocket,
+    featured: true,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Restaurant",
+    prompt: "A warm, appetizing restaurant website with an elegant hero over a full-bleed food photo, story section, tabbed menu with dish photos and prices, chef highlight, reservation form with inline confirmation, opening hours, and location map embed.",
+    category: "Food",
+    icon: UtensilsCrossed,
+    featured: true,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Photography",
+    prompt: "A minimalist photography portfolio with a full-screen image hero, masonry gallery grid with lightbox on click, category filters (portraits, landscape, street), an about-the-photographer section, and a booking inquiry form.",
+    category: "Gallery",
+    icon: Camera,
+    color: "text-slate-600 bg-slate-100"
+  },
+  {
+    title: "Local Business",
+    prompt: "A friendly local business website for a bike repair shop with services-and-prices cards, photo gallery of the workshop, team member bios, Google-style reviews carousel, hours and location section, and a click-to-call / email contact bar.",
+    category: "Business",
+    icon: Store,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Product Page",
+    prompt: "A polished single-product page with an image gallery, color and size selectors with live price updates, quantity stepper, add-to-cart button with inline confirmation, features list, specs table, reviews with star ratings, and related products row.",
+    category: "E-commerce",
+    icon: Package,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Blog / Magazine",
+    prompt: "An editorial magazine website with a masthead and nav, featured story hero, three-column article grid with category tags and read times, popular sidebar, newsletter signup with inline success message, and a footer archive by month.",
+    category: "Publishing",
+    icon: Newspaper,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Docs & Help",
+    prompt: "A clean documentation site with a sticky sidebar navigation, searchable quickstart guide, code-block styling with copy buttons, version badge, left-column table of contents, and a was-this-helpful feedback widget.",
+    category: "Docs",
+    icon: BookOpen,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Wedding / Event",
+    prompt: "A romantic wedding website with an elegant serif hero with the couple's names and date, our-story timeline, photo gallery, event details with venue cards and maps, RSVP form with meal choices, and a gift registry section.",
+    category: "Events",
+    icon: Heart,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Nonprofit",
+    prompt: "A hopeful nonprofit website with a full-bleed impact hero, mission and stats counters, programs grid with photos, donation tiers card section with a custom amount option, volunteer signup form, and partners logo row.",
+    category: "Nonprofit",
+    icon: Sprout,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Music Artist",
+    prompt: "A moody music artist website with an album-art hero, latest-release player card with a working audio-free tracklist, tour dates list with ticket buttons, photo gallery, newsletter signup, and streaming-platform link buttons.",
+    category: "Music",
+    icon: Music,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Fitness Coach",
+    prompt: "An energetic fitness coach website with a bold hero with a call-to-action for a free consultation, transformation before-after slider, training programs pricing cards, weekly class schedule table, testimonials, and a contact form.",
+    category: "Fitness",
+    icon: Dumbbell,
+    color: "text-teal-600 bg-teal-50"
+  }
+];
+
 export const ASK_STARTER_PRESETS = [
   {
     title: "Explain React Hooks",
@@ -234,7 +345,7 @@ export const ASK_STARTER_PRESETS = [
 
 export const PREVIEW_MODES = {
   mobile: {
-    label: 'Mobile',
+    label: 'Smartphone',
     width: 399,
     height: 820,
     deviceClass: 'device-smartphone',
