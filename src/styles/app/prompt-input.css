@@ -123,22 +123,17 @@
   background: transparent;
 }
 
-/* Symmetric track: one uniform gap between keys and a matching inset on every
-   edge, so two adjacent tracks read as evenly spaced buttons rather than
-   tight pairs with a wide seam between them. The 2px inset plus the two 1px
-   rims and the 2px gap between tracks equals the 8px gap inside a track. */
+/* Layout-only groups: the gray track that used to frame each cluster is gone,
+   so the keys sit directly on the dock. The gap keeps the intra-cluster spacing
+   the track used to provide. */
 .prompt-input-mode {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 2px;
-  border: 1px solid var(--color-slate-200);
-  border-radius: calc(var(--composer-key-radius) + 2px);
-  background: var(--color-surface);
-  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
 .chat-mode-option {
+  position: relative;
   display: inline-flex;
   min-width: 54px;
   height: var(--composer-key-size);
@@ -149,24 +144,17 @@
   border: 1px solid transparent;
   border-radius: var(--composer-key-radius);
   color: #475569;
+  font-family: var(--font-control);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   letter-spacing: -0.01em;
   cursor: pointer;
-  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 120ms ease;
-}
-
-/* Build/Ask and AI share one width so the mode pair reads as a balanced block
-   instead of a long Build pill beside a short AI chip. */
-.chat-mode-toggle .chat-mode-option {
-  min-width: 66px;
-  padding: 0 6px;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
 }
 
 .chat-mode-option:hover {
   color: #0f172a;
-  background: rgb(255 255 255 / 0.66);
 }
 
 .chat-mode-option:active {
@@ -178,58 +166,12 @@
   outline-offset: 2px;
 }
 
-.chat-mode-option-active,
-.chat-mode-option-active:hover {
-  background: #ffffff;
-  color: #b91c1c;
-  box-shadow:
-    0 1px 3px rgb(0 0 0 / 0.08),
-    0 1px 2px rgb(0 0 0 / 0.04),
-    0 0 0 1px rgb(15 23 42 / 0.08);
-}
-
-.chat-mode-option-active.is-build,
-.chat-mode-option-active.is-build:hover {
-  color: #1d4ed8;
-}
-
-.chat-mode-option-active svg {
-  color: #dc2626;
-}
-
-.chat-mode-option-active.is-build svg {
-  color: #2563eb;
-}
-
-:is(html.dark, .force-dark) .prompt-input-mode {
-  border-color: rgb(255 255 255 / 0.10);
-  background: rgb(255 255 255 / 0.06);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.2);
-}
-
 :is(html.dark, .force-dark) .chat-mode-option {
   color: rgb(255 255 255 / 0.62);
 }
 
 :is(html.dark, .force-dark) .chat-mode-option:hover {
   color: #ffffff;
-  background: rgb(255 255 255 / 0.06);
-}
-
-:is(html.dark, .force-dark) .chat-mode-option-active,
-:is(html.dark, .force-dark) .chat-mode-option-active:hover {
-  color: #ffffff;
-  background: #dc2626;
-  box-shadow: 0 2px 5px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.2);
-}
-
-:is(html.dark, .force-dark) .chat-mode-option-active.is-build,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-build:hover {
-  background: #2563eb;
-}
-
-:is(html.dark, .force-dark) .chat-mode-option-active svg {
-  color: currentColor;
 }
 
 .prompt-input-kbd {
@@ -300,10 +242,11 @@
   height: var(--composer-key-size);
   padding: 0;
   border-radius: var(--composer-key-radius);
-  border: 1px solid var(--color-slate-200);
-  background: var(--color-surface);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-slate-600);
-  box-shadow: 0 1px 2px rgb(var(--shadow-color) / var(--shadow-a1));
+  font-family: var(--font-control);
+  box-shadow: none;
   cursor: pointer;
   transition: color 160ms ease, background 160ms ease, border-color 160ms ease,
     box-shadow 160ms ease, transform 120ms ease;
@@ -311,7 +254,7 @@
 
 .composer-key:hover:not(:disabled) {
   color: var(--color-slate-900);
-  border-color: var(--color-slate-300);
+  border-color: transparent;
 }
 
 .composer-key:active:not(:disabled) {
@@ -328,125 +271,142 @@
   box-shadow: 0 0 0 2px var(--focus-halo), 0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
 }
 
-/* Submit with nothing to send: present but plainly inert, so the eye lands on
-   Build instead. */
-.composer-key-off {
-  cursor: not-allowed;
-  color: var(--color-slate-400);
+/* Send: no accent fill, just the paper plane. The disabled state comes from
+   .composer-key:disabled (dimmed); the ink follows the theme so an unfilled
+   plane stays visible on the light dock. */
+.prompt-input-send {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
-.composer-key-accent {
-  border-color: #1d4ed8;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 8px -1px rgb(37 99 235 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.25);
-}
-
-.composer-key-accent:hover:not(:disabled) {
-  color: #ffffff;
-  border-color: #2563eb;
-  background: linear-gradient(180deg, #4c8dfa 0%, #2f6fe4 100%);
+.prompt-input-send:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .composer-key-danger {
-  border-color: #b91c1c;
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 8px -1px rgb(220 38 38 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  border-color: transparent;
+  background: transparent;
+  color: #dc2626;
+  box-shadow: none;
 }
 
 .composer-key-danger:hover:not(:disabled) {
-  color: #ffffff;
-  background: linear-gradient(180deg, #f15757 0%, #e02f2f 100%);
+  color: #b91c1c;
+  background: transparent;
 }
 
 :is(html.dark, .force-dark) :is(.composer-key, .chat-mode-option) {
-  border-color: rgb(255 255 255 / 0.1);
-  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
+  border-color: transparent;
+  background: transparent;
   color: var(--color-slate-700);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.45),
-    inset 0 1px 0 rgb(255 255 255 / 0.04);
+  box-shadow: none;
 }
 
 :is(html.dark, .force-dark) :is(.composer-key, .chat-mode-option):hover:not(:disabled) {
-  border-color: rgb(255 255 255 / 0.18);
-  background: linear-gradient(180deg, #272b36 0%, #1d2028 100%);
+  border-color: transparent;
+  background: transparent;
   color: #ffffff;
 }
 
-:is(html.dark, .force-dark) .composer-key-off {
-  color: var(--color-slate-500);
-}
-
-/* Accent/danger keys keep their fill in dark -- they are the one place in the
-   composer that is meant to read as lit. */
-:is(html.dark, .force-dark) .composer-key-accent,
-:is(html.dark, .force-dark) .composer-key-accent:hover:not(:disabled) {
-  border-color: #2563eb;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+/* The sent plane is pure white in dark, where it sits on the dark dock. */
+:is(html.dark, .force-dark) .prompt-input-send,
+:is(html.dark, .force-dark) .prompt-input-send:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
   color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
 :is(html.dark, .force-dark) .composer-key-danger,
 :is(html.dark, .force-dark) .composer-key-danger:hover:not(:disabled) {
-  border-color: #dc2626;
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(239 68 68 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.22);
+  border-color: transparent;
+  background: transparent;
+  color: #f87171;
+  box-shadow: none;
 }
 
-/* Build / Ask: the composer's one lit control, so it gets a real fill and a
-   halo rather than the white chip the segmented controls elsewhere use. */
-.chat-mode-option-active.is-build,
-.chat-mode-option-active.is-build:hover,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-build,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-build:hover {
-  border-color: #2563eb;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
+/* ---------------------------------------------------------------------------
+   Mode reel (Build / Ask / AI).
+
+   One button, one word visible. The three stops are stacked in a clipped
+   window and each stop carries its own tint band, so a click scrolls the words
+   and their colour bands together through a few turns before landing on the
+   next mode. Because the colour rides the same strip as the word, each band's
+   start and end scrolls past in the same direction as the text.
+   --------------------------------------------------------------------------- */
+.chat-mode-reel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--composer-key-size);
+  min-width: 52px;
+  padding: 0;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--composer-key-radius);
+  background: transparent;
+  color: #334155;
+  font-family: var(--font-control);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: none;
+  transition: border-color 220ms ease, transform 120ms ease;
 }
 
-.chat-mode-option-active.is-ask,
-.chat-mode-option-active.is-ask:hover,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-ask,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-ask:hover {
-  border-color: #dc2626;
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(239 68 68 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.22);
+:is(html.dark, .force-dark) .chat-mode-reel {
+  border-color: rgb(255 255 255 / 0.14);
+  color: #e2e8f0;
 }
 
-/* AI switch "on": green, so the feature toggle reads distinct from the blue
-   Build mode and the red Ask mode. */
-.chat-mode-option-active.is-ai,
-.chat-mode-option-active.is-ai:hover,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-ai,
-:is(html.dark, .force-dark) .chat-mode-option-active.is-ai:hover {
-  border-color: #16a34a;
-  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(34 197 94 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
+.chat-mode-reel:active {
+  transform: scale(0.97);
 }
 
-.chat-mode-option-active.is-build svg,
-.chat-mode-option-active.is-ask svg,
-.chat-mode-option-active.is-ai svg,
-:is(html.dark, .force-dark) .chat-mode-option-active svg {
-  color: currentColor;
+.chat-mode-reel:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
-/* The AI switch has no is-build/is-ask class, so it used to fall through to the
-   Ask toggle's red. It is a feature switch, not a mode, and it now has to beat
-   the shared key face defined above -- hence its own explicit "on" rule. */
-.prompt-input-ai .chat-mode-option-active,
-.prompt-input-ai .chat-mode-option-active:hover,
-:is(html.dark, .force-dark) .prompt-input-ai .chat-mode-option-active,
-:is(html.dark, .force-dark) .prompt-input-ai .chat-mode-option-active:hover {
-  border-color: #2563eb;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 10px -1px rgb(59 130 246 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.22);
+/* One-word window that clips the spinning strip. */
+.chat-mode-reel-window {
+  display: block;
+  width: 52px;
+  height: var(--composer-key-size);
+  overflow: hidden;
+}
+
+.chat-mode-reel-track {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* The transition is declared only on the spinning state, so rewinding the reel
+   after a spin (class removed) snaps instantly and invisibly to the equivalent
+   stop instead of animating backwards. */
+.chat-mode-reel-track.is-spinning {
+  transition: transform 2600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-mode-reel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--composer-key-size);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-mode-reel-track.is-spinning {
+    transition-duration: 1ms;
+  }
 }
