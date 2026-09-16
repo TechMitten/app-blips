@@ -17,10 +17,15 @@ export default function usePreviewBridge({
   onReady,
   onStorageChange,
   aiEnabled = false,
+  editingEnabled = false,
+  onElementSelected,
+  onElementDeselected,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
   const onReadyRef = useRef(onReady);
   const onStorageChangeRef = useRef(onStorageChange);
+  const onElementSelectedRef = useRef(onElementSelected);
+  const onElementDeselectedRef = useRef(onElementDeselected);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
   // ref instead of closing over the prop so a `load` handler attached by a
@@ -35,6 +40,10 @@ export default function usePreviewBridge({
   // Set inside the effect below on every run, so requestScreenshot (called
   // imperatively, outside that effect) always addresses the live frame.
   const sendRef = useRef(() => {});
+  // Editing state is read via ref (not closure) inside push/teardown so the
+  // main effect below does not need editingEnabled as a dependency -- a
+  // toggle must not re-run the whole handshake effect.
+  const editingEnabledRef = useRef(editingEnabled);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
   const pendingCapturesRef = useRef(new Map());
@@ -43,7 +52,10 @@ export default function usePreviewBridge({
     onRuntimeErrorRef.current = onRuntimeError;
     onReadyRef.current = onReady;
     onStorageChangeRef.current = onStorageChange;
+    onElementSelectedRef.current = onElementSelected;
+    onElementDeselectedRef.current = onElementDeselected;
     currentTokenRef.current = previewToken;
+    editingEnabledRef.current = editingEnabled;
   });
 
   // Reject any still-pending screenshot request on unmount so its promise
@@ -96,7 +108,14 @@ export default function usePreviewBridge({
     };
     sendRef.current = send;
 
-    const push = () => send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
+    // Everything the parent wants a freshly-navigated frame to know, in one
+    // push: the device-mode configure AND the current editing state (a
+    // srcdoc navigation wipes the frame, so after a version switch the new
+    // document must be told the picker is still on).
+    const push = () => {
+      send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
+      send('set-editing', { enabled: editingEnabledRef.current });
+    };
 
     // Belt-and-braces against the same compositor staleness that DeviceMockup's
     // "never display: none" comment describes: after a srcDoc navigation
@@ -166,6 +185,8 @@ export default function usePreviewBridge({
       }
       else if (data.type === "error") console.warn('[preview bridge]', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
+      else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
+      else if (data.type === 'element-deselected' && onElementDeselectedRef.current) onElementDeselectedRef.current();
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
@@ -213,8 +234,16 @@ export default function usePreviewBridge({
       // iframe in place -- so this message is what actually tears down the
       // listeners, injected styles and cursor inside it.
       send('configure', { enabled: false });
+      send('set-editing', { enabled: false });
     };
   }, [previewSrcDoc, previewToken, previewMode, iframeRef, aiEnabled]);
+
+  // Editing toggles are delivered as their own push so flipping the picker on
+  // or off does not re-run (and thus does not disturb) the main handshake
+  // effect above. A disabled picker also clears any live selection.
+  useEffect(() => {
+    sendRef.current('set-editing', { enabled: editingEnabled });
+  }, [editingEnabled]);
 
   // Imperative request/response wrapper on top of the otherwise push-only
   // protocol -- see the pendingCapturesRef/onMessage handling above for the
@@ -236,5 +265,17 @@ export default function usePreviewBridge({
     });
   }, [iframeRef]);
 
-  return { requestScreenshot };
+  // Website-studio picker controls: walk the current selection up one
+  // ancestor (to reach containers/backgrounds from their children) or clear
+  // it. Both are fire-and-forget; the frame answers with a fresh
+  // element-selected / element-deselected.
+  const selectParentElement = useCallback(() => {
+    sendRef.current('select-parent', {});
+  }, []);
+
+  const deselectElement = useCallback(() => {
+    sendRef.current('deselect', {});
+  }, []);
+
+  return { requestScreenshot, selectParentElement, deselectElement };
 }

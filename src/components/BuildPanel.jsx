@@ -9,6 +9,7 @@ import PromptInput from './PromptInput';
 export default function BuildPanel({
   isChatActive,
   chatMode,
+  studioMode = 'app',
   aiEnabled = false,
   onAiEnabledChange,
   generatedCode,
@@ -84,6 +85,8 @@ export default function BuildPanel({
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-950 dark:text-white leading-[1.08]">
                 {chatMode === 'ask' ? (
                   <>Ask anything.<br />Build nothing.</>
+                ) : studioMode === 'website' ? (
+                  <>Prompt in.<br />Website out.</>
                 ) : (
                   <>Prompt in.<br />App out.</>
                 )}
@@ -92,7 +95,9 @@ export default function BuildPanel({
               <p className="text-slate-700 dark:text-white/80 text-sm font-medium leading-relaxed max-w-[44ch]">
                 {chatMode === 'ask'
                   ? 'Get a straight answer about your app, or anything else.'
-                  : "Describe the app you want in plain words. We'll build a working version in seconds."}
+                  : studioMode === 'website'
+                    ? "Describe the website you want in plain words. We'll build a working version in seconds — then click any element in the preview to edit it."
+                    : "Describe the app you want in plain words. We'll build a working version in seconds."}
               </p>
             </div>
           )}
@@ -147,6 +152,7 @@ export default function BuildPanel({
                 streamingReply={streamingReply}
                 isGenerating={isGenerating}
                 chatMode={chatMode}
+                studioMode={studioMode}
                 chatBottomRef={chatBottomRef}
               />
             </>
@@ -185,6 +191,7 @@ export default function BuildPanel({
           chatMode={chatMode}
           onChatModeChange={onChatModeChange}
           isClarifying={isClarifying}
+          studioMode={studioMode}
           attachment={attachment}
           attachmentError={attachmentError}
           isCapturingScreenshot={isCapturingScreenshot}

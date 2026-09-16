@@ -24,8 +24,8 @@ import { migrateChatSessions } from '../lib/chatSessions';
 // all stable React state setters.
 export default function useProjects({ authStatus, isSignedIn, user, workspace }) {
   const {
-    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled,
-    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
     setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState
   } = workspace;
@@ -116,6 +116,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       setCurrentChatSessionId(migrated.currentChatSessionId);
       setDeployment(projectData.deployment || null);
       setAiEnabled(Boolean(projectData.aiEnabled));
+      setStudioMode(projectData.studioMode === 'website' ? 'website' : 'app');
       if (migrated.versions[projectData.currentVersionIndex]) {
         setGeneratedCode(migrated.versions[projectData.currentVersionIndex].code);
       }
@@ -125,7 +126,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -136,7 +137,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       deploymentToSave = deployment,
       chatContextStartToSave = chatContextStartIndex,
       sessionIdToSave = currentChatSessionId,
-      aiEnabledToSave = aiEnabled
+      aiEnabledToSave = aiEnabled,
+      studioModeToSave = studioMode
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
@@ -151,6 +153,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         chatContextStartIndex: Math.min(chatContextStartToSave ?? 0, versionsToSave.length),
         currentChatSessionId: sessionIdToSave ?? null,
         aiEnabled: Boolean(aiEnabledToSave),
+        studioMode: studioModeToSave === 'website' ? 'website' : 'app',
       };
 
       if (useCloud) {
@@ -196,7 +199,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, aiEnabled, chatContextStartIndex, currentChatSessionId, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, aiEnabled, studioMode, chatContextStartIndex, currentChatSessionId, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -267,6 +270,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setCurrentChatSessionId(migrated.currentChatSessionId);
     setDeployment(project.deployment || null);
     setAiEnabled(Boolean(project.aiEnabled));
+    setStudioMode(project.studioMode === 'website' ? 'website' : 'app');
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setGeneratedCode(migrated.versions[project.currentVersionIndex].code);
     }
