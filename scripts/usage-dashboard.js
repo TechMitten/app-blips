@@ -1,5 +1,5 @@
 // Operator dashboard for the per-account usage counters written by
-// functions/_lib/usageTracking.js (see Docs/USAGE_TRACKING.md).
+// functions/_lib/usageTracking.js.
 //
 //   npm run usage            → http://127.0.0.1:5178  (Ctrl+C to stop)
 //
