@@ -247,6 +247,7 @@ export default function DeviceMockup({
   flipClass,
   onFlipAnimationEnd,
   zoomLevel,
+  fillSize = null,
   iframeRef,
   srcDoc,
   isGenerating,
@@ -257,7 +258,7 @@ export default function DeviceMockup({
   isTransitioning = false,
   onCancelGeneration,
 }) {
-  const box = getEffectivePreviewBox(mode, orientation);
+  const box = fillSize && mode === 'desktop' ? fillSize : getEffectivePreviewBox(mode, orientation);
   const isSyntaxErrorAutoFix = Boolean(
     generationStatus?.toLowerCase().includes('syntax') ||
     autoFixMessage?.toLowerCase().includes('syntax')
@@ -284,7 +285,10 @@ export default function DeviceMockup({
     >
       <div
         className={`${PREVIEW_MODES[mode].deviceClass}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
-        style={{ '--preview-zoom': zoomLevel }}
+        style={{
+          '--preview-zoom': zoomLevel,
+          ...(fillSize && mode === 'desktop' ? { width: fillSize.width, height: fillSize.height } : null)
+        }}
         onAnimationEnd={onFlipAnimationEnd}
       >
         <div 

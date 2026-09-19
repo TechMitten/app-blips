@@ -8,12 +8,16 @@ import {
   GraduationCap, Music, Dumbbell, Gamepad2, Dices, Bomb, Target, Flame, Puzzle, Swords, Ghost,
   Worm, WholeWord, CalendarCheck, PiggyBank, Shapes, Drum, Hammer, CircleDot, CircleDotDashed,
   Atom, Palette, Bug, Gauge, Regex, Database, Braces, Hourglass, Bird, Blocks, Coins,
-  Briefcase, Camera, UtensilsCrossed, Store, Newspaper, BookOpen, Heart, Sprout, Package
+  Briefcase, Camera, UtensilsCrossed, Store, Newspaper, BookOpen, Heart, Sprout, Package,
+  Building2, Plane, Scissors, Stethoscope, Scale, Coffee, Cpu, PawPrint, Landmark, Mic, Film,
+  Shirt, Flower2, Car, Wine, Baby, Users, Paintbrush, Waves, Tent
 } from 'lucide-react';
 
 // The two studios share one workspace pipeline (prompt -> code -> versions);
 // the mode changes the prompts, starter ideas, default preview device and the
-// default project name. Persisted per-project as `studioMode`.
+// default project name. Persisted per-project as `studioMode`. `description`
+// is the user-facing "what makes this studio different" line -- surfaced in
+// the studio switcher tooltips and the mobile menu.
 export const STUDIO_MODES = {
   app: {
     key: 'app',
@@ -21,6 +25,7 @@ export const STUDIO_MODES = {
     article: 'app',
     untitledName: 'Untitled App',
     defaultPreviewMode: 'mobile',
+    description: 'Interactive tools, games, and dashboards — JavaScript-driven, saves your data, feels native on a phone.',
   },
   website: {
     key: 'website',
@@ -28,6 +33,7 @@ export const STUDIO_MODES = {
     article: 'website',
     untitledName: 'Untitled Website',
     defaultPreviewMode: 'desktop',
+    description: 'Content-first pages — landing pages, portfolios, blogs — that you edit by clicking them in the preview.',
   },
 };
 
@@ -274,6 +280,209 @@ export const WEBSITE_STARTER_PRESETS = [
     category: "Fitness",
     icon: Dumbbell,
     color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Real Estate",
+    prompt: "A luxury real estate agency website with a full-width hero property search bar, featured listings grid with price and bed/bath badges, neighborhood guides, agent profiles, mortgage calculator widget, and a schedule-a-viewing form.",
+    category: "Real Estate",
+    icon: Building2,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Travel Blog",
+    prompt: "An immersive travel blog with a cinematic destination hero, latest-stories grid with country tags, an interactive-style itinerary timeline, photo essay section, packing-list checklist, and a newsletter signup.",
+    category: "Travel",
+    icon: Plane,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Hair Salon",
+    prompt: "A chic hair salon website with a soft editorial hero, services and price menu, stylist team cards, before-and-after gallery, client reviews, and an online booking request form with service picker.",
+    category: "Beauty",
+    icon: Scissors,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Dental Clinic",
+    prompt: "A calming dental clinic website with a friendly hero and book-appointment button, treatments grid, meet-the-dentists section, new-patient FAQ accordion, insurance logos, and a contact and hours panel.",
+    category: "Health",
+    icon: Stethoscope,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Law Firm",
+    prompt: "A trustworthy law firm website with a serif hero and free-consultation button, practice areas grid, attorney profiles, case-results stats, client testimonials, and a confidential contact form.",
+    category: "Professional",
+    icon: Scale,
+    color: "text-slate-600 bg-slate-100"
+  },
+  {
+    title: "Coffee Shop",
+    prompt: "A cozy independent coffee shop website with a warm hero, seasonal menu tabs with prices, our-beans story section, photo gallery, loyalty-card explainer, and hours and location with a map embed.",
+    category: "Food",
+    icon: Coffee,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Startup Launch",
+    prompt: "A bold pre-launch startup page with an animated gradient hero, countdown timer, waitlist email form with inline success, feature teasers, founder note, and social proof counters.",
+    category: "Marketing",
+    icon: Rocket,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Tech Conference",
+    prompt: "A high-energy tech conference website with a date-and-venue hero, speaker grid with bios modal, tabbed multi-day schedule, ticket tier cards, sponsors row, and an FAQ accordion.",
+    category: "Events",
+    icon: Cpu,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Pet Care",
+    prompt: "A playful pet grooming and daycare website with a cheerful hero, services cards with pricing, pet-of-the-month gallery, staff bios, vaccination requirements FAQ, and a booking form.",
+    category: "Pets",
+    icon: PawPrint,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "University Department",
+    prompt: "A modern university department website with a hero of campus life, programs and degrees cards, faculty directory with search, research highlights, upcoming events list, and an admissions call-to-action.",
+    category: "Education",
+    icon: Landmark,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Podcast",
+    prompt: "A stylish podcast website with a bold cover-art hero, latest-episodes list with play-button styling and show notes, host bios, guest highlights, subscribe-on-platform buttons, and a listener question form.",
+    category: "Media",
+    icon: Mic,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Film Production",
+    prompt: "A cinematic film studio website with a dark full-bleed hero, featured-projects reel grid with hover previews, director bios, awards laurels row, behind-the-scenes gallery, and a project inquiry form.",
+    category: "Media",
+    icon: Film,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Fashion Brand",
+    prompt: "A minimal fashion brand website with a lookbook hero, new-arrivals grid with quick-view hover, collection filters, brand story, size guide modal, and a newsletter signup with discount teaser.",
+    category: "E-commerce",
+    icon: Shirt,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Florist",
+    prompt: "A romantic florist website with a soft botanical hero, bouquet catalog with filters by occasion, subscription plan cards, wedding services section, delivery area info, and an order-inquiry form.",
+    category: "Shops",
+    icon: Flower2,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Auto Dealership",
+    prompt: "A sleek car dealership website with a hero inventory search, featured vehicles cards with specs, financing calculator, trade-in request form, customer reviews, and hours and directions.",
+    category: "Automotive",
+    icon: Car,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Winery",
+    prompt: "An elegant winery website with a vineyard hero, wine collection cards with tasting notes, tasting-room booking form, wine-club tiers, our-heritage timeline, and visit-us details.",
+    category: "Food",
+    icon: Wine,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Daycare",
+    prompt: "A warm children's daycare website with a bright hero, daily-schedule timeline, programs by age group, safety and staff credentials, parent testimonials, and an enrollment inquiry form.",
+    category: "Family",
+    icon: Baby,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Community Club",
+    prompt: "A welcoming community club website with a hero and join-now button, upcoming events calendar list, membership tiers, member spotlights, photo gallery, and a contact section.",
+    category: "Community",
+    icon: Users,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Art Gallery",
+    prompt: "A refined contemporary art gallery website with a rotating-exhibition hero, current and past exhibitions grid, artist profiles, visit info with hours, membership cards, and an email-list signup.",
+    category: "Art",
+    icon: Paintbrush,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Surf School",
+    prompt: "A sun-soaked surf school website with an ocean hero, lesson packages cards, instructor bios, weekly conditions-and-schedule table, gear rental prices, and a lesson booking form.",
+    category: "Sports",
+    icon: Waves,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Camping Resort",
+    prompt: "An outdoorsy campground website with a forest hero, campsite types cards with amenities icons, seasonal rates table, activity guide, photo gallery, and a reservation request form.",
+    category: "Travel",
+    icon: Tent,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Consulting Firm",
+    prompt: "A sharp management consulting website with a confident hero, services pillars, case-study cards with result metrics, leadership team, insights articles grid, and a contact-us form.",
+    category: "Business",
+    icon: Briefcase,
+    color: "text-slate-600 bg-slate-100"
+  },
+  {
+    title: "Yoga Studio",
+    prompt: "A serene yoga studio website with a calming hero, class types cards, weekly timetable with level tags, teacher profiles, membership pricing, and a free-trial signup form.",
+    category: "Wellness",
+    icon: Heart,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Online Course",
+    prompt: "A persuasive online course sales page with a hero and enroll button, what-you'll-learn checklist, curriculum accordion, instructor bio, student results testimonials, pricing card with guarantee, and FAQ.",
+    category: "Education",
+    icon: GraduationCap,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Architecture Studio",
+    prompt: "A minimalist architecture studio website with a large project-image hero, filterable projects grid, studio philosophy statement, team section, press mentions, and a commission inquiry form.",
+    category: "Portfolio",
+    icon: Building2,
+    color: "text-slate-600 bg-slate-100"
+  },
+  {
+    title: "Bakery",
+    prompt: "A charming artisan bakery website with a warm hero, daily-bakes menu cards, custom-cake order form with size and flavor pickers, our-story section, market schedule, and location and hours.",
+    category: "Food",
+    icon: UtensilsCrossed,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Freelance Developer",
+    prompt: "A sleek freelance developer portfolio with a code-styled hero, tech-stack badges, case-study project cards, services and rates, testimonials, and a hire-me contact form.",
+    category: "Portfolio",
+    icon: Cpu,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Hotel & B&B",
+    prompt: "A boutique hotel website with a full-bleed hero and check-in/check-out picker, room cards with amenities and rates, dining and spa sections, guest gallery, reviews, and a booking inquiry form.",
+    category: "Travel",
+    icon: Building2,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Charity Event",
+    prompt: "An urgent charity fun-run event website with a bold hero and countdown, fundraising progress bar, route and schedule details, team signup form, sponsor tiers, and an FAQ.",
+    category: "Nonprofit",
+    icon: Sprout,
+    color: "text-emerald-600 bg-emerald-50"
   }
 ];
 

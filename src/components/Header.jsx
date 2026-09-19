@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound, Smartphone, Globe
+  Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 
@@ -29,7 +29,6 @@ export default function Header({
   firebaseEnabled,
   onOpenAnalytics,
   studioMode = 'app',
-  onStudioModeChange,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -97,38 +96,17 @@ export default function Header({
       {/* Right: a ranked control strip -- one solid key, workspace controls,
           environment controls, then account/theme, split by hairlines. */}
       <nav className="hidden lg:flex items-center gap-3 shrink-0" aria-label="Workspace actions">
-        {/* Rank 1: Studio mode + Primary Action. Switching studios starts a
-            fresh workspace (App confirms when work would be lost); every
-            project remembers which studio created it. */}
-        <div className="nav-segmented-group" role="group" aria-label="Studio mode" title="Switch studio">
-          <button
-            onClick={() => onStudioModeChange('app')}
-            aria-pressed={studioMode === 'app'}
-            className={`nav-segmented-btn px-3 py-1.5 text-xs font-semibold ${studioMode === 'app' ? 'nav-segmented-btn-active' : ''}`}
-            title="App Studio — prompt-to-app builder"
-          >
-            <Smartphone size={14} />
-            <span>App</span>
-          </button>
-          <button
-            onClick={() => onStudioModeChange('website')}
-            aria-pressed={studioMode === 'website'}
-            className={`nav-segmented-btn px-3 py-1.5 text-xs font-semibold ${studioMode === 'website' ? 'nav-segmented-btn-active' : ''}`}
-            title="Website Studio — prompt-to-website builder with click-to-edit"
-          >
-            <Globe size={14} />
-            <span>Website</span>
-          </button>
-        </div>
-
+        {/* Rank 1: Primary Action. The studio is chosen on the choice screen
+            (forced on a fresh session, re-asked by "New") and remembered per
+            project -- it is never switched while a workspace is open. */}
         <button
           onClick={onNewApp}
           className="nav-btn nav-btn-primary group"
-          title={`Start a new ${article}`}
-          aria-label={`Start a new ${article}`}
+          title="Start something new"
+          aria-label="Start something new"
         >
           <Plus size={16} strokeWidth={2.4} />
-          <span>New {STUDIO_MODES[studioMode]?.label || 'App'}</span>
+          <span>New</span>
         </button>
 
         {/* Rank 2: Workspace -- the app you are building */}
@@ -298,41 +276,13 @@ export default function Header({
                   <X size={18} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
                 </button>
               </div>
-              <div className="mb-3 grid grid-cols-2 gap-2" role="group" aria-label="Studio mode">
-                <button
-                  type="button"
-                  onClick={() => runMobileAction(() => onStudioModeChange('app'))}
-                  aria-pressed={studioMode === 'app'}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    studioMode === 'app'
-                      ? 'bg-indigo-500 text-white shadow-md'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <Smartphone size={16} />
-                  <span>App Studio</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runMobileAction(() => onStudioModeChange('website'))}
-                  aria-pressed={studioMode === 'website'}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    studioMode === 'website'
-                      ? 'bg-indigo-500 text-white shadow-md'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <Globe size={16} />
-                  <span>Website Studio</span>
-                </button>
-              </div>
               <button
                 type="button"
                 onClick={() => runMobileAction(onNewApp)}
                 className="mobile-menu-item mobile-menu-item-primary group"
               >
           <Plus size={16} strokeWidth={2.4} />
-                <span>New {STUDIO_MODES[studioMode]?.label || 'App'}</span>
+                <span>New</span>
               </button>
               <button
                 type="button"

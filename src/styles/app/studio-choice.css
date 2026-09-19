@@ -1,0 +1,57 @@
+/* Studio choice gate (StudioChoice.jsx): the forced App/Website pick shown
+   before a workspace exists. Only what Tailwind can't express lives here --
+   the CTA pill's hover/focus fill, which follows the app's brand-button
+   convention of inverting to a white key with dark ink on dark
+   (see .brand-fill-text in buttons.css); a navy gradient would vibrate on
+   the night canvas. */
+
+/* The logo's wordmark is white with a soft shadow, so it vanishes on the light
+   canvas. Seat it on a dark navy plate in light mode; on the night canvas it
+   already has contrast, so the plate drops away. */
+.studio-logo-badge {
+  padding: 0.5rem 1.75rem;
+  border-radius: 1.25rem;
+  background: radial-gradient(120% 140% at 30% 0%, #1e3a5f 0%, #0f1c33 70%);
+  box-shadow: 0 10px 30px -12px rgb(15 28 51 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+:is(html.dark, .force-dark) .studio-logo-badge {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.studio-card-cta {
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-slate-100);
+  color: var(--color-slate-700);
+}
+
+.studio-card:hover .studio-card-cta,
+.studio-card:focus-visible .studio-card-cta {
+  border-color: transparent;
+  background-image: linear-gradient(135deg, #2c70af, #1e598f);
+  color: #ffffff;
+}
+
+:is(html.dark, .force-dark) .studio-card:hover .studio-card-cta,
+:is(html.dark, .force-dark) .studio-card:focus-visible .studio-card-cta {
+  background-image: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
+  color: #080808;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-choice .animate-stagger-1,
+  .studio-choice .animate-stagger-2,
+  .studio-choice .animate-stagger-3 {
+    animation: none;
+  }
+  .studio-card,
+  .studio-card:hover,
+  .studio-card-artifact,
+  .studio-card:hover .studio-card-artifact,
+  .studio-card:focus-visible .studio-card-artifact {
+    transition: none;
+    transform: none;
+  }
+}

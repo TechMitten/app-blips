@@ -43,3 +43,4 @@ USAGE_TRACKING.md
 .playwright-mcp/
 .env copy.example
 .vscode/users.json
+.mcp.json

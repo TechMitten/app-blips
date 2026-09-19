@@ -15,6 +15,7 @@ export default function BuildPanel({
   generatedCode,
   showStarterIdeas,
   starterIdeas,
+  starterSampleSize,
   onPickStarter,
   versions,
   currentVersionIndex,
@@ -97,7 +98,7 @@ export default function BuildPanel({
                   ? 'Get a straight answer about your app, or anything else.'
                   : studioMode === 'website'
                     ? "Describe the website you want in plain words. We'll build a working version in seconds — then click any element in the preview to edit it."
-                    : "Describe the app you want in plain words. We'll build a working version in seconds."}
+                    : "Describe the app you want in plain words. We'll build a working version in seconds — interactive, and it saves your data."}
               </p>
             </div>
           )}
@@ -106,6 +107,7 @@ export default function BuildPanel({
           {showStarterIdeas && (
             <StarterIdeas
               ideas={starterIdeas}
+              sampleSize={starterSampleSize}
               onPick={(starter) => onPickStarter(starter.prompt)}
             />
           )}

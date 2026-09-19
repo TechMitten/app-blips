@@ -247,6 +247,85 @@ const checkRateLimit = async (userId, env) => {
   return { allowed: true, windowSeconds };
 };
 
+// --- Hosted-mode request hardening -------------------------------------
+// Only applied when SELF_HOSTED_MODE=false. Self-hosters keep the transparent
+// relay behaviour. The client is authenticated but not trusted: it must not be
+// able to send arbitrary tools, oversized bodies, or an unbounded output cap.
+const ALLOWED_TOOL_NAMES = new Set([
+  'apply_surgical_edits',
+  'ask_clarifying_questions',
+  'view_code',
+  'list_sections',
+]);
+const ALLOWED_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
+const ALLOWED_EFFORTS = new Set(['none', 'off', 'disabled', 'minimal', 'low', 'medium', 'high']);
+const DEFAULT_MAX_BODY_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_MESSAGES = 100;
+const DEFAULT_HOSTED_MAX_TOKENS = 32768;
+
+const isHostedMode = (env) => env.SELF_HOSTED_MODE === 'false';
+
+const positiveInt = (value, fallback) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+const badRequest = (error, status = 400) => new Response(JSON.stringify({ error }), {
+  status,
+  headers: { 'content-type': 'application/json' },
+});
+
+// Returns an error string, or null when the payload shape is acceptable.
+const validateHostedPayload = (payload, env) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'Invalid request body.';
+  const { messages, tools, tool_choice, reasoning_effort } = payload;
+
+  const maxMessages = positiveInt(env.APPBLIPS_CHAT_MAX_MESSAGES, DEFAULT_MAX_MESSAGES);
+  if (!Array.isArray(messages) || messages.length === 0) return 'messages must be a non-empty array.';
+  if (messages.length > maxMessages) return 'Too many messages in request.';
+  for (const m of messages) {
+    if (!m || typeof m !== 'object' || !ALLOWED_ROLES.has(m.role)) return 'Invalid message role.';
+    if (m.content != null && typeof m.content !== 'string') {
+      if (!Array.isArray(m.content)) return 'Invalid message content.';
+      for (const part of m.content) {
+        if (!part || (part.type !== 'text' && part.type !== 'image_url')) return 'Invalid message content part.';
+      }
+    }
+  }
+
+  if (tools != null) {
+    if (!Array.isArray(tools) || tools.length > ALLOWED_TOOL_NAMES.size) return 'Invalid tools.';
+    for (const t of tools) {
+      if (t?.type !== 'function' || !ALLOWED_TOOL_NAMES.has(t?.function?.name)) return 'Unsupported tool.';
+    }
+  }
+  if (tool_choice != null && typeof tool_choice === 'object') {
+    if (tool_choice.type !== 'function' || !ALLOWED_TOOL_NAMES.has(tool_choice.function?.name)) {
+      return 'Unsupported tool_choice.';
+    }
+  } else if (tool_choice != null && !['auto', 'required', 'none'].includes(tool_choice)) {
+    return 'Unsupported tool_choice.';
+  }
+
+  if (reasoning_effort != null && reasoning_effort !== false && !ALLOWED_EFFORTS.has(reasoning_effort)) {
+    return 'Unsupported reasoning_effort.';
+  }
+  return null;
+};
+
+// Reads the body with a hard byte cap (Content-Length can be absent or lie).
+const readJsonWithLimit = async (request, maxBytes) => {
+  const declared = parseInt(request.headers.get('content-length') || '', 10);
+  if (Number.isFinite(declared) && declared > maxBytes) return { tooLarge: true };
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > maxBytes) return { tooLarge: true };
+  try {
+    return { payload: JSON.parse(text) };
+  } catch {
+    return { invalid: true };
+  }
+};
+
 // Core keys are required in every hosting mode; FIREBASE_API_KEY is only
 // needed to verify tokens in hosted mode (SELF_HOSTED_MODE=false).
 const validateEnv = (env) => {
@@ -299,14 +378,23 @@ export async function handleChatProxy(request, env, waitUntil) {
   const apiKey = env.APPBLIPS_LLM_API_KEY;
   const model = env.APPBLIPS_LLM_MODEL;
 
+  const hosted = isHostedMode(env);
+
   let payload;
-  try {
-    payload = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body.' }), {
-      status: 400,
-      headers: { 'content-type': 'application/json' },
-    });
+  if (hosted) {
+    const maxBytes = positiveInt(env.APPBLIPS_CHAT_MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES);
+    const parsed = await readJsonWithLimit(request, maxBytes);
+    if (parsed.tooLarge) return badRequest('Request body too large.', 413);
+    if (parsed.invalid) return badRequest('Invalid JSON body.');
+    payload = parsed.payload;
+    const invalid = validateHostedPayload(payload, env);
+    if (invalid) return badRequest(invalid);
+  } else {
+    try {
+      payload = await request.json();
+    } catch {
+      return badRequest('Invalid JSON body.');
+    }
   }
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
@@ -346,6 +434,8 @@ export async function handleChatProxy(request, env, waitUntil) {
     const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
     if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
   }
+  // Hosted mode always bounds output so an unset env var can't mean "unlimited".
+  if (hosted && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_HOSTED_MAX_TOKENS;
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 
 // Seed prompts for the empty state. A short, curated gallery — static and
@@ -60,9 +61,24 @@ const assignHues = (starters) => {
   });
 };
 
-export default function StarterIdeas({ ideas, onPick }) {
-  const featured = ideas.filter((idea) => idea.featured);
-  const visible = (featured.length > 0 ? featured : ideas).slice(0, MAX_VISIBLE);
+// Fisher-Yates over a copy, taking the first n.
+const randomSample = (list, n) => {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+};
+
+// `sampleSize` switches from the curated/featured list to a fresh random pick
+// of that many ideas from the whole pool each time the gallery mounts.
+export default function StarterIdeas({ ideas, onPick, sampleSize }) {
+  const visible = useMemo(() => {
+    if (sampleSize) return randomSample(ideas, sampleSize);
+    const featured = ideas.filter((idea) => idea.featured);
+    return (featured.length > 0 ? featured : ideas).slice(0, MAX_VISIBLE);
+  }, [ideas, sampleSize]);
   const cards = assignHues(visible);
 
   return (
