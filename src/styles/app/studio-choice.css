@@ -22,8 +22,8 @@
 }
 
 .studio-card-cta {
-  border: 1px solid var(--color-slate-200);
-  background: var(--color-slate-100);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-slate-700);
 }
 
@@ -38,6 +38,33 @@
 :is(html.dark, .force-dark) .studio-card:focus-visible .studio-card-cta {
   background-image: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
   color: #080808;
+}
+
+/* Dark: the stock ladder puts canvas #080808 / card #141414 / border #262626
+   only a few percent apart, so cards dissolve into the page. Lift the card
+   one step, give it a visible edge, and recess the artifact well below it. */
+:is(html.dark, .force-dark) .studio-card {
+  background: #1c1c22;
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 12px 32px -14px rgb(0 0 0 / 0.8);
+}
+
+:is(html.dark, .force-dark) .studio-card:hover,
+:is(html.dark, .force-dark) .studio-card:focus-visible {
+  border-color: rgb(165 180 252 / 0.6);
+}
+
+:is(html.dark, .force-dark) .studio-card-well {
+  background-color: #101014;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+:is(html.dark, .force-dark) .studio-card-artifact {
+  border-color: #6b6b78;
+}
+
+:is(html.dark, .force-dark) .studio-card-cta {
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {

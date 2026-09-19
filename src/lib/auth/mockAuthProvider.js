@@ -43,6 +43,7 @@ export default {
   onAuthStateChanged,
   signIn: noop,
   signUp: noop,
+  sendPasswordReset: noop,
   signInWithGithub: noop,
   signInWithGoogle: noop,
   signOut: noop,

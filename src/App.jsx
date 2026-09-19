@@ -175,6 +175,8 @@ export default function App() {
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
   const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
+  // Studio picked while signed out (hosted mode); entered after sign-in.
+  const [pendingStudio, setPendingStudio] = useState(null);
 
   // --- Mobile Layout ---
   const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
@@ -1263,8 +1265,28 @@ export default function App() {
   // the studio's default preview device.
   const handleChooseStudio = (mode) => {
     if (!STUDIO_MODES[mode]) return;
+    // Hosted mode: a studio can't be entered signed out. Remember the pick,
+    // open the sign-in modal, and the effect below resumes it once a session
+    // lands. (Self-hosted is always signed in, so this never triggers there.)
+    if (firebaseEnabled && !isSignedIn) {
+      setPendingStudio(mode);
+      setIsAuthModalOpen(true);
+      return;
+    }
     resetCurrentWorkspace(mode);
     setIsStudioChoiceOpen(false);
+  };
+
+  useEffect(() => {
+    if (!pendingStudio || !isSignedIn) return;
+    setPendingStudio(null);
+    handleChooseStudio(pendingStudio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingStudio, isSignedIn]);
+
+  const handleCloseAuthModal = () => {
+    setIsAuthModalOpen(false);
+    setPendingStudio(null);
   };
 
   const handleCancelStudioChoice = () => {
@@ -1332,7 +1354,14 @@ export default function App() {
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
+          requireSignIn={firebaseEnabled}
+          isSignedIn={isSignedIn}
+          onSignIn={() => setIsAuthModalOpen(true)}
+          onSignOut={handleSignOut}
         />
+        {isAuthModalOpen && firebaseEnabled && (
+          <AuthModal onClose={handleCloseAuthModal} />
+        )}
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -1518,7 +1547,7 @@ export default function App() {
       )}
 
       {isAuthModalOpen && firebaseEnabled && (
-        <AuthModal onClose={() => setIsAuthModalOpen(false)} />
+        <AuthModal onClose={handleCloseAuthModal} />
       )}
 
       <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative">

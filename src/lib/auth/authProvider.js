@@ -8,6 +8,7 @@
 // authProvider.onAuthStateChanged(callback) -> unsubscribe
 // authProvider.signIn(email, password) -> Promise<void>
 // authProvider.signUp(email, password) -> Promise<void>
+// authProvider.sendPasswordReset(email) -> Promise<void>
 // authProvider.signInWithGithub() -> Promise<void>
 // authProvider.signInWithGoogle() -> Promise<void>
 // authProvider.signOut() -> Promise<void>
