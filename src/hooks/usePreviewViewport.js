@@ -13,7 +13,7 @@ import { getEffectivePreviewBox } from '../lib/helpers';
 // unchanged when that happens -- the effect would run once with a null node,
 // never attach its ResizeObserver, and auto-zoom would stay stuck at its
 // initial value until the user manually switched device mode.
-export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
+export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop = false }) {
   const [containerNode, setContainerNode] = useState(null);
   const containerRef = useCallback((node) => setContainerNode(node), []);
   const [previewMode, setPreviewMode] = useState(() => {
@@ -27,6 +27,9 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
   const [orientationFlipClass, setOrientationFlipClass] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isAutoZoom, setIsAutoZoom] = useState(true);
+  // When set, the desktop viewport is the container's own size at 100% zoom
+  // instead of the fixed preset scaled to fit (see `fillDesktop`).
+  const [fillSize, setFillSize] = useState(null);
 
   const handleToggleOrientation = () => {
     setOrientationFlipClass(previewOrientation === 'portrait' ? 'device-flip-to-landscape' : 'device-flip-to-portrait');
@@ -46,6 +49,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
     if (!containerNode) return;
 
     const calculateZoom = () => {
+      if (!isAutoZoom) setFillSize(null);
       if (!isAutoZoom || activeTab !== 'preview') return;
 
       const el = containerNode;
@@ -65,6 +69,18 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
         100,
         el.clientHeight - (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) - verticalPadding
       );
+      if (fillDesktop && previewMode === 'desktop') {
+        // Fill the whole section: no letterboxing, and the page renders at its
+        // real pixel size rather than a shrunken 1468px canvas. A small inset
+        // leaves room for the device shadow.
+        const inset = 8;
+        const width = Math.max(320, Math.floor(el.clientWidth - (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) - inset * 2));
+        const height = Math.max(240, Math.floor(el.clientHeight - (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) - inset * 2));
+        setZoomLevel(1);
+        setFillSize((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
+        return;
+      }
+      setFillSize(null);
       const baseHeight = box.height;
       const baseWidth = box.width;
 
@@ -104,7 +120,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', calculateZoom);
     };
-  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode]);
+  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode, fillDesktop]);
 
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);
@@ -127,6 +143,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen }) {
     orientationFlipClass,
     setOrientationFlipClass,
     zoomLevel,
+    fillSize,
     isAutoZoom,
     handleManualZoom,
     resetZoom,

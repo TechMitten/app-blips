@@ -24,6 +24,7 @@ export default function PreviewPane({
   orientationFlipClass,
   onOrientationFlipEnd,
   zoomLevel,
+  fillSize,
   isAutoZoom,
   onZoomIn,
   onZoomOut,
@@ -154,18 +155,17 @@ export default function PreviewPane({
                 <Tablet size={14} />
                 <span className="hidden sm:inline">Tablet</span>
               </button>
-              {/* Desktop is a Website Studio preset (sites are desktop-first);
-                  app mockups stay on touch devices. */}
-              {studioMode === 'website' && (
-                <button
-                  onClick={() => onPreviewModeChange('desktop')}
-                  className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
-                  title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
-                >
-                  <Monitor size={14} />
-                  <span className="hidden sm:inline">Desktop</span>
-                </button>
-              )}
+              {/* Device presets are shared across studios -- the studio
+                  personality lives in the default (App -> Smartphone,
+                  Website -> Desktop), not in a restricted picker. */}
+              <button
+                onClick={() => onPreviewModeChange('desktop')}
+                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
+                title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
+              >
+                <Monitor size={14} />
+                <span className="hidden sm:inline">Desktop</span>
+              </button>
             </div>
             {PREVIEW_MODES[previewMode].isTouchChrome && (
               <div className="nav-segmented-group" title="Device Orientation">
@@ -183,7 +183,7 @@ export default function PreviewPane({
 
         {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out) */}
         <div className="preview-actions flex items-center gap-1.5 sm:gap-2">
-          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo, studioMode }} />
+          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
           {/* Undo/Redo when versions > 1 */}
           {versions.length > 1 && (
             <div className="preview-wide-tools hidden md:flex nav-segmented-group" title="Undo / Redo Version">
@@ -355,6 +355,7 @@ export default function PreviewPane({
             flipClass={orientationFlipClass}
             onFlipAnimationEnd={() => onOrientationFlipEnd('')}
             zoomLevel={zoomLevel}
+            fillSize={fillSize}
             iframeRef={iframeRef}
             srcDoc={previewSrcDoc}
             isGenerating={isGenerating}

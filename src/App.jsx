@@ -21,6 +21,7 @@ import AuthToast from './components/AuthToast';
 import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
+import StudioChoice from './components/StudioChoice';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, enhancePrompt } from './lib/llm';
@@ -96,12 +97,15 @@ export default function App() {
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
-  // Which studio the workspace is in: 'app' (default) or 'website'. Drives
+  // Which studio the workspace is in: 'app' or 'website'. Drives
   // prompt selection, starter ideas, preview defaults and copy; persisted
-  // per-project so reopening restores it. Switching studios starts a fresh
-  // workspace (with confirmation when work would be lost).
-  const [studioMode, setStudioMode] = useState('app');
-  const studioModeRef = useRef('app');
+  // per-project so reopening restores it. Starts null: a fresh session must
+  // pick a studio first (StudioChoice gate) -- a project resume or an
+  // adopted pending job fills it before the gate can show. Once picked, the
+  // choice is never re-litigated inside the header; the other studio is only
+  // ever reached through "New", which asks again.
+  const [studioMode, setStudioMode] = useState(null);
+  const studioModeRef = useRef(null);
   studioModeRef.current = studioMode;
   // Website studio's click-to-edit picker state. `selectedElement` is the
   // bridge's element-selected payload; `selectionKey` remounts the editor on
@@ -110,7 +114,6 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState(null);
   const [selectionKey, setSelectionKey] = useState(0);
   const [elementEditError, setElementEditError] = useState(null);
-  const [pendingStudioSwitch, setPendingStudioSwitch] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
   // and never written into `versions`/localStorage/Firestore (see
@@ -169,6 +172,9 @@ export default function App() {
   const [tempProjectName, setTempProjectName] = useState('');
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+  // Mid-session studio pick: opened by "New" once any work has been confirmed
+  // away (or when there is none). Cancelable -- unlike the forced gate.
+  const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
 
   // --- Mobile Layout ---
   const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
@@ -255,9 +261,9 @@ export default function App() {
   const {
     containerRef: previewContainerRef,
     previewMode, setPreviewMode, previewOrientation, handleToggleOrientation,
-    orientationFlipClass, setOrientationFlipClass, zoomLevel, isAutoZoom,
+    orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isAutoZoom,
     handleManualZoom, resetZoom,
-  } = usePreviewViewport({ activeTab, isHistoryOpen });
+  } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' });
 
   // Website workspaces live on the desktop preset (a site's primary
   // viewport); the user can still switch devices per-preview. Re-fires when
@@ -693,6 +699,12 @@ export default function App() {
       (job.projectId ?? null) === (resumedId ?? null);
     if (jobBelongsHere) {
       setInterruptedJob(job);
+      // A pending build pins its studio: reopen straight into the workspace
+      // the build started in (its retry banner lives there) instead of
+      // stopping at the studio-choice gate.
+      if (!studioModeRef.current) {
+        setStudioMode(job.studioMode === 'website' ? 'website' : 'app');
+      }
     }
     // If the job belongs to a different project, leave the record intact but
     // don't surface it — the user can encounter it by opening that project.
@@ -1057,13 +1069,16 @@ export default function App() {
     if (generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt) {
       setIsNewChatConfirmOpen(true);
     } else {
-      resetCurrentWorkspace();
+      // Nothing to lose -- go straight to the studio pick.
+      setIsStudioChoiceOpen(true);
     }
   };
 
   const handleConfirmNewChat = () => {
-    resetCurrentWorkspace();
     setIsNewChatConfirmOpen(false);
+    // The workspace is left untouched until a studio is chosen, so "Go back"
+    // on the choice screen cancels cleanly.
+    setIsStudioChoiceOpen(true);
   };
 
   const handleCancelNaming = () => {
@@ -1243,24 +1258,24 @@ export default function App() {
     clearPendingJob();
   };
 
-  // Switching studios starts a fresh workspace in the target mode: the two
-  // studios' prompts, landmarks and (for websites) the click-to-edit contract
-  // are only coherent within one mode, so converting an app project in place
-  // is not offered. Confirm first when work would be lost.
-  const handleSwitchStudio = (mode) => {
-    if (mode === studioMode || !STUDIO_MODES[mode]) return;
-    const hasWork = generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt;
-    if (hasWork) {
-      setPendingStudioSwitch(mode);
-    } else {
-      resetCurrentWorkspace(mode);
-    }
+  // The studio-choice screen. Forced on a fresh session (gate), or opened by
+  // "New" once work was confirmed away. Picking seeds the untitled name and
+  // the studio's default preview device.
+  const handleChooseStudio = (mode) => {
+    if (!STUDIO_MODES[mode]) return;
+    resetCurrentWorkspace(mode);
+    setIsStudioChoiceOpen(false);
   };
 
-  const handleConfirmStudioSwitch = () => {
-    if (!pendingStudioSwitch) return;
-    resetCurrentWorkspace(pendingStudioSwitch);
-    setPendingStudioSwitch(null);
+  const handleCancelStudioChoice = () => {
+    setIsStudioChoiceOpen(false);
+  };
+
+  // Opening a previous build straight from the choice screen: the project
+  // carries its own studio, so loading one dismisses the choice.
+  const handleLoadProjectFromChoice = (project) => {
+    setIsStudioChoiceOpen(false);
+    loadProject(project);
   };
 
   // Deleting the currently-open project also clears the workspace.
@@ -1303,6 +1318,35 @@ export default function App() {
     );
   }
 
+  // Fresh session with nothing to resume and no studio picked: the whole
+  // workspace stays behind the studio choice. A project resume (or adopted
+  // pending job) sets studioMode before the resume flag clears, so returning
+  // users never see the gate. Mid-session, the same screen opens over "New".
+  const showStudioChoice = isStudioChoiceOpen || (!isResumingProject && studioMode === null);
+  if (showStudioChoice) {
+    return (
+      <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
+        <SplashScreen skip={skipSplash} />
+        <StudioChoice
+          onSelectStudio={handleChooseStudio}
+          onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
+          savedAppsCount={myProjects.length}
+          onOpenProjects={() => setIsProjectsListOpen(true)}
+        />
+        {isProjectsListOpen && (
+          <ProjectsListModal
+            projects={myProjects}
+            currentProjectId={currentProjectId}
+            onClose={() => setIsProjectsListOpen(false)}
+            onLoadProject={handleLoadProjectFromChoice}
+            onRenameProject={renameProject}
+            onDeleteProject={handleDeleteProject}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen skip={skipSplash} />
@@ -1327,7 +1371,6 @@ export default function App() {
         firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
-        onStudioModeChange={handleSwitchStudio}
       />
 
       {/* Mobile Tab Toggle Bar (Sub-header) */}
@@ -1393,35 +1436,17 @@ export default function App() {
 
       {isNewChatConfirmOpen && (
         <ConfirmModal
-          title={studioMode === 'website' ? 'Start a new website?' : 'Start a new app?'}
+          title="Start something new?"
           subtitle="This will clear your current workspace."
           onClose={() => setIsNewChatConfirmOpen(false)}
           onConfirm={handleConfirmNewChat}
-          confirmLabel="Start New"
+          confirmLabel="Continue"
           confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
         >
           <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <span>
-              You have unsaved changes. Starting a new {studioMode === 'website' ? 'website' : 'app'} will discard your current work including any generated code and version history.
-            </span>
-          </div>
-        </ConfirmModal>
-      )}
-
-      {pendingStudioSwitch && (
-        <ConfirmModal
-          title={`Switch to the ${STUDIO_MODES[pendingStudioSwitch]?.label} studio?`}
-          subtitle="This will clear your current workspace."
-          onClose={() => setPendingStudioSwitch(null)}
-          onConfirm={handleConfirmStudioSwitch}
-          confirmLabel="Switch Studio"
-          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
-        >
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-            <span>
-              You have work in this {studioMode === 'website' ? 'website' : 'app'} workspace. Switching studios starts a fresh {STUDIO_MODES[pendingStudioSwitch]?.label.toLowerCase()} workspace and discards the current code and version history.
+              You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You&apos;ll pick the studio on the next screen.
             </span>
           </div>
         </ConfirmModal>
@@ -1531,6 +1556,7 @@ export default function App() {
                     ? WEBSITE_STARTER_PRESETS
                     : STARTER_PRESETS
               }
+              starterSampleSize={chatMode !== 'ask' && studioMode === 'website' ? 4 : undefined}
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
@@ -1577,6 +1603,7 @@ export default function App() {
               orientationFlipClass={orientationFlipClass}
               onOrientationFlipEnd={setOrientationFlipClass}
               zoomLevel={zoomLevel}
+              fillSize={fillSize}
               isAutoZoom={isAutoZoom}
               onZoomIn={handleManualZoom}
               onZoomOut={handleManualZoom}
