@@ -30,9 +30,9 @@ ENV SELF_HOSTED_MODE=true
 ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/functions/_lib/chatProxy.js ./functions/_lib/chatProxy.js
-COPY --from=builder /app/functions/_lib/selfHostedAiRelay.js ./functions/_lib/selfHostedAiRelay.js
-COPY --from=builder /app/functions/_lib/rateLimit.js ./functions/_lib/rateLimit.js
+# Copy the whole _lib dir: chatProxy.js pulls in trackTokens/usageTracking/
+# firebaseServer transitively, and a hand-kept file list goes stale.
+COPY --from=builder /app/functions/_lib ./functions/_lib
 COPY server.js ./server.js
 
 USER node

@@ -111,6 +111,8 @@ docker compose up --build
 
 This reads environment variables from the same `.env` file as above and serves the app on `http://localhost:3000`.
 
+`APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time, so after changing either one, rerun `docker compose up --build` (a plain restart won't pick it up). Other variables are read at runtime.
+
 ## Configuration
 
 Builder and operator settings live in the `.env` file. In self-hosted BYOK mode, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for the full, authoritative list. The key groups:
