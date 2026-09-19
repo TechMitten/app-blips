@@ -8,6 +8,7 @@ import {
   GithubAuthProvider,
   GoogleAuthProvider,
   sendEmailVerification,
+  sendPasswordResetEmail,
   updatePassword as firebaseUpdatePassword,
   updateProfile as firebaseUpdateProfile,
   deleteUser,
@@ -64,6 +65,8 @@ const signUp = async (email, password) => {
   await sendEmailVerification(credential.user);
 };
 
+const sendPasswordReset = (email) => sendPasswordResetEmail(auth, email);
+
 const signInWithGithub = () => signInWithPopup(auth, new GithubAuthProvider());
 
 const signInWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
@@ -100,6 +103,7 @@ export default {
   onAuthStateChanged,
   signIn,
   signUp,
+  sendPasswordReset,
   signInWithGithub,
   signInWithGoogle,
   signOut,

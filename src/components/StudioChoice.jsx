@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import {
-  Zap, Database, Smartphone, Layout, FileText, MousePointerClick, FolderOpen,
+  Zap, Database, Smartphone, Layout, FileText, MousePointerClick, FolderOpen, LogIn, LogOut,
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 
@@ -92,7 +92,7 @@ const BrowserArtifact = () => (
 
 const ARTIFACTS = { app: PhoneArtifact, website: BrowserArtifact };
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut }) {
   // Escape mirrors the on-screen back control, but only when there is
   // something to go back to (the forced gate has none).
   useEffect(() => {
@@ -103,6 +103,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
+
+  // Hosted mode only: self-hosted is a fixed always-signed-in local user.
+  const canSignOut = requireSignIn && isSignedIn && !!onSignOut;
 
   return (
     <div className="studio-choice relative flex-1 min-h-0 overflow-y-auto">
@@ -118,9 +121,25 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
         <h1 className="mt-6 text-center text-3xl sm:text-4xl font-black tracking-tight text-slate-950 dark:text-white leading-[1.08] animate-stagger-2">
           What are you building?
         </h1>
-        <p className="mt-2.5 max-w-[52ch] text-center text-sm font-medium text-slate-600 dark:text-white/70 animate-stagger-2">
+        <p className="mt-2.5 max-w-[52ch] text-center text-sm font-medium text-slate-600 dark:text-white/85 animate-stagger-2">
           Pick a studio to start in — it shapes the prompts, the preview, and the editing tools.
         </p>
+
+        {requireSignIn && !isSignedIn && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 animate-stagger-2">
+            <span className="text-sm font-medium text-slate-600 dark:text-white/85">
+              Sign in to start building.
+            </span>
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#2c70af] px-4 py-2 text-sm font-semibold text-white shadow-premium-sm transition-colors hover:bg-[#245d92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+            >
+              <LogIn size={15} aria-hidden="true" />
+              Sign in
+            </button>
+          </div>
+        )}
 
         <div className="mt-8 grid w-full gap-5 md:grid-cols-2 animate-stagger-3">
           {['app', 'website'].map((key) => {
@@ -134,14 +153,14 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 aria-label={CTA_LABELS[key]}
                 className="studio-card group flex flex-col rounded-3xl border border-slate-200 bg-surface p-5 text-left shadow-premium-md transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300/70 hover:shadow-premium-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 sm:p-6"
               >
-                <div className="workspace-grid mb-5 flex h-52 items-center justify-center rounded-2xl bg-slate-50 shadow-[inset_0_1px_3px_rgb(15_23_42/0.06),inset_0_0_0_1px_rgb(15_23_42/0.04)]">
+                <div className="studio-card-well workspace-grid mb-5 flex h-52 items-center justify-center rounded-2xl bg-slate-50 shadow-[inset_0_1px_3px_rgb(15_23_42/0.06),inset_0_0_0_1px_rgb(15_23_42/0.04)]">
                   <Artifact />
                 </div>
 
                 <h2 className="text-lg font-bold tracking-tight text-slate-950 dark:text-white">
                   {mode.label}
                 </h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/70">
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/85">
                   {mode.description}
                 </p>
 
@@ -149,7 +168,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   {CAPABILITIES[key].map((cap) => {
                     const { Icon, label } = cap;
                     return (
-                      <div key={label} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-white/60">
+                      <div key={label} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-white/80">
                         <Icon size={14} className="shrink-0 text-indigo-500 dark:text-indigo-300" aria-hidden="true" />
                         <span>{label}</span>
                       </div>
@@ -167,23 +186,33 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
         {/* Exits from the choice: reopening a previous build (when any
             exist), or -- mid-session only -- backing out. */}
-        {(onCancel || (savedAppsCount > 0 && onOpenProjects)) && (
+        {(onCancel || canSignOut || (savedAppsCount > 0 && onOpenProjects)) && (
           <div className="mt-6 flex items-center gap-3 animate-stagger-3">
             {savedAppsCount > 0 && onOpenProjects && (
               <button
                 type="button"
                 onClick={onOpenProjects}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-surface px-4 py-2 text-sm font-semibold text-slate-700 shadow-premium-sm transition-colors hover:border-indigo-300/70 hover:text-slate-950 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                className="studio-exit inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950 dark:text-white dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
               >
                 <FolderOpen size={15} className="text-indigo-500 dark:text-indigo-300" aria-hidden="true" />
                 Open a previous build
+              </button>
+            )}
+            {canSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="studio-exit inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:text-slate-950 dark:text-white dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+              >
+                <LogOut size={15} className="text-indigo-500 dark:text-indigo-300" aria-hidden="true" />
+                Sign out
               </button>
             )}
             {onCancel && (
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900 dark:text-white/75 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
               >
                 Go back
               </button>

@@ -8,7 +8,7 @@ import Modal from './Modal';
 // directly (only ever mounted when firebaseEnabled -- see App.jsx). The
 // auth-state listener in useAuth closes the modal the moment a session lands.
 export default function AuthModal({ onClose = () => {}, dismissible = true }) {
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup'
+  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -26,8 +26,9 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const handleAuthSubmit = async (e) => {
     e?.preventDefault();
     const email = authEmail.trim();
-    if (!email || !authPassword) {
-      setAuthError('Enter your email and password.');
+    const isReset = authMode === 'reset';
+    if (!email || (!isReset && !authPassword)) {
+      setAuthError(isReset ? 'Enter your email.' : 'Enter your email and password.');
       return;
     }
 
@@ -36,7 +37,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
     setAuthInfo(null);
 
     try {
-      if (authMode === 'signup') {
+      if (authMode === 'reset') {
+        await authProvider.sendPasswordReset(email);
+        setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
+      } else if (authMode === 'signup') {
         await authProvider.signUp(email, authPassword);
         setAuthInfo('We sent a confirmation link to your email. Confirm your account, then sign in.');
         // Note: Firebase signs the user in immediately upon creation,
@@ -46,6 +50,11 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
         // onAuthStateChange closes the modal on success.
       }
     } catch (err) {
+      // Don't reveal whether an account exists for the address on reset.
+      if (authMode === 'reset' && err?.code === 'auth/user-not-found') {
+        setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
+        return;
+      }
       setAuthError(err?.message || 'Authentication failed.');
       setAuthInfo(null);
     } finally {
@@ -86,7 +95,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             <User size={18} />
           </div>
           <h2 className="text-lg font-semibold text-slate-900">
-            {authMode === 'signup' ? 'Create your account' : 'Welcome Back!'}
+            {authMode === 'signup' ? 'Create your account' : authMode === 'reset' ? 'Reset your password' : 'Welcome Back!'}
           </h2>
         </div>
         {dismissible && (
@@ -114,6 +123,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
           </div>
         )}
 
+        {authMode !== 'reset' && (<>
         <div className="flex gap-3">
           <button
             type="button"
@@ -156,6 +166,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
           or
           <div className="h-px flex-1 bg-slate-100" />
         </div>
+        </>)}
 
         <div className="space-y-3">
           <div>
@@ -170,7 +181,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             />
           </div>
-          <div>
+          {authMode !== 'reset' && (<div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
             <div className="relative">
               <input
@@ -190,10 +201,25 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
                 {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-          </div>
+            {authMode === 'signin' && (
+              <div className="mt-1.5 text-right">
+                <button
+                  type="button"
+                  onClick={() => handleAuthModeSwitch('reset')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+          </div>)}
         </div>
 
-        {authMode === 'signup' ? (
+        {authMode === 'reset' ? (
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Enter the email you signed up with and we'll send you a link to choose a new password.
+          </p>
+        ) : authMode === 'signup' ? (
           <p className="text-xs text-slate-400 leading-relaxed">
             Your generated apps and version history sync to your account and are only visible to you.
           </p>
@@ -223,13 +249,23 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
             }`}
           >
             {authLoading && <Loader2 className="animate-spin" size={15} />}
-            {authMode === 'signup' ? 'Create account' : 'Sign in'}
+            {authMode === 'signup' ? 'Create account' : authMode === 'reset' ? 'Send reset link' : 'Sign in'}
           </button>
         </div>
       </form>
 
       <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center text-sm">
-        {authMode === 'signup' ? (
+        {authMode === 'reset' ? (
+          <>Remembered it?{' '}
+            <button
+              type="button"
+              onClick={() => handleAuthModeSwitch('signin')}
+              className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Back to sign in
+            </button>
+          </>
+        ) : authMode === 'signup' ? (
           <>Already have an account?{' '}
             <button
               type="button"
