@@ -17,7 +17,7 @@ The app runs in one of two modes, chosen entirely by env vars (see "Hosting mode
 - `npm run lint` — ESLint (flat config, `eslint.config.js`)
 - `npm run preview` — preview the production build
 
-There is no automated test suite wired to `npm test`. `testing/` holds standalone scripts run directly with node (e.g. `node testing/test-reply.js`, `node testing/testSyntax.js`) that exercise `generateAppCode`/`checkSyntax` against a real LLM call or fixture HTML — not a CI-run suite.
+There is no automated test suite wired to `npm test`. `testing/` holds standalone scripts run directly with node (e.g. `node testing/testChatProxy.js`, `node testing/test-ai-relay.js`) that exercise the chat proxy, AI relay/bridge/session logic, and preview behavior — not a CI-run suite.
 
 ## Architecture
 

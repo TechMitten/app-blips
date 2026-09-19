@@ -1,4 +1,4 @@
-// Tests for functions/_lib/usageTracking.js (per Docs/USAGE_TRACKING.md):
+// Tests for functions/_lib/usageTracking.js:
 //   1. recordApiUsage builds the Firestore commit the usage/{docId} rules
 //      expect (known fields only, counter +1 per call, server timestamp)
 //   2. it no-ops in self-hosted mode / without a uid / for unknown kinds

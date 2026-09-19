@@ -60,7 +60,7 @@ Go to **[appblips.com](https://appblips.com)**, sign in, and start typing. There
 
 Prefer to run AppBlips yourself? There is no signup, and once it is running, using it is as simple as typing a prompt. You need one server-side API key to power the builder. People using an AI-enabled app made by your default self-hosted installation enter their own key inside that finished app.
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 20+ and npm (npm comes bundled with Node.js).
+**Prerequisites:** [Node.js](https://nodejs.org/) 20.19+ (or 22.12+) and npm (npm comes bundled with Node.js).
 
 ```bash
 git clone https://github.com/techmitten/app-blips.git   # download the project
@@ -115,15 +115,13 @@ This reads environment variables from the same `.env` file as above and serves t
 
 Builder and operator settings live in the `.env` file. In self-hosted BYOK mode, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for the full, authoritative list. The key groups:
 
-For a plain-English walkthrough of who provides which AI key and what finished-app users see, read [`docs/AI_SETUP_AND_USAGE.md`](docs/AI_SETUP_AND_USAGE.md).
-
 | Group | Variables | Notes |
 | --- | --- | --- |
 | LLM (required) | `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL` | Server-side only, never exposed to the browser bundle |
 | LLM tuning (optional) | `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_TEMPERATURE` | `APPBLIPS_LLM_TEMPERATURE` defaults to `0.2`. Reasoning effort is a per-user choice in the app's Settings modal |
 | Rate limiting (optional) | `APPBLIPS_CHAT_RATE_LIMIT_MAX`, `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` | Per-user limit on `/api/chat`, defaulting to 60 requests per 300s. Tracked in memory per server instance, so treat it as a speed bump rather than a hard budget cap |
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. `byok` is the safe default; `relay` makes the operator fund app AI |
-| Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |
+| Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` (optional: `APPBLIPS_APP_LLM_MAX_TOKENS`, `APPBLIPS_APP_LLM_TEMPERATURE`, `APPBLIPS_APP_LLM_REASONING_EFFORT`) | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |
 | Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, `APPBLIPS_APP_AI_RATE_LIMIT_MAX`, `APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS` | Exact cross-origin allowlist and per-IP in-memory rate limit |
 | Deployed-app AI sessions | `APPBLIPS_SESSION_SECRET`, `APPBLIPS_AI_SESSION_TTL_SECONDS`, `APPBLIPS_AI_REQUIRE_SESSION`, `APPBLIPS_AI_REQUIRE_ORIGIN`, `TURNSTILE_SECRET`, `VITE_AI_SESSION_ENABLED`, `VITE_AI_TURNSTILE_SITE_KEY` | Hosted mode. Replaces the durable in-HTML deployment token with short-lived, server-signed session tokens minted at `/ai/session`; optional Turnstile gate |
 | Hosting mode | `SELF_HOSTED_MODE` | Defaults to self-hosted. Only `false` enables the Firebase-backed hosted mode |
@@ -142,8 +140,9 @@ For a plain-English walkthrough of who provides which AI key and what finished-a
 | `npm run build` | Production build to `dist/` |
 | `npm run lint` | Run ESLint |
 | `npm run preview` | Preview the production build locally |
+| `npm run usage` | Local usage dashboard for operators (hosted mode only; needs the Firebase CLI logged in) |
 
-There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (e.g. `node testing/test-reply.js`, `node testing/testSyntax.js`) that exercise generation and syntax-checking against a real LLM call or fixture HTML.
+There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (e.g. `node testing/testChatProxy.js`, `node testing/test-ai-relay.js`) that exercise the proxy, AI relay, bridge and preview behavior.
 
 ## Project structure
 
@@ -157,7 +156,8 @@ src/
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 functions/           # Cloudflare Pages Functions: /api/chat proxy, deployed-app server
 server.js            # Standalone Node server for Docker self-hosted deployments
-testing/             # Standalone Node scripts for exercising generation/syntax-checking
+scripts/             # Operator tooling (usage dashboard)
+testing/             # Standalone Node scripts for exercising the proxy, AI relay and preview
 ```
 
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals, deploy pipeline), see [`CLAUDE.md`](CLAUDE.md).
