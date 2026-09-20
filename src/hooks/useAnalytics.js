@@ -8,6 +8,8 @@ import { fetchAnalyticsStats } from '../lib/appAnalytics';
 // feel live without hammering the self-hosted instance.
 const ACTIVE_VISITORS_POLL_MS = 15000;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 // Analytics dashboard state: the list of the user's analytics-enabled
 // deployments, plus stats for whichever one is currently selected. Hosted
 // mode only -- self-hosted has no deployments collection to query.
@@ -42,11 +44,33 @@ export default function useAnalytics({ isSignedIn, user }) {
     }
   }, [isSignedIn, user?.id]);
 
+  // The window to query, the bucket size the chart should plot it at, and the
+  // baseline window the change chips compare against.
   const rangeToWindow = (value) => {
-    const days = value === '7d' ? 7 : value === '90d' ? 90 : 30;
     const endAt = Date.now();
-    const startAt = endAt - days * 24 * 60 * 60 * 1000;
-    return { startAt, endAt, unit: days > 30 ? 'day' : 'day' };
+    if (value === 'today') {
+      // LOCAL midnight -- "today" has to mean the viewer's day, not UTC's --
+      // and hourly buckets, since a single day plotted per-day is one point.
+      // The baseline is the same clock hours yesterday rather than the
+      // preceding N hours, so "vs." compares like with like.
+      const midnight = new Date();
+      midnight.setHours(0, 0, 0, 0);
+      const startAt = midnight.getTime();
+      return {
+        startAt,
+        endAt,
+        unit: 'hour',
+        previous: { startAt: startAt - DAY_MS, endAt: endAt - DAY_MS },
+      };
+    }
+    const days = value === '7d' ? 7 : value === '90d' ? 90 : 30;
+    const startAt = endAt - days * DAY_MS;
+    return {
+      startAt,
+      endAt,
+      unit: 'day',
+      previous: { startAt: startAt - (endAt - startAt), endAt: startAt },
+    };
   };
 
   const loadStats = useCallback(async (slug, rangeValue = range) => {
@@ -54,16 +78,23 @@ export default function useAnalytics({ isSignedIn, user }) {
     setStatsLoading(true);
     setError(null);
     try {
-      const { startAt, endAt, unit } = rangeToWindow(rangeValue);
-      const [summary, pageviews, urls, referrers, countries, entryPages] = await Promise.all([
+      const { startAt, endAt, unit, previous: previousWindow } = rangeToWindow(rangeValue);
+      // The baseline window feeding the change chips. Best-effort: a failure
+      // just hides them.
+      const optional = (p) => p.catch(() => null);
+      const [summary, pageviews, urls, referrers, countries, entryPages, devices, browsers, os, previous] = await Promise.all([
         fetchAnalyticsStats(slug, { type: 'summary', startAt, endAt }),
         fetchAnalyticsStats(slug, { type: 'pageviews', startAt, endAt, unit }),
         fetchAnalyticsStats(slug, { type: 'urls', startAt, endAt }),
         fetchAnalyticsStats(slug, { type: 'referrers', startAt, endAt }),
         fetchAnalyticsStats(slug, { type: 'countries', startAt, endAt }),
         fetchAnalyticsStats(slug, { type: 'entryPages', startAt, endAt }),
+        optional(fetchAnalyticsStats(slug, { type: 'devices', startAt, endAt })),
+        optional(fetchAnalyticsStats(slug, { type: 'browsers', startAt, endAt })),
+        optional(fetchAnalyticsStats(slug, { type: 'os', startAt, endAt })),
+        optional(fetchAnalyticsStats(slug, { type: 'summary', ...previousWindow })),
       ]);
-      setStats({ summary, pageviews, urls, referrers, countries, entryPages });
+      setStats({ summary, pageviews, urls, referrers, countries, entryPages, devices, browsers, os, previous, startAt, endAt, unit });
     } catch (err) {
       setError(err.message || 'Failed to load analytics.');
       setStats(null);
