@@ -871,6 +871,11 @@ export default function App() {
           setGenerationStatus(chunk);
           return;
         }
+        if (kind === 'edit_stream_reset') {
+          editStreamRef.current = '';
+          liveCodeRef.current = '';
+          return;
+        }
         if (kind === 'edit_stream') {
           editStreamRef.current = `${editStreamRef.current}${chunk}`;
           liveCodeRef.current = extractStreamedEditCode(editStreamRef.current);
