@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
@@ -44,7 +44,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadReasoningEffort, REASONING_EFFORT_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -69,6 +69,7 @@ export default function App() {
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
+  const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
   const [reasoningEffort, setReasoningEffort] = useState(loadReasoningEffort);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
@@ -81,6 +82,7 @@ export default function App() {
   const tourLayoutRef = useRef(null);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [rewindTargetIndex, setRewindTargetIndex] = useState(null);
 
   // --- Theme ---
   const { themePreference, setThemePreference, resolvedTheme } = useTheme();
@@ -682,6 +684,10 @@ export default function App() {
   }, [autoFollowCode]);
 
   useEffect(() => {
+    localStorage.setItem(BUILD_PANE_SIDE_KEY, buildPaneSide);
+  }, [buildPaneSide]);
+
+  useEffect(() => {
     localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
   }, [skipSplash]);
 
@@ -1185,6 +1191,12 @@ export default function App() {
     }
   };
 
+  const handleConfirmRewind = () => {
+    const target = rewindTargetIndex;
+    setRewindTargetIndex(null);
+    if (target !== null && !isGenerating) switchVersion(target);
+  };
+
   const handleUndo = () => {
     if (currentVersionIndex > 0) {
       switchVersion(currentVersionIndex - 1);
@@ -1463,6 +1475,8 @@ export default function App() {
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}
           onAutoFollowCodeChange={setAutoFollowCode}
+          buildPaneSide={buildPaneSide}
+          onBuildPaneSideChange={setBuildPaneSide}
           reasoningEffort={reasoningEffort}
           onReasoningEffortChange={setReasoningEffort}
         />
@@ -1496,6 +1510,24 @@ export default function App() {
             <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <span>
               You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You&apos;ll pick the studio on the next screen.
+            </span>
+          </div>
+        </ConfirmModal>
+      )}
+
+      {rewindTargetIndex !== null && versions[rewindTargetIndex] && (
+        <ConfirmModal
+          title="Rewind project?"
+          subtitle={`Return to version ${rewindTargetIndex + 1} of ${versions.length}.`}
+          onClose={() => setRewindTargetIndex(null)}
+          onConfirm={handleConfirmRewind}
+          confirmLabel="Rewind"
+          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>
+              The project will go back to how it was after &ldquo;{versions[rewindTargetIndex].prompt}&rdquo;. Later messages are hidden from the chat but stay in version history until you send a new prompt, which replaces them.
             </span>
           </div>
         </ConfirmModal>
@@ -1584,9 +1616,9 @@ export default function App() {
         {/* Main Workspace */}
         <main className="flex-1 min-w-0 min-h-0 flex overflow-hidden relative">
 
-          {/* Prompt/Chat Sidebar (Left) - Build Panel */}
+          {/* Prompt/Chat Sidebar (left by default, right via Settings) - Build Panel */}
           <div
-            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full lg:w-[clamp(320px,35vw,420px)] flex-1 lg:flex-none min-w-0 min-h-0 relative`}
+            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full lg:w-[clamp(320px,35vw,420px)] flex-1 lg:flex-none min-w-0 min-h-0 relative ${buildPaneSide === 'right' ? 'build-pane-right lg:order-2' : ''}`}
           >
             <BuildPanel
               isChatActive={isChatActive}
@@ -1596,6 +1628,7 @@ export default function App() {
               aiEnabled={aiEnabled}
               onAiEnabledChange={handleAiEnabledChange}
               onChatModeChange={setChatMode}
+              onRewind={setRewindTargetIndex}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
               starterIdeas={
@@ -1637,7 +1670,7 @@ export default function App() {
             />
           </div>
 
-          {/* Preview/Device Area (Right) */}
+          {/* Preview/Device Area (opposite side) */}
           <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
             <PreviewPane
               activeTab={activeTab}

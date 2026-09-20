@@ -1,4 +1,4 @@
-import { Loader2, User } from 'lucide-react';
+import { Loader2, RotateCcw, User } from 'lucide-react';
 import Markdown from './Markdown';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
@@ -29,9 +29,20 @@ function BotAvatar({ title }) {
   );
 }
 
-function PromptRow({ children, className = '' }) {
+function PromptRow({ children, className = '', onRewind }) {
   return (
-    <div className="flex items-start justify-end gap-2.5">
+    <div className="group flex items-start justify-end gap-2.5">
+      {onRewind && (
+        <button
+          type="button"
+          onClick={onRewind}
+          className="self-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+          aria-label="Rewind project to this message"
+          title="Rewind project to this message"
+        >
+          <RotateCcw size={14} aria-hidden="true" />
+        </button>
+      )}
       <div
         className={`${BUBBLE_MAX} chat-bubble chat-bubble-user rounded-2xl px-4 py-3 text-[length:var(--chat-prompt-text)] font-medium ${className}`}
       >
@@ -66,6 +77,7 @@ export default function ChatTranscript({
   chatMode,
   studioMode = 'app',
   chatBottomRef,
+  onRewind,
 }) {
   return (
     <div className="chat-log space-y-4 pb-1" role="log" aria-label="Build conversation">
@@ -84,10 +96,12 @@ export default function ChatTranscript({
         </div>
       )}
       {versions.slice(startIndex, currentVersionIndex + 1).map((ver, idx) => {
-        const versionNumber = startIndex + idx + 1;
+        const versionIndex = startIndex + idx;
+        const versionNumber = versionIndex + 1;
+        const canRewind = onRewind && !isGenerating && versionIndex < currentVersionIndex;
         return (
           <div key={ver.id} className="space-y-2.5">
-            <PromptRow>{ver.prompt}</PromptRow>
+            <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined}>{ver.prompt}</PromptRow>
             {ver.reply && (
               <ReplyRow title={`Version ${versionNumber}`}>
                 <Markdown text={ver.reply} />

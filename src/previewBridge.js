@@ -456,6 +456,96 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('click', editOnClick, true);
   document.addEventListener('keydown', editOnKeyDown, true);
 
+  // Dead-link guard. The frame's document is about:srcdoc, so a relative
+  // href ("about.html", "/pricing", "") would navigate the frame to a blank
+  // page with nothing to go back to. Only links that lead somewhere real are
+  // followed: in-page hashes, mailto/tel, and absolute web URLs (forced into
+  // a new tab so they can never replace the preview). Everything else is
+  // swallowed.
+  // Root cause of the blank frame: relative URLs (including "#section") in a
+  // srcdoc document resolve against the parent page's URL, so following one is
+  // a cross-document navigation to the app's own origin, which refuses to be
+  // framed. Pin the base to about:srcdoc so "#x" stays a same-document jump
+  // and "page.html" fails to resolve (a no-op) instead of navigating.
+  try {
+    if (!document.querySelector('base[href]')) {
+      var pinBase = document.createElement('base');
+      pinBase.setAttribute('href', 'about:srcdoc');
+      pinBase.setAttribute('data-orion-bridge', 'true');
+      (document.head || document.documentElement).insertBefore(pinBase, (document.head || document.documentElement).firstChild);
+    }
+  } catch (err) { /* keep going without the pin */ }
+
+  function onLinkClick(e) {
+    if (e.defaultPrevented || editingActive) return;
+    var t = e.target;
+    var a = t && t.closest ? t.closest('a[href], area[href]') : null;
+    if (!a) return;
+    var raw = (a.getAttribute('href') || '').trim();
+    if (raw.charAt(0) === '#' || /^javascript:/i.test(raw)) return;
+    if (/^(mailto|tel|sms):/i.test(raw)) return;
+    if (/^https?:[/][/]/i.test(raw) || /^[/][/][^/]/.test(raw)) {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+      return;
+    }
+    e.preventDefault();
+  }
+  document.addEventListener('click', onLinkClick, true);
+  // A form with no real destination would navigate the frame to a blank page.
+  // Cancel the native submit; the app's own submit handlers still run.
+  document.addEventListener('submit', function (e) {
+    if (editingActive || e.defaultPrevented) return;
+    var f = e.target;
+    var action = f && f.getAttribute ? (f.getAttribute('action') || '').trim() : '';
+    if (!/^https?:[/][/]/i.test(action)) e.preventDefault();
+  }, true);
+
+  // Catch-all for navigations the click handler can't see: middle/ctrl-click
+  // (auxclick), form submits, and script-driven location changes. A srcdoc
+  // frame resolves relative URLs against the parent page, so a dead link
+  // lands on the app's own origin, which refuses to be framed ("localhost
+  // refused to connect"). Cancel those; hand real external URLs to a new tab.
+  function baseOrigin() {
+    try { return new URL(document.baseURI).origin; } catch (err) { return null; }
+  }
+  function isDeadTarget(url) {
+    try {
+      var u = new URL(url, document.baseURI);
+      if (u.protocol === 'mailto:' || u.protocol === 'tel:' || u.protocol === 'sms:') return false;
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return true;
+      return u.origin === baseOrigin();
+    } catch (err) { return true; }
+  }
+  document.addEventListener('auxclick', function (e) {
+    if (editingActive) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href], area[href]') : null;
+    if (a && isDeadTarget(a.getAttribute('href') || '') && (a.getAttribute('href') || '').trim().charAt(0) !== '#') {
+      e.preventDefault();
+    }
+  }, true);
+  try {
+    if (window.navigation && typeof window.navigation.addEventListener === 'function') {
+      window.navigation.addEventListener('navigate', function (e) {
+        if (!e.cancelable || e.hashChange || e.navigationType === 'reload' || e.navigationType === 'traverse') return;
+        if (e.destination && e.destination.sameDocument) return;
+        var dest = e.destination && e.destination.url;
+        if (!dest || /^(mailto|tel|sms):/i.test(dest)) return;
+        e.preventDefault();
+        if (!isDeadTarget(dest)) {
+          try { window.open(dest, '_blank', 'noopener,noreferrer'); } catch (err) { /* popup blocked */ }
+        }
+      });
+    }
+  } catch (err) { /* Navigation API unavailable */ }
+  var nativeOpen = window.open;
+  if (typeof nativeOpen === 'function') {
+    window.open = function (url) {
+      if (url !== undefined && url !== null && String(url) !== '' && isDeadTarget(String(url))) return null;
+      return nativeOpen.apply(window, arguments);
+    };
+  }
+
   // ------------------------------------------------------------------
   // 4. Touch-scroll simulation
   // ------------------------------------------------------------------

@@ -318,3 +318,41 @@
   background: transparent;
   box-shadow: none;
 }
+
+/* Build pane on the right (Settings -> Build pane position). Mirrors the
+   chassis rail, recessed well and inset from the right edge to the left. Only
+   at >=768px; the stacked layout keeps its bottom rail. */
+@media (min-width: 768px) {
+  .build-pane-right .build-panel {
+    box-shadow: -5px 0 18px -7px rgba(15, 23, 42, 0.35);
+  }
+
+  .build-pane-right .build-panel::before {
+    left: var(--bezel);
+    right: 0;
+  }
+
+  .build-pane-right .build-panel::after {
+    left: 0;
+    right: auto;
+    transform: scaleX(-1);
+  }
+
+  .build-pane-right .build-panel-scroll {
+    margin-right: 0;
+    margin-left: var(--bezel);
+    padding-right: 1rem;
+    padding-left: calc(1rem - var(--bezel, 10px));
+  }
+
+  :is(html.dark, .force-dark) .build-pane-right .build-panel {
+    box-shadow: -7px 0 24px -8px rgba(0, 0, 0, 0.85);
+  }
+}
+
+@media (min-width: 768px) and (min-width: 640px) {
+  .build-pane-right .build-panel-scroll {
+    padding-right: 1.25rem;
+    padding-left: calc(1.25rem - var(--bezel, 10px));
+  }
+}

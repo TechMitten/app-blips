@@ -374,6 +374,7 @@
   mask-image: linear-gradient(180deg, transparent 0, #000 45%);
 }
 
+.live-code-peek-body .peek-line { display: contents; }
 .live-code-peek-body .code-line { white-space: pre; overflow: hidden; }
 .live-code-peek-body .line-number { display: none; }
 .live-code-peek-body .code-line:hover { background: none; }
@@ -389,7 +390,7 @@
 }
 
 /* Caret on the line currently being written */
-.live-code-peek-body .code-line:last-child .line-content::after {
+.live-code-peek-body .peek-line:last-child .line-content::after {
   content: '';
   display: inline-block;
   width: 0.5em;
@@ -402,5 +403,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .live-code-peek-dot,
-  .live-code-peek-body .code-line:last-child .line-content::after { animation: none; }
+  .live-code-peek-body .peek-line:last-child .line-content::after { animation: none; }
+}
+
+/* On the dark build overlay the void is almost the pane's own color, so lift
+   the pane slightly and firm up its edge to keep it distinct. */
+:is(html.dark, .force-dark) .live-code-peek {
+  background: #111522;
+  border-color: rgb(148 163 255 / 0.26);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 10px 30px -10px rgb(124 137 255 / 0.25);
 }

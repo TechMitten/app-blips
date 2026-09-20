@@ -3,7 +3,7 @@ import {
   CircleHelp, X, ChevronLeft, ChevronRight, Sparkles, Wand2, Monitor, History,
   FolderOpen, Rocket, Download, Settings, Lightbulb, SquarePen,
   MessageCircleQuestion, Square, TriangleAlert, Layers, Eye, Smartphone, RotateCw,
-  Undo2, ZoomIn, ExternalLink, Info, PanelLeftOpen, Clock, Play, Copy, Pencil,
+  Undo2, ZoomIn, ExternalLink, Info, PanelLeftOpen, Clock, Play, Pencil,
   Check, Trash2, Plus, RotateCcw, RefreshCw, Link, Globe, KeyRound, EyeOff,
   Image, Settings2, Code2, Upload, Sun, Type, MessagesSquare
 } from 'lucide-react';

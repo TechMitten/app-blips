@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
   Lock, Star, Plus, X, MoreVertical, Wrench
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
-import { getEffectivePreviewBox, syntaxHighlightHtml, tailLines } from '../lib/helpers';
+import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
 
 const BUILDING_MESSAGES = [
   'Generating HTML, CSS & JavaScript',
@@ -244,13 +244,21 @@ function BuildingStatusMessage() {
 // rather than rendering them as they land it reveals the text on animation
 // frames at a steady pace that speeds up in proportion to the backlog -- it
 // types, rather than flickers.
+const PEEK_LINES = 9;
+
+// One highlighted line. Memoized on its text so lines that have finished
+// streaming are never touched again -- only the line being written re-renders.
+const PeekLine = memo(function PeekLine({ text }) {
+  return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text) }} />;
+});
+
 function LiveCodePeek({ codeRef, className = '' }) {
-  const [tail, setTail] = useState('');
+  const [view, setView] = useState({ start: 0, lines: [] });
 
   useEffect(() => {
     let raf = 0;
     let cursor = 0;
-    let last = '';
+    let lastKey = '';
     const tick = () => {
       const text = codeRef?.current || '';
       if (cursor > text.length) cursor = text.length;
@@ -258,30 +266,37 @@ function LiveCodePeek({ codeRef, className = '' }) {
       if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
       if (backlog > 0) {
         cursor += Math.min(backlog, Math.max(2, Math.ceil(backlog / 24)));
-        const next = tailLines(text.slice(0, cursor));
-        if (next !== last) {
-          last = next;
-          setTail(next);
+        const all = text.slice(0, cursor).split('\n');
+        const start = Math.max(0, all.length - PEEK_LINES);
+        const lines = all.slice(start).map((line) => line.slice(0, 240));
+        const key = `${start}\u0000${lines.join('\n')}`;
+        if (key !== lastKey) {
+          lastKey = key;
+          setView({ start, lines });
         }
-      } else if (text.length === 0 && last) {
-        cursor = 0;
-        last = '';
-        setTail('');
       }
+      // An empty ref mid-stream (edit-stream reset between attempts) keeps the
+      // last frame on screen rather than unmounting and replaying the entrance.
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [codeRef]);
 
-  if (!tail) return null;
+  if (!view.lines.length) return null;
   return (
     <div className={`live-code-peek w-[min(600px,92%)] text-left animate-fade-in-up ${className}`} aria-hidden="true">
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
         <span className="live-code-peek-label">writing code</span>
       </div>
-      <pre className="live-code-peek-body"><code dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(tail) }} /></pre>
+      <pre className="live-code-peek-body">
+        <code>
+          {view.lines.map((line, i) => (
+            <PeekLine key={view.start + i} text={line} />
+          ))}
+        </code>
+      </pre>
     </div>
   );
 }

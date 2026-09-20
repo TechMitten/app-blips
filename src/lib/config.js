@@ -93,6 +93,17 @@ export const loadAutoFollowCode = () => {
   }
 };
 
+export const BUILD_PANE_SIDE_KEY = 'orion-build-pane-side';
+
+// Which side of the workspace the build pane sits on: 'left' (default) or 'right'.
+export const loadBuildPaneSide = () => {
+  try {
+    return safeStorage('local')?.getItem(BUILD_PANE_SIDE_KEY) === 'right' ? 'right' : 'left';
+  } catch {
+    return 'left';
+  }
+};
+
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // Sent to /api/chat as `reasoning_effort` for the heavy generation call. 'none'
 // disables reasoning; the rest map straight to the OpenAI-compatible values.
