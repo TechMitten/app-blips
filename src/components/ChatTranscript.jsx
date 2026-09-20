@@ -1,5 +1,7 @@
 import { Loader2, RotateCcw, User } from 'lucide-react';
+import { useState } from 'react';
 import Markdown from './Markdown';
+import ImageLightbox from './ImageLightbox';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -79,6 +81,7 @@ export default function ChatTranscript({
   chatBottomRef,
   onRewind,
 }) {
+  const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   return (
     <div className="chat-log space-y-4 pb-1" role="log" aria-label="Build conversation">
       {startIndex > 0 && (
@@ -114,11 +117,26 @@ export default function ChatTranscript({
         <div className="space-y-2.5">
           {pendingAttachment && (
             <div className="flex justify-end pr-[3.25rem]">
-              <img
-                src={pendingAttachment.dataUrl}
-                alt={pendingAttachment.name || 'Attached image'}
-                className="w-16 h-16 rounded-xl object-cover border border-slate-300 dark:border-white/15 shadow-xs animate-fade-in"
-              />
+              <button
+                type="button"
+                onClick={() => setIsAttachmentOpen(true)}
+                aria-label="View attached image full size"
+                title="View full size"
+                className="block cursor-zoom-in"
+              >
+                <img
+                  src={pendingAttachment.dataUrl}
+                  alt={pendingAttachment.name || 'Attached image'}
+                  className="w-16 h-16 rounded-xl object-cover border border-slate-300 dark:border-white/15 shadow-xs animate-fade-in"
+                />
+              </button>
+              {isAttachmentOpen && (
+                <ImageLightbox
+                  src={pendingAttachment.dataUrl}
+                  alt={pendingAttachment.name || 'Attached image'}
+                  onClose={() => setIsAttachmentOpen(false)}
+                />
+              )}
             </div>
           )}
           <PromptRow className="animate-fade-in">{pendingPrompt}</PromptRow>

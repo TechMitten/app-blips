@@ -1054,6 +1054,26 @@ const BRIDGE_SOURCE = `(function () {
       var srcsetEls = clone.querySelectorAll('[srcset]');
       for (i = 0; i < srcsetEls.length; i++) srcsetEls[i].removeAttribute('srcset');
 
+      // HTML allows attribute names XML does not (@click, :class, x-on:click,
+      // [prop], a stray quote...). XMLSerializer emits them verbatim, and one
+      // such name fails the whole SVG parse. They carry no visual meaning in a
+      // static snapshot, so drop any that are not valid XML names (a single
+      // prefix colon is only kept for the namespaces the serializer declares).
+      var xmlNameRe = /^[A-Za-z_][A-Za-z0-9_.-]*(:[A-Za-z_][A-Za-z0-9_.-]*)?$/;
+      var allEls = clone.querySelectorAll('*');
+      var elIdx, attrIdx;
+      var badAttrs = [];
+      for (elIdx = -1; elIdx < allEls.length; elIdx++) {
+        var el = elIdx < 0 ? clone : allEls[elIdx];
+        for (attrIdx = 0; attrIdx < el.attributes.length; attrIdx++) {
+          var attrName = el.attributes[attrIdx].name;
+          if (!xmlNameRe.test(attrName) || (attrName.indexOf(':') !== -1 && !/^(xml|xlink|xmlns):/.test(attrName))) {
+            badAttrs.push([el, attrName]);
+          }
+        }
+      }
+      for (i = 0; i < badAttrs.length; i++) badAttrs[i][0].removeAttribute(badAttrs[i][1]);
+
       var css = '';
       var externalStyleUrls = [];
       var si;
