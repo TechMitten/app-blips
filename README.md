@@ -68,7 +68,7 @@ See [Quick start](#quick-start) below to pick one.
 
 ## Documentation
 
-Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [hosted](https://docs.appblips.com/quickstart-hosted) and [self-hosted](https://docs.appblips.com/quickstart-self-hosted) quickstarts, and feature and AI guides. The docs source is a Mintlify site in [`docs/`](docs/).
+Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [hosted](https://docs.appblips.com/quickstart-hosted) and [self-hosted](https://docs.appblips.com/quickstart-self-hosted) quickstarts, and feature and AI guides.
 
 ## Quick start
 
@@ -177,7 +177,6 @@ src/
   hooks/             # Stateful concerns: auth, projects, deployment, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 functions/           # Cloudflare Pages Functions: /api/chat proxy, deployed-app server
-docs/                # Mintlify source for docs.appblips.com
 server.js            # Standalone Node server for Docker self-hosted deployments
 scripts/             # Operator tooling (usage dashboard)
 testing/             # Standalone Node scripts for exercising the proxy, AI relay and preview
