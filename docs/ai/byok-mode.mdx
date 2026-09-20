@@ -1,0 +1,84 @@
+---
+title: "BYOK Mode: Let Users Connect Their Own AI Provider"
+sidebarTitle: "BYOK Mode"
+description: "In BYOK mode, each person using an AI-enabled app enters their own OpenAI-compatible endpoint, model, and API key. The key never leaves their browser."
+---
+
+BYOK (Bring Your Own Key) is the default AI access mode for self-hosted AppBlips installations. Instead of the operator paying for AI calls, each person who uses an AI-enabled app supplies their own credentials directly inside that app. The key is stored only in that person's browser and is never sent to AppBlips, never written into the generated HTML, and never visible to the operator.
+
+## How It Works for Users
+
+<Steps>
+  <Step title="Use the app as normal">
+    Open the AI-enabled app in your browser (in the live preview or as an exported HTML file). Everything works as expected until the first feature that calls AI.
+  </Step>
+  <Step title="The Connect dialog appears automatically">
+    The first time the app needs to make an AI call, a **Connect your AI provider** dialog appears. You do not need to do anything special to trigger it — the app handles this for you.
+  </Step>
+  <Step title="Enter your provider details">
+    Fill in the three required fields:
+    - **API endpoint** — the base URL for your OpenAI-compatible provider (defaults to `https://api.openai.com/v1`)
+    - **Model** — the model name to use, for example `gpt-4o-mini`
+    - **API key** — your secret key for that provider (for example, an `sk-…` key from OpenAI)
+  </Step>
+  <Step title="Choose whether to remember your credentials">
+    Check **Remember on this device** if you want your credentials saved across sessions. Without this, the key is cleared when the tab closes and you will be prompted again next time.
+  </Step>
+  <Step title="Click Connect AI">
+    Your credentials are saved in browser storage and the original AI request completes immediately. Future calls in the same session skip the dialog entirely.
+  </Step>
+</Steps>
+
+## The Connect Dialog
+
+The dialog asks for three fields and one option:
+
+| Field | Description |
+|---|---|
+| **API endpoint** | The base URL of an OpenAI-chat-completions-compatible provider. Defaults to `https://api.openai.com/v1`. |
+| **Model** | The model identifier to use for requests, for example `gpt-4o-mini` or `llama3`. |
+| **API key** | Your secret credential for that provider. Entered as a password field and never displayed after saving. |
+| **Remember on this device** | When checked, credentials are saved to `localStorage` and persist after the tab closes. When unchecked, credentials are saved to `sessionStorage` only and cleared when the tab closes. |
+
+The dialog can also be opened at any time by calling `blip.ai.configure()` — for example, if the app includes a Settings button that lets users update their provider.
+
+## Security Notes
+
+<Warning>
+  Your API key is stored in browser storage and is accessible to any JavaScript running inside that app. Only use a key you are personally permitted to use in this browser context. Never enter a shared or team key into a public app — anyone with access to the app could use or extract it.
+</Warning>
+
+A few things to keep in mind:
+
+- The key is **never** sent to AppBlips or written into the generated HTML file.
+- The key **is** accessible to scripts running inside the app (the same origin), which is unavoidable for client-side browser storage.
+- If you use **Remember on this device**, the key persists in `localStorage` until you call `blip.ai.clearConfiguration()` or clear your browser data manually.
+- Without **Remember on this device**, the key lives in `sessionStorage` and is cleared automatically when the tab closes.
+
+## Compatible Providers
+
+BYOK mode works with any provider that implements the OpenAI chat completions API format and allows browser requests via CORS. Examples include:
+
+- **OpenAI** — `https://api.openai.com/v1`, models like `gpt-4o`, `gpt-4o-mini`
+- **Azure OpenAI** — your Azure deployment endpoint
+- **Groq** — `https://api.groq.com/openai/v1`, fast open-source models
+- **Ollama** — `http://localhost:11434/v1` for locally running models (must have CORS enabled)
+- **LM Studio** — `http://localhost:1234/v1` for locally running models (must have CORS enabled)
+
+<Tip>
+  If you are using a local model with Ollama or LM Studio, make sure CORS is enabled in that tool's settings so browser requests from the app are accepted.
+</Tip>
+
+## For Self-Hosted Operators
+
+BYOK is the default mode and requires no additional server-side configuration beyond what is already in your `.env` file. The relevant variable is:
+
+```
+APPBLIPS_GENERATED_AI_MODE=byok
+```
+
+This is the default value, so if you have not set it, BYOK is already active. No `APPBLIPS_APP_LLM_*` variables are needed — those are only used in relay mode.
+
+<Note>
+  If you want to fund AI access for your users so they never need to enter a key, see [Relay Mode](/ai/relay-mode).
+</Note>

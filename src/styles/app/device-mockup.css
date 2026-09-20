@@ -447,7 +447,13 @@
   justify-content: center;
   color: #475569;
   flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
 }
+
+button.device-browser-navbtn:not(:disabled) { cursor: pointer; }
+button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 0.12); }
 
 .device-browser-navbtn.is-disabled {
   color: #b6c2d2;

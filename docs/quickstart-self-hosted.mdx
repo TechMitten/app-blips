@@ -1,0 +1,95 @@
+---
+title: "Self-Hosted Quickstart: Run AppBlips on Your Own Machine"
+sidebarTitle: "Self-Hosted Quickstart"
+description: "Run AppBlips locally with Node.js or Docker. Bring your own OpenAI-compatible API key and start generating apps in minutes with no account needed."
+---
+
+Self-hosting AppBlips means running it entirely on your own machine or server — no account, no cloud sync, and no data leaving your environment. It's designed for a single local user, so there's no sign-in flow and no project history saved anywhere beyond your machine. All you need is an API key for an OpenAI-compatible provider and a few minutes to get up and running.
+
+## Prerequisites
+
+<Note>
+  Self-hosting AppBlips requires **Node.js 20.19 or newer** (or **Node.js 22.12 or newer**). npm is included with Node.js, so no separate install is needed. Download Node.js at [nodejs.org](https://nodejs.org/).
+</Note>
+
+## Set up with Node.js
+
+<Steps>
+  <Step title="Clone the repository">
+    Download the AppBlips source code and move into the project folder:
+
+    ```bash
+    git clone https://github.com/techmitten/app-blips.git && cd app-blips
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+  <Step title="Copy the config file">
+    Create your local configuration file from the provided example:
+
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+  <Step title="Set your AI provider details">
+    Open the newly created `.env` file in any text editor and fill in the three required variables:
+
+    ```env
+    APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
+    APPBLIPS_LLM_API_KEY=your-api-key
+    APPBLIPS_LLM_MODEL=gpt-4o
+    ```
+
+    Replace `your-api-key` with your actual key. The other values shown are the defaults for OpenAI — adjust them if you are using a different provider or model.
+  </Step>
+  <Step title="Start the server">
+    ```bash
+    npm run dev
+    ```
+
+    AppBlips starts the development server and prints the local address to your terminal.
+  </Step>
+  <Step title="Open AppBlips in your browser">
+    Navigate to [http://localhost:5175](http://localhost:5175) — AppBlips is ready to use. Type a prompt and start building.
+  </Step>
+</Steps>
+
+## Using Docker Instead
+
+If you prefer a more stable, longer-lived setup, Docker is a great alternative to `npm run dev`. The Docker image builds the static client and serves everything — including the builder API — from a single lightweight Node server.
+
+Run the following command in the project root (with your `.env` file in place):
+
+```bash
+docker compose up --build
+```
+
+AppBlips will be available at [http://localhost:3000](http://localhost:3000). See the [Docker setup guide](/self-hosting/docker) for details on configuring the image, rebuilding after config changes, and running in production.
+
+<Warning>
+  In self-hosted mode, the `/api/chat` endpoint has **no authentication**. Every request that reaches it is treated as the same local user and can spend your configured AI budget. Do not expose AppBlips beyond localhost without putting your own access control — a reverse proxy with authentication, a VPN, or similar — in front of it first.
+</Warning>
+
+## Compatible AI Providers
+
+AppBlips works with any provider that implements the OpenAI chat completions API. You are not limited to OpenAI itself:
+
+- **OpenAI** — use `https://api.openai.com/v1` with a standard `sk-...` key
+- **Local models via Ollama** — point `APPBLIPS_LLM_BASE_URL` at your Ollama endpoint (e.g. `http://localhost:11434/v1`) and set `APPBLIPS_LLM_MODEL` to any model you have pulled
+- **Other compatible providers** — any service that speaks the OpenAI chat completions format works; update the base URL, key, and model name to match
+
+The provider credentials you set in `.env` are used only server-side and are never exposed to the browser.
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="sliders" href="/self-hosting/configuration">
+    Explore every `.env` variable — rate limits, AI mode for generated apps, tuning options, and more.
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/self-hosting/docker">
+    Learn how to build and run the Docker image, manage environment variables, and set up a production-ready deployment.
+  </Card>
+</CardGroup>

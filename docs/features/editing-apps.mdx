@@ -1,0 +1,55 @@
+---
+title: "Editing Apps: Refine with Prompts or the Visual Editor"
+sidebarTitle: "Editing Apps"
+description: "Refine any generated app by typing plain-English change requests or by clicking directly on any element to modify it with the visual element editor."
+---
+
+Once AppBlips has built your app, you have two ways to refine it: type a plain-English follow-up prompt to describe the change you want, or switch into the visual editor and click directly on the element you want to modify. Both approaches create a new version in your history, so you can always undo if a change misses the mark.
+
+## Editing with Prompts
+
+After your app is generated, the prompt input stays active and ready for follow-up instructions. Describe the change you want in plain English — AppBlips reads the current version of your app and applies your requested change directly.
+
+A few examples of effective editing prompts:
+
+```
+Change the background to dark blue and the text to white.
+```
+
+```
+Add a search bar at the top that filters the list as you type.
+```
+
+```
+Replace the dropdown with a set of radio buttons.
+```
+
+```
+Move the submit button to the bottom-right and make it green.
+```
+
+Each follow-up creates a new version in your history, so you can chain as many edits as you like and step back if something doesn't work.
+
+## Visual Element Editor
+
+The visual element editor lets you point and click on any element in the live preview to select it and describe a change. This is especially useful when you can see exactly what you want to fix but aren't sure how to describe it in words.
+
+To activate the visual editor, click the **Edit** or cursor icon in the preview toolbar. The preview switches into selection mode — hover over any element and it will highlight to show you what would be selected. Click the element you want to edit, then describe the change you want in the prompt that appears. AppBlips targets that specific element with your instruction, so the rest of the app stays untouched.
+
+## Selecting Parent Elements
+
+Sometimes you want to edit a container, section background, or wrapper element rather than the inner content. After clicking an element, you can walk up the DOM tree to select a parent container using the **Select Parent** option that appears in the editor panel. This is useful when you want to change the padding on a section, swap the background of a card wrapper, or adjust a layout region.
+
+Keep pressing **Select Parent** to move further up the tree until you've highlighted the element you actually want to edit.
+
+## Undo/Redo History
+
+Every edit — whether made through a prompt or the visual editor — saves a version to your history automatically. Use the **Undo** button in the toolbar to step back to any previous version, and **Redo** to move forward again. You can undo and redo freely at any point without losing your work.
+
+<Tip>
+  Combine both editing modes for the best results. Use the visual editor to pinpoint a specific element you want to change, then use a follow-up prompt to describe complex behavior changes — like adding new interactivity or restructuring a section. Switching between the two gives you precision on individual elements and flexibility for bigger changes.
+</Tip>
+
+---
+
+Ready to share your finished app? Learn how to download it as a standalone HTML file or publish it to its own public URL in [Export or Deploy Your App](/features/exporting-deploying). To revisit how to write effective prompts from the start, see [Building Apps](/features/building-apps).

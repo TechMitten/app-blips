@@ -1,0 +1,71 @@
+---
+title: "AppBlips FAQ: Building Apps, AI, Exporting, and More"
+sidebarTitle: "FAQ"
+description: "Answers to common questions about AppBlips: what it builds, how AI works, the difference between hosted and self-hosted, exporting, and more."
+---
+
+Here are quick answers to the most common questions about AppBlips — what it can build, how the AI works, and the differences between the hosted and self-hosted options.
+
+<AccordionGroup>
+  <Accordion title="What kind of apps can AppBlips build?">
+    AppBlips generates single-file React and HTML apps. That covers a wide range of practical and creative projects: interactive tools, mini-games, dashboards, habit trackers, forms, quizzes, calculators, data visualizers, and more.
+
+    AppBlips is not designed for multi-page applications or native mobile apps. Every app it produces is a single, self-contained file that runs entirely in the browser.
+  </Accordion>
+
+  <Accordion title="Do I need to know how to code?">
+    No. AppBlips is built for anyone who can describe what they want in plain English. You do not need to know HTML, JavaScript, or React to get useful results.
+
+    That said, if you have some coding knowledge, more precise prompts — ones that name specific behaviors, edge cases, or UI patterns — tend to produce better first drafts and reduce the number of follow-up tweaks you need to make.
+  </Accordion>
+
+  <Accordion title="What is the difference between hosted and self-hosted?">
+    **Hosted** ([appblips.com](https://appblips.com)) is the easiest way to start. Sign in with your account, build apps directly in your browser, and your projects sync automatically. Apps you publish get their own public URL and can be installed as a PWA.
+
+    **Self-hosted** runs AppBlips on your own machine or server. There is no account, no cloud sync, and no data sent to AppBlips — just you and the app. You bring your own AI provider API key, which stays on your server. Deploying apps to a public URL is not built in; you would need to export and host the HTML file yourself.
+  </Accordion>
+
+  <Accordion title="Can I use a model other than GPT-4o?">
+    Yes. AppBlips works with any endpoint that is compatible with the OpenAI chat completions API format. That includes OpenAI, Azure OpenAI, Groq, Ollama, and many other providers.
+
+    In self-hosted mode, set the provider, key, and model in your `.env` file:
+
+    ```bash
+    APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
+    APPBLIPS_LLM_API_KEY=your-api-key
+    APPBLIPS_LLM_MODEL=gpt-4o
+    ```
+
+    On the hosted service at appblips.com, the AI provider is managed for you.
+  </Accordion>
+
+  <Accordion title="What happens to my API key in self-hosted mode?">
+    Your API key lives only in the `.env` file on the machine running AppBlips. The key is used exclusively by the server-side proxy when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+  </Accordion>
+
+  <Accordion title="Can I export the generated app?">
+    Yes. Use the **Export** option to download your app as a single self-contained HTML file. The exported file includes everything the app needs and works in any modern web browser — no internet connection or server required after download.
+  </Accordion>
+
+  <Accordion title="Can I deploy the app publicly?">
+    On **appblips.com** (hosted mode), yes. Any app you build can be published to its own public URL with one click, and it is automatically installable as a Progressive Web App (PWA). You can optionally password-protect the deployed link.
+
+    In **self-hosted** mode, AppBlips does not include a public hosting feature. You can still share your app by exporting it as an HTML file and hosting it on any static file host of your choice.
+  </Accordion>
+
+  <Accordion title="What is BYOK mode for AI in apps?">
+    BYOK stands for **Bring Your Own Key**. When you build an app with the AI toggle enabled, the finished app can make AI calls using `blip.ai.text()`. In BYOK mode (the default for self-hosted), whoever uses the finished app is prompted to enter their own AI provider credentials the first time an AI feature is triggered.
+
+    The key the end user enters is stored only in their browser — in session storage by default, or local storage if they choose "Remember on this device." It is never written into the generated HTML and is never sent to AppBlips.
+  </Accordion>
+
+  <Accordion title="How do I undo a change?">
+    Use the **undo button** in the workspace toolbar to step back one change at a time. You can also open the **History** sidebar to see every version of your app and jump directly to any earlier state.
+  </Accordion>
+
+  <Accordion title="Is there a limit on how many apps I can build?">
+    In **self-hosted** mode, there is no limit imposed by AppBlips. You are only constrained by your AI provider's rate limits and your own usage budget.
+
+    On the **hosted** service at appblips.com, limits depend on your account plan. Check your account settings or the pricing page for details.
+  </Accordion>
+</AccordionGroup>

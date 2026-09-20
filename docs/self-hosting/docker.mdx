@@ -1,0 +1,110 @@
+---
+title: "Self-Hosting AppBlips with Docker Compose in Minutes"
+sidebarTitle: "Docker"
+description: "Build and run a production-ready AppBlips instance using Docker Compose. One command builds the client and starts the server on port 3000."
+---
+
+Docker is the recommended way to run a longer-lived self-hosted AppBlips installation. A single `docker compose up --build` command builds the static client, packages it with the server, and starts everything together — no separate build step, no extra tools, and no Node.js installation required on your host machine. The server handles both the builder API and the optional generated-app AI relay, and it serves the built client directly, so there is nothing else to configure.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed and running
+- A valid `.env` file with at minimum `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, and `APPBLIPS_LLM_MODEL` set — see [Configuration](/self-hosting/configuration) for the full reference
+
+## Starting AppBlips
+
+<Steps>
+  <Step title="Clone the repository">
+    Download the AppBlips source and move into the project directory:
+
+    ```bash
+    git clone https://github.com/techmitten/app-blips.git
+    cd app-blips
+    ```
+  </Step>
+
+  <Step title="Create your .env file">
+    Copy the example configuration file and open it in your editor to fill in your LLM provider details:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    At minimum, set these three variables:
+
+    ```bash
+    APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
+    APPBLIPS_LLM_API_KEY=your-api-key-here
+    APPBLIPS_LLM_MODEL=gpt-4o
+    ```
+  </Step>
+
+  <Step title="Build and start the container">
+    Run the following command from the project root:
+
+    ```bash
+    docker compose up --build
+    ```
+
+    Docker will build the client bundle, assemble the runtime image, and start the server. The first build takes a minute or two as it installs dependencies and compiles the front end. Subsequent builds are faster thanks to Docker's layer cache.
+  </Step>
+
+  <Step title="Open AppBlips in your browser">
+    Once you see `AppBlips listening on port 3000` in the terminal output, navigate to:
+
+    ```
+    http://localhost:3000
+    ```
+
+    You're ready to start building apps.
+  </Step>
+</Steps>
+
+## Ports
+
+By default AppBlips listens on port **3000** inside the container, mapped to port `3000` on your host. To use a different host port, either set the `PORT` environment variable in your `.env` file or edit the `ports` entry in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "8080:3000"   # host port 8080 → container port 3000
+```
+
+## Rebuilding After Config Changes
+
+Most configuration variables are read at runtime when the server starts, so you can update them in `.env` and restart the container with `docker compose restart` to apply the change.
+
+<Warning>
+  **Two variables are baked into the client at build time:** `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL`. A plain restart does **not** pick up new values for these — you must rebuild the image by running `docker compose up --build` again after changing either one.
+</Warning>
+
+## Runtime vs Build-Time Variables
+
+Understanding which variables take effect when helps you avoid surprising behaviour:
+
+| Type | Variables | How to apply a change |
+|---|---|---|
+| **Build-time** | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | `docker compose up --build` |
+| **Runtime** | All other `APPBLIPS_*` variables | `docker compose restart` |
+
+Build-time variables are embedded into the compiled client bundle during the `npm run build` step inside Docker. Runtime variables are read by the Node server process on startup from the `.env` file.
+
+## Stopping and Updating
+
+To stop AppBlips, press `Ctrl+C` in the terminal running `docker compose up`, or run the following from the project directory:
+
+```bash
+docker compose down
+```
+
+To update to a newer version of AppBlips, pull the latest code and rebuild:
+
+```bash
+git pull
+docker compose up --build
+```
+
+<Note>
+  The AppBlips server is a plain Node.js process that relies only on built-in Node modules — no `node_modules` directory is included in the runtime image. This keeps the final image small and eliminates a class of supply-chain risk from runtime dependencies.
+</Note>

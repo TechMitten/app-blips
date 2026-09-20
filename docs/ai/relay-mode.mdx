@@ -1,0 +1,77 @@
+---
+title: "Relay Mode: Provide Server-Funded AI for Your Users"
+sidebarTitle: "Relay Mode"
+description: "In relay mode, your server proxies AI calls for generated apps. Users never enter a provider key — you supply credentials and control AI access yourself."
+---
+
+In relay mode, you — the operator running the self-hosted AppBlips server — pay for and control AI access on behalf of everyone using your AI-enabled apps. When a user triggers an AI call, the request goes through your server rather than directly to the provider. No credential dialog ever appears for the user, and no provider key is ever embedded in the generated HTML. Your key stays on the server.
+
+## How Relay Mode Works
+
+When relay mode is enabled, every `blip.ai.text()` call inside a generated app sends a request to your server's relay endpoint (`/api/app-ai/chat` by default). The server receives the request, forwards it to your configured AI provider using the credentials stored in your environment variables, and streams the response back to the app.
+
+The generated HTML embeds only the public relay URL — not the key itself. This means:
+
+- Users never see or handle a provider credential.
+- Exporting an app as HTML is safe; the file contains a URL, not a secret.
+- You control which model is used and can change it server-side without regenerating any apps.
+
+## Enabling Relay Mode
+
+Set the following variables in your `.env` file before building or starting the server:
+
+```
+APPBLIPS_GENERATED_AI_MODE=relay
+APPBLIPS_APP_AI_RELAY_URL=/api/app-ai/chat
+APPBLIPS_APP_LLM_BASE_URL=https://api.openai.com/v1
+APPBLIPS_APP_LLM_API_KEY=your-relay-key
+APPBLIPS_APP_LLM_MODEL=gpt-4o-mini
+```
+
+`APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, and `APPBLIPS_APP_LLM_MODEL` power the relay. They are separate from `APPBLIPS_LLM_*`, which powers the AppBlips builder itself. Both sets of variables stay on the server and are never exposed to the browser.
+
+<Warning>
+  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client bundle at build time, not read at runtime. After changing either of these variables, you must rebuild the Docker image for the change to take effect:
+
+  ```bash
+  docker compose up --build
+  ```
+
+  A plain container restart is not enough — the old values remain baked into the client until a full rebuild.
+</Warning>
+
+## CORS and Allowed Origins
+
+By default, only same-origin callers can reach the relay endpoint. If your generated apps are hosted on a different domain than your AppBlips server — for example, you exported an app and are hosting it elsewhere — you need to explicitly allow those origins.
+
+Set `APPBLIPS_APP_AI_ALLOWED_ORIGINS` to a comma-separated list of exact origins:
+
+```
+APPBLIPS_APP_AI_ALLOWED_ORIGINS=https://myapp.example.com,https://another.example.com
+```
+
+Same-origin callers are always permitted and do not need to be listed. Only include `null` (the origin of `file://` pages) if you intentionally want locally-opened HTML files to use your relay.
+
+## Rate Limiting
+
+The relay includes a built-in per-IP rate limiter to help prevent runaway usage. Configure it with:
+
+```
+APPBLIPS_APP_AI_RATE_LIMIT_MAX=20
+APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS=60
+```
+
+The defaults are 20 requests per 60 seconds per IP address. Requests that exceed the limit receive a `429` response, which `blip.ai.text()` surfaces as a `rate_limited` error.
+
+<Warning>
+  The built-in rate limiter is an in-memory, per-IP speed bump. It resets when the server restarts, is not shared across multiple server instances, and is not a billing boundary. If you are running a public installation, put your own authentication, gateway, or usage controls in front of the relay endpoint.
+</Warning>
+
+## Relay vs BYOK Comparison
+
+| Feature | BYOK | Relay |
+|---|---|---|
+| User enters a key | Yes — on first AI call | No — never |
+| Operator pays for AI | No | Yes |
+| Key in exported HTML | No | No — only the relay URL |
+| Per-user key isolation | Yes — each user's own key | No — all users share the operator's key |

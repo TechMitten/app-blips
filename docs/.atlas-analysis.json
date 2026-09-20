@@ -1,0 +1,98 @@
+{
+  "projectType": "saas",
+  "projectName": "AppBlips",
+  "projectDescription": "AppBlips is a text-to-app generator that turns plain-English descriptions into working, single-file React apps with a live preview — available as a hosted service or self-hosted via Docker.",
+  "theme": "almond",
+  "primaryColor": "#080808",
+  "lightColor": "#58b9ea",
+  "darkColor": "#ed7a77",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart-hosted",
+              "quickstart-self-hosted"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/building-apps",
+              "features/live-preview",
+              "features/editing-apps",
+              "features/exporting-deploying"
+            ]
+          },
+          {
+            "group": "AI in Your Apps",
+            "pages": [
+              "ai/overview",
+              "ai/blip-api",
+              "ai/byok-mode",
+              "ai/relay-mode"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/configuration",
+              "self-hosting/docker",
+              "self-hosting/security"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/settings",
+              "reference/faq",
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Plain-English prompt builds a working single-file React app in seconds",
+    "Instant live preview with sandboxed iframe rendering",
+    "Refine apps with follow-up prompts and undo/redo version history",
+    "Attach images or screenshots as reference material for generation",
+    "AI-powered features inside generated apps via the blip.ai.text() API",
+    "Mobile and desktop viewport previews with adjustable zoom",
+    "Export any app as a single self-contained HTML file",
+    "Deploy to a public URL as an installable PWA (hosted mode)",
+    "Visual element editor for point-and-click style changes",
+    "Configurable reasoning effort (Off / Low / Medium / High)",
+    "Self-hosted Docker deployment with no sign-in required",
+    "BYOK and relay modes for generated-app AI access"
+  ],
+  "publicApiSurface": [
+    "blip.ai.text(messages, options) — call AI from inside a generated app",
+    "blip.ai.configure() — open the BYOK provider configuration dialog",
+    "blip.ai.isConfigured() — check whether an AI provider is connected",
+    "blip.ai.clearConfiguration() — disconnect the AI provider",
+    "BLIP.AI.TEXT(messages, options) — uppercase alias for blip.ai.text",
+    "POST /api/chat — builder LLM proxy endpoint",
+    "POST /api/app-ai/chat — generated-app AI relay endpoint",
+    "APPBLIPS_LLM_BASE_URL — OpenAI-compatible LLM endpoint for the builder",
+    "APPBLIPS_LLM_API_KEY — API key for the builder LLM",
+    "APPBLIPS_LLM_MODEL — model name for the builder LLM",
+    "APPBLIPS_LLM_MAX_TOKENS — optional token cap for builder responses",
+    "APPBLIPS_LLM_TEMPERATURE — sampling temperature for the builder (default 0.2)",
+    "APPBLIPS_CHAT_RATE_LIMIT_MAX — max requests per window on /api/chat",
+    "APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS — rate-limit window in seconds",
+    "APPBLIPS_GENERATED_AI_MODE — byok (default) or relay mode for app AI",
+    "APPBLIPS_APP_AI_RELAY_URL — public URL of the generated-app AI relay",
+    "APPBLIPS_APP_LLM_BASE_URL — LLM endpoint for generated-app relay",
+    "APPBLIPS_APP_LLM_API_KEY — API key for generated-app relay",
+    "APPBLIPS_APP_LLM_MODEL — model for generated-app relay",
+    "APPBLIPS_APP_AI_ALLOWED_ORIGINS — CORS allowlist for cross-origin relay callers",
+    "APPBLIPS_APP_AI_RATE_LIMIT_MAX — per-IP rate limit for the app AI relay",
+    "SELF_HOSTED_MODE — toggle between hosted and self-hosted operating modes"
+  ]
+}

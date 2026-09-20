@@ -1,0 +1,68 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "almond",
+  "name": "AppBlips",
+  "colors": {
+    "primary": "#080808",
+    "light": "#58b9ea",
+    "dark": "#ed7a77"
+  },
+  "favicon": "https://media.brand.dev/4c432701-f269-4dbe-8d28-e4541d5163e9.png",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart-hosted",
+              "quickstart-self-hosted"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/building-apps",
+              "features/live-preview",
+              "features/editing-apps",
+              "features/exporting-deploying"
+            ]
+          },
+          {
+            "group": "AI in Your Apps",
+            "pages": [
+              "ai/overview",
+              "ai/blip-api",
+              "ai/byok-mode",
+              "ai/relay-mode"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/configuration",
+              "self-hosting/docker",
+              "self-hosting/security"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/settings",
+              "reference/faq",
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/techmitten/app-blips"
+    }
+  }
+}

@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="public/appblips-logo.png" alt="AppBlips — Text to App Generator" width="360" />
+  <img src="public/appblips-logo.png" alt="AppBlips — Text to App and Website Generator" width="360" />
 </p>
 
 <p align="center">
-  <strong>The simple way to turn an idea into a working app.</strong><br />
+  <strong>The simple way to turn an idea into a working app or website.</strong><br />
   Describe what you want in plain English, watch it get built in seconds, and use it right away.
 </p>
 
@@ -23,32 +23,41 @@
 
 ## Why AppBlips?
 
-Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app you generate is just one file, the interface is a single prompt box and a live preview, and there's nothing extra to learn. If you want to describe an idea and get a real, working website or app back — without wading through a complicated tool built for professional developers — AppBlips is for you.
+Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app or website you generate is just one file, the interface is a single prompt box and a live preview, and there's nothing extra to learn. If you want to describe an idea and get a real, working app or website back — without wading through a complicated tool built for professional developers — AppBlips is for you.
 
 ## What it is
 
 AppBlips lets you describe an app or website in plain language and get back a working version you can preview, tweak, and use immediately. Type what you want, and AppBlips builds it as a single, self-contained file — no project setup, no separate files to manage, no build step to run before you can see it.
 
+AppBlips has two studios, switchable from the header:
+
+- **App Studio** — interactive tools, games, and dashboards. JavaScript-driven, saves its data in the browser, and designed to feel native on a phone (mobile preview by default).
+- **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), is designed desktop-first and reflows down to phones, and comes with its own starter ideas. Websites are static and informational by default, and you can edit them by clicking elements directly in the preview.
+
+Both studios share the same workflow: prompt, live preview, versions, export, and deploy.
+
 Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a server-side proxy and renders the result live in a safely sandboxed preview. That builder connection is configured by whoever operates AppBlips. Apps created with the AI toggle use a separate generated-app AI connection described below.
 
 There are two ways to run it:
 
-- **Hosted** ([appblips.com](https://appblips.com)) — sign in and build straight from your browser, with nothing to install. Your projects sync to your account, and any app can be deployed to its own public URL as an installable PWA.
+- **Hosted** ([appblips.com](https://appblips.com)) — sign in and build straight from your browser, with nothing to install. Your projects sync to your account, and any app or website can be deployed to its own public URL as an installable PWA.
 - **Self-hosted** — run it on your own machine or server. A single local user, no sign-in and no cloud sync — just you and the app.
 
 See [Quick start](#quick-start) below to pick one.
 
 ## Features
 
-- **One simple prompt box** — describe your idea in plain English and get a working app back
+- **One simple prompt box** — describe your idea in plain English and get a working app or website back
+- **App and Website studios** — pick the studio that fits; each has its own prompts, starter ideas, and default preview size
+- **Click-to-edit websites** — in the Website Studio, click text, images, and links right in the preview to change them directly, with an AI-assisted edit through chat when a change needs more than a direct edit
 - **Instant live preview** — see exactly what you built, right next to the prompt, with no extra deploy step
-- **Ask for changes in plain English** — request a tweak and AppBlips edits the app for you, no code required
+- **Ask for changes in plain English** — request a tweak and AppBlips edits the app or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **AI-powered generated apps** — turn on AI before building and ask for features that call `blip.ai.text(...)`
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
-- **Mobile and desktop views** — check how your app looks on different screen sizes, with adjustable zoom
-- **Export to HTML** — download any generated app as a single self-contained HTML file, ready to host or share anywhere
-- **Deploy to a public URL** *(hosted only)* — publish an app to its own link, installable as a PWA and optionally password-protected
+- **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
+- **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
+- **Deploy to a public URL** *(hosted only)* — publish an app or website to its own link, installable as a PWA and optionally password-protected
 
 ## Quick start
 

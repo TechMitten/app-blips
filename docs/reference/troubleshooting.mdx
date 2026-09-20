@@ -1,0 +1,148 @@
+---
+title: "Troubleshooting AppBlips: Fixes for Common Problems"
+sidebarTitle: "Troubleshooting"
+description: "Solutions for common AppBlips problems: blank previews, API errors, CORS issues, Docker startup failures, and AI connection problems."
+---
+
+Most AppBlips issues fall into a handful of categories — preview rendering, API connectivity, AI inside generated apps, and Docker setup. Work through the section that matches your symptom to find a fix.
+
+## Preview Shows a Blank Screen
+
+<AccordionGroup>
+  <Accordion title="The preview is blank after generation">
+    A blank preview after a successful generation usually means the generated code contains a syntax or runtime error that prevents it from rendering.
+
+    **Steps to fix:**
+
+    1. Open your browser's developer tools and check the **Console** tab for error messages.
+    2. Look for JavaScript errors or references to undefined variables.
+    3. In the AppBlips prompt input, type a follow-up like `Fix any JavaScript errors` and let AppBlips correct the code.
+    4. If the problem persists, try rephrasing your original prompt with more specific instructions about the behavior you want.
+
+    <Tip>
+      Enabling **Code view** in Settings lets you inspect the raw generated HTML directly in the preview toolbar, which can help you spot issues at a glance.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="The preview goes blank when I click a link">
+    This is expected behavior, not a bug. Links inside the preview that would navigate the frame away from the generated app are blocked to keep the preview alive. External links open in a new tab instead.
+
+    If your app needs internal navigation between views, ask AppBlips to implement it using JavaScript state (showing and hiding sections) rather than traditional `<a href>` page links.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## API and Build Errors
+
+<AccordionGroup>
+  <Accordion title="I get an API error when building">
+    An API error during a build almost always points to a misconfigured or invalid AI provider connection.
+
+    **Check the following in your `.env` file:**
+
+    - `APPBLIPS_LLM_BASE_URL` — must be the full base URL of your AI provider (e.g. `https://api.openai.com/v1`)
+    - `APPBLIPS_LLM_API_KEY` — must be a valid, active key for that provider
+    - `APPBLIPS_LLM_MODEL` — must be a model name your provider recognizes and your key has access to
+
+    Also confirm that your API key has remaining quota and has not been revoked in your provider's dashboard.
+  </Accordion>
+
+  <Accordion title="Build hangs and never completes">
+    If the build spinner keeps going without producing output, the request likely timed out or the AI provider is responding slowly.
+
+    **Try the following:**
+
+    1. Dismiss the current build and try again.
+    2. Check your AI provider's status page for any ongoing outages or elevated latency.
+    3. If you have **Reasoning effort** set to **High** in Settings, try lowering it — higher reasoning takes longer and is more likely to hit timeout thresholds on slower providers.
+  </Accordion>
+
+  <Accordion title="Rate limit error">
+    You have hit the `/api/chat` rate limit. By default, AppBlips allows 60 build requests per 300 seconds per user.
+
+    **To fix:**
+
+    - Wait for the rate limit window to reset and try again.
+    - If you are running a self-hosted instance and need a higher limit, increase `APPBLIPS_CHAT_RATE_LIMIT_MAX` or `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` in your `.env` file and restart the server.
+
+    <Note>
+      The built-in rate limiter is tracked in memory per server instance. It is intended as a speed bump, not a strict billing cap.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## AI Inside Generated Apps
+
+<AccordionGroup>
+  <Accordion title="The blip.ai.text() dialog never appears">
+    The **Connect your AI provider** dialog only appears in apps that were generated with the **AI** toggle enabled. If the dialog never shows, the app was most likely built without AI support.
+
+    Re-generate the app with the AI toggle turned on before submitting your prompt. The toggle is in the build panel, next to the prompt input.
+  </Accordion>
+
+  <Accordion title='blip.ai.text() throws "AI capabilities are disabled"'>
+    This error means the app was generated without AI enabled. The `blip.ai.text()` API is only injected when the AI toggle is on at generation time.
+
+    Turn on the AI toggle and re-generate the app. Existing apps built without AI cannot have it added retroactively — a new generation is required.
+  </Accordion>
+
+  <Accordion title="CORS error when using BYOK">
+    In BYOK mode, the generated app calls your AI provider directly from the browser. This means the provider must allow cross-origin requests (CORS) from browser clients.
+
+    **To fix:**
+
+    - Verify that your chosen AI provider supports browser CORS requests. OpenAI's API allows CORS by default.
+    - If you are using a self-hosted or proxy endpoint (such as a local Ollama instance), check its CORS configuration and ensure it permits requests from the origin where your app is running.
+    - If the provider does not support CORS, switch to a different provider or consider using relay mode in your self-hosted setup.
+  </Accordion>
+
+  <Accordion title="Relay mode not working after changing APPBLIPS_GENERATED_AI_MODE">
+    `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client bundle at build time. Simply restarting the container after changing these variables is not enough — you must rebuild the image.
+
+    Run the following command to rebuild and restart:
+
+    ```bash
+    docker compose up --build
+    ```
+
+    All other variables in `.env` are read at runtime and only require a container restart.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Docker Issues
+
+<AccordionGroup>
+  <Accordion title="Port 3000 is already in use">
+    AppBlips listens on port 3000 by default. If another process is already using that port, the container will fail to start.
+
+    **To fix:**
+
+    - Stop the process currently occupying port 3000, then run `docker compose up` again.
+    - Alternatively, set a different port by adding a `PORT` environment variable to your `.env` file (e.g. `PORT=3001`) and update the port mapping in `docker-compose.yml` to match.
+  </Accordion>
+
+  <Accordion title="Changes to .env don't take effect">
+    Most environment variables are read at runtime, so a container restart is all you need:
+
+    ```bash
+    docker compose restart
+    ```
+
+    However, `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are embedded in the client bundle at build time. If you changed either of these, you must rebuild the image:
+
+    ```bash
+    docker compose up --build
+    ```
+
+    A plain restart will not pick up changes to build-time variables.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  For questions about initial Docker setup and `.env` configuration, see the [self-hosting guide](/self-hosting). For general questions about how AppBlips works, visit the [FAQ](/reference/faq).
+</Note>
