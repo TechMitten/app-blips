@@ -24,7 +24,7 @@ export default function PreviewTools({ activeTab, previewMode, onPreviewModeChan
 
   return (
     <details ref={toolsRef} className="preview-compact-tools">
-      <summary role="button" className="nav-btn nav-btn-secondary nav-btn-icon" aria-label="Preview tools" title="Preview tools">
+      <summary role="button" className="nav-btn nav-btn-secondary nav-btn-icon" aria-label="Preview tools" data-tip="Preview tools">
         <SlidersHorizontal size={16} />
       </summary>
       <div className="preview-tools-menu bg-surface border border-slate-200 rounded-lg shadow-xl">
@@ -58,7 +58,9 @@ export default function PreviewTools({ activeTab, previewMode, onPreviewModeChan
         )}
         <div className="nav-segmented-group" role="group" aria-label="Version history">
           <button type="button" onClick={onUndo} disabled={currentVersionIndex <= 0} className="nav-segmented-btn nav-segmented-btn-icon" aria-label="Previous version" title="Previous version"><Undo2 size={16} /></button>
-          <span className="px-2 text-xs text-slate-600">{versions.length ? 'v' + (currentVersionIndex + 1) + ' / ' + versions.length : 'No versions'}</span>
+          <span className="preview-version-count">
+            {versions.length ? (<>v{currentVersionIndex + 1}<span className="preview-version-total">/{versions.length}</span></>) : 'None'}
+          </span>
           <button type="button" onClick={onRedo} disabled={currentVersionIndex >= versions.length - 1} className="nav-segmented-btn nav-segmented-btn-icon" aria-label="Next version" title="Next version"><Redo2 size={16} /></button>
         </div>
       </div>

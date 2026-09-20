@@ -9,6 +9,15 @@ import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
 import ElementEditor from './ElementEditor';
 import { PREVIEW_MODES } from '../lib/constants';
+import { SHORTCUT_HINTS } from '../lib/shortcuts';
+
+// Icon-only in the bar; PREVIEW_MODES supplies the name and the viewport
+// dimensions that the tooltip spells out.
+const DEVICE_PRESETS = [
+  { mode: 'mobile', Icon: Smartphone },
+  { mode: 'tablet', Icon: Tablet },
+  { mode: 'desktop', Icon: Monitor },
+];
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
 // open/deploy) and the preview surface or code view below it.
@@ -90,6 +99,9 @@ export default function PreviewPane({
 
   const { isTransitioning } = transitionState;
 
+  const rotateLabel = `Rotate to ${previewOrientation === 'portrait' ? 'landscape' : 'portrait'}`;
+  const zoomPercent = Math.round(zoomLevel * 100);
+
   useEffect(() => {
     if (isTransitioning) {
       const timer = setTimeout(() => {
@@ -102,20 +114,26 @@ export default function PreviewPane({
   return (
     <div className="preview-pane flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col relative z-0 inset-shadow-preview noise-texture">
 
-      {/* Canvas Studio Header Bar */}
-      <div className="preview-pane-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-white/10 bg-surface/95 backdrop-blur-md z-10">
-        {/* Left: View Tabs */}
-        <div className="preview-tabs flex items-center gap-2 sm:gap-2.5">
-          <div className="nav-segmented-group -ml-1 sm:-ml-1.25">
+      {/* Canvas studio toolbar. Three grid zones, read left to right: what you
+          are looking at, what device it is drawn for, what you can do with it.
+          The center cell is always rendered -- an empty one keeps the `auto`
+          track from collapsing, which is what used to let the device presets
+          drift sideways whenever a label changed beside them. */}
+      <div className="preview-pane-header chrome-bar shrink-0 px-4 sm:px-6 border-b border-slate-200 dark:border-white/10 bg-surface/95 backdrop-blur-md z-10">
+
+        {/* Zone 1 -- what you are looking at */}
+        <div className="preview-tabs flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="nav-segmented-group" role="group" aria-label="View">
             <button
               onClick={() => onTabChange('preview')}
               aria-label="Preview"
               aria-pressed={activeTab === 'preview'}
+              data-tip="Run the app"
               className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
                 activeTab === 'preview' ? 'nav-segmented-btn-active' : ''
               }`}
             >
-              <Play size={14} />
+              <Play size={16} />
               <span>Preview</span>
             </button>
             {showCodeView && (
@@ -123,188 +141,193 @@ export default function PreviewPane({
                 onClick={() => onTabChange('code')}
                 aria-label="Code"
                 aria-pressed={activeTab === 'code'}
+                data-tip="Read the generated HTML"
                 className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
                   activeTab === 'code' ? 'nav-segmented-btn-active' : ''
                 }`}
               >
-                <TerminalSquare size={14} />
+                <TerminalSquare size={16} />
                 <span>Code</span>
               </button>
             )}
           </div>
 
-          {/* Version indicator pill */}
+          {/* Version stepper. The counter now rides the two keys that change
+              it -- the pill and undo/redo used to sit at opposite ends of the
+              bar. The disabled ends already say "nowhere to go from here", so
+              this needs no separate versions.length > 1 gate. */}
           {versions.length > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200 dark:bg-black/30 dark:border-white/[0.07]">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-              v{currentVersionIndex + 1}
-            </span>
-          )}
-        </div>
-
-        {/* Phone-only rule between the view tabs and the action keys. It sits
-            in the center slot of this justify-between row, so it lands in the
-            gap the hidden device presets leave behind; CSS hides it again as
-            soon as those presets come back. */}
-        <span className="preview-header-divider" aria-hidden="true" />
-
-        {/* Center: Device Presets (when in preview tab) */}
-        {activeTab === 'preview' && (
-          <div className="preview-wide-tools hidden sm:flex items-center gap-1.5 sm:gap-2">
-            <div className="nav-segmented-group" title="Device Viewport Preset">
-              <button
-                onClick={() => onPreviewModeChange('mobile')}
-                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'mobile' ? 'nav-segmented-btn-active' : ''}`}
-                title={`${PREVIEW_MODES.mobile.label} View (${PREVIEW_MODES.mobile.width} × ${PREVIEW_MODES.mobile.height})`}
-              >
-                <Smartphone size={14} />
-                <span className="hidden sm:inline">Smartphone</span>
-              </button>
-              <button
-                onClick={() => onPreviewModeChange('tablet')}
-                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'tablet' ? 'nav-segmented-btn-active' : ''}`}
-                title={`${PREVIEW_MODES.tablet.label} View (${PREVIEW_MODES.tablet.width} × ${PREVIEW_MODES.tablet.height})`}
-              >
-                <Tablet size={14} />
-                <span className="hidden sm:inline">Tablet</span>
-              </button>
-              {/* Device presets are shared across studios -- the studio
-                  personality lives in the default (App -> Smartphone,
-                  Website -> Desktop), not in a restricted picker. */}
-              <button
-                onClick={() => onPreviewModeChange('desktop')}
-                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${previewMode === 'desktop' ? 'nav-segmented-btn-active' : ''}`}
-                title={`${PREVIEW_MODES.desktop.label} View (${PREVIEW_MODES.desktop.width} × ${PREVIEW_MODES.desktop.height})`}
-              >
-                <Monitor size={14} />
-                <span className="hidden sm:inline">Desktop</span>
-              </button>
-            </div>
-            {PREVIEW_MODES[previewMode].isTouchChrome && (
-              <div className="nav-segmented-group" title="Device Orientation">
-                <button
-                  onClick={onToggleOrientation}
-                  className="nav-segmented-btn nav-segmented-btn-icon"
-                  title={`Rotate to ${previewOrientation === 'portrait' ? 'Landscape' : 'Portrait'}`}
-                >
-                  <RotateCcwSquare size={14} className={previewOrientation === 'landscape' ? '-rotate-90' : ''} style={{ transition: 'transform 0.2s ease' }} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Right: Studio Actions (Zoom, Undo/Redo, Pop-out) */}
-        <div className="preview-actions flex items-center gap-1.5 sm:gap-2">
-          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
-          {/* Undo/Redo when versions > 1 */}
-          {versions.length > 1 && (
-            <div className="preview-wide-tools hidden md:flex nav-segmented-group" title="Undo / Redo Version">
+            <div className="preview-version nav-segmented-group" role="group" aria-label="Version history">
               <button
                 onClick={onUndo}
                 disabled={currentVersionIndex <= 0}
                 className="nav-segmented-btn nav-segmented-btn-icon"
-                title="Previous Version"
+                aria-label="Previous version"
+                data-tip="Previous version"
+                data-tip-key={SHORTCUT_HINTS.undo}
               >
-                <Undo2 size={14} />
+                <Undo2 size={16} />
               </button>
+              <span className="preview-version-count" aria-live="polite">
+                v{currentVersionIndex + 1}
+                <span className="preview-version-total">/{versions.length}</span>
+              </span>
               <button
                 onClick={onRedo}
                 disabled={currentVersionIndex >= versions.length - 1}
                 className="nav-segmented-btn nav-segmented-btn-icon"
-                title="Next Version"
+                aria-label="Next version"
+                data-tip="Next version"
+                data-tip-key={SHORTCUT_HINTS.redo}
               >
-                <Redo2 size={14} />
+                <Redo2 size={16} />
               </button>
             </div>
           )}
+        </div>
 
-          {/* Zoom Controls (when in preview tab) */}
+        {/* Zone 2 -- what device it is drawn for. Icon-only: the names moved
+            into the tooltips, which now carry the viewport size too, and the
+            group went from ~370px to ~120px. */}
+        <div className="preview-center flex items-center gap-1.5 sm:gap-2">
           {activeTab === 'preview' && (
-            <div className="preview-wide-tools hidden sm:flex nav-segmented-group" title="Zoom Controls">
+            <>
+              <div className="preview-fold-device nav-segmented-group" role="group" aria-label="Device preset">
+                {DEVICE_PRESETS.map(({ mode, Icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => onPreviewModeChange(mode)}
+                    aria-label={PREVIEW_MODES[mode].label}
+                    aria-pressed={previewMode === mode}
+                    data-tip={`${PREVIEW_MODES[mode].label} \u2014 ${PREVIEW_MODES[mode].width} \u00d7 ${PREVIEW_MODES[mode].height}`}
+                    className={`nav-segmented-btn nav-segmented-btn-icon ${previewMode === mode ? 'nav-segmented-btn-active' : ''}`}
+                  >
+                    <Icon size={16} />
+                  </button>
+                ))}
+              </div>
+              {/* Device presets are shared across studios -- the studio
+                  personality lives in the default (App -> Smartphone,
+                  Website -> Desktop), not in a restricted picker. */}
+              {PREVIEW_MODES[previewMode].isTouchChrome && (
+                <button
+                  onClick={onToggleOrientation}
+                  className="preview-fold-device nav-btn nav-ghost nav-btn-icon"
+                  aria-label={rotateLabel}
+                  data-tip={rotateLabel}
+                >
+                  <RotateCcwSquare
+                    size={16}
+                    className={previewOrientation === 'landscape' ? '-rotate-90' : ''}
+                    style={{ transition: 'transform 0.2s ease' }}
+                  />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Zone 3 -- what you can do with it, quietest first. Exactly one key
+            in this rank is filled: Deploy when hosted, Export when not. */}
+        <div className="preview-actions flex items-center gap-1.5 sm:gap-2 min-w-0">
+          {/* Stands in for the presets once they fold away, so the two key
+              groups still read as separate ranks. */}
+          <span className="chrome-divider preview-header-divider" aria-hidden="true" />
+          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
+
+          {activeTab === 'preview' && (
+            <div className="preview-fold-zoom nav-segmented-group" role="group" aria-label="Zoom">
               <button
                 onClick={() => onZoomOut(-0.1)}
                 disabled={zoomLevel <= 0.2}
                 className="nav-segmented-btn nav-segmented-btn-icon"
-                title="Zoom Out (-10%)"
+                aria-label="Zoom out"
+                data-tip="Zoom out"
               >
-                <ZoomOut size={14} />
+                <ZoomOut size={16} />
               </button>
+              {/* Reads out the live percentage rather than the word "Reset":
+                  the number was previously only reachable through a title. */}
               <button
                 onClick={onResetZoom}
-                className={`nav-segmented-btn text-xs sm:text-sm font-semibold px-2.5 ${isAutoZoom ? 'nav-segmented-btn-active' : ''}`}
-                title={isAutoZoom ? "Auto-Zoom active (click to reset)" : `${Math.round(zoomLevel * 100)}% — click to reset to Auto-Zoom`}
+                aria-pressed={isAutoZoom}
+                aria-label={isAutoZoom ? 'Zoom: fit to pane' : `Zoom: ${zoomPercent}%. Reset to fit`}
+                data-tip={isAutoZoom ? 'Fitting to the pane' : 'Reset to fit'}
+                className={`nav-segmented-btn preview-zoom-value ${isAutoZoom ? 'nav-segmented-btn-active' : ''}`}
               >
-                {isAutoZoom ? 'Auto' : 'Reset'}
+                {isAutoZoom ? 'Auto' : `${zoomPercent}%`}
               </button>
               <button
                 onClick={() => onZoomIn(0.1)}
                 disabled={zoomLevel >= 3}
                 className="nav-segmented-btn nav-segmented-btn-icon"
-                title="Zoom In (+10%)"
+                aria-label="Zoom in"
+                data-tip="Zoom in"
               >
-                <ZoomIn size={14} />
+                <ZoomIn size={16} />
               </button>
             </div>
           )}
 
           {/* Website Studio: click-to-edit picker toggle. While on, clicks in
               the preview select elements for the inline editor instead of
-              interacting with the site. */}
+              interacting with the site. A lone toggle, so it is a key with an
+              active rim -- a one-button segmented track would promise a set of
+              choices that isn't there. */}
           {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
-            <div className="nav-segmented-group" title="Click-to-edit mode">
-              <button
-                onClick={onToggleEditMode}
-                aria-pressed={isEditMode}
-                className={`nav-segmented-btn px-3 py-1.5 text-xs sm:text-sm font-semibold ${isEditMode ? 'nav-segmented-btn-active' : ''}`}
-                title={isEditMode ? 'Editing: click elements in the preview to edit them' : 'Turn on click-to-edit (click elements in the preview)'}
-              >
-                <MousePointerClick size={14} />
-                <span className="hidden sm:inline">Edit</span>
-              </button>
-            </div>
-          )}
-
-          {/* Reload preview (when in preview tab and code generated) */}
-          {activeTab === 'preview' && hasCode && (
-            <div className="nav-segmented-group" title="Preview Controls">
-              <button
-                onClick={onReloadPreview}
-                className="nav-segmented-btn nav-segmented-btn-icon"
-                title="Reload the app preview"
-                aria-label="Reload the app preview"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          )}
-
-          {/* Open in new tab (when code generated) */}
-          {hasCode && (
             <button
-              onClick={onOpenNewTab}
-              className="nav-btn nav-btn-secondary font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
-              title="Open preview in new browser tab"
-              aria-label="Open preview in new browser tab"
+              onClick={onToggleEditMode}
+              aria-pressed={isEditMode}
+              aria-label="Click-to-edit mode"
+              data-tip={isEditMode ? 'Click elements in the preview to edit' : 'Turn on click-to-edit'}
+              className={`nav-btn nav-ghost nav-btn-icon ${isEditMode ? 'nav-ghost-active' : ''}`}
             >
-              <ExternalLink size={14} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-              <span className="hidden lg:inline">Open</span>
+              <MousePointerClick size={16} />
             </button>
           )}
 
-          {/* Export the HTML file (both modes; the primary action when self-hosted) */}
+          {activeTab === 'preview' && hasCode && (
+            <button
+              onClick={onReloadPreview}
+              className="nav-btn nav-ghost nav-btn-icon"
+              aria-label="Reload the app preview"
+              data-tip="Reload the preview"
+            >
+              <RefreshCw size={16} />
+            </button>
+          )}
+
+          {hasCode && (
+            <button
+              onClick={onOpenNewTab}
+              className="nav-btn nav-ghost nav-btn-icon"
+              aria-label="Open preview in new browser tab"
+              data-tip="Open in a new tab"
+            >
+              <ExternalLink size={16} />
+            </button>
+          )}
+
+          {hasCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
+
+          {/* Export the HTML file (both modes; the primary action when
+              self-hosted, where it also carries the tour anchor). */}
           {hasCode && (
             <button
               {...(!firebaseEnabled && { 'data-tour': 'share' })}
               onClick={onExportHtml}
               className={firebaseEnabled
-                ? 'nav-btn nav-btn-secondary font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group'
-                : 'nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group'}
-              title="Download this app as an HTML file"
+                ? 'nav-btn nav-btn-secondary preview-key'
+                : 'nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs'}
               aria-label="Export app"
+              data-tip="Download this app as an HTML file"
+              data-tip-align="end"
             >
-              <Download size={14} className={firebaseEnabled ? 'text-slate-500 group-hover:text-indigo-600 transition-colors' : undefined} />
-              <span className="hidden md:inline">Export</span>
+              <Download size={16} />
+              {/* Hosted mode already has a labelled filled key (Deploy), and a
+                  rank with two of them has no primary. Export is the secondary
+                  action there, so it keeps the icon and the tooltip only. */}
+              {!firebaseEnabled && <span className="preview-key-label">Export</span>}
             </button>
           )}
 
@@ -314,11 +337,12 @@ export default function PreviewPane({
               data-tour="share"
               aria-label="Manage deployment"
               onClick={onOpenDeployModal}
-              className="nav-btn brand-fill-text relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
-              title={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
+              className="nav-btn brand-fill-text preview-key relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
+              data-tip={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
+              data-tip-align="end"
             >
-              <Rocket size={14} />
-              <span className="hidden md:inline">
+              <Rocket size={16} />
+              <span className="preview-key-label">
                 {deployment ? (isDeployStale && isSignedIn ? 'Update' : 'Deployed') : 'Deploy'}
               </span>
               {isDeployStale && isSignedIn && (

@@ -45,7 +45,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.5rem 0.85rem;
-  border-radius: 0.65rem;
+  border-radius: var(--radius-control);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25;
@@ -206,6 +206,145 @@
   color: var(--color-slate-950);
 }
 
+/* --- Chrome bars (app header + preview toolbar) --------------------------
+   The two bars stack directly on top of each other and read as one band, so
+   they share a row height, the radius pair from tokens.css, and one divider
+   class. Only the header is force-dark, so divider ink is set per bar rather
+   than duplicated as two near-identical rules in two sheets. */
+
+/* Grid, not justify-between: with three flex children the middle group is
+   pushed around by every label change beside it (the version stepper growing
+   a digit, Deploy -> Deployed -> Update). An `auto` center track between two
+   1fr tracks pins the device presets to the true center of the bar and lets
+   the sides absorb the change instead. */
+.chrome-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--chrome-rank-gap);
+  height: var(--chrome-row-h);
+}
+
+.chrome-bar > :first-child  { justify-self: start;  min-width: 0; }
+.chrome-bar > :nth-child(2) { justify-self: center; }
+.chrome-bar > :last-child   { justify-self: end;    min-width: 0; }
+
+/* min-height, not height: below 1024px the header also absorbs the notch via
+   safe-area padding (responsive.css), and a fixed height would crush the row
+   instead of letting it grow. */
+.app-header {
+  min-height: var(--chrome-row-h);
+}
+
+.chrome-divider {
+  flex: none;
+  width: 1px;
+  height: 1.5rem;
+  border-radius: 1px;
+  background: var(--color-slate-200);
+}
+
+:is(html.dark, .force-dark) .chrome-divider {
+  background: rgb(255 255 255 / 0.12);
+}
+
+/* Header dividers are shorter and quieter -- they separate ranks inside one
+   dense strip rather than two halves of a bar. display is owned here, not by
+   a Tailwind utility: this sheet is unlayered and would outrank
+   `hidden md:block` anyway. Same reason .nav-nameplate keeps its responsive
+   display in CSS. */
+.app-header .chrome-divider {
+  display: none;
+  height: 1.25rem;
+  background: rgb(255 255 255 / 0.10);
+}
+
+@media (min-width: 768px) {
+  .app-header .chrome-divider { display: block; }
+}
+
+/* Quiet control, toolbar edition. Same voice as the header's .nav-ghost below,
+   but the toolbar follows the theme instead of being force-dark, so it needs
+   both branches. Open / Reload / Edit wear this so the utility keys recede and
+   Export/Deploy are the only lit things in the rank. */
+.preview-pane-header .nav-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-slate-500);
+  box-shadow: none;
+}
+
+.preview-pane-header .nav-ghost:hover {
+  background: rgb(15 23 42 / 0.05);
+  color: var(--color-slate-900);
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .preview-pane-header .nav-ghost:hover {
+  background: rgb(255 255 255 / 0.07);
+}
+
+/* Same restore as the header ghost: the `box-shadow: none` above ties with
+   .nav-btn:focus-visible on specificity and wins on order. */
+.preview-pane-header .nav-ghost:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--focus-halo),
+    0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
+}
+
+/* The one toolbar toggle (click-to-edit). A rim + tint, matching the header's
+   active-toggle language, so "on" reads as a state instead of a hover. */
+.preview-pane-header .nav-ghost-active,
+.preview-pane-header .nav-ghost-active:hover {
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  border-color: rgb(from var(--color-accent) r g b / 0.45);
+  color: var(--color-brand);
+  box-shadow: 0 0 0 1px rgb(from var(--color-accent) r g b / 0.28);
+}
+
+/* --- Preview toolbar readouts and keys ---------------------------------- */
+
+/* Version stepper: the counter is a readout seated in the same track as the
+   two keys that move it -- it used to sit at the far left while undo/redo sat
+   at the far right. Instrument voice (mono, tabular) and a floor width, or the
+   whole zone shifts the moment v9 becomes v10. */
+.preview-version-count {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  min-width: 3.25rem;
+  padding-inline: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-slate-700);
+  user-select: none;
+}
+
+.preview-version-total {
+  color: var(--color-slate-500);
+  font-weight: 500;
+}
+
+/* Same floor, same reason: "Auto" and "100%" must not resize the rank. */
+.preview-zoom-value {
+  min-width: 3.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Output keys (Export / Deploy). One padding and one type size for the pair,
+   instead of the four Tailwind sizing utilities each used to carry. */
+.preview-key {
+  font-family: var(--font-control);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.8rem;
+}
+
 /* --- Header control strip ------------------------------------------------
    Header controls are ranked, not a picket fence: one solid key (New App),
    a quiet ghost rest state for everything else, and an accent-lit state for
@@ -226,21 +365,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.125rem;
-}
-
-/* display is owned here, not by a Tailwind utility: this sheet is unlayered
-   and would outrank `hidden md:block` anyway. Same reason .nav-nameplate and
-   the old .nav-btn-history kept their responsive display in CSS. */
-.nav-divider {
-  display: none;
-  flex: none;
-  width: 1px;
-  height: 1.25rem;
-  background: rgb(255 255 255 / 0.10);
-}
-
-@media (min-width: 768px) {
-  .nav-divider { display: block; }
 }
 
 /* Quiet control: no chrome at rest, a soft fill on hover. Icons stay muted
@@ -387,7 +511,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.2rem;
-  border-radius: 0.65rem;
+  border-radius: var(--radius-control);
   background: var(--seg-track-bg);
   border: 1px solid var(--seg-track-border);
   box-shadow: var(--seg-track-inset);
@@ -400,7 +524,7 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.35rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control-inner);
   font-size: 0.8125rem;
   font-weight: 500;
   color: #475569;

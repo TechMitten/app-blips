@@ -1,0 +1,97 @@
+/* Chrome tooltips.
+   ---------------------------------------------------------------------------
+   The top bars went icon-heavy, so the hint had to stop being a native
+   `title`: those wait about a second, render in the OS's own style rather than
+   the app's, never appear for keyboard users, and cannot show a shortcut in a
+   second voice. This is attribute-driven instead -- put `data-tip` (and
+   optionally `data-tip-key`) on the control itself and it works, no wrapper
+   and no component.
+
+   Rules of the house:
+   - It attaches to the INTERACTIVE element, never a wrapper div. A tooltip on
+     a container fires while the pointer crosses the gap between two buttons
+     and is unreachable by keyboard.
+   - `aria-label` is the accessible name and is never replaced by this. The tip
+     is decoration; `aria-hidden` keeps it out of the tree entirely.
+   - Suppressed on touch, where there is no hover to trigger it and the tip
+     would only flash on tap.
+   --------------------------------------------------------------------------- */
+
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px);
+  z-index: 60;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--tip-bg);
+  color: var(--tip-fg);
+  border: 1px solid var(--tip-border);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-control);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s 0.12s;
+}
+
+/* The shortcut sits in the same bubble but a quieter voice, so the key reads
+   as a label on the action rather than part of the sentence. */
+[data-tip][data-tip-key]::after {
+  content: attr(data-tip) '  \00b7  ' attr(data-tip-key);
+}
+
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  /* The delay lives on the show, not the hide: a tip that lingers while the
+     pointer sweeps the rank is the thing that makes toolbars feel sticky. */
+  transition-delay: 0.3s, 0.3s, 0s;
+}
+
+/* Right-hand keys: a centred bubble would hang past the pane edge and be
+   clipped by .preview-pane's overflow. */
+[data-tip][data-tip-align='end']::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-2px);
+}
+
+[data-tip][data-tip-align='end']:hover::after,
+[data-tip][data-tip-align='end']:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* Disabled keys still explain themselves -- "Previous version" on a greyed
+   undo is exactly when the label is wanted -- but pointer events do not fire
+   on a disabled button in every engine, so this is best-effort by design. */
+[data-tip]:disabled::after {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (hover: none) {
+  [data-tip]::after { content: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tip]::after { transition: opacity 0.12s ease, visibility 0s 0.12s; transform: translateX(-50%); }
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::after { transform: translateX(-50%); }
+  [data-tip][data-tip-align='end']::after,
+  [data-tip][data-tip-align='end']:hover::after,
+  [data-tip][data-tip-align='end']:focus-visible::after { transform: none; }
+}

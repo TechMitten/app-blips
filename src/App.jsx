@@ -45,7 +45,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
 
@@ -59,6 +59,7 @@ import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import usePageNavigation from './hooks/usePageNavigation';
+import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildSiteShell } from './lib/siteRouter';
 import { createZip } from './lib/zip';
 
@@ -1384,6 +1385,16 @@ export default function App() {
       switchVersion(currentVersionIndex + 1);
     }
   };
+
+  // Accelerators for chrome that is already on screen; the bindings and the
+  // hints printed in each control's tooltip share one source (lib/shortcuts).
+  useKeyboardShortcuts({
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onOpenApps: () => setIsProjectsListOpen(true),
+    onOpenHelp: () => window.open(DOCS_URL, '_blank', 'noopener,noreferrer'),
+    isBusy: isGenerating,
+  });
 
   const handleCopyCode = async () => {
     if (!codePanelCode) return;

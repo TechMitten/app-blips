@@ -12,6 +12,16 @@
      than display copy. */
   --font-control: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
+  /* Top chrome (app header + preview toolbar). Both bars are one band of
+     controls read as a single unit, so they share a row height and a radius
+     pair rather than each picking its own. Theme-independent -- these sit
+     outside the light/dark split on purpose. */
+  --chrome-row-h: 3.5rem;
+  --chrome-gap: 0.5rem;           /* between keys inside one group */
+  --chrome-rank-gap: 0.75rem;     /* between groups */
+  --radius-control: 0.625rem;     /* outer key / segmented track */
+  --radius-control-inner: 0.45rem;/* a key seated inside a track */
+
   /* Shadows: near-black at low alpha reads as depth on a light ground, but
      disappears entirely on a dark one -- so dark raises the alpha and adds a
      light hairline instead of relying on the shadow alone. The ink matches
@@ -22,6 +32,7 @@
      every "raised" surface (segmented tabs, cards, buttons) looked pasted
      flat onto the page. Raised across the board, and given its own hairline
      (light theme has one too now, not just dark) so raised edges get a crisp
+     boundary even where the shadow alone would not read. */
   --shadow-color: 15 23 42;
   --shadow-a1: 0.05;
   --shadow-a2: 0.08;
@@ -39,6 +50,13 @@
   --glow-a1: 0.10;
   --glow-a2: 0.22;
   --glow-a3: 0.35;
+
+  /* Tooltip bubble. Deliberately dark in BOTH themes: it is a transient
+     overlay, and a light bubble on the light toolbar reads as another button.
+     Dark lifts it off the near-black header instead of sinking into it. */
+  --tip-bg: #1e293b;
+  --tip-fg: #f8fafc;
+  --tip-border: rgb(255 255 255 / 0.08);
 
   --grid-dot: #94a3b8;
   --seg-active-bg: var(--color-surface);
@@ -77,6 +95,10 @@
   --glow-a1: 0.10;
   --glow-a2: 0.22;
   --glow-a3: 0.35;
+
+  --tip-bg: #2a2d38;
+  --tip-fg: #f1f5f9;
+  --tip-border: rgb(255 255 255 / 0.12);
 
   --grid-dot: #333333;
   /* Active segment is a raised key, not a flat fill: a wide top-lit gradient

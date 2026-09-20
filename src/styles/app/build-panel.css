@@ -137,21 +137,16 @@
   }
 }
 
+/* Locked to the same row height as the app header above, so the three bands
+   of chrome (app header / build-panel header / preview toolbar) line up as
+   one grid instead of three. The old 3.5rem -> 4rem bump at 640px is gone:
+   the toolbar's controls were retuned to sit in 3.5rem at every width. */
 .build-panel-header,
 .preview-pane-header {
-  height: 3.5rem;
-  min-height: 3.5rem;
-  max-height: 3.5rem;
+  height: var(--chrome-row-h);
+  min-height: var(--chrome-row-h);
+  max-height: var(--chrome-row-h);
   box-sizing: border-box;
-}
-
-@media (min-width: 640px) {
-  .build-panel-header,
-  .preview-pane-header {
-    height: 4rem;
-    min-height: 4rem;
-    max-height: 4rem;
-  }
 }
 
 .build-panel-header {

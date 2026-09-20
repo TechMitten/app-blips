@@ -1,3 +1,6 @@
+// Docs site, opened from the Help key and the "?" shortcut.
+export const DOCS_URL = 'https://docs.appblips.com/';
+
 import {
   Wand2, Smartphone, Code2, Layout, 
   TerminalSquare, Timer, CloudSun, Receipt, ListChecks, 
