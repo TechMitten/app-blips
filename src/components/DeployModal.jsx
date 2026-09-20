@@ -51,8 +51,11 @@ function Switch({ checked }) {
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-          checked ? 'translate-x-[23px] bg-white' : 'translate-x-[3px] bg-white dark:bg-slate-300'
+        // Positioned by `left` against the track's own width instead of a
+        // fixed translate-x, so the on-state thumb always lands flush with
+        // the right edge regardless of how the track's box resolves.
+        className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full shadow-sm transition-[left] duration-200 ${
+          checked ? 'left-[calc(100%-1.1875rem)] bg-white' : 'left-[3px] bg-white dark:bg-slate-300'
         }`}
       />
     </span>
@@ -144,6 +147,7 @@ export default function DeployModal({
   usernameLoading,
   onClaimUsername,
   deployment,
+  studioMode = 'app',
   deploymentUrl,
   isDeployStale,
   isDeploying,
@@ -158,6 +162,8 @@ export default function DeployModal({
   onCopyUrl,
   onRequireSignIn,
 }) {
+  const noun = studioMode === 'website' ? 'website' : 'app';
+  const Noun = noun === 'website' ? 'Website' : 'App';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [customSlug, setCustomSlug] = useState('');
@@ -182,21 +188,13 @@ export default function DeployModal({
   // closing the modal.
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const passwordValid =
-    password.length === 0 ||
-    (password.length >= 8 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /[0-9]/.test(password) &&
-      /[^A-Za-z0-9]/.test(password));
-
   const passwordsMatch = password.length === 0 || (password === confirmPassword && password.length > 0);
 
   // With the toggle off the password is always blank (see togglePassword), so
   // a public deploy is trivially submittable. With it on, an empty password
   // would silently deploy an unprotected link -- block that instead.
   const canSubmitPassword =
-    passwordValid && passwordsMatch && (!passwordEnabled || password.length > 0);
+    passwordsMatch && (!passwordEnabled || password.length > 0);
 
   const togglePassword = () => {
     setPasswordEnabled((on) => {
@@ -235,7 +233,7 @@ export default function DeployModal({
   const handleShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Check out my app', url: deploymentUrl });
+        await navigator.share({ title: `Check out my ${noun}`, url: deploymentUrl });
       } catch (err) {
         // AbortError just means the user dismissed the sheet.
         if (err?.name !== 'AbortError') onCopyUrl();
@@ -262,10 +260,10 @@ export default function DeployModal({
       <Tile icon={Rocket} tint="blue" size="lg" />
       <div className="min-w-0 flex-1">
         <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight">
-          {deployment ? 'Deployment' : 'Deploy your app'}
+          {deployment ? 'Deployment' : `Deploy your ${noun}`}
         </h2>
         <p className="text-sm text-slate-500 mt-1 leading-snug">
-          {deployment ? 'Your app is live at this link.' : 'Publish your app to a public URL in seconds.'}
+          {deployment ? `Your ${noun} is live at this link.` : `Publish your ${noun} to a public URL in seconds.`}
         </p>
       </div>
       <button
@@ -315,8 +313,8 @@ export default function DeployModal({
         title="Password protection"
         pill="Optional"
         description={deployment
-          ? 'Require a password to access your app. Leave this off to redeploy as a public link.'
-          : 'Require a password to access your app.'}
+          ? `Require a password to access your ${noun}. Leave this off to redeploy as a public link.`
+          : `Require a password to access your ${noun}.`}
         onClick={togglePassword}
         checked={passwordEnabled}
         action={<Switch checked={passwordEnabled} />}
@@ -338,9 +336,6 @@ export default function DeployModal({
               placeholder="Confirm password"
               className={FIELD_CLASS}
             />
-            <p className={`text-xs leading-relaxed ${password.length > 0 && !passwordValid ? 'text-rose-500 font-medium' : 'text-slate-400'}`}>
-              At least 8 characters with uppercase, lowercase, a number, and a symbol.
-            </p>
             {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
               <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
             )}
@@ -352,7 +347,7 @@ export default function DeployModal({
         icon={Search}
         tint="rose"
         title="Search engine visibility"
-        description="Prevent search engines from indexing your app."
+        description={`Prevent search engines from indexing your ${noun}.`}
         onClick={() => setPreventIndexing(!preventIndexing)}
         checked={preventIndexing}
         action={<Switch checked={preventIndexing} />}
@@ -371,7 +366,7 @@ export default function DeployModal({
       <OptionCard
         icon={ImageIcon}
         tint="sky"
-        title="App icon (favicon)"
+        title={`${Noun} icon (favicon)`}
         description="Upload an image to use as your browser tab icon."
       >
         <div className="flex items-center gap-3">
@@ -412,7 +407,7 @@ export default function DeployModal({
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 flex items-center justify-center">
             <Check size={28} />
           </div>
-          <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight mt-4">Your app is live!</h2>
+          <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight mt-4">Your {noun} is live!</h2>
           <p className="text-sm text-slate-500 mt-1 leading-snug">Anyone with this link can use it.</p>
         </div>
 
@@ -420,7 +415,7 @@ export default function DeployModal({
           <input
             readOnly
             value={deploymentUrl}
-            aria-label="App URL"
+            aria-label={`${Noun} URL`}
             onFocus={(e) => e.target.select()}
             className="w-full bg-surface border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-slate-800 text-center focus:ring-2 focus:ring-brand/40 outline-none transition-all select-all"
           />
@@ -431,7 +426,7 @@ export default function DeployModal({
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.99]"
             >
               <ExternalLink size={16} />
-              Open app
+              Open {noun}
             </button>
             <button
               type="button"
@@ -475,7 +470,7 @@ export default function DeployModal({
         {isDeploying ? (
           <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm text-slate-600">
             <Loader2 size={28} className="animate-spin text-brand" />
-            <span>{deployment && confirmUndeploy ? 'Removing deployment...' : 'Uploading your app...'}</span>
+            <span>{deployment && confirmUndeploy ? 'Removing deployment...' : `Uploading your ${noun}...`}</span>
           </div>
         ) : deployment ? (
           <>
@@ -533,7 +528,7 @@ export default function DeployModal({
             icon={KeyRound}
             tint="blue"
             title="Sign in to deploy"
-            description="Deploying needs an account, so your app can be stored and stay reachable at a stable link."
+            description={`Deploying needs an account, so your ${noun} can be stored and stay reachable at a stable link.`}
           />
         ) : usernameLoading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm text-slate-600">
@@ -544,14 +539,14 @@ export default function DeployModal({
           <>
             <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm text-amber-800 flex items-start gap-3">
               <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-              <span>Choose a username first. It&rsquo;s used in your app&rsquo;s URL and can&rsquo;t be changed once set.</span>
+              <span>Choose a username first. It&rsquo;s used in your {noun}&rsquo;s URL and can&rsquo;t be changed once set.</span>
             </div>
             <form onSubmit={handleClaimUsername}>
               <OptionCard
                 icon={User}
                 tint="blue"
                 title="Username"
-                description="This becomes the first segment of every app link you publish."
+                description={`This becomes the first segment of every ${noun} link you publish.`}
               >
                 <input
                   type="text"
@@ -581,7 +576,7 @@ export default function DeployModal({
               <Tile icon={Globe} tint="amber" />
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900 leading-tight">
-                  We&rsquo;ll deploy your app and give you a link
+                  We&rsquo;ll deploy your {noun} and give you a link
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed mt-1">
                   Re-deploy anytime and your link always points to the latest version.
@@ -592,7 +587,7 @@ export default function DeployModal({
             <OptionCard
               icon={Link2}
               tint="teal"
-              title="App URL"
+              title={`${Noun} URL`}
               description="Choose a custom path (optional)."
             >
               <div className="flex items-stretch rounded-xl border border-slate-300 dark:border-white/15 bg-surface overflow-hidden focus-within:ring-2 focus-within:ring-brand/40 focus-within:border-brand transition-all">
@@ -626,7 +621,7 @@ export default function DeployModal({
                 onClick={handleDeployClick}
                 disabled={isDeploying || !canSubmitPassword}
               >
-                Redeploy App
+                Redeploy {Noun}
               </PrimaryButton>
             ) : (
               <PrimaryButton icon={<LogIn size={20} />} onClick={onRequireSignIn}>
@@ -666,7 +661,7 @@ export default function DeployModal({
                 onClick={handleDeployClick}
                 disabled={isDeploying || !hasCode || !canSubmitPassword}
               >
-                Deploy App
+                Deploy {Noun}
               </PrimaryButton>
             )}
             <button

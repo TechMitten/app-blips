@@ -203,6 +203,10 @@ const STATS_ENDPOINTS = {
   // First page of the session, as opposed to `urls` which counts every
   // pageview regardless of position.
   entryPages: (id) => `/api/websites/${id}/metrics?type=entry`,
+  // "desktop" / "laptop" / "mobile" / "tablet" buckets.
+  devices: (id) => `/api/websites/${id}/metrics?type=device`,
+  browsers: (id) => `/api/websites/${id}/metrics?type=browser`,
+  os: (id) => `/api/websites/${id}/metrics?type=os`,
 };
 
 // Query params forwarded verbatim to Umami; anything else on the incoming

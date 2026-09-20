@@ -310,6 +310,7 @@ export default function App() {
     selectedSlug: analyticsSelectedSlug, selectApp: selectAnalyticsApp,
     range: analyticsRange, changeRange: changeAnalyticsRange,
     stats: analyticsStats, statsLoading: analyticsStatsLoading, error: analyticsError,
+    activeVisitors: analyticsActiveVisitors,
   } = useAnalytics({ isSignedIn, user });
 
   // --- Preview viewport (mode / orientation / zoom) ---
@@ -1756,6 +1757,7 @@ export default function App() {
           usernameLoading={usernameLoading}
           onClaimUsername={claimUsername}
           deployment={deployment}
+          studioMode={studioMode}
           aiEnabled={aiEnabled}
           onAiEnabledChange={(enabled) => { setAiEnabled(enabled); saveProject({ aiEnabledToSave: enabled, force: true }); }}
           deploymentUrl={deploymentUrl}
@@ -1786,6 +1788,7 @@ export default function App() {
           stats={analyticsStats}
           statsLoading={analyticsStatsLoading}
           error={analyticsError}
+          activeVisitors={analyticsActiveVisitors}
           onClose={closeAnalytics}
         />
       )}
