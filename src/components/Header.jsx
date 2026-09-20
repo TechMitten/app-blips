@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 
+const DOCS_URL = 'https://docs.appblips.com/';
+
 
 // Top bar: brand + current-app pill on the left; studio switch, New App /
 // Apps / History / Settings / Help / auth / theme on the right.
@@ -20,7 +22,6 @@ export default function Header({
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
-  onOpenHelp,
   authStatus,
   isSignedIn,
   userEmail,
@@ -156,16 +157,18 @@ export default function Header({
           </button>
 
           {/* Label held back to xl so the lg row keeps room for the account. */}
-          <button
+          <a
             data-tour="help"
-            onClick={onOpenHelp}
+            href={DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="nav-btn nav-ghost nav-btn-icon group"
-            title="How AppBlips works"
+            title="Open the AppBlips docs"
             aria-label="Help"
           >
             <CircleHelp size={16} className="text-slate-500 group-hover:text-slate-900 transition-colors" />
             <span className="hidden xl:inline">Help</span>
-          </button>
+          </a>
 
           {/* Hosted mode + signed-in only, same gate as the account control */}
           {firebaseEnabled && isSignedIn && (
@@ -315,15 +318,17 @@ export default function Header({
                 <Settings size={16} />
                 <span>Settings</span>
               </button>
-              <button
-                type="button"
+              <a
                 data-tour="help"
-                onClick={() => runMobileAction(onOpenHelp)}
+                href={DOCS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => runMobileAction()}
                 className="mobile-menu-item"
               >
                 <CircleHelp size={16} />
                 <span>Help</span>
-              </button>
+              </a>
               {firebaseEnabled && isSignedIn && (
                 <>
                   <button

@@ -43,7 +43,7 @@ export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, has
     { target: wideScreen ? 'history' : 'preview', view: 'preview', title: 'Return to an earlier version', body: wideScreen ? 'History opens your saved versions, grouped by chat session. Select a checkpoint to return to it. Once you have more than one version, the preview toolbar also shows Undo and Redo.' : 'Builds are saved as versions. Open the menu and choose History to browse checkpoints grouped by chat session. Preview tools also offers Previous and Next version controls.' },
     { target: wideScreen ? 'apps' : 'menu', title: 'Keep your apps organized', body: 'Your work saves after builds. Apps lists your saved projects so you can reopen, rename, or delete them. Use New App when you are ready to start another idea.' },
     { target: wideScreen ? 'settings' : 'menu', title: 'Make the workspace yours', body: 'Settings lets you choose a theme and chat font, show the Code tab, and control clarifying questions. You can also skip the intro animation.' },
-    { target: wideScreen ? 'help' : 'menu', title: 'You are ready to explore', body: 'Help has the full guide to building, previewing, and sharing. You can restart this tour there anytime. Try describing one small, useful app to begin.' },
+    { target: wideScreen ? 'help' : 'menu', title: 'You are ready to explore', body: 'Help opens the full docs on building, previewing, and sharing. Try describing one small, useful app to begin.' },
   ];
   const step = steps[index];
 
