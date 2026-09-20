@@ -866,6 +866,14 @@ export default function App() {
           liveCodeRef.current = extractStreamedEditCode(editStreamRef.current);
           return;
         }
+        if (chatMode === 'ask') {
+          // Ask replies are plain prose/markdown and never app code, so stream
+          // every delta straight into the reply. Running the HTML-boundary
+          // logic below would freeze the reply at the first ```html snippet.
+          streamingReplyRef.current = `${streamingReplyRef.current}${chunk}`;
+          setStreamingReply(streamingReplyRef.current);
+          return;
+        }
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
           const sanitized = sanitizeHtmlResponse(streamingGeneratedCodeRef.current);
