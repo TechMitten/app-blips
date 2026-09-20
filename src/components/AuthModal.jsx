@@ -3,11 +3,11 @@ import authProvider from '../lib/auth';
 import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, Github, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
 
-const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-white focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
+const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
 const LINK_CLASS = 'font-semibold text-brand hover:underline underline-offset-2 transition-colors';
 const GITHUB_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-transparent bg-slate-900 text-sm font-semibold text-white hover:bg-black dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed';
-const OAUTH_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed';
+const OAUTH_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-[#dadce0] bg-white text-sm font-semibold text-[#3c4043] hover:bg-[#f1f3f4] hover:border-[#c6c9cc] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed';
 
 // Self-contained sign-in / sign-up modal (same pattern as
 // AccountSettingsModal): owns its form state and talks to the auth adapter
