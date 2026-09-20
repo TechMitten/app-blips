@@ -178,6 +178,7 @@ export default function App() {
   const [tempProjectName, setTempProjectName] = useState('');
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
   const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
@@ -1087,6 +1088,13 @@ export default function App() {
     setIsStudioChoiceOpen(true);
   };
 
+  const handleConfirmExit = () => {
+    setIsExitConfirmOpen(false);
+    // Same as "New": the workspace stays untouched until a studio is chosen,
+    // so "Go back" on the picker returns to it.
+    setIsStudioChoiceOpen(true);
+  };
+
   const handleCancelNaming = () => {
     setShouldGenerateAfterNaming(false);
     setTempProjectName('');
@@ -1414,6 +1422,7 @@ export default function App() {
       <Header
         projectName={projectName}
         onNewApp={handleNewApp}
+        onExit={() => setIsExitConfirmOpen(true)}
         savedAppsCount={myProjects.length}
         versionsCount={versions.length}
         onOpenApps={() => setIsProjectsListOpen(true)}
@@ -1495,6 +1504,24 @@ export default function App() {
           onRenameProject={renameProject}
           onDeleteProject={handleDeleteProject}
         />
+      )}
+
+      {isExitConfirmOpen && (
+        <ConfirmModal
+          title="Exit to the studio picker?"
+          subtitle="You'll choose between building an app or a website."
+          onClose={() => setIsExitConfirmOpen(false)}
+          onConfirm={handleConfirmExit}
+          confirmLabel="Exit"
+          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <span>
+              Your current work stays as it is until you pick a studio. Choose &ldquo;Go back&rdquo; on the next screen to return to it, or pick a studio to start something new.
+            </span>
+          </div>
+        </ConfirmModal>
       )}
 
       {isNewChatConfirmOpen && (
