@@ -262,6 +262,11 @@ const ALLOWED_EFFORTS = new Set(['none', 'off', 'disabled', 'minimal', 'low', 'm
 const DEFAULT_MAX_BODY_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_MESSAGES = 100;
 const DEFAULT_HOSTED_MAX_TOKENS = 32768;
+// Ask-mode answers are prose, not app code, so they get their own output cap
+// (APPBLIPS_LLM_ASK_MAX_TOKENS) that never falls back to the builder's
+// APPBLIPS_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
+// count toward the limit on thinking models.
+const DEFAULT_ASK_MAX_TOKENS = 8192;
 
 const isHostedMode = (env) => env.SELF_HOSTED_MODE === 'false';
 
@@ -397,7 +402,7 @@ export async function handleChatProxy(request, env, waitUntil) {
     }
   }
 
-  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
+  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix, ask } = payload;
 
   let temperature = 0.2;
   if (auto_fix === true) {
@@ -430,12 +435,17 @@ export async function handleChatProxy(request, env, waitUntil) {
     bodyObj.reasoning_effort = effort;
   }
 
-  if (env.APPBLIPS_LLM_MAX_TOKENS) {
-    const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
-    if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
+  if (ask === true) {
+    const parsedAskMax = parseInt(env.APPBLIPS_LLM_ASK_MAX_TOKENS, 10);
+    bodyObj.max_tokens = parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
+  } else {
+    if (env.APPBLIPS_LLM_MAX_TOKENS) {
+      const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
+      if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
+    }
+    // Hosted mode always bounds output so an unset env var can't mean "unlimited".
+    if (hosted && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_HOSTED_MAX_TOKENS;
   }
-  // Hosted mode always bounds output so an unset env var can't mean "unlimited".
-  if (hosted && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_HOSTED_MAX_TOKENS;
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) {

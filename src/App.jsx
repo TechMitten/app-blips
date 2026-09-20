@@ -45,7 +45,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -132,7 +132,7 @@ export default function App() {
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
-  const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
+  const [chatMode, setChatMode] = useState(loadChatMode); // 'build' or 'ask'
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
   const [isAutoFixing, setIsAutoFixing] = useState(false);
@@ -480,7 +480,11 @@ export default function App() {
     () =>
       generatedCode
         ? injectPreviewBridge(
-            (!firebaseEnabled && aiEnabled)
+            // The AI shim is always present in the preview so flipping the AI
+            // reel stop never recomputes srcDoc (which would reload the frame
+            // and lose app state). Hosted requests are gated live in
+            // usePreviewBridge; export/deploy paths still honor aiEnabled.
+            !firebaseEnabled
               ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
               : generatedCode,
           {
@@ -493,7 +497,7 @@ export default function App() {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
-            aiEnabled: firebaseEnabled && aiEnabled,
+            aiEnabled: firebaseEnabled,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -503,8 +507,9 @@ export default function App() {
     // matters when a new document is produced, and every recompute picks up
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
+    // aiEnabled is likewise intentionally not a dependency (see above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generatedCode, previewReloadCount, projectStorageVersion, aiEnabled]
+    [generatedCode, previewReloadCount, projectStorageVersion]
   );
 
   // Website studio: the picker is armed only while editing is toggled on in a
@@ -642,7 +647,13 @@ export default function App() {
   }, []);
 
   const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
-  const isChatActive = hasSentFirstPrompt || versions.length > 0 || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject;
+  // The chat view is active only when it has something to show. A bare
+  // `hasSentFirstPrompt` / `versions.length > 0` is not enough: a cancelled or
+  // failed first turn (common in Ask mode, which never produces code), or a
+  // "New chat" cutoff past the last version, leaves an empty transcript, and
+  // hiding the intro + starter ideas then strands the user on a blank pane.
+  const hasVisibleTranscript = versions.length > 0 && currentVersionIndex >= chatContextStartIndex;
+  const isChatActive = hasVisibleTranscript || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject || (hasSentFirstPrompt && isGenerating);
   const showStarterIdeas = !isChatActive;
 
   useEffect(() => {
@@ -691,6 +702,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
   }, [skipSplash]);
+
+  useEffect(() => {
+    saveChatMode(chatMode);
+  }, [chatMode]);
 
   useEffect(() => {
     localStorage.setItem(REASONING_EFFORT_KEY, reasoningEffort);
@@ -769,9 +784,12 @@ export default function App() {
 
     // Require naming for transition from Untitled or New App. Skipped in ask
     // mode before any app exists -- a plain question shouldn't force naming a
-    // project that may never contain generated code.
+    // project that may never contain generated code. This deliberately does
+    // not check currentProjectId: an earlier Ask turn auto-saves the chat as a
+    // project under the untitled name, and the first Build prompt must still
+    // name it (handleConfirmNaming then renames that project in place).
     const untitledName = STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
-    if (chatMode !== 'ask' && (projectName === untitledName || !projectName.trim()) && !currentProjectId) {
+    if (chatMode !== 'ask' && (projectName === untitledName || !projectName.trim())) {
       if (isAutoFix) {
         setIsAutoFixing(false);
         isAutoFixingRef.current = false;
@@ -1113,6 +1131,16 @@ export default function App() {
     e?.preventDefault();
     const trimmedName = tempProjectName.trim();
     if (!trimmedName) return;
+
+    // Naming an untitled project that already exists (created by earlier Ask
+    // turns) renames it in place: keep its conversation and id.
+    const isRenamingUntitledProject = shouldGenerateAfterNaming && Boolean(currentProjectId);
+    if (isRenamingUntitledProject) {
+      setProjectName(trimmedName);
+      setTempProjectName('');
+      setIsNamingModalOpen(false);
+      return;
+    }
 
     // If we are confirming a name for a new project triggered by a prompt,
     // or if we explicitly clicked "New App", clear the workspace.

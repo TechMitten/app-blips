@@ -45,6 +45,9 @@ export default function usePreviewBridge({
   // main effect below does not need editingEnabled as a dependency -- a
   // toggle must not re-run the whole handshake effect.
   const editingEnabledRef = useRef(editingEnabled);
+  // Read live so toggling AI never re-runs the handshake effect (or reloads).
+  const aiEnabledRef = useRef(aiEnabled);
+  useEffect(() => { aiEnabledRef.current = aiEnabled; }, [aiEnabled]);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
   const pendingCapturesRef = useRef(new Map());
@@ -161,7 +164,7 @@ export default function usePreviewBridge({
       }
       else if (data.type === "ai-chat-request") {
         const requestId = data.payload?.requestId;
-        if (!aiEnabled || !requestId || !Array.isArray(data.payload?.messages)) {
+        if (!aiEnabledRef.current || !requestId || !Array.isArray(data.payload?.messages)) {
           send("ai-chat-error", { requestId, code: "unauthorized", message: "AI capabilities are disabled." }, data.token);
           return;
         }
@@ -240,7 +243,7 @@ export default function usePreviewBridge({
       send('configure', { enabled: false });
       send('set-editing', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef, aiEnabled]);
+  }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
 
   // Editing toggles are delivered as their own push so flipping the picker on
   // or off does not re-run (and thus does not disturb) the main handshake
