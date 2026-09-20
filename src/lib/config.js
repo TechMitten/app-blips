@@ -93,6 +93,20 @@ export const loadAutoFollowCode = () => {
   }
 };
 
+export const LIVE_CODE_PREVIEW_KEY = 'orion-live-code-preview';
+
+// Boolean: whether the build overlay in the preview pane shows the streaming
+// code peek while generating. On by default; an explicitly saved user choice is
+// preserved.
+export const loadLiveCodePreview = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(LIVE_CODE_PREVIEW_KEY);
+    return stored === null || stored === undefined ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+};
+
 export const BUILD_PANE_SIDE_KEY = 'orion-build-pane-side';
 
 // Which side of the workspace the build pane sits on: 'left' (default) or 'right'.

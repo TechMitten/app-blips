@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Wand2, Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
 
 // The mode control is one slot-machine reel with three stops. "AI" means Build
 // with AI text generation enabled, so the three are mutually exclusive and
@@ -19,8 +19,6 @@ export default function PromptInput({
   prompt,
   onPromptChange,
   onSubmit,
-  onEnhancePrompt,
-  isEnhancingPrompt = false,
   onCancelGeneration,
   isGenerating,
   isChatActive,
@@ -40,9 +38,7 @@ export default function PromptInput({
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const canSubmit = !isGenerating && !isEnhancingPrompt && prompt.trim().length > 0;
-  const canEnhance = chatMode === 'build' && !isClarifying && !isGenerating && !isEnhancingPrompt && prompt.trim().length > 0;
-  const showEnhanceButton = chatMode === 'build' && !isClarifying;
+  const canSubmit = !isGenerating && prompt.trim().length > 0;
 
   // AI is the third reel stop and means "Build + AI", so the exposed mode is
   // derived from both chatMode and aiEnabled; the reel animates to that stop.
@@ -169,21 +165,9 @@ export default function PromptInput({
                     ? "e.g. Make the background dark, add a reset button..."
                     : "e.g. A minimalist task manager with categories...")
           }
-          className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar ${showEnhanceButton ? 'pr-11' : ''}`}
-          disabled={isGenerating || isEnhancingPrompt}
+          className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
+          disabled={isGenerating}
         />
-        {showEnhanceButton && prompt.trim().length > 0 && (
-          <button
-            type="button"
-            onClick={onEnhancePrompt}
-            disabled={!canEnhance}
-            aria-label={isEnhancingPrompt ? 'Enhancing prompt...' : 'Enhance prompt with AI'}
-            title={isEnhancingPrompt ? 'Enhancing prompt...' : 'Enhance prompt with AI'}
-            className="absolute top-2 right-2 inline-flex items-center justify-center w-7 h-7 rounded-full text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-400/30 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-          >
-            {isEnhancingPrompt ? <Loader2 className="animate-spin" size={13} /> : <Wand2 size={13} />}
-          </button>
-        )}
       </div>
       <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
         <div className="flex items-center gap-x-2 gap-y-2">

@@ -546,7 +546,7 @@ export default function DeviceMockup({
               {/* Outside the scaled group above so it stays true-size. The scale
                   transform doesn't affect layout, so the top margin clears the
                   magnified spinner/status block. */}
-              {isGenerating && !isErrorAutoFix && (
+              {isGenerating && !isErrorAutoFix && liveCodeRef && (
                 <LiveCodePeek codeRef={liveCodeRef} className={mode === 'desktop' ? 'mt-20' : mode === 'tablet' ? 'mt-16' : 'mt-8'} />
               )}
             </div>

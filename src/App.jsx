@@ -24,7 +24,7 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode, enhancePrompt } from './lib/llm';
+import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/deploy';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
@@ -44,7 +44,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -69,6 +69,7 @@ export default function App() {
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
+  const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
   const [reasoningEffort, setReasoningEffort] = useState(loadReasoningEffort);
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
@@ -130,7 +131,6 @@ export default function App() {
   // attachmentForRequest capture in handleGenerate.
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [chatMode, setChatMode] = useState('build'); // 'build' or 'ask'
   const [error, setError] = useState(null);
@@ -196,7 +196,6 @@ export default function App() {
   const editStreamRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
-  const enhanceAbortControllerRef = useRef(null);
   const runtimeErrorRetriesRef = useRef(0);
   const syntaxErrorRetriesRef = useRef(0);
   const isGeneratingRef = useRef(false);
@@ -684,6 +683,10 @@ export default function App() {
   }, [autoFollowCode]);
 
   useEffect(() => {
+    localStorage.setItem(LIVE_CODE_PREVIEW_KEY, liveCodePreview);
+  }, [liveCodePreview]);
+
+  useEffect(() => {
     localStorage.setItem(BUILD_PANE_SIDE_KEY, buildPaneSide);
   }, [buildPaneSide]);
 
@@ -728,31 +731,6 @@ export default function App() {
   const handleShowCodeViewChange = (value) => {
     setShowCodeView(value);
     if (!value) setActiveTab('preview');
-  };
-
-  // Rewrites the draft prompt in place via a quick non-streaming LLM call --
-  // never submits it. Build mode only; ask mode has no app-idea to enhance.
-  const handleEnhancePrompt = async () => {
-    if (chatMode !== 'build' || isGenerating || isEnhancingPrompt || !prompt.trim()) return;
-
-    setIsEnhancingPrompt(true);
-    setError(null);
-    enhanceAbortControllerRef.current = new AbortController();
-
-    try {
-      const enhanced = await enhancePrompt({
-        prompt,
-        currentCode: generatedCode || null,
-        signal: enhanceAbortControllerRef.current.signal,
-        studioMode,
-      });
-      if (enhanced) setPrompt(enhanced);
-    } catch (err) {
-      if (err?.name !== 'AbortError') setError(err.message || 'Failed to enhance prompt.');
-    } finally {
-      setIsEnhancingPrompt(false);
-      enhanceAbortControllerRef.current = null;
-    }
   };
 
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
@@ -1475,6 +1453,8 @@ export default function App() {
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}
           onAutoFollowCodeChange={setAutoFollowCode}
+          liveCodePreview={liveCodePreview}
+          onLiveCodePreviewChange={setLiveCodePreview}
           buildPaneSide={buildPaneSide}
           onBuildPaneSideChange={setBuildPaneSide}
           reasoningEffort={reasoningEffort}
@@ -1653,8 +1633,6 @@ export default function App() {
               prompt={prompt}
               onPromptChange={setPrompt}
               onSubmit={handleGenerate}
-              onEnhancePrompt={handleEnhancePrompt}
-              isEnhancingPrompt={isEnhancingPrompt}
               onCancelGeneration={handleCancelGeneration}
               attachment={attachment}
               attachmentError={attachmentError}
@@ -1707,7 +1685,7 @@ export default function App() {
               onClearStorage={handleClearPreviewStorage}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
-              liveCodeRef={liveCodeRef}
+              liveCodeRef={liveCodePreview ? liveCodeRef : null}
               isAutoFixing={isAutoFixing}
               autoFixMessage={autoFixMessage}
               onCancelGeneration={handleCancelGeneration}
