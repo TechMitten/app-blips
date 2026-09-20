@@ -494,7 +494,7 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
   background: #ffffff;
   box-shadow:
     inset 0 1px 2px rgba(2, 6, 23, 0.07),
-    inset 0 0 0 1px rgba(2, 6, 23, 0.09);
+    inset 0 0 0 1px rgba(2, 6, 23, 0.15);
   display: flex;
   align-items: center;
   gap: 9px;
@@ -549,6 +549,33 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
 }
 
 /* ===== Desktop browser chrome — dark mode ===== */
+
+/* The desktop shell is only a bezel around a browser window that already
+   draws its own edges, so in dark mode it must not be a visible band at all.
+   Recolouring it (the first attempt) left a 12px ring that still read as a
+   second frame. Instead the shell goes fully transparent -- it keeps its
+   padding, so the viewport maths and the light theme are untouched -- and the
+   window itself gets ONE hairline plus the drop shadow, drawn by a pseudo-
+   element inset to exactly the window's outer edge. */
+:is(html.dark, .force-dark) .device-desktop {
+  background: transparent;
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .device-desktop::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 15px;
+  pointer-events: none;
+  z-index: 60;
+  /* Kept tight on purpose: the old 60px/140px blurs bled black across the
+     whole margin, which is exactly what made the stage read as a darker gray
+     than the toolbar above it. */
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.10),
+    0 12px 24px -12px rgb(0 0 0 / 0.45);
+}
 
 :is(html.dark, .force-dark) .device-browser-chrome {
   background: #1c1c1c;
