@@ -125,6 +125,26 @@ export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'medium', 'high'];
 
 // One of REASONING_EFFORT_OPTIONS; anything unrecognised falls back to 'none',
 // which is also the default so reasoning stays off until the user opts in.
+export const CHAT_MODE_KEY = 'orion-chat-mode';
+
+// 'build' | 'ask'. The AI stop of the mode reel is Build + aiEnabled, which is
+// saved per project, so only the build/ask half needs remembering here.
+export const loadChatMode = () => {
+  try {
+    return safeStorage('local')?.getItem(CHAT_MODE_KEY) === 'ask' ? 'ask' : 'build';
+  } catch {
+    return 'build';
+  }
+};
+
+export const saveChatMode = (mode) => {
+  try {
+    safeStorage('local')?.setItem(CHAT_MODE_KEY, mode === 'ask' ? 'ask' : 'build');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
 export const loadReasoningEffort = () => {
   try {
     const stored = safeStorage('local')?.getItem(REASONING_EFFORT_KEY);

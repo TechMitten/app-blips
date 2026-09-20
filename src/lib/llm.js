@@ -130,7 +130,8 @@ export const requestModelText = async ({
   reasoningEffort = null,
   retryCount = 0,
   signal = null,
-  forceTemperatureZero = false
+  forceTemperatureZero = false,
+  askMode = false
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
 
@@ -158,6 +159,8 @@ export const requestModelText = async ({
     // Signals an error-repair request to the proxy, which pins temperature to
     // 0.0 for deterministic fixes regardless of APPBLIPS_LLM_TEMPERATURE.
     if (forceTemperatureZero) bodyObj.auto_fix = true;
+    // Ask-mode replies use a dedicated, smaller server-side output cap.
+    if (askMode) bodyObj.ask = true;
 
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -300,7 +303,7 @@ export const requestModelText = async ({
     if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -351,7 +354,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
   return { code: workingCode, applied: false, result: { success: false, error: `Unknown tool: ${name}` } };
 };
 
-export const generateAppCode = async (
+const generateAppCodeCore = async (
   prompt,
   currentCode = null,
   chatHistory = [],
@@ -390,7 +393,7 @@ export const generateAppCode = async (
         )
       }
     ];
-    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort });
+    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort, askMode: true });
     const rawText = (message.content || message).trim();
     return {
       code: currentCode || '',
@@ -730,4 +733,51 @@ export const generateAppCode = async (
     };
   }
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
+};
+
+// Closing chat message for every finished build/edit. The pre-build
+// acknowledgement (generateChatReply) only says what is ABOUT to happen and is
+// a separate, non-fatal call, so on its own the chat goes quiet once the work
+// completes. This asks for a short past-tense summary of the finished work; if
+// that call fails too, a fixed line is used so the turn always ends with a
+// message.
+const generateCompletionReply = async ({ prompt, editMode, studioMode, signal }) => {
+  const noun = studioMode === 'website' ? 'website' : 'app';
+  const verb = editMode === 'full-generation' ? 'built' : 'updated';
+  const fallback = `Done — I've ${verb} your ${noun}.`;
+  try {
+    const message = await requestModelText({
+      messages: [
+        {
+          role: 'system',
+          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Reply with ONE short, friendly sentence (roughly 20 words or fewer) in the past tense saying what you did. Plain text only: no markdown, no code, no quotation marks, and no questions.`
+        },
+        { role: 'user', content: `Request: ${prompt}` }
+      ],
+      reasoningEffort: 'none',
+      signal
+    });
+    const text = String(message?.content || '').trim().replace(/^["'“”]+|["'“”]+$/g, '').trim();
+    return text || fallback;
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) throw err;
+    return fallback;
+  }
+};
+
+export const generateAppCode = async (...args) => {
+  const result = await generateAppCodeCore(...args);
+  const [prompt, , , onChunk, , signal, , , , , , isAutoFix, , studioMode] = args;
+  const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
+  // Auto-fix passes stay silent: they repair a build the user already got
+  // messages for.
+  if (isBuildResult && !isAutoFix) {
+    const completion = await generateCompletionReply({ prompt, editMode: result.editMode, studioMode, signal });
+    const separator = result.reply ? '\n\n' : '';
+    // Surface it in the live transcript right away, then persist it with the
+    // version (appended to the opening acknowledgement when there is one).
+    if (onChunk) onChunk(`${separator}${completion}`, 'reply');
+    result.reply = `${result.reply || ''}${separator}${completion}`;
+  }
+  return result;
 };

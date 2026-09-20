@@ -30,6 +30,10 @@ These variables let you constrain or adjust the builder's AI responses. Leave th
   Maximum number of tokens the builder LLM may return in a single response. Useful for controlling costs on providers that bill per token.
 </ParamField>
 
+<ParamField body="APPBLIPS_LLM_ASK_MAX_TOKENS" type="number">
+  Maximum number of tokens the LLM may return in a single Ask-mode chat reply. Independent of `APPBLIPS_LLM_MAX_TOKENS`, which does not apply to Ask mode. Defaults to `8192`, which leaves headroom for reasoning tokens on thinking models.
+</ParamField>
+
 <ParamField body="APPBLIPS_LLM_TEMPERATURE" type="number">
   Sampling temperature for builder responses. Lower values produce more predictable output; higher values produce more varied results. Defaults to `0.2`. Users can also adjust reasoning effort per-request in the in-app Settings modal — that setting is independent of this one.
 </ParamField>
