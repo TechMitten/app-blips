@@ -5,13 +5,19 @@ import { isValidUuid } from '../lib/helpers';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
-import { migratePreviewStorage, clearPreviewStorage } from '../lib/previewStorage';
+import { migratePreviewStorage, clearPreviewStorage, clearAllPreviewStorage } from '../lib/previewStorage';
+import { clearPendingJob } from '../lib/pendingJob';
 import { migrateChatSessions } from '../lib/chatSessions';
 
-// Project persistence: the saved-apps list (local rows when signed out or
+// Project persistence: the saved-apps list (localStorage rows when
 // self-hosted, Firestore rows when signed in with Firebase enabled),
 // load/save/rename/delete, the auto-save-name debounce, and the
 // resume-last-project effect.
+//
+// Hosted mode never uses localStorage for project data: signed in, everything
+// lives in Firestore (and the last-open project is simply the most recently
+// updated one); signed out, work is in memory only, and signing out wipes the
+// workspace and any browser-side leftovers so the next visitor sees nothing.
 //
 // `useCloud` (not `isSignedIn` alone) decides Firestore vs. localStorage: in
 // a self-hosted build the mock auth provider always reports `isSignedIn`
@@ -27,10 +33,15 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
     setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
     setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
-    setIsResumingProject, clearStreamingState
+    setIsResumingProject, clearStreamingState, resetWorkspace
   } = workspace;
 
   const useCloud = isSignedIn && firebaseEnabled;
+
+  // Last-open pointer: self-hosted only. Hosted resumes the newest cloud row.
+  const rememberProjectId = (id) => {
+    if (!firebaseEnabled) localStorage.setItem('orion-current-project-id', id);
+  };
 
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
@@ -69,14 +80,16 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       if (useCloud) {
         projects = await fetchCloudProjects();
       } else {
-        projects = localRowsToProjects(readProjectRows());
+        projects = firebaseEnabled ? [] : localRowsToProjects(readProjectRows());
       }
       setMyProjects(projects);
       return projects;
     } catch (err) {
       console.error("Error loading projects:", err);
-      // Fall back to the local list so a transient cloud failure doesn't blank the UI.
-      const projects = localRowsToProjects(readProjectRows());
+      // Self-hosted only: fall back to the local list. Hosted never reads
+      // local rows, so a cloud failure shows an empty list rather than
+      // another account's leftovers.
+      const projects = firebaseEnabled ? [] : localRowsToProjects(readProjectRows());
       setMyProjects(projects);
       return projects;
     }
@@ -89,10 +102,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         const docRef = doc(db, 'projects', projectId);
         const docSnap = await getDoc(docRef);
         const data = docSnap.exists() ? docSnap.data() : null;
-        if (!data) {
-          localStorage.removeItem('orion-current-project-id');
-          return;
-        }
+        if (!data) return;
         row = { id: data.id, name: data.name, data: data.data };
       } else {
         row = readProjectRows().find(r => r.id === projectId);
@@ -122,7 +132,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       }
       setCurrentProjectId(projectId);
       setHasSentFirstPrompt(Boolean(projectData.versions?.length));
-      localStorage.setItem('orion-current-project-id', projectId);
+      rememberProjectId(projectId);
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
@@ -142,6 +152,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
+    // Hosted + signed out: nothing is persisted, work stays in memory.
+    if (firebaseEnabled && !useCloud) return;
 
     let projectId = idToSave || currentProjectId || (useCloud ? crypto.randomUUID() : Date.now().toString());
 
@@ -193,7 +205,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       if (!currentProjectId || currentProjectId !== projectId) {
         migratePreviewStorage(currentProjectId || 'draft', projectId);
         setCurrentProjectId(projectId);
-        localStorage.setItem('orion-current-project-id', projectId);
+        rememberProjectId(projectId);
       }
       loadUserProjects();
     } catch (err) {
@@ -229,22 +241,33 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
 
     const fetchAndResume = async () => {
       try {
-        const projects = await loadUserProjects();
-
         if (previous === 'signedIn' && authStatus === 'signedOut') {
-          // Just signed out: swap in the local list but keep whatever is open.
+          // Just signed out (hosted only): drop the account's workspace and
+          // every browser-side trace of it.
+          setMyProjects([]);
+          resetWorkspace?.();
+          localStorage.removeItem('orion-current-project-id');
+          clearPendingJob();
+          clearAllPreviewStorage();
           return;
         }
 
+        const projects = await loadUserProjects();
+
         if (!currentProjectId) {
-          const lastProjectId = localStorage.getItem('orion-current-project-id');
-          const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
-            ? lastProjectId
-            : null;
-          if (idToLoad) {
-            await loadProjectById(idToLoad);
-          } else if (lastProjectId) {
-            localStorage.removeItem('orion-current-project-id');
+          if (firebaseEnabled) {
+            // loadUserProjects returns rows newest-first.
+            if (projects[0]) await loadProjectById(projects[0].id);
+          } else {
+            const lastProjectId = localStorage.getItem('orion-current-project-id');
+            const idToLoad = (lastProjectId && projects.some((p) => p.id === lastProjectId))
+              ? lastProjectId
+              : null;
+            if (idToLoad) {
+              await loadProjectById(idToLoad);
+            } else if (lastProjectId) {
+              localStorage.removeItem('orion-current-project-id');
+            }
           }
         }
       } finally {
@@ -276,7 +299,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     }
     setIsProjectsListOpen(false);
     setHasSentFirstPrompt(Boolean(project.versions?.length));
-    localStorage.setItem('orion-current-project-id', project.id);
+    rememberProjectId(project.id);
   };
 
   // Rename/delete return success booleans so the list modal can settle its own

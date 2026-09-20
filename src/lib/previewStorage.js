@@ -91,6 +91,25 @@ export const clearPreviewStorage = (projectId) => {
 };
 
 /**
+ * Clear the preview storage of every project (used on hosted sign-out so the
+ * next user of this browser doesn't inherit a previous account's app data).
+ */
+export const clearAllPreviewStorage = () => {
+  try {
+    const store = safeStorage('local');
+    if (!store) return;
+    const keys = [];
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) keys.push(key);
+    }
+    keys.forEach((key) => store.removeItem(key));
+  } catch (err) {
+    console.warn('[previewStorage] Failed to clear all storage:', err);
+  }
+};
+
+/**
  * Migrate preview storage from one project id to another (e.g. 'draft' -> actual project id).
  * @param {string} fromProjectId
  * @param {string} toProjectId

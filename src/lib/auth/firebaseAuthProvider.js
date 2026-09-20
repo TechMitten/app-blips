@@ -23,8 +23,14 @@ import { getToken } from 'firebase/app-check';
 const toUser = (firebaseUser) => {
   if (!firebaseUser) return null;
   const username = firebaseUser.displayName || '';
+  // OAuth accounts (Google/GitHub) can have an empty top-level email while the
+  // provider entry still carries one, so fall back to it.
+  const email = firebaseUser.email
+    || firebaseUser.providerData?.find((p) => p?.email)?.email
+    || '';
   return Object.assign({}, firebaseUser, {
     id: firebaseUser.uid,
+    email,
     displayName: username,
     username,
     user_metadata: {
