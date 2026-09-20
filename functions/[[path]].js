@@ -21,6 +21,7 @@ const APPS_HOSTNAME = 'my.appblips.com';
 
 import { firebaseProjectId, getAppCheckToken } from './_lib/firebaseServer.js';
 import { injectSeoDefaults } from './_lib/seoDefaults.js';
+import { getHash, resolvePageLink } from '../src/lib/pages.js';
 export { getAppCheckToken } from './_lib/firebaseServer.js';
 
 const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId()}/databases/(default)/documents`;
@@ -31,6 +32,15 @@ const BUCKET = 'orion-deploys';
 const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
 const STORAGE_PATH_PATTERN =
   /^[a-zA-Z0-9_-]{1,128}\/[a-zA-Z0-9]{1,32}\.html$/i;
+
+// Multi-page sites: the landing page keeps `storage_path` (`<uid>/<token>.html`)
+// and every other page is `<uid>/<token>/<page>.html`. A page URL is
+// `/<slug>/<page>` (`.html` optional), so `/a/b` is ambiguous between the
+// `a/b` username/slug form and slug `a` + page `b`; candidatesForPath() tries the
+// slug form first so existing links never change meaning.
+const PAGE_SEGMENT_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const STORAGE_PAGE_PATH_PATTERN =
+  /^[a-zA-Z0-9_-]{1,128}\/[a-zA-Z0-9]{1,32}\/[a-z0-9][a-z0-9-]{0,39}\.html$/;
 
 // Reserved path prefix for every deployed app's PWA assets. It can never
 // collide with a real slug -- SLUG_PATTERN requires a slug to start with an
@@ -231,6 +241,52 @@ const notice = (status, title, body) =>
     },
   );
 
+// Every way a request path can name a deployment, most specific first:
+// [{ slug, page }] where page is null for the landing page.
+export const candidatesForPath = (path) => {
+  const segments = path.split('/');
+  const out = [];
+  if (SLUG_PATTERN.test(path)) out.push({ slug: path, page: null });
+  if (segments.length >= 2 && segments.length <= 3) {
+    const slug = segments.slice(0, -1).join('/');
+    const page = segments[segments.length - 1].replace(/\.html$/, '');
+    if (SLUG_PATTERN.test(slug) && PAGE_SEGMENT_PATTERN.test(page)) out.push({ slug, page });
+  }
+  return out;
+};
+
+// Points internal page links ("about.html", "/pricing") at their real URLs.
+// Relative hrefs cannot be left as-is: /my-site has no trailing slash, so
+// "about.html" there would resolve to /about.html.
+export const rewritePageLinks = (html, slug, pageNames) => {
+  const known = new Set(['index.html', ...pageNames.map((n) => `${n}.html`)]);
+  return html.replace(/(<a\b[^>]*?\shref\s*=\s*)(["'])([^"']*)\2/gi, (match, pre, quote, href) => {
+    const target = resolvePageLink(href);
+    if (!target || !known.has(target)) return match;
+    const hash = getHash(href);
+    const base = target === 'index.html' ? `/${slug}` : `/${slug}/${target.replace(/\.html$/, '')}`;
+    return `${pre}${quote}${base}${hash ? `#${hash}` : ''}${quote}`;
+  });
+};
+
+// Tells the page's own scripts (PWA registration, AI bridge, unlock router) which
+// deployment they belong to, so they don't have to guess it from a URL that may
+// now carry a page name.
+const injectSlug = (html, slug) => {
+  const tag = `<script>window.__APPBLIPS_SLUG__=${JSON.stringify(slug)};</script>`;
+  const headMatch = /<head\b[^>]*>/i.exec(html);
+  if (headMatch) {
+    const at = headMatch.index + headMatch[0].length;
+    return html.slice(0, at) + tag + html.slice(at);
+  }
+  const htmlMatch = /<html\b[^>]*>/i.exec(html);
+  if (htmlMatch) {
+    const at = htmlMatch.index + htmlMatch[0].length;
+    return html.slice(0, at) + tag + html.slice(at);
+  }
+  return tag + html;
+};
+
 const fetchDeploymentRow = async (slug, env) => {
   const headers = {};
   const appCheckToken = await getAppCheckToken(env);
@@ -247,7 +303,11 @@ const fetchDeploymentRow = async (slug, env) => {
     ok: true,
     row: {
       name: doc.fields?.name?.stringValue || null,
-      storage_path: doc.fields?.storage_path?.stringValue || null
+      storage_path: doc.fields?.storage_path?.stringValue || null,
+      page_names: (doc.fields?.page_names?.arrayValue?.values || [])
+        .map((v) => v.stringValue)
+        .filter((n) => typeof n === 'string' && PAGE_SEGMENT_PATTERN.test(n)),
+      bundle: doc.fields?.bundle?.booleanValue === true
     }
   };
 };
@@ -348,27 +408,53 @@ export async function onRequest(context) {
       return next();
     }
 
-    const slug = decodeURIComponent(path);
-
-    if (!slug) {
-      return notice(404, 'Nothing here', 'This address needs an app link.');
-    }
-    if (!SLUG_PATTERN.test(slug)) {
+    let decodedPath;
+    try {
+      decodedPath = decodeURIComponent(path);
+    } catch {
       return notice(404, 'Not found', 'This deployment link is not valid.');
     }
 
-    // Resolve slug -> storage object.
-    const { ok, row } = await fetchDeploymentRow(slug, env);
-    if (!ok) {
-      return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
+    if (!decodedPath) {
+      return notice(404, 'Nothing here', 'This address needs an app link.');
+    }
+    const candidates = candidatesForPath(decodedPath);
+    if (!candidates.length) {
+      return notice(404, 'Not found', 'This deployment link is not valid.');
     }
 
-    const storagePath = row?.storage_path;
+    // Resolve path -> deployment row (+ page). First candidate with a row wins.
+    let slug = null;
+    let page = null;
+    let row = null;
+    for (const candidate of candidates) {
+      const looked = await fetchDeploymentRow(candidate.slug, env);
+      if (!looked.ok) {
+        return notice(502, 'Temporarily unavailable', 'Could not look up this app. Try again shortly.');
+      }
+      if (!looked.row) continue;
+      // A page URL only counts if the deployment actually has that page.
+      if (candidate.page && candidate.page !== 'index' && !looked.row.page_names.includes(candidate.page)) continue;
+      ({ slug, row } = { slug: candidate.slug, row: looked.row });
+      page = candidate.page === 'index' ? null : candidate.page;
+      break;
+    }
+
+    let storagePath = row?.storage_path;
+    const isBundle = Boolean(row?.bundle);
 
     // Re-validate what came back from the database before using it to build a
     // URL, so a bad row can never redirect this fetch somewhere unintended.
     if (!storagePath || !STORAGE_PATH_PATTERN.test(storagePath)) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
+    }
+    // Password-protected sites hold every page in the landing object (the
+    // unlock screen routes client-side), so any page URL serves that object.
+    if (page && !isBundle) {
+      storagePath = `${storagePath.replace(/\.html$/, '')}/${page}.html`;
+      if (!STORAGE_PAGE_PATH_PATTERN.test(storagePath)) {
+        return notice(404, 'Not found', 'This page does not exist.');
+      }
     }
 
     const storageHeaders = {};
@@ -386,13 +472,20 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectLockProtection(
-      injectRemixBadge(
-        injectAnalytics(
-          injectFavicon(injectSeoDefaults(await object.text(), { url: `https://${APPS_HOSTNAME}/${slug}` })),
-          env,
+    const pageUrl = `https://${APPS_HOSTNAME}/${slug}${page ? `/${page}` : ''}`;
+    let body = await object.text();
+    if (!isBundle && row.page_names.length) body = rewritePageLinks(body, slug, row.page_names);
+
+    const html = injectSlug(
+      injectLockProtection(
+        injectRemixBadge(
+          injectAnalytics(
+            injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
+            env,
+          ),
         ),
       ),
+      slug,
     );
 
     return new Response(request.method === 'HEAD' ? null : html, {

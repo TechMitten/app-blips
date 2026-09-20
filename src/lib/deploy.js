@@ -8,6 +8,7 @@ import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 import { injectRemixBadgeSnippet } from './remixBadge';
 import { injectAiBridge, AI_SESSION_ENABLED } from './aiBridge';
+import { LANDING_PAGE, getLanding, mapPages, pageNames } from './pages';
 
 // --- Deployment ---
 //
@@ -47,6 +48,29 @@ export const makeAiToken = () => {
 
 export const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
 
+// Extra pages of a multi-page site live in a folder beside the landing object:
+// `<uid>/<token>.html` (landing) and `<uid>/<token>/<page>.html`. The serving
+// Function derives the same path from the deployment's `page_names`.
+export const pageObjectPath = (path, pageName) => `${path.replace(/[.]html$/, '')}/${pageName}`;
+
+const deleteObjectIfPresent = async (objectPath) => {
+  try {
+    await deleteObject(ref(storage, `${DEPLOY_BUCKET}/${objectPath}`));
+  } catch (error) {
+    if (error?.code !== 'storage/object-not-found') {
+      throw new Error(error.message || 'Failed to remove deployment.');
+    }
+  }
+};
+
+// Deletes the uploaded page objects of `previous` that `keep` no longer covers
+// (a redeploy that dropped pages, or switched to a password bundle).
+export const removeStalePages = async (path, previousPageObjects = [], keep = []) => {
+  for (const name of previousPageObjects) {
+    if (!keep.includes(name)) await deleteObjectIfPresent(pageObjectPath(path, name));
+  }
+};
+
 // `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal-a7f3`. The
 // random tail keeps slugs globally unique without letting one account squat on
 // a plain name, and keeps other people's links unguessable.
@@ -69,7 +93,8 @@ export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 // the primary key, so a collision with someone else's app is refused by RLS
 // rather than silently stealing their link; retry with a longer tail.
 export const registerDeployment = async ({
-  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId, aiEnabled, aiToken
+  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId, aiEnabled, aiToken,
+  pageNames: extraPageNames = [], bundle = false
 }) => {
   let candidate = slug;
 
@@ -86,6 +111,10 @@ export const registerDeployment = async ({
           user_id: userId,
           project_id: String(projectId ?? ''),
           storage_path: storagePath,
+          // Non-landing pages. With `bundle` (password protected) every page is
+          // inside the landing object and no page objects exist.
+          page_names: extraPageNames,
+          bundle: Boolean(bundle),
           name: name || null,
           analyticsEnabled: Boolean(analyticsEnabled),
           analyticsWebsiteId: analyticsWebsiteId || null,
@@ -125,13 +154,8 @@ export const removeDeployment = async (deployment) => {
   if (!deployment) return;
   if (deployment.slug) await unregisterDeployment(deployment.slug);
   if (deployment.path) {
-    try {
-      await deleteObject(ref(storage, `${DEPLOY_BUCKET}/${deployment.path}`));
-    } catch (error) {
-      if (error?.code !== 'storage/object-not-found') {
-        throw new Error(error.message || 'Failed to remove deployment.');
-      }
-    }
+    await removeStalePages(deployment.path, deployment.pageObjects);
+    await deleteObjectIfPresent(deployment.path);
   }
 };
 
@@ -164,34 +188,48 @@ export const sweepUserDeployments = async (uid) => {
   if (failures.length) throw new Error(failures[0].message || 'Failed to remove published apps.');
 };
 
-export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon, analyticsWebsiteId, aiEnabled, aiToken }) => {
+// Uploads every page of the site and reports how it was stored: `pageObjects`
+// are the extra pages uploaded as their own objects; `bundled` means a password
+// deploy put all pages inside the single encrypted landing object.
+export const uploadDeploy = async ({ path, files, password, preventIndexing, favicon, analyticsWebsiteId, aiEnabled, aiToken }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
-  let withExtras = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
-  // Session mode stops embedding the durable deployment token in the shipped
-  // HTML entirely; the page mints short-lived tokens at runtime instead.
-  if (aiEnabled) withExtras = injectAiBridge(withExtras, { token: AI_SESSION_ENABLED ? null : aiToken });
-  if (analyticsWebsiteId) {
-    withExtras = injectAppAnalyticsSnippet(withExtras, analyticsWebsiteId);
-  }
-  if (preventIndexing) {
-    withExtras = injectNoindexSnippet(withExtras);
-  }
-  withExtras = injectFaviconSnippet(withExtras, deployFavicon);
-  const finalHtml = password ? await encryptApp(withExtras, password, deployFavicon) : withExtras;
+  const withExtras = (html) => {
+    let out = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
+    // Session mode stops embedding the durable deployment token in the shipped
+    // HTML entirely; the page mints short-lived tokens at runtime instead.
+    if (aiEnabled) out = injectAiBridge(out, { token: AI_SESSION_ENABLED ? null : aiToken });
+    if (analyticsWebsiteId) out = injectAppAnalyticsSnippet(out, analyticsWebsiteId);
+    if (preventIndexing) out = injectNoindexSnippet(out);
+    return injectFaviconSnippet(out, deployFavicon);
+  };
+  const pages = mapPages(files, withExtras);
+  const extraNames = pageNames(pages).filter((n) => n !== LANDING_PAGE);
+  const bundled = Boolean(password) && extraNames.length > 0;
 
-  try {
-    const storageRef = ref(storage, `${DEPLOY_BUCKET}/${path}`);
-    await uploadString(storageRef, finalHtml, 'raw', {
-      contentType: 'text/html; charset=utf-8',
-      cacheControl: 'public, max-age=60'
-    });
-  } catch (error) {
-    const message = error.message || '';
-    if (/unauthorized/i.test(message)) {
-      throw new Error(`Deployment was rejected by storage permissions. ${message}`);
+  const put = async (objectPath, html) => {
+    try {
+      await uploadString(ref(storage, `${DEPLOY_BUCKET}/${objectPath}`), html, 'raw', {
+        contentType: 'text/html; charset=utf-8',
+        cacheControl: 'public, max-age=60'
+      });
+    } catch (error) {
+      const message = error.message || '';
+      if (/unauthorized/i.test(message)) {
+        throw new Error(`Deployment was rejected by storage permissions. ${message}`);
+      }
+      throw new Error(message || 'Failed to deploy.');
     }
-    throw new Error(message || 'Failed to deploy.');
+  };
+
+  const landing = getLanding(pages);
+  let finalLanding = landing;
+  if (password) finalLanding = await encryptApp(bundled ? pages : landing, password, deployFavicon);
+  await put(path, finalLanding);
+
+  if (!bundled) {
+    for (const name of extraNames) await put(pageObjectPath(path, name), pages[name]);
   }
+  return { pageNames: extraNames, pageObjects: bundled ? [] : extraNames, bundled };
 };

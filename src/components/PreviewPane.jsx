@@ -3,6 +3,7 @@ import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
   ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, MousePointerClick
 } from 'lucide-react';
+import { pageLabel } from '../lib/pages';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
@@ -46,6 +47,7 @@ export default function PreviewPane({
   isGenerating,
   generationStatus,
   liveCodeRef,
+  liveCodePage = null,
   isAutoFixing,
   autoFixMessage,
   onCancelGeneration,
@@ -68,6 +70,13 @@ export default function PreviewPane({
   onElementEditWithAI,
   onCancelElementSelection,
   onSelectParentElement,
+  pages = [],
+  activePage = 'index.html',
+  onSelectPage,
+  codePages = [],
+  codeActivePage = 'index.html',
+  codeWritingPage = null,
+  onSelectCodePage,
 }) {
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
@@ -332,6 +341,34 @@ export default function PreviewPane({
             purpose: the mockup is scaled by a CSS transform, so mapping the
             frame's inner bounding box to parent coordinates reliably is a
             rabbit hole; a docked card sidesteps it entirely. */}
+        {/* Desktop preview shows pages as browser tabs (DeviceMockup) and the code
+            view has its own file tabs; only the tablet/phone preview uses this
+            strip. */}
+        {pages.length > 1 && activeTab === 'preview' && previewMode !== 'desktop' && (
+          <div
+            className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-1 overflow-x-auto rounded-full border border-black/10 bg-white/90 p-1 shadow-md backdrop-blur dark:border-white/10 dark:bg-zinc-900/90"
+            role="tablist"
+            aria-label="Site pages"
+          >
+            {pages.map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                aria-selected={name === activePage}
+                onClick={() => onSelectPage?.(name)}
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  name === activePage
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                    : 'text-zinc-600 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/10'
+                }`}
+              >
+                {pageLabel(name)}
+              </button>
+            ))}
+          </div>
+        )}
+
         {studioMode === 'website' && activeTab === 'preview' && selectedElement && (
           <div className="absolute top-4 right-4 z-20 w-[300px] max-w-[calc(100%-2rem)] animate-fade-in">
             <ElementEditor
@@ -360,6 +397,7 @@ export default function PreviewPane({
             isGenerating={isGenerating}
             generationStatus={generationStatus}
             liveCodeRef={liveCodeRef}
+            liveCodePage={liveCodePage}
             hasCode={hasCode}
             isAutoFixing={isAutoFixing}
             autoFixMessage={autoFixMessage}
@@ -370,10 +408,17 @@ export default function PreviewPane({
             onNavBack={onNavBack}
             onNavForward={onNavForward}
             onReload={onReloadPreview}
+            pages={pages}
+            activePage={activePage}
+            onSelectPage={onSelectPage}
           />
         ) : (
           <CodeView
             code={code}
+            pages={codePages}
+            activePage={codeActivePage}
+            writingPage={codeWritingPage}
+            onSelectPage={onSelectCodePage}
             isGenerating={isGenerating}
             copied={copied}
             onCopy={onCopyCode}

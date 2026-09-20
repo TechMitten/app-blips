@@ -490,6 +490,12 @@ const BRIDGE_SOURCE = `(function () {
       return;
     }
     e.preventDefault();
+    // A relative link may be an internal page ("about.html", "/pricing").
+    // The parent owns the page set and swaps the document itself; it ignores
+    // anything that is not one of the project's pages.
+    if (!a.hasAttribute('download') && !/^[a-z][a-z0-9+.-]*:/i.test(raw) && raw !== '') {
+      post('navigate-page', { href: raw });
+    }
   }
   document.addEventListener('click', onLinkClick, true);
   // A form with no real destination would navigate the frame to a blank page.
@@ -840,6 +846,12 @@ const BRIDGE_SOURCE = `(function () {
         var p = nv ? (goBack ? nv.back() : nv.forward()) : (goBack ? history.back() : history.forward());
         if (p && p.committed && p.finished) { p.committed.catch(function () {}); p.finished.catch(function () {}); }
       } catch (err) { /* nothing to traverse */ }
+    } else if (d.type === 'scroll-to-hash') {
+      try {
+        var hid = String((d.payload && d.payload.hash) || '');
+        var hel = hid ? document.getElementById(hid) : null;
+        if (hel && hel.scrollIntoView) hel.scrollIntoView();
+      } catch (err) { /* no such anchor */ }
     } else if (d.type === 'select-parent') {
       editSelectParent();
     } else if (d.type === 'deselect') {

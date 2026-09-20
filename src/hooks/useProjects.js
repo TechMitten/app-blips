@@ -9,6 +9,7 @@ import { migratePreviewStorage, clearPreviewStorage, clearAllPreviewStorage } fr
 import { removeDeployment } from '../lib/deploy';
 import { clearPendingJob } from '../lib/pendingJob';
 import { migrateChatSessions } from '../lib/chatSessions';
+import { LANDING_PAGE, versionFiles } from '../lib/pages';
 
 // Project persistence: the saved-apps list (localStorage rows when
 // self-hosted, Firestore rows when signed in with Firebase enabled),
@@ -33,7 +34,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const {
     versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
     setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
-    setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
+    setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState, resetWorkspace
   } = workspace;
 
@@ -129,7 +130,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       setAiEnabled(Boolean(projectData.aiEnabled));
       setStudioMode(projectData.studioMode === 'website' ? 'website' : 'app');
       if (migrated.versions[projectData.currentVersionIndex]) {
-        setGeneratedCode(migrated.versions[projectData.currentVersionIndex].code);
+        setFiles(versionFiles(migrated.versions[projectData.currentVersionIndex]));
+        setActivePage(LANDING_PAGE);
       }
       setCurrentProjectId(projectId);
       setHasSentFirstPrompt(Boolean(projectData.versions?.length));
@@ -137,7 +139,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode, setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -296,7 +298,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setAiEnabled(Boolean(project.aiEnabled));
     setStudioMode(project.studioMode === 'website' ? 'website' : 'app');
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
-      setGeneratedCode(migrated.versions[project.currentVersionIndex].code);
+      setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));
+      setActivePage(LANDING_PAGE);
     }
     setIsProjectsListOpen(false);
     setHasSentFirstPrompt(Boolean(project.versions?.length));

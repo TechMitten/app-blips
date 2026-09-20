@@ -1,6 +1,7 @@
 import { PWA_HEAD_SNIPPET } from './pwa';
 import { UMAMI_SCRIPT_TAG } from './analytics';
 import { NOINDEX_META_TAG, DEFAULT_FAVICON_URL } from './seo';
+import { SITE_ROUTER_SOURCE } from './siteRouter';
 
 // Derives a PBKDF2 key from a string password and a random salt
 const deriveKey = async (password, salt) => {
@@ -36,7 +37,13 @@ const payloadToBase64 = (payload) => {
   });
 };
 
-export const encryptApp = async (html, password, favicon = DEFAULT_FAVICON_URL) => {
+// `input` is one HTML string, or a `{ 'index.html': html, 'about.html': html }`
+// map for a multi-page site. A multi-page site is encrypted as ONE bundle so a
+// single password unlocks every page; the unlock screen then routes between the
+// pages client-side (see siteRouter.js) without asking again.
+export const encryptApp = async (input, password, favicon = DEFAULT_FAVICON_URL) => {
+  const isBundle = typeof input !== 'string';
+  const html = isBundle ? JSON.stringify(input) : input;
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(password, salt);
@@ -60,10 +67,10 @@ export const encryptApp = async (html, password, favicon = DEFAULT_FAVICON_URL) 
   
   const base64 = await payloadToBase64(payload);
   
-  return wrapWithUnlockScreen(base64, favicon);
+  return wrapWithUnlockScreen(base64, favicon, isBundle);
 };
 
-const wrapWithUnlockScreen = (encryptedBase64, favicon = DEFAULT_FAVICON_URL) => {
+const wrapWithUnlockScreen = (encryptedBase64, favicon = DEFAULT_FAVICON_URL, isBundle = false) => {
   const faviconTag = `<link rel="icon" href="${favicon || DEFAULT_FAVICON_URL}">`;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -137,8 +144,11 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
       return false;
     }, true);
 
+${SITE_ROUTER_SOURCE}
     const encryptedBase64 = "${encryptedBase64}";
-    const storageKey = 'unlock_state_' + window.location.pathname;
+    const isBundle = ${isBundle ? 'true' : 'false'};
+    // One lockout counter for the whole site, not one per page URL.
+    const storageKey = 'unlock_state_' + (window.__APPBLIPS_SLUG__ || window.location.pathname);
     
     const getRateLimitState = () => {
       try {
@@ -234,9 +244,13 @@ ${UMAMI_SCRIPT_TAG ? `  ${UMAMI_SCRIPT_TAG}\n` : ''}  <style>
         
         saveRateLimitState({ attempts: 0, lockoutUntil: 0 });
         
-        document.open();
-        document.write(html);
-        document.close();
+        if (isBundle) {
+          siteStart(JSON.parse(html), true);
+        } else {
+          document.open();
+          document.write(html);
+          document.close();
+        }
       } catch (err) {
         const state = getRateLimitState();
         state.attempts += 1;

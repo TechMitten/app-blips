@@ -3,7 +3,11 @@ import { Code2, Check, Copy, Loader2 } from 'lucide-react';
 import { syntaxHighlightHtml } from '../lib/helpers';
 
 // Editor-styled read-only view of the generated (or streaming) HTML.
-export default function CodeView({ code, isGenerating, copied, onCopy, autoFollow = true }) {
+export default function CodeView({
+  code, isGenerating, copied, onCopy, autoFollow = true,
+  pages = [], activePage = 'index.html', writingPage = null, onSelectPage,
+}) {
+  const hasTabs = pages.length > 1;
   const scrollRef = useRef(null);
   // Tracks whether the view should keep following new lines as they stream in;
   // cleared when the user scrolls away from the bottom to read earlier code.
@@ -35,7 +39,32 @@ export default function CodeView({ code, isGenerating, copied, onCopy, autoFollo
           <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
           <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
         </div>
-        <span className="text-xs text-slate-400 font-mono">index.html</span>
+        {hasTabs ? (
+          <div className="flex min-w-0 items-end gap-0.5 self-stretch -mb-2 overflow-x-auto custom-scrollbar" role="tablist" aria-label="Site pages">
+            {pages.map((name) => {
+              const isActive = name === activePage;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => onSelectPage?.(name)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-3 py-1.5 font-mono text-xs transition-colors ${
+                    isActive
+                      ? 'border-blue-400 bg-neutral-900 text-white'
+                      : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                  }`}
+                >
+                  {name === writingPage && <Loader2 className="animate-spin text-blue-400" size={11} aria-label="Writing" />}
+                  <span>{name}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-mono">{activePage}</span>
+        )}
         <div className="flex-1"></div>
         {code && (
           <button
@@ -55,10 +84,10 @@ export default function CodeView({ code, isGenerating, copied, onCopy, autoFollo
       <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-auto bg-black custom-scrollbar">
         {code ? (
           <>
-            {isGenerating && (
+            {isGenerating && (!writingPage || writingPage === activePage) && (
               <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-blue-500/20 bg-black/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-300 backdrop-blur-sm">
                 <Loader2 className="animate-spin" size={12} />
-                <span>Streaming</span>
+                <span>{writingPage ? `Streaming ${writingPage}` : 'Streaming'}</span>
               </div>
             )}
             <div

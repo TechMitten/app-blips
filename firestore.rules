@@ -24,6 +24,13 @@ service cloud.firestore {
       || (field in before && after[field] - before[field] >= 0 && after[field] - before[field] <= 1000000);
   }
 
+  // Multi-page deployments list their extra pages; cap it so a doc can't be
+  // used to store arbitrary bulk data. Names are re-validated by the serving
+  // Function before they build any storage path.
+  function validPageNames(data) {
+    return !('page_names' in data) || (data.page_names is list && data.page_names.size() <= 12);
+  }
+
   match /databases/{database}/documents {
     match /projects/{projectId} {
       allow read, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
@@ -38,11 +45,13 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.user_id
-                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
+                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*')
+                    && validPageNames(request.resource.data);
       allow update: if request.auth != null
                     && request.auth.uid == resource.data.user_id
                     && request.resource.data.user_id == resource.data.user_id
-                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*');
+                    && request.resource.data.storage_path.matches('^' + request.auth.uid + '/.*')
+                    && validPageNames(request.resource.data);
     }
 
     // Username reservation: doc ID is the username itself, so a second

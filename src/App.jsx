@@ -38,7 +38,9 @@ import {
 } from './lib/previewStorage';
 import { sanitizeHtmlResponse } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
-import { checkSyntax, formatSyntaxErrors } from './lib/syntaxCheck';
+import { LANDING_PAGE, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
+import { formatSyntaxErrors } from './lib/syntaxCheck';
+import { checkSyntaxFiles } from './lib/pageTools';
 import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
@@ -56,6 +58,9 @@ import useDeployment from './hooks/useDeployment';
 import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
+import usePageNavigation from './hooks/usePageNavigation';
+import { buildSiteShell } from './lib/siteRouter';
+import { createZip } from './lib/zip';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -131,7 +136,25 @@ export default function App() {
   // attachmentForRequest capture in handleGenerate.
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
+  // Every version stores `files` (page filename -> HTML); `index.html` is the
+  // landing page. `generatedCode` is the landing page's HTML, which the
+  // generation and deploy paths still treat as "the app"; `activeCode` is
+  // whichever page the preview/code pane is showing.
+  const [files, setFiles] = useState({});
+  const [activePage, setActivePage] = useState(LANDING_PAGE);
+  const generatedCode = getLanding(files);
+  const activeCode = files[activePage] ?? generatedCode;
+  // Read by long-lived callbacks (reload settlement, runtime-error auto-fix).
+  const filesRef = useRef(files);
+  const activePageRef = useRef(activePage);
+  useEffect(() => {
+    filesRef.current = files;
+    activePageRef.current = activePage;
+  });
+  const clearFiles = useCallback(() => {
+    setFiles({});
+    setActivePage(LANDING_PAGE);
+  }, []);
   const [chatMode, setChatMode] = useState(loadChatMode); // 'build' or 'ask'
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
@@ -172,6 +195,18 @@ export default function App() {
   // Full text of the code as the model writes it. A ref, not state: the build
   // overlay's live peek polls it on animation frames and paces the reveal itself.
   const liveCodeRef = useRef('');
+  // Which page the live code peek is writing: { page, step?, total? } or null.
+  const [liveCodePage, setLiveCodePage] = useState(null);
+  // Body of a page being created (not in `files` yet), for the code view's tab.
+  const [streamingPageCode, setStreamingPageCode] = useState('');
+  // Pages finished during the CURRENT build ({ 'index.html': html, ... }). The
+  // first build only commits `files` when the whole run ends, so without this
+  // the code view could not show earlier pages as tabs while later ones write.
+  const [builtPages, setBuiltPages] = useState({});
+  const pageStreamRef = useRef('');
+  // Tab the user picked in the code view mid-build; overrides auto-follow.
+  const [codeTabOverride, setCodeTabOverride] = useState(null);
+  const liveCodePageRef = useRef(null);
 
   // --- Naming / new-app flow ---
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -219,6 +254,12 @@ export default function App() {
     setStreamingGeneratedCode('');
     setStreamingReply('');
     liveCodeRef.current = '';
+    setLiveCodePage(null);
+    liveCodePageRef.current = null;
+    setStreamingPageCode('');
+    setBuiltPages({});
+    pageStreamRef.current = '';
+    setCodeTabOverride(null);
     editStreamRef.current = '';
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
@@ -237,7 +278,7 @@ export default function App() {
     workspace: {
       versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
       setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
-      setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
+      setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
       // Sign-out (hosted): back to the studio-choice gate with nothing loaded.
       // Lazy so it can reference resetCurrentWorkspace, defined further down.
@@ -258,7 +299,7 @@ export default function App() {
     deployCopied, confirmUndeploy, setConfirmUndeploy, isDeployStale, deploymentUrl,
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
   } = useDeployment({
-    generatedCode, isSignedIn, user, username, projectName, currentProjectId,
+    files, isSignedIn, user, username, projectName, currentProjectId,
     currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
   });
 
@@ -362,7 +403,7 @@ export default function App() {
 
     // Check syntax one more time to ensure code integrity
     if (generatedCode) {
-      const syntax = checkSyntax(generatedCode);
+      const syntax = checkSyntaxFiles(filesRef.current);
       if (syntax.errors && syntax.errors.length > 0) {
         reloadStateRef.current.pending = false;
         if (!isAutoFixingRef.current && syntaxErrorRetriesRef.current < 2) {
@@ -387,6 +428,7 @@ export default function App() {
     handleReloadPreview();
   }, [chatMode, generatedCode, handleReloadPreview, handleSyntaxError]);
 
+
   const scheduleReloadSettlement = useCallback((delayMs = 400) => {
     if (reloadStateRef.current.timerId) {
       clearTimeout(reloadStateRef.current.timerId);
@@ -397,7 +439,14 @@ export default function App() {
   }, [confirmAndExecuteReload]);
   scheduleReloadSettlementRef.current = scheduleReloadSettlement;
 
+  const scrollToHashRef = useRef(null);
+  const pageNavRef = useRef(null);
   const handlePreviewReady = useCallback(() => {
+    const hash = pageNavRef.current?.pendingHashRef.current;
+    if (hash) {
+      pageNavRef.current.pendingHashRef.current = '';
+      scrollToHashRef.current?.(hash);
+    }
     // If a preview reload is pending for the latest build/edit/auto-fix,
     // wait a settlement period after the iframe reports ready to confirm
     // that no runtime errors fire during initial mount/execution.
@@ -443,7 +492,8 @@ export default function App() {
 
     runtimeErrorRetriesRef.current += 1;
     const errorDetails = payload?.message || 'Runtime error detected';
-    const promptText = `Fix this runtime error:\n${errorDetails}${payload?.line ? ` at line ${payload.line}` : ''}`;
+    const errorPage = activePageRef.current;
+    const promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${payload?.line ? ` at line ${payload.line}` : ''}`;
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
@@ -478,15 +528,15 @@ export default function App() {
 
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
-      generatedCode
+      activeCode
         ? injectPreviewBridge(
             // The AI shim is always present in the preview so flipping the AI
             // reel stop never recomputes srcDoc (which would reload the frame
             // and lose app state). Hosted requests are gated live in
             // usePreviewBridge; export/deploy paths still honor aiEnabled.
             !firebaseEnabled
-              ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
-              : generatedCode,
+              ? injectSelfHostedAiBridge(activeCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
+              : activeCode,
           {
             initialStorage: loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
@@ -509,7 +559,7 @@ export default function App() {
     // the already-loaded frame via usePreviewBridge's configure push.
     // aiEnabled is likewise intentionally not a dependency (see above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [generatedCode, previewReloadCount, projectStorageVersion]
+    [activeCode, previewReloadCount, projectStorageVersion]
   );
 
   // Website studio: the picker is armed only while editing is toggled on in a
@@ -528,7 +578,13 @@ export default function App() {
 
   const isPreviewEditing = studioMode === 'website' && isEditMode;
 
-  const { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward } = usePreviewBridge({
+  const pageNav = usePageNavigation({ files, activePage, setActivePage });
+  pageNavRef.current = pageNav;
+
+  const {
+    requestScreenshot, selectParentElement, deselectElement,
+    navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
+  } = usePreviewBridge({
     iframeRef,
     previewSrcDoc,
     previewToken,
@@ -540,7 +596,17 @@ export default function App() {
     editingEnabled: isPreviewEditing,
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
+    onNavigatePage: pageNav.navigateToHref,
   });
+  scrollToHashRef.current = scrollToHash;
+
+  // Back/forward walk the frame's own history (hash jumps) first, then pages.
+  const navState = {
+    canGoBack: frameNavState.canGoBack || pageNav.canPageBack,
+    canGoForward: frameNavState.canGoForward || pageNav.canPageForward,
+  };
+  const goBack = frameNavState.canGoBack ? frameGoBack : pageNav.pageBack;
+  const goForward = frameNavState.canGoForward ? frameGoForward : pageNav.pageForward;
 
   const handleToggleEditMode = useCallback(() => {
     setIsEditMode((on) => !on);
@@ -563,8 +629,8 @@ export default function App() {
   // undo/redo, history and project persistence all work unchanged. When the
   // anchor can't be matched unambiguously the edit falls back to the chat.
   const handleApplyElementEdit = useCallback((changes) => {
-    if (!selectedElement || !generatedCode) return;
-    const result = applyDirectEdit(generatedCode, selectedElement, changes);
+    if (!selectedElement || !activeCode) return;
+    const result = applyDirectEdit(activeCode, selectedElement, changes);
     if (!result.ok) {
       setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Try "Edit with AI" below.');
       return;
@@ -574,7 +640,7 @@ export default function App() {
     const newVersion = {
       id: Date.now(),
       prompt: result.summary,
-      code: result.code,
+      files: { ...files, [activePage]: result.code },
       timestamp: new Date().toLocaleTimeString(),
       editMode: 'surgical',
       editSummary: result.summary,
@@ -583,7 +649,7 @@ export default function App() {
       sessionId: currentChatSessionId,
     };
     const finalVersions = [...updatedVersions, newVersion];
-    setGeneratedCode(result.code);
+    setFiles(newVersion.files);
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
     setSelectedElement(null);
@@ -591,7 +657,7 @@ export default function App() {
       versionsToSave: finalVersions,
       indexToSave: updatedVersions.length,
     });
-  }, [selectedElement, generatedCode, versions, currentVersionIndex, currentChatSessionId, saveProject]);
+  }, [selectedElement, activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
 
   const handleElementEditWithAI = useCallback((instruction) => {
     if (!selectedElement) return;
@@ -646,7 +712,32 @@ export default function App() {
     setAttachmentError(null);
   }, []);
 
-  const codePanelCode = isGenerating ? (streamingGeneratedCode || generatedCode) : generatedCode;
+  // Code view tabs: one per page. While building, the tab follows the page the
+  // model is writing (unless the user picked one), and a page that is still
+  // being created gets a tab before it exists in `files`.
+  const writingPage = isGenerating && studioMode === 'website' ? (liveCodePage?.page ?? null) : null;
+  const codeTabs = (() => {
+    if (!isGenerating || studioMode !== 'website') return pageNames(files);
+    const all = { ...builtPages, ...files };
+    if (writingPage && !(writingPage in all)) all[writingPage] = '';
+    // The landing page is always first, even while it is the one streaming in.
+    if (writingPage === LANDING_PAGE || Object.keys(all).length > 0) all[LANDING_PAGE] ??= '';
+    return pageNames(all);
+  })();
+  const codeViewPage = isGenerating
+    ? (codeTabOverride && codeTabs.includes(codeTabOverride) ? codeTabOverride : (autoFollowCode && writingPage) || activePage)
+    : activePage;
+  const codePanelCode = isGenerating
+    ? ((codeViewPage === writingPage && (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : streamingPageCode))
+      || files[codeViewPage] || builtPages[codeViewPage]
+      || (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : '') || '')
+    : activeCode;
+  const handleSelectCodePage = (page) => {
+    // Mid-build this only changes what the code view shows; otherwise it is
+    // the same page switch as the preview's tabs.
+    if (isGenerating) setCodeTabOverride(page);
+    else pageNav.goToPage(page);
+  };
   // The chat view is active only when it has something to show. A bare
   // `hasSentFirstPrompt` / `versions.length > 0` is not enough: a cancelled or
   // failed first turn (common in Ask mode, which never produces code), or a
@@ -874,14 +965,60 @@ export default function App() {
           setGenerationStatus(chunk);
           return;
         }
+        if (kind === 'live_page') {
+          try {
+            const next = JSON.parse(chunk);
+            // The stream reports the page name alone; keep the step/total the
+            // page-creation pass announced for the same page.
+            if (next?.page) {
+              // A new page starts a fresh text stream.
+              if (liveCodePageRef.current?.page !== next.page) {
+                pageStreamRef.current = '';
+                setStreamingPageCode('');
+              }
+              const merged = { ...(liveCodePageRef.current?.page === next.page ? liveCodePageRef.current : null), ...next };
+              liveCodePageRef.current = merged;
+              setLiveCodePage(merged);
+            }
+          } catch { /* malformed marker: ignore */ }
+          return;
+        }
+        if (kind === 'live_page_done') {
+          try {
+            const done = JSON.parse(chunk);
+            if (done?.page && typeof done.html === 'string') setBuiltPages((prev) => ({ ...prev, [done.page]: done.html }));
+          } catch { /* malformed marker: ignore */ }
+          return;
+        }
+        if (kind === 'page_stream_reset') {
+          pageStreamRef.current = '';
+          liveCodeRef.current = '';
+          setStreamingPageCode('');
+          return;
+        }
+        if (kind === 'page_stream') {
+          // Plain streamed text for an additional page (see createMissingPages):
+          // same handling as the landing page's stream, but into the page-code
+          // state the code view's tab for that page reads.
+          pageStreamRef.current += chunk;
+          const html = HTML_STREAM_START_RE.test(pageStreamRef.current) ? sanitizeHtmlResponse(pageStreamRef.current) : '';
+          liveCodeRef.current = html || '';
+          setStreamingPageCode(html || '');
+          return;
+        }
         if (kind === 'edit_stream_reset') {
           editStreamRef.current = '';
           liveCodeRef.current = '';
+          setStreamingPageCode('');
           return;
         }
         if (kind === 'edit_stream') {
           editStreamRef.current = `${editStreamRef.current}${chunk}`;
           liveCodeRef.current = extractStreamedEditCode(editStreamRef.current);
+          // A page that doesn't exist yet has no code to show except what is
+          // streaming in, so the code view's tab for it needs it as state.
+          const writing = liveCodePageRef.current?.page;
+          if (writing && !(writing in filesRef.current)) setStreamingPageCode(liveCodeRef.current);
           return;
         }
         if (chatMode === 'ask') {
@@ -914,14 +1051,16 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode, files);
       isEvaluatingNewCodeRef.current = true;
-      setGeneratedCode(generationResult.code);
+      const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
+      setFiles(newFiles);
+      if (!(activePage in newFiles)) setActivePage(LANDING_PAGE);
 
       const newVersion = {
         id: Date.now(),
         prompt: currentPrompt,
-        code: generationResult.code,
+        files: newFiles,
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
@@ -944,7 +1083,7 @@ export default function App() {
       clearPendingJob();
 
       // Check syntax: verify code is valid and has no unclosed/broken syntax.
-      const syntaxCheck = checkSyntax(generationResult.code);
+      const syntaxCheck = checkSyntaxFiles(newFiles);
       const syntaxErrors = (syntaxCheck.errors && syntaxCheck.errors.length > 0)
         ? syntaxCheck.errors
         : (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
@@ -1069,29 +1208,41 @@ export default function App() {
     }
   };
 
+  // Pages as they leave the app (new tab / export): the self-hosted AI bridge is
+  // added per page here, never stored in `files`.
+  const buildOutputFiles = () => (!firebaseEnabled && aiEnabled
+    ? mapPages(files, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl }))
+    : files);
+
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
-    const outputHtml = (!firebaseEnabled && aiEnabled)
-      ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
-      : generatedCode;
+    const outputFiles = buildOutputFiles();
+    // Sibling pages have nothing to resolve against from a blob: URL, so a
+    // multi-page site opens as one document that routes between its pages.
+    const outputHtml = Object.keys(outputFiles).length > 1
+      ? buildSiteShell(outputFiles, projectName)
+      : getLanding(outputFiles);
     const blob = new Blob([outputHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
   };
 
-  // Hands the user the raw HTML file. Self-hosted mode's stand-in for Deploy
-  // (no public-URL hosting without Firebase Storage); in hosted mode it sits
-  // alongside Deploy.
+  // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
+  // one file per page (links like about.html keep working when unzipped).
+  // Self-hosted mode's stand-in for Deploy (no public-URL hosting without
+  // Firebase Storage); in hosted mode it sits alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
-    const outputHtml = (!firebaseEnabled && aiEnabled)
-      ? injectSelfHostedAiBridge(generatedCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
-      : generatedCode;
-    const blob = new Blob([outputHtml], { type: 'text/html' });
+    const outputFiles = buildOutputFiles();
+    const baseName = slugifyName(projectName) || 'app';
+    const names = pageNames(outputFiles);
+    const blob = names.length > 1
+      ? createZip(names.map((name) => ({ name, data: outputFiles[name] })))
+      : new Blob([getLanding(outputFiles)], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${slugifyName(projectName) || 'app'}.html`;
+    link.download = names.length > 1 ? `${baseName}.zip` : `${baseName}.html`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1145,7 +1296,7 @@ export default function App() {
     // If we are confirming a name for a new project triggered by a prompt,
     // or if we explicitly clicked "New App", clear the workspace.
     if (!shouldGenerateAfterNaming || (!currentProjectId && (projectName === 'Untitled App' || projectName === 'Untitled Website'))) {
-      setGeneratedCode('');
+      clearFiles();
       setPrompt(shouldGenerateAfterNaming ? prompt : ''); // Keep prompt if we're about to generate
       setError(null);
       setVersions([]);
@@ -1201,7 +1352,9 @@ export default function App() {
       // nothing was built yet -- so restoring it would roll back or blank
       // the mockup for no reason.)
       if (versions[index].editMode !== 'ask') {
-        setGeneratedCode(versions[index].code);
+        const restored = versionFiles(versions[index]);
+        setFiles(restored);
+        if (!(activePage in restored)) setActivePage(LANDING_PAGE);
       }
       if (currentProjectId) {
         saveProject({
@@ -1277,7 +1430,7 @@ export default function App() {
     }
     setIsGenerating(false);
     clearStreamingState();
-    setGeneratedCode('');
+    clearFiles();
     setPrompt('');
     setAttachment(null);
     setAttachmentError(null);
@@ -1764,12 +1917,20 @@ export default function App() {
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
               onReloadPreview={handleReloadPreview}
+              pages={pageNames(files)}
+              codePages={codeTabs}
+              codeActivePage={codeViewPage}
+              codeWritingPage={writingPage}
+              onSelectCodePage={handleSelectCodePage}
+              activePage={activePage}
+              onSelectPage={pageNav.goToPage}
               navState={navState}
               onNavBack={goBack}
               onNavForward={goForward}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
+              liveCodePage={studioMode === 'website' ? liveCodePage : null}
               isAutoFixing={isAutoFixing}
               autoFixMessage={autoFixMessage}
               onCancelGeneration={handleCancelGeneration}

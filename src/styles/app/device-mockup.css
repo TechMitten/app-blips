@@ -343,6 +343,33 @@
   box-shadow: 0 -1px 0 rgba(2, 6, 23, 0.06);
 }
 
+.device-browser-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.device-browser-tab-button {
+  flex: 0 1 200px;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  box-shadow: none;
+}
+
+.device-browser-tab-button:not(.is-active):hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.device-browser-tab-button.is-active {
+  background: #f8fafc;
+  box-shadow: 0 -1px 0 rgba(2, 6, 23, 0.06);
+}
+
 .device-browser-favicon {
   width: 16px;
   height: 16px;
@@ -532,6 +559,22 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
 }
 
 :is(html.dark, .force-dark) .device-browser-tab {
+  background: #252525;
+  box-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .device-browser-tab-button {
+  background: transparent;
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .device-browser-tab-button:not(.is-active):hover {
+  background: rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .device-browser-tab-button.is-active {
   background: #252525;
   box-shadow:
     0 -1px 0 rgb(255 255 255 / 0.06),

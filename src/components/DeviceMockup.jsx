@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
+import { pageLabel } from '../lib/pages';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
 
 const BUILDING_MESSAGES = [
@@ -252,7 +253,7 @@ const PeekLine = memo(function PeekLine({ text }) {
   return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text) }} />;
 });
 
-function LiveCodePeek({ codeRef, className = '' }) {
+function LiveCodePeek({ codeRef, page = null, className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
 
   useEffect(() => {
@@ -288,7 +289,9 @@ function LiveCodePeek({ codeRef, className = '' }) {
     <div className={`live-code-peek w-[min(600px,92%)] text-left animate-fade-in-up ${className}`} aria-hidden="true">
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
-        <span className="live-code-peek-label">writing code</span>
+        <span className="live-code-peek-label">{page?.page ? 'writing' : 'writing code'}</span>
+        {page?.page && <span key={page.page} className="live-code-peek-page">{page.page}</span>}
+        {page?.total > 1 && <span className="live-code-peek-step">{page.step} of {page.total}</span>}
       </div>
       <pre className="live-code-peek-body">
         <code>
@@ -316,6 +319,7 @@ export default function DeviceMockup({
   isGenerating,
   generationStatus,
   liveCodeRef = null,
+  liveCodePage = null,
   hasCode,
   isAutoFixing = false,
   autoFixMessage = null,
@@ -326,7 +330,11 @@ export default function DeviceMockup({
   onNavBack,
   onNavForward,
   onReload,
+  pages = [],
+  activePage = 'index.html',
+  onSelectPage,
 }) {
+  const isMultiPage = pages.length > 1;
   const box = fillSize && mode === 'desktop' ? fillSize : getEffectivePreviewBox(mode, orientation);
   const isSyntaxErrorAutoFix = Boolean(
     generationStatus?.toLowerCase().includes('syntax') ||
@@ -370,12 +378,33 @@ export default function DeviceMockup({
                 <span className="device-desktop-light device-desktop-light-amber"></span>
                 <span className="device-desktop-light device-desktop-light-green"></span>
               </div>
-              <div className="device-browser-tab">
-                <span className="device-browser-favicon">
-                  <Sparkles size={10} strokeWidth={2.5} />
-                </span>
-                <span className="device-browser-tab-title">{tabTitle.trim() || 'app-preview.local'}</span>
-              </div>
+              {isMultiPage ? (
+                <div className="device-browser-tabs" role="tablist" aria-label="Site pages">
+                  {pages.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      role="tab"
+                      aria-selected={name === activePage}
+                      className={`device-browser-tab device-browser-tab-button${name === activePage ? ' is-active' : ''}`}
+                      onClick={() => onSelectPage?.(name)}
+                      title={pageLabel(name)}
+                    >
+                      <span className="device-browser-favicon">
+                        <Sparkles size={10} strokeWidth={2.5} />
+                      </span>
+                      <span className="device-browser-tab-title">{pageLabel(name)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="device-browser-tab">
+                  <span className="device-browser-favicon">
+                    <Sparkles size={10} strokeWidth={2.5} />
+                  </span>
+                  <span className="device-browser-tab-title">{tabTitle.trim() || 'app-preview.local'}</span>
+                </div>
+              )}
             </div>
             <div className="device-browser-toolbar">
               <div className="device-browser-nav">
@@ -409,7 +438,7 @@ export default function DeviceMockup({
               </div>
               <div className="device-browser-addressbar">
                 <Lock size={12} strokeWidth={2.25} className="device-browser-lock" />
-                <span className="device-browser-url">app-preview.local</span>
+                <span className="device-browser-url">{isMultiPage && activePage !== 'index.html' ? `app-preview.local/${activePage.replace(/\.html$/, '')}` : 'app-preview.local'}</span>
                 <Star size={13} strokeWidth={2} className="device-browser-star" />
               </div>
               <div className="device-browser-actions">
@@ -566,7 +595,7 @@ export default function DeviceMockup({
                   transform doesn't affect layout, so the top margin clears the
                   magnified spinner/status block. */}
               {isGenerating && !isErrorAutoFix && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} className={mode === 'desktop' ? 'mt-20' : mode === 'tablet' ? 'mt-16' : 'mt-8'} />
+                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} className={mode === 'desktop' ? 'mt-20' : mode === 'tablet' ? 'mt-16' : 'mt-8'} />
               )}
             </div>
           )}
