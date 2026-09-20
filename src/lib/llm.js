@@ -12,8 +12,6 @@ import {
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   CHAT_REPLY_SYSTEM_PROMPT,
   WEBSITE_CHAT_REPLY_SYSTEM_PROMPT,
-  PROMPT_ENHANCEMENT_SYSTEM_PROMPT,
-  WEBSITE_PROMPT_ENHANCEMENT_SYSTEM_PROMPT,
   buildInitialGenerationPrompt,
   buildWebsiteInitialGenerationPrompt,
   buildSyntaxRepairInstruction
@@ -119,28 +117,6 @@ export const generateChatReply = async ({
   });
 
   const text = (streamed || message.content || '').trim();
-  return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
-};
-
-// Rewrites the user's draft prompt into a clearer, more actionable one via a
-// single non-streaming completion. Purely textual -- never touches app code
-// or triggers a build; the caller is responsible for putting the result back
-// into the prompt input without submitting it.
-export const enhancePrompt = async ({ prompt, currentCode = null, signal = null, studioMode = 'app' }) => {
-  const isWebsite = studioMode === 'website';
-  const codeLabel = isWebsite ? 'Current Website Code' : 'Current App Code';
-  const messages = [
-    { role: 'system', content: isWebsite ? WEBSITE_PROMPT_ENHANCEMENT_SYSTEM_PROMPT : PROMPT_ENHANCEMENT_SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: currentCode
-        ? `${codeLabel}:\n\`\`\`html\n${currentCode.length > 6000 ? `${currentCode.slice(0, 3000)}\n...[truncated]...\n${currentCode.slice(-3000)}` : currentCode}\n\`\`\`\n\nInstruction to improve: ${prompt}`
-        : `Instruction to improve: ${prompt}`
-    }
-  ];
-
-  const message = await requestModelText({ messages, reasoningEffort: 'none', signal });
-  const text = (message.content || message || '').trim();
   return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
 };
 

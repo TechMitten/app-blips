@@ -101,6 +101,8 @@ export default function SettingsModal({
   onSkipSplashChange,
   autoFollowCode,
   onAutoFollowCodeChange,
+  liveCodePreview,
+  onLiveCodePreviewChange,
   buildPaneSide,
   onBuildPaneSideChange,
   reasoningEffort,
@@ -257,6 +259,9 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-follow" title="Auto Follow Code" description="Auto-scroll the Code tab to follow the latest line as the app is generated.">
                 <Switch checked={autoFollowCode} onChange={onAutoFollowCodeChange} labelledBy="set-follow" />
+              </SettingRow>
+              <SettingRow id="set-livecode" title="Live code preview" description="Show the code being written in the preview pane while an app is generated.">
+                <Switch checked={liveCodePreview} onChange={onLiveCodePreviewChange} labelledBy="set-livecode" />
               </SettingRow>
               <SettingRow id="set-splash" title="Skip splash screen" description="Skip the intro animation on launch. Takes effect on the next page load.">
                 <Switch checked={skipSplash} onChange={onSkipSplashChange} labelledBy="set-splash" />

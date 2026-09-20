@@ -28,8 +28,6 @@ export default function BuildPanel({
   prompt,
   onPromptChange,
   onSubmit,
-  onEnhancePrompt,
-  isEnhancingPrompt = false,
   onCancelGeneration,
   onChatModeChange,
   onNewChat,
@@ -186,8 +184,6 @@ export default function BuildPanel({
           prompt={prompt}
           onPromptChange={onPromptChange}
           onSubmit={onSubmit}
-          onEnhancePrompt={onEnhancePrompt}
-          isEnhancingPrompt={isEnhancingPrompt}
           onCancelGeneration={onCancelGeneration}
           isGenerating={isGenerating}
           isChatActive={isChatActive}
