@@ -35,6 +35,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   function deploymentSlug() {
+    if (window.__APPBLIPS_SLUG__) return String(window.__APPBLIPS_SLUG__);
     var path = location.pathname.replace(/^[/]+/, '').replace(/[/]+$/, '');
     try { return decodeURIComponent(path); } catch (err) { return path; }
   }

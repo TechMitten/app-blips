@@ -2,12 +2,16 @@ import authProvider from './auth';
 import { firebaseEnabled } from '../firebase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
+import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
+import {
+  LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
+} from './pages';
 import {
   buildHtmlSystemPrompt,
   
   REFINEMENT_TOOLS,
-  
-  
+  getRefinementTools,
+  buildCreatePageInstruction,
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
@@ -219,7 +223,11 @@ export const requestModelText = async ({
     let text = '';
     let reasoning = '';
     let toolCallsBuffer = [];
-    let editStreamStarted = false;
+    // One live-preview segment per streamed tool call, so a turn that edits
+    // several pages doesn't blur them into one stream.
+    let lastStreamedIdx = -1;
+    const streamedArgs = {};
+    const streamedPage = {};
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -277,12 +285,21 @@ export const requestModelText = async ({
                   toolCallsBuffer[idx].function.arguments += tc.function.arguments;
                   // Surgical-edit arguments are the only "code being written"
                   // on the refinement path; surface them for the live peek.
-                  if (toolCallsBuffer[idx].function.name === 'apply_surgical_edits') {
-                    // Once per stream, so a network retry or the next
-                    // refinement turn starts the peek fresh.
-                    if (!editStreamStarted) {
-                      editStreamStarted = true;
+                  const streamedName = toolCallsBuffer[idx].function.name;
+                  if (streamedName === 'apply_surgical_edits' || streamedName === 'create_page') {
+                    // A new tool call (or a retry / the next refinement turn,
+                    // which restarts at index 0) starts the peek fresh.
+                    if (idx !== lastStreamedIdx) {
+                      lastStreamedIdx = idx;
+                      streamedArgs[idx] = '';
+                      streamedPage[idx] = null;
                       onChunk('', 'edit_stream_reset');
+                    }
+                    streamedArgs[idx] += tc.function.arguments;
+                    const page = sniffStreamedPage(streamedName, streamedArgs[idx]);
+                    if (page && page !== streamedPage[idx]) {
+                      streamedPage[idx] = page;
+                      onChunk(JSON.stringify({ page }), 'live_page');
                     }
                     onChunk(tc.function.arguments, 'edit_stream');
                   }
@@ -311,6 +328,9 @@ export const requestModelText = async ({
 };
 
 export const MAX_REFINEMENT_TURNS = 8;
+// Multi-page edits touch several files (one tool call per page), so give them more turns.
+export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
+export const MAX_LINK_REPAIR_ATTEMPTS = 2;
 export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
 export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
@@ -325,8 +345,12 @@ export const describeToolCall = (toolCall) => {
   }
   if (name === 'apply_surgical_edits') {
     const count = Array.isArray(args.edits) ? args.edits.length : 1;
-    return `Applying ${count} edit${count === 1 ? '' : 's'}...`;
+    const where = args.file && args.file !== LANDING_PAGE ? ` to ${args.file}` : '';
+    return `Applying ${count} edit${count === 1 ? '' : 's'}${where}...`;
   }
+  if (name === 'create_page') return `Creating page ${args.name || ''}...`;
+  if (name === 'delete_page') return `Deleting page ${args.name || ''}...`;
+  if (name === 'list_pages') return 'Listing pages...';
   return `Calling ${name}...`;
 };
 
@@ -354,6 +378,63 @@ export const executeRefinementTool = (workingCode, toolCall) => {
   return { code: workingCode, applied: false, result: { success: false, error: `Unknown tool: ${name}` } };
 };
 
+// Website initial builds emit only index.html. If its navigation links to
+// pages that do not exist yet, create each one now (one focused call per page,
+// so every page gets the landing page's design as context). A page that fails
+// is skipped -- the link stays dead in the preview but the build still succeeds.
+//
+// Each page is requested as plain streamed text (like the landing page) rather
+// than through create_page: some providers deliver tool-call arguments as a
+// single event once the whole call is finished, which left the live views blank
+// for the entire page and looked like a hang.
+const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk }) => {
+  let result = files;
+  const targets = [...new Set(findBrokenLinks(files).map((b) => b.target))].slice(0, MAX_PAGES - 1);
+  if (onChunk && targets.length) {
+    // The landing page is finished: let the live views keep it as its own tab.
+    onChunk(JSON.stringify({ page: LANDING_PAGE, html: getLanding(files) }), 'live_page_done');
+  }
+  // Only the live views need the stream; the text deltas must not reach the
+  // transcript as chat.
+  const forwardLive = onChunk
+    ? (chunk, kind) => { if (kind === 'content') onChunk(chunk, 'page_stream'); }
+    : null;
+  for (const [i, pageName] of targets.entries()) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (onChunk) {
+      onChunk(`Creating ${pageName} (${i + 1} of ${targets.length})…`, 'status');
+      onChunk(JSON.stringify({ page: pageName, step: i + 1, total: targets.length }), 'live_page');
+    }
+    try {
+      let html = null;
+      for (let attempt = 0; attempt < 2 && html === null; attempt++) {
+        if (attempt > 0 && onChunk) onChunk('', 'page_stream_reset');
+        const message = await requestModelText({
+          messages: [
+            { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, 'website') },
+            { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files) }) }
+          ],
+          onChunk: forwardLive,
+          signal,
+          reasoningEffort: 'none'
+        });
+        html = sanitizeHtmlResponse(message.content || message || '');
+      }
+      if (html === null) throw new Error('no HTML returned');
+      const created = executeFilesTool(result, {
+        function: { name: 'create_page', arguments: JSON.stringify({ name: pageName, html }) }
+      });
+      if (!created.applied) throw new Error(created.result.error);
+      result = created.files;
+      if (onChunk) onChunk(JSON.stringify({ page: pageName, html: result[pageName] }), 'live_page_done');
+    } catch (err) {
+      if (err?.name === 'AbortError' || signal?.aborted) throw err;
+      console.warn(`[Orion] Could not create ${pageName}:`, err);
+    }
+  }
+  return result;
+};
+
 const generateAppCodeCore = async (
   prompt,
   currentCode = null,
@@ -368,9 +449,12 @@ const generateAppCodeCore = async (
   aiMode = 'hosted',
   isAutoFix = false,
   reasoningEffort = 'none',
-  studioMode = 'app'
+  studioMode = 'app',
+  currentFiles = null
 ) => {
   const isWebsite = studioMode === 'website';
+  // Pages of the site so far. Non-website projects only ever have index.html.
+  const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = isWebsite ? 'website' : 'app';
   const buildInitialPrompt = isWebsite
     ? buildWebsiteInitialGenerationPrompt
@@ -388,7 +472,7 @@ const generateAppCodeCore = async (
       {
         role: 'user',
         content: buildUserContent(
-          currentCode ? `Current App Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nQuestion: ${prompt}` : prompt,
+          currentCode ? `${formatFilesForPrompt(startFiles, 'App')}\n\nQuestion: ${prompt}` : prompt,
           attachment
         )
       }
@@ -475,6 +559,7 @@ const generateAppCodeCore = async (
         if (onChunk) onChunk('No code returned — retrying…', 'status');
       }
 
+      if (onChunk && isWebsite) onChunk(JSON.stringify({ page: LANDING_PAGE }), 'live_page');
       const message = await requestModelText({
         messages,
         onChunk,
@@ -565,8 +650,14 @@ const generateAppCodeCore = async (
       }
     }
 
+    let files = makeFiles(code);
+    if (isWebsite) {
+      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk });
+    }
+
     return {
       code,
+      files,
       editMode: 'full-generation',
       editSummary: `Initial ${noun} generation.`,
       reply,
@@ -586,13 +677,17 @@ const generateAppCodeCore = async (
     {
       role: 'user',
       content: buildUserContent(
-        `Current ${noun} Code:\n\`\`\`html\n${currentCode}\n\`\`\`\n\nTask: ${prompt}. Use apply_surgical_edits to update the ${noun}. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`,
+        `${formatFilesForPrompt(startFiles, noun)}\n\nTask: ${prompt}. Use apply_surgical_edits to update the ${noun}. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`,
         attachment
       )
     }
   ];
 
-  let workingCode = currentCode;
+  let workingFiles = startFiles;
+  let linkRepairCycles = 0;
+  const maxTurns = isWebsite ? MAX_WEBSITE_REFINEMENT_TURNS : MAX_REFINEMENT_TURNS;
+  // Every result carries the whole site so callers can persist all pages.
+  const filesResult = () => ({ code: getLanding(workingFiles), files: workingFiles });
   let editsApplied = false;
   let nudged = false;
   let replyParts = [];
@@ -608,10 +703,10 @@ const generateAppCodeCore = async (
   const syntaxResultFields = () =>
     syntaxErrors.length ? { syntaxErrors } : {};
 
-  for (let turn = 1; turn <= MAX_REFINEMENT_TURNS; turn++) {
+  for (let turn = 1; turn <= maxTurns; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-    const currentTools = REFINEMENT_TOOLS;
+    const currentTools = getRefinementTools(studioMode);
 
     let message;
     try {
@@ -658,8 +753,16 @@ const generateAppCodeCore = async (
           nudgeSyntaxRepair();
           continue;
         }
+        // Multi-page sites: don't finish while a page links to one that doesn't exist.
+        const brokenLinks = isWebsite ? findBrokenLinks(workingFiles) : [];
+        if (brokenLinks.length && linkRepairCycles < MAX_LINK_REPAIR_ATTEMPTS) {
+          linkRepairCycles++;
+          if (onChunk) onChunk('Fixing links between pages…', 'status');
+          messages.push({ role: 'user', content: buildBrokenLinkInstruction(brokenLinks) });
+          continue;
+        }
         return {
-          code: workingCode,
+          ...filesResult(),
           editMode: 'surgical',
           editSummary: prompt,
           reply: introReply || replyParts.join(' ').trim() || undefined,
@@ -679,7 +782,7 @@ const generateAppCodeCore = async (
         const { question: q } = parseClarifyingQuestionArgs(toolCall.function.arguments);
 
         return {
-          code: workingCode,
+          ...filesResult(),
           editMode: 'clarify',
           editSummary: prompt,
           reply: q,
@@ -688,8 +791,8 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-      const { code: nextCode, applied, result } = executeRefinementTool(workingCode, toolCall);
-      workingCode = nextCode;
+      const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);
+      workingFiles = nextFiles;
       if (applied) editsApplied = true;
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
@@ -698,7 +801,7 @@ const generateAppCodeCore = async (
     // parses, inject the errors as corrective context and let the model fix
     // them with the same tools before the loop is allowed to finish.
     if (editsApplied) {
-      syntaxErrors = checkSyntax(workingCode).errors;
+      syntaxErrors = checkSyntaxFiles(workingFiles).errors;
       if (syntaxErrors.length && syntaxRepairCycles < MAX_SYNTAX_REPAIR_ATTEMPTS) {
         syntaxRepairCycles++;
         if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
@@ -721,9 +824,9 @@ const generateAppCodeCore = async (
   }
 
   if (editsApplied) {
-    syntaxErrors = checkSyntax(workingCode).errors;
+    syntaxErrors = checkSyntaxFiles(workingFiles).errors;
     return {
-      code: workingCode,
+      ...filesResult(),
       editMode: 'surgical',
       editSummary: prompt,
       reply: introReply || replyParts.join(' ').trim() || undefined,

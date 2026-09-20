@@ -20,12 +20,14 @@ export default function usePreviewBridge({
   editingEnabled = false,
   onElementSelected,
   onElementDeselected,
+  onNavigatePage,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
   const onReadyRef = useRef(onReady);
   const onStorageChangeRef = useRef(onStorageChange);
   const onElementSelectedRef = useRef(onElementSelected);
   const onElementDeselectedRef = useRef(onElementDeselected);
+  const onNavigatePageRef = useRef(onNavigatePage);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
   // ref instead of closing over the prop so a `load` handler attached by a
@@ -58,6 +60,7 @@ export default function usePreviewBridge({
     onStorageChangeRef.current = onStorageChange;
     onElementSelectedRef.current = onElementSelected;
     onElementDeselectedRef.current = onElementDeselected;
+    onNavigatePageRef.current = onNavigatePage;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
   });
@@ -187,6 +190,12 @@ export default function usePreviewBridge({
           }, data.token);
         });
       }
+      else if (data.type === 'navigate-page') {
+        // Untrusted href from the frame: the handler only acts on it if it
+        // resolves to one of the project's own pages.
+        const href = data.payload?.href;
+        if (typeof href === 'string' && href.length < 500 && onNavigatePageRef.current) onNavigatePageRef.current(href);
+      }
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
       }
@@ -284,8 +293,9 @@ export default function usePreviewBridge({
     sendRef.current('deselect', {});
   }, []);
 
+  const scrollToHash = useCallback((hash) => sendRef.current('scroll-to-hash', { hash }), []);
   const goBack = useCallback(() => sendRef.current('nav-back', {}), []);
   const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
 
-  return { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward };
+  return { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward, scrollToHash };
 }

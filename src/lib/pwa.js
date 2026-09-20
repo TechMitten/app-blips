@@ -18,13 +18,17 @@ export const PWA_HEAD_SNIPPET = `<link rel="manifest" id="orion-pwa-manifest">
 <link rel="apple-touch-icon" id="orion-pwa-touch-icon">
 <script>
 (function () {
-  var base = '/_pwa' + location.pathname.replace(/\\/+$/, '');
+  // The serving Function sets window.__APPBLIPS_SLUG__ (a page such as
+  // /my-site/about must still resolve to the site's own manifest); fall back to
+  // the path for anything served without it.
+  var root = window.__APPBLIPS_SLUG__ ? '/' + window.__APPBLIPS_SLUG__ : location.pathname.replace(/\\/+$/, '');
+  var base = '/_pwa' + root;
   var link = document.getElementById('orion-pwa-manifest');
   if (link) link.setAttribute('href', base + '/manifest.webmanifest');
   var touch = document.getElementById('orion-pwa-touch-icon');
   if (touch) touch.setAttribute('href', '/apple-touch-icon.png');
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register(base + '/sw.js', { scope: location.pathname }).catch(function () {});
+    navigator.serviceWorker.register(base + '/sw.js', { scope: root || '/' }).catch(function () {});
   }
 })();
 </script>`;

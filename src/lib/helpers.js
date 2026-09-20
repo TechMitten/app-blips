@@ -88,12 +88,13 @@ const unescapeJsonFragment = (fragment) =>
     .replace(/\\(["\\/nrt])/g, (_, c) => ({ n: '\n', r: '', t: '  ' }[c] ?? c))
     .replace(/\\$/, '');
 
-// Pulls the code being written out of partially streamed apply_surgical_edits
-// arguments: the (possibly still unterminated) "replace" string of every edit,
-// joined in order. Search strings are skipped -- they're the old code.
+// Pulls the code being written out of partially streamed tool arguments: the
+// (possibly still unterminated) "replace" string of every apply_surgical_edits
+// edit, or the "html" string of create_page, joined in order. Search strings
+// are skipped -- they're the old code.
 export const extractStreamedEditCode = (argsJson) => {
   const parts = [];
-  const re = /"replace"\s*:\s*"((?:[^"\\]|\\.)*)("|$)/g;
+  const re = /"(?:replace|html)"\s*:\s*"((?:[^"\\]|\\.)*)("|$)/g;
   let m;
   while ((m = re.exec(argsJson)) !== null) {
     parts.push(unescapeJsonFragment(m[1]));

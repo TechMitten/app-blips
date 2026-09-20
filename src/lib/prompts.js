@@ -52,7 +52,7 @@ export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analy
 If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build a game", "make an app", or "make it better" without specifying what kind of features or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
 Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
 
-export const WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build or edit single-file websites.
+export const WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build or edit websites.
 If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build me a website", "a site for my business", or "make it better" without specifying what kind of site, content, or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
 Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
 
@@ -63,7 +63,7 @@ Do NOT call the tool if the request is straightforward, specific, or gives enoug
 export const CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in an app-building chat. The user has just asked to build a new single-file web app or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The app itself is generated separately after your reply, so never include or describe code.`;
 
-export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new single-file website or change an existing one.
+export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new website or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The website itself is generated separately after your reply, so never include or describe code.`;
 
 export const VIEW_CODE_TOOL = {
@@ -101,6 +101,105 @@ export const LIST_SECTIONS_TOOL = {
 };
 
 export const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIONS_TOOL];
+
+// --- Multi-page websites -------------------------------------------------
+// Website projects can hold several pages. The three inspect/edit tools gain a
+// required-but-nullable `file` (strict mode needs every property required);
+// null means the landing page, index.html. Three page-management tools are
+// added. Any new tool name must also be added to ALLOWED_TOOL_NAMES in
+// functions/_lib/chatProxy.js or hosted mode rejects it.
+const FILE_PARAM = {
+  type: ['string', 'null'],
+  description: 'Page filename to operate on, e.g. "about.html". Null for the landing page (index.html).'
+};
+
+const withFileParam = (tool) => ({
+  ...tool,
+  function: {
+    ...tool.function,
+    parameters: {
+      ...tool.function.parameters,
+      // `file` first: it streams before the (large) code arguments, so the live
+      // preview can say which page is being written.
+      properties: { file: FILE_PARAM, ...tool.function.parameters.properties },
+      required: [...tool.function.parameters.required, 'file']
+    }
+  }
+});
+
+export const CREATE_PAGE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'create_page',
+    description: 'Creates a new dedicated page for the website as a complete, standalone HTML document (same head, styling, navigation and footer as the landing page). Fails if the page already exists -- use apply_surgical_edits to change an existing page.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Lowercase filename ending in .html, using only letters, digits and hyphens, e.g. "about.html" or "our-menu.html". Never "index.html".' },
+        html: { type: 'string', description: 'The full HTML document for the page, beginning at <!DOCTYPE html>.' }
+      },
+      required: ['name', 'html'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
+export const DELETE_PAGE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'delete_page',
+    description: 'Deletes a page from the website. The landing page (index.html) cannot be deleted. After deleting, remove or retarget every link to it with apply_surgical_edits.',
+    parameters: {
+      type: 'object',
+      properties: { name: { type: 'string', description: 'Filename of the page to delete, e.g. "about.html".' } },
+      required: ['name'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
+
+export const LIST_PAGES_TOOL = {
+  type: 'function',
+  function: {
+    name: 'list_pages',
+    description: 'Lists every page in the website with its title and size. Ground truth -- call this before assuming a page exists.',
+    parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+    strict: true
+  }
+};
+
+export const WEBSITE_REFINEMENT_TOOLS = [
+  withFileParam(SURGICAL_EDIT_TOOL),
+  withFileParam(VIEW_CODE_TOOL),
+  withFileParam(LIST_SECTIONS_TOOL),
+  CREATE_PAGE_TOOL,
+  DELETE_PAGE_TOOL,
+  LIST_PAGES_TOOL
+];
+
+export const getRefinementTools = (studioMode = 'app') =>
+  studioMode === 'website' ? WEBSITE_REFINEMENT_TOOLS : REFINEMENT_TOOLS;
+
+// The extra pages of an initial build are requested as plain streamed text, like
+// the landing page: some providers (e.g. z.ai GLM) do not stream tool-call
+// arguments, so a create_page tool call would show nothing until the whole page
+// finished.
+export const buildCreatePageInstruction = ({ pageName, request, landingHtml }) => `The website's landing page (index.html) is below. It links to a page named "${pageName}" that does not exist yet. Write it now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.
+
+Original request: ${request}
+
+Rules for the new page:
+- It must be a complete standalone HTML document that reuses the landing page's exact <head> styling setup (Tailwind CDN, fonts, palette, theme), navigation bar and footer, so the site feels like one website. Mark this page's link in the navigation as the current one.
+- Give it its own unique <title>, meta description, Open Graph tags, a single <h1>, and real, substantial content appropriate to the page's purpose (infer it from the filename, the navigation label and the request). Static HTML only.
+- Link to other pages by relative filename (e.g. href="index.html", href="about.html"); link back to landing sections as href="index.html#section-id". Only link to pages that exist or that appear in the landing page's navigation.
+- Wrap each region in <!-- @section: name --> landmark comments.
+
+Landing page (index.html):
+\`\`\`html
+${landingHtml}
+\`\`\``;
 
 export const HTML_SYSTEM_PROMPT = `You are an expert frontend developer and UX designer. 
 Generate a single self-contained HTML file that implements the user's requested app. "Self-contained" describes the delivery format -- one file, no build step -- not the technology: that file may carry inline CSS, an import map, and module scripts pulling real libraries from a CDN (see rule 5).
@@ -241,8 +340,17 @@ const HOSTED_AI_PROMPT = `The hosted platform supplies AI. Never call a provider
 const BYOK_AI_PROMPT = `This is a self-hosted BYOK app. The injected blip.ai bridge opens its standard provider configuration dialog on the first text request. Do not build or store custom API-key fields. You may provide an AI Settings action that calls blip.ai.configure(), and a disconnect action that calls blip.ai.clearConfiguration(). Explain that each person using a shared static app supplies their own key.`;
 const RELAY_AI_PROMPT = `This self-hosted operator configured a server relay. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
 
+const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
+- A website is a set of pages: index.html is the landing page and every other page is its own file such as about.html or pricing.html. Each page is a complete standalone HTML document.
+- Only create separate pages when the user asks for them (e.g. "an about page", "a multi-page site", "add a pricing page") or the request clearly calls for a multi-page site. Otherwise keep everything on the landing page and link between sections with #anchors.
+- Link between pages with relative filenames: href="about.html", href="index.html". To reach a landing section from another page use href="index.html#contact". Never use absolute paths, full URLs or folders for internal pages.
+- Every page repeats the same <head> setup (Tailwind CDN, fonts, theme), navigation bar and footer, with the current page marked in the nav, so the site is consistent. When the navigation or footer changes, apply the same edit to every page (use the file parameter of apply_surgical_edits once per page).
+- Each page has its own <title>, meta description, Open Graph tags and single <h1>.
+- Initial generation: output only index.html. If the request needs other pages, link to them from the navigation by filename; they are created in a follow-up step.
+- Editing: use list_pages to see the pages, and pass file to view_code, list_sections and apply_surgical_edits to target a page (omit it for index.html). Use create_page for a new page and delete_page to remove one, then fix any links that pointed at it.`;
+
 export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted", studioMode = "app") => {
-  const base = studioMode === "website" ? WEBSITE_HTML_SYSTEM_PROMPT : HTML_SYSTEM_PROMPT;
+  const base = studioMode === "website" ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT : HTML_SYSTEM_PROMPT;
   if (!aiEnabled) return base;
   const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : (aiMode === "relay" ? RELAY_AI_PROMPT : HOSTED_AI_PROMPT);
   return base + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;

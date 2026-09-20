@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { storage, firebaseEnabled } from '../firebase';
-import { ref, deleteObject } from 'firebase/storage';
+import { firebaseEnabled } from '../firebase';
 import {
-  registerDeployment, unregisterDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
-  deployUrlForSlug, deployObjectPath, makeAiToken, DEPLOY_BUCKET
+  registerDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
+  deployUrlForSlug, deployObjectPath, makeAiToken, removeStalePages, removeDeployment
 } from '../lib/deploy';
+import { getLanding } from '../lib/pages';
 import { createAnalyticsWebsite } from '../lib/appAnalytics';
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
@@ -13,7 +13,7 @@ import { createAnalyticsWebsite } from '../lib/appAnalytics';
 // self-hosted equivalent, so every action here is a no-op unless
 // firebaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
-  generatedCode, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
+  files, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
   deployment, setDeployment, saveProject, aiEnabled
 }) {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
@@ -41,7 +41,7 @@ export default function useDeployment({
   };
 
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
-    if (!generatedCode || isDeploying) return false;
+    if (!getLanding(files) || isDeploying) return false;
     if (!firebaseEnabled) {
       setDeployError('Deploy is not available in self-hosted mode.');
       return false;
@@ -75,8 +75,8 @@ export default function useDeployment({
         websiteId = deployment?.analyticsWebsiteId || await createAnalyticsWebsite(desiredSlug);
       }
 
-      // `generatedCode` only -- never the bridge-injected preview srcDoc.
-      await uploadDeploy({ path, html: generatedCode, password, preventIndexing, favicon, analyticsWebsiteId: websiteId, aiEnabled, aiToken });
+      // The site's own `files` only -- never the bridge-injected preview srcDoc.
+      const uploaded = await uploadDeploy({ path, files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId, aiEnabled, aiToken });
 
       const slug = await registerDeployment({
         slug: desiredSlug,
@@ -87,13 +87,20 @@ export default function useDeployment({
         analyticsEnabled,
         analyticsWebsiteId: websiteId,
         aiEnabled,
-        aiToken
+        aiToken,
+        pageNames: uploaded.pageNames,
+        bundle: uploaded.bundled
       });
+
+      // Pages dropped since the last deploy (or folded into a password bundle)
+      // must stop being served from storage.
+      await removeStalePages(path, deployment?.pageObjects, uploaded.pageObjects);
 
       const next = {
         slug,
         url: deployUrlForSlug(slug),
         path,
+        pageObjects: uploaded.pageObjects,
         deployedAt: new Date().toISOString(),
         versionId: currentVersionId,
         analyticsEnabled,
@@ -119,14 +126,7 @@ export default function useDeployment({
     setDeployError(null);
 
     try {
-      if (deployment.slug) await unregisterDeployment(deployment.slug);
-
-      try {
-        const storageRef = ref(storage, `${DEPLOY_BUCKET}/${deployment.path}`);
-        await deleteObject(storageRef);
-      } catch (removeError) {
-        throw new Error(removeError.message || 'Failed to remove deployment.');
-      }
+      await removeDeployment(deployment);
 
       setDeployment(null);
       setConfirmUndeploy(false);

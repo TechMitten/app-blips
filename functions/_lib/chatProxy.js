@@ -256,6 +256,9 @@ const ALLOWED_TOOL_NAMES = new Set([
   'ask_clarifying_questions',
   'view_code',
   'list_sections',
+  'create_page',
+  'delete_page',
+  'list_pages',
 ]);
 const ALLOWED_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
 const ALLOWED_EFFORTS = new Set(['none', 'off', 'disabled', 'minimal', 'low', 'medium', 'high']);
