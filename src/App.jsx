@@ -153,7 +153,7 @@ export default function App() {
   // project's data lands. Cleared once the resume attempt (successful or not)
   // finishes.
   const [isResumingProject, setIsResumingProject] = useState(
-    () => Boolean(localStorage.getItem('orion-current-project-id'))
+    () => (firebaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
   );
   const [projectName, setProjectName] = useState('Untitled App');
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -236,6 +236,9 @@ export default function App() {
       setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
       setGeneratedCode, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
+      // Sign-out (hosted): back to the studio-choice gate with nothing loaded.
+      // Lazy so it can reference resetCurrentWorkspace, defined further down.
+      resetWorkspace: () => resetCurrentWorkspace(null),
     },
   });
 
@@ -704,7 +707,9 @@ export default function App() {
     const job = loadPendingJob();
     if (!job) return;
     // The current project id is captured via closure; use the ref-based value.
-    const resumedId = localStorage.getItem('orion-current-project-id') || null;
+    const resumedId = firebaseEnabled
+      ? currentProjectId
+      : localStorage.getItem('orion-current-project-id') || null;
     const jobBelongsHere =
       (job.projectId ?? null) === (resumedId ?? null);
     if (jobBelongsHere) {
@@ -718,6 +723,7 @@ export default function App() {
     }
     // If the job belongs to a different project, leave the record intact but
     // don't surface it — the user can encounter it by opening that project.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per resume; currentProjectId is already settled then
   }, [isResumingProject]);
 
   const handleShowCodeViewChange = (value) => {
@@ -1560,9 +1566,7 @@ export default function App() {
         />
       )}
 
-      {authToast && (
-        <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
-      )}
+      <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
 
       {isAuthModalOpen && firebaseEnabled && (
         <AuthModal onClose={handleCloseAuthModal} />
