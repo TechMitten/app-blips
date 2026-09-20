@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
+import ImageLightbox from './ImageLightbox';
 
 // The mode control is one slot-machine reel with three stops. "AI" means Build
 // with AI text generation enabled, so the three are mutually exclusive and
@@ -44,6 +45,7 @@ export default function PromptInput({
   // derived from both chatMode and aiEnabled; the reel animates to that stop.
   const selectedMode = chatMode === 'ask' ? 'ask' : aiEnabled ? 'ai' : 'build';
 
+  const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   const [reelIndex, setReelIndex] = useState(MODE_INDEX[selectedMode]);
   const [spinning, setSpinning] = useState(false);
   const [lastMode, setLastMode] = useState(selectedMode);
@@ -121,11 +123,19 @@ export default function PromptInput({
       {attachment && (
         <div className="flex items-center gap-2 px-3 sm:px-4 pt-3">
           <div className="relative shrink-0">
-            <img
-              src={attachment.dataUrl}
-              alt={attachment.name || 'Attached image'}
-              className="w-11 h-11 rounded-lg object-cover border-2 border-slate-300 dark:border-white/20 shadow-2xs"
-            />
+            <button
+              type="button"
+              onClick={() => setIsAttachmentOpen(true)}
+              aria-label="View attached image full size"
+              title="View full size"
+              className="block cursor-zoom-in"
+            >
+              <img
+                src={attachment.dataUrl}
+                alt={attachment.name || 'Attached image'}
+                className="w-11 h-11 rounded-lg object-cover border-2 border-slate-300 dark:border-white/20 shadow-2xs"
+              />
+            </button>
             <button
               type="button"
               onClick={onRemoveAttachment}
@@ -140,6 +150,13 @@ export default function PromptInput({
             {attachment.name || 'Attached image'}
           </span>
         </div>
+      )}
+      {attachment && isAttachmentOpen && (
+        <ImageLightbox
+          src={attachment.dataUrl}
+          alt={attachment.name || 'Attached image'}
+          onClose={() => setIsAttachmentOpen(false)}
+        />
       )}
       {attachmentError && (
         <p className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{attachmentError}</p>
