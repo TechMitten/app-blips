@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import authProvider from '../lib/auth';
-import { User, Mail, KeyRound, Trash2, X, AlertTriangle, LogOut } from 'lucide-react';
+import { User, Mail, KeyRound, X, AlertTriangle, LogOut } from 'lucide-react';
 
 export default function AccountSettingsModal({ user, username, usernameLoading, onClose, onSignOut }) {
   const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger

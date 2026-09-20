@@ -3,10 +3,10 @@ import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extra
 import { checkSyntax } from './syntaxCheck';
 import {
   buildHtmlSystemPrompt,
-  SURGICAL_EDIT_TOOL,
+  
   REFINEMENT_TOOLS,
-  VIEW_CODE_TOOL,
-  LIST_SECTIONS_TOOL,
+  
+  
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,

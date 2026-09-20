@@ -7,8 +7,11 @@
          here would kill the generated app's inline scripts and the Tailwind CDN
          (and script-src 'self' would additionally break the dev server, whose
          React-Refresh preamble is inlined). frame-ancestors is ignored in a
-         meta tag -- it is set as a real header in vite.config.js. -->
-    <meta http-equiv="Content-Security-Policy" content="base-uri 'none'; object-src 'none'" />
+         meta tag -- it is set as a real header in vite.config.js.
+         base-uri allows only about: so the preview bridge can pin a srcdoc
+         frame's base to about:srcdoc (dead links become no-ops instead of
+         navigating the frame to this origin); no web origin is permitted. -->
+    <meta http-equiv="Content-Security-Policy" content="base-uri about:; object-src 'none'" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

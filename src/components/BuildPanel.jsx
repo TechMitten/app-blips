@@ -33,6 +33,7 @@ export default function BuildPanel({
   onCancelGeneration,
   onChatModeChange,
   onNewChat,
+  onRewind,
   chatBottomRef,
   interruptedJob = null,
   onRetryInterruptedJob,
@@ -156,6 +157,7 @@ export default function BuildPanel({
                 chatMode={chatMode}
                 studioMode={studioMode}
                 chatBottomRef={chatBottomRef}
+                onRewind={onRewind}
               />
             </>
           )}
