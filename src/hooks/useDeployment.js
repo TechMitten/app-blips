@@ -41,12 +41,12 @@ export default function useDeployment({
   };
 
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
-    if (!generatedCode || isDeploying) return;
+    if (!generatedCode || isDeploying) return false;
     if (!firebaseEnabled) {
       setDeployError('Deploy is not available in self-hosted mode.');
-      return;
+      return false;
     }
-    if (!isSignedIn || !user?.id) return;
+    if (!isSignedIn || !user?.id) return false;
 
     setIsDeploying(true);
     setDeployError(null);
@@ -102,8 +102,10 @@ export default function useDeployment({
       };
       setDeployment(next);
       saveProject({ deploymentToSave: next, force: true });
+      return true;
     } catch (err) {
       setDeployError(err.message || 'Failed to deploy.');
+      return false;
     } finally {
       setIsDeploying(false);
     }
