@@ -10,7 +10,6 @@ import HistorySidebar from './components/HistorySidebar';
 import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
-import HelpModal from './components/HelpModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
@@ -78,7 +77,6 @@ export default function App() {
     return window.matchMedia('(min-width: 1280px)').matches && stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
@@ -1321,7 +1319,6 @@ export default function App() {
 
   const startTour = () => {
     tourLayoutRef.current = { mobileView, activeTab };
-    setIsHelpOpen(false);
     setActiveTab('preview');
     setIsTourOpen(true);
   };
@@ -1394,7 +1391,6 @@ export default function App() {
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenHelp={() => setIsHelpOpen(true)}
         authStatus={authStatus}
         isSignedIn={isSignedIn}
         userEmail={user?.email}
@@ -1454,10 +1450,6 @@ export default function App() {
           reasoningEffort={reasoningEffort}
           onReasoningEffortChange={setReasoningEffort}
         />
-      )}
-
-      {isHelpOpen && (
-        <HelpModal onClose={() => setIsHelpOpen(false)} onStartTour={startTour} />
       )}
 
       {isProjectsListOpen && (

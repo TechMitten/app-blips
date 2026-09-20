@@ -8,7 +8,14 @@
 </p>
 
 <p align="center">
+  <a href="https://appblips.com">Website</a> ·
+  <a href="https://docs.appblips.com/">Documentation</a> ·
+  <a href="https://docs.appblips.com/quickstart-self-hosted">Self-hosting guide</a>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://docs.appblips.com/"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.appblips.com-080808"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
@@ -58,6 +65,10 @@ See [Quick start](#quick-start) below to pick one.
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
 - **Deploy to a public URL** *(hosted only)* — publish an app or website to its own link, installable as a PWA and optionally password-protected
+
+## Documentation
+
+Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [hosted](https://docs.appblips.com/quickstart-hosted) and [self-hosted](https://docs.appblips.com/quickstart-self-hosted) quickstarts, and feature and AI guides. The docs source is a Mintlify site in [`docs/`](docs/).
 
 ## Quick start
 
@@ -166,6 +177,7 @@ src/
   hooks/             # Stateful concerns: auth, projects, deployment, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 functions/           # Cloudflare Pages Functions: /api/chat proxy, deployed-app server
+docs/                # Mintlify source for docs.appblips.com
 server.js            # Standalone Node server for Docker self-hosted deployments
 scripts/             # Operator tooling (usage dashboard)
 testing/             # Standalone Node scripts for exercising the proxy, AI relay and preview
