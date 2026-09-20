@@ -292,7 +292,14 @@ export const requestModelText = async ({
               for (const tc of delta.tool_calls) {
                 const idx = tc.index ?? (tc.id ? toolCallsBuffer.length : Math.max(0, toolCallsBuffer.length - 1));
                 if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
-                if (tc.function?.arguments) toolCallsBuffer[idx].function.arguments += tc.function.arguments;
+                if (tc.function?.arguments) {
+                  toolCallsBuffer[idx].function.arguments += tc.function.arguments;
+                  // Surgical-edit arguments are the only "code being written"
+                  // on the refinement path; surface them for the live peek.
+                  if (toolCallsBuffer[idx].function.name === 'apply_surgical_edits') {
+                    onChunk(tc.function.arguments, 'edit_stream');
+                  }
+                }
                 if (toolCallsBuffer[idx].function.name === 'ask_clarifying_questions') {
                   onChunk('', 'clear_reply');
                 }

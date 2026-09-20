@@ -319,3 +319,88 @@
     opacity: 1;
   }
 }
+
+/* ===== Live code peek (build overlay) =====
+   A small dark editor window under the status line that follows the last few
+   lines of code as they stream in. Dark in both themes so syntax token colors
+   (base.css) always have the contrast they were tuned for. Lines are single-row,
+   clipped, and fade out toward the top so new text reads as scrolling up. */
+.live-code-peek {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d1017;
+  border: 1px solid rgb(148 163 255 / 0.16);
+  box-shadow: 0 8px 24px -8px rgb(15 23 42 / 0.35);
+}
+
+.live-code-peek-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-bottom: 1px solid rgb(148 163 255 / 0.1);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.live-code-peek-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #7c89ff;
+  animation: build-caret 1.15s steps(1, end) infinite;
+}
+
+.live-code-peek-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b93a8;
+}
+
+.live-code-peek-body {
+  margin: 0;
+  padding: 10px 14px 12px;
+  height: calc(9 * 1.55em + 22px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #d5d9e6;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 45%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 45%);
+}
+
+.live-code-peek-body .code-line { white-space: pre; overflow: hidden; }
+.live-code-peek-body .line-number { display: none; }
+.live-code-peek-body .code-line:hover { background: none; }
+.live-code-peek-body .line-content { padding-left: 0; }
+/* Undo the global inline-code chip (light background, padding, larger font) */
+.live-code-peek-body code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Caret on the line currently being written */
+.live-code-peek-body .code-line:last-child .line-content::after {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: #7c89ff;
+  animation: build-caret 1.15s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-code-peek-dot,
+  .live-code-peek-body .code-line:last-child .line-content::after { animation: none; }
+}

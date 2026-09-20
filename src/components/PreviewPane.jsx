@@ -46,6 +46,7 @@ export default function PreviewPane({
   onClearStorage,
   isGenerating,
   generationStatus,
+  liveCodeRef,
   isAutoFixing,
   autoFixMessage,
   onCancelGeneration,
@@ -289,8 +290,24 @@ export default function PreviewPane({
             </button>
           )}
 
-          {/* Deploy to a public URL (hosted mode) / Export the HTML file (self-hosted) */}
-          {hasCode && (firebaseEnabled ? (
+          {/* Export the HTML file (both modes; the primary action when self-hosted) */}
+          {hasCode && (
+            <button
+              {...(!firebaseEnabled && { 'data-tour': 'share' })}
+              onClick={onExportHtml}
+              className={firebaseEnabled
+                ? 'nav-btn nav-btn-secondary font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group'
+                : 'nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group'}
+              title="Download this app as an HTML file"
+              aria-label="Export app"
+            >
+              <Download size={14} className={firebaseEnabled ? 'text-slate-500 group-hover:text-indigo-600 transition-colors' : undefined} />
+              <span className="hidden md:inline">Export</span>
+            </button>
+          )}
+
+          {/* Deploy to a public URL (hosted mode only) */}
+          {hasCode && firebaseEnabled && (
             <button
               data-tour="share"
               aria-label="Manage deployment"
@@ -306,18 +323,7 @@ export default function PreviewPane({
                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand" />
               )}
             </button>
-          ) : (
-            <button
-              data-tour="share"
-              onClick={onExportHtml}
-              className="nav-btn brand-fill-text bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs font-semibold text-xs sm:text-sm py-1.5 sm:py-2 px-3 group"
-              title="Download this app as an HTML file"
-              aria-label="Export app"
-            >
-              <Download size={14} />
-              <span className="hidden md:inline">Export</span>
-            </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -360,6 +366,7 @@ export default function PreviewPane({
             srcDoc={previewSrcDoc}
             isGenerating={isGenerating}
             generationStatus={generationStatus}
+            liveCodeRef={liveCodeRef}
             hasCode={hasCode}
             isAutoFixing={isAutoFixing}
             autoFixMessage={autoFixMessage}

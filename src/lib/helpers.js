@@ -71,3 +71,33 @@ export const formatModifiedTime = (value) => {
 
 export const isValidUuid = (value) =>
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value || '');
+
+// Last `count` lines of a code stream, for the build overlay's live peek. Lines
+// are never clipped here (CSS clips them) so a growing line extends in place
+// instead of sliding left with every character.
+export const tailLines = (code, count = 9) => {
+  if (!code) return '';
+  return code.split('\n').slice(-count).map((line) => line.replace(/\s+$/, '').slice(0, 240)).join('\n');
+};
+
+// Decodes a JSON string body, tolerating a cut-off escape at the end.
+const unescapeJsonFragment = (fragment) =>
+  fragment
+    .replace(/\\u[0-9a-fA-F]{0,3}$/, '')
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\(["\\/nrt])/g, (_, c) => ({ n: '\n', r: '', t: '  ' }[c] ?? c))
+    .replace(/\\$/, '');
+
+// Pulls the code being written out of partially streamed apply_surgical_edits
+// arguments: the (possibly still unterminated) "replace" string of every edit,
+// joined in order. Search strings are skipped -- they're the old code.
+export const extractStreamedEditCode = (argsJson) => {
+  const parts = [];
+  const re = /"replace"\s*:\s*"((?:[^"\\]|\\.)*)("|$)/g;
+  let m;
+  while ((m = re.exec(argsJson)) !== null) {
+    parts.push(unescapeJsonFragment(m[1]));
+    if (!m[2]) break;
+  }
+  return parts.join('\n');
+};
