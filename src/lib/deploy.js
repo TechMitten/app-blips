@@ -1,6 +1,6 @@
 import { db, storage } from '../firebase';
 import { doc, deleteDoc, runTransaction } from 'firebase/firestore';
-import { ref, uploadString } from 'firebase/storage';
+import { ref, uploadString, deleteObject } from 'firebase/storage';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
@@ -115,6 +115,23 @@ export const unregisterDeployment = async (slug) => {
     await deleteDoc(doc(db, 'deployments', encodeURIComponent(slug)));
   } catch (error) {
     throw new Error(error.message || 'Failed to remove the deploy link.');
+  }
+};
+
+// Takes a project's public deployment fully offline: the slug doc (so the link
+// stops resolving) and the stored HTML object. Used when a project is deleted,
+// so no orphaned public app outlives it. A missing object counts as removed.
+export const removeDeployment = async (deployment) => {
+  if (!deployment) return;
+  if (deployment.slug) await unregisterDeployment(deployment.slug);
+  if (deployment.path) {
+    try {
+      await deleteObject(ref(storage, `${DEPLOY_BUCKET}/${deployment.path}`));
+    } catch (error) {
+      if (error?.code !== 'storage/object-not-found') {
+        throw new Error(error.message || 'Failed to remove deployment.');
+      }
+    }
   }
 };
 

@@ -12,6 +12,9 @@ import {
   updatePassword as firebaseUpdatePassword,
   updateProfile as firebaseUpdateProfile,
   deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
 } from 'firebase/auth';
 import { getToken } from 'firebase/app-check';
 
@@ -99,6 +102,21 @@ const updateProfile = async (profile) => {
 
 const deleteAccount = () => deleteUser(auth.currentUser);
 
+// 'password' | 'google.com' | 'github.com' | null -- decides how to re-verify.
+const getPrimaryProviderId = () => auth.currentUser?.providerData?.[0]?.providerId || null;
+
+// Firebase refuses sensitive operations (deleteUser) on a stale sign-in, so
+// re-verify up front, before any data is touched.
+const reauthenticate = async ({ password } = {}) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Sign in required.');
+  const providerId = getPrimaryProviderId();
+  if (providerId === 'google.com') return reauthenticateWithPopup(user, new GoogleAuthProvider());
+  if (providerId === 'github.com') return reauthenticateWithPopup(user, new GithubAuthProvider());
+  if (!password) throw new Error('Enter your password to continue.');
+  return reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+};
+
 const getIdToken = async () => {
   const user = auth.currentUser;
   if (!user) throw new Error('Sign in required.');
@@ -127,6 +145,8 @@ export default {
   updatePassword,
   updateProfile,
   deleteAccount,
+  getPrimaryProviderId,
+  reauthenticate,
   getIdToken,
   getAppCheckToken,
 };

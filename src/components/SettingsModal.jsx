@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert } from 'lucide-react';
 import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
+import authProvider from '../lib/auth';
 import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
@@ -17,6 +19,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
 
@@ -107,8 +110,54 @@ export default function SettingsModal({
   onBuildPaneSideChange,
   reasoningEffort,
   onReasoningEffortChange,
+  onDeleteAllProjects,
+  projectCount = 0,
+  onDeleteAccount,
 }) {
   const [tab, setTab] = useState(loadTab);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState(null);
+
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [accountConfirmText, setAccountConfirmText] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [deleteAccountError, setDeleteAccountError] = useState(null);
+  const needsPassword = authProvider.getPrimaryProviderId() === 'password';
+
+  const closeAccountConfirm = () => {
+    if (isDeletingAccount) return;
+    setConfirmDeleteAccount(false);
+    setAccountConfirmText('');
+    setAccountPassword('');
+    setDeleteAccountError(null);
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+    try {
+      await onDeleteAccount({ password: accountPassword });
+    } catch (err) {
+      const code = err?.code || '';
+      setDeleteAccountError(
+        /wrong-password|invalid-credential/.test(code) ? 'Incorrect password.'
+          : /popup-closed|cancelled-popup/.test(code) ? 'Verification was cancelled.'
+          : err?.message || 'Could not delete your account.'
+      );
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setIsDeletingAll(true);
+    setDeleteAllError(null);
+    const ok = await onDeleteAllProjects();
+    setIsDeletingAll(false);
+    setConfirmDeleteAll(false);
+    if (!ok) setDeleteAllError('Some apps could not be deleted. Check your connection and try again.');
+  };
   const tabRefs = useRef({});
 
   const selectTab = (id) => {
@@ -269,6 +318,44 @@ export default function SettingsModal({
             </>
           )}
 
+          {tab === 'danger' && (
+            <>
+              <SettingRow
+                id="set-delete-all"
+                title="Delete all saved apps"
+                description={deleteAllError || 'Permanently remove every saved app, including any published links and cloud copies. This cannot be undone.'}
+              >
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteAll(true)}
+                  disabled={isDeletingAll}
+                  aria-labelledby="set-delete-all"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  Delete all
+                </button>
+              </SettingRow>
+              {onDeleteAccount && (
+                <SettingRow
+                  id="set-delete-account"
+                  title="Delete account"
+                  description="Permanently delete your account, all saved apps, published links and profile. This cannot be undone."
+                >
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteAccount(true)}
+                    aria-labelledby="set-delete-account"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    Delete account
+                  </button>
+                </SettingRow>
+              )}
+            </>
+          )}
+
           {tab === 'ai' && (
             <>
               <SettingRow
@@ -300,6 +387,71 @@ export default function SettingsModal({
           Done
         </button>
       </div>
+      {confirmDeleteAccount && (
+        <ConfirmModal
+          title="Delete your account?"
+          subtitle="This permanently removes everything."
+          onClose={closeAccountConfirm}
+          onConfirm={handleDeleteAccount}
+          confirmLabel="Delete account"
+          busyLabel="Deleting…"
+          busy={isDeletingAccount}
+          confirmDisabled={accountConfirmText !== 'DELETE' || (needsPassword && !accountPassword)}
+          confirmClass="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+        >
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <span>
+              Your account, every saved app with its version history, and all published links will be permanently deleted. Your username stays reserved. This cannot be undone.
+            </span>
+          </div>
+          <label className="block text-sm text-slate-600">
+            Type <span className="font-semibold text-slate-900">DELETE</span> to confirm
+            <input
+              type="text"
+              value={accountConfirmText}
+              onChange={(e) => setAccountConfirmText(e.target.value)}
+              autoComplete="off"
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
+          {needsPassword && (
+            <label className="block text-sm text-slate-600">
+              Password
+              <input
+                type="password"
+                value={accountPassword}
+                onChange={(e) => setAccountPassword(e.target.value)}
+                autoComplete="current-password"
+                className="mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+          {!needsPassword && (
+            <p className="text-xs text-slate-500">You&apos;ll be asked to sign in again with your provider to verify it&apos;s you.</p>
+          )}
+          {deleteAccountError && <p role="alert" className="text-sm text-red-600">{deleteAccountError}</p>}
+        </ConfirmModal>
+      )}
+      {confirmDeleteAll && (
+        <ConfirmModal
+          title="Delete all saved apps?"
+          subtitle={projectCount ? `${projectCount} saved ${projectCount === 1 ? 'app' : 'apps'} will be removed.` : undefined}
+          onClose={() => { if (!isDeletingAll) setConfirmDeleteAll(false); }}
+          onConfirm={handleDeleteAll}
+          confirmLabel="Delete all"
+          busyLabel="Deleting…"
+          busy={isDeletingAll}
+          confirmClass="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+        >
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <span>
+              Every saved app and its version history will be permanently deleted, and any published public links will stop working. This cannot be undone.
+            </span>
+          </div>
+        </ConfirmModal>
+      )}
     </Modal>
   );
 }

@@ -26,6 +26,8 @@ import { TriangleAlert, Loader2 } from 'lucide-react';
 import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/deploy';
+import authProvider from './lib/auth';
+import { deleteUserProfile } from './lib/username';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { applyDirectEdit, buildElementEditPrompt } from './lib/directEdits';
 import {
@@ -226,7 +228,7 @@ export default function App() {
   // --- Projects (list / persistence) ---
   const {
     myProjects, isProjectsListOpen, setIsProjectsListOpen,
-    loadProject, saveProject, renameProject, deleteProject,
+    loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     authStatus,
     isSignedIn,
@@ -1318,6 +1320,28 @@ export default function App() {
     return ok;
   };
 
+  const handleDeleteAllProjects = async () => {
+    const ok = await deleteAllProjects();
+    // The open project is gone too (or is being removed); clear the workspace.
+    if (currentProjectId) resetCurrentWorkspace();
+    clearPendingJob();
+    return ok;
+  };
+
+  // Hosted only. Re-verify first (deleteUser rejects stale sign-ins, and by then
+  // the data would already be gone), then wipe projects + deployments, the
+  // profile doc, and finally the auth account itself. Throws with a
+  // user-facing message so the Settings dialog can show it.
+  const handleDeleteAccount = async ({ password } = {}) => {
+    if (!firebaseEnabled || !user?.id) return;
+    await authProvider.reauthenticate({ password });
+    const ok = await handleDeleteAllProjects();
+    if (!ok) throw new Error('Some of your apps could not be deleted, so your account was kept. Please try again.');
+    await deleteUserProfile(user.id);
+    await authProvider.deleteAccount();
+    setIsSettingsOpen(false);
+  };
+
   const handleRequireSignInFromDeploy = () => {
     setIsDeployModalOpen(false);
     setIsAuthModalOpen(true);
@@ -1455,6 +1479,9 @@ export default function App() {
           onBuildPaneSideChange={setBuildPaneSide}
           reasoningEffort={reasoningEffort}
           onReasoningEffortChange={setReasoningEffort}
+          onDeleteAllProjects={handleDeleteAllProjects}
+          projectCount={myProjects.length}
+          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
         />
       )}
 

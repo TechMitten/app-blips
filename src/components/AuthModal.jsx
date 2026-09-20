@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import authProvider from '../lib/auth';
-import { User, Mail, X, Loader2, Eye, EyeOff, Github } from 'lucide-react';
+import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, Github, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
+
+const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-white focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
+const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
+const LINK_CLASS = 'font-semibold text-brand hover:underline underline-offset-2 transition-colors';
+const GITHUB_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-transparent bg-slate-900 text-sm font-semibold text-white hover:bg-black dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed';
+const OAUTH_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed';
 
 // Self-contained sign-in / sign-up modal (same pattern as
 // AccountSettingsModal): owns its form state and talks to the auth adapter
@@ -87,203 +93,181 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
     }
   };
 
+  const isSignup = authMode === 'signup';
+  const isReset = authMode === 'reset';
+  const busy = authLoading || oauthLoading;
+
+  const title = isSignup ? 'Create your account' : isReset ? 'Reset your password' : 'Welcome back';
+  const subtitle = isSignup
+    ? 'Your apps and version history sync to your account and stay private to you.'
+    : isReset
+      ? "Enter your email and we'll send you a link to choose a new password."
+      : 'Sign in to keep building with AppBlips.';
+  const submitLabel = isSignup ? 'Create account' : isReset ? 'Send reset link' : 'Sign in';
+  const loadingLabel = isSignup ? 'Creating account…' : isReset ? 'Sending…' : 'Signing in…';
+  const HeaderIcon = isSignup ? UserPlus : isReset ? KeyRound : LogIn;
+
   return (
     <Modal zIndex={80}>
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-            <User size={18} />
+      <div className="px-6 pt-6 pb-2 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+            <HeaderIcon size={20} />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            {authMode === 'signup' ? 'Create your account' : authMode === 'reset' ? 'Reset your password' : 'Welcome Back!'}
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">{title}</h2>
+            <p className="mt-0.5 text-sm text-slate-500 leading-snug">{subtitle}</p>
+          </div>
         </div>
         {dismissible && (
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            className="-mr-2 -mt-1 text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-brand/40 outline-none transition-colors"
             aria-label="Close"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         )}
       </div>
 
-      <form onSubmit={handleAuthSubmit} className="p-6 space-y-5">
+      <form onSubmit={handleAuthSubmit} className="px-6 pt-4 pb-6 space-y-5">
+        {!isReset && (
+          <div role="tablist" aria-label="Authentication mode" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+            {[['signin', 'Sign in'], ['signup', 'Sign up']].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={authMode === mode}
+                onClick={() => handleAuthModeSwitch(mode)}
+                className={`rounded-lg py-2 text-sm font-semibold transition-all ${
+                  authMode === mode ? 'bg-surface text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {authInfo && (
-          <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800 leading-relaxed flex items-start gap-3">
-            <Mail size={18} className="text-green-500 shrink-0 mt-0.5" />
+          <div role="status" className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800 leading-relaxed flex items-start gap-3">
+            <MailCheck size={18} className="text-green-600 shrink-0 mt-0.5" />
             <span>{authInfo}</span>
           </div>
         )}
         {authError && (
-          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 leading-relaxed">
-            {authError}
+          <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 leading-relaxed flex items-start gap-3">
+            <CircleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <span>{authError}</span>
           </div>
         )}
 
-        {authMode !== 'reset' && (<>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleGithubSignIn}
-            disabled={authLoading || oauthLoading}
-            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] border ${
-              oauthLoading
-                ? 'border-transparent bg-slate-700 text-slate-300 dark:bg-white/5 dark:text-white/40 dark:border-white/10 cursor-not-allowed'
-                : 'border-transparent bg-slate-900 text-white hover:bg-black dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15'
-            }`}
-          >
-            {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : <Github size={18} />}
-            GitHub
-          </button>
+        {!isReset && (<>
+          <div className="space-y-2.5">
+            <button type="button" onClick={handleGithubSignIn} disabled={busy} className={GITHUB_CLASS}>
+              {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : <Github size={18} />}
+              {isSignup ? 'Sign up with GitHub' : 'Sign in with GitHub'}
+            </button>
+            <button type="button" onClick={handleGoogleSignIn} disabled={busy} className={OAUTH_CLASS}>
+              {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : (
+                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+              )}
+              {isSignup ? 'Sign up with Google' : 'Sign in with Google'}
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={authLoading || oauthLoading}
-            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-sm font-bold shadow-sm transition-colors active:scale-[0.98] border ${
-              oauthLoading
-                ? 'border-slate-200 bg-slate-50 text-slate-400 dark:bg-white/5 dark:text-white/40 dark:border-white/10 cursor-not-allowed'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white dark:border-white/15'
-            }`}
-          >
-            {oauthLoading ? <Loader2 className="animate-spin" size={18} /> : (
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-            )}
-            Google
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 text-xs font-medium text-slate-400 uppercase tracking-wider">
-          <div className="h-px flex-1 bg-slate-100" />
-          or
-          <div className="h-px flex-1 bg-slate-100" />
-        </div>
+          <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
+            <div className="h-px flex-1 bg-slate-200" />
+            {isSignup ? 'or sign up with email' : 'or sign in with email'}
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
         </>)}
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-            <input
-              autoFocus
-              type="email"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
-          </div>
-          {authMode !== 'reset' && (<div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+            <label htmlFor="auth-email" className={LABEL_CLASS}>Email</label>
             <div className="relative">
+              <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
-                type={showAuthPassword ? 'text' : 'password'}
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 pr-10 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                id="auth-email"
+                autoFocus
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className={INPUT_CLASS}
               />
-              <button
-                type="button"
-                onClick={() => setShowAuthPassword((v) => !v)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-800 transition-colors"
-                aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
-              >
-                {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
             </div>
-            {authMode === 'signin' && (
-              <div className="mt-1.5 text-right">
+          </div>
+          {!isReset && (
+            <div>
+              <div className="flex items-baseline justify-between">
+                <label htmlFor="auth-password" className={LABEL_CLASS}>Password</label>
+                {authMode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => handleAuthModeSwitch('reset')}
+                    className="text-xs font-semibold text-slate-500 hover:text-brand transition-colors mb-1.5"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  id="auth-password"
+                  type={showAuthPassword ? 'text' : 'password'}
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder={isSignup ? 'Create a password' : 'Enter your password'}
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  className={`${INPUT_CLASS} pr-11`}
+                />
                 <button
                   type="button"
-                  onClick={() => handleAuthModeSwitch('reset')}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  onClick={() => setShowAuthPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
                 >
-                  Forgot password?
+                  {showAuthPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
-            )}
-          </div>)}
-        </div>
-
-        {authMode === 'reset' ? (
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Enter the email you signed up with and we'll send you a link to choose a new password.
-          </p>
-        ) : authMode === 'signup' ? (
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Your generated apps and version history sync to your account and are only visible to you.
-          </p>
-        ) : (
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Sign in to start creating apps with AppBlips.
-          </p>
-        )}
-
-        <div className="flex justify-end gap-3 pt-1">
-          {dismissible && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-            >
-              Cancel
-            </button>
+              {isSignup && <p className="mt-1.5 text-xs text-slate-500">Use at least 6 characters.</p>}
+            </div>
           )}
-          <button
-            type="submit"
-            disabled={authLoading || oauthLoading}
-            className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] ${
-              authLoading
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm'
-            }`}
-          >
-            {authLoading && <Loader2 className="animate-spin" size={15} />}
-            {authMode === 'signup' ? 'Create account' : authMode === 'reset' ? 'Send reset link' : 'Sign in'}
-          </button>
         </div>
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {authLoading && <Loader2 className="animate-spin" size={16} />}
+          {authLoading ? loadingLabel : submitLabel}
+        </button>
       </form>
 
-      <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center text-sm">
-        {authMode === 'reset' ? (
+      <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center text-sm text-slate-600">
+        {isReset ? (
           <>Remembered it?{' '}
-            <button
-              type="button"
-              onClick={() => handleAuthModeSwitch('signin')}
-              className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              Back to sign in
-            </button>
+            <button type="button" onClick={() => handleAuthModeSwitch('signin')} className={LINK_CLASS}>Back to sign in</button>
           </>
-        ) : authMode === 'signup' ? (
+        ) : isSignup ? (
           <>Already have an account?{' '}
-            <button
-              type="button"
-              onClick={() => handleAuthModeSwitch('signin')}
-              className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              Sign in
-            </button>
+            <button type="button" onClick={() => handleAuthModeSwitch('signin')} className={LINK_CLASS}>Sign in</button>
           </>
         ) : (
           <>New to AppBlips?{' '}
-            <button
-              type="button"
-              onClick={() => handleAuthModeSwitch('signup')}
-              className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              Create an account
-            </button>
+            <button type="button" onClick={() => handleAuthModeSwitch('signup')} className={LINK_CLASS}>Create an account</button>
           </>
         )}
       </div>

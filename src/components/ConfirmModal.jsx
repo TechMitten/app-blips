@@ -10,6 +10,7 @@ export default function ConfirmModal({
   confirmLabel,
   busyLabel,
   busy = false,
+  confirmDisabled = false,
   confirmClass,
   icon: Icon,
   children,
@@ -37,7 +38,7 @@ export default function ConfirmModal({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || confirmDisabled}
           className={confirmClass}
         >
           {Icon && <Icon size={14} />}

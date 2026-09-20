@@ -50,6 +50,8 @@ export default {
   updatePassword: noop,
   updateProfile,
   deleteAccount: noop,
+  getPrimaryProviderId: () => null,
+  reauthenticate: noop,
   getIdToken: async () => 'local-mode',
   getAppCheckToken: async () => null,
 };

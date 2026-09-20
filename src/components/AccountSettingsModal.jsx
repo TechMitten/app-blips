@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import authProvider from '../lib/auth';
-import { User, Mail, KeyRound, X, AlertTriangle, LogOut } from 'lucide-react';
+import { User, Mail, KeyRound, X, LogOut } from 'lucide-react';
 
 export default function AccountSettingsModal({ user, username, usernameLoading, onClose, onSignOut }) {
-  const [activeTab, setActiveTab] = useState('profile'); // profile, security, danger
+  const [activeTab, setActiveTab] = useState('profile'); // profile, security
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,23 +26,6 @@ export default function AccountSettingsModal({ user, username, usernameLoading, 
       setConfirmPassword('');
     } catch (updateError) {
       setError(updateError.message);
-    }
-    setLoading(false);
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!window.confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.')) {
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      await authProvider.deleteAccount();
-      onSignOut();
-      onClose();
-    } catch (deleteError) {
-      console.warn("Could not delete user:", deleteError);
-      setError('Account deletion requires recent authentication. Please sign out and sign back in before deleting your account. ' + deleteError.message);
     }
     setLoading(false);
   };
@@ -86,12 +69,6 @@ export default function AccountSettingsModal({ user, username, usernameLoading, 
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'security' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >
             Security
-          </button>
-          <button 
-            onClick={() => { setActiveTab('danger'); setMessage(''); setError(''); }}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'danger' ? 'border-rose-600 text-rose-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >
-            Danger Zone
           </button>
         </div>
 
@@ -172,25 +149,6 @@ export default function AccountSettingsModal({ user, username, usernameLoading, 
             </form>
           )}
 
-          {activeTab === 'danger' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
-                <h3 className="text-sm font-semibold text-rose-800 flex items-center gap-2 mb-2">
-                  <AlertTriangle size={16} /> Delete Account
-                </h3>
-                <p className="text-xs text-rose-700 leading-relaxed mb-4">
-                  Once you delete your account, there is no going back. Please be certain. All your saved apps and data will be permanently deleted.
-                </p>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={loading}
-                  className="px-4 py-2 bg-surface border border-rose-200 text-rose-600 hover:bg-rose-50 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Deleting...' : 'Delete My Account'}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

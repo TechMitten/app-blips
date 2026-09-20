@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 
 // Deploy slugs are `username/app-slug` and functions/[[path]].js's
 // SLUG_PATTERN caps the first segment at 39 chars of [a-z0-9-], so this stays
@@ -42,3 +42,8 @@ export const claimUsername = async (uid, rawUsername) => {
 
   return username;
 };
+
+// Account deletion: removes the profile doc. The `usernames/{username}` claim
+// is deliberately left in place -- rules forbid deleting it, which keeps a
+// departed user's name from being taken over by someone else.
+export const deleteUserProfile = (uid) => deleteDoc(doc(db, 'users', uid));

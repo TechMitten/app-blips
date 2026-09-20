@@ -62,6 +62,7 @@ service cloud.firestore {
     // pins it the same way projects/{projectId} pins user_id above.
     match /users/{uid} {
       allow read: if true;
+      allow delete: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid;
       allow update: if request.auth != null && request.auth.uid == uid
                     && (!('username' in resource.data) || !resource.data.username
