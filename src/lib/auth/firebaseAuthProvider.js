@@ -67,9 +67,20 @@ const signUp = async (email, password) => {
 
 const sendPasswordReset = (email) => sendPasswordResetEmail(auth, email);
 
-const signInWithGithub = () => signInWithPopup(auth, new GithubAuthProvider());
+const signInWithGithub = () => {
+  const provider = new GithubAuthProvider();
+  // Without user:email, users with a private GitHub email get no email on their Firebase account.
+  provider.addScope('user:email');
+  return signInWithPopup(auth, provider);
+};
 
-const signInWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
+const signInWithGoogle = () => {
+  const provider = new GoogleAuthProvider();
+  // Request explicitly so the account always gets an email (shown as the Identifier in the console).
+  provider.addScope('email');
+  provider.addScope('profile');
+  return signInWithPopup(auth, provider);
+};
 
 const signOut = () => firebaseSignOut(auth);
 
