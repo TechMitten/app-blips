@@ -239,6 +239,7 @@ export const requestModelText = async ({
     let text = '';
     let reasoning = '';
     let toolCallsBuffer = [];
+    let editStreamStarted = false;
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -297,6 +298,12 @@ export const requestModelText = async ({
                   // Surgical-edit arguments are the only "code being written"
                   // on the refinement path; surface them for the live peek.
                   if (toolCallsBuffer[idx].function.name === 'apply_surgical_edits') {
+                    // Once per stream, so a network retry or the next
+                    // refinement turn starts the peek fresh.
+                    if (!editStreamStarted) {
+                      editStreamStarted = true;
+                      onChunk('', 'edit_stream_reset');
+                    }
                     onChunk(tc.function.arguments, 'edit_stream');
                   }
                 }
