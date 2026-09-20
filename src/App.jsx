@@ -463,12 +463,6 @@ export default function App() {
     [currentProjectId]
   );
 
-  const handleClearPreviewStorage = useCallback(() => {
-    clearPreviewStorage(currentProjectId);
-    previewStorageRef.current = {};
-    handleReloadPreview();
-  }, [currentProjectId, handleReloadPreview]);
-
   useEffect(() => {
     // Only bump preview storage version when switching between distinct existing projects,
     // avoiding spurious iframe reloads during initial project auto-save (null -> newId).
@@ -525,7 +519,7 @@ export default function App() {
 
   const isPreviewEditing = studioMode === 'website' && isEditMode;
 
-  const { requestScreenshot, selectParentElement, deselectElement } = usePreviewBridge({
+  const { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward } = usePreviewBridge({
     iframeRef,
     previewSrcDoc,
     previewToken,
@@ -1651,6 +1645,7 @@ export default function App() {
           {/* Preview/Device Area (opposite side) */}
           <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
             <PreviewPane
+              projectName={projectName}
               activeTab={activeTab}
               onTabChange={setActiveTab}
               showCodeView={showCodeView}
@@ -1682,7 +1677,9 @@ export default function App() {
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
               onReloadPreview={handleReloadPreview}
-              onClearStorage={handleClearPreviewStorage}
+              navState={navState}
+              onNavBack={goBack}
+              onNavForward={goForward}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}

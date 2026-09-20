@@ -1,0 +1,190 @@
+---
+title: "blip.ai API Reference: text(), configure(), and Errors"
+sidebarTitle: "blip.ai API"
+description: "Reference for blip.ai.text(), configure(), isConfigured(), and clearConfiguration() — the AI JavaScript API available in every AI-enabled AppBlips app."
+---
+
+When you generate an app with the AI toggle enabled, AppBlips injects the `blip` global into your app's JavaScript environment. The main entry point is `blip.ai.text()`, but AppBlips also exposes `BLIP.AI.TEXT` (uppercase) and the legacy alias `ai.chat` — all three point to the same function. You can use whichever form you prefer in your prompt, and the generated code will call the API correctly.
+
+## blip.ai.text(messages, options)
+
+Sends a list of messages to the configured AI provider and returns the model's reply. In BYOK mode, if no provider has been connected yet, this call automatically opens the **Connect your AI provider** dialog before proceeding.
+
+<ParamField body="messages" type="array" required>
+  An array of message objects that form the conversation. Each object must have a `role` (`"user"` or `"assistant"`) and a `content` string.
+
+  ```javascript
+  [
+    { role: "user", content: "What is the capital of France?" }
+  ]
+  ```
+</ParamField>
+
+<ParamField body="options" type="object">
+  Optional settings for this request.
+
+  <Expandable title="options properties">
+    <ParamField body="temperature" type="number">
+      Controls how creative or deterministic the response is. Passed directly to the provider. When omitted, the provider's default is used.
+    </ParamField>
+    <ParamField body="maxTokens" type="number">
+      Maximum number of tokens the model should generate. When omitted, the provider's default is used.
+    </ParamField>
+    <ParamField body="onChunk" type="function">
+      When provided, the response is streamed. This function is called with each text chunk as it arrives. The full resolved text is still returned when the Promise settles.
+
+      ```javascript
+      (chunk) => { /* chunk is a string */ }
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Returns:** `Promise<{ text: string }>` — a Promise that resolves to an object with a single `text` property containing the complete response.
+
+**Basic example:**
+
+```javascript
+const result = await blip.ai.text([
+  { role: "user", content: "Write a haiku about cats." }
+]);
+console.log(result.text);
+```
+
+**Streaming example:**
+
+```javascript
+await blip.ai.text(
+  [{ role: "user", content: "Tell me a short story." }],
+  {
+    onChunk: (chunk) => {
+      document.getElementById("output").textContent += chunk;
+    }
+  }
+);
+```
+
+**Multi-turn conversation example:**
+
+```javascript
+const history = [
+  { role: "user", content: "I need a name for my bakery." },
+  { role: "assistant", content: "How about 'The Golden Crumb'?" },
+  { role: "user", content: "Give me something a bit more playful." }
+];
+
+const result = await blip.ai.text(history);
+console.log(result.text);
+```
+
+---
+
+## blip.ai.configure()
+
+Opens the **Connect your AI provider** dialog programmatically, letting the user update their endpoint, model, and API key at any time. Returns a Promise that resolves when the user saves their settings and rejects with a `configuration_required` error if they cancel.
+
+In relay mode this resolves immediately without showing any dialog, because the provider is configured server-side.
+
+```javascript
+// Wire to a settings button
+document.getElementById("settings-btn").addEventListener("click", async () => {
+  try {
+    await blip.ai.configure();
+    console.log("Provider connected.");
+  } catch (err) {
+    if (err.code === "configuration_required") {
+      console.log("User cancelled.");
+    }
+  }
+});
+```
+
+---
+
+## blip.ai.isConfigured()
+
+Synchronous. Returns `true` if a provider is currently connected (BYOK credentials are stored in this browser) or if the mode is relay. Returns `false` if the user has not yet connected a provider in BYOK mode.
+
+Use this to decide whether to show a setup prompt before the user's first AI action.
+
+```javascript
+if (!blip.ai.isConfigured()) {
+  await blip.ai.configure();
+}
+
+const result = await blip.ai.text([
+  { role: "user", content: "Suggest a daily goal." }
+]);
+```
+
+---
+
+## blip.ai.clearConfiguration()
+
+Disconnects the currently configured provider and removes stored credentials from both `sessionStorage` and `localStorage`. After calling this, `isConfigured()` returns `false` and the next `blip.ai.text()` call will open the **Connect your AI provider** dialog again.
+
+This has no effect in relay mode.
+
+```javascript
+blip.ai.clearConfiguration();
+```
+
+---
+
+## Error Handling
+
+All `blip.ai.text()` errors are thrown as `Error` objects with a `code` property. Wrap your AI calls in `try/catch` and inspect `error.code` to handle different failure cases gracefully.
+
+```javascript
+try {
+  const result = await blip.ai.text([
+    { role: "user", content: prompt }
+  ]);
+  displayResult(result.text);
+} catch (err) {
+  switch (err.code) {
+    case "configuration_required":
+      showMessage("Please connect an AI provider to continue.");
+      break;
+    case "unauthorized":
+      showMessage("Your API key is invalid or has expired. Re-enter it in Settings.");
+      break;
+    case "rate_limited":
+      showMessage("Too many requests — wait a moment and try again.");
+      break;
+    case "payload_too_large":
+      showMessage("Your message is too long. Please shorten it and try again.");
+      break;
+    case "upstream_error":
+      showMessage("The AI provider returned an error. Try again in a moment.");
+      break;
+    case "network":
+      showMessage("Could not reach the AI provider. Check your connection.");
+      break;
+    default:
+      showMessage("Something went wrong. Please try again.");
+  }
+}
+```
+
+The full set of error codes:
+
+| Code | When it occurs |
+|---|---|
+| `unauthorized` | The API key is expired, invalid, or no provider has been configured |
+| `rate_limited` | The provider or relay has received too many requests in a short window |
+| `payload_too_large` | The message array is too long for the provider to accept |
+| `upstream_error` | The AI provider returned a 5xx server error |
+| `network` | A network or connection problem prevented the request from completing |
+| `configuration_required` | The user cancelled the BYOK connect dialog |
+
+---
+
+## Aliases
+
+AppBlips exposes `blip.ai.text` under two additional names for convenience:
+
+- **`BLIP.AI.TEXT`** — uppercase alias; identical to `blip.ai.text`. Useful if your prompt used uppercase and the generated code uses it.
+- **`ai.chat`** — legacy alias from earlier versions of AppBlips; still supported.
+
+All three call the same underlying function and behave identically.

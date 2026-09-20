@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
@@ -40,6 +40,7 @@ export default function usePreviewBridge({
   // Set inside the effect below on every run, so requestScreenshot (called
   // imperatively, outside that effect) always addresses the live frame.
   const sendRef = useRef(() => {});
+  const [navState, setNavState] = useState({ canGoBack: false, canGoForward: false });
   // Editing state is read via ref (not closure) inside push/teardown so the
   // main effect below does not need editingEnabled as a dependency -- a
   // toggle must not re-run the whole handshake effect.
@@ -183,6 +184,9 @@ export default function usePreviewBridge({
           }, data.token);
         });
       }
+      else if (data.type === 'nav-state') {
+        setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
+      }
       else if (data.type === "error") console.warn('[preview bridge]', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
@@ -277,5 +281,8 @@ export default function usePreviewBridge({
     sendRef.current('deselect', {});
   }, []);
 
-  return { requestScreenshot, selectParentElement, deselectElement };
+  const goBack = useCallback(() => sendRef.current('nav-back', {}), []);
+  const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
+
+  return { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward };
 }

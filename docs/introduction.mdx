@@ -1,0 +1,105 @@
+---
+title: "Introduction to AppBlips: Build Apps from Plain English"
+sidebarTitle: "Introduction"
+description: "AppBlips generates working single-file React apps from plain-English prompts. Learn what you can build and how to choose between hosted and self-hosted."
+---
+
+AppBlips is a text-to-app generator built for people who have ideas, not for professional developers. You describe what you want in plain English — "a habit tracker with checkboxes and a progress bar" or "a quiz about world capitals" — and AppBlips builds it as a real, interactive app you can use right away. There is no code to write, no project to set up, and no build step to run. Whether you are a designer, a student, a small-business owner, or simply someone who wants to prototype an idea quickly, AppBlips gives you a working app in seconds.
+
+## What You Can Build
+
+AppBlips generates any app that fits inside a single web page. Here are some popular starting points:
+
+<CardGroup cols={2}>
+  <Card title="Todo list" icon="list-check">
+    A clean task manager with add, complete, and delete — ready to use immediately.
+  </Card>
+  <Card title="Budget tracker" icon="circle-dollar-sign">
+    Log income and expenses, see a running balance, and visualize spending at a glance.
+  </Card>
+  <Card title="Habit tracker" icon="calendar-check">
+    Daily checklists, streaks, and a progress bar to keep you on track.
+  </Card>
+  <Card title="Quiz app" icon="circle-question">
+    Multiple-choice questions, a score counter, and instant feedback on every answer.
+  </Card>
+  <Card title="Mini game" icon="gamepad">
+    Simple browser games — memory cards, word puzzles, reaction timers, and more.
+  </Card>
+  <Card title="Any web tool" icon="wrench">
+    Unit converters, calculators, planners, timers — if you can describe it, AppBlips can build it.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Type a prompt describing your app">
+    Write a plain-English description of the app you want. Be as specific or as brief as you like — AppBlips works with both. You can also attach a screenshot or reference image for AppBlips to build from.
+  </Step>
+  <Step title="AppBlips sends it to an AI model and streams the result">
+    Your prompt is sent to a language model through a secure server-side proxy. The generated code streams back in real time so you can watch progress as it happens.
+  </Step>
+  <Step title="A live sandboxed preview appears instantly">
+    The moment generation completes, your app is running in a safe sandboxed preview right next to the prompt. Interact with it immediately — no deploy step required.
+  </Step>
+  <Step title="Refine with follow-up prompts or export and deploy">
+    Type another prompt to tweak any detail. Every change is saved as a version you can undo. When you are happy, export the app as a single HTML file or deploy it to a public URL.
+  </Step>
+</Steps>
+
+## Hosted vs Self-Hosted
+
+<Tabs>
+  <Tab title="Hosted (appblips.com)">
+    The hosted service is the fastest way to start. Sign in at [appblips.com](https://appblips.com) and you are ready to build immediately — nothing to install, no API key to supply.
+
+    **Key facts:**
+    - No installation or configuration required
+    - Projects are saved to your account and sync across devices
+    - Any app can be deployed to its own public URL and installed as a PWA
+    - Deployed apps can be password-protected
+    - AI-powered app features are powered by the platform — you don't need a separate API key
+
+    **Best for:** anyone who wants the simplest possible experience and access to full deploy features.
+  </Tab>
+  <Tab title="Self-Hosted">
+    Self-hosting runs AppBlips entirely on your own machine or server. There is no account, no cloud sync, and support is for a single local user. You bring your own API key for an OpenAI-compatible provider.
+
+    **Key facts:**
+    - No account or sign-in required
+    - Supports any OpenAI-chat-completions-compatible provider (OpenAI, local models via Ollama, and others)
+    - Run with Node.js (`npm run dev`) or Docker (`docker compose up --build`)
+    - No deploy-to-public-URL feature; export to HTML is always available
+    - The `/api/chat` endpoint performs no authentication — keep it behind localhost or your own access control
+
+    **Best for:** users who want full control over their data and AI provider, or who are running AppBlips in a private environment.
+  </Tab>
+</Tabs>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Instant live preview" icon="eye">
+    Every generation and every edit renders immediately in a sandboxed preview. What you see is exactly what you will get in the exported file.
+  </Card>
+  <Card title="Plain-English editing" icon="pen-to-square">
+    Refine your app by describing changes in ordinary language. No code editing required — just type what you want to change.
+  </Card>
+  <Card title="Image attachments" icon="image">
+    Drop in a screenshot or reference picture and ask AppBlips to build from it. Great for recreating a design or matching an existing layout.
+  </Card>
+  <Card title="Undo/redo history" icon="clock-rotate-left">
+    Every generation and edit is saved as a version. Step back through your entire build history at any time.
+  </Card>
+  <Card title="Export to HTML" icon="file-code">
+    Download any generated app as a single self-contained HTML file. No dependencies, no build step — host or share it anywhere.
+  </Card>
+  <Card title="Deploy as PWA" icon="rocket">
+    On the hosted service, publish any app to its own public URL. Visitors can install it as a Progressive Web App directly from their browser.
+  </Card>
+</CardGroup>
+
+<Note>
+  Ready to build your first app? Follow the [Hosted Quickstart](/quickstart-hosted) to get started at appblips.com in under a minute, or the [Self-Hosted Quickstart](/quickstart-self-hosted) to run AppBlips on your own machine.
+</Note>

@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
-  Lock, Star, Plus, X, MoreVertical, Wrench
+  Lock, Star, X, MoreVertical, Wrench
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
@@ -321,6 +321,11 @@ export default function DeviceMockup({
   autoFixMessage = null,
   isTransitioning = false,
   onCancelGeneration,
+  tabTitle = '',
+  navState = null,
+  onNavBack,
+  onNavForward,
+  onReload,
 }) {
   const box = fillSize && mode === 'desktop' ? fillSize : getEffectivePreviewBox(mode, orientation);
   const isSyntaxErrorAutoFix = Boolean(
@@ -369,24 +374,38 @@ export default function DeviceMockup({
                 <span className="device-browser-favicon">
                   <Sparkles size={10} strokeWidth={2.5} />
                 </span>
-                <span className="device-browser-tab-title">app-preview.local</span>
-                <X size={12} strokeWidth={2.25} className="device-browser-tab-close" />
+                <span className="device-browser-tab-title">{tabTitle.trim() || 'app-preview.local'}</span>
               </div>
-              <span className="device-browser-newtab">
-                <Plus size={14} strokeWidth={2.25} />
-              </span>
             </div>
             <div className="device-browser-toolbar">
               <div className="device-browser-nav">
-                <span className="device-browser-navbtn is-disabled">
+                <button
+                  type="button"
+                  className={`device-browser-navbtn${navState?.canGoBack ? '' : ' is-disabled'}`}
+                  onClick={onNavBack}
+                  disabled={!navState?.canGoBack}
+                  aria-label="Back"
+                >
                   <ChevronLeft size={17} />
-                </span>
-                <span className="device-browser-navbtn is-disabled">
+                </button>
+                <button
+                  type="button"
+                  className={`device-browser-navbtn${navState?.canGoForward ? '' : ' is-disabled'}`}
+                  onClick={onNavForward}
+                  disabled={!navState?.canGoForward}
+                  aria-label="Forward"
+                >
                   <ChevronRight size={17} />
-                </span>
-                <span className="device-browser-navbtn">
+                </button>
+                <button
+                  type="button"
+                  className="device-browser-navbtn"
+                  onClick={onReload}
+                  disabled={!hasCode}
+                  aria-label="Reload"
+                >
                   <RotateCw size={14} />
-                </span>
+                </button>
               </div>
               <div className="device-browser-addressbar">
                 <Lock size={12} strokeWidth={2.25} className="device-browser-lock" />

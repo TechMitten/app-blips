@@ -833,6 +833,13 @@ const BRIDGE_SOURCE = `(function () {
       sync();
     } else if (d.type === 'set-editing') {
       setEditingEnabled(!!(d.payload && d.payload.enabled));
+    } else if (d.type === 'nav-back' || d.type === 'nav-forward') {
+      var goBack = d.type === 'nav-back';
+      try {
+        var nv = window.navigation;
+        var p = nv ? (goBack ? nv.back() : nv.forward()) : (goBack ? history.back() : history.forward());
+        if (p && p.committed && p.finished) { p.committed.catch(function () {}); p.finished.catch(function () {}); }
+      } catch (err) { /* nothing to traverse */ }
     } else if (d.type === 'select-parent') {
       editSelectParent();
     } else if (d.type === 'deselect') {
@@ -854,10 +861,24 @@ const BRIDGE_SOURCE = `(function () {
     }
   });
 
+  // Back/forward availability for the desktop browser chrome. Only the
+  // Navigation API can answer this (history.length is not directional), so
+  // without it both buttons simply stay disabled.
+  function postNavState() {
+    var nv = window.navigation;
+    post('nav-state', { canGoBack: !!(nv && nv.canGoBack), canGoForward: !!(nv && nv.canGoForward) });
+  }
+  try {
+    if (window.navigation && typeof window.navigation.addEventListener === 'function') {
+      window.navigation.addEventListener('currententrychange', postNavState);
+    }
+  } catch (err) { /* Navigation API unavailable */ }
+
   function onReady() {
     domReady = true;
     sync();
     post('ready');
+    postNavState();
   }
 
       if (document.readyState === 'loading') {

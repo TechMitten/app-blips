@@ -322,31 +322,46 @@
 
 /* ===== Live code peek (build overlay) =====
    A small dark editor window under the status line that follows the last few
-   lines of code as they stream in. Dark in both themes so syntax token colors
-   (base.css) always have the contrast they were tuned for. Lines are single-row,
+   lines of code as they stream in. Light by default; the dark theme override
+   at the bottom restores the dark editor look and its token colors. Lines are single-row,
    clipped, and fade out toward the top so new text reads as scrolling up. */
 .live-code-peek {
   border-radius: 12px;
   overflow: hidden;
-  background: #0d1017;
-  border: 1px solid rgb(148 163 255 / 0.16);
-  box-shadow: 0 8px 24px -8px rgb(15 23 42 / 0.35);
+  --peek-fg: #24292f;
+  --peek-label: #6b7280;
+  --peek-accent: #4f5bd5;
+  --peek-comment: #6e7781;
+  --peek-doctype: #8250df;
+  --peek-tag: #cf222e;
+  --peek-attr: #953800;
+  --peek-string: #0a7d33;
+  --peek-keyword: #8250df;
+  background: #f6f8fc;
+  border: 1px solid rgb(79 91 213 / 0.18);
+  box-shadow: 0 8px 24px -10px rgb(15 23 42 / 0.18);
 }
+.live-code-peek .token-comment { color: var(--peek-comment); }
+.live-code-peek .token-doctype { color: var(--peek-doctype); }
+.live-code-peek .token-tag-name { color: var(--peek-tag); }
+.live-code-peek .token-attr-name { color: var(--peek-attr); }
+.live-code-peek .token-string { color: var(--peek-string); }
+.live-code-peek .token-keyword { color: var(--peek-keyword); }
 
 .live-code-peek-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
-  border-bottom: 1px solid rgb(148 163 255 / 0.1);
-  background: rgb(255 255 255 / 0.03);
+  border-bottom: 1px solid rgb(79 91 213 / 0.12);
+  background: rgb(79 91 213 / 0.05);
 }
 
 .live-code-peek-dot {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #7c89ff;
+  background: var(--peek-accent);
   animation: build-caret 1.15s steps(1, end) infinite;
 }
 
@@ -355,7 +370,7 @@
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #8b93a8;
+  color: var(--peek-label);
 }
 
 .live-code-peek-body {
@@ -369,7 +384,7 @@
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.55;
-  color: #d5d9e6;
+  color: var(--peek-fg);
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 45%);
   mask-image: linear-gradient(180deg, transparent 0, #000 45%);
 }
@@ -378,7 +393,7 @@
 .live-code-peek-body .code-line { white-space: pre; overflow: hidden; }
 .live-code-peek-body .line-number { display: none; }
 .live-code-peek-body .code-line:hover { background: none; }
-.live-code-peek-body .line-content { padding-left: 0; }
+.live-code-peek-body .line-content { padding-left: 0; color: var(--peek-fg); }
 /* Undo the global inline-code chip (light background, padding, larger font) */
 .live-code-peek-body code {
   display: block;
@@ -397,7 +412,7 @@
   height: 1em;
   margin-left: 2px;
   vertical-align: -0.15em;
-  background: #7c89ff;
+  background: var(--peek-accent);
   animation: build-caret 1.15s steps(1, end) infinite;
 }
 
@@ -409,7 +424,20 @@
 /* On the dark build overlay the void is almost the pane's own color, so lift
    the pane slightly and firm up its edge to keep it distinct. */
 :is(html.dark, .force-dark) .live-code-peek {
+  --peek-fg: #d5d9e6;
+  --peek-label: #8b93a8;
+  --peek-accent: #7c89ff;
+  --peek-comment: #8b949e;
+  --peek-doctype: #c678dd;
+  --peek-tag: #e06c75;
+  --peek-attr: #d19a66;
+  --peek-string: #98c379;
+  --peek-keyword: #c678dd;
   background: #111522;
   border-color: rgb(148 163 255 / 0.26);
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 10px 30px -10px rgb(124 137 255 / 0.25);
+}
+:is(html.dark, .force-dark) .live-code-peek-bar {
+  border-bottom-color: rgb(148 163 255 / 0.1);
+  background: rgb(255 255 255 / 0.03);
 }

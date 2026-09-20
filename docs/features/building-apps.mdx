@@ -1,0 +1,100 @@
+---
+title: "Building Apps: Turn a Plain-English Prompt into an App"
+sidebarTitle: "Building Apps"
+description: "Type what you want and AppBlips generates a working single-file React app in seconds. Learn to write effective prompts and use images and reasoning effort."
+---
+
+AppBlips turns a plain-English description into a working, interactive app in one step. Type what you want in the prompt box, press build, and watch your app appear in the live preview alongside it — no project setup, no files to juggle, no build step to run. Once it's built, you can keep refining it with follow-up prompts until it's exactly what you had in mind.
+
+## Writing Your First Prompt
+
+Start by describing what you want in ordinary language. You don't need to mention React, HTML, or any technical details — just describe the app as you would to a friend.
+
+A few examples to get you started:
+
+```
+A tip calculator where I enter the bill amount and choose a tip percentage, 
+and it shows the tip and total per person.
+```
+
+```
+A Pomodoro timer with a 25-minute work phase and a 5-minute break phase. 
+Show a big countdown and a start/stop button.
+```
+
+```
+A color palette generator that shows five random swatches and lets me lock 
+individual colors before regenerating.
+```
+
+<Tip>
+  The more specific you are, the better the result. Name the features you want, describe how they should behave, and mention any constraints (like "keep it to a single screen" or "use a dark background"). Vague prompts produce generic apps; detailed prompts produce apps that match your vision.
+</Tip>
+
+## Prompt Techniques
+
+<AccordionGroup>
+  <Accordion title="Be specific about features">
+    List the individual things your app needs to do rather than describing it at a high level. Instead of "a budget app," try "a monthly budget tracker where I can add income and expense items with a category and amount, and see a running total at the bottom." The AI builds exactly what you describe, so covering the details up front saves revision rounds.
+  </Accordion>
+  <Accordion title="Describe the visual style">
+    If you have a look in mind, say so. Mention colors ("a dark navy background with white text"), layout ("two columns side by side"), or a general aesthetic ("minimal and clean, like a notes app"). You can also reference familiar design patterns: "a card-based layout" or "a sidebar navigation."
+  </Accordion>
+  <Accordion title="Reference data structures">
+    If your app works with a list, a table, or structured data, describe that structure in your prompt. For example: "a task list where each item has a title, a due date, a priority (low / medium / high), and a done checkbox." The more you define the shape of the data, the more accurate the generated forms and displays will be.
+  </Accordion>
+  <Accordion title="Ask for interactivity">
+    Don't assume AppBlips will add interactive behavior unless you ask for it. Be explicit: "clicking a card should expand it to show the full description," or "the list should be sortable by clicking the column headers." Describing the user actions you expect produces apps that actually behave the way you want.
+  </Accordion>
+</AccordionGroup>
+
+## Attaching Images
+
+You can drop a screenshot, mockup, or reference image directly into the prompt area alongside your description. AppBlips will use the image as a visual reference when generating your app — useful when you want to recreate an existing layout, match a design you've sketched, or base your app on something you've seen elsewhere.
+
+To attach an image, drag and drop it onto the build pane or use the image attachment button next to the prompt input. You can combine an image with a written prompt: for example, attach a screenshot of a form and write "build this, but replace the file upload field with a text area."
+
+## Refining with Follow-up Prompts
+
+After your app is built, you don't need to start over to make changes. Type a follow-up prompt describing what you want to adjust and AppBlips will update the app accordingly. Each refinement creates a new version in your history, so you can always go back if a change doesn't land the way you expected.
+
+Follow-up prompts work the same way as your first prompt — plain English, no code required:
+
+```
+Add a dark mode toggle in the top-right corner.
+```
+
+```
+Make the buttons rounded and change the accent color to teal.
+```
+
+```
+Add a text field so the user can filter the list by keyword.
+```
+
+You can chain as many refinements as you like. Each one picks up from the current version of the app.
+
+## Reasoning Effort
+
+The **Reasoning Effort** setting controls how much time the AI spends thinking before it writes your app. You can set it to **Off**, **Low**, **Medium**, or **High** from **Settings → AI**.
+
+| Setting | When to use it |
+|---------|---------------|
+| Off | Fast, simple apps with straightforward requirements |
+| Low | Most everyday prompts — a good default for quick iteration |
+| Medium | Apps with moderate complexity or several interacting features |
+| High | Complex apps with intricate logic, data relationships, or multi-step flows |
+
+Higher reasoning effort produces better results for tricky prompts, but takes longer and uses more tokens. Start with Low or Medium and increase it only if the output isn't meeting your expectations.
+
+## Clarifying Questions
+
+AppBlips can ask you a short round of clarifying questions before generating your app, helping it nail the details that matter most to you. Toggle this on or off in **Settings → AI** with the **Clarifying questions** switch.
+
+When the toggle is on and your prompt leaves room for interpretation, AppBlips will pause before building and ask a few targeted questions — things like what data the app should work with, how a particular interaction should behave, or what the layout should prioritize. Answer them and AppBlips will use your answers to produce a more accurate first build.
+
+If you prefer to just hit go and refine afterward, turn the toggle off.
+
+<Note>
+  Once your app is built, you can also edit it visually by pointing and clicking on any element. See [Editing Apps](/features/editing-apps) to learn how.
+</Note>

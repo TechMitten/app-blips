@@ -1,0 +1,41 @@
+---
+title: "Live Preview: Interact with Your App as It Generates"
+sidebarTitle: "Live Preview"
+description: "AppBlips renders your app in a sandboxed live preview as it generates. Switch desktop and mobile views, zoom in, and interact with your app immediately."
+---
+
+The live preview pane sits right next to your prompt and shows your app the moment AppBlips starts generating it. The preview runs in a fully sandboxed environment, which means your app is completely isolated from the rest of the page and can't interfere with AppBlips itself. As soon as the AI begins writing code, the preview renders and streams the result in real time — and once generation finishes, the app is immediately interactive. Click buttons, fill in forms, and use it just like a real app, right there in the preview.
+
+## Desktop and Mobile Views
+
+Use the toolbar at the top of the preview pane to switch between desktop and mobile mockup views. The **mobile view** wraps your app in a phone-shaped frame so you can check how it looks on a smaller screen, while **desktop view** gives you the full-width layout.
+
+You can also adjust the zoom level from the same toolbar. Zoom out to see the whole layout at a glance, or zoom in to check fine details — useful when your app contains small text or dense UI elements.
+
+## Live Code Preview
+
+While AppBlips is generating your app, a streaming code overlay shows the HTML being written in real time. You can watch the structure take shape line by line as the AI works.
+
+If you find the overlay distracting or would rather focus on the rendered result, you can turn it off in **Settings → Workspace** using the **Live code preview** toggle.
+
+## Code View
+
+Once generation is complete, you can inspect the raw generated HTML using the **Code** tab in the preview toolbar. This shows the full, unminified source of your app in a scrollable panel.
+
+The Code tab is hidden by default. To enable it, go to **Settings → Workspace** and turn on the **Code view** toggle. Once enabled, a **Code** tab appears in the preview toolbar alongside the preview itself.
+
+You can also turn on **Auto Follow Code** (also in **Settings → Workspace**) to have the code panel automatically scroll to follow the latest line during generation.
+
+## Undo and Redo
+
+Every time AppBlips generates or updates your app, the result is saved as a new version in your history. If a change doesn't go the way you expected, use the undo button in the toolbar to step back to the previous version. Redo moves you forward again.
+
+You're never locked in to the latest version — undo and redo freely at any point in your session.
+
+## History Sidebar
+
+The history panel lets you browse every version of your app from the current session. Open it to see a list of your past builds and refinements, and click any entry to restore that version as your current working state. This is particularly handy when you want to compare two different approaches or recover a version you stepped past.
+
+<Note>
+  The preview is fully sandboxed — your app runs in an isolated environment with an opaque origin, completely separate from the AppBlips page. `localStorage`, `sessionStorage`, and cookies all work normally inside the preview, but they are isolated from the parent page and from other apps. Nothing your generated app stores can be read by AppBlips, and nothing AppBlips stores can be read by your app.
+</Note>

@@ -1,0 +1,81 @@
+---
+title: "AppBlips Settings Reference: All Configurable Options"
+sidebarTitle: "Settings"
+description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
+---
+
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into three tabs: **Appearance**, **Workspace**, and **AI**. Every setting is saved to your browser's local storage and persists across sessions automatically.
+
+## Appearance
+
+These settings control the visual presentation of the AppBlips interface.
+
+### Theme
+
+<ParamField body="Theme" type="Light | Dark | System" default="Light">
+  Sets the color scheme for the AppBlips interface. **Light** keeps the interface in a light palette at all times. **Dark** keeps it dark at all times. **System** follows your operating system's current color scheme preference and switches automatically when your OS switches.
+</ParamField>
+
+### Build pane font
+
+<ParamField body="Build pane font" type="Small | Default | Large | XL" default="Small">
+  Controls the text size throughout the entire build pane, including starter ideas, the conversation history, and the prompt input field. Increase this if you prefer larger text while writing or reviewing prompts.
+</ParamField>
+
+### Build pane position
+
+<ParamField body="Build pane position" type="Left | Right" default="Left">
+  Determines which side of the workspace the build pane appears on. This setting applies on wider screens where both the build pane and the preview panel are displayed side by side.
+</ParamField>
+
+---
+
+## Workspace
+
+These settings control how the preview and build experience behaves during and after generation.
+
+### Code view
+
+<ParamField body="Code view" type="toggle" default="Off">
+  When enabled, a **Code** tab appears in the preview toolbar. Select it to inspect the raw HTML of your generated app at any time. This setting is off by default so the interface stays focused on the live preview for most users.
+</ParamField>
+
+### Auto Follow Code
+
+<ParamField body="Auto Follow Code" type="toggle" default="On">
+  When enabled, the **Code** tab automatically scrolls to keep the most recently written line visible as AppBlips streams in the generated code. Disable this if you want to scroll back and read earlier sections while generation is still in progress.
+</ParamField>
+
+### Live code preview
+
+<ParamField body="Live code preview" type="toggle" default="On">
+  When enabled, the preview pane shows a live peek at the code being written while your app is generating. Disable this if you prefer a clean preview that only updates once the full app is ready.
+</ParamField>
+
+### Skip splash screen
+
+<ParamField body="Skip splash screen" type="toggle" default="Off">
+  When enabled, AppBlips skips the intro animation that plays on launch and takes you straight to the workspace. This setting takes effect on the next page load — the current session is not affected.
+</ParamField>
+
+---
+
+## AI
+
+These settings influence how the AI model reasons and communicates before and during generation.
+
+### Reasoning effort
+
+<ParamField body="Reasoning effort" type="Off | Low | Medium | High" default="Off">
+  Controls how much time the AI spends reasoning through your request before it begins generating code. **Off** is the fastest option and works well for straightforward prompts. **High** is the most thorough and produces better results for complex or multi-part apps, but takes longer and uses more tokens.
+
+  <Tip>
+    Start with **Off** for quick iterations and switch to **Medium** or **High** only when you're building something with a lot of moving parts.
+  </Tip>
+</ParamField>
+
+### Clarifying questions
+
+<ParamField body="Clarifying questions" type="toggle" default="Off">
+  When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
+</ParamField>
