@@ -13,6 +13,17 @@ service cloud.firestore {
       || (field in before && after[field] - before[field] >= 0 && after[field] - before[field] <= 1);
   }
 
+  // Token counters grow by a per-call amount (not +1), so they get a looser
+  // cap: non-negative, and at most 1M tokens added per write.
+  function usageTokensValid(data, field) {
+    return !(field in data) || (data[field] is int && data[field] >= 0 && data[field] <= 1000000);
+  }
+  function usageTokensDelta(before, after, field) {
+    return !(field in after)
+      || (!(field in before) && after[field] >= 0 && after[field] <= 1000000)
+      || (field in before && after[field] - before[field] >= 0 && after[field] - before[field] <= 1000000);
+  }
+
   match /databases/{database}/documents {
     match /projects/{projectId} {
       allow read, delete: if request.auth != null && request.auth.uid == resource.data.user_id;
@@ -68,14 +79,18 @@ service cloud.firestore {
     // boundary; the worst an unauthenticated writer can do is inflate a counter.
     match /usage/{docId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
+      allow create: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'builderTokens', 'deployedTokens', 'updatedAt'])
                     && usageCounterValid(request.resource.data, 'builderRequests')
-                    && usageCounterValid(request.resource.data, 'deployedRequests');
-      allow update: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'updatedAt'])
+                    && usageCounterValid(request.resource.data, 'deployedRequests')
+                    && usageTokensValid(request.resource.data, 'builderTokens')
+                    && usageTokensValid(request.resource.data, 'deployedTokens');
+      allow update: if request.resource.data.keys().hasOnly(['user_id', 'date', 'builderRequests', 'deployedRequests', 'builderTokens', 'deployedTokens', 'updatedAt'])
                     && request.resource.data.user_id == resource.data.user_id
                     && request.resource.data.date == resource.data.date
                     && usageCounterDelta(resource.data, request.resource.data, 'builderRequests')
-                    && usageCounterDelta(resource.data, request.resource.data, 'deployedRequests');
+                    && usageCounterDelta(resource.data, request.resource.data, 'deployedRequests')
+                    && usageTokensDelta(resource.data, request.resource.data, 'builderTokens')
+                    && usageTokensDelta(resource.data, request.resource.data, 'deployedTokens');
       allow delete: if false;
     }
   }

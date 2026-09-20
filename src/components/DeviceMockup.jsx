@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
-import { getEffectivePreviewBox } from '../lib/helpers';
+import { getEffectivePreviewBox, syntaxHighlightHtml, tailLines } from '../lib/helpers';
 
 const BUILDING_MESSAGES = [
   'Generating HTML, CSS & JavaScript',
@@ -238,6 +238,54 @@ function BuildingStatusMessage() {
   );
 }
 
+// Small terminal-style window that follows the last few lines of code as the
+// model writes them. Presentational only: it reads the stream text through a
+// ref and never touches generatedCode. Network chunks arrive in bursts, so
+// rather than rendering them as they land it reveals the text on animation
+// frames at a steady pace that speeds up in proportion to the backlog -- it
+// types, rather than flickers.
+function LiveCodePeek({ codeRef, className = '' }) {
+  const [tail, setTail] = useState('');
+
+  useEffect(() => {
+    let raf = 0;
+    let cursor = 0;
+    let last = '';
+    const tick = () => {
+      const text = codeRef?.current || '';
+      if (cursor > text.length) cursor = text.length;
+      const backlog = text.length - cursor;
+      if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
+      if (backlog > 0) {
+        cursor += Math.min(backlog, Math.max(2, Math.ceil(backlog / 24)));
+        const next = tailLines(text.slice(0, cursor));
+        if (next !== last) {
+          last = next;
+          setTail(next);
+        }
+      } else if (text.length === 0 && last) {
+        cursor = 0;
+        last = '';
+        setTail('');
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [codeRef]);
+
+  if (!tail) return null;
+  return (
+    <div className={`live-code-peek w-[min(600px,92%)] text-left animate-fade-in-up ${className}`} aria-hidden="true">
+      <div className="live-code-peek-bar">
+        <span className="live-code-peek-dot" />
+        <span className="live-code-peek-label">writing code</span>
+      </div>
+      <pre className="live-code-peek-body"><code dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(tail) }} /></pre>
+    </div>
+  );
+}
+
 // Scaled device mockup (phone/tablet/desktop chrome) wrapping the sandboxed
 // preview iframe. The srcDoc fed here is the bridge-injected document computed
 // at render time in App -- never `generatedCode` itself.
@@ -252,6 +300,7 @@ export default function DeviceMockup({
   srcDoc,
   isGenerating,
   generationStatus,
+  liveCodeRef = null,
   hasCode,
   isAutoFixing = false,
   autoFixMessage = null,
@@ -479,6 +528,12 @@ export default function DeviceMockup({
                   </button>
                 )}
               </div>
+              {/* Outside the scaled group above so it stays true-size. The scale
+                  transform doesn't affect layout, so the top margin clears the
+                  magnified spinner/status block. */}
+              {isGenerating && !isErrorAutoFix && (
+                <LiveCodePeek codeRef={liveCodeRef} className={mode === 'desktop' ? 'mt-20' : mode === 'tablet' ? 'mt-16' : 'mt-8'} />
+              )}
             </div>
           )}
         </div>

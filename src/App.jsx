@@ -36,6 +36,7 @@ import {
   applyStorageChange,
 } from './lib/previewStorage';
 import { sanitizeHtmlResponse } from './lib/edits';
+import { extractStreamedEditCode } from './lib/helpers';
 import { checkSyntax, formatSyntaxErrors } from './lib/syntaxCheck';
 import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
@@ -166,6 +167,9 @@ export default function App() {
   // --- Streaming state ---
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
+  // Full text of the code as the model writes it. A ref, not state: the build
+  // overlay's live peek polls it on animation frames and paces the reveal itself.
+  const liveCodeRef = useRef('');
 
   // --- Naming / new-app flow ---
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
@@ -187,6 +191,7 @@ export default function App() {
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
   const streamingReplyRef = useRef('');
+  const editStreamRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
   const enhanceAbortControllerRef = useRef(null);
@@ -211,6 +216,8 @@ export default function App() {
   const clearStreamingState = useCallback(() => {
     setStreamingGeneratedCode('');
     setStreamingReply('');
+    liveCodeRef.current = '';
+    editStreamRef.current = '';
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
     streamingReplyRef.current = '';
@@ -864,9 +871,16 @@ export default function App() {
           setGenerationStatus(chunk);
           return;
         }
+        if (kind === 'edit_stream') {
+          editStreamRef.current = `${editStreamRef.current}${chunk}`;
+          liveCodeRef.current = extractStreamedEditCode(editStreamRef.current);
+          return;
+        }
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
-          setStreamingGeneratedCode(sanitizeHtmlResponse(streamingGeneratedCodeRef.current));
+          const sanitized = sanitizeHtmlResponse(streamingGeneratedCodeRef.current);
+          setStreamingGeneratedCode(sanitized);
+          liveCodeRef.current = sanitized;
           setGenerationStatus("Synthesizing your app from your prompt.");
         }
         if (!replyFrozenRef.current) {
@@ -1049,8 +1063,9 @@ export default function App() {
     window.open(url, '_blank');
   };
 
-  // Self-hosted mode's stand-in for Deploy: no public-URL hosting without
-  // Firebase Storage, so hand the user the raw file instead.
+  // Hands the user the raw HTML file. Self-hosted mode's stand-in for Deploy
+  // (no public-URL hosting without Firebase Storage); in hosted mode it sits
+  // alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
     const outputHtml = (!firebaseEnabled && aiEnabled)
@@ -1654,6 +1669,7 @@ export default function App() {
               onClearStorage={handleClearPreviewStorage}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
+              liveCodeRef={liveCodeRef}
               isAutoFixing={isAutoFixing}
               autoFixMessage={autoFixMessage}
               onCancelGeneration={handleCancelGeneration}
