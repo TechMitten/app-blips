@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
+  Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
@@ -14,6 +14,7 @@ const DOCS_URL = 'https://docs.appblips.com/';
 export default function Header({
   projectName,
   onNewApp,
+  onExit,
   savedAppsCount,
   versionsCount,
   onOpenApps,
@@ -83,7 +84,15 @@ export default function Header({
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 py-2 2xl:py-2.5 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
       {/* Left: Brand lockup, then the current-app nameplate */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <img src="/appblips-logo.png" alt="AppBlips" className="h-12 w-auto object-contain shrink-0" />
+        <button
+          type="button"
+          onClick={onNewApp}
+          className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+          title="Back to the studio picker"
+          aria-label="Back to the studio picker"
+        >
+          <img src="/appblips-logo.png" alt="AppBlips" className="h-12 w-auto object-contain" />
+        </button>
         <span className="nav-divider" aria-hidden="true" />
         <div
           className={`nav-nameplate max-w-[160px] xl:max-w-[300px] 2xl:max-w-[420px] ${hasProjectName ? 'text-slate-900' : 'text-slate-500'}`}
@@ -228,6 +237,15 @@ export default function Header({
               <Moon size={16} className="group-hover:text-slate-900 transition-colors" />
             )}
           </button>
+
+          <button
+            onClick={onExit}
+            className="nav-btn nav-ghost nav-btn-icon group"
+            title="Exit to the studio picker (app or website)"
+            aria-label="Exit to the studio picker"
+          >
+            <DoorOpen size={16} className="text-slate-500 group-hover:text-slate-900 transition-colors" />
+          </button>
         </div>
       </nav>
 
@@ -369,6 +387,15 @@ export default function Header({
               >
                 {resolvedTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                 <span>{resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Exit to the studio picker"
+                onClick={() => runMobileAction(onExit)}
+                className="mobile-menu-item"
+              >
+                <DoorOpen size={16} />
+                <span>Exit</span>
               </button>
           </div>
           </div>, document.body
