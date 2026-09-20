@@ -7,7 +7,7 @@
     "light": "#58b9ea",
     "dark": "#ed7a77"
   },
-  "favicon": "https://media.brand.dev/4c432701-f269-4dbe-8d28-e4541d5163e9.png",
+  "favicon": "/favicon.png",
   "navigation": {
     "tabs": [
       {
@@ -60,9 +60,21 @@
     ]
   },
   "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/techmitten/app-blips"
+      }
+    ],
     "primary": {
-      "type": "github",
-      "href": "https://github.com/techmitten/app-blips"
+      "type": "button",
+      "label": "Open AppBlips",
+      "href": "https://appblips.com"
     }
+  },
+  "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export, deploy, or self-host.",
+  "logo": {
+    "light": "/logo.png",
+    "dark": "/logo.png"
   }
 }

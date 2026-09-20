@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Rocket, Globe, KeyRound, TriangleAlert, Trash2, Copy, Check,
   ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon, User, BarChart3,
-  Link2, ShieldCheck, ArrowRight
+  Link2, ShieldCheck, ArrowRight, Share2
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
@@ -177,6 +177,10 @@ export default function DeployModal({
   const [usernameError, setUsernameError] = useState('');
   const [claimingUsername, setClaimingUsername] = useState(false);
   const [passwordEnabled, setPasswordEnabled] = useState(false);
+  // True right after a successful deploy: shows the simplified "your app is
+  // live" view. Dismissing it reveals the full redeploy options rather than
+  // closing the modal.
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const passwordValid =
     password.length === 0 ||
@@ -219,9 +223,25 @@ export default function DeployModal({
     reader.readAsDataURL(file);
   };
 
-  const handleDeployClick = () => {
+  const handleDeployClick = async () => {
     if (canSubmitPassword && (deployment || username)) {
-      onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled);
+      const ok = await onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled);
+      if (ok) setShowSuccess(true);
+    }
+  };
+
+  // Uses the native share sheet where available (mobile, some desktop
+  // browsers); otherwise falls back to copying the link.
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Check out my app', url: deploymentUrl });
+      } catch (err) {
+        // AbortError just means the user dismissed the sheet.
+        if (err?.name !== 'AbortError') onCopyUrl();
+      }
+    } else {
+      onCopyUrl();
     }
   };
 
@@ -372,6 +392,70 @@ export default function DeployModal({
 
   const secondaryButtonClass =
     'inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
+  if (showSuccess && deployment && !isDeploying) {
+    const dismissSuccess = () => setShowSuccess(false);
+    return (
+      <Modal
+        zIndex={70}
+        cardClass="relative w-full max-w-md xl:max-w-lg bg-surface rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-scale-in"
+      >
+        <button
+          type="button"
+          onClick={dismissSuccess}
+          className="absolute top-4 right-4 rounded-xl p-2 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+        <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 flex items-center justify-center">
+            <Check size={28} />
+          </div>
+          <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight mt-4">Your app is live!</h2>
+          <p className="text-sm text-slate-500 mt-1 leading-snug">Anyone with this link can use it.</p>
+        </div>
+
+        <div className="px-6 pt-4 space-y-3">
+          <input
+            readOnly
+            value={deploymentUrl}
+            aria-label="App URL"
+            onFocus={(e) => e.target.select()}
+            className="w-full bg-surface border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-slate-800 text-center focus:ring-2 focus:ring-brand/40 outline-none transition-all select-all"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.open(deploymentUrl, '_blank', 'noopener,noreferrer')}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.99]"
+            >
+              <ExternalLink size={16} />
+              Open app
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className={`${secondaryButtonClass} flex-1 py-3`}
+            >
+              {deployCopied ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
+              {deployCopied ? 'Link copied' : 'Share'}
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 pt-3 pb-6">
+          <button
+            type="button"
+            onClick={dismissSuccess}
+            className="w-full rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

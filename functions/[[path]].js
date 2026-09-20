@@ -20,6 +20,7 @@
 const APPS_HOSTNAME = 'my.appblips.com';
 
 import { firebaseProjectId, getAppCheckToken } from './_lib/firebaseServer.js';
+import { injectSeoDefaults } from './_lib/seoDefaults.js';
 export { getAppCheckToken } from './_lib/firebaseServer.js';
 
 const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId()}/databases/(default)/documents`;
@@ -385,7 +386,14 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const html = injectLockProtection(injectRemixBadge(injectAnalytics(injectFavicon(await object.text()), env)));
+    const html = injectLockProtection(
+      injectRemixBadge(
+        injectAnalytics(
+          injectFavicon(injectSeoDefaults(await object.text(), { url: `https://${APPS_HOSTNAME}/${slug}` })),
+          env,
+        ),
+      ),
+    );
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,

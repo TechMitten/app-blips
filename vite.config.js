@@ -203,9 +203,107 @@ function umamiAnalyticsPlugin(mode) {
   };
 }
 
+// SEO surface for the SPA, keyed on the same SELF_HOSTED_MODE flag as
+// everything else. Hosted builds are indexable: description, canonical, Open
+// Graph/Twitter tags, JSON-LD, a <noscript> summary for non-JS crawlers, plus
+// /robots.txt and /sitemap.xml. Self-hosted builds (the default) are marked
+// noindex with a disallow-all robots.txt, so forks and personal instances
+// never publish duplicate copies of the marketing page. Without this, unknown
+// paths fall back to index.html and /robots.txt would come back as HTML.
+// Set VITE_SITE_URL to the public origin (defaults to https://appblips.com).
+function seoPlugin(mode) {
+  const env = loadEnv(mode, process.cwd(), '')
+  const isHosted = (process.env.SELF_HOSTED_MODE ?? env.SELF_HOSTED_MODE) === 'false'
+  const siteUrl = (process.env.VITE_SITE_URL || env.VITE_SITE_URL || 'https://appblips.com').replace(/\/+$/, '')
+  const title = 'AppBlips — Text to App and Website Generator'
+  const description =
+    'Describe an app or website in plain English and get a working single-file version in seconds, with a live preview, versions, export, and one-click deploy.'
+  const image = `${siteUrl}/appblips-logo.png`
+
+  const robots = isHosted
+    ? `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl}/sitemap.xml\n`
+    : 'User-agent: *\nDisallow: /\n'
+  const sitemap =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    `  <url><loc>${siteUrl}/</loc></url>\n` +
+    '</urlset>\n'
+
+  const meta = (attrs) => ({ tag: 'meta', attrs, injectTo: 'head' })
+  const hostedTags = [
+    meta({ name: 'description', content: description }),
+    { tag: 'link', attrs: { rel: 'canonical', href: `${siteUrl}/` }, injectTo: 'head' },
+    meta({ property: 'og:type', content: 'website' }),
+    meta({ property: 'og:site_name', content: 'AppBlips' }),
+    meta({ property: 'og:title', content: title }),
+    meta({ property: 'og:description', content: description }),
+    meta({ property: 'og:url', content: `${siteUrl}/` }),
+    meta({ property: 'og:image', content: image }),
+    meta({ name: 'twitter:card', content: 'summary' }),
+    meta({ name: 'twitter:title', content: title }),
+    meta({ name: 'twitter:description', content: description }),
+    meta({ name: 'twitter:image', content: image }),
+    {
+      tag: 'script',
+      attrs: { type: 'application/ld+json' },
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'AppBlips',
+        url: `${siteUrl}/`,
+        description,
+        applicationCategory: 'DeveloperApplication',
+        operatingSystem: 'Web',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      }),
+      injectTo: 'head',
+    },
+    {
+      tag: 'noscript',
+      children:
+        '<h1>AppBlips — Text to App and Website Generator</h1>' +
+        `<p>${description}</p>` +
+        '<p>AppBlips needs JavaScript to run. <a href="https://docs.appblips.com/">Read the documentation</a>.</p>',
+      injectTo: 'body-prepend',
+    },
+  ]
+
+  return {
+    name: 'appblips-seo',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        const tags = isHosted ? hostedTags : [meta({ name: 'robots', content: 'noindex, nofollow' })]
+        return {
+          html: html.replace(/<title>[^<]*<\/title>/, `<title>${isHosted ? title : 'AppBlips'}</title>`),
+          tags,
+        }
+      },
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url || '').split('?')[0]
+        if (path === '/robots.txt') {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+          res.end(robots)
+        } else if (path === '/sitemap.xml' && isHosted) {
+          res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+          res.end(sitemap)
+        } else {
+          next()
+        }
+      })
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robots })
+      if (isHosted) this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode)],
+  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/firebase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
