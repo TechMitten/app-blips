@@ -483,10 +483,7 @@ export default function DeviceMockup({
                 {/* Ambient glow */}
                 <div className="preview-empty-glow absolute inset-0 pointer-events-none" />
 
-                <div 
-                  className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                  style={{ transform: `scale(${mode === 'desktop' ? 1.5 : mode === 'tablet' ? 1.35 : 1})` }}
-                >
+                <div className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                   <div className="relative mb-3">
                     <img
                       src={previewIcon}
@@ -523,10 +520,7 @@ export default function DeviceMockup({
           </div>
           {(isGenerating || isErrorAutoFix) && (
             <div className={`building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center${isErrorAutoFix ? ' building-overlay-error' : ''}`}>
-              <div 
-                className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                style={{ transform: `scale(${mode === 'desktop' ? 1.5 : mode === 'tablet' ? 1.35 : 1})` }}
-              >
+              <div className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                 <div className="building-spinner relative w-16 h-16 mb-6">
                   {isErrorAutoFix ? (
                     <>
@@ -591,11 +585,8 @@ export default function DeviceMockup({
                   </button>
                 )}
               </div>
-              {/* Outside the scaled group above so it stays true-size. The scale
-                  transform doesn't affect layout, so the top margin clears the
-                  magnified spinner/status block. */}
               {isGenerating && !isErrorAutoFix && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} className={mode === 'desktop' ? 'mt-20' : mode === 'tablet' ? 'mt-16' : 'mt-8'} />
+                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} className="mt-8" />
               )}
             </div>
           )}

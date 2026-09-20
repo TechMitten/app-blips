@@ -8,29 +8,15 @@
 
    A user-chosen chat font size still wins: the [data-chat-font] rules in
    chat-font.css have higher specificity than the plain .build-panel selector. */
-@media (min-width: 1280px) {
-  .build-panel {
-    --spacing: 4px;
-
-    --text-xs: 12px;
-    --text-sm: 14px;
-    --text-base: 16px;
-    --text-lg: 18px;
-    --text-xl: 20px;
-    --text-2xl: 24px;
-    --text-3xl: 30px;
-
-    --radius-xs: 2px;
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 12px;
-    --radius-2xl: 16px;
-    --radius-3xl: 24px;
-
-    --container-xl: 576px;
-  }
-}
+/* In Tailwind v4, redefining --text-xs etc. no longer overrides utility classes
+   that compile to hardcoded rem values. Since the build pane needs to stay fixed
+   while the root font size scales up, we counter-scale the pane via zoom. */
+@media (min-width: 1280px) { .build-panel { zoom: calc(17.5 / 16.5); } }
+@media (min-width: 1536px) { .build-panel { zoom: calc(17.5 / 17.5); } }
+@media (min-width: 1920px) { .build-panel { zoom: calc(17.5 / 18.5); } }
+@media (min-width: 2560px) { .build-panel { zoom: calc(17.5 / 20.5); } }
+@media (min-width: 3440px) { .build-panel { zoom: calc(17.5 / 22.5); } }
+@media (min-width: 3840px) { .build-panel { zoom: calc(17.5 / 25); } }
 
 /* Light-theme build pane — clean SaaS surface: off-white canvas, a quiet
    pastel mesh, and frosted glass cards on top of it (hairline borders, no
@@ -270,13 +256,13 @@
 }
 
 :is(html.dark, .force-dark) .build-panel-header {
-  background: #14161f;
+  background: var(--pane-header-bg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.05),
-    0 4px 16px -4px rgba(0, 0, 0, 0.5);
+    0 6px 16px -6px rgba(0, 0, 0, 0.6);
 }
 
 /* Mirrors .build-panel-header above: the two pane headers sit side by side
@@ -285,12 +271,13 @@
    to --color-surface, which is why the segmented tracks used to vanish on
    it. This unlayered rule outranks the Tailwind bg utility. */
 :is(html.dark, .force-dark) .preview-pane-header {
-  background: #14161f;
+  background: var(--pane-header-bg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  border-bottom-color: rgba(255, 255, 255, 0.10);
   box-shadow:
     0 1px 0 0 rgb(255 255 255 / 0.05),
-    0 4px 16px -4px rgba(0, 0, 0, 0.5);
+    0 6px 16px -6px rgba(0, 0, 0, 0.6);
 }
 
 :is(html.dark, .force-dark) .build-panel-composer {

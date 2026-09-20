@@ -61,9 +61,9 @@
   --grid-dot: #94a3b8;
   --seg-active-bg: var(--color-surface);
   --seg-active-fg: var(--color-slate-900);
-  --seg-track-bg: #f1f5f9;
-  --seg-track-border: rgb(15 23 42 / 0.08);
-  --seg-track-inset: none;
+  --seg-track-bg: #e2e8f0;
+  --seg-track-border: rgb(15 23 42 / 0.12);
+  --seg-track-inset: inset 0 1px 2px rgb(15 23 42 / 0.04);
   --focus-halo: var(--color-surface);
   --pulse-ring: rgb(30 89 143 / 0.08);
   --inset-highlight: rgb(255 255 255 / 0.9);
@@ -122,20 +122,20 @@
 
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.055);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0.035);
-  /* The stage is a well the device floats in, so it has to sit BELOW the
-     panels. bg-slate-200/60 inverts the wrong way here -- lighter than the
-     canvas -- so the stage gets its own token rather than riding the ramp. */
-  --stage-bg: #171717;
-  --stage-inset: inset 0 18px 44px -18px rgb(0 0 0 / 0.9),
-    inset 0 -12px 32px -20px rgb(0 0 0 / 0.7),
-    inset 0 0 0 1px rgb(255 255 255 / 0.05);
-  /* One soft light source above the workspace, so the space has a direction
-     instead of reading as uniform fill. */
-  --ambient: radial-gradient(
-    120% 70% at 50% -12%,
-    rgb(from var(--color-accent) r g b / 0.1),
-    transparent 62%
-  );
+  /* The stage is the toolbar's own surface (#14161f, build-panel.css), so the
+     strip above, left and right of the device reads as one continuous band
+     with it. It used to be a separate #171717 well with three black inset
+     vignettes and a white top glow -- together they turned the margins around
+     the browser into a third gray unrelated to either neighbour. Depth now
+     comes from the device's own shadow alone. */
+  --stage-bg: #14161f;
+  /* The tool rows sit one step above the stage they float over. With both at
+     #14161f the toolbar dissolved into the canvas and stopped reading as its
+     own section; lifting the bars (not sinking the stage) keeps the margins
+     around the device matching the chrome family while the row stays defined. */
+  --pane-header-bg: #1b1e2b;
+  --stage-inset: none;
+  --ambient: none;
   --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0.045);
   --well-bg: #0a0a0a;
   --well-inset: inset 0 1px 3px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(0 0 0 / 0.3);

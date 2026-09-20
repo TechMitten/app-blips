@@ -44,16 +44,16 @@
 /* The collapse tab is the workspace's far-left edge. At xl+ it spans the full
    height, so its blue-50 strip used to start at the same y as the pane headers
    and cut a navy notch through the chrome band. Paint the tab's header-height
-   segment with the pane-header color (#14161f, matching .build-panel-header and
-   .preview-pane-header) so the band runs edge-to-edge; the tab's own surface
+   segment with the pane-header color (--pane-header-bg, matching
+   .build-panel-header and .preview-pane-header) so the band runs edge-to-edge; the tab's own surface
    resumes just below. The top-right corner squares off to meet the header, the
    bottom-right stays rounded. */
 :is(html.dark, .force-dark) .history-tab {
   border-top-right-radius: 0;
   background-image: linear-gradient(
     180deg,
-    #14161f 0,
-    #14161f 4rem,
-    transparent 4rem
+    var(--pane-header-bg) 0,
+    var(--pane-header-bg) var(--chrome-row-h),
+    transparent var(--chrome-row-h)
   );
 }
