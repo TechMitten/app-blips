@@ -1,6 +1,6 @@
 import { db, storage } from '../firebase';
-import { doc, deleteDoc, runTransaction } from 'firebase/firestore';
-import { ref, uploadString, deleteObject } from 'firebase/storage';
+import { collection, query, where, getDocs, doc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { ref, uploadString, deleteObject, listAll } from 'firebase/storage';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
@@ -133,6 +133,35 @@ export const removeDeployment = async (deployment) => {
       }
     }
   }
+};
+
+// Account deletion backstop: removes every deployment the user owns, found by
+// ownership rather than via project rows, so orphans (project deleted earlier,
+// deployment never recorded on it) die too. Deletes all it can, then throws if
+// anything failed so the caller keeps the account and can retry.
+export const sweepUserDeployments = async (uid) => {
+  const failures = [];
+  const attempt = async (fn) => {
+    try { await fn(); } catch (error) {
+      if (error?.code !== 'storage/object-not-found') failures.push(error);
+    }
+  };
+
+  const snapshot = await getDocs(query(collection(db, 'deployments'), where('user_id', '==', uid)));
+  for (const d of snapshot.docs) {
+    const { storage_path: path } = d.data();
+    await attempt(() => deleteDoc(d.ref));
+    if (path) await attempt(() => deleteObject(ref(storage, `${DEPLOY_BUCKET}/${path}`)));
+  }
+
+  const removeFolder = async (folderRef) => {
+    const { items, prefixes } = await listAll(folderRef);
+    for (const item of items) await attempt(() => deleteObject(item));
+    for (const prefix of prefixes) await removeFolder(prefix);
+  };
+  await attempt(() => removeFolder(ref(storage, `${DEPLOY_BUCKET}/${uid}`)));
+
+  if (failures.length) throw new Error(failures[0].message || 'Failed to remove published apps.');
 };
 
 export const uploadDeploy = async ({ path, html, password, preventIndexing, favicon, analyticsWebsiteId, aiEnabled, aiToken }) => {

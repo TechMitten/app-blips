@@ -25,7 +25,7 @@ import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
-import { slugifyName } from './lib/deploy';
+import { slugifyName, sweepUserDeployments } from './lib/deploy';
 import authProvider from './lib/auth';
 import { deleteUserProfile } from './lib/username';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
@@ -1337,6 +1337,7 @@ export default function App() {
     await authProvider.reauthenticate({ password });
     const ok = await handleDeleteAllProjects();
     if (!ok) throw new Error('Some of your apps could not be deleted, so your account was kept. Please try again.');
+    await sweepUserDeployments(user.id);
     await deleteUserProfile(user.id);
     await authProvider.deleteAccount();
     setIsSettingsOpen(false);
