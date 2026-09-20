@@ -6,6 +6,7 @@ import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
 import { migratePreviewStorage, clearPreviewStorage, clearAllPreviewStorage } from '../lib/previewStorage';
+import { removeDeployment } from '../lib/deploy';
 import { clearPendingJob } from '../lib/pendingJob';
 import { migrateChatSessions } from '../lib/chatSessions';
 
@@ -342,6 +343,9 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     try {
       const projectId = project.id;
       if (useCloud) {
+        // Deployment first: if it fails the project row survives, so the
+        // user can retry instead of leaving a live app nothing points to.
+        await removeDeployment(project.deployment);
         await deleteDoc(doc(db, 'projects', projectId));
       } else {
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
@@ -357,6 +361,34 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     }
   };
 
+  // Wipes every saved app (and, in the cloud, each one's public deployment).
+  // Reads the store fresh rather than trusting the possibly-stale list state.
+  // Continues past individual failures; returns true only if all were removed.
+  const deleteAllProjects = async () => {
+    try {
+      const projects = useCloud ? await fetchCloudProjects() : localRowsToProjects(readProjectRows());
+      let allOk = true;
+      for (const project of projects) {
+        try {
+          if (useCloud) {
+            await removeDeployment(project.deployment);
+            await deleteDoc(doc(db, 'projects', project.id));
+          }
+          clearPreviewStorage(project.id);
+        } catch (err) {
+          allOk = false;
+          console.error('Error deleting project:', project.id, err);
+        }
+      }
+      if (!useCloud) writeProjectRows([]);
+      await loadUserProjects();
+      return allOk;
+    } catch (err) {
+      console.error('Error deleting all projects:', err);
+      return false;
+    }
+  };
+
   return {
     myProjects,
     isProjectsListOpen,
@@ -366,5 +398,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     saveProject,
     renameProject,
     deleteProject,
+    deleteAllProjects,
   };
 }
