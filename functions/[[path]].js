@@ -287,6 +287,23 @@ const injectSlug = (html, slug) => {
   return tag + html;
 };
 
+// Turns a Firestore REST `deployments` document into the fields the server
+// uses. The client stores extra pages as filenames ("about.html"); URLs and
+// storage paths here use the bare name ("about"), so the extension is stripped
+// before validating -- validating the raw value would reject every page.
+export const parseDeploymentDoc = (doc) => ({
+  name: doc.fields?.name?.stringValue || null,
+  storage_path: doc.fields?.storage_path?.stringValue || null,
+  page_names: [...new Set(
+    (doc.fields?.page_names?.arrayValue?.values || [])
+      .map((v) => v.stringValue)
+      .filter((n) => typeof n === 'string')
+      .map((n) => n.replace(/\.html$/, ''))
+      .filter((n) => n !== 'index' && PAGE_SEGMENT_PATTERN.test(n)),
+  )],
+  bundle: doc.fields?.bundle?.booleanValue === true,
+});
+
 const fetchDeploymentRow = async (slug, env) => {
   const headers = {};
   const appCheckToken = await getAppCheckToken(env);
@@ -298,18 +315,7 @@ const fetchDeploymentRow = async (slug, env) => {
   });
   if (res.status === 404) return { ok: true, row: null };
   if (!res.ok) return { ok: false, row: null };
-  const doc = await res.json();
-  return {
-    ok: true,
-    row: {
-      name: doc.fields?.name?.stringValue || null,
-      storage_path: doc.fields?.storage_path?.stringValue || null,
-      page_names: (doc.fields?.page_names?.arrayValue?.values || [])
-        .map((v) => v.stringValue)
-        .filter((n) => typeof n === 'string' && PAGE_SEGMENT_PATTERN.test(n)),
-      bundle: doc.fields?.bundle?.booleanValue === true
-    }
-  };
+  return { ok: true, row: parseDeploymentDoc(await res.json()) };
 };
 
 export async function onRequest(context) {
@@ -427,6 +433,7 @@ export async function onRequest(context) {
     let slug = null;
     let page = null;
     let row = null;
+    let missingPageOf = null;
     for (const candidate of candidates) {
       const looked = await fetchDeploymentRow(candidate.slug, env);
       if (!looked.ok) {
@@ -434,10 +441,17 @@ export async function onRequest(context) {
       }
       if (!looked.row) continue;
       // A page URL only counts if the deployment actually has that page.
-      if (candidate.page && candidate.page !== 'index' && !looked.row.page_names.includes(candidate.page)) continue;
+      if (candidate.page && candidate.page !== 'index' && !looked.row.page_names.includes(candidate.page)) {
+        missingPageOf = candidate.slug;
+        continue;
+      }
       ({ slug, row } = { slug: candidate.slug, row: looked.row });
       page = candidate.page === 'index' ? null : candidate.page;
       break;
+    }
+
+    if (!row && missingPageOf) {
+      return notice(404, 'Page not found', 'This site has no page at this address.');
     }
 
     let storagePath = row?.storage_path;
