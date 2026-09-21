@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PanelLeftClose, History, Clock, ChevronRight, RotateCcw } from 'lucide-react';
+import { PanelLeftClose, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 
 // One checkpoint row inside a chat-session group. The whole row is a
 // one-click restore target. `idx` is the index into the flat `versions`
@@ -213,17 +213,6 @@ export default function HistorySidebar({
         {/* Header */}
         <div className="h-[var(--chrome-row-h)] shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={onCollapse}
-              className="history-icon-btn text-slate-400 hover:text-slate-700 bg-surface hover:bg-slate-200 p-1.5 rounded-lg border border-slate-200/70 hover:border-slate-300 transition-all duration-200 flex-shrink-0"
-              title="Hide history panel"
-              aria-label="Hide history panel"
-            >
-              <PanelLeftClose size={16} />
-            </button>
-            <div className="h-7 w-7 2xl:h-8 2xl:w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 border border-indigo-200/80 shadow-2xs">
-              <History size={15} />
-            </div>
             <h2 className="text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">
               History
             </h2>
@@ -233,6 +222,14 @@ export default function HistorySidebar({
               {versions.length} version{versions.length !== 1 ? 's' : ''}
             </span>
           )}
+          <button
+            onClick={onCollapse}
+            className="history-icon-btn text-slate-400 hover:text-slate-700 bg-surface hover:bg-slate-200 p-1.5 rounded-lg border border-slate-200/70 hover:border-slate-300 transition-all duration-200 flex-shrink-0"
+            title="Hide history panel"
+            aria-label="Hide history panel"
+          >
+            <PanelLeftClose size={16} />
+          </button>
         </div>
 
         {/* Version List */}
