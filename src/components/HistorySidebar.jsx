@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen, History, Clock, ChevronRight, RotateCcw } from 'lucide-react';
+import { PanelLeftClose, History, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 
 // One checkpoint row inside a chat-session group. The whole row is a
 // one-click restore target. `idx` is the index into the flat `versions`
@@ -184,19 +184,17 @@ function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVers
   });
 }
 
-// Version-history drawer with its collapse tab, grouped by chat session: each
+// Version-history dropdown, grouped by chat session: each
 // group holds the checkpoints created in one continuous chat (split by the
 // "+ new chat" button), newest session first. Restoring is a single click on
 // any version row; it also re-activates its chat session's history (handled in
-// App's switchVersion). Rendered as a fragment: the tab sits in the flex row
-// next to the sidebar when the sidebar is closed.
+// App's switchVersion). Rendered as an overlay from the workspace edge.
 export default function HistorySidebar({
   isOpen,
   versions,
   chatSessions = [],
   currentVersionIndex,
   onSwitchVersion,
-  onExpand,
   onCollapse,
 }) {
   const activeSessionIndex = chatSessions.findIndex(
@@ -205,28 +203,15 @@ export default function HistorySidebar({
 
   return (
     <>
-      {/* Collapse/expand tab — stays in the same spot in both states, so clicking it
-          again toggles back rather than only ever opening. */}
-      <button
-        onClick={isOpen ? onCollapse : onExpand}
-        className="history-icon-btn history-tab hidden xl:flex items-center justify-center w-7 2xl:w-8 bg-blue-50 border-y border-r border-slate-200 rounded-r-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:text-indigo-600 transition-all duration-200 z-20 flex-shrink-0 -ml-px group"
-        title={isOpen ? 'Hide history panel' : 'Show history panel'}
-      >
-        {isOpen ? (
-          <PanelLeftClose size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-        ) : (
-          <PanelLeftOpen size={16} className="text-slate-500 group-hover:text-indigo-600 transition-colors" />
-        )}
-      </button>
       {isOpen && (
         <button type="button" className="history-backdrop absolute inset-0 z-30 bg-scrim xl:hidden" aria-label="Close history" onClick={onCollapse} />
       )}
       {/* History Sidebar */}
-      <aside aria-label="Version history" inert={!isOpen} className={`history-sidebar flex flex-col z-10 transition-all duration-300 ease-out relative history-bg noise-texture border-r border-slate-200 panel-edge-right ${
-        isOpen ? 'history-sidebar-open w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0'
+      <aside aria-label="Version history" inert={!isOpen} className={`history-sidebar absolute left-0 top-0 bottom-0 flex flex-col z-30 transition-all duration-200 ease-out history-bg noise-texture border-r border-slate-200 panel-edge-right shadow-xl ${
+        isOpen ? 'history-sidebar-open w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0 pointer-events-none'
       }`}>
         {/* Header */}
-        <div className="h-14 sm:h-16 shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
+        <div className="h-[var(--chrome-row-h)] shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">
           <div className="flex items-center gap-2.5">
             <button
               onClick={onCollapse}

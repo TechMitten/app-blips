@@ -1902,7 +1902,6 @@ export default function App() {
           currentVersionIndex={currentVersionIndex}
           onSwitchVersion={switchVersion}
           onCollapse={() => setIsHistoryOpen(false)}
-          onExpand={() => setIsHistoryOpen(true)}
         />
 
         {/* Main Workspace */}
@@ -1953,6 +1952,8 @@ export default function App() {
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
               onNewChat={handleStartNewChat}
+              isHistoryOpen={isHistoryOpen}
+              onToggleHistory={() => setIsHistoryOpen((open) => !open)}
               chatBottomRef={chatBottomRef}
               interruptedJob={interruptedJob}
               onRetryInterruptedJob={handleRetryInterruptedJob}

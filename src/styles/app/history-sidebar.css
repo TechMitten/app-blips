@@ -20,6 +20,25 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
+:is(html.dark, .force-dark) .history-bg {
+  background-color: #0b0d13;
+  background-image: none;
+}
+
+:is(html.dark, .force-dark) .history-header-bg {
+  background: var(--pane-header-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:is(html.dark, .force-dark) .history-sidebar {
+  border-right-color: rgb(255 255 255 / 0.06);
+}
+
+:is(html.dark, .force-dark) .history-sidebar .history-header-bg {
+  border-bottom-color: rgb(255 255 255 / 0.10);
+}
+
 /* Icon buttons living on the history panel (panel-close, per-checkpoint
    restore). In dark theme --color-slate-100 is pinned equal to
    --color-surface (see the slate ladder above), so a plain border-slate-200
@@ -49,11 +68,23 @@
    resumes just below. The top-right corner squares off to meet the header, the
    bottom-right stays rounded. */
 :is(html.dark, .force-dark) .history-tab {
+  --history-tab-header-h: 3rem;
   border-top-right-radius: 0;
+  border-color: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.10);
+  background-color: #0b0d13;
+  box-shadow: none;
   background-image: linear-gradient(
     180deg,
     var(--pane-header-bg) 0,
-    var(--pane-header-bg) var(--chrome-row-h),
-    transparent var(--chrome-row-h)
+    var(--pane-header-bg) var(--history-tab-header-h),
+    #0b0d13 var(--history-tab-header-h)
   );
+}
+
+:is(html.dark, .force-dark) .history-tab:hover {
+  background-color: #0b0d13;
+  border-color: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.10);
+  box-shadow: none;
 }
