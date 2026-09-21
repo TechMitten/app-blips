@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/appblips-logo.png" alt="AppBlips — Text to App and Website Generator" width="360" />
+  <img src="public/darkthemelog.png" alt="AppBlips — Text to App and Website Generator" width="360" />
 </p>
 
 <p align="center">
