@@ -32,7 +32,7 @@ const CTA_LABELS = { app: 'Build an app', website: 'Build a website' };
 // brand-colored FAB. Fixed navy (#2c70af, the .brand-mark family) so the
 // accent reads as the same blue in both themes.
 const PhoneArtifact = () => (
-  <div className="studio-card-artifact relative w-24 rounded-[24px] border-[3px] border-slate-300 bg-surface p-1.5 shadow-md transition-transform duration-300 group-hover:-translate-y-1">
+  <div className="studio-card-artifact relative w-24 rounded-[24px] border-[3px] border-slate-300 bg-surface p-1.5 shadow-md">
     <div className="relative flex h-44 w-[78px] flex-col gap-1.5 overflow-hidden rounded-[16px] bg-slate-50 p-1.5">
       <div className="flex items-center justify-between px-0.5">
         <span className="h-1 w-5 rounded-full bg-slate-300" />
@@ -60,7 +60,7 @@ const PhoneArtifact = () => (
 // Miniature browser window: chrome bar, nav with CTA chip, hero, columns --
 // the website anatomy the Website studio mandates, at thumbnail scale.
 const BrowserArtifact = () => (
-  <div className="studio-card-artifact w-44 overflow-hidden rounded-xl border-[3px] border-slate-300 bg-surface shadow-md transition-transform duration-300 group-hover:-translate-y-1">
+  <div className="studio-card-artifact w-44 overflow-hidden rounded-xl border-[3px] border-slate-300 bg-surface shadow-md">
     <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-100 px-2 py-1.5">
       <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
       <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -151,7 +151,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 type="button"
                 onClick={() => onSelectStudio(key)}
                 aria-label={CTA_LABELS[key]}
-                className="studio-card group flex flex-col rounded-3xl border border-slate-200 bg-surface p-5 text-left shadow-premium-md transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300/70 hover:shadow-premium-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 sm:p-6"
+                className="studio-card flex flex-col rounded-3xl border border-slate-200 bg-surface p-5 text-left shadow-premium-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 sm:p-6"
               >
                 <div className="studio-card-well workspace-grid mb-5 flex h-52 items-center justify-center rounded-2xl bg-slate-50 shadow-[inset_0_1px_3px_rgb(15_23_42/0.06),inset_0_0_0_1px_rgb(15_23_42/0.04)]">
                   <Artifact />

@@ -39,21 +39,8 @@
 
 .studio-card-cta {
   border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-slate-700);
-}
-
-.studio-card:hover .studio-card-cta,
-.studio-card:focus-visible .studio-card-cta {
-  border-color: transparent;
   background-image: linear-gradient(135deg, #2c70af, #1e598f);
   color: #ffffff;
-}
-
-:is(html.dark, .force-dark) .studio-card:hover .studio-card-cta,
-:is(html.dark, .force-dark) .studio-card:focus-visible .studio-card-cta {
-  background-image: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
-  color: #080808;
 }
 
 /* Dark: the stock ladder puts canvas #080808 / card #141414 / border #262626
