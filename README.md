@@ -24,10 +24,8 @@
 
 <p align="center">
   <a href="https://appblips.com">
-    <video width="700" autoplay loop muted playsinline aria-label="Typing a prompt in AppBlips and watching a working game get built live">
-  <source src="https://appblips.com/AppBlips.mp4" type="video/mp4">
-  Typing a prompt in AppBlips and watching a working game get built live.
-</video>
+    <img src="https://files.techray.dev/diegYJ3SXV1p.gif" alt="Typing a prompt in AppBlips and watching a working game get built live" width="700" />
+  </a>
 </p>
 
 ## Why AppBlips?
