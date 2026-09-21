@@ -22,13 +22,6 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
 
-<p align="center">
-  <a href="https://appblips.com">
-    <img src="https://i.postimg.cc/K8Y8rM2D/333.gif" alt="Typing a prompt in AppBlips and watching a working game get built live" width="700" />
-  </a>
-</p>
-
-
 https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
 
 
