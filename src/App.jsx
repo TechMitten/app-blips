@@ -36,7 +36,7 @@ import {
   clearPreviewStorage,
   applyStorageChange,
 } from './lib/previewStorage';
-import { sanitizeHtmlResponse } from './lib/edits';
+import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
 import { LANDING_PAGE, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
@@ -47,7 +47,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -160,7 +160,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
   const [isAutoFixing, setIsAutoFixing] = useState(false);
-  const [autoFixMessage, setAutoFixMessage] = useState(null);
+  const [, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   // Index into `versions` where the current chat begins. Turns before it are
@@ -318,7 +318,7 @@ export default function App() {
   const {
     containerRef: previewContainerRef,
     previewMode, setPreviewMode, previewOrientation, handleToggleOrientation,
-    orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isAutoZoom,
+    orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isBareFill, isAutoZoom,
     handleManualZoom, resetZoom,
   } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' });
 
@@ -397,7 +397,12 @@ export default function App() {
   const confirmAndExecuteReload = useCallback(() => {
     reloadStateRef.current.timerId = null;
     if (!reloadStateRef.current.pending) return;
-    if (isGeneratingRef.current || isAutoFixingRef.current) {
+    // An in-flight auto-fix is already covered by isGenerating (handleRuntimeError
+    // sets both flags before calling handleGenerate). Do NOT also gate on
+    // isAutoFixing here: that flag stays true for the whole settlement window and
+    // is only cleared below, so checking it would reschedule this settlement
+    // forever and leave the "Auto-fixing..." overlay up permanently.
+    if (isGeneratingRef.current) {
       scheduleReloadSettlementRef.current?.(400);
       return;
     }
@@ -442,12 +447,20 @@ export default function App() {
   scheduleReloadSettlementRef.current = scheduleReloadSettlement;
 
   const scrollToHashRef = useRef(null);
+  const restoreScrollRef = useRef(null);
   const pageNavRef = useRef(null);
   const handlePreviewReady = useCallback(() => {
     const hash = pageNavRef.current?.pendingHashRef.current;
     if (hash) {
       pageNavRef.current.pendingHashRef.current = '';
       scrollToHashRef.current?.(hash);
+    }
+    // An in-place text edit reloads the frame from the edited source; put it
+    // back at the offset the user was working at.
+    if (pendingScrollRef.current && restoreScrollRef.current) {
+      const { x, y } = pendingScrollRef.current;
+      pendingScrollRef.current = null;
+      restoreScrollRef.current(x, y);
     }
     // If a preview reload is pending for the latest build/edit/auto-fix,
     // wait a settlement period after the iframe reports ready to confirm
@@ -567,6 +580,16 @@ export default function App() {
   // Website studio: the picker is armed only while editing is toggled on in a
   // website workspace. Selections/deselections arrive from the frame; the
   // imperative senders walk or clear the frame's current selection.
+  // `pendingScrollRef` carries the frame's scroll offset from an in-place
+  // text edit commit to the next preview-ready, where it is re-sent.
+  const pendingScrollRef = useRef(null);
+  // The committed-text handler is defined below `usePreviewBridge` (it needs
+  // the hook's senders); this trampoline keeps the wiring order-free.
+  const elementTextCommittedRef = useRef(null);
+  const handleElementTextCommittedTrampoline = useCallback((payload) => {
+    elementTextCommittedRef.current?.(payload);
+  }, []);
+
   const handleElementSelected = useCallback((payload) => {
     setSelectedElement(payload);
     setElementEditError(null);
@@ -585,6 +608,7 @@ export default function App() {
 
   const {
     requestScreenshot, selectParentElement, deselectElement,
+    replyInlineEditResult, restoreScroll,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
   } = usePreviewBridge({
     iframeRef,
@@ -598,9 +622,11 @@ export default function App() {
     editingEnabled: isPreviewEditing,
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
+    onElementTextCommitted: handleElementTextCommittedTrampoline,
     onNavigatePage: pageNav.navigateToHref,
   });
   scrollToHashRef.current = scrollToHash;
+  restoreScrollRef.current = restoreScroll;
 
   // Back/forward walk the frame's own history (hash jumps) first, then pages.
   const navState = {
@@ -614,6 +640,7 @@ export default function App() {
     setIsEditMode((on) => !on);
     setSelectedElement(null);
     setElementEditError(null);
+    pendingScrollRef.current = null;
   }, []);
 
   const handleCancelElementSelection = useCallback(() => {
@@ -626,18 +653,16 @@ export default function App() {
     selectParentElement();
   }, [selectParentElement]);
 
-  // Deterministic click-to-edit: apply the change straight to `generatedCode`
-  // (see lib/directEdits.js) and push the result as a normal version, so
-  // undo/redo, history and project persistence all work unchanged. When the
-  // anchor can't be matched unambiguously the edit falls back to the chat.
-  const handleApplyElementEdit = useCallback((changes) => {
-    if (!selectedElement || !activeCode) return;
-    const result = applyDirectEdit(activeCode, selectedElement, changes);
-    if (!result.ok) {
-      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Try "Edit with AI" below.');
-      return;
-    }
-    setElementEditError(null);
+  // Deterministic click-to-edit: apply the change straight to the active
+  // page's source (see lib/directEdits.js) and push the result as a normal
+  // version, so undo/redo, history and project persistence all work
+  // unchanged. When the anchor can't be matched unambiguously the edit
+  // falls back to the AI path. Shared by the panel's Apply button and the
+  // in-place text-edit commit.
+  const applyElementChangesToSource = useCallback((element, changes) => {
+    if (!element || !activeCode) return { ok: false, reason: 'invalid' };
+    const result = applyDirectEdit(activeCode, element, changes);
+    if (!result.ok) return result;
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const newVersion = {
       id: Date.now(),
@@ -654,12 +679,23 @@ export default function App() {
     setFiles(newVersion.files);
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
-    setSelectedElement(null);
     saveProject({
       versionsToSave: finalVersions,
       indexToSave: updatedVersions.length,
     });
-  }, [selectedElement, activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
+    return result;
+  }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
+
+  const handleApplyElementEdit = useCallback((changes) => {
+    if (!selectedElement) return;
+    const result = applyElementChangesToSource(selectedElement, changes);
+    if (!result.ok) {
+      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Try "Edit with AI" below.');
+      return;
+    }
+    setElementEditError(null);
+    setSelectedElement(null);
+  }, [selectedElement, applyElementChangesToSource]);
 
   const handleElementEditWithAI = useCallback((instruction) => {
     if (!selectedElement) return;
@@ -669,6 +705,35 @@ export default function App() {
     setElementEditError(null);
     setMobileView('chat');
   }, [selectedElement]);
+
+  // In-place text editing: the bridge committed a typed edit on the page.
+  // The payload carries the element snapshot captured BEFORE the typing
+  // (its original text/outerHTML are the engine's match anchor), so this
+  // applies exactly like a panel edit with `{ text: newText }` — then tells
+  // the frame the outcome: success keeps the typed text (the reloaded
+  // source shows it for real, at the remembered scroll offset), failure
+  // makes the bridge revert and opens the panel with the AI path.
+  const handleElementTextCommitted = useCallback((payload) => {
+    if (!payload || !payload.newText) {
+      replyInlineEditResult(false, payload?.editId);
+      return;
+    }
+    const result = applyElementChangesToSource(payload, { text: payload.newText });
+    if (result.ok) {
+      replyInlineEditResult(true, payload.editId);
+      setSelectedElement(null);
+      setElementEditError(null);
+      if (payload.scroll && typeof payload.scroll.y === 'number') {
+        pendingScrollRef.current = { x: payload.scroll.x || 0, y: payload.scroll.y || 0 };
+      }
+    } else {
+      replyInlineEditResult(false, payload.editId);
+      setSelectedElement(payload);
+      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Describe the change below and it will be applied with AI.');
+      setSelectionKey((n) => n + 1);
+    }
+  }, [replyInlineEditResult, applyElementChangesToSource]);
+  elementTextCommittedRef.current = handleElementTextCommitted;
 
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
@@ -899,12 +964,16 @@ export default function App() {
     setIsGenerating(true);
     isGeneratingRef.current = true;
     setMobileView('preview');
+    if (window.innerWidth < 1024) {
+      setActiveTab('preview');
+    }
     clearStreamingState();
     setError(null);
     // The preview reloads for the new code; any live picker selection is
     // stale by then.
     setSelectedElement(null);
     setElementEditError(null);
+    pendingScrollRef.current = null;
     // Persist the in-flight job so a page close/reload can offer to resume it.
     setInterruptedJob(null);
     savePendingJob({
@@ -1041,7 +1110,7 @@ export default function App() {
         if (!replyFrozenRef.current) {
           const boundaryMatch = streamingGeneratedCodeRef.current.match(HTML_STREAM_START_RE);
           if (boundaryMatch) {
-            streamingReplyRef.current = streamingGeneratedCodeRef.current.slice(0, boundaryMatch.index).trim();
+            streamingReplyRef.current = extractLeadingReply(streamingGeneratedCodeRef.current);
             replyFrozenRef.current = true;
             setStreamingReply(streamingReplyRef.current);
           } else {
@@ -1053,7 +1122,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode, files);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode, files, projectName);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1262,6 +1331,9 @@ export default function App() {
 
   const handleConfirmNewChat = () => {
     setIsNewChatConfirmOpen(false);
+    // Confirmed: leaving the current app. Mark it so a reload before a studio
+    // is picked lands on the picker instead of resuming the old project.
+    markStartFresh();
     // The workspace is left untouched until a studio is chosen, so "Go back"
     // on the choice screen cancels cleanly.
     setIsStudioChoiceOpen(true);
@@ -1271,6 +1343,7 @@ export default function App() {
     setIsExitConfirmOpen(false);
     // Same as "New": the workspace stays untouched until a studio is chosen,
     // so "Go back" on the picker returns to it.
+    markStartFresh();
     setIsStudioChoiceOpen(true);
   };
 
@@ -1477,6 +1550,10 @@ export default function App() {
     previewStorageRef.current = {};
     setInterruptedJob(null);
     clearPendingJob();
+    // The old project must not come back on the next reload -- in hosted mode
+    // there is no last-open pointer to remove, so this marker is what
+    // suppresses the resume-newest behavior.
+    markStartFresh();
   };
 
   // The studio-choice screen. Forced on a fresh session (gate), or opened by
@@ -1509,6 +1586,9 @@ export default function App() {
   };
 
   const handleCancelStudioChoice = () => {
+    // Going back re-anchors the untouched workspace: a reload should resume
+    // the previous project like it would before "New" was clicked.
+    clearStartFresh();
     setIsStudioChoiceOpen(false);
   };
 
@@ -1641,27 +1721,11 @@ export default function App() {
         firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
+        mobileView={mobileView}
+        onMobileViewChange={setMobileView}
+        onNewChat={handleStartNewChat}
+        canNewChat={isChatActive && versions.length > 0 && !isGenerating}
       />
-
-      {/* Mobile Tab Toggle Bar (Sub-header) */}
-      <div className="mobile-view-switch lg:hidden shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 flex justify-center z-30">
-        <div className="nav-segmented-group nav-segmented-compact w-full max-w-65" role="group" aria-label="Workspace view">
-          <button
-            onClick={() => setMobileView('chat')}
-            aria-pressed={mobileView === 'chat'}
-            className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setMobileView('preview')}
-            aria-pressed={mobileView === 'preview'}
-            className={`nav-segmented-btn flex-1 py-1.5 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
-          >
-            Preview
-          </button>
-        </div>
-      </div>
 
       <TourInvitation onStart={startTour} />
       {isTourOpen && (
@@ -1913,6 +1977,7 @@ export default function App() {
               onOrientationFlipEnd={setOrientationFlipClass}
               zoomLevel={zoomLevel}
               fillSize={fillSize}
+              isBareFill={isBareFill}
               isAutoZoom={isAutoZoom}
               onZoomIn={handleManualZoom}
               onZoomOut={handleManualZoom}
@@ -1946,7 +2011,6 @@ export default function App() {
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
               liveCodePage={studioMode === 'website' ? liveCodePage : null}
               isAutoFixing={isAutoFixing}
-              autoFixMessage={autoFixMessage}
               onCancelGeneration={handleCancelGeneration}
               code={codePanelCode}
               copied={copied}

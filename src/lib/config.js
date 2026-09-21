@@ -118,6 +118,38 @@ export const loadBuildPaneSide = () => {
   }
 };
 
+export const START_FRESH_KEY = 'orion-start-fresh';
+
+// Start-fresh marker: the user confirmed leaving the current app ("New App" /
+// "Exit") or the workspace was reset, so page loads must land on the studio
+// picker instead of auto-resuming the previously-open project. Cleared when a
+// project is adopted (rememberProjectId) or the user cancels out of the
+// picker, so it survives any number of reloads while the new-app flow is
+// still in progress.
+export const markStartFresh = () => {
+  try {
+    safeStorage('local')?.setItem(START_FRESH_KEY, 'true');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+export const clearStartFresh = () => {
+  try {
+    safeStorage('local')?.removeItem(START_FRESH_KEY);
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+export const isStartFresh = () => {
+  try {
+    return safeStorage('local')?.getItem(START_FRESH_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // Sent to /api/chat as `reasoning_effort` for the heavy generation call. 'none'
 // disables reasoning; the rest map straight to the OpenAI-compatible values.

@@ -207,7 +207,7 @@ export default function SettingsModal({
           aria-label="Settings categories"
           aria-orientation="vertical"
           onKeyDown={onTabKeyDown}
-          className="shrink-0 flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-48 overflow-x-auto border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60"
+          className="shrink-0 grid grid-cols-2 sm:flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-48 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60"
         >
           {TABS.map((t) => {
             const { id, label } = t;
@@ -224,14 +224,14 @@ export default function SettingsModal({
                 aria-controls={`settings-panel-${id}`}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(id)}
-                className={`flex flex-1 sm:flex-none items-center justify-center sm:justify-start gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-500 ${
+                className={`flex min-w-0 items-center justify-center sm:justify-start gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-500 ${
                   active
                     ? 'bg-indigo-500/10 text-indigo-600 font-semibold'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon size={16} aria-hidden="true" />
-                <span>{label}</span>
+                <Icon size={16} aria-hidden="true" className="shrink-0" />
+                <span className="truncate">{label}</span>
               </button>
             );
           })}

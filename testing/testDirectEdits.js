@@ -125,6 +125,21 @@ check('text change refuses ambiguous strings', () => {
   assert.strictEqual(result.reason, 'text-not-found'); // two matches -> not unique
 });
 
+// In-place editing commits the element snapshot captured BEFORE the typing
+// (original text = anchor) plus the new text as `changes.text` -- exactly
+// the shape App.jsx's handleElementTextCommitted forwards.
+check('in-place commit: multiline text (Shift+Enter) applies to the anchor', () => {
+  const element = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Fresh bread, every morning',
+    outerHTML: '<h1 class="text-5xl font-black text-white">Fresh bread, every morning</h1>',
+  });
+  const result = applyDirectEdit(FIXTURE, element, { text: 'Fresh bread,\nbaked every night' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /Fresh bread,\nbaked every night/);
+});
+
 check('text change handles entity-encoded source text', () => {
   const element = el({
     tag: 'p',

@@ -186,13 +186,13 @@ export const getRefinementTools = (studioMode = 'app') =>
 // the landing page: some providers (e.g. z.ai GLM) do not stream tool-call
 // arguments, so a create_page tool call would show nothing until the whole page
 // finished.
-export const buildCreatePageInstruction = ({ pageName, request, landingHtml }) => `The website's landing page (index.html) is below. It links to a page named "${pageName}" that does not exist yet. Write it now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.
+export const buildCreatePageInstruction = ({ pageName, request, landingHtml, projectName }) => `The website's landing page (index.html) is below. It links to a page named "${pageName}" that does not exist yet. Write it now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.
 
 Original request: ${request}
 
 Rules for the new page:
 - It must be a complete standalone HTML document that reuses the landing page's exact <head> styling setup (Tailwind CDN, fonts, palette, theme), navigation bar and footer, so the site feels like one website. Mark this page's link in the navigation as the current one.
-- Give it its own unique <title>, meta description, Open Graph tags, a single <h1>, and real, substantial content appropriate to the page's purpose (infer it from the filename, the navigation label and the request). Static HTML only.
+- Give it its own unique <title>, meta description, Open Graph tags, a single <h1>, and real, substantial content appropriate to the page's purpose (infer it from the filename, the navigation label and the request). Static HTML only.${buildProjectNameInstruction(projectName, 'website')}
 - Link to other pages by relative filename (e.g. href="index.html", href="about.html"); link back to landing sections as href="index.html#section-id". Only link to pages that exist or that appear in the landing page's navigation.
 - Wrap each region in <!-- @section: name --> landmark comments.
 
@@ -332,7 +332,7 @@ REPLY GUIDELINES:
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
 const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
-- Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. It resolves to { text }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling.
+- Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. This function returns a Promise that resolves to an object like: { text: "response" }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling for blip.ai.text.
 - Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this text API.
 - Handle loading and error states. Error codes are: configuration_required, unauthorized, rate_limited, payload_too_large, upstream_error, and network.`;
 
@@ -362,19 +362,29 @@ export const getSafeAreaInstruction = (layoutTarget) => {
   return ' Respect modern phone safe areas: include a viewport meta tag with viewport-fit=cover and pad edge-aligned headers, footers, and fixed controls with env(safe-area-inset-top/right/bottom/left) so nothing is hidden by a notch or home indicator.';
 };
 
-export const buildInitialGenerationPrompt = (prompt, layoutTarget) => {
+// The user names the project before the first build. Anchor the generated
+// title/branding to that name so the model doesn't invent one of its own; an
+// explicit name in the request itself still wins.
+const buildProjectNameInstruction = (projectName, noun) => {
+  const name = String(projectName || '').trim();
+  if (!name || /^untitled\b/i.test(name)) return '';
+  return ` Use "${name}" as the ${noun} name: set the <title> to it (a short suffix describing what it does is fine) and use it for any visible name or branding. Only use a different name if the user's request explicitly specifies one -- never invent an unrelated name of your own.`;
+};
+
+export const buildInitialGenerationPrompt = (prompt, layoutTarget, projectName) => {
   const trimmedPrompt = prompt.trim();
   const safeAreaInstruction = getSafeAreaInstruction(layoutTarget);
   const persistenceInstruction = ' Unless specified otherwise, always use localStorage for any data or state persistence needs (e.g. saved items, user progress, settings, preferences) so data persists across reloads.';
+  const nameInstruction = buildProjectNameInstruction(projectName, 'app');
 
   switch (layoutTarget) {
     case 'mobile':
-      return `Create a native-feeling smartphone app based on this request: ${trimmedPrompt}.${persistenceInstruction} It must look and feel like a real native iOS/Android app running full-screen on a 375px device -- not a website viewed on a phone. Use native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals, large thumb-friendly controls) instead of website conventions (top nav bars, hamburger menus, hero sections, footers).${safeAreaInstruction}`;
+      return `Create a native-feeling smartphone app based on this request: ${trimmedPrompt}.${persistenceInstruction} It must look and feel like a real native iOS/Android app running full-screen on a 375px device -- not a website viewed on a phone. Use native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals, large thumb-friendly controls) instead of website conventions (top nav bars, hamburger menus, hero sections, footers).${safeAreaInstruction}${nameInstruction}`;
     case 'desktop':
-      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}.${persistenceInstruction} Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.`;
+      return `Create a desktop-focused web app based on this request: ${trimmedPrompt}.${persistenceInstruction} Optimize for larger screens with a true desktop layout, richer information density, and interactions suited for mouse and keyboard use.${nameInstruction}`;
     case 'both':
     default:
-      return `Create a responsive app based on this request: ${trimmedPrompt}.${persistenceInstruction} On phone widths it must look and feel like a native iOS/Android app -- not a website viewed on a phone -- using native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals) instead of website conventions (top nav bars, hamburger menus, hero sections, footers). On larger screens, present a true desktop layout instead of staying in a phone-width column.${safeAreaInstruction}`;
+      return `Create a responsive app based on this request: ${trimmedPrompt}.${persistenceInstruction} On phone widths it must look and feel like a native iOS/Android app -- not a website viewed on a phone -- using native app UI conventions (bottom tab bar or top app bar, card-based lists, bottom sheets/modals) instead of website conventions (top nav bars, hamburger menus, hero sections, footers). On larger screens, present a true desktop layout instead of staying in a phone-width column.${safeAreaInstruction}${nameInstruction}`;
   }
 };
 
@@ -389,10 +399,11 @@ Fix these with apply_surgical_edits before finishing. If a search anchor around 
 // The Website Studio's initial-generation instruction. Websites skip the app
 // prompt's layout-target switch (mobile/desktop/both): the site is always
 // desktop-first responsive, so one instruction covers it.
-export const buildWebsiteInitialGenerationPrompt = (prompt) => {
+export const buildWebsiteInitialGenerationPrompt = (prompt, projectName) => {
   const trimmedPrompt = prompt.trim();
+  const nameInstruction = buildProjectNameInstruction(projectName, 'website');
 
   return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.
 
-Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.`;
+Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.${nameInstruction}`;
 };

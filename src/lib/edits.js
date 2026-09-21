@@ -1,9 +1,41 @@
 export const sanitizeHtmlResponse = (text) => {
+  // Fallback: if the model mistakenly wrapped the HTML in a JSON object (with or without markdown)
+  try {
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      const parsed = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+      if (typeof parsed.html === 'string' && (parsed.html.includes('<!DOCTYPE') || parsed.html.includes('<html'))) return parsed.html.trim();
+      if (typeof parsed.text === 'string' && (parsed.text.includes('<!DOCTYPE') || parsed.text.includes('<html'))) return parsed.text.trim();
+    }
+  } catch { /* ignore JSON parse error */ }
+
+  // Streaming JSON fallback: if the model is streaming a JSON object containing the HTML
+  const firstBraceIndex = text.indexOf('{');
+  if (firstBraceIndex !== -1 && firstBraceIndex < 100) {
+    const jsonStr = text.slice(firstBraceIndex);
+    const streamingJsonMatch = jsonStr.match(/^\{\s*"(?:html|text)"\s*:\s*"((?:[^"\\]|\\.)*)("|$)/i);
+    if (streamingJsonMatch && (streamingJsonMatch[1].includes('<!DOCTYPE') || streamingJsonMatch[1].includes('<html'))) {
+      const unescapeJsonFragment = (fragment) =>
+        fragment
+          .replace(/\\u[0-9a-fA-F]{0,3}$/, '')
+          .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+          .replace(/\\(["\\/nrt])/g, (_, c) => ({ n: '\n', r: '', t: '  ' }[c] ?? c))
+          .replace(/\\$/, '');
+      return unescapeJsonFragment(streamingJsonMatch[1]).trim();
+    }
+  }
+
   const htmlBlockMatch = text.match(/```html\s*([\s\S]*?)\s*```/i);
   if (htmlBlockMatch) return htmlBlockMatch[1].trim();
 
-  const codeBlockMatch = text.match(/```\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) return codeBlockMatch[1].trim();
+  const codeBlockMatch = text.match(/```(?:[a-z0-9-]+)?\s*\n([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    let content = codeBlockMatch[1].trim();
+    if (content.startsWith('!json\n')) content = content.replace(/^!json\n/, '').trim();
+    if (content.startsWith('json\n')) content = content.replace(/^json\n/, '').trim();
+    return content;
+  }
 
   const htmlStartMatch = text.match(/(<!DOCTYPE html[\s\S]*)/i) || text.match(/(<html[\s\S]*)/i);
   if (htmlStartMatch) {
@@ -25,10 +57,35 @@ export const sanitizeHtmlResponse = (text) => {
 // Complementary to sanitizeHtmlResponse: returns the text BEFORE the HTML boundary
 // (an optional short conversational reply) instead of the HTML itself.
 export const extractLeadingReply = (text) => {
+  // Fallback: if the model mistakenly wrapped the HTML in a JSON object, the
+  // JSON object itself is the code container, so everything before it is the reply.
+  try {
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      const parsed = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+      if (
+        (typeof parsed.html === 'string' && (parsed.html.includes('<!DOCTYPE') || parsed.html.includes('<html'))) ||
+        (typeof parsed.text === 'string' && (parsed.text.includes('<!DOCTYPE') || parsed.text.includes('<html')))
+      ) {
+        return text.slice(0, firstBrace).trim();
+      }
+    }
+  } catch { /* ignore JSON parse error */ }
+
+  const firstBraceIndex = text.indexOf('{');
+  if (firstBraceIndex !== -1 && firstBraceIndex < 100) {
+    const jsonStr = text.slice(firstBraceIndex);
+    const streamingJsonMatch = jsonStr.match(/^\{\s*"(?:html|text)"\s*:\s*"(?:[^"\\]|\\.)*(?:"|$)/i);
+    if (streamingJsonMatch && (streamingJsonMatch[0].includes('<!DOCTYPE') || streamingJsonMatch[0].includes('<html'))) {
+      return text.slice(0, firstBraceIndex).trim();
+    }
+  }
+
   const htmlBlockMatch = text.match(/```html\s*[\s\S]*?\s*```/i);
   if (htmlBlockMatch) return text.slice(0, htmlBlockMatch.index).trim();
 
-  const codeBlockMatch = text.match(/```\s*[\s\S]*?\s*```/i);
+  const codeBlockMatch = text.match(/```(?:[a-z0-9-]+)?\s*\n[\s\S]*?\s*```/i);
   if (codeBlockMatch) return text.slice(0, codeBlockMatch.index).trim();
 
   const htmlStartMatch = text.match(/<!DOCTYPE html[\s\S]*/i) || text.match(/<html[\s\S]*/i);

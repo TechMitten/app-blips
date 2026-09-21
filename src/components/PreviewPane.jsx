@@ -35,6 +35,7 @@ export default function PreviewPane({
   onOrientationFlipEnd,
   zoomLevel,
   fillSize,
+  isBareFill = false,
   isAutoZoom,
   onZoomIn,
   onZoomOut,
@@ -58,7 +59,6 @@ export default function PreviewPane({
   liveCodeRef,
   liveCodePage = null,
   isAutoFixing,
-  autoFixMessage,
   onCancelGeneration,
   projectName = '',
   navState,
@@ -358,8 +358,10 @@ export default function PreviewPane({
         ref={containerRef}
         className={`preview-canvas flex-1 min-w-0 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning ? 'overflow-hidden' : 'overflow-auto'}`}
       >
-        {/* Subtle workspace grid */}
-        <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>
+        {/* Subtle workspace grid. It exists to read as a surface *behind* the
+            device mockup; with the bare full-bleed preview there is no mockup
+            to sit behind, so it would just tint the running app. */}
+        {!isBareFill && <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>}
 
         {/* Click-to-edit inspector. Docked (not coordinate-anchored) on
             purpose: the mockup is scaled by a CSS transform, so mapping the
@@ -416,6 +418,7 @@ export default function PreviewPane({
             onFlipAnimationEnd={() => onOrientationFlipEnd('')}
             zoomLevel={zoomLevel}
             fillSize={fillSize}
+            isBareFill={isBareFill}
             iframeRef={iframeRef}
             srcDoc={previewSrcDoc}
             isGenerating={isGenerating}
@@ -424,7 +427,6 @@ export default function PreviewPane({
             liveCodePage={liveCodePage}
             hasCode={hasCode}
             isAutoFixing={isAutoFixing}
-            autoFixMessage={autoFixMessage}
             isTransitioning={isTransitioning}
             onCancelGeneration={onCancelGeneration}
             tabTitle={projectName}

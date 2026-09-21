@@ -3,6 +3,7 @@ import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
 import { wrapWithTokenTracking } from './trackTokens.js';
+import { applyReasoningSetting } from './reasoning.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -299,12 +300,14 @@ export async function handleAiChat(request, env, waitUntil) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  const effort = env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none';
-  if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
-    bodyObj.reasoning_effort = 'none';
-  } else if (effort) {
-    bodyObj.reasoning_effort = effort;
-  }
+  // Operator-set effort, translated into whichever provider the APPBLIPS_APP_*
+  // config points at (same translation as the builder proxy; see reasoning.js).
+  applyReasoningSetting(bodyObj, {
+    effort: env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none',
+    model: env.APPBLIPS_APP_LLM_MODEL,
+    baseUrl: env.APPBLIPS_APP_LLM_BASE_URL,
+    providerOverride: env.APPBLIPS_APP_LLM_PROVIDER,
+  });
 
   let upstream;
   try {
