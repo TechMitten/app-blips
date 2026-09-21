@@ -25,10 +25,84 @@ async function assertNoOverflow(page, label) {
   assert.deepEqual(overflow, [], label + ' has no overflowing controls');
 }
 
+// Below lg every control is a thumb target. 44px is the WCAG 2.2 / iOS
+// minimum; the app's own mobile CSS is written to hit it.
+async function assertTapTargets(page, width, label) {
+  if (width >= 1024) return;
+  const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], input:not([type=checkbox]):not([type=radio]), select, summary, [role="button"]')].filter(el => {
+    if (!el.checkVisibility() || el.closest('[inert], [aria-hidden="true"]')) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
+  }).map(el => (el.getAttribute('aria-label') || el.textContent.trim()).slice(0, 40) + ' ' + Math.round(el.getBoundingClientRect().width) + 'x' + Math.round(el.getBoundingClientRect().height)));
+  assert.deepEqual(small, [], label + ' has no sub-44px tap targets');
+}
+
+// The phone layout budget: below lg the Chat/Preview switch and the new-chat
+// key live in the app header, so the header is the ONLY chrome band above the
+// content. Regressing to a second band costs ~20% of the screen.
+async function assertChromeBudget(page, width) {
+  if (width >= 1024) return;
+  const used = await page.evaluate(() => ['.app-header', '.mobile-view-switch', '.build-panel-header']
+    .reduce((total, sel) => {
+      const el = document.querySelector(sel);
+      return total + (el && el.checkVisibility() ? el.getBoundingClientRect().height : 0);
+    }, 0));
+  assert.ok(used <= 72, 'chrome above the chat stage is ' + Math.round(used) + 'px at ' + width + ' (budget 72)');
+}
+
+// On a phone the default preset renders bare, so the sandboxed frame should
+// span the pane instead of being letterboxed inside a simulated handset.
+async function assertPreviewFills(page, width) {
+  if (width >= 1024) return;
+  // The device shell animates its width/height over 500ms when it switches
+  // into fill mode, so poll until the measurement stops moving.
+  const gap = await page.evaluate(async () => {
+    const pane = document.querySelector('.preview-canvas');
+    if (!pane) return null;
+    const read = () => {
+      const frame = document.querySelector('.preview-canvas iframe');
+      return frame ? Math.round(pane.getBoundingClientRect().width - frame.getBoundingClientRect().width) : null;
+    };
+    let last = read();
+    for (let i = 0; i < 40; i += 1) {
+      await new Promise(r => setTimeout(r, 50));
+      const next = read();
+      if (next !== null && next === last) return next;
+      last = next;
+    }
+    return last;
+  });
+  if (gap === null) return;
+  assert.ok(gap <= 16, 'bare preview fills the pane at ' + width + ' (gap ' + gap + 'px)');
+}
+
+// Help points at the docs in a new tab. Clicking it would navigate away, so
+// this only checks that it is on screen and has an href.
+async function assertHelpLink(page, width, viewport) {
+  if (width < 1024) {
+    await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Navigation menu' });
+    // The drawer slides in via a transform on the dialog itself, so waiting on
+    // the link's own animations would measure it mid-slide.
+    await dialog.evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished.catch(() => {}))); });
+    const link = dialog.getByRole('link', { name: 'Help', exact: true });
+    await assertFits(link, viewport, 'Help link');
+    assert.ok(await link.getAttribute('href'), 'Help link has an href');
+    await dialog.getByRole('button', { name: 'Close menu', exact: true }).click();
+    await page.waitForTimeout(350);
+  } else {
+    const link = page.locator('.app-header').getByRole('link', { name: 'Help', exact: true });
+    await assertFits(link, viewport, 'Help link');
+    assert.ok(await link.getAttribute('href'), 'Help link has an href');
+  }
+}
+
 async function openNavigation(page, width, name) {
   if (width < 1024) {
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Navigation menu' }).getByRole('button', { name, exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Navigation menu' });
+    // Match on the accessible name, not text: Apps/History carry a count badge.
+    await menu.getByRole('button', { name, exact: true }).click();
   } else {
     const labels = { Settings: 'Settings', Help: 'Help', Apps: 'My saved apps', History: 'Show history panel' };
     if (name === 'History') await page.locator('.app-header [data-tour="history"]').click();
@@ -58,6 +132,8 @@ try {
     await page.locator('#prompt').fill('Keep this draft');
     await assertFits(page.locator('.prompt-input-footer'), viewport, 'Composer');
     await assertNoOverflow(page, 'Chat ' + width);
+    await assertTapTargets(page, width, 'Chat ' + width);
+    await assertChromeBudget(page, width);
     if (width < 1024) {
       await page.locator('#prompt').press('Enter');
       assert.equal(await page.locator('#prompt').inputValue(), 'Keep this draft\n');
@@ -65,26 +141,38 @@ try {
     await openNavigation(page, width, 'Settings');
     await assertFits(page.locator('.modal-card'), viewport, 'Settings');
     await assertNoOverflow(page, 'Settings ' + width);
+    // All four category tabs have to be reachable without a hidden
+    // horizontal scroll: below sm the rail is a 2x2 grid for that reason.
+    const strayTabs = await page.evaluate(() => {
+      const card = document.querySelector('.modal-card');
+      const box = card.getBoundingClientRect();
+      return [...card.querySelectorAll('[role="tab"]')]
+        .filter(tab => { const r = tab.getBoundingClientRect(); return r.left < box.left - 1 || r.right > box.right + 1; })
+        .map(tab => tab.textContent.trim());
+    });
+    assert.deepEqual(strayTabs, [], 'Settings tabs all fit the card at ' + width);
+    await assertTapTargets(page, width, 'Settings ' + width);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await openNavigation(page, width, 'Apps');
     await assertFits(page.locator('.modal-card'), viewport, 'Saved apps');
     await assertNoOverflow(page, 'Saved apps ' + width);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
-    await openNavigation(page, width, 'Help');
-    await assertFits(page.locator('.modal-card'), viewport, 'Help');
-    await assertNoOverflow(page, 'Help ' + width);
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    // Help is no longer a modal -- it is an external docs link that opens in a
+    // new tab, so assert it is present and reachable rather than clicking it.
+    await assertHelpLink(page, width, viewport);
     await openNavigation(page, width, 'History');
     await assertFits(page.locator('.history-sidebar'), viewport, 'History');
     await page.getByRole('button', { name: 'Restore version 1 and close history', exact: true }).click();
     if (width < 1024) await page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Preview', exact: true }).click();
     await assertNoOverflow(page, 'Preview ' + width);
+    await assertTapTargets(page, width, 'Preview ' + width);
+    await assertPreviewFills(page, width);
     const tools = page.getByRole('button', { name: 'Preview tools', exact: true });
     if (await tools.isVisible()) {
       await tools.click();
       await assertFits(page.locator('.preview-tools-menu'), viewport, 'Preview tools');
       await page.locator('.preview-tools-menu').getByRole('button', { name: 'Next version', exact: true }).click();
-      for (const mode of ['Desktop', 'Tablet', 'Mobile']) {
+      for (const mode of ['Desktop', 'Tablet', 'Smartphone']) {
         await page.locator('.preview-tools-menu').getByRole('button', { name: mode, exact: true }).click();
         await page.waitForTimeout(600);
         const fits = await page.locator('.preview-canvas').evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1);

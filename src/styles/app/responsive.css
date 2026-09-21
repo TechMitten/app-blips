@@ -84,6 +84,21 @@
   .preview-canvas { padding: 12px; }
 }
 
+/* Bare preview: the frame IS the content, so the canvas stops being a stage.
+   Padding, the dotted workspace grid and the recessed inset all exist to set a
+   device mockup apart from its backdrop; with no mockup there is nothing to
+   set apart and every pixel they use is taken from the app itself.
+
+   Deliberately NOT inside a container query: a landscape phone's preview pane
+   is wider than the 580px toolbar fold, so keying this on pane width would
+   leave a 24px frame around the app at 667x375. .device-bare is only ever
+   rendered below lg, so its presence is the correct condition. */
+.preview-canvas:has(.device-bare) {
+  padding: 0;
+  background-image: none;
+  box-shadow: none;
+}
+
 .mobile-menu-layer { position: relative; z-index: 80; }
 .mobile-side-menu {
   top: var(--app-viewport-top, 0px);
@@ -137,7 +152,6 @@
     padding-right: max(12px, env(safe-area-inset-right));
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
-  .mobile-view-switch .nav-segmented-btn { min-height: 40px; }
   .prompt-input-field { font-size: 16px; max-height: min(176px, 28dvh); }
   /* The composer rank is 4 keys + Build: ~316px at the default key size, so it
      holds one line on a 360px phone. flex-wrap stays as the escape hatch for
@@ -152,7 +166,51 @@
   }
   .code-view > div:first-child { flex-shrink: 0; padding-inline: 12px; }
   .code-view > div:first-child > div:first-child { display: none; }
-  .code-view button { min-height: 40px; }
+  .code-view button { min-height: 44px; }
+
+  /* --- Chrome budget -------------------------------------------------------
+     Below lg only one pane is on screen, so the workspace used to stack three
+     full bands before any content: the app header, a CHAT/PREVIEW switch of
+     its own, and the build panel's header -- 175px of an 844px phone. The
+     switch and the build panel's single new-chat key both moved into the app
+     header, so those two bands collapse to nothing here. Desktop keeps all
+     three: .build-panel-header still aligns with .preview-pane-header at lg
+     and up, which is what --chrome-row-h exists to guarantee. */
+  .build-panel-header { display: none; }
+
+  .header-view-switch { flex: 1 1 auto; min-width: 0; }
+  .header-view-switch .nav-segmented-btn {
+    min-height: 44px;
+    padding-inline: 0.5rem;
+  }
+
+  /* --- Touch targets -------------------------------------------------------
+     Controls that read fine under a mouse are too small under a thumb. These
+     grow the hit area without redrawing the glyph, matching the apron trick
+     .nav-btn-icon already uses. */
+  .header-logo-btn { min-height: 44px; }
+
+  /* The preview toolbar's keys are sized by a container query on the pane,
+     which also fires on a narrow desktop pane -- so the touch bump belongs
+     here, keyed on the viewport, rather than in that query. min-width beats
+     the width it sets, so the keys grow without the query being touched. */
+  .preview-tabs button,
+  .preview-actions .nav-btn,
+  .preview-actions .nav-segmented-btn,
+  .preview-actions summary,
+  .preview-tools-menu .nav-segmented-btn { min-width: 44px; min-height: 44px; }
+  .chat-rewind-btn { min-width: 44px; min-height: 44px; }
+  .history-sidebar .history-icon-btn { min-width: 44px; min-height: 44px; }
+  .new-chat-btn { min-width: 44px; min-height: 44px; }
+
+  /* The four font-size keys are single glyphs, so the group has to stretch
+     for them to clear 44px instead of collapsing to their ~26px content. */
+  .modal-card .nav-segmented-group { width: 100%; }
+  .modal-card .nav-segmented-group .nav-segmented-btn {
+    flex: 1 1 0;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* All dialog variants, including tall deployment/account forms, stay reachable. */
@@ -174,7 +232,7 @@
   .modal-card input:not([type='checkbox']):not([type='radio']),
   .modal-card textarea,
   .modal-card select { font-size: 16px; min-width: 0; max-width: 100%; }
-  .modal-card button:not([role='switch']) { min-height: 40px; }
+  .modal-card button:not([role='switch']) { min-height: 44px; }
   .modal-card button[aria-label='Close'],
   .modal-card button[aria-label='Dismiss'] { min-width: 44px; min-height: 44px; flex-shrink: 0; }
 }
@@ -386,4 +444,13 @@
     width: 18px;
     height: 18px;
   }
+}
+
+/* These two live in the app header but belong to the phone layout only. They
+   cannot be hidden with a `lg:hidden` utility: .nav-segmented-group and
+   .nav-btn are unlayered, so their display would beat any Tailwind class.
+   The descendant selector buys the specificity to turn them off instead. */
+@media (min-width: 1024px) {
+  .app-header .header-view-switch,
+  .app-header .header-new-chat-key { display: none; }
 }

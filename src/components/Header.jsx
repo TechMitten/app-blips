@@ -32,6 +32,10 @@ export default function Header({
   firebaseEnabled,
   onOpenAnalytics,
   studioMode = 'app',
+  mobileView,
+  onMobileViewChange,
+  onNewChat,
+  canNewChat = false,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -91,7 +95,7 @@ export default function Header({
         <button
           type="button"
           onClick={onNewApp}
-          className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+          className="header-logo-btn shrink-0 flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
           data-tip="Back to the studio picker"
           aria-label="Back to the studio picker"
         >
@@ -106,6 +110,48 @@ export default function Header({
           <span className="truncate">{displayName}</span>
         </div>
       </div>
+
+      {/* Below lg the workspace is one pane at a time, so the Chat/Preview
+          switch rides in the header rather than costing a band of its own.
+          Hidden at lg and up, where both panes are on screen together. */}
+      {onMobileViewChange && (
+        <div
+          className="header-view-switch nav-segmented-group nav-segmented-compact min-w-0 flex-1 max-w-56"
+          role="group"
+          aria-label="Workspace view"
+        >
+          <button
+            type="button"
+            onClick={() => onMobileViewChange('chat')}
+            aria-pressed={mobileView === 'chat'}
+            className={`nav-segmented-btn flex-1 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => onMobileViewChange('preview')}
+            aria-pressed={mobileView === 'preview'}
+            className={`nav-segmented-btn flex-1 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Preview
+          </button>
+        </div>
+      )}
+
+      {/* The build panel's own header is suppressed below lg (it held only this
+          one key), so the new-chat action moves up here beside the menu. */}
+      {canNewChat && onNewChat && (
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="nav-btn nav-btn-icon header-new-chat-key shrink-0"
+          data-tip="New chat (keeps version history)"
+          aria-label="New chat (keeps version history)"
+        >
+          <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
+        </button>
+      )}
 
       {/* Right: a ranked control strip -- one solid key, workspace controls,
           environment controls, then account/theme, split by hairlines. */}

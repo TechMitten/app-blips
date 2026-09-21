@@ -22,6 +22,7 @@
 // if they expose it beyond localhost.
 
 import { wrapWithTokenTracking } from './trackTokens.js';
+import { applyReasoningSetting } from './reasoning.js';
 
 let jwksCache = { keys: [], expiry: 0 };
 const cryptoKeysCache = new Map();
@@ -431,12 +432,16 @@ export async function handleChatProxy(request, env, waitUntil) {
   // Reasoning effort is a per-user setting chosen in the app's Settings modal
   // and sent by the client; the server no longer reads it from env. Client
   // requests omit it only for auxiliary calls, which default to 'none' here.
-  const effort = reasoning_effort ?? 'none';
-  if (effort === false || effort === 'none' || effort === 'off' || effort === 'disabled') {
-    bodyObj.reasoning_effort = 'none';
-  } else if (effort) {
-    bodyObj.reasoning_effort = effort;
-  }
+  // applyReasoningSetting translates it into the wire format of whichever
+  // provider APPBLIPS_LLM_MODEL / APPBLIPS_LLM_BASE_URL point at (OpenAI-style
+  // reasoning_effort pass-through, or Z.ai's thinking toggle + effort) and
+  // drops stream_options for providers that don't document it.
+  const { provider, reasoningEnabled } = applyReasoningSetting(bodyObj, {
+    effort: reasoning_effort ?? 'none',
+    model,
+    baseUrl: env.APPBLIPS_LLM_BASE_URL,
+    providerOverride: env.APPBLIPS_LLM_PROVIDER,
+  });
 
   if (ask === true) {
     const parsedAskMax = parseInt(env.APPBLIPS_LLM_ASK_MAX_TOKENS, 10);
@@ -452,12 +457,14 @@ export async function handleChatProxy(request, env, waitUntil) {
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) {
-    // Thinking backends can reject both required and named tool choices. Resolve
-    // this here, where the effective server/client reasoning setting is known.
-    // The refinement loop already nudges the model if auto returns no tool call.
-    const reasoningEnabled = bodyObj.reasoning_effort && bodyObj.reasoning_effort !== 'none';
+    // Thinking backends reject both required and named tool choices while
+    // reasoning is on, and Z.ai rejects them unconditionally -- its schema
+    // only accepts tool_choice: 'auto'. Resolve this here, where the
+    // effective provider and reasoning setting are both known. The refinement
+    // loop already nudges the model if auto returns no tool call.
     const forcedToolChoice = tool_choice === 'required' || tool_choice?.type === 'function';
-    bodyObj.tool_choice = reasoningEnabled && forcedToolChoice ? 'auto' : tool_choice;
+    const mustDowngrade = forcedToolChoice && (provider === 'zai' || reasoningEnabled);
+    bodyObj.tool_choice = mustDowngrade ? 'auto' : tool_choice;
   }
 
   let upstream;

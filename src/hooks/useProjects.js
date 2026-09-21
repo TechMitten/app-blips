@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { db, firebaseEnabled } from '../firebase';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { isValidUuid } from '../lib/helpers';
+import { clearStartFresh, isStartFresh } from '../lib/config';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects, cloudRowsToProjects
 } from '../lib/projectsStorage';
@@ -41,7 +42,11 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const useCloud = isSignedIn && firebaseEnabled;
 
   // Last-open pointer: self-hosted only. Hosted resumes the newest cloud row.
+  // Adopting a project (load or save) cancels a pending start-fresh marker in
+  // both modes: once a project is anchored, the next reload should come back
+  // to it like normal.
   const rememberProjectId = (id) => {
+    clearStartFresh();
     if (!firebaseEnabled) localStorage.setItem('orion-current-project-id', id);
   };
 
@@ -250,6 +255,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
           setMyProjects([]);
           resetWorkspace?.();
           localStorage.removeItem('orion-current-project-id');
+          clearStartFresh();
           clearPendingJob();
           clearAllPreviewStorage();
           return;
@@ -257,7 +263,14 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
 
         const projects = await loadUserProjects();
 
-        if (!currentProjectId) {
+        // Start-fresh marker: the user confirmed leaving the previous project
+        // (New App / Exit / workspace reset) and hasn't adopted another one
+        // since, so land on the studio picker instead of resurrecting that
+        // project. Stays set until a project is adopted or they go back, so
+        // reloads keep showing the picker for the whole new-app flow.
+        const startFresh = isStartFresh();
+
+        if (!currentProjectId && !startFresh) {
           if (firebaseEnabled) {
             // loadUserProjects returns rows newest-first.
             if (projects[0]) await loadProjectById(projects[0].id);

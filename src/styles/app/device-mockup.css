@@ -713,3 +713,70 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
   background: #000;
   box-shadow: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Bare mode.
+
+   On a phone the browser viewport IS the device being simulated, so the
+   hardware shell is pure overhead: bezel, corner radius, glass reflection and
+   drop shadow together cost roughly 45% of a 390px screen. `device-bare`
+   strips the shell back to a plain rectangle and lets the sandboxed frame run
+   edge to edge, while the element keeps its class (and therefore its
+   touch-chrome behaviour and the sizing hooks the bridge reads).
+
+   Applied by DeviceMockup only when usePreviewViewport reports isBareFill --
+   i.e. below lg on the default phone preset. Choosing Tablet or Desktop keeps
+   the full mockup, since those really are a different viewport.
+   --------------------------------------------------------------------------- */
+.device-smartphone.device-bare {
+  --device-safe-area-top: 0px;
+  --device-safe-area-bottom: 0px;
+  height: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Inner hairline, glass reflection and the notch/home-indicator hardware all
+   belong to the shell that is no longer being drawn. */
+.device-smartphone.device-bare::before,
+.device-smartphone.device-bare::after {
+  content: none;
+}
+
+/* The desktop browser chrome is laid out (h-0/opacity-0) even on the phone
+   preset; without the shell's padding and clipping to swallow it, its tab
+   strip can bleed a pixel into the top of a full-bleed preview. */
+.device-bare .device-browser-chrome { display: none; }
+
+/* Every piece of simulated hardware, portrait and landscape. Kept as an
+   explicit list rather than a [class*="device-"] sweep so it cannot silently
+   swallow the screen, the preview surface or the browser chrome. */
+.device-bare .device-speaker-slit,
+.device-bare .device-speaker-slit-landscape,
+.device-bare .device-front-camera,
+.device-bare .device-front-camera-landscape,
+.device-bare .device-sensor-dot,
+.device-bare .device-sensor-dot-landscape,
+.device-bare .device-antenna,
+.device-bare .device-antenna-h,
+.device-bare .device-antenna-v,
+.device-bare .device-hw-btn,
+.device-bare .device-hw-btn-landscape,
+.device-bare .device-home-indicator-bar,
+.device-bare .device-home-indicator-bar-landscape {
+  display: none;
+}
+
+.device-bare .device-screen,
+.device-bare .device-screen-mobile {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.device-bare .device-preview-surface-mobile {
+  border-radius: 0;
+}

@@ -387,7 +387,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
 // than through create_page: some providers deliver tool-call arguments as a
 // single event once the whole call is finished, which left the live views blank
 // for the entire page and looked like a hang.
-const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk }) => {
+const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk, projectName }) => {
   let result = files;
   const targets = [...new Set(findBrokenLinks(files).map((b) => b.target))].slice(0, MAX_PAGES - 1);
   if (onChunk && targets.length) {
@@ -412,7 +412,7 @@ const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, o
         const message = await requestModelText({
           messages: [
             { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, 'website') },
-            { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files) }) }
+            { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files), projectName }) }
           ],
           onChunk: forwardLive,
           signal,
@@ -450,15 +450,16 @@ const generateAppCodeCore = async (
   isAutoFix = false,
   reasoningEffort = 'none',
   studioMode = 'app',
-  currentFiles = null
+  currentFiles = null,
+  projectName = ''
 ) => {
   const isWebsite = studioMode === 'website';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = isWebsite ? 'website' : 'app';
   const buildInitialPrompt = isWebsite
-    ? buildWebsiteInitialGenerationPrompt
-    : (p) => buildInitialGenerationPrompt(p, layoutTarget);
+    ? (p) => buildWebsiteInitialGenerationPrompt(p, projectName)
+    : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
   if (isAskMode) {
     const messages = [
       {
@@ -652,7 +653,7 @@ const generateAppCodeCore = async (
 
     let files = makeFiles(code);
     if (isWebsite) {
-      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk });
+      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk, projectName });
     }
 
     return {
@@ -716,9 +717,12 @@ const generateAppCodeCore = async (
         tools: currentTools,
         tool_choice: turn === 1 ? 'required' : 'auto',
         signal,
-        // This loop only ever applies surgical edits, so keep it deterministic.
+        // This loop only ever applies surgical edits, so keep temperature at
+        // zero; reasoning follows the user's Settings effort (auto-fix stays
+        // pinned off). The proxy downgrades forced tool choices to 'auto' for
+        // thinking backends.
         forceTemperatureZero: true,
-        reasoningEffort: 'none'
+        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
       });
     } catch (e) {
       if (turn !== 1 || signal?.aborted) throw e;
@@ -730,9 +734,9 @@ const generateAppCodeCore = async (
         tools: currentTools,
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
         signal,
-        // This loop only ever applies surgical edits, so keep it deterministic.
+        // Same reasoning policy as the 'required' attempt above.
         forceTemperatureZero: true,
-        reasoningEffort: 'none'
+        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
       });
     }
 

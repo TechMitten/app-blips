@@ -38,7 +38,7 @@ function PromptRow({ children, className = '', onRewind }) {
         <button
           type="button"
           onClick={onRewind}
-          className="self-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+          className="chat-rewind-btn self-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
           aria-label="Rewind project to this message"
           title="Rewind project to this message"
         >

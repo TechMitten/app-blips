@@ -20,6 +20,7 @@ export default function usePreviewBridge({
   editingEnabled = false,
   onElementSelected,
   onElementDeselected,
+  onElementTextCommitted,
   onNavigatePage,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
@@ -27,6 +28,7 @@ export default function usePreviewBridge({
   const onStorageChangeRef = useRef(onStorageChange);
   const onElementSelectedRef = useRef(onElementSelected);
   const onElementDeselectedRef = useRef(onElementDeselected);
+  const onElementTextCommittedRef = useRef(onElementTextCommitted);
   const onNavigatePageRef = useRef(onNavigatePage);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
@@ -60,6 +62,7 @@ export default function usePreviewBridge({
     onStorageChangeRef.current = onStorageChange;
     onElementSelectedRef.current = onElementSelected;
     onElementDeselectedRef.current = onElementDeselected;
+    onElementTextCommittedRef.current = onElementTextCommitted;
     onNavigatePageRef.current = onNavigatePage;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
@@ -203,6 +206,9 @@ export default function usePreviewBridge({
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
       else if (data.type === 'element-deselected' && onElementDeselectedRef.current) onElementDeselectedRef.current();
+      // Committed in-place text edit: payload is the element snapshot taken
+      // BEFORE the typing (the match anchor) plus newText/editId/scroll.
+      else if (data.type === 'element-text-committed' && onElementTextCommittedRef.current) onElementTextCommittedRef.current(data.payload);
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
@@ -293,9 +299,28 @@ export default function usePreviewBridge({
     sendRef.current('deselect', {});
   }, []);
 
+  // Verdict on a committed in-place text edit (editId echoes the committed
+  // payload so the frame restores exactly the right element when several
+  // edits are in flight). ok=false (or a bridge-side timeout) reverts the
+  // typing in the frame; ok=true leaves it and the reloaded source takes
+  // over momentarily.
+  const replyInlineEditResult = useCallback((ok, editId) => {
+    sendRef.current('inline-edit-result', { ok: !!ok, editId: editId == null ? null : editId });
+  }, []);
+
+  // Put a reloaded frame back where the user was (used after an in-place
+  // edit commit, which reloads the document from the edited source).
+  const restoreScroll = useCallback((x, y) => {
+    sendRef.current('restore-scroll', { x: x || 0, y: y || 0 });
+  }, []);
+
   const scrollToHash = useCallback((hash) => sendRef.current('scroll-to-hash', { hash }), []);
   const goBack = useCallback(() => sendRef.current('nav-back', {}), []);
   const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
 
-  return { requestScreenshot, selectParentElement, deselectElement, navState, goBack, goForward, scrollToHash };
+  return {
+    requestScreenshot, selectParentElement, deselectElement,
+    replyInlineEditResult, restoreScroll,
+    navState, goBack, goForward, scrollToHash,
+  };
 }

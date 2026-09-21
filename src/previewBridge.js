@@ -34,8 +34,11 @@
  *  4. Website-studio visual editing: hover/click element picking that
  *     reports a serialized description of the selected element to the
  *     parent over the same token-authenticated channel (section 3 below).
- *     The parent owns the actual editing UI and applies changes to the
- *     source; this side only outlines and reports.
+ *     Text-bearing elements go straight into IN-PLACE editing instead:
+ *     the element becomes contentEditable, the user types on the page,
+ *     and the committed text is sent back for a deterministic source
+ *     edit. The parent owns the actual editing UI and applies changes to
+ *     the source; this side outlines, reports and hosts the typing.
  *
  * IMPORTANT: the bridge is spliced in at RENDER time only (see the `useMemo`
  * feeding the iframe's `srcDoc` in App.jsx) and is never written into
@@ -219,19 +222,33 @@ const BRIDGE_SOURCE = `(function () {
   // 3. Visual editing (website studio)
   //
   // When the parent enables editing, this frame becomes an element picker:
-  // hover outlines the element under the cursor, click selects it and
-  // reports a serialized description to the parent (which shows the editor
-  // panel and applies changes to the source HTML). This side never mutates
-  // the document -- outlines are inline styles that are restored on
-  // deselect. Escape clears the selection; select-parent walks the
-  // selection up one ancestor at a time so containers (section
-  // backgrounds, wallpaper) can be reached from their children.
+  // hover outlines the element under the cursor and click acts on it.
+  // Text-bearing elements (headings, paragraphs -- links/buttons on
+  // double-click) go straight into IN-PLACE editing: the element becomes
+  // contentEditable, the user types on the page itself, and on commit a
+  // serialized description captured BEFORE the typing (the original text
+  // is the anchor the parent string-matches against) plus the new text
+  // is posted as element-text-committed. The parent applies the change
+  // to the source HTML and answers inline-edit-result; only a failure
+  // (or a timeout) restores the original text here, so the frame and the
+  // source never disagree for longer than one round trip. Non-text
+  // elements select as before and the parent shows its editor panel;
+  // this side never mutates the source -- outlines are inline styles,
+  // typing is live-DOM only and always reverts unless the parent
+  // confirms. Escape during in-place editing cancels the typing and
+  // reports the element as selected (the panel's escape hatch, e.g. for
+  // select-parent); select-parent walks the selection up one ancestor at
+  // a time so containers (section backgrounds, wallpaper) can be reached
+  // from their children.
   // ------------------------------------------------------------------
 
   var editingActive = false;
   var editHoveredEl = null;
   var editSelectedEl = null;
   var editStyleEl = null;
+  var inlineEdit = null;
+  var inlineEditSequence = 0;
+  var pendingCommits = [];
 
   var EDIT_HOVER_OUTLINE = '2px dashed rgba(99, 102, 241, 0.85)';
   var EDIT_SELECT_OUTLINE = '3px solid rgba(99, 102, 241, 1)';
@@ -320,7 +337,7 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
 
-  function describeElement(el) {
+  function buildElementDescription(el) {
     var tag = el.tagName.toLowerCase();
     var ATTR_NAMES = ['src', 'srcset', 'href', 'alt', 'title', 'aria-label', 'placeholder', 'type', 'class', 'style', 'id'];
     var attributes = {};
@@ -382,11 +399,259 @@ const BRIDGE_SOURCE = `(function () {
       childIndex: childIndex,
       boundingBox: rect
     };
-    post('element-selected', payload);
+    return payload;
+  }
+
+  function describeElement(el) {
+    post('element-selected', buildElementDescription(el));
+  }
+
+  // --- In-place text editing -------------------------------------------
+  //
+  // The snapshot is taken BEFORE the user types: the parent's deterministic
+  // engine anchors on the ORIGINAL text/outerHTML, so the committed payload
+  // carries that snapshot untouched plus the new text. Reverting restores
+  // the saved innerHTML string (live childNodes would have been mutated in
+  // place by the typing itself).
+
+  function showInlineHint(el) {
+    var chip = document.createElement('div');
+    chip.setAttribute('data-orion-bridge', 'true');
+    chip.textContent = 'Type to edit \u00b7 Enter to save \u00b7 Esc for options';
+    chip.style.cssText = 'position:absolute;z-index:2147483647;background:#4f46e5;color:#ffffff;' +
+      'font:600 11px/1.4 system-ui,-apple-system,sans-serif;padding:5px 10px;border-radius:999px;' +
+      'pointer-events:none;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,0.25);';
+    try {
+      var rect = el.getBoundingClientRect();
+      var sx = window.pageXOffset || 0;
+      var sy = window.pageYOffset || 0;
+      var x = rect.left + sx;
+      var y = rect.top + sy - 30;
+      if (y < sy + 2) y = rect.bottom + sy + 8;
+      chip.style.left = x + 'px';
+      chip.style.top = y + 'px';
+    } catch (posErr) {
+      chip.style.left = '8px';
+      chip.style.top = '8px';
+    }
+    (document.body || document.documentElement).appendChild(chip);
+    return chip;
+  }
+
+  function restoreInlineEntry(entry) {
+    try { entry.el.innerHTML = entry.origHtml; } catch (rErr) { /* element gone */ }
+  }
+
+  function teardownInline(entry) {
+    if (entry.chip && entry.chip.parentNode) entry.chip.parentNode.removeChild(entry.chip);
+    entry.el.removeEventListener('blur', entry.onBlur);
+    entry.el.removeEventListener('paste', entry.onPaste, true);
+    try {
+      if (entry.origContentEditable != null) entry.el.setAttribute('contenteditable', entry.origContentEditable);
+      else entry.el.removeAttribute('contenteditable');
+    } catch (ceErr) { /* keep going */ }
+    try {
+      if (entry.origSpellcheck != null) entry.el.setAttribute('spellcheck', entry.origSpellcheck);
+      else entry.el.removeAttribute('spellcheck');
+    } catch (scErr) { /* keep going */ }
+    try {
+      // Undoes stabilizeInlineHost's pinned white-space ('' clears it).
+      entry.el.style.whiteSpace = entry.origWhiteSpace || '';
+    } catch (wsErr) { /* keep going */ }
+    if (inlineEdit === entry) inlineEdit = null;
+    paintSelection(entry.el);
+  }
+
+  // Walks the edit back out: original markup restored, nothing reported.
+  function abortInlineEdit() {
+    var entry = inlineEdit;
+    if (!entry) return;
+    teardownInline(entry);
+    restoreInlineEntry(entry);
+  }
+
+  // commit=true sends the change to the parent; false cancels (restore) and,
+  // with openPanel, reports the element as selected so the parent's panel
+  // (select-parent, Edit-with-AI) is reachable from a text element.
+  function finishInlineEdit(commit, openPanel) {
+    var entry = inlineEdit;
+    if (!entry) return;
+    if (!commit) {
+      teardownInline(entry);
+      restoreInlineEntry(entry);
+      if (openPanel) describeElement(entry.el);
+      return;
+    }
+    var newText = '';
+    try {
+      newText = String(entry.el.innerText || entry.el.textContent || '').replace(/\\s+/g, ' ').trim();
+    } catch (tErr) { newText = ''; }
+    teardownInline(entry);
+    if (!newText || newText === entry.snapshot.text) return;
+
+    var editId = ++inlineEditSequence;
+    var pending = { id: editId, el: entry.el, origHtml: entry.origHtml, timer: null };
+    // If the parent never answers (bug, tab hidden forever, teardown race),
+    // revert on our own so the frame cannot keep showing text the source
+    // does not have.
+    pending.timer = setTimeout(function () { resolveInlineEdit(false, editId); }, 3000);
+    pendingCommits.push(pending);
+
+    var payload = {};
+    for (var k in entry.snapshot) {
+      if (Object.prototype.hasOwnProperty.call(entry.snapshot, k)) payload[k] = entry.snapshot[k];
+    }
+    payload.newText = newText;
+    payload.editId = editId;
+    payload.scroll = { x: window.pageXOffset || 0, y: window.pageYOffset || 0 };
+    post('element-text-committed', payload);
+  }
+
+  // Parent's verdict on a committed inline edit. The parent echoes editId,
+  // so a failure restores exactly the right element even if the user has
+  // already started another edit. Unknown ids are ignored: the entry was
+  // already reverted by the timeout.
+  function resolveInlineEdit(ok, editId) {
+    var idx = -1;
+    for (var i = 0; i < pendingCommits.length; i++) {
+      if (pendingCommits[i].id === editId) { idx = i; break; }
+    }
+    if (idx === -1) return;
+    var entry = pendingCommits.splice(idx, 1)[0];
+    if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
+    if (!ok) restoreInlineEntry(entry);
+  }
+
+  // Editing hosts render whitespace differently from static text: Blink
+  // paints a typing host with pre-wrap semantics, so pretty-printed source
+  // indentation (newline + spaces around the text) -- which normal
+  // white-space collapsing renders as nothing -- suddenly occupies real
+  // space, and the text visibly shifts (right/off-center, a line down) the
+  // moment the element becomes editable. The internal pre-wrap cannot be
+  // overridden by an author white-space value, so the whitespace itself is
+  // what has to go: every text node in the subtree is collapsed to normal
+  // white-space semantics (runs -> one space, document-order leading and
+  // trailing runs removed), which renders identically to the static view
+  // under BOTH normal and pre-wrap. Preformatted subtrees keep their
+  // significant whitespace. The original markup is safe in entry.origHtml
+  // (restored on cancel/failure), and the parent's match snapshot was taken
+  // before any of this runs.
+  var WS_SKIP_TAGS = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, PRE: 1 };
+
+  function collectEditingTextNodes(root) {
+    var out = [];
+    var walk = function (node) {
+      for (var child = node.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType === 3) {
+          out.push(child);
+        } else if (child.nodeType === 1 && !WS_SKIP_TAGS[child.nodeName]) {
+          var ws = '';
+          try { ws = window.getComputedStyle(child).whiteSpace || ''; } catch (wsErr) { ws = ''; }
+          if (ws !== 'pre' && ws !== 'pre-wrap' && ws !== 'break-spaces') walk(child);
+        }
+      }
+    };
+    walk(root);
+    return out;
+  }
+
+  function stabilizeInlineHost(el, hostWhiteSpace) {
+    // The caller reads this BEFORE entering edit mode: once the element is a
+    // contenteditable host, Blink's UA style already reports pre-wrap, so
+    // reading it here would always look preformatted and skip the fix.
+    if (hostWhiteSpace !== 'normal' && hostWhiteSpace !== 'nowrap') return;
+    // Best effort only: Blink keeps rendering the host as pre-wrap even with
+    // an author value, which is exactly why the DOM is normalized below.
+    el.style.whiteSpace = hostWhiteSpace;
+    try {
+      var nodes = collectEditingTextNodes(el);
+      for (var i = 0; i < nodes.length; i++) {
+        var value = nodes[i].nodeValue;
+        var collapsed = value.replace(/\\s+/g, ' ');
+        if (i === 0) collapsed = collapsed.replace(/^ /, '');
+        if (i === nodes.length - 1) collapsed = collapsed.replace(/ $/, '');
+        if (collapsed === value) continue;
+        if (collapsed === '' && nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+        else nodes[i].nodeValue = collapsed;
+      }
+    } catch (trimErr) { /* worst case is the pre-fix shift, never a crash */ }
+  }
+
+  // Text-bearing roles only (defense in depth for the dblclick path):
+  // containers/images report descendant text that would pass the text
+  // checks, but flattening a whole section is never what a click
+  // means. Returns false (caller falls back to select + panel) when the
+  // element cannot be anchored deterministically: no text, text over the
+  // report cap, or a form control.
+  function tryStartInlineEdit(el) {
+    if (inlineEdit || !editingActive) return false;
+    if (!isSelectable(el)) return false;
+    var role = detectRole(el);
+    if (role !== 'heading' && role !== 'text' && role !== 'link' && role !== 'button') return false;
+    var tag = el.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'option') return false;
+    var snapshot = buildElementDescription(el);
+    if (!snapshot.text || snapshot.textTruncated) return false;
+    if (el.isContentEditable) return false;
+
+    // Must be read before contentEditable turns the element into a host
+    // (see stabilizeInlineHost).
+    var hostWhiteSpace = '';
+    try { hostWhiteSpace = window.getComputedStyle(el).whiteSpace || ''; } catch (wsErr) { hostWhiteSpace = ''; }
+
+    var entry = {
+      el: el,
+      snapshot: snapshot,
+      origHtml: el.innerHTML,
+      origContentEditable: el.getAttribute('contenteditable'),
+      origSpellcheck: el.getAttribute('spellcheck'),
+      origWhiteSpace: el.style.whiteSpace,
+      chip: null,
+      onBlur: null,
+      onPaste: null
+    };
+    try { el.contentEditable = 'plaintext-only'; } catch (ceErr) { /* unsupported value */ }
+    try {
+      if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+    } catch (ceErr2) { return false; }
+    el.setAttribute('spellcheck', 'false');
+    // Before focusing: the caret and hint chip should be placed against the
+    // stabilized layout, not the pre-edit one.
+    stabilizeInlineHost(el, hostWhiteSpace);
+    try {
+      el.focus();
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      var sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (focusErr) { /* no caret this round */ }
+    paintSelection(el);
+    entry.chip = showInlineHint(el);
+    entry.onBlur = function () { finishInlineEdit(true, false); };
+    entry.onPaste = function (e) {
+      // Plain text only: the parent's engine swaps flat text, so rich
+      // pasted markup would be discarded on apply anyway.
+      e.preventDefault();
+      e.stopPropagation();
+      var text = '';
+      try { text = (e.clipboardData && e.clipboardData.getData('text/plain')) || ''; } catch (cdErr) { text = ''; }
+      if (text) {
+        try { document.execCommand('insertText', false, text); } catch (execErr) { /* best effort */ }
+      }
+    };
+    el.addEventListener('blur', entry.onBlur);
+    el.addEventListener('paste', entry.onPaste, true);
+    inlineEdit = entry;
+    return true;
   }
 
   function editOnMouseOver(e) {
-    if (!editingActive) return;
+    // No hover outlines while a text session is live: the caret's own
+    // focus outline is the only visual state that matters there.
+    if (!editingActive || inlineEdit) return;
     var el = e.target;
     if (!isSelectable(el)) return;
     if (el === editHoveredEl) return;
@@ -403,20 +668,67 @@ const BRIDGE_SOURCE = `(function () {
   function editOnClick(e) {
     if (!editingActive) return;
     var el = e.target;
+    if (inlineEdit) {
+      // Clicks inside the live editor keep their default caret behavior;
+      // stopPropagation only keeps page scripts out of the typing session.
+      if (inlineEdit.el === el || inlineEdit.el.contains(el)) {
+        e.stopPropagation();
+        return;
+      }
+      // Clicks outside: focus already moved, so the editor's blur handler
+      // has committed (or will as the focus settles); fall through and let
+      // this click select as usual.
+    }
     if (!isSelectable(el)) return;
     // Capture phase + both stops: the page must not react to selection
     // clicks (no link navigation, no toggles) while picking.
     e.preventDefault();
     e.stopPropagation();
     clearHover();
+    // Headings and plain text edit in place; everything else (images,
+    // link/button URLs, section backgrounds) opens the parent's editor
+    // panel. Links and buttons also edit in place -- via double-click.
+    var role = detectRole(el);
+    if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el)) return;
     if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     editSelectedEl = el;
     paintSelection(el);
     describeElement(el);
   }
 
+  // Links and buttons select on the first click (the panel owns their URL)
+  // and edit their text in place on the second.
+  function editOnDblClick(e) {
+    if (!editingActive || inlineEdit) return;
+    var el = e.target;
+    if (!isSelectable(el)) return;
+    var role = detectRole(el);
+    if (role !== 'link' && role !== 'button') return;
+    e.preventDefault();
+    e.stopPropagation();
+    clearHover();
+    tryStartInlineEdit(el);
+  }
+
   function editOnKeyDown(e) {
     if (!editingActive) return;
+    if (inlineEdit) {
+      // While an IME composition is live, Enter/Escape belong to it.
+      if (e.isComposing) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        finishInlineEdit(false, true);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        finishInlineEdit(true, false);
+      }
+      // Everything else belongs to the caret/IME.
+      return;
+    }
     if (e.key === 'Escape' && editSelectedEl) {
       clearSelection(true);
     }
@@ -424,6 +736,7 @@ const BRIDGE_SOURCE = `(function () {
 
   function editSelectParent() {
     if (!editingActive || !editSelectedEl) return;
+    abortInlineEdit();
     var parent = editSelectedEl.parentElement;
     if (!parent || parent === document.documentElement) return;
     clearHover();
@@ -433,9 +746,17 @@ const BRIDGE_SOURCE = `(function () {
     describeElement(parent);
   }
 
+  function clearSelection(notify) {
+    abortInlineEdit();
+    if (editSelectedEl) restoreOutline(editSelectedEl);
+    editSelectedEl = null;
+    if (notify) post('element-deselected', {});
+  }
+
   function setEditingEnabled(enabled) {
     if (!!enabled === editingActive) return;
     editingActive = !!enabled;
+    abortInlineEdit();
     clearHover();
     clearSelection(false);
     if (editingActive) {
@@ -454,6 +775,7 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('mouseover', editOnMouseOver, true);
   document.addEventListener('mouseout', editOnMouseOut, true);
   document.addEventListener('click', editOnClick, true);
+  document.addEventListener('dblclick', editOnDblClick, true);
   document.addEventListener('keydown', editOnKeyDown, true);
 
   // Dead-link guard. The frame's document is about:srcdoc, so a relative
@@ -856,6 +1178,12 @@ const BRIDGE_SOURCE = `(function () {
       editSelectParent();
     } else if (d.type === 'deselect') {
       clearSelection(false);
+    } else if (d.type === 'inline-edit-result') {
+      resolveInlineEdit(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null);
+    } else if (d.type === 'restore-scroll') {
+      try {
+        window.scrollTo((d.payload && d.payload.x) || 0, (d.payload && d.payload.y) || 0);
+      } catch (scrollErr) { /* nothing to restore */ }
     } else if (d.type === "ai-chat-chunk" || d.type === "ai-chat-response" || d.type === "ai-chat-error") {
       var aiPayload = d.payload || {};
       var pendingAi = aiRequests[aiPayload.requestId];

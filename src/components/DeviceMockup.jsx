@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
-  Lock, Star, X, MoreVertical, Wrench
+  Lock, Star, X, MoreVertical
 } from 'lucide-react';
 import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
@@ -314,6 +314,7 @@ export default function DeviceMockup({
   onFlipAnimationEnd,
   zoomLevel,
   fillSize = null,
+  isBareFill = false,
   iframeRef,
   srcDoc,
   isGenerating,
@@ -322,7 +323,6 @@ export default function DeviceMockup({
   liveCodePage = null,
   hasCode,
   isAutoFixing = false,
-  autoFixMessage = null,
   isTransitioning = false,
   onCancelGeneration,
   tabTitle = '',
@@ -335,21 +335,10 @@ export default function DeviceMockup({
   onSelectPage,
 }) {
   const isMultiPage = pages.length > 1;
-  const box = fillSize && mode === 'desktop' ? fillSize : getEffectivePreviewBox(mode, orientation);
-  const isSyntaxErrorAutoFix = Boolean(
-    generationStatus?.toLowerCase().includes('syntax') ||
-    autoFixMessage?.toLowerCase().includes('syntax')
-  );
+  const box = fillSize || getEffectivePreviewBox(mode, orientation);
   const isErrorAutoFix = isAutoFixing || Boolean(
     generationStatus?.toLowerCase().includes('runtime error') ||
     generationStatus?.toLowerCase().includes('syntax error')
-  );
-  const displayAutoFixMessage = autoFixMessage || (
-    generationStatus?.toLowerCase().includes('runtime error:')
-      ? generationStatus.split(/runtime error:\s*/i)[1]
-      : generationStatus?.toLowerCase().includes('syntax error:')
-        ? generationStatus.split(/syntax error:\s*/i)[1]
-        : null
   );
 
   return (
@@ -361,10 +350,10 @@ export default function DeviceMockup({
       }}
     >
       <div
-        className={`${PREVIEW_MODES[mode].deviceClass}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
+        className={`${PREVIEW_MODES[mode].deviceClass}${isBareFill ? ' device-bare' : ''}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
         style={{
           '--preview-zoom': zoomLevel,
-          ...(fillSize && mode === 'desktop' ? { width: fillSize.width, height: fillSize.height } : null)
+          ...(fillSize ? { width: fillSize.width, height: fillSize.height } : null)
         }}
         onAnimationEnd={onFlipAnimationEnd}
       >
@@ -519,50 +508,25 @@ export default function DeviceMockup({
             )}
           </div>
           {(isGenerating || isErrorAutoFix) && (
-            <div className={`building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center${isErrorAutoFix ? ' building-overlay-error' : ''}`}>
+            <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
               <div className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                 <div className="building-spinner relative w-16 h-16 mb-6">
-                  {isErrorAutoFix ? (
-                    <>
-                      <div className="building-spinner-track absolute inset-0 border-4 border-amber-100 rounded-full"></div>
-                      <div className="building-spinner-ring absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin"></div>
-                      <Wrench className="building-spinner-glyph absolute inset-0 m-auto text-amber-600" size={22} />
-                    </>
-                  ) : (
-                    <>
-                      <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                      <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                      <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
-                    </>
-                  )}
+                  <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                  <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                  <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
                 </div>
                 <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
-                  {isErrorAutoFix
-                    ? (isSyntaxErrorAutoFix ? 'Auto-fixing syntax error...' : 'Auto-fixing runtime error...')
+                  {isErrorAutoFix || generationStatus?.includes('Syntax errors found')
+                    ? 'Error checking...'
                     : generationStatus?.startsWith('Analyzing') 
                       ? 'Planning...'
-                      : generationStatus?.includes('Syntax errors found') 
-                        ? 'Fixing errors...' 
-                        : 'Building...'}
+                      : 'Building...'}
                 </h3>
-                {isErrorAutoFix ? (
-                  <div className="space-y-1.5 max-w-[260px] sm:max-w-[300px] animate-fade-in-up">
-                    <p className="building-error-text text-xs sm:text-sm text-amber-700 font-medium">
-                      {generationStatus && !generationStatus.startsWith('Fixing runtime error') && !generationStatus.startsWith('Auto-fixing') && generationStatus !== 'Synthesizing your app from your prompt.'
-                        ? generationStatus
-                        : isSyntaxErrorAutoFix
-                          ? 'Detected syntax error in code. Automatically applying a fix...'
-                          : 'Detected a runtime error in preview. Automatically applying a fix...'}
-                    </p>
-                    {displayAutoFixMessage && (
-                      <p className="building-error-code text-[11px] font-mono text-slate-500 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1 text-center truncate" title={displayAutoFixMessage}>
-                        {displayAutoFixMessage}
-                      </p>
-                    )}
-                  </div>
-                ) : generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                {isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
                   <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                    {generationStatus}
+                    {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
+                      ? generationStatus
+                      : 'Verifying code...'}
                   </p>
                 ) : (
                   <BuildingStatusMessage />
@@ -577,15 +541,15 @@ export default function DeviceMockup({
                     type="button"
                     onClick={onCancelGeneration}
                     className="building-cancel mt-5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
-                    aria-label="Cancel auto-fix"
-                    title="Cancel auto-fix"
+                    aria-label="Cancel"
+                    title="Cancel"
                   >
                     <X size={13} strokeWidth={2.75} aria-hidden="true" />
                     <span>Cancel</span>
                   </button>
                 )}
               </div>
-              {isGenerating && !isErrorAutoFix && liveCodeRef && (
+              {(isGenerating || isErrorAutoFix) && liveCodeRef && (
                 <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} className="mt-8" />
               )}
             </div>

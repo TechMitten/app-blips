@@ -4,10 +4,12 @@ import {
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
 
-// Floating inspector for the Website Studio's click-to-edit mode. Receives
-// the bridge's element-selected payload and builds a `changes` object for
-// lib/directEdits.applyDirectEdit; when a change can't be applied
-// deterministically the user hands off to the chat with "Edit with AI"
+// Floating inspector for the Website Studio's click-to-edit mode. Text is
+// edited IN PLACE on the page (the bridge's contentEditable session -- see
+// src/previewBridge.js), so this panel owns everything else: image URL /
+// upload, alt, link URL, background color / wallpaper. Text-bearing roles
+// land here only via the Esc escape hatch or a failed in-place apply; the
+// panel then offers select-parent and the "Edit with AI" handoff
 // (buildElementEditPrompt). All state is local and keyed per selection --
 // App remounts this component with a fresh key whenever a new element is
 // picked.
@@ -60,13 +62,14 @@ export default function ElementEditor({
   const role = element.role || 'container';
   const isImage = role === 'image';
   const isContainer = role === 'container';
-  // Text editing applies to leaf text-bearing roles; containers offer
-  // background editing instead (their "text" is every descendant's text).
-  const showText = !isImage && !isContainer;
+  // Text is edited in place on the page, so there is no text field here;
+  // leaf text-bearing roles only reach this panel via the Esc escape hatch
+  // or a failed in-place apply.
+  const isTextRole = !isImage && !isContainer;
   const showLink = role === 'link' || role === 'button';
   const showBackground = isContainer || Boolean(element.backgroundImage);
+  const hasEditableFields = isImage || showLink || showBackground;
 
-  const [text, setText] = useState(element.text || '');
   const [src, setSrc] = useState(element.attributes?.src || '');
   const [alt, setAlt] = useState(element.attributes?.alt || '');
   const [href, setHref] = useState(element.attributes?.href || '');
@@ -75,7 +78,9 @@ export default function ElementEditor({
   const [bgImage, setBgImage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-  const [showAiInput, setShowAiInput] = useState(false);
+  // A failed in-place apply opens this panel with the error already set --
+  // skip straight to the AI input instead of asking for another click.
+  const [showAiInput, setShowAiInput] = useState(Boolean(error));
   const [aiInstruction, setAiInstruction] = useState('');
   const imageFileRef = useRef(null);
   const bgFileRef = useRef(null);
@@ -106,7 +111,6 @@ export default function ElementEditor({
 
   const handleApply = () => {
     const changes = {};
-    if (showText && text.trim() !== (element.text || '') && text.trim()) changes.text = text;
     if (isImage) {
       if (src.trim() && src.trim() !== (element.attributes?.src || '')) changes.src = src.trim();
       if (alt.trim() !== (element.attributes?.alt || '')) changes.alt = alt.trim();
@@ -171,16 +175,16 @@ export default function ElementEditor({
           </div>
         )}
 
-        {showText && (
-          <Field label="Text">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={Math.min(4, Math.max(2, Math.ceil((text.length || 1) / 40)))}
-              className={`${inputClass} resize-none`}
-              disabled={isApplying}
-            />
-          </Field>
+        {isTextRole && (
+          <p className="rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/10 px-3 py-2.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 leading-snug">
+            Click this text on the page to edit it in place. Use the option below only for changes AI should make.
+          </p>
+        )}
+
+        {showLink && (
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-white/40 leading-snug">
+            Tip: double-click this element in the preview to edit its text in place.
+          </p>
         )}
 
         {isImage && (
@@ -320,20 +324,22 @@ export default function ElementEditor({
         )}
       </div>
 
-      <div className="px-4 py-3 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03]">
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={isApplying || isUploading}
-          className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl brand-fill-text bg-brand hover:bg-brand-hover text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isApplying ? <Loader2 size={14} className="animate-spin" /> : null}
-          {isApplying ? 'Applying…' : 'Apply change'}
-        </button>
-        <p className="mt-2 text-center text-[11px] text-slate-400 dark:text-white/40">
-          Applied instantly and saved as a new version
-        </p>
-      </div>
+      {hasEditableFields && (
+        <div className="px-4 py-3 border-t border-slate-100 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03]">
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={isApplying || isUploading}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-xl brand-fill-text bg-brand hover:bg-brand-hover text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isApplying ? <Loader2 size={14} className="animate-spin" /> : null}
+            {isApplying ? 'Applying…' : 'Apply change'}
+          </button>
+          <p className="mt-2 text-center text-[11px] text-slate-400 dark:text-white/40">
+            Applied instantly and saved as a new version
+          </p>
+        </div>
+      )}
     </div>
   );
 }
