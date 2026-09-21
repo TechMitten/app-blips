@@ -24,7 +24,7 @@
 
 <p align="center">
   <a href="https://appblips.com">
-    <img src="https://files.techray.dev/diegYJ3SXV1p.gif" alt="Typing a prompt in AppBlips and watching a working game get built live" width="700" />
+    <img src="https://i.postimg.cc/K8Y8rM2D/333.gif" alt="Typing a prompt in AppBlips and watching a working game get built live" width="700" />
   </a>
 </p>
 
