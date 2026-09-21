@@ -74,7 +74,7 @@
   },
   "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export, deploy, or self-host.",
   "logo": {
-    "light": "/logo.png",
-    "dark": "/logo.png"
+    "light": "/logo-light.png",
+    "dark": "/logo-dark.png"
   }
 }

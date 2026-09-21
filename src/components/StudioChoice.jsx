@@ -115,7 +115,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
       <div className="relative z-1 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
         <div className="studio-logo-badge animate-stagger-1">
-          <img src="/appblips-logo.png" alt="AppBlips" className="h-20 w-auto" />
+          <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img" />
         </div>
 
         <h1 className="mt-6 text-center text-3xl sm:text-4xl font-black tracking-tight text-slate-950 dark:text-white leading-[1.08] animate-stagger-2">

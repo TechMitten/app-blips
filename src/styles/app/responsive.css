@@ -253,7 +253,7 @@
      from drifting apart, which the old build-panel-only override allowed. */
   :root { --chrome-row-h: 2.75rem; }
   .app-header { padding-block: 4px; min-height: 0; }
-  .app-header img { height: 2rem; }
+  .app-header .header-logo-img { height: 3rem; margin: -0.63rem -0.39rem -0.66rem; }
   .mobile-view-switch { padding-block: 4px; }
   .build-panel-composer { padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
   .prompt-input-field { min-height: 44px; padding-top: 8px; }

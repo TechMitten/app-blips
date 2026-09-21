@@ -99,7 +99,7 @@ export default function Header({
           data-tip="Back to the studio picker"
           aria-label="Back to the studio picker"
         >
-          <img src="/appblips-logo.png" alt="AppBlips" className="h-9 w-auto object-contain" />
+          <img src="/newlog.webp" alt="AppBlips" className="header-logo-img" />
         </button>
         <span className="chrome-divider" aria-hidden="true" />
         <div

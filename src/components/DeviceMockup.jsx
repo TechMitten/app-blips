@@ -3,7 +3,6 @@ import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
   Lock, Star, X, MoreVertical
 } from 'lucide-react';
-import previewIcon from '../assets/preview-icon.png';
 import { PREVIEW_MODES } from '../lib/constants';
 import { pageLabel } from '../lib/pages';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
@@ -434,7 +433,9 @@ export default function DeviceMockup({
                 <span className="device-browser-navbtn">
                   <MoreVertical size={16} />
                 </span>
-                <span className="device-browser-avatar">O</span>
+                <span className="device-browser-avatar">
+                  <img src="/browserbadge.webp" alt="" draggable="false" />
+                </span>
               </div>
             </div>
           </div>
@@ -473,11 +474,20 @@ export default function DeviceMockup({
                 <div className="preview-empty-glow absolute inset-0 pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
-                  <div className="relative mb-3">
+                  {/* Two lockups, one visible per theme: the light PNG has dark
+                      lettering that would vanish on the dark screen. */}
+                  <div className="preview-empty-logo relative mb-4 w-64 sm:w-80">
                     <img
-                      src={previewIcon}
-                      alt="App preview"
-                      className="preview-empty-icon-img w-24 h-24 sm:w-28 sm:h-28 object-contain select-none"
+                      src="/AppBlips-compressed.png"
+                      alt="AppBlips"
+                      className="preview-empty-logo-img preview-empty-logo-light select-none"
+                      draggable={false}
+                    />
+                    <img
+                      src="/darkthemelog.png"
+                      alt=""
+                      aria-hidden="true"
+                      className="preview-empty-logo-img preview-empty-logo-dark select-none"
                       draggable={false}
                     />
                   </div>
