@@ -1,10 +1,47 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
-import { Readable } from 'node:stream'
+import { Readable, pipeline } from 'node:stream'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
 import { handleAiChat, handleAiSession } from './functions/_lib/aiRelay.js'
 import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
+
+// Dev-middleware plumbing. Vite's connect server does not catch rejections from
+// async middleware, and an 'error' event on an unhandled stream is an uncaught
+// exception; on modern Node either one kills the whole dev server. Every proxy
+// below goes through these so an upstream failure or a client abort (e.g. the
+// user cancelling a generation mid-stream) costs one request, not the server.
+function sendWebResponse(res, response) {
+  res.statusCode = response.status
+  response.headers.forEach((value, key) => res.setHeader(key, value))
+  if (!response.body) {
+    res.end()
+    return
+  }
+  // pipeline() forwards errors from either side and, when the client goes
+  // away, destroys the upstream body so the LLM request is cancelled too.
+  pipeline(Readable.fromWeb(response.body), res, (err) => {
+    if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+      console.error('[dev-proxy] stream error:', err.message)
+    }
+  })
+}
+
+function guarded(handler) {
+  return async (req, res, next) => {
+    try {
+      await handler(req, res, next)
+    } catch (err) {
+      console.error('[dev-proxy] handler error:', err)
+      if (!res.headersSent) {
+        res.statusCode = 502
+        res.end('Proxy error')
+      } else {
+        res.destroy()
+      }
+    }
+  }
+}
 
 // Runs the same LLM proxy handler used by the production Cloudflare Pages
 // Function (functions/api/chat.js) as dev-server middleware, so `npm run dev`
@@ -16,7 +53,7 @@ function llmProxyDevMiddleware(mode) {
     name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
-      server.middlewares.use('/api/chat', async (req, res) => {
+      server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
@@ -34,14 +71,8 @@ function llmProxyDevMiddleware(mode) {
           body: Buffer.concat(chunks),
         })
         const response = await handleChatProxy(request, env)
-        res.statusCode = response.status
-        response.headers.forEach((value, key) => res.setHeader(key, value))
-        if (response.body) {
-          Readable.fromWeb(response.body).pipe(res)
-        } else {
-          res.end()
-        }
-      })
+        sendWebResponse(res, response)
+      }))
     },
   }
 }
@@ -52,7 +83,7 @@ function aiRelayDevMiddleware(mode) {
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
       const handle = (path, handler) => {
-        server.middlewares.use(path, async (req, res) => {
+        server.middlewares.use(path, guarded(async (req, res) => {
           if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
           const chunks = []
           for await (const chunk of req) chunks.push(chunk)
@@ -62,11 +93,8 @@ function aiRelayDevMiddleware(mode) {
             body: Buffer.concat(chunks),
           })
           const response = await handler(request, env)
-          res.statusCode = response.status
-          response.headers.forEach((value, key) => res.setHeader(key, value))
-          if (response.body) Readable.fromWeb(response.body).pipe(res)
-          else res.end()
-        })
+          sendWebResponse(res, response)
+        }))
       }
       handle('/ai/chat', handleAiChat)
       handle('/ai/session', handleAiSession)
@@ -79,7 +107,7 @@ function selfHostedAppAiDevMiddleware(mode) {
     name: "appblips-self-hosted-app-ai-dev-middleware",
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), "")
-      server.middlewares.use("/api/app-ai/chat", async (req, res) => {
+      server.middlewares.use("/api/app-ai/chat", guarded(async (req, res) => {
         const chunks = []
         if (req.method === "POST") for await (const chunk of req) chunks.push(chunk)
         const request = new Request("http://" + (req.headers.host || "localhost") + "/api/app-ai/chat", {
@@ -92,11 +120,8 @@ function selfHostedAppAiDevMiddleware(mode) {
           ...(req.method === "POST" ? { body: Buffer.concat(chunks) } : {}),
         })
         const response = await handleSelfHostedAiChat(request, env)
-        res.statusCode = response.status
-        response.headers.forEach((value, key) => res.setHeader(key, value))
-        if (response.body) Readable.fromWeb(response.body).pipe(res)
-        else res.end()
-      })
+        sendWebResponse(res, response)
+      }))
     },
   }
 }
@@ -113,22 +138,14 @@ function analyticsProxyDevMiddleware(mode) {
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
 
-      const respond = async (res, response) => {
-        res.statusCode = response.status
-        response.headers.forEach((value, key) => res.setHeader(key, value))
-        if (response.body) {
-          Readable.fromWeb(response.body).pipe(res)
-        } else {
-          res.end()
-        }
-      }
+      const respond = async (res, response) => sendWebResponse(res, response)
 
       const forwardedHeaders = (req) => ({
         ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
         ...(req.headers['x-firebase-appcheck'] ? { 'x-firebase-appcheck': req.headers['x-firebase-appcheck'] } : {}),
       })
 
-      server.middlewares.use('/api/analytics/website', async (req, res) => {
+      server.middlewares.use('/api/analytics/website', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
@@ -142,9 +159,9 @@ function analyticsProxyDevMiddleware(mode) {
           body: Buffer.concat(chunks),
         })
         await respond(res, await handleAnalyticsWebsiteCreate(request, env))
-      })
+      }))
 
-      server.middlewares.use('/api/analytics/stats', async (req, res) => {
+      server.middlewares.use('/api/analytics/stats', guarded(async (req, res) => {
         if (req.method !== 'GET') {
           res.statusCode = 405
           res.end('Method not allowed')
@@ -159,7 +176,7 @@ function analyticsProxyDevMiddleware(mode) {
           headers: forwardedHeaders(req),
         })
         await respond(res, await handleAnalyticsStats(request, env))
-      })
+      }))
     },
   }
 }

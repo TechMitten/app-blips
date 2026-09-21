@@ -253,6 +253,28 @@
    a Tailwind utility: this sheet is unlayered and would outrank
    `hidden md:block` anyway. Same reason .nav-nameplate keeps its responsive
    display in CSS. */
+/* newlog.webp (1117x521) is an opaque lockup on solid black with ~a fifth of
+   its height and ~7% of its width as empty margin. The header is always dark
+   (force-dark), so `screen` blending drops the black and keeps the white/cyan
+   lettering; clip-path + negative margins then trim the empty margin out of
+   the layout. Sized so the lockup is ~35px tall. The em values are the
+   clip fractions of the box: height 4.4rem, width 4.4 * 1117/521 = 9.43rem. */
+.app-header .header-logo-img {
+  height: 3.6rem;
+  width: auto;
+  max-width: none;
+  mix-blend-mode: screen;
+  clip-path: inset(21% 6% 22% 6%);
+  margin: -0.76rem -0.46rem -0.79rem;
+}
+
+@media (max-width: 639px) {
+  .app-header .header-logo-img {
+    height: 3rem;
+    margin: -0.63rem -0.39rem -0.66rem;
+  }
+}
+
 .app-header .chrome-divider {
   display: none;
   height: 1.25rem;

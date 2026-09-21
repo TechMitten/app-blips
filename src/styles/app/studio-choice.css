@@ -21,6 +21,22 @@
   box-shadow: none;
 }
 
+/* newlog.webp is white lettering on an opaque black field with generous empty
+   margin. Both places this sits (the navy plate, the night canvas) are dark,
+   so `screen` blending drops the black; the fixed-ratio box with cover crops
+   the margin away (lettering spans ~85% of the width). */
+.studio-logo-img {
+  display: block;
+  width: 14rem;
+  aspect-ratio: 3.2 / 1;
+  object-fit: cover;
+  mix-blend-mode: screen;
+}
+
+@media (min-width: 640px) {
+  .studio-logo-img { width: 16rem; }
+}
+
 .studio-card-cta {
   border: 1px solid transparent;
   background: transparent;
