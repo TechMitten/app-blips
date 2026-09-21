@@ -28,6 +28,10 @@
   </a>
 </p>
 
+
+https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
+
+
 ## Why AppBlips?
 
 Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app or website you generate is just one file, the interface is a single prompt box and a live preview, and there's nothing extra to learn. If you want to describe an idea and get a real, working app or website back — without wading through a complicated tool built for professional developers — AppBlips is for you.
