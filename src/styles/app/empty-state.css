@@ -353,6 +353,19 @@
   background: #f6f8fc;
   border: 1px solid rgb(79 91 213 / 0.18);
   box-shadow: 0 8px 24px -10px rgb(15 23 42 / 0.18);
+  /* Revealed/hidden by toggling .is-visible. It stays mounted (and keeps its
+     space) so the spinner and status above never jump; visibility flips only
+     after the fade-out finishes. */
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+.live-code-peek.is-visible {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
 }
 .live-code-peek .token-comment { color: var(--peek-comment); }
 .live-code-peek .token-doctype { color: var(--peek-doctype); }
@@ -446,6 +459,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .live-code-peek { transform: none; transition: opacity 0.15s ease, visibility 0s linear 0.15s; }
+  .live-code-peek.is-visible { transition-delay: 0s; }
   .live-code-peek-dot,
   .live-code-peek-body .peek-line:last-child .line-content::after { animation: none; }
 }

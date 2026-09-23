@@ -76,6 +76,7 @@ export default function ChatTranscript({
   pendingAttachment = null,
   streamingReply,
   isGenerating,
+  generationStatus = null,
   chatMode,
   studioMode = 'app',
   chatBottomRef,
@@ -152,6 +153,18 @@ export default function ChatTranscript({
               </span>
             </ReplyRow>
           ) : null}
+          {/* The reply above usually finishes long before the work does; keep a
+              live progress line so the pauses after the edits are explained. */}
+          {isGenerating && streamingReply && generationStatus && chatMode !== 'ask' && (
+            <div
+              key={generationStatus}
+              role="status"
+              className="flex items-center gap-2 pl-1 text-[length:var(--chat-label-text)] font-semibold text-slate-500 dark:text-white/60 animate-fade-in"
+            >
+              <Loader2 className="animate-spin shrink-0" size={12} />
+              <span>{generationStatus}</span>
+            </div>
+          )}
         </div>
       )}
       <div ref={chatBottomRef} />

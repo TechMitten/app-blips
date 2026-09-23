@@ -704,10 +704,25 @@ const generateAppCodeCore = async (
   const syntaxResultFields = () =>
     syntaxErrors.length ? { syntaxErrors } : {};
 
+  // Progress line for the UI. Auto-fix passes keep their own "Fixing ..." status.
+  const reportStatus = (text) => {
+    if (onChunk && !isAutoFix) onChunk(text, 'status');
+  };
+
   for (let turn = 1; turn <= maxTurns; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
     const currentTools = getRefinementTools(studioMode);
+
+    // Once edits have applied cleanly, the next turn is normally just the model
+    // confirming it is done (or tidying up). That round trip re-sends the whole
+    // site and leaves the UI with nothing new to show, so say so, and skip the
+    // hidden reasoning pass -- the thinking already happened before the edits.
+    const confirmingEdits = editsApplied && syntaxErrors.length === 0;
+    if (turn === 1) reportStatus(`Writing edits to your ${noun}…`);
+    else if (confirmingEdits) reportStatus('Edits applied — reviewing the result…');
+    else reportStatus('Working out the next step…');
+    const turnReasoning = isAutoFix || confirmingEdits ? 'none' : reasoningEffort;
 
     let message;
     try {
@@ -722,7 +737,7 @@ const generateAppCodeCore = async (
         // pinned off). The proxy downgrades forced tool choices to 'auto' for
         // thinking backends.
         forceTemperatureZero: true,
-        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
+        reasoningEffort: turnReasoning
       });
     } catch (e) {
       if (turn !== 1 || signal?.aborted) throw e;
@@ -736,7 +751,7 @@ const generateAppCodeCore = async (
         signal,
         // Same reasoning policy as the 'required' attempt above.
         forceTemperatureZero: true,
-        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
+        reasoningEffort: turnReasoning
       });
     }
 
@@ -879,6 +894,7 @@ export const generateAppCode = async (...args) => {
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {
+    if (onChunk) onChunk('Writing a summary of the changes…', 'status');
     const completion = await generateCompletionReply({ prompt, editMode: result.editMode, studioMode, signal });
     const separator = result.reply ? '\n\n' : '';
     // Surface it in the live transcript right away, then persist it with the

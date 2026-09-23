@@ -245,6 +245,10 @@ function BuildingStatusMessage() {
 // frames at a steady pace that speeds up in proportion to the backlog -- it
 // types, rather than flickers.
 const PEEK_LINES = 9;
+// Once the text has stopped growing (and the typing has caught up) for this
+// long, the model is no longer writing code -- it is reviewing, summarizing or
+// waiting -- so the peek steps aside until more code arrives.
+const PEEK_IDLE_MS = 1500;
 
 // One highlighted line. Memoized on its text so lines that have finished
 // streaming are never touched again -- only the line being written re-renders.
@@ -254,15 +258,42 @@ const PeekLine = memo(function PeekLine({ text }) {
 
 function LiveCodePeek({ codeRef, page = null, className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
+  const [idle, setIdle] = useState(false);
+  // Flips one frame after the first lines exist so the entrance transitions
+  // from the hidden state instead of appearing already visible.
+  const [entered, setEntered] = useState(false);
+  const hasLines = view.lines.length > 0;
+
+  useEffect(() => {
+    if (!hasLines) return undefined;
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [hasLines]);
 
   useEffect(() => {
     let raf = 0;
     let cursor = 0;
     let lastKey = '';
+    let lastLength = 0;
+    let lastActivity = performance.now();
+    let isIdle = false;
+    const setIdleState = (next) => {
+      if (next !== isIdle) {
+        isIdle = next;
+        setIdle(next);
+      }
+    };
     const tick = () => {
       const text = codeRef?.current || '';
+      const now = performance.now();
+      if (text.length !== lastLength) {
+        lastLength = text.length;
+        lastActivity = now;
+      }
       if (cursor > text.length) cursor = text.length;
       const backlog = text.length - cursor;
+      if (backlog > 0 || now - lastActivity < PEEK_IDLE_MS) setIdleState(false);
+      else setIdleState(true);
       if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
       if (backlog > 0) {
         cursor += Math.min(backlog, Math.max(2, Math.ceil(backlog / 24)));
@@ -283,9 +314,9 @@ function LiveCodePeek({ codeRef, page = null, className = '' }) {
     return () => cancelAnimationFrame(raf);
   }, [codeRef]);
 
-  if (!view.lines.length) return null;
+  if (!hasLines) return null;
   return (
-    <div className={`live-code-peek w-[min(600px,92%)] text-left animate-fade-in-up ${className}`} aria-hidden="true">
+    <div className={`live-code-peek w-[min(600px,92%)] text-left ${entered && !idle ? 'is-visible' : ''} ${className}`} aria-hidden="true">
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
         <span className="live-code-peek-label">{page?.page ? 'writing' : 'writing code'}</span>
@@ -537,6 +568,10 @@ export default function DeviceMockup({
                     {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
                       ? generationStatus
                       : 'Verifying code...'}
+                  </p>
+                ) : generationStatus && generationStatus !== 'Synthesizing your app from your prompt.' ? (
+                  <p key={generationStatus} className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                    {generationStatus}
                   </p>
                 ) : (
                   <BuildingStatusMessage />
