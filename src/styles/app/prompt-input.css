@@ -396,3 +396,18 @@
     transition-duration: 1ms;
   }
 }
+
+/* Voice dictation: while the mic is live, the key carries a soft pulsing ring
+   so it is obvious the device is listening. */
+.voice-listening {
+  animation: voice-pulse 1.4s ease-out infinite;
+}
+
+@keyframes voice-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(248 113 113 / 0.5); }
+  100% { box-shadow: 0 0 0 12px rgb(248 113 113 / 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-listening { animation: none; box-shadow: 0 0 0 3px rgb(248 113 113 / 0.35); }
+}

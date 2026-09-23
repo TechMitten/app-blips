@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Paperclip, Camera, Send } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
+import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
 // The mode control is one slot-machine reel with three stops. "AI" means Build
 // with AI text generation enabled, so the three are mutually exclusive and
@@ -36,10 +37,38 @@ export default function PromptInput({
   onRemoveAttachment,
   aiEnabled,
   onAiEnabledChange,
+  voiceInput = false,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const canSubmit = !isGenerating && prompt.trim().length > 0;
+
+  // Optional microphone dictation (the first-build hero turns it on). Spoken
+  // text is appended after whatever was already typed when listening began.
+  const voiceBaseRef = useRef('');
+  const { supported: voiceSupported, listening, error: voiceError, start: startVoice, stop: stopVoice, cancel: cancelVoice } = useSpeechRecognition({
+    onTranscript: (text) => onPromptChange(voiceBaseRef.current + text.trim()),
+  });
+  const showVoice = voiceInput && voiceSupported && !isGenerating;
+  const toggleVoice = () => {
+    if (listening) {
+      stopVoice();
+      return;
+    }
+    const typed = prompt.trimEnd();
+    voiceBaseRef.current = typed ? `${typed} ` : '';
+    startVoice();
+  };
+  // Anything that rewrites the prompt itself must end dictation first, or a
+  // late transcript would overwrite the edit (or resurrect a sent prompt).
+  const handleChange = (value) => {
+    if (listening) cancelVoice();
+    onPromptChange(value);
+  };
+  const submit = () => {
+    cancelVoice();
+    onSubmit();
+  };
 
   // AI is the third reel stop and means "Build + AI", so the exposed mode is
   // derived from both chatMode and aiEnabled; the reel animates to that stop.
@@ -98,10 +127,10 @@ export default function PromptInput({
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter' && !window.matchMedia('(pointer: coarse)').matches && !(e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)) {
       e.preventDefault();
-      if (canSubmit) onSubmit();
+      if (canSubmit) submit();
     } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (canSubmit) onSubmit();
+      if (canSubmit) submit();
     }
   };
 
@@ -161,13 +190,16 @@ export default function PromptInput({
       {attachmentError && (
         <p className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{attachmentError}</p>
       )}
+      {voiceError && (
+        <p role="alert" className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{voiceError}</p>
+      )}
       <div className="relative">
         <textarea
           ref={textareaRef}
           id="prompt"
           name="prompt"
           value={prompt}
-          onChange={(e) => onPromptChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
             isClarifying
@@ -251,8 +283,27 @@ export default function PromptInput({
               <X size={18} />
             </button>
           )}
+          {showVoice && (
+            <>
+              {listening && (
+                <span role="status" className="voice-listening-label text-xs font-semibold text-rose-500 dark:text-rose-400">
+                  Listening…
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={toggleVoice}
+                aria-pressed={listening}
+                aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+                title={listening ? 'Stop voice input' : 'Speak your prompt'}
+                className={`composer-key !rounded-full ${listening ? 'composer-key-danger voice-listening' : ''}`}
+              >
+                <Mic size={18} aria-hidden="true" />
+              </button>
+            </>
+          )}
           <button
-            onClick={onSubmit}
+            onClick={submit}
             disabled={!canSubmit}
             aria-label={submitLabel}
             title={submitLabel}
