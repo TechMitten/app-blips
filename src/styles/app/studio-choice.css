@@ -37,6 +37,16 @@
   .studio-logo-img { width: 16rem; }
 }
 
+/* On the night canvas the badge's plate is gone, and the animated/z-indexed
+   wrapper isolates the `screen` blend from the canvas behind it, so the
+   image's black field would show through as a hard rectangle. Key the black
+   out instead (#studio-logo-key in StudioChoice.jsx turns brightness into
+   alpha), so the lettering sits directly on the canvas with no edges. */
+:is(html.dark, .force-dark) .studio-logo-img {
+  mix-blend-mode: normal;
+  filter: url(#studio-logo-key);
+}
+
 .studio-card-cta {
   border: 1px solid transparent;
   background-image: linear-gradient(135deg, #2c70af, #1e598f);
