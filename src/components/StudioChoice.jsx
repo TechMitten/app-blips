@@ -114,6 +114,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       <div className="pointer-events-none absolute inset-0 prompt-atmosphere prompt-atmosphere-hero" aria-hidden="true" />
 
       <div className="relative z-1 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
+        {/* Zero-size defs for the dark-theme logo: alpha = 3*(R+G+B), so the
+            logo's opaque black field becomes transparent (see studio-choice.css). */}
+        <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+          <filter id="studio-logo-key" colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  3 3 3 0 0" />
+          </filter>
+        </svg>
         <div className="studio-logo-badge animate-stagger-1">
           <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img" />
         </div>
