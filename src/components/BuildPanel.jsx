@@ -24,6 +24,7 @@ export default function BuildPanel({
   pendingAttachment = null,
   streamingReply,
   isGenerating,
+  generationStatus = null,
   error,
   prompt,
   onPromptChange,
@@ -163,6 +164,7 @@ export default function BuildPanel({
                 pendingAttachment={pendingAttachment}
                 streamingReply={streamingReply}
                 isGenerating={isGenerating}
+                generationStatus={generationStatus}
                 chatMode={chatMode}
                 studioMode={studioMode}
                 chatBottomRef={chatBottomRef}
