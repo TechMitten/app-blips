@@ -52,3 +52,28 @@
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='sky'] { color: #38bdf8; background: rgba(14, 165, 233, 0.18); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #a5b4fc; background: rgba(99, 102, 241, 0.2); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f0abfc; background: rgba(217, 70, 239, 0.18); }
+
+/* Chip variant (first-build hero). A frosted pill on the hero gradient; its
+   colours come from the hero's theme variables (hero-landing.css). */
+.starter-chip {
+  border: 1px solid var(--hero-chip-border);
+  background: var(--hero-chip-bg);
+  color: var(--hero-chip-fg);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.starter-chip:hover {
+  border-color: var(--hero-chip-border-hover);
+  background: var(--hero-chip-bg-hover);
+}
+
+.starter-chip:active {
+  transform: translateY(0.5px);
+}
+
+.starter-chip:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}

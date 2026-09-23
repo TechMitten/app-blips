@@ -185,3 +185,23 @@ export const loadReasoningEffort = () => {
     return 'none';
   }
 };
+
+export const HERO_RAIL_COLLAPSED_KEY = 'orion-hero-rail-collapsed';
+
+// Boolean: whether the first-build screen's side rail is icon-only. Expanded
+// (with labels) by default.
+export const loadHeroRailCollapsed = () => {
+  try {
+    return safeStorage('local')?.getItem(HERO_RAIL_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const saveHeroRailCollapsed = (collapsed) => {
+  try {
+    safeStorage('local')?.setItem(HERO_RAIL_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // Storage unavailable: the preference just doesn't persist.
+  }
+};

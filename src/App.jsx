@@ -11,6 +11,7 @@ import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import SettingsModal from './components/SettingsModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
+import HeroLanding from './components/HeroLanding';
 import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
 import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
@@ -813,6 +814,10 @@ export default function App() {
   const hasVisibleTranscript = versions.length > 0 && currentVersionIndex >= chatContextStartIndex;
   const isChatActive = hasVisibleTranscript || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject || (hasSentFirstPrompt && isGenerating);
   const showStarterIdeas = !isChatActive;
+  // The first-build screen stands in for the whole workspace until the first
+  // prompt is submitted (which flips isChatActive), then it hands off to the
+  // normal Header + build/preview layout for good.
+  const showHero = !isChatActive;
 
   useEffect(() => {
     if (pendingPrompt || versions.length > 0) {
@@ -1700,6 +1705,7 @@ export default function App() {
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen skip={skipSplash} />
+      {!showHero && (
       <Header
         projectName={projectName}
         onNewApp={handleNewApp}
@@ -1726,8 +1732,9 @@ export default function App() {
         onNewChat={handleStartNewChat}
         canNewChat={isChatActive && versions.length > 0 && !isGenerating}
       />
+      )}
 
-      <TourInvitation onStart={startTour} />
+      {!showHero && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
         <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} />
       )}
@@ -1894,7 +1901,53 @@ export default function App() {
         <AuthModal onClose={handleCloseAuthModal} />
       )}
 
-      <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative">
+      {showHero ? (
+        <HeroLanding
+          studioMode={studioMode}
+          chatMode={chatMode}
+          onChatModeChange={setChatMode}
+          aiEnabled={aiEnabled}
+          onAiEnabledChange={handleAiEnabledChange}
+          prompt={prompt}
+          onPromptChange={setPrompt}
+          onSubmit={handleGenerate}
+          onCancelGeneration={handleCancelGeneration}
+          isGenerating={isGenerating}
+          attachment={attachment}
+          attachmentError={attachmentError}
+          isCapturingScreenshot={isCapturingScreenshot}
+          onAttachScreenshot={handleAttachScreenshot}
+          onAttachFile={handleAttachFile}
+          onRemoveAttachment={handleRemoveAttachment}
+          starterIdeas={
+            chatMode === 'ask'
+              ? ASK_STARTER_PRESETS
+              : studioMode === 'website'
+                ? WEBSITE_STARTER_PRESETS
+                : STARTER_PRESETS
+          }
+          starterSampleSize={chatMode !== 'ask' && studioMode === 'website' ? 4 : undefined}
+          onPickStarter={setPrompt}
+          error={error}
+          interruptedJob={interruptedJob}
+          onRetryInterruptedJob={handleRetryInterruptedJob}
+          onDismissInterruptedJob={handleDismissInterruptedJob}
+          onNewApp={handleNewApp}
+          onOpenApps={() => setIsProjectsListOpen(true)}
+          savedAppsCount={myProjects.length}
+          recents={myProjects}
+          onLoadProject={loadProject}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          firebaseEnabled={firebaseEnabled}
+          isSignedIn={isSignedIn}
+          authStatus={authStatus}
+          userEmail={user?.email}
+          onOpenAnalytics={() => openAnalytics()}
+          onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
+          onSignIn={() => setIsAuthModalOpen(true)}
+        />
+      ) : (
+      <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">
         <HistorySidebar
           isOpen={isHistoryOpen}
           versions={versions}
@@ -2031,6 +2084,7 @@ export default function App() {
           </div>
         </main>
       </div>
+      )}
     </div>
   );
 }

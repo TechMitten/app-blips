@@ -1,0 +1,245 @@
+/* First-build hero (HeroLanding.jsx / HeroSidebar.jsx): the screen shown after
+   the studio pick until the first prompt is submitted. It is always dark,
+   whatever the app theme (the theme toggle lives in the workspace header,
+   which takes over after the first build). Colours grow out of the brand
+   palette -- teal #3081a6 and cyan #22d3ee, plus emerald and indigo accents. */
+
+/* A midnight-to-teal aurora, pinned dark in both app themes (the root also
+   carries `dark force-dark`, so the composer and chips take their dark
+   styles). Light comes from the top-right (indigo) and pools bottom-left (emerald) and bottom-right (cyan), so the
+   colour travels on a diagonal instead of rising in a single dome. Brand teal
+   (#3081a6) is the through-line. */
+.hero-landing {
+  background: var(--hero-ground);
+  --hero-ground: #0b0d14;
+  --hero-title: #fff;
+  --hero-title-shadow: 0 2px 24px rgb(4 12 20 / 0.5);
+  --hero-subtitle: rgb(255 255 255 / 0.82);
+  --hero-subtitle-shadow: 0 1px 12px rgb(4 12 20 / 0.55);
+  --hero-stage-edge: rgb(255 255 255 / 0.06);
+  --hero-drift: rgb(48 129 166 / 0.35);
+  --hero-stage-bg:
+    radial-gradient(55% 50% at 90% 6%, rgb(129 140 248 / 0.4), transparent 70%),
+    radial-gradient(62% 56% at 4% 96%, rgb(16 185 129 / 0.6), transparent 70%),
+    radial-gradient(55% 46% at 72% 100%, rgb(34 211 238 / 0.42), transparent 72%),
+    radial-gradient(70% 60% at 28% 30%, rgb(20 120 140 / 0.38), transparent 70%),
+    linear-gradient(155deg, #07121d 0%, #0a2a3a 44%, #0b4652 74%, #0e6a5b 100%);
+  --hero-rail-fg: rgb(255 255 255 / 0.72);
+  --hero-rail-fg-strong: #fff;
+  --hero-rail-hover: rgb(255 255 255 / 0.08);
+  --hero-rail-primary: rgb(255 255 255 / 0.1);
+  --hero-rail-muted: rgb(255 255 255 / 0.5);
+  --hero-chip-bg: rgb(6 14 22 / 0.42);
+  --hero-chip-bg-hover: rgb(6 14 22 / 0.64);
+  --hero-chip-border: rgb(255 255 255 / 0.16);
+  --hero-chip-border-hover: rgb(255 255 255 / 0.34);
+  --hero-chip-fg: rgb(255 255 255 / 0.9);
+}
+
+/* Inset rounded stage the gradient lives in, with the rail sitting on the
+   page ground beside it. */
+.hero-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: var(--hero-stage-bg);
+  box-shadow: inset 0 0 0 1px var(--hero-stage-edge);
+}
+
+/* A slow drift on the top-lit bloom keeps the screen alive without competing
+   with the composer. Off under reduced motion. */
+.hero-stage::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 70%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(50% 60% at 50% 30%, var(--hero-drift), transparent 70%);
+  animation: hero-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes hero-drift {
+  from { transform: translate3d(-4%, 0, 0) scale(1); }
+  to { transform: translate3d(4%, 4%, 0) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage::before { animation: none; }
+}
+
+.hero-title {
+  color: var(--hero-title);
+  text-shadow: var(--hero-title-shadow);
+}
+
+.hero-subtitle {
+  color: var(--hero-subtitle);
+  text-shadow: var(--hero-subtitle-shadow);
+}
+
+/* The composer sits on saturated colour, so lift it off the gradient. */
+.hero-composer .prompt-input-dock {
+  border-color: rgb(255 255 255 / 0.16);
+  background: rgb(10 16 24 / 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 30px 60px -20px rgb(2 8 14 / 0.75),
+    0 8px 20px -6px rgb(2 8 14 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* ===== Side rail ===== */
+
+.hero-rail {
+  background: var(--hero-ground);
+  color: var(--hero-rail-fg);
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-rail-wordmark {
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-toggle,
+.hero-rail-item {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.6rem;
+  color: var(--hero-rail-fg);
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+
+.hero-rail-toggle {
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.hero-rail-item {
+  gap: 0.7rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hero-rail-item .hero-rail-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-rail-toggle:hover,
+.hero-rail-item:hover {
+  background: var(--hero-rail-hover);
+  color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-item-primary {
+  background: var(--hero-rail-primary);
+  color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-toggle:focus-visible,
+.hero-rail-item:focus-visible,
+.hero-rail-recent:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
+
+.hero-rail-count {
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--hero-rail-fg-strong);
+  background: var(--hero-rail-hover);
+}
+
+.hero-rail-heading {
+  padding: 0 0.6rem 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--hero-rail-muted);
+}
+
+.hero-rail-recent {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  color: var(--hero-rail-fg);
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+
+.hero-rail-recent:hover {
+  background: var(--hero-rail-hover);
+  color: var(--hero-rail-fg-strong);
+}
+
+/* Collapsed rail: icon keys centered in the strip. */
+@media (min-width: 1024px) {
+  .hero-rail-item.is-collapsed {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* Expanded items already show their label, so the tooltip is redundant. */
+  .hero-rail-item:not(.is-collapsed)::after {
+    display: none;
+  }
+}
+
+/* Rail tooltips open to the side (the shared bubble opens downward, which
+   would land on the next key). */
+@media (min-width: 1024px) {
+  .hero-rail [data-tip-side='right']::after {
+    top: 50%;
+    left: calc(100% + 0.6rem);
+    transform: translateX(-2px) translateY(-50%);
+  }
+
+  .hero-rail [data-tip-side='right']:hover::after,
+  .hero-rail [data-tip-side='right']:focus-visible::after {
+    transform: translateX(0) translateY(-50%);
+  }
+}
+
+/* Below lg the rail is a compact top bar: icon keys only, no Recents. */
+@media (max-width: 1023px) {
+  .hero-rail {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+
+  /* The collapse toggle is a desktop control; its display rule above is
+     unlayered, so Tailwind's `hidden` cannot hide it here. */
+  .hero-rail-toggle {
+    display: none;
+  }
+
+  .hero-rail-item {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+}

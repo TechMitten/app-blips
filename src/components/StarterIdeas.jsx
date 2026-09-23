@@ -73,13 +73,42 @@ const randomSample = (list, n) => {
 
 // `sampleSize` switches from the curated/featured list to a fresh random pick
 // of that many ideas from the whole pool each time the gallery mounts.
-export default function StarterIdeas({ ideas, onPick, sampleSize }) {
+// `variant="chips"` renders the same ideas as a centered row of pills (the
+// first-build hero) instead of the two-column card grid.
+export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'cards' }) {
   const visible = useMemo(() => {
     if (sampleSize) return randomSample(ideas, sampleSize);
     const featured = ideas.filter((idea) => idea.featured);
     return (featured.length > 0 ? featured : ideas).slice(0, MAX_VISIBLE);
   }, [ideas, sampleSize]);
   const cards = assignHues(visible);
+
+  if (variant === 'chips') {
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-2 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+        {cards.map(({ starter, hue }) => {
+          const IconComponent = starter.icon || Sparkles;
+          return (
+            <button
+              key={starter.title}
+              type="button"
+              onClick={() => onPick(starter)}
+              title={starter.prompt}
+              className="starter-chip group inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 cursor-pointer"
+            >
+              <span
+                data-hue={hue}
+                className="starter-card-tile shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+              >
+                <IconComponent size={13} strokeWidth={2.2} aria-hidden="true" />
+              </span>
+              <span className="text-[13px] font-semibold leading-none">{starter.title}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 animate-fade-in" style={{ animationDelay: '0.08s' }}>
