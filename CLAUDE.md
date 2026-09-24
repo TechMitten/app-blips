@@ -120,7 +120,3 @@ A PIN-gated panel showing the raw model traffic that the UI otherwise hides (rea
 Both `vite.config.js` (dev server headers) and `index.html` (meta CSP) set `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, and a restrictive `base-uri`/`object-src`. `index.html`'s comment block explains why its CSP `<meta>` tag deliberately omits `script-src`: a `srcdoc` iframe inherits the embedder's CSP, so any `script-src` there would break both the generated app's inline scripts/Tailwind CDN tag and (with `'self'`) the dev server's own React-Refresh preamble.
 
 `firestore.rules` and `storage.rules` enforce per-user ownership in hosted mode: a `projects` doc is only readable/writable by its `user_id`; a `deployments` doc is publicly readable (so `functions/[[path]].js` can resolve slugs with no auth) but only its owner can create/update/delete it; Storage objects under `orion-deploys/{userId}/` are publicly readable but writable only by that `userId`.
-
-## Testing Guidelines
-
-- You must ask for permission before using a headless browser (e.g. Playwright, `chromium-cli`) to test changes, every time. Don't launch one on your own initiative, and don't treat an earlier approval, from this session or a past one, as standing permission.
