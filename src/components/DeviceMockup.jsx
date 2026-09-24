@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, useRef } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
   Lock, Star, X, MoreVertical, Brain
@@ -257,12 +257,14 @@ const PeekLine = memo(function PeekLine({ text }) {
   return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text) }} />;
 });
 
-function LiveCodePeek({ codeRef, page = null, className = '' }) {
+function LiveCodePeek({ codeRef, page = null, streamDone = false, className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
   const [idle, setIdle] = useState(false);
   // Flips one frame after the first lines exist so the entrance transitions
   // from the hidden state instead of appearing already visible.
   const [entered, setEntered] = useState(false);
+  const streamDoneRef = useRef(streamDone);
+  useEffect(() => { streamDoneRef.current = streamDone; }, [streamDone]);
   const hasLines = view.lines.length > 0;
 
   useEffect(() => {
@@ -293,7 +295,7 @@ function LiveCodePeek({ codeRef, page = null, className = '' }) {
       }
       if (cursor > text.length) cursor = text.length;
       const backlog = text.length - cursor;
-      if (backlog > 0 || now - lastActivity < PEEK_IDLE_MS) setIdleState(false);
+      if (backlog > 0 || !streamDoneRef.current || now - lastActivity < PEEK_IDLE_MS) setIdleState(false);
       else setIdleState(true);
       if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
       if (backlog > 0) {
@@ -352,6 +354,7 @@ export default function DeviceMockup({
   generationStatus,
   thinkingSince = null,
   liveCodeRef = null,
+  liveCodeStreamDone = false,
   liveCodePage = null,
   hasCode,
   isAutoFixing = false,
@@ -609,7 +612,7 @@ export default function DeviceMockup({
                 )}
               </div>
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} className="mt-8" />
+                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} className="mt-8" />
               )}
             </div>
           )}
