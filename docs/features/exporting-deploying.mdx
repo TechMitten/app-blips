@@ -19,7 +19,7 @@ Open the downloaded file directly in a browser, drag it onto a hosting service, 
 ## Deploy to a Public URL
 
 <Note>
-  Deploying to a public URL is available on [appblips.com](https://appblips.com) only. This feature is not available in self-hosted installations.
+  Deploying to a public URL is available on [appblips.com](https://appblips.com) only. It is not part of a self-hosted copy; export the HTML instead.
 </Note>
 
 On the hosted version of AppBlips, you can publish any app directly to its own public URL. Click **Deploy** and AppBlips assigns the app a dedicated link you can share with anyone. Deployed apps are installable as Progressive Web Apps (PWAs), so visitors on mobile can add them to their home screen and use them like a native app.
@@ -30,10 +30,12 @@ When deploying, you can optionally add **password protection** to restrict acces
 
 The downloaded HTML file is fully self-contained: all styles, logic, and structure are bundled into a single document with no external dependencies on AppBlips. Once you have the file, it works on its own — open it, host it, or email it, and it runs the same way every time.
 
-If your app uses the **AI features** (the `blip.ai` API), the AI connectivity configuration — whether that's a BYOK prompt or a relay endpoint — is embedded in the exported file. The app carries everything it needs to prompt users for their AI credentials or connect to a relay, with no extra setup required.
+If your app uses the **AI features** (the `blip.ai` API), how AI works outside AppBlips depends on where you built it:
 
-In the default **BYOK** (bring your own key) setup, the exported file never contains an API key. Instead, the first time someone uses an AI feature in the exported app, a small **Connect your AI provider** dialog appears. The user enters their own API endpoint, model name, and key. Their key is stored only in that browser — in session storage by default, or local storage if they choose **Remember on this device**.
+- **appblips.com:** deploy the app to keep its AI features working. Deployed apps reach AI through the platform with no key needed.
+- **Self-hosted, relay mode (default):** the exported file calls your own AppBlips at its relay URL. It works from **Open in new tab**; a downloaded file opened elsewhere needs the setup in [Relay Mode](/ai/relay-mode#using-exported-files).
+- **Self-hosted, BYOK mode:** the first time someone uses an AI feature, a **Connect your AI provider** dialog asks for their own endpoint, model, and key, stored only in that browser.
 
 <Warning>
-  AppBlips never bakes an API key into exported HTML. Anyone who opens an exported app with AI features will be asked to supply their own key when they first use an AI-powered feature. This is by design — make sure anyone you share the file with understands they'll need their own OpenAI-compatible API key to use those features.
+  AppBlips never bakes an API key into exported HTML. In every mode, the file contains at most a relay URL, never a provider key.
 </Warning>

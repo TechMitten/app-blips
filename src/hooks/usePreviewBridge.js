@@ -192,6 +192,7 @@ export default function usePreviewBridge({
         }));
         requestModelText({
           messages,
+          label: 'generated-app AI',
           onChunk: (chunk, kind) => {
             if (kind === "content") send("ai-chat-chunk", { requestId, text: chunk }, data.token);
           },

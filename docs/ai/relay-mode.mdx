@@ -1,77 +1,67 @@
 ---
-title: "Relay Mode: Server-Funded AI for Your Users"
+title: "Relay Mode: AI Through Your Own AppBlips"
 sidebarTitle: "Relay Mode"
-description: "In relay mode, your server proxies AI calls for generated apps. Users never enter a provider key — you supply credentials and control AI access yourself."
+description: "In a self-hosted copy, relay mode sends AI calls from your apps through your own AppBlips using the builder's provider. No credential prompt and no key in the HTML."
 ---
 
-In relay mode, you — the operator running the self-hosted AppBlips server — pay for and control AI access on behalf of everyone using your AI-enabled apps. When a user triggers an AI call, the request goes through your server rather than directly to the provider. No credential dialog ever appears for the user, and no provider key is ever embedded in the generated HTML. Your key stays on the server.
+Relay mode is the default for self-hosted AppBlips. When an AI-enabled app calls `blip.ai.text()`, the request goes to your own AppBlips, which forwards it to your AI provider using the key in your `.env`. No credential dialog appears, and no provider key is ever embedded in the generated HTML.
+
+<Note>
+  This page is about self-hosted copies. On [appblips.com](https://appblips.com), AI in your apps is provided by the platform with nothing to configure.
+</Note>
 
 ## How Relay Mode Works
 
-When relay mode is enabled, every `blip.ai.text()` call inside a generated app sends a request to your server's relay endpoint (`/api/app-ai/chat` by default). The server receives the request, forwards it to your configured AI provider using the credentials stored in your environment variables, and streams the response back to the app.
+Every `blip.ai.text()` call inside a generated app sends a request to the relay endpoint (`/api/app-ai/chat` by default). AppBlips forwards it to your provider and streams the response back to the app.
 
-The generated HTML embeds only the public relay URL — not the key itself. This means:
+The generated HTML embeds only the relay URL — not the key itself. This means:
 
-- Users never see or handle a provider credential.
+- You never enter or handle a provider key inside the app.
 - Exporting an app as HTML is safe; the file contains a URL, not a secret.
-- You control which model is used and can change it server-side without regenerating any apps.
+- The model is the builder's, set in `.env`; change it there without regenerating any apps.
 
-## Enabling Relay Mode
+## Setup
 
-Set the following variables in your `.env` file before building or starting the server:
+There is nothing to set up. Generated apps always use **exactly the same provider, key, and model as the builder** — whatever you filled in during the [quickstart](/quickstart-self-hosted). Change the builder's provider or model and your apps follow.
 
+Only the limits for generated-app AI are separate from the builder. Blank values mean 4096 tokens, temperature `0.2`, and reasoning off:
+
+```bash
+APPBLIPS_APP_AI_MAX_TOKENS=
+APPBLIPS_APP_AI_TEMPERATURE=
+APPBLIPS_APP_AI_REASONING_EFFORT=none
 ```
-APPBLIPS_GENERATED_AI_MODE=relay
-APPBLIPS_APP_AI_RELAY_URL=/api/app-ai/chat
-APPBLIPS_APP_LLM_BASE_URL=https://api.openai.com/v1
-APPBLIPS_APP_LLM_API_KEY=your-relay-key
-APPBLIPS_APP_LLM_MODEL=gpt-4o-mini
-```
 
-`APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, and `APPBLIPS_APP_LLM_MODEL` power the relay. They are separate from `APPBLIPS_LLM_*`, which powers the AppBlips builder itself. Both sets of variables stay on the server and are never exposed to the browser.
+## Using Exported Files
+
+The preview and **Open in new tab** work with no changes. Exported files contain the full address of your AppBlips relay (for example `http://localhost:5175/api/app-ai/chat`), so they know where to send AI calls. AppBlips must be running when the app is used.
+
+The relay only accepts calls from AppBlips' own origin by default. A downloaded HTML file opened from somewhere else, such as a `file://` page or another local server, also needs that page's origin listed in `APPBLIPS_APP_AI_ALLOWED_ORIGINS` (comma-separated, exact). Add `null` only if you knowingly want `file://` pages to use your key.
 
 <Warning>
-  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client bundle at build time, not read at runtime. After changing either of these variables, you must rebuild the Docker image for the change to take effect:
-
-  ```bash
-  docker compose up --build
-  ```
-
-  A plain container restart is not enough — the old values remain baked into the client until a full rebuild.
+  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time. After changing either one, restart `npm run dev`, or run `docker compose up --build` if you use Docker. A plain container restart is not enough.
 </Warning>
-
-## CORS and Allowed Origins
-
-By default, only same-origin callers can reach the relay endpoint. If your generated apps are hosted on a different domain than your AppBlips server — for example, you exported an app and are hosting it elsewhere — you need to explicitly allow those origins.
-
-Set `APPBLIPS_APP_AI_ALLOWED_ORIGINS` to a comma-separated list of exact origins:
-
-```
-APPBLIPS_APP_AI_ALLOWED_ORIGINS=https://myapp.example.com,https://another.example.com
-```
-
-Same-origin callers are always permitted and do not need to be listed. Only include `null` (the origin of `file://` pages) if you intentionally want locally-opened HTML files to use your relay.
 
 ## Rate Limiting
 
-The relay includes a built-in per-IP rate limiter to help prevent runaway usage. Configure it with:
+The relay includes a built-in per-IP rate limiter to catch runaway loops in a generated app:
 
-```
+```bash
 APPBLIPS_APP_AI_RATE_LIMIT_MAX=20
 APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
-The defaults are 20 requests per 60 seconds per IP address. Requests that exceed the limit receive a `429` response, which `blip.ai.text()` surfaces as a `rate_limited` error.
+The defaults are 20 requests per 60 seconds per IP address. Requests over the limit receive a `429` response, which `blip.ai.text()` surfaces as a `rate_limited` error.
 
 <Warning>
-  The built-in rate limiter is an in-memory, per-IP speed bump. It resets when the server restarts, is not shared across multiple server instances, and is not a billing boundary. If you are running a public installation, put your own authentication, gateway, or usage controls in front of the relay endpoint.
+  The relay spends your provider key and has no sign-in. Keep AppBlips on your own computer. The rate limiter is an in-memory speed bump that resets on restart, not a billing boundary, so also set a spend limit with your AI provider.
 </Warning>
 
-## Relay vs BYOK Comparison
+## Relay vs BYOK
 
-| Feature | BYOK | Relay |
+| | Relay (default) | BYOK |
 |---|---|---|
-| User enters a key | Yes — on first AI call | No — never |
-| Operator pays for AI | No | Yes |
-| Key in exported HTML | No | No — only the relay URL |
-| Per-user key isolation | Yes — each user's own key | No — all users share the operator's key |
+| Someone enters a key in the app | No | Yes — on the first AI call |
+| Whose key pays for AI | Yours, from `.env` | The person using the app |
+| Key in exported HTML | No — only the relay URL | No |
+| Extra configuration | None | `APPBLIPS_GENERATED_AI_MODE=byok` |

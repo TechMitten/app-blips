@@ -3,7 +3,7 @@ import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
 import { wrapWithTokenTracking } from './trackTokens.js';
-import { applyReasoningSetting } from './reasoning.js';
+import { resolveAppProvider, applyProviderSettings, appAiLimit } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -270,15 +270,20 @@ export async function handleAiChat(request, env, waitUntil) {
   const rate = consumeToken(rateKey, deploymentRateLimit(env));
   if (!rate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(rate.retryAfter) });
 
-  const missingEnv = ['APPBLIPS_APP_LLM_BASE_URL', 'APPBLIPS_APP_LLM_API_KEY', 'APPBLIPS_APP_LLM_MODEL'].filter((key) => !env[key]);
+  const provider = resolveAppProvider(env);
+  if (provider.error) {
+    console.error('[ai-relay] misconfigured:', provider.error);
+    return errorResponse('upstream_error', 502, 'AI service is unavailable.');
+  }
+  const missingEnv = provider.missing;
   if (missingEnv.length) {
     console.error('[ai-relay] missing env:', missingEnv.join(', '));
     return errorResponse('upstream_error', 502, 'AI service is unavailable.');
   }
 
-  const cap = Math.max(1, parseInt(env.APPBLIPS_APP_LLM_MAX_TOKENS, 10) || 4096);
+  const cap = Math.max(1, parseInt(appAiLimit(env, 'MAX_TOKENS'), 10) || 4096);
   const requestedMax = Number.isFinite(Number(max_tokens)) ? Math.max(1, Math.floor(Number(max_tokens))) : cap;
-  const configuredTemperature = Number.parseFloat(env.APPBLIPS_APP_LLM_TEMPERATURE);
+  const configuredTemperature = Number.parseFloat(appAiLimit(env, 'TEMPERATURE'));
   const requestedTemperature = Number.parseFloat(temperature);
   const finalTemperature = Number.isFinite(requestedTemperature)
     ? Math.min(2, Math.max(0, requestedTemperature))
@@ -289,7 +294,7 @@ export async function handleAiChat(request, env, waitUntil) {
   }));
 
   const bodyObj = {
-    model: env.APPBLIPS_APP_LLM_MODEL,
+    model: provider.model,
     messages: safeMessages,
     temperature: finalTemperature,
     max_tokens: Math.min(cap, requestedMax),
@@ -300,20 +305,14 @@ export async function handleAiChat(request, env, waitUntil) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  // Operator-set effort, translated into whichever provider the APPBLIPS_APP_*
-  // config points at (same translation as the builder proxy; see reasoning.js).
-  applyReasoningSetting(bodyObj, {
-    effort: env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none',
-    model: env.APPBLIPS_APP_LLM_MODEL,
-    baseUrl: env.APPBLIPS_APP_LLM_BASE_URL,
-    providerOverride: env.APPBLIPS_APP_LLM_PROVIDER,
-  });
+  // Operator-set effort and provider request format (see providers.js).
+  applyProviderSettings(bodyObj, provider, { effort: appAiLimit(env, 'REASONING_EFFORT') || 'none' });
 
   let upstream;
   try {
-    upstream = await fetch(chatUrl(env.APPBLIPS_APP_LLM_BASE_URL), {
+    upstream = await fetch(chatUrl(provider.baseUrl), {
       method: 'POST',
-      headers: { authorization: `Bearer ${env.APPBLIPS_APP_LLM_API_KEY}`, 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${provider.apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify(bodyObj),
     });
   } catch (err) {

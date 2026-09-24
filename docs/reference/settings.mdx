@@ -64,15 +64,21 @@ These settings control how the preview and build experience behaves during and a
 
 These settings influence how the AI model reasons and communicates before and during generation.
 
-### Reasoning effort
+### Reasoning
 
-<ParamField body="Reasoning effort" type="Off | Low | Medium | High" default="Off">
-  Controls how much time the AI spends reasoning through your request before it begins generating code. **Off** is the fastest option and works well for straightforward prompts. **High** is the most thorough and produces better results for complex or multi-part apps, but takes longer and uses more tokens.
+Reasoning has two separate switches, so you can have the AI think harder when building a new app without slowing down small edits.
 
-  <Tip>
-    Start with **Off** for quick iterations and switch to **Medium** or **High** only when you're building something with a lot of moving parts.
-  </Tip>
+<ParamField body="Reasoning: building" type="Off | On" default="Off">
+  Lets the AI reason before generating a new app from scratch. Can improve complex apps, but is slower and uses more tokens.
 </ParamField>
+
+<ParamField body="Reasoning: editing" type="Off | On" default="Off">
+  Lets the AI reason before changing an existing app. **Off** makes small tweaks faster; turn it on for tricky changes.
+</ParamField>
+
+<Tip>
+  Chat-only replies (clarifying questions and Ask-mode answers) always run with reasoning off, so they stay fast.
+</Tip>
 
 ### Clarifying questions
 

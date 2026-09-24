@@ -468,3 +468,13 @@
     color: inherit;
   }
 }
+
+/* Raw LLM log drawer (RawLogPanel): on screens wide enough, shrink the app to
+   make room instead of letting the fixed panel cover it. Width matches the
+   panel's max-w-xl (36rem). Unlayered on purpose, to beat the layered
+   `#root { width: 100% }` above. Narrower screens keep the overlay. */
+@media (min-width: 1100px) {
+  body.raw-log-open #root {
+    width: calc(100% - 36rem);
+  }
+}

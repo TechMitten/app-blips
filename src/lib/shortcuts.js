@@ -30,3 +30,12 @@ export function isTypingTarget(target) {
   if (target.isContentEditable) return true;
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
 }
+
+// Secret chord for the PIN-gated raw LLM log. Deliberately absent from
+// SHORTCUT_HINTS, tooltips and the help text. Unlike the shortcuts above it is
+// not skipped for typing targets: a modifier chord types nothing, and the owner
+// needs it to work from inside the prompt box. `code` (not `key`) so Shift and
+// keyboard layout do not change what it matches.
+export function isDebugChord(event) {
+  return hasCommandModifier(event) && event.shiftKey && !event.altKey && event.code === 'KeyD';
+}

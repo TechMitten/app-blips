@@ -3,10 +3,10 @@ services:
     build:
       context: .
       args:
-        APPBLIPS_GENERATED_AI_MODE: ${APPBLIPS_GENERATED_AI_MODE:-byok}
+        APPBLIPS_GENERATED_AI_MODE: ${APPBLIPS_GENERATED_AI_MODE:-relay}
         APPBLIPS_APP_AI_RELAY_URL: ${APPBLIPS_APP_AI_RELAY_URL:-}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env
     environment:

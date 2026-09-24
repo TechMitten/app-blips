@@ -13,7 +13,7 @@ import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
-const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', medium: 'Medium', high: 'High' };
+const REASONING_EFFORT_LABELS = { none: 'Off', low: 'On' };
 
 const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
@@ -108,8 +108,10 @@ export default function SettingsModal({
   onLiveCodePreviewChange,
   buildPaneSide,
   onBuildPaneSideChange,
-  reasoningEffort,
-  onReasoningEffortChange,
+  buildReasoningEffort,
+  onBuildReasoningEffortChange,
+  editReasoningEffort,
+  onEditReasoningEffortChange,
   onDeleteAllProjects,
   projectCount = 0,
   onDeleteAccount,
@@ -359,14 +361,26 @@ export default function SettingsModal({
           {tab === 'ai' && (
             <>
               <SettingRow
-                id="set-reasoning"
-                title="Reasoning effort"
-                description="How much the AI reasons before generating or answering. Higher effort can improve complex apps, but is slower and uses more tokens."
+                id="set-reasoning-build"
+                title="Reasoning: building"
+                description="Let the AI reason before generating a new app from scratch. Can improve complex apps, but is slower and uses more tokens."
               >
                 <Segmented
-                  label="Reasoning effort"
-                  value={reasoningEffort}
-                  onChange={onReasoningEffortChange}
+                  label="Reasoning for building"
+                  value={buildReasoningEffort}
+                  onChange={onBuildReasoningEffortChange}
+                  options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
+                />
+              </SettingRow>
+              <SettingRow
+                id="set-reasoning-edit"
+                title="Reasoning: editing"
+                description="Let the AI reason before changing an existing app. Off makes small tweaks faster; turn it on for tricky changes."
+              >
+                <Segmented
+                  label="Reasoning for editing"
+                  value={editReasoningEffort}
+                  onChange={onEditReasoningEffortChange}
                   options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
                 />
               </SettingRow>

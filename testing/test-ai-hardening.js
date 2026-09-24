@@ -16,9 +16,9 @@ import { clearRateLimitsForTesting } from '../functions/_lib/rateLimit.js';
 
 const baseEnv = {
   FIREBASE_PROJECT_ID: 'test-project',
-  APPBLIPS_APP_LLM_BASE_URL: 'https://provider.invalid/v1',
-  APPBLIPS_APP_LLM_API_KEY: 'server-only-test-key',
-  APPBLIPS_APP_LLM_MODEL: 'forced-model',
+  APPBLIPS_LLM_BASE_URL: 'https://provider.invalid/v1',
+  APPBLIPS_LLM_API_KEY: 'server-only-test-key',
+  APPBLIPS_LLM_MODEL: 'forced-model',
 };
 
 let firestoreCalls = 0;

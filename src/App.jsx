@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
-import { generatedAiMode, generatedAiRelayUrl } from './lib/generatedAiMode';
+import { generatedAiMode, generatedAiRelayUrl, previewAiViaParent, absoluteRelayUrl } from './lib/generatedAiMode';
 import { firebaseEnabled } from './firebase';
 
 import Header from './components/Header';
@@ -48,7 +48,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, EDIT_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -79,7 +79,8 @@ export default function App() {
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
-  const [reasoningEffort, setReasoningEffort] = useState(loadReasoningEffort);
+  const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort('build'));
+  const [editReasoningEffort, setEditReasoningEffort] = useState(() => loadReasoningEffort('edit'));
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
@@ -163,6 +164,9 @@ export default function App() {
   const [chatMode, setChatMode] = useState(loadChatMode); // 'build' or 'ask'
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
+  // Date.now() when the model started reasoning, until its first output
+  // token; null when it isn't thinking (drives the "Thinking" indicators).
+  const [thinkingSince, setThinkingSince] = useState(null);
   const [isAutoFixing, setIsAutoFixing] = useState(false);
   const [, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
@@ -257,6 +261,7 @@ export default function App() {
   });
 
   const clearStreamingState = useCallback(() => {
+    setThinkingSince(null);
     setStreamingGeneratedCode('');
     setStreamingReply('');
     liveCodeRef.current = '';
@@ -552,9 +557,12 @@ export default function App() {
         ? injectPreviewBridge(
             // The AI shim is always present in the preview so flipping the AI
             // reel stop never recomputes srcDoc (which would reload the frame
-            // and lose app state). Hosted requests are gated live in
-            // usePreviewBridge; export/deploy paths still honor aiEnabled.
-            !firebaseEnabled
+            // and lose app state). Hosted and self-hosted relay requests go to
+            // the parent over the bridge channel and are gated live in
+            // usePreviewBridge (the sandboxed frame's Origin is "null", which
+            // the relay rejects). Only BYOK talks to its provider directly.
+            // Export/deploy paths still honor aiEnabled.
+            !previewAiViaParent
               ? injectSelfHostedAiBridge(activeCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
               : activeCode,
           {
@@ -567,7 +575,7 @@ export default function App() {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
-            aiEnabled: firebaseEnabled,
+            aiEnabled: previewAiViaParent,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -637,7 +645,7 @@ export default function App() {
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
-    aiEnabled: firebaseEnabled && aiEnabled,
+    aiEnabled: previewAiViaParent && aiEnabled,
     editingEnabled: isPreviewEditing,
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
@@ -894,8 +902,12 @@ export default function App() {
   }, [chatMode]);
 
   useEffect(() => {
-    localStorage.setItem(REASONING_EFFORT_KEY, reasoningEffort);
-  }, [reasoningEffort]);
+    localStorage.setItem(BUILD_REASONING_EFFORT_KEY, buildReasoningEffort);
+  }, [buildReasoningEffort]);
+
+  useEffect(() => {
+    localStorage.setItem(EDIT_REASONING_EFFORT_KEY, editReasoningEffort);
+  }, [editReasoningEffort]);
 
   useEffect(() => {
     return () => {
@@ -1043,6 +1055,14 @@ export default function App() {
 
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, chatHistory, (chunk, kind = 'content') => {
+        if (kind === 'thinking_start') {
+          setThinkingSince((prev) => prev ?? Date.now());
+          return;
+        }
+        if (kind === 'thinking_end') {
+          setThinkingSince(null);
+          return;
+        }
         if (kind === 'reasoning') {
           return;
         }
@@ -1150,7 +1170,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, reasoningEffort, studioMode, files, projectName);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, { build: buildReasoningEffort, edit: editReasoningEffort }, studioMode, files, projectName);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1308,9 +1328,11 @@ export default function App() {
   };
 
   // Pages as they leave the app (new tab / export): the self-hosted AI bridge is
-  // added per page here, never stored in `files`.
+  // added per page here, never stored in `files`. The relay URL is made
+  // absolute against this origin: a new tab is a blob: page, where a relative
+  // URL cannot resolve.
   const buildOutputFiles = () => (!firebaseEnabled && aiEnabled
-    ? mapPages(files, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl }))
+    ? mapPages(files, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: absoluteRelayUrl() }))
     : files);
 
   const handleOpenInNewTab = () => {
@@ -1712,6 +1734,37 @@ export default function App() {
     setIsSignOutConfirmOpen(false);
     handleSignOut();
   };
+  // Shared by the studio picker and the workspace/hero, like signOutConfirmModal.
+  const settingsModal = isSettingsOpen && (
+        <SettingsModal
+          onClose={() => setIsSettingsOpen(false)}
+          themePreference={themePreference}
+          onThemePreferenceChange={setThemePreference}
+          resolvedTheme={resolvedTheme}
+          chatFont={chatFont}
+          onChatFontChange={setChatFont}
+          showCodeView={showCodeView}
+          onShowCodeViewChange={handleShowCodeViewChange}
+          askClarifyingQuestions={askClarifyingQuestions}
+          onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
+          skipSplash={skipSplash}
+          onSkipSplashChange={setSkipSplash}
+          autoFollowCode={autoFollowCode}
+          onAutoFollowCodeChange={setAutoFollowCode}
+          liveCodePreview={liveCodePreview}
+          onLiveCodePreviewChange={setLiveCodePreview}
+          buildPaneSide={buildPaneSide}
+          onBuildPaneSideChange={setBuildPaneSide}
+          buildReasoningEffort={buildReasoningEffort}
+          onBuildReasoningEffortChange={setBuildReasoningEffort}
+          editReasoningEffort={editReasoningEffort}
+          onEditReasoningEffortChange={setEditReasoningEffort}
+          onDeleteAllProjects={handleDeleteAllProjects}
+          projectCount={myProjects.length}
+          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
+        />
+  );
+
   const signOutConfirmModal = isSignOutConfirmOpen && (
     <ConfirmModal
       title="Sign out?"
@@ -1748,7 +1801,9 @@ export default function App() {
           onSignOut={() => setIsSignOutConfirmOpen(true)}
           resolvedTheme={resolvedTheme}
           onThemeChange={setThemePreference}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
+        {settingsModal}
         {isAuthModalOpen && firebaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
         )}
@@ -1805,33 +1860,7 @@ export default function App() {
         <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
 
-      {isSettingsOpen && (
-        <SettingsModal
-          onClose={() => setIsSettingsOpen(false)}
-          themePreference={themePreference}
-          onThemePreferenceChange={setThemePreference}
-          resolvedTheme={resolvedTheme}
-          chatFont={chatFont}
-          onChatFontChange={setChatFont}
-          showCodeView={showCodeView}
-          onShowCodeViewChange={handleShowCodeViewChange}
-          askClarifyingQuestions={askClarifyingQuestions}
-          onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
-          skipSplash={skipSplash}
-          onSkipSplashChange={setSkipSplash}
-          autoFollowCode={autoFollowCode}
-          onAutoFollowCodeChange={setAutoFollowCode}
-          liveCodePreview={liveCodePreview}
-          onLiveCodePreviewChange={setLiveCodePreview}
-          buildPaneSide={buildPaneSide}
-          onBuildPaneSideChange={setBuildPaneSide}
-          reasoningEffort={reasoningEffort}
-          onReasoningEffortChange={setReasoningEffort}
-          onDeleteAllProjects={handleDeleteAllProjects}
-          projectCount={myProjects.length}
-          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
-        />
-      )}
+      {settingsModal}
 
       {isProjectsListOpen && (
         <ProjectsListModal
@@ -2060,6 +2089,7 @@ export default function App() {
               streamingReply={streamingReply}
               isGenerating={isGenerating}
               generationStatus={generationStatus}
+              thinkingSince={thinkingSince}
               isAutoFixing={isAutoFixing}
               error={error}
               prompt={prompt}
@@ -2130,6 +2160,7 @@ export default function App() {
               onNavForward={goForward}
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
+              thinkingSince={thinkingSince}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
               liveCodePage={studioMode === 'website' ? liveCodePage : null}
               isAutoFixing={isAutoFixing}

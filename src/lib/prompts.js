@@ -183,9 +183,8 @@ export const getRefinementTools = (studioMode = 'app') =>
   studioMode === 'website' ? WEBSITE_REFINEMENT_TOOLS : REFINEMENT_TOOLS;
 
 // The extra pages of an initial build are requested as plain streamed text, like
-// the landing page: some providers (e.g. z.ai GLM) do not stream tool-call
-// arguments, so a create_page tool call would show nothing until the whole page
-// finished.
+// the landing page: some providers do not stream tool-call arguments, so a
+// create_page tool call would show nothing until the whole page finished.
 export const buildCreatePageInstruction = ({ pageName, request, landingHtml, projectName }) => `The website's landing page (index.html) is below. It links to a page named "${pageName}" that does not exist yet. Write it now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.
 
 Original request: ${request}

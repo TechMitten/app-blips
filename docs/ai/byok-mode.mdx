@@ -1,10 +1,10 @@
 ---
 title: "BYOK Mode: Users Connect Their Own AI"
 sidebarTitle: "BYOK Mode"
-description: "In BYOK mode, each person using an AI-enabled app enters their own OpenAI-compatible endpoint, model, and API key. The key never leaves their browser."
+description: "Opt-in self-hosted mode where each person using an AI-enabled app enters their own OpenAI-compatible endpoint, model, and API key. The key never leaves their browser."
 ---
 
-BYOK (Bring Your Own Key) is the default AI access mode for self-hosted AppBlips installations. Instead of the operator paying for AI calls, each person who uses an AI-enabled app supplies their own credentials directly inside that app. The key is stored only in that person's browser and is never sent to AppBlips, never written into the generated HTML, and never visible to the operator.
+BYOK (Bring Your Own Key) is an opt-in mode for self-hosted AppBlips. Instead of your key from `.env` paying for AI calls (the default [relay mode](/ai/relay-mode)), each person who uses an AI-enabled app supplies their own credentials directly inside that app. The key is stored only in that person's browser and is never sent to AppBlips or written into the generated HTML.
 
 ## How It Works for Users
 
@@ -18,7 +18,7 @@ BYOK (Bring Your Own Key) is the default AI access mode for self-hosted AppBlips
   <Step title="Enter your provider details">
     Fill in the three required fields:
     - **API endpoint** — the base URL for your OpenAI-compatible provider (defaults to `https://api.openai.com/v1`)
-    - **Model** — the model name to use, for example `gpt-4o-mini`
+    - **Model** — the model name to use, for example `gpt-5.1`
     - **API key** — your secret key for that provider (for example, an `sk-…` key from OpenAI)
   </Step>
   <Step title="Choose whether to remember your credentials">
@@ -36,7 +36,7 @@ The dialog asks for three fields and one option:
 | Field | Description |
 |---|---|
 | **API endpoint** | The base URL of an OpenAI-chat-completions-compatible provider. Defaults to `https://api.openai.com/v1`. |
-| **Model** | The model identifier to use for requests, for example `gpt-4o-mini` or `llama3`. |
+| **Model** | The model identifier to use for requests, for example `gpt-5.1` or `llama3`. |
 | **API key** | Your secret credential for that provider. Entered as a password field and never displayed after saving. |
 | **Remember on this device** | When checked, credentials are saved to `localStorage` and persist after the tab closes. When unchecked, credentials are saved to `sessionStorage` only and cleared when the tab closes. |
 
@@ -59,7 +59,7 @@ A few things to keep in mind:
 
 BYOK mode works with any provider that implements the OpenAI chat completions API format and allows browser requests via CORS. Examples include:
 
-- **OpenAI** — `https://api.openai.com/v1`, models like `gpt-4o`, `gpt-4o-mini`
+- **OpenAI** — `https://api.openai.com/v1`, models like `gpt-5.1`
 - **Azure OpenAI** — your Azure deployment endpoint
 - **Groq** — `https://api.groq.com/openai/v1`, fast open-source models
 - **Ollama** — `http://localhost:11434/v1` for locally running models (must have CORS enabled)
@@ -69,16 +69,16 @@ BYOK mode works with any provider that implements the OpenAI chat completions AP
   If you are using a local model with Ollama or LM Studio, make sure CORS is enabled in that tool's settings so browser requests from the app are accepted.
 </Tip>
 
-## For Self-Hosted Operators
+## Turning BYOK On
 
-BYOK is the default mode and requires no additional server-side configuration beyond what is already in your `.env` file. The relevant variable is:
+Add this line to your `.env`:
 
-```
+```bash
 APPBLIPS_GENERATED_AI_MODE=byok
 ```
 
-This is the default value, so if you have not set it, BYOK is already active. No `APPBLIPS_APP_LLM_*` variables are needed — those are only used in relay mode.
+The mode is baked into the client at build time, so restart `npm run dev`, or run `docker compose up --build` if you use Docker. No `APPBLIPS_APP_LLM_*` variables are needed; those only apply to relay mode.
 
 <Note>
-  If you want to fund AI access for your users so they never need to enter a key, see [Relay Mode](/ai/relay-mode).
+  To go back to apps using your own key with no dialog, remove the line (or set it to `relay`) and rebuild. See [Relay Mode](/ai/relay-mode).
 </Note>

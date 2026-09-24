@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { handleChatProxy } from './functions/_lib/chatProxy.js';
 import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js';
+import { handleDebugUnlock } from './functions/_lib/debugUnlock.js';
+import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST_DIR = join(__dirname, 'dist');
@@ -98,6 +100,33 @@ async function handleAppAiRequest(req, res) {
   else res.end();
 }
 
+async function handleDebugUnlockRequest(req, res) {
+  const chunks = [];
+  if (req.method === 'POST') {
+    for await (const chunk of req) chunks.push(chunk);
+  }
+  const request = new Request('http://' + (req.headers.host || 'localhost') + '/api/debug-unlock', {
+    method: req.method,
+    headers: {
+      ...(req.headers['cf-connecting-ip']
+        ? { 'cf-connecting-ip': req.headers['cf-connecting-ip'] }
+        : {}),
+      ...(req.headers['x-forwarded-for']
+        ? { 'x-forwarded-for': req.headers['x-forwarded-for'] }
+        : {}),
+      ...(req.method === 'POST' ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
+  });
+
+  const response = await handleDebugUnlock(request, process.env);
+  res.statusCode = response.status;
+  response.headers.forEach((value, key) => res.setHeader(key, value));
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
+  if (response.body) Readable.fromWeb(response.body).pipe(res);
+  else res.end();
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, 'http://localhost');
   let requestedPath = decodeURIComponent(url.pathname);
@@ -165,6 +194,14 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (req.url === '/api/debug-unlock') {
+    handleDebugUnlockRequest(req, res).catch(() => {
+      res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false }));
+    });
+    return;
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, SECURITY_HEADERS);
     res.end('Method not allowed');
@@ -179,4 +216,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`AppBlips listening on port ${PORT}`);
+  console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
 });

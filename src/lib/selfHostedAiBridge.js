@@ -1,8 +1,8 @@
 /* eslint-disable no-useless-escape */
 // Self-hosted generated-app AI bridge. In BYOK mode credentials are entered by
 // the person using the finished app and never baked into exported HTML. Relay
-// mode embeds only the operator's public relay URL; its provider key stays in
-// APPBLIPS_APP_LLM_* server-side environment variables.
+// mode embeds only the public relay URL; the provider key (the builder's)
+// stays in server-side environment variables.
 const BRIDGE_SOURCE = `(function () {
   'use strict';
   var MODE = __APPBLIPS_APP_AI_MODE__;

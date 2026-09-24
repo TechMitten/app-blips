@@ -64,16 +64,17 @@ AppBlips generates any app that fits inside a single web page. Here are some pop
     **Best for:** anyone who wants the simplest possible experience and access to full deploy features.
   </Tab>
   <Tab title="Self-Hosted">
-    Self-hosting runs AppBlips entirely on your own machine or server. There is no account, no cloud sync, and support is for a single local user. You bring your own API key for an OpenAI-compatible provider.
+    Self-hosting means running your own copy of AppBlips on your computer, for your own use. There is no account and no cloud sync; it is built for a single local user. You bring your own API key.
 
     **Key facts:**
     - No account or sign-in required
-    - Supports any OpenAI-chat-completions-compatible provider (OpenAI, local models via Ollama, and others)
+    - Works with OpenAI, OpenRouter (Claude, Gemini, and more), DeepSeek, Z.ai, or any OpenAI-compatible service, including local models via Ollama
     - Run with Node.js (`npm run dev`) or Docker (`docker compose up --build`)
     - No deploy-to-public-URL feature; export to HTML is always available
-    - The `/api/chat` endpoint performs no authentication — keep it behind localhost or your own access control
+    - No sign-in, so keep it on your own computer
+    - Licensed under the Elastic License 2.0: free for your own or internal use, but not to offer to others as a hosted service
 
-    **Best for:** users who want full control over their data and AI provider, or who are running AppBlips in a private environment.
+    **Best for:** people who want to use their own AI provider and keep everything on their own computer.
   </Tab>
 </Tabs>
 

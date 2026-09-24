@@ -74,18 +74,16 @@ Add a text field so the user can filter the list by keyword.
 
 You can chain as many refinements as you like. Each one picks up from the current version of the app.
 
-## Reasoning Effort
+## Reasoning
 
-The **Reasoning Effort** setting controls how much time the AI spends thinking before it writes your app. You can set it to **Off**, **Low**, **Medium**, or **High** from **Settings → AI**.
+AppBlips can let the AI think before it writes code. In **Settings → AI** there are two switches, each **Off** or **On**:
 
-| Setting | When to use it |
+| Setting | What it affects |
 |---------|---------------|
-| Off | Fast, simple apps with straightforward requirements |
-| Low | Most everyday prompts — a good default for quick iteration |
-| Medium | Apps with moderate complexity or several interacting features |
-| High | Complex apps with intricate logic, data relationships, or multi-step flows |
+| **Reasoning: building** | Generating a new app from scratch |
+| **Reasoning: editing** | Changing an existing app |
 
-Higher reasoning effort produces better results for tricky prompts, but takes longer and uses more tokens. Start with Low or Medium and increase it only if the output isn't meeting your expectations.
+Both are off by default, which is fastest. Turn building on for apps with intricate logic or multi-step flows, and editing on when a change is tricky. Reasoning takes longer and uses more tokens.
 
 ## Clarifying Questions
 

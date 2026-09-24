@@ -1,8 +1,9 @@
 import { memo, useEffect, useState } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
-  Lock, Star, X, MoreVertical
+  Lock, Star, X, MoreVertical, Brain
 } from 'lucide-react';
+import ThinkingElapsed from './ThinkingElapsed';
 import { PREVIEW_MODES } from '../lib/constants';
 import { pageLabel } from '../lib/pages';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
@@ -349,6 +350,7 @@ export default function DeviceMockup({
   srcDoc,
   isGenerating,
   generationStatus,
+  thinkingSince = null,
   liveCodeRef = null,
   liveCodePage = null,
   hasCode,
@@ -370,6 +372,8 @@ export default function DeviceMockup({
     generationStatus?.toLowerCase().includes('runtime error') ||
     generationStatus?.toLowerCase().includes('syntax error')
   );
+  // Reasoning is on and the model hasn't produced output yet.
+  const isThinking = Boolean(thinkingSince) && !isErrorAutoFix;
 
   return (
     <div
@@ -554,16 +558,26 @@ export default function DeviceMockup({
                 <div className="building-spinner relative w-16 h-16 mb-6">
                   <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
                   <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                  <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
+                  {isThinking ? (
+                    <Brain className="building-spinner-glyph absolute inset-0 m-auto text-blue-500 animate-pulse" size={22} />
+                  ) : (
+                    <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
+                  )}
                 </div>
                 <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
                   {isErrorAutoFix || generationStatus?.includes('Syntax errors found')
                     ? 'Error checking...'
+                    : isThinking
+                      ? 'Thinking...'
                     : generationStatus?.startsWith('Analyzing') 
                       ? 'Planning...'
                       : 'Building...'}
                 </h3>
-                {isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                {isThinking ? (
+                  <p role="status" className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                    Reasoning through your request · <ThinkingElapsed since={thinkingSince} />
+                  </p>
+                ) : isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
                   <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
                     {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
                       ? generationStatus

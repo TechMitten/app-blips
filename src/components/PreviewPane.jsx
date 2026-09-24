@@ -57,6 +57,7 @@ export default function PreviewPane({
   onReloadPreview,
   isGenerating,
   generationStatus,
+  thinkingSince = null,
   liveCodeRef,
   liveCodePage = null,
   isAutoFixing,
@@ -428,6 +429,7 @@ export default function PreviewPane({
             srcDoc={previewSrcDoc}
             isGenerating={isGenerating}
             generationStatus={generationStatus}
+            thinkingSince={thinkingSince}
             liveCodeRef={liveCodeRef}
             liveCodePage={liveCodePage}
             hasCode={hasCode}

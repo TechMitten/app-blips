@@ -1,5 +1,5 @@
 import { consumeToken } from './rateLimit.js';
-import { applyReasoningSetting } from './reasoning.js';
+import { resolveAppProvider, applyProviderSettings, appAiLimit } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -37,7 +37,7 @@ const originHeaders = (request, env) => {
 };
 
 export async function handleSelfHostedAiChat(request, env) {
-  if (env.SELF_HOSTED_MODE === 'false' || String(env.APPBLIPS_GENERATED_AI_MODE || 'byok').toLowerCase() !== 'relay') {
+  if (env.SELF_HOSTED_MODE === 'false' || String(env.APPBLIPS_GENERATED_AI_MODE || 'relay').toLowerCase() === 'byok') {
     return failure('unauthorized', 403, 'Self-hosted app AI relay is disabled.');
   }
   const cors = originHeaders(request, env);
@@ -56,7 +56,9 @@ export async function handleSelfHostedAiChat(request, env) {
   if (!Array.isArray(messages) || messages.length < 1 || messages.length > MAX_MESSAGES) {
     return failure('invalid_request', 400, 'A valid messages array is required.', cors.headers);
   }
-  if (!env.APPBLIPS_APP_LLM_BASE_URL || !env.APPBLIPS_APP_LLM_API_KEY || !env.APPBLIPS_APP_LLM_MODEL) {
+  const provider = resolveAppProvider(env);
+  if (provider.error) console.error('[app-ai] misconfigured:', provider.error);
+  if (provider.error || provider.missing.length) {
     return failure('upstream_error', 502, 'App AI service is unavailable.', cors.headers);
   }
 
@@ -68,17 +70,17 @@ export async function handleSelfHostedAiChat(request, env) {
     return failure('rate_limited', 429, 'Rate limit exceeded.', { ...cors.headers, 'Retry-After': String(rate.retryAfter) });
   }
 
-  const cap = Math.max(1, parseInt(env.APPBLIPS_APP_LLM_MAX_TOKENS, 10) || 4096);
+  const cap = Math.max(1, parseInt(appAiLimit(env, 'MAX_TOKENS'), 10) || 4096);
   const requestedMax = Number.isFinite(Number(max_tokens)) ? Math.max(1, Math.floor(Number(max_tokens))) : cap;
   const requestedTemperature = Number.parseFloat(temperature);
-  const configuredTemperature = Number.parseFloat(env.APPBLIPS_APP_LLM_TEMPERATURE);
+  const configuredTemperature = Number.parseFloat(appAiLimit(env, 'TEMPERATURE'));
   const safeMessages = messages.map((message) => ({
     role: ['system', 'user', 'assistant'].includes(message?.role) ? message.role : 'user',
     content: typeof message?.content === 'string' ? message.content : String(message?.content ?? ''),
   }));
 
   const bodyObj = {
-    model: env.APPBLIPS_APP_LLM_MODEL,
+    model: provider.model,
     messages: safeMessages,
     temperature: Number.isFinite(requestedTemperature)
       ? Math.min(2, Math.max(0, requestedTemperature))
@@ -86,20 +88,14 @@ export async function handleSelfHostedAiChat(request, env) {
     max_tokens: Math.min(cap, requestedMax),
     stream: Boolean(stream),
   };
-  // Operator-set effort, translated into whichever provider the APPBLIPS_APP_*
-  // config points at (same translation as the builder proxy; see reasoning.js).
-  applyReasoningSetting(bodyObj, {
-    effort: env.APPBLIPS_APP_LLM_REASONING_EFFORT ?? 'none',
-    model: env.APPBLIPS_APP_LLM_MODEL,
-    baseUrl: env.APPBLIPS_APP_LLM_BASE_URL,
-    providerOverride: env.APPBLIPS_APP_LLM_PROVIDER,
-  });
+  // Operator-set effort and provider request format (see providers.js).
+  applyProviderSettings(bodyObj, provider, { effort: appAiLimit(env, 'REASONING_EFFORT') || 'none' });
 
   let upstream;
   try {
-    upstream = await fetch(chatUrl(env.APPBLIPS_APP_LLM_BASE_URL), {
+    upstream = await fetch(chatUrl(provider.baseUrl), {
       method: 'POST',
-      headers: { authorization: `Bearer ${env.APPBLIPS_APP_LLM_API_KEY}`, 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${provider.apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify(bodyObj),
     });
   } catch { return failure('upstream_error', 502, 'App AI request failed.', cors.headers); }

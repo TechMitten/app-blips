@@ -37,11 +37,6 @@ export const syntaxHighlightHtml = (code) => {
   return numberedLines;
 };
 
-// Some backends emit chain-of-thought/preamble text through the regular content
-// delta instead of (or in addition to) reasoning_content. Until this pattern shows
-// up in the accumulated stream, sanitizeHtmlResponse has no real boundary to anchor
-// on and falls back to returning the raw text -- which would flash that preamble
-// into the live code panel. Gate the panel update on this instead.
 export const getEffectivePreviewBox = (mode, orientation) => {
   const preset = PREVIEW_MODES[mode];
   if (preset.isTouchChrome && orientation === 'landscape') {

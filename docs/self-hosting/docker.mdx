@@ -1,17 +1,17 @@
 ---
-title: "Self-Host with Docker Compose in Minutes"
+title: "Run AppBlips Locally with Docker Compose"
 sidebarTitle: "Docker"
-description: "Build and run a production-ready AppBlips instance using Docker Compose. One command builds the client and starts the server on port 3000."
+description: "Run your own copy of AppBlips on your computer with Docker Compose. One command builds the client and starts it on localhost port 3000."
 ---
 
-Docker is the recommended way to run a longer-lived self-hosted AppBlips installation. A single `docker compose up --build` command builds the static client, packages it with the server, and starts everything together — no separate build step, no extra tools, and no Node.js installation required on your host machine. The server handles both the builder API and the optional generated-app AI relay, and it serves the built client directly, so there is nothing else to configure.
+Docker is an alternative to `npm run dev` for running AppBlips on your own computer. A single `docker compose up --build` command builds the client, packages it with a small Node server, and starts everything together — no Node.js installation needed on your machine. The server handles the builder API and the AI relay for your generated apps, and serves the built client directly.
 
 ## Prerequisites
 
 Before you begin, make sure you have:
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed and running
-- A valid `.env` file with at minimum `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, and `APPBLIPS_LLM_MODEL` set — see [Configuration](/self-hosting/configuration) for the full reference
+- A `.env` file with one provider API key and `APPBLIPS_LLM_MODEL` filled in — see [Configuration](/self-hosting/configuration) for the full reference
 
 ## Starting AppBlips
 
@@ -26,18 +26,17 @@ Before you begin, make sure you have:
   </Step>
 
   <Step title="Create your .env file">
-    Copy the example configuration file and open it in your editor to fill in your LLM provider details:
+    Copy the example configuration file and open it in your editor:
 
     ```bash
     cp .env.example .env
     ```
 
-    At minimum, set these three variables:
+    Fill in the API key for one provider and the model:
 
     ```bash
-    APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
-    APPBLIPS_LLM_API_KEY=your-api-key-here
-    APPBLIPS_LLM_MODEL=gpt-4o
+    APPBLIPS_OPENAI_API_KEY=your-api-key
+    APPBLIPS_LLM_MODEL=gpt-5.1
     ```
   </Step>
 
@@ -64,12 +63,16 @@ Before you begin, make sure you have:
 
 ## Ports
 
-By default AppBlips listens on port **3000** inside the container, mapped to port `3000` on your host. To use a different host port, either set the `PORT` environment variable in your `.env` file or edit the `ports` entry in `docker-compose.yml`:
+AppBlips listens on port **3000** inside the container. `docker-compose.yml` publishes it as `127.0.0.1:3000`, so only your own computer can reach it. To use a different host port, change the first number and keep the `127.0.0.1:` prefix:
 
 ```yaml
 ports:
-  - "8080:3000"   # host port 8080 → container port 3000
+  - "127.0.0.1:8080:3000"   # http://localhost:8080 → container port 3000
 ```
+
+<Warning>
+  Removing the `127.0.0.1:` prefix makes AppBlips reachable from other devices on your network. It has no sign-in, so anyone who can reach it can spend your API key.
+</Warning>
 
 ## Rebuilding After Config Changes
 
