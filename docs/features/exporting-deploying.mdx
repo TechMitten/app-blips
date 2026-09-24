@@ -1,16 +1,16 @@
 ---
 title: "Export or Deploy: File Download or Public URL"
 sidebarTitle: "Export & Deploy"
-description: "Download any AppBlips app as a standalone HTML file or publish it to a public URL as a PWA. Add password protection to control who can access it."
+description: "Download any AppBlips app as a standalone HTML file or a website as a ZIP, or publish to a public URL as a PWA. Add password protection to control who can access it."
 ---
 
-When your app is ready, you have two options for what to do with it: download it as a file you keep and host yourself, or publish it directly to a public URL. Both options produce something you can share with anyone — the difference is in how much control you want over where it lives.
+When your app or website is ready, you have two options for what to do with it: download it as a file you keep and host yourself, or publish it directly to a public URL. Both options produce something you can share with anyone — the difference is in how much control you want over where it lives.
 
-## Export to HTML
+## Export to HTML or ZIP
 
-Click the **Export** button in the toolbar to download your app as a single, self-contained HTML file. The file works in any modern browser, can be hosted anywhere that serves static files, and requires no build step or server to run.
+Click the **Export** button in the toolbar to download your project. Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
 
-Open the downloaded file directly in a browser, drag it onto a hosting service, or drop it into any static file host — it's ready to go immediately.
+Open the downloaded file directly in a browser, drag it onto a hosting service, or drop it into any static file host — it's ready to go immediately. (For `.zip` files, extract them first).
 
 <Tip>
   For a free and instant way to share your exported app, try [Netlify Drop](https://app.netlify.com/drop): drag your HTML file onto the page and Netlify gives it a public URL in seconds. [GitHub Pages](https://pages.github.com/) and [Cloudflare Pages](https://pages.cloudflare.com/) are also free options if you want the file in a repository.
@@ -28,7 +28,7 @@ When deploying, you can optionally add **password protection** to restrict acces
 
 ## The Exported File
 
-The downloaded HTML file is fully self-contained: all styles, logic, and structure are bundled into a single document with no external dependencies on AppBlips. Once you have the file, it works on its own — open it, host it, or email it, and it runs the same way every time.
+The downloaded project is fully self-contained: all styles, logic, and structure are bundled into the document(s) with no external dependencies on AppBlips. Once you have the exported `.html` or `.zip` file, it works on its own — open it, host it, or email it, and it runs the same way every time.
 
 If your app uses the **AI features** (the `blip.ai` API), how AI works outside AppBlips depends on where you built it:
 
