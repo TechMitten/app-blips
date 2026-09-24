@@ -1,7 +1,13 @@
 {
   "name": "appblips",
+  "description": "Turn a text prompt into a working single-file app or website, with a live sandboxed preview.",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechMitten/app-blips.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -47,7 +47,7 @@ const parseCommit = (commit) => {
 test('records a builder increment in the shape the usage rules allow', async (t) => {
   const commits = captureUsageCommits(t);
   await recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-1' },
+    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-1' },
     { uid: 'user-1', kind: 'builder' },
   );
   assert.equal(commits.length, 1);
@@ -72,7 +72,7 @@ test('records a builder increment in the shape the usage rules allow', async (t)
 test('records a deployed increment for the deploying account', async (t) => {
   const commits = captureUsageCommits(t);
   await recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-2' },
+    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-2' },
     { uid: 'user-2', kind: 'deployed' },
   );
   assert.equal(parseCommit(commits[0]).incrementField, 'deployedRequests');
@@ -81,7 +81,7 @@ test('records a deployed increment for the deploying account', async (t) => {
 test('omits the App Check header when the debug token exchange fails', async (t) => {
   const commits = captureUsageCommits(t, { appCheckOk: false });
   await recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-3' },
+    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-3' },
     { uid: 'user-3', kind: 'builder' },
   );
   assert.equal(commits.length, 1, 'commit still attempted without an App Check token');
@@ -102,7 +102,7 @@ test('Firestore failures never throw', async (t) => {
   t.mock.method(console, 'warn', () => {});
   t.mock.method(globalThis, 'fetch', async () => new Response('boom', { status: 500 }));
   await assert.doesNotReject(() => recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-5' },
+    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-5' },
     { uid: 'user-5', kind: 'builder' },
   ));
 
@@ -117,7 +117,7 @@ test('trackApiUsage hands the write to waitUntil when one exists', async (t) => 
   const commits = captureUsageCommits(t);
   const waited = [];
   trackApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-6' },
+    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key', FIREBASE_APPCHECK_DEBUG_TOKEN: 'debug-6' },
     { uid: 'user-6', kind: 'builder' },
     (p) => waited.push(p),
   );

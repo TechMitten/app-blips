@@ -23,6 +23,7 @@
 // node in the standalone testing/ scripts.
 
 import { countExactOccurrences, findFuzzyMatches } from './edits.js';
+import { findFontByStack, insertFontLinks } from './fonts.js';
 
 const escapeHtmlText = (str) => String(str)
   .replace(/&/g, '&amp;')
@@ -86,40 +87,264 @@ const swapTextInFragment = (fragment, prevText, nextText) => {
   return null;
 };
 
-const applyTextChange = (code, element, nextTextRaw) => {
+
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
+  ndash: '–', mdash: '—', hellip: '…', copy: '©',
+  middot: '·', bull: '•', reg: '®', trade: '™',
+};
+
+const decodeEntities = (str) => str.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body) => {
+  if (body[0] === '#') {
+    const code = body[1].toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+    return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+  }
+  const named = NAMED_ENTITIES[body.toLowerCase()];
+  return named === undefined ? match : named;
+});
+
+// Comparable form of an element's visible text: what the bridge's innerText
+// reports (entities decoded, whitespace collapsed). Case-insensitive because
+// innerText applies CSS text-transform (uppercase eyebrows etc.).
+const comparableText = (html) => decodeEntities(html.replace(/<[^>]*>/g, ' '))
+  .replace(/[\s\u00a0]+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+// Every `<tag ...>...</tag>` element in the source whose visible text equals
+// `wantedText`, in document order. Unlike outerHTML matching this does not
+// depend on the opening tag's attributes, which the live DOM may have
+// diverged from (JS-added inline styles/classes from scroll animations,
+// etc.) or on how entities were written in the source.
+const findElementsByText = (code, tag, wantedText) => {
+  if (!/^[a-z][a-z0-9-]*$/i.test(tag)) return [];
+  const wanted = comparableText(wantedText);
+  if (!wanted) return [];
+  const openRe = new RegExp(`<${tag}(?=[\\s>/])[^>]*>`, 'gi');
+  const results = [];
+  let open;
+  while ((open = openRe.exec(code))) {
+    if (open[0].endsWith('/>')) continue;
+    const innerStart = open.index + open[0].length;
+    const tagRe = new RegExp(`<(/?)${tag}(?=[\\s>/])[^>]*>`, 'gi');
+    tagRe.lastIndex = innerStart;
+    let depth = 1;
+    let innerEnd = -1;
+    let t;
+    while ((t = tagRe.exec(code))) {
+      if (t[1]) {
+        depth -= 1;
+        if (depth === 0) { innerEnd = t.index; break; }
+      } else if (!t[0].endsWith('/>')) {
+        depth += 1;
+      }
+    }
+    if (innerEnd === -1) continue;
+    const inner = code.slice(innerStart, innerEnd);
+    if (comparableText(inner) === wanted) {
+      results.push({ open: open[0], innerStart, innerEnd, inner });
+    }
+  }
+  return results;
+};
+
+const classTokens = (openTag) => {
+  const m = /\sclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(openTag);
+  return m ? (m[1] ?? m[2]).split(/\s+/).filter(Boolean) : null;
+};
+
+// Pick the one source element the clicked element corresponds to. The
+// bridge reports the element's rank among same-tag/same-text elements in the
+// rendered DOM (`textOrdinal` of `textCount`); for static markup that equals
+// the source order, so it disambiguates repeated text such as a brand name in
+// both the header and the footer. Falls back to class matching.
+const pickTextCandidate = (candidates, element) => {
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 0) return null;
+  const { textOrdinal, textCount } = element;
+  if (Number.isInteger(textOrdinal) && textCount === candidates.length) {
+    return candidates[textOrdinal] || null;
+  }
+  const liveClasses = new Set((element.attributes?.class || '').split(/\s+/).filter(Boolean));
+  const byClass = candidates.filter((c) => {
+    const tokens = classTokens(c.open);
+    return tokens && tokens.every((tok) => liveClasses.has(tok));
+  });
+  return byClass.length === 1 ? byClass[0] : null;
+};
+
+const applyTextByScan = (code, element, prevText, nextText, styles) => {
+  const candidate = pickTextCandidate(findElementsByText(code, element.tag, prevText), element);
+  if (!candidate) return null;
+  let nextOpen = candidate.open;
+  if (styles) {
+    nextOpen = mergeStylesIntoOpenTag(candidate.open, styles);
+    if (!nextOpen) return null;
+  }
+  let nextInner = candidate.inner;
+  if (nextText !== prevText) {
+    const escapedNext = escapeHtmlText(nextText);
+    if (!candidate.inner.includes('<')) {
+      // Plain-text element: replace the text, keep the source's padding.
+      const lead = /^\s*/.exec(candidate.inner)[0];
+      const trail = /\s*$/.exec(candidate.inner)[0];
+      nextInner = lead + escapedNext + trail;
+    } else {
+      // Nested markup: only swap when the old text is verbatim inside.
+      nextInner = swapTextInFragment(candidate.inner, prevText, escapedNext);
+    }
+    if (nextInner === null) return null;
+  }
+  const openStart = candidate.innerStart - candidate.open.length;
+  return {
+    ok: true,
+    code: code.slice(0, openStart) + nextOpen + nextInner + code.slice(candidate.innerEnd),
+  };
+};
+
+
+// --- Inline style merging -------------------------------------------------
+//
+// Text formatting (font, size, weight, ...) is written as inline style on the
+// element's opening tag: it needs no knowledge of the page's Tailwind setup
+// and beats class-based rules. Existing declarations are kept.
+
+const STYLE_PROPS = {
+  fontFamily: 'font-family',
+  fontSize: 'font-size',
+  fontWeight: 'font-weight',
+  fontStyle: 'font-style',
+  textDecorationLine: 'text-decoration-line',
+  textAlign: 'text-align',
+  textTransform: 'text-transform',
+  color: 'color',
+};
+
+const STYLE_LABELS = {
+  fontFamily: 'font',
+  fontSize: 'size',
+  fontWeight: 'weight',
+  fontStyle: 'italic',
+  textDecorationLine: 'underline',
+  textAlign: 'alignment',
+  textTransform: 'letter case',
+  color: 'color',
+};
+
+// Split a style attribute into declarations without cutting inside url(...)
+// or quotes (data: URIs contain ';').
+const splitDeclarations = (css) => {
+  const out = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let i = 0; i < css.length; i += 1) {
+    const ch = css[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '(') {
+      depth += 1;
+    } else if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+    } else if (ch === ';' && depth === 0) {
+      out.push(css.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(css.slice(start));
+  return out.map((d) => d.trim()).filter(Boolean);
+};
+
+const cleanStyleValue = (value) => String(value ?? '').replace(/[;{}<>\\]/g, '').trim().slice(0, 200);
+
+const OPEN_TAG_RE = /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*\s*\/?>/;
+
+// Merge `styles` ({ fontSize: '32px', ... }) into the first tag of `html`.
+// Returns the new html, or null when `html` does not start with a tag.
+const mergeStylesIntoOpenTag = (html, styles) => {
+  const match = OPEN_TAG_RE.exec(html);
+  if (!match) return null;
+  const open = match[0];
+  const wanted = {};
+  Object.entries(styles).forEach(([prop, value]) => {
+    const css = STYLE_PROPS[prop];
+    const clean = cleanStyleValue(value);
+    if (css && clean) wanted[css] = clean;
+  });
+  if (!Object.keys(wanted).length) return null;
+
+  const styleAttr = /(\sstyle\s*=\s*)(?:"([^"]*)"|'([^']*)')/i.exec(open);
+  let nextOpen;
+  if (styleAttr) {
+    const quote = styleAttr[2] !== undefined ? '"' : "'";
+    const existing = splitDeclarations(styleAttr[2] !== undefined ? styleAttr[2] : styleAttr[3])
+      .filter((decl) => {
+        const name = decl.slice(0, decl.indexOf(':')).trim().toLowerCase();
+        return !(name in wanted);
+      });
+    const escapeForQuote = (v) => (quote === '"' ? v.replace(/"/g, '&quot;') : v.replace(/'/g, '&#39;'));
+    const merged = [...existing, ...Object.entries(wanted).map(([k, v]) => `${k}: ${escapeForQuote(v)}`)].join('; ');
+    nextOpen = open.replace(styleAttr[0], `${styleAttr[1]}${quote}${merged};${quote}`);
+  } else {
+    const decls = Object.entries(wanted).map(([k, v]) => `${k}: ${v.replace(/"/g, '&quot;')}`).join('; ');
+    nextOpen = open.replace(/\s*(\/?>)$/, ` style="${decls};"$1`);
+  }
+  return nextOpen + html.slice(open.length);
+};
+
+const summarizeStyles = (styles) => {
+  const labels = Object.keys(styles || {})
+    .filter((k) => STYLE_LABELS[k] && cleanStyleValue(styles[k]))
+    .map((k) => STYLE_LABELS[k]);
+  return labels.length ? `styled text (${Array.from(new Set(labels)).join(', ')})` : null;
+};
+
+const applyTextChange = (code, element, nextTextRaw, styleChanges = null) => {
   const prevText = (element.text || '').trim();
-  const nextText = String(nextTextRaw ?? '').trim();
+  const nextText = nextTextRaw === undefined ? prevText : String(nextTextRaw ?? '').trim();
+  const styles = styleChanges && summarizeStyles(styleChanges) ? styleChanges : null;
+  const textChanged = prevText !== nextText;
+  if (!textChanged && !styles) return { ok: false, reason: 'no-op' };
   if (!prevText) return { ok: false, reason: 'element-has-no-text' };
   if (element.textTruncated) return { ok: false, reason: 'text-too-long' };
-  if (prevText === nextText) return { ok: false, reason: 'no-op' };
   const escapedNext = escapeHtmlText(nextText);
+  const summary = [
+    textChanged ? `changed text to "${truncate(nextText, 60)}"` : null,
+    styles ? summarizeStyles(styles) : null,
+  ].filter(Boolean).join(' and ');
 
-  // Preferred path: locate the element's own serialized markup and swap the
-  // text inside it. Matching the whole element (not just the string) proves
-  // we're editing the right occurrence.
+  // Preferred path: locate the element's own serialized markup and rewrite
+  // it (style on the opening tag, text inside). Matching the whole element
+  // (not just the string) proves we're editing the right occurrence.
   const outer = element.outerHTML;
   if (outer && !element.outerHTMLTruncated) {
-    const nextOuter = swapTextInFragment(outer, prevText, escapedNext);
-    if (nextOuter) {
+    let nextOuter = styles ? mergeStylesIntoOpenTag(outer, styles) : outer;
+    if (nextOuter && textChanged) nextOuter = swapTextInFragment(nextOuter, prevText, escapedNext);
+    if (nextOuter && nextOuter !== outer) {
       const result = replaceUnique(code, outer, nextOuter);
-      if (result.ok) {
-        return { ...result, summary: `changed text to "${truncate(nextText, 60)}"` };
-      }
-      // An ambiguous/not-found outer fragment still allows the text-only
-      // path below, which can be more precise for short strings.
+      if (result.ok) return { ...result, summary };
+      // An ambiguous/not-found outer fragment still allows the paths below,
+      // which can be more precise for short strings.
     }
   }
 
-  // Fallback: the text string itself is unique in the document.
-  for (const candidate of textCandidates(prevText)) {
-    if (countExactOccurrences(code, candidate) === 1) {
-      return {
-        ok: true,
-        code: code.replace(candidate, escapedNext),
-        summary: `changed text to "${truncate(nextText, 60)}"`,
-      };
+  // Fallback: the text string itself is unique in the document. (Text only:
+  // there is no tag here to carry a style.)
+  if (!styles) {
+    for (const candidate of textCandidates(prevText)) {
+      if (countExactOccurrences(code, candidate) === 1) {
+        return { ok: true, code: code.replace(candidate, escapedNext), summary };
+      }
     }
   }
+
+  // Last resort: structural scan by tag + visible text, tolerant of
+  // attribute drift and entity spelling (see findElementsByText).
+  const scanned = applyTextByScan(code, element, prevText, nextText, styles);
+  if (scanned) return { ...scanned, summary };
   return { ok: false, reason: 'text-not-found' };
 };
 
@@ -232,7 +457,7 @@ const applyBackgroundImageChange = (code, element, nextImageRaw) => {
  *
  * @param {string} code current generated HTML (never carries the preview bridge)
  * @param {object} element the bridge's element-selected payload
- * @param {{ text?: string, src?: string, alt?: string, href?: string, backgroundColor?: string, backgroundImage?: string }} changes
+ * @param {{ text?: string, style?: Record<string, string>, src?: string, alt?: string, href?: string, backgroundColor?: string, backgroundImage?: string }} changes
  * @returns {{ ok: true, code: string, summary: string } | { ok: false, reason: string }}
  */
 export const applyDirectEdit = (code, element, changes) => {
@@ -251,9 +476,15 @@ export const applyDirectEdit = (code, element, changes) => {
 
   // Text first: it anchors on the element's original serialized markup, which
   // attribute swaps would otherwise invalidate.
-  if (changes.text !== undefined) {
-    const failure = run(applyTextChange(working, element, changes.text));
+  const styleChanges = changes.style && typeof changes.style === 'object' ? changes.style : null;
+  if (changes.text !== undefined || styleChanges) {
+    const failure = run(applyTextChange(working, element, changes.text, styleChanges));
     if (failure) return failure;
+    // A newly chosen catalog font needs its stylesheet in the page.
+    if (styleChanges?.fontFamily) {
+      const font = findFontByStack(styleChanges.fontFamily);
+      if (font) working = insertFontLinks(working, font);
+    }
   }
   if (changes.src !== undefined) {
     const failure = run(applyImageSrcChange(working, element, changes.src));
