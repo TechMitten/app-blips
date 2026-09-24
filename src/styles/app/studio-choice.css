@@ -5,6 +5,63 @@
    (see .brand-fill-text in buttons.css); a navy gradient would vibrate on
    the night canvas. */
 
+/* Backdrop. Two pseudo-element layers on one node:
+     ::before  aurora -- three soft brand-hued glows that drift slowly
+     ::after   grid   -- hairline lattice, masked so it fades out toward the
+                         edges and lets the glows lead
+   Hues come from the indigo ramp (the app's navy-blue accent) plus one violet
+   and one cyan for depth. Alphas are per-theme: on the pale canvas they are
+   tints, on the night canvas they are light. */
+.studio-bg {
+  --studio-glow-a: 57 135 208 / 0.22;
+  --studio-glow-b: 139 92 246 / 0.14;
+  --studio-glow-c: 34 211 238 / 0.14;
+  --studio-grid: 15 23 42 / 0.07;
+  overflow: hidden;
+}
+
+:is(html.dark, .force-dark) .studio-bg {
+  --studio-glow-a: 57 135 208 / 0.30;
+  --studio-glow-b: 139 92 246 / 0.22;
+  --studio-glow-c: 34 211 238 / 0.12;
+  --studio-grid: 255 255 255 / 0.06;
+}
+
+.studio-bg::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(38% 34% at 50% 8%, rgb(var(--studio-glow-a)), transparent 70%),
+    radial-gradient(30% 30% at 12% 30%, rgb(var(--studio-glow-b)), transparent 70%),
+    radial-gradient(32% 30% at 88% 26%, rgb(var(--studio-glow-c)), transparent 70%);
+  filter: blur(24px);
+  animation: studio-aurora-drift 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.studio-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(var(--studio-grid)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--studio-grid)) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+  mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+}
+
+@keyframes studio-aurora-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-bg::before { animation: none; }
+}
+
 /* The logo's wordmark is white with a soft shadow, so it vanishes on the light
    canvas. Seat it on a dark navy plate in light mode; on the night canvas it
    already has contrast, so the plate drops away. */

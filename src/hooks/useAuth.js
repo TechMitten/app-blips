@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import authProvider, { firebaseEnabled } from '../lib/auth';
+import { markHasSignedIn } from '../lib/config';
 import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/username';
 
 // Session lifecycle, driven by the auth adapter (Firebase or the self-hosted
@@ -64,6 +65,7 @@ export default function useAuth() {
   // Close the auth modal the moment a session lands.
   useEffect(() => {
     if (authStatus === 'signedIn') {
+      if (firebaseEnabled) markHasSignedIn();
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAuthModalOpen(false);
     }

@@ -32,6 +32,53 @@
 .preview-tools-menu > .nav-segmented-group:last-child { margin-bottom: 0; }
 .preview-tools-menu .nav-segmented-btn { min-height: 40px; min-width: 40px; }
 
+/* Page switcher (multi-page sites, every device mode). Lives in the
+   .preview-tabs zone, which never folds, so it stays reachable at every
+   width; at the narrowest fold it becomes an icon key like the rest. */
+.preview-page-picker { position: relative; min-width: 0; }
+.preview-page-picker > summary { list-style: none; }
+.preview-page-picker > summary::-webkit-details-marker { display: none; }
+.preview-page-picker-key { gap: 6px; max-width: 12rem; }
+.preview-page-picker-key > svg { flex-shrink: 0; }
+.preview-page-picker-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-page-picker-chevron { flex-shrink: 0; opacity: 0.6; transition: transform 0.15s ease; }
+.preview-page-picker[open] .preview-page-picker-chevron { transform: rotate(180deg); }
+.preview-page-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(240px, calc(100cqw - 16px));
+  max-height: max(100px, calc(var(--app-viewport-height, 100dvh) - 220px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+}
+/* Two classes deep so the narrow-bar and touch rules for
+   `.preview-tabs button` (40/44px square keys, hidden labels) don't reach
+   the menu rows. */
+.preview-page-menu > .preview-page-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  color: var(--color-slate-700);
+}
+.preview-page-menu > .preview-page-option > span { display: block; }
+.preview-page-menu > .preview-page-option:hover { background: var(--color-slate-100); color: var(--color-slate-900); }
+.preview-page-menu > .preview-page-option.is-active { color: var(--color-slate-900); font-weight: 600; }
+
 /* Available panel width matters more than the device's screen width, so the
    toolbar folds on container queries rather than viewport breakpoints -- the
    old mix of the two (labels dropping at sm/md/lg/xl inside a container-sized
@@ -66,6 +113,10 @@
   /* The centre cell is empty from here down, so the rule that separated the
      two key groups moves into the action rank and appears instead. */
   .preview-header-divider { display: block; }
+  /* With no centre group to pin, the action rank takes its own width and
+     the first zone gets the rest -- equal 1fr sides let the actions spill
+     over the page picker on a narrow pane. */
+  .preview-pane-header.chrome-bar { grid-template-columns: minmax(0, 1fr) auto auto; }
 }
 
 @container (max-width: 740px) {
@@ -77,6 +128,11 @@
   .preview-tabs > span,
   .preview-tabs button > span { display: none; }
   .preview-tabs .nav-segmented-group { margin-left: 0; }
+  /* Same 40px square as every other key at this fold; the open menu's
+     check mark still names the current page. */
+  .preview-page-picker-key { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .preview-page-picker-label,
+  .preview-page-picker-chevron { display: none; }
   .preview-tabs button,
   .preview-actions .nav-btn,
   .preview-actions .nav-segmented-btn { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
@@ -198,6 +254,7 @@
   .preview-actions .nav-btn,
   .preview-actions .nav-segmented-btn,
   .preview-actions summary,
+  .preview-tabs summary,
   .preview-tools-menu .nav-segmented-btn { min-width: 44px; min-height: 44px; }
   .chat-rewind-btn { min-width: 44px; min-height: 44px; }
   .history-sidebar .history-icon-btn { min-width: 44px; min-height: 44px; }

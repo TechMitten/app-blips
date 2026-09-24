@@ -109,7 +109,7 @@ export default function SplashScreen({ skip = false }) {
         playsInline
         preload="auto"
         onCanPlay={(e) => {
-          e.currentTarget.playbackRate = 1.35;
+          e.currentTarget.playbackRate = 1.85;
           setIsVideoReady(true);
         }}
         onEnded={handleVideoEnd}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import authProvider from '../lib/auth';
 import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, Github, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
+import { hasSignedInBefore } from '../lib/config';
 
 const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
@@ -14,7 +15,7 @@ const OAUTH_CLASS = 'w-full inline-flex items-center justify-center gap-2 h-11 r
 // directly (only ever mounted when firebaseEnabled -- see App.jsx). The
 // auth-state listener in useAuth closes the modal the moment a session lands.
 export default function AuthModal({ onClose = () => {}, dismissible = true }) {
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | 'reset'
+  const [authMode, setAuthMode] = useState(() => (hasSignedInBefore() ? 'signin' : 'signup')); // 'signin' | 'signup' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -133,7 +134,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
 
       <form onSubmit={handleAuthSubmit} className="px-6 pt-4 pb-6 space-y-5">
         {!isReset && (
-          <div role="tablist" aria-label="Authentication mode" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+          <div role="tablist" aria-label="Authentication mode" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-black/40 dark:ring-1 dark:ring-white/10">
             {[['signin', 'Sign in'], ['signup', 'Sign up']].map(([mode, label]) => (
               <button
                 key={mode}
@@ -141,8 +142,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
                 role="tab"
                 aria-selected={authMode === mode}
                 onClick={() => handleAuthModeSwitch(mode)}
-                className={`rounded-lg py-2 text-sm font-semibold transition-all ${
-                  authMode === mode ? 'bg-surface text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-800'
+                className={`rounded-lg py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${
+                  authMode === mode
+                    ? 'bg-surface text-slate-900 shadow-sm ring-1 ring-slate-200 dark:bg-white/[0.16] dark:text-white dark:shadow-none dark:ring-white/25'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 dark:text-slate-500 dark:hover:text-white dark:hover:bg-white/[0.06]'
                 }`}
               >
                 {label}
