@@ -125,6 +125,114 @@ check('text change refuses ambiguous strings', () => {
   assert.strictEqual(result.reason, 'text-not-found'); // two matches -> not unique
 });
 
+const BRAND_FIXTURE = `<header>
+  <a href="/"><span class="brand" style="opacity:1">Ray&rsquo;s Dental Clinic</span></a>
+</header>
+<footer>
+  <a href="/"><span class="brand">
+    Ray&rsquo;s Dental Clinic
+  </span></a>
+</footer>`;
+
+check('text change survives attribute drift + entity spelling (live DOM != source)', () => {
+  // Live DOM has JS-added inline style and a curly apostrophe from &rsquo;,
+  // so outerHTML never matches; text repeats in header and footer.
+  const element = el({
+    tag: 'span',
+    role: 'text',
+    text: 'Ray\u2019s Dental Clinic',
+    attributes: { class: 'brand' },
+    outerHTML: '<span class="brand" style="opacity: 1; transform: none;">Ray\u2019s Dental Clinic</span>',
+    textOrdinal: 1,
+    textCount: 2,
+  });
+  const result = applyDirectEdit(BRAND_FIXTURE, element, { text: 'Ray\'s Dental' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<span class="brand" style="opacity:1">Ray&rsquo;s Dental Clinic<\/span>/);
+  assert.match(result.code, /<span class="brand">\n {4}Ray's Dental\n {2}<\/span>/);
+});
+
+check('text scan refuses repeated text without an ordinal or distinguishing class', () => {
+  const element = el({
+    tag: 'span',
+    role: 'text',
+    text: 'Ray\u2019s Dental Clinic',
+    attributes: { class: 'brand' },
+    outerHTML: '',
+  });
+  const result = applyDirectEdit(BRAND_FIXTURE, element, { text: 'X' });
+  assert.strictEqual(result.ok, false);
+});
+
+check('style change adds an inline style to an element without one', () => {
+  const element = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Fresh bread, every morning',
+    attributes: { class: 'text-5xl font-black text-white' },
+    outerHTML: '<h1 class="text-5xl font-black text-white">Fresh bread, every morning</h1>',
+  });
+  const result = applyDirectEdit(FIXTURE, element, { style: { fontSize: '64px', fontWeight: '700' } });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<h1 class="text-5xl font-black text-white" style="font-size: 64px; font-weight: 700;">Fresh bread/);
+  assert.match(result.summary, /styled text \(size, weight\)/);
+});
+
+check('style change merges into an existing style attribute and keeps url(;) values', () => {
+  const html = '<p style="background:url(data:image/png;base64,AAA); color: red">Hi there</p>';
+  const element = el({ tag: 'p', role: 'text', text: 'Hi there', attributes: { style: 'background:url(data:image/png;base64,AAA); color: red' }, outerHTML: html });
+  const result = applyDirectEdit(`<body>${html}</body>`, element, { style: { color: '#112233', textAlign: 'center' } });
+  assert.ok(result.ok, result.reason);
+  assert.match(result.code, /style="background:url\(data:image\/png;base64,AAA\); color: #112233; text-align: center;"/);
+  assert.doesNotMatch(result.code, /color: red/);
+});
+
+check('text + style apply together in one edit', () => {
+  const element = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Fresh bread, every morning',
+    outerHTML: '<h1 class="text-5xl font-black text-white">Fresh bread, every morning</h1>',
+  });
+  const result = applyDirectEdit(FIXTURE, element, { text: 'Warm rolls', style: { fontStyle: 'italic' } });
+  assert.ok(result.ok, result.reason);
+  assert.match(result.code, /style="font-style: italic;">Warm rolls<\/h1>/);
+});
+
+check('choosing a catalog font also links its stylesheet once', () => {
+  const element = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Fresh bread, every morning',
+    outerHTML: '<h1 class="text-5xl font-black text-white">Fresh bread, every morning</h1>',
+  });
+  const style = { fontFamily: "'Playfair Display', Georgia, serif" };
+  const result = applyDirectEdit(FIXTURE, element, { style });
+  assert.ok(result.ok, result.reason);
+  assert.match(result.code, /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Playfair\+Display[^"]*" rel="stylesheet">\s*<\/head>/);
+  assert.strictEqual((result.code.match(/family=Playfair\+Display/g) || []).length, 1);
+  // Already linked -> no second link.
+  const again = applyDirectEdit(result.code, { ...element, outerHTML: '<h1 class="text-5xl font-black text-white" style="font-family: \'Playfair Display\', Georgia, serif;">Fresh bread, every morning</h1>' }, { style: { fontFamily: "'Playfair Display', Georgia, serif", fontSize: '40px' } });
+  assert.ok(again.ok, again.reason);
+  assert.strictEqual((again.code.match(/family=Playfair\+Display/g) || []).length, 1);
+});
+
+check('style change on repeated markup uses the ordinal (attribute drift)', () => {
+  const element = el({
+    tag: 'span',
+    role: 'text',
+    text: 'Ray\u2019s Dental Clinic',
+    attributes: { class: 'brand' },
+    outerHTML: '<span class="brand" style="opacity: 1; transform: none;">Ray\u2019s Dental Clinic</span>',
+    textOrdinal: 0,
+    textCount: 2,
+  });
+  const result = applyDirectEdit(BRAND_FIXTURE, element, { style: { fontSize: '30px' } });
+  assert.ok(result.ok, result.reason);
+  assert.match(result.code, /<span class="brand" style="opacity:1; font-size: 30px;">Ray&rsquo;s/);
+  assert.match(result.code, /<span class="brand">\n {4}Ray&rsquo;s/);
+});
+
 // In-place editing commits the element snapshot captured BEFORE the typing
 // (original text = anchor) plus the new text as `changes.text` -- exactly
 // the shape App.jsx's handleElementTextCommitted forwards.

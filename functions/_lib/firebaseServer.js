@@ -1,7 +1,6 @@
 // Shared server-side Firebase identity for app serving and AI validation.
 const FIREBASE_PROJECT_ID = 'appbips-f46e2';
 const FIREBASE_APP_ID = '1:472626328876:web:2800d30e2a40acfbf26889';
-const FIREBASE_API_KEY = 'AIzaSyBcnXgBSRWClM_ghSuOqyayayFRn4ksKvM';
 
 export const firebaseProjectId = (env = {}) => env.FIREBASE_PROJECT_ID || env.VITE_FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
 
@@ -13,12 +12,12 @@ export const getAppCheckToken = async (env) => {
   const now = Date.now();
   const projectId = env?.FIREBASE_PROJECT_ID || env?.VITE_FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
   const appId = env?.FIREBASE_APP_ID || env?.VITE_FIREBASE_APP_ID || FIREBASE_APP_ID;
-  const apiKey = env?.FIREBASE_API_KEY || env?.VITE_FIREBASE_API_KEY || FIREBASE_API_KEY;
+  const apiKey = env?.FIREBASE_API_KEY || env?.VITE_FIREBASE_API_KEY;
   const debugToken =
     env?.FIREBASE_APPCHECK_DEBUG_TOKEN ||
     env?.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
 
-  if (!debugToken) return null;
+  if (!debugToken || !apiKey) return null;
   const config = JSON.stringify([projectId, appId, apiKey, debugToken]);
   if (cachedConfig === config && cachedAppCheckToken && now < tokenExpiry) {
     return cachedAppCheckToken;

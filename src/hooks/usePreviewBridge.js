@@ -21,6 +21,10 @@ export default function usePreviewBridge({
   onElementSelected,
   onElementDeselected,
   onElementTextCommitted,
+  onInlineEditStarted,
+  onInlineTypography,
+  onInlineEditEnded,
+  onInlineHistory,
   onNavigatePage,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
@@ -29,6 +33,10 @@ export default function usePreviewBridge({
   const onElementSelectedRef = useRef(onElementSelected);
   const onElementDeselectedRef = useRef(onElementDeselected);
   const onElementTextCommittedRef = useRef(onElementTextCommitted);
+  const onInlineEditStartedRef = useRef(onInlineEditStarted);
+  const onInlineTypographyRef = useRef(onInlineTypography);
+  const onInlineEditEndedRef = useRef(onInlineEditEnded);
+  const onInlineHistoryRef = useRef(onInlineHistory);
   const onNavigatePageRef = useRef(onNavigatePage);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
@@ -63,6 +71,10 @@ export default function usePreviewBridge({
     onElementSelectedRef.current = onElementSelected;
     onElementDeselectedRef.current = onElementDeselected;
     onElementTextCommittedRef.current = onElementTextCommitted;
+    onInlineEditStartedRef.current = onInlineEditStarted;
+    onInlineTypographyRef.current = onInlineTypography;
+    onInlineEditEndedRef.current = onInlineEditEnded;
+    onInlineHistoryRef.current = onInlineHistory;
     onNavigatePageRef.current = onNavigatePage;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
@@ -209,6 +221,11 @@ export default function usePreviewBridge({
       // Committed in-place text edit: payload is the element snapshot taken
       // BEFORE the typing (the match anchor) plus newText/editId/scroll.
       else if (data.type === 'element-text-committed' && onElementTextCommittedRef.current) onElementTextCommittedRef.current(data.payload);
+      // In-place text session lifecycle, for the parent's text toolbar.
+      else if (data.type === 'inline-edit-started' && onInlineEditStartedRef.current) onInlineEditStartedRef.current(data.payload);
+      else if (data.type === 'inline-typography' && onInlineTypographyRef.current) onInlineTypographyRef.current(data.payload);
+      else if (data.type === 'inline-history' && onInlineHistoryRef.current) onInlineHistoryRef.current(data.payload);
+      else if (data.type === 'inline-edit-ended' && onInlineEditEndedRef.current) onInlineEditEndedRef.current();
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
@@ -308,6 +325,22 @@ export default function usePreviewBridge({
     sendRef.current('inline-edit-result', { ok: !!ok, editId: editId == null ? null : editId });
   }, []);
 
+  // Text toolbar -> live editing session. `format` previews styles on the
+  // element being typed in (and reports them with the commit); `hold` keeps
+  // the session open while focus is on the toolbar; `finish` is the Done /
+  // Cancel keys.
+  const formatInlineText = useCallback((styles) => {
+    sendRef.current('inline-format', { styles });
+  }, []);
+  const holdInlineText = useCallback((hold) => {
+    sendRef.current('inline-hold', { hold: !!hold });
+  }, []);
+  const undoInlineText = useCallback(() => sendRef.current('inline-undo', {}), []);
+  const redoInlineText = useCallback(() => sendRef.current('inline-redo', {}), []);
+  const finishInlineText = useCallback((commit) => {
+    sendRef.current('inline-finish', { commit: !!commit });
+  }, []);
+
   // Put a reloaded frame back where the user was (used after an in-place
   // edit commit, which reloads the document from the edited source).
   const restoreScroll = useCallback((x, y) => {
@@ -321,6 +354,7 @@ export default function usePreviewBridge({
   return {
     requestScreenshot, selectParentElement, deselectElement,
     replyInlineEditResult, restoreScroll,
+    formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState, goBack, goForward, scrollToHash,
   };
 }

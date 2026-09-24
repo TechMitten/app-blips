@@ -125,6 +125,9 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState(null);
   const [selectionKey, setSelectionKey] = useState(0);
   const [elementEditError, setElementEditError] = useState(null);
+  // Live in-place text session (bridge inline-edit-started .. -ended): the
+  // element snapshot plus its current typography, for the text toolbar.
+  const [textSession, setTextSession] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
   // and never written into `versions`/localStorage/Firestore (see
@@ -597,6 +600,19 @@ export default function App() {
     setSelectionKey((n) => n + 1);
   }, []);
 
+  const handleInlineEditStarted = useCallback((payload) => {
+    setSelectedElement(null);
+    setElementEditError(null);
+    setTextSession((prev) => ({ element: payload, typography: payload?.typography || null, key: (prev?.key || 0) + 1 }));
+  }, []);
+  const handleInlineTypography = useCallback((typography) => {
+    setTextSession((prev) => (prev ? { ...prev, typography } : prev));
+  }, []);
+  const handleInlineHistory = useCallback((history) => {
+    setTextSession((prev) => (prev ? { ...prev, canUndo: !!history?.canUndo, canRedo: !!history?.canRedo } : prev));
+  }, []);
+  const handleInlineEditEnded = useCallback(() => setTextSession(null), []);
+
   const handleElementDeselected = useCallback(() => {
     setSelectedElement(null);
     setElementEditError(null);
@@ -610,6 +626,7 @@ export default function App() {
   const {
     requestScreenshot, selectParentElement, deselectElement,
     replyInlineEditResult, restoreScroll,
+    formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
   } = usePreviewBridge({
     iframeRef,
@@ -624,6 +641,10 @@ export default function App() {
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
     onElementTextCommitted: handleElementTextCommittedTrampoline,
+    onInlineEditStarted: handleInlineEditStarted,
+    onInlineTypography: handleInlineTypography,
+    onInlineEditEnded: handleInlineEditEnded,
+    onInlineHistory: handleInlineHistory,
     onNavigatePage: pageNav.navigateToHref,
   });
   scrollToHashRef.current = scrollToHash;
@@ -640,6 +661,7 @@ export default function App() {
   const handleToggleEditMode = useCallback(() => {
     setIsEditMode((on) => !on);
     setSelectedElement(null);
+    setTextSession(null);
     setElementEditError(null);
     pendingScrollRef.current = null;
   }, []);
@@ -719,7 +741,7 @@ export default function App() {
       replyInlineEditResult(false, payload?.editId);
       return;
     }
-    const result = applyElementChangesToSource(payload, { text: payload.newText });
+    const result = applyElementChangesToSource(payload, { text: payload.newText, style: payload.styles });
     if (result.ok) {
       replyInlineEditResult(true, payload.editId);
       setSelectedElement(null);
@@ -2075,6 +2097,12 @@ export default function App() {
               onToggleEditMode={handleToggleEditMode}
               selectedElement={selectedElement}
               selectionKey={selectionKey}
+              textSession={textSession}
+              onFormatText={formatInlineText}
+              onHoldText={holdInlineText}
+              onFinishText={finishInlineText}
+              onUndoText={undoInlineText}
+              onRedoText={redoInlineText}
               elementEditError={elementEditError}
               onApplyElementEdit={handleApplyElementEdit}
               onElementEditWithAI={handleElementEditWithAI}

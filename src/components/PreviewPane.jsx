@@ -7,7 +7,8 @@ import { pageLabel } from '../lib/pages';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
-import ElementEditor from './ElementEditor';
+import ElementToolbar from './ElementToolbar';
+import TextFormatToolbar from './TextFormatToolbar';
 import { PREVIEW_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 
@@ -73,6 +74,12 @@ export default function PreviewPane({
   onToggleEditMode,
   selectedElement = null,
   selectionKey = 0,
+  textSession = null,
+  onFormatText,
+  onHoldText,
+  onFinishText,
+  onUndoText,
+  onRedoText,
   elementEditError = null,
   isApplyingElementEdit = false,
   onApplyElementEdit,
@@ -353,6 +360,41 @@ export default function PreviewPane({
         </div>
       </div>
 
+      {/* Click-to-edit toolbar: a contextual second row that drops out from
+          under the toolbar while an element is selected. It overlays the top
+          of the canvas instead of taking layout space -- a bar that resized
+          the canvas would re-fit the preview zoom on every selection. The dock
+          persists while the selection changes (the bar inside remounts per
+          element), so it animates in once. */}
+      {studioMode === 'website' && activeTab === 'preview' && (textSession || selectedElement) && (
+        <div className="element-bar-dock">
+          {textSession ? (
+            <TextFormatToolbar
+              key={textSession.key}
+              typography={textSession.typography}
+              onFormat={onFormatText}
+              onHold={onHoldText}
+              onFinish={onFinishText}
+              canUndo={Boolean(textSession.canUndo)}
+              canRedo={Boolean(textSession.canRedo)}
+              onUndo={onUndoText}
+              onRedo={onRedoText}
+            />
+          ) : (
+            <ElementToolbar
+              key={selectionKey}
+              element={selectedElement}
+              isApplying={isApplyingElementEdit}
+              error={elementEditError}
+              onApply={onApplyElementEdit}
+              onEditWithAI={onElementEditWithAI}
+              onCancel={onCancelElementSelection}
+              onSelectParent={onSelectParentElement}
+            />
+          )}
+        </div>
+      )}
+
       {/* Container for Device or Code */}
       <div
         ref={containerRef}
@@ -363,10 +405,6 @@ export default function PreviewPane({
             to sit behind, so it would just tint the running app. */}
         {!isBareFill && <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>}
 
-        {/* Click-to-edit inspector. Docked (not coordinate-anchored) on
-            purpose: the mockup is scaled by a CSS transform, so mapping the
-            frame's inner bounding box to parent coordinates reliably is a
-            rabbit hole; a docked card sidesteps it entirely. */}
         {/* Desktop preview shows pages as browser tabs (DeviceMockup) and the code
             view has its own file tabs; only the tablet/phone preview uses this
             strip. */}
@@ -395,20 +433,6 @@ export default function PreviewPane({
           </div>
         )}
 
-        {studioMode === 'website' && activeTab === 'preview' && selectedElement && (
-          <div className="absolute top-4 right-4 z-20 w-[300px] max-w-[calc(100%-2rem)] animate-fade-in">
-            <ElementEditor
-              key={selectionKey}
-              element={selectedElement}
-              isApplying={isApplyingElementEdit}
-              error={elementEditError}
-              onApply={onApplyElementEdit}
-              onEditWithAI={onElementEditWithAI}
-              onCancel={onCancelElementSelection}
-              onSelectParent={onSelectParentElement}
-            />
-          </div>
-        )}
 
         {activeTab === 'preview' ? (
           <DeviceMockup

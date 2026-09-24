@@ -247,6 +247,7 @@ const BRIDGE_SOURCE = `(function () {
   var editSelectedEl = null;
   var editStyleEl = null;
   var inlineEdit = null;
+  var inlineHold = false;
   var inlineEditSequence = 0;
   var pendingCommits = [];
 
@@ -272,13 +273,28 @@ const BRIDGE_SOURCE = `(function () {
 
   function saveOutline(el) {
     if (!el || el.__orionOutlineSaved) return;
-    el.__orionOutlineSaved = { outline: el.style.outline, offset: el.style.outlineOffset };
+    el.__orionOutlineSaved = { outline: el.style.outline, offset: el.style.outlineOffset, styleAttr: el.getAttribute('style') };
   }
 
   function restoreOutline(el) {
     if (!el || !el.__orionOutlineSaved) return;
     el.style.outline = el.__orionOutlineSaved.outline;
     el.style.outlineOffset = el.__orionOutlineSaved.offset;
+    // Writing style properties re-serializes the whole style attribute
+    // ("background:#fff" becomes "background: rgb(255, 255, 255);") and can
+    // leave an empty style="". Put the author's exact string back -- the
+    // parent matches reports against the source text -- unless the page has
+    // changed the element's styles in the meantime.
+    try {
+      var savedAttr = el.__orionOutlineSaved.styleAttr;
+      if (savedAttr == null) {
+        if (el.style.length === 0) el.removeAttribute('style');
+      } else {
+        var probe = document.createElement('span');
+        probe.setAttribute('style', savedAttr);
+        if (probe.style.cssText === el.style.cssText) el.setAttribute('style', savedAttr);
+      }
+    } catch (attrErr) { /* keep the serialized form */ }
     el.__orionOutlineSaved = null;
   }
 
@@ -337,7 +353,63 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
 
+  // The bridge paints hover/selection outlines through the element's inline
+  // style, so the live style attribute (and every outerHTML that contains
+  // it) differs from the source the parent has to match against. Reports are
+  // built with the pre-paint style attributes temporarily put back.
+  function withOriginalStyleAttrs(el, fn) {
+    var painted = [];
+    var nodes = [el];
+    try {
+      var all = el.querySelectorAll('*');
+      for (var n = 0; n < all.length; n++) nodes.push(all[n]);
+    } catch (qErr) { /* just the element itself */ }
+    for (var i = 0; i < nodes.length; i++) {
+      var saved = nodes[i].__orionOutlineSaved;
+      if (!saved) continue;
+      painted.push({ node: nodes[i], current: nodes[i].getAttribute('style') });
+      if (saved.styleAttr == null) nodes[i].removeAttribute('style');
+      else nodes[i].setAttribute('style', saved.styleAttr);
+    }
+    try {
+      return fn();
+    } finally {
+      for (var j = 0; j < painted.length; j++) {
+        if (painted[j].current == null) painted[j].node.removeAttribute('style');
+        else painted[j].node.setAttribute('style', painted[j].current);
+      }
+    }
+  }
+
   function buildElementDescription(el) {
+    return withOriginalStyleAttrs(el, function () { return buildElementDescriptionRaw(el); });
+  }
+
+  // Current text formatting, for the parent's text toolbar. Computed values:
+  // what the user actually sees, whatever mix of classes and inline style got
+  // it there.
+  function readTypography(el) {
+    var cs = null;
+    try { cs = window.getComputedStyle(el); } catch (csErr) { return null; }
+    var weight = parseInt(cs.fontWeight, 10);
+    if (isNaN(weight)) weight = cs.fontWeight === 'bold' ? 700 : 400;
+    var align = cs.textAlign;
+    if (align === 'start') align = 'left';
+    else if (align === 'end') align = 'right';
+    return {
+      fontFamily: capString(cs.fontFamily, 300),
+      fontSize: parseFloat(cs.fontSize) || 16,
+      fontWeight: weight,
+      fontStyle: cs.fontStyle === 'italic' || cs.fontStyle === 'oblique' ? 'italic' : 'normal',
+      underline: String(cs.textDecorationLine || '').indexOf('underline') !== -1,
+      textAlign: align,
+      textTransform: cs.textTransform,
+      color: capString(cs.color, 100),
+      display: cs.display
+    };
+  }
+
+  function buildElementDescriptionRaw(el) {
     var tag = el.tagName.toLowerCase();
     var ATTR_NAMES = ['src', 'srcset', 'href', 'alt', 'title', 'aria-label', 'placeholder', 'type', 'class', 'style', 'id'];
     var attributes = {};
@@ -380,9 +452,31 @@ const BRIDGE_SOURCE = `(function () {
       }
     }
 
+    // Rank of this element among same-tag elements with identical visible
+    // text (document order). Lets the parent pick the right source
+    // occurrence when the text repeats (e.g. brand name in header + footer).
+    var textOrdinal = -1;
+    var textCount = 0;
+    if (fullText && fullText.length <= 600) {
+      try {
+        var sameTag = document.getElementsByTagName(el.tagName);
+        if (sameTag.length <= 3000) {
+          var wantedText = fullText.toLowerCase();
+          for (var s = 0; s < sameTag.length; s++) {
+            if (collapseText(sameTag[s]).toLowerCase() === wantedText) {
+              if (sameTag[s] === el) textOrdinal = textCount;
+              textCount++;
+            }
+          }
+        }
+      } catch (ordErr) { textOrdinal = -1; textCount = 0; }
+    }
+
     var payload = {
       tag: tag,
       role: detectRole(el),
+      textOrdinal: textOrdinal,
+      textCount: textCount,
       text: capString(fullText, 600),
       textTruncated: fullText.length > 600,
       attributes: attributes,
@@ -397,6 +491,7 @@ const BRIDGE_SOURCE = `(function () {
       parentSelectable: parentSelectable,
       parentText: parentText,
       childIndex: childIndex,
+      typography: readTypography(el),
       boundingBox: rect
     };
     return payload;
@@ -414,38 +509,121 @@ const BRIDGE_SOURCE = `(function () {
   // the saved innerHTML string (live childNodes would have been mutated in
   // place by the typing itself).
 
-  function showInlineHint(el) {
-    var chip = document.createElement('div');
-    chip.setAttribute('data-orion-bridge', 'true');
-    chip.textContent = 'Type to edit \u00b7 Enter to save \u00b7 Esc for options';
-    chip.style.cssText = 'position:absolute;z-index:2147483647;background:#4f46e5;color:#ffffff;' +
-      'font:600 11px/1.4 system-ui,-apple-system,sans-serif;padding:5px 10px;border-radius:999px;' +
-      'pointer-events:none;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,0.25);';
-    try {
-      var rect = el.getBoundingClientRect();
-      var sx = window.pageXOffset || 0;
-      var sy = window.pageYOffset || 0;
-      var x = rect.left + sx;
-      var y = rect.top + sy - 30;
-      if (y < sy + 2) y = rect.bottom + sy + 8;
-      chip.style.left = x + 'px';
-      chip.style.top = y + 'px';
-    } catch (posErr) {
-      chip.style.left = '8px';
-      chip.style.top = '8px';
-    }
-    (document.body || document.documentElement).appendChild(chip);
-    return chip;
-  }
-
   function restoreInlineEntry(entry) {
     try { entry.el.innerHTML = entry.origHtml; } catch (rErr) { /* element gone */ }
+    // Live-previewed formatting goes back to the author's inline values.
+    try {
+      for (var prop in entry.origInline) {
+        if (Object.prototype.hasOwnProperty.call(entry.origInline, prop)) entry.el.style[prop] = entry.origInline[prop];
+      }
+    } catch (fErr) { /* element gone */ }
+  }
+
+  // Text formatting from the parent's toolbar, previewed live on the editing
+  // element and reported with the commit (the parent writes it to source).
+  var FORMAT_PROPS = {
+    fontFamily: 1, fontSize: 1, fontWeight: 1, fontStyle: 1,
+    textDecorationLine: 1, textAlign: 1, textTransform: 1, color: 1
+  };
+
+  function refocusInline(entry) {
+    try {
+      entry.el.focus({ preventScroll: true });
+      var sel = window.getSelection();
+      if (sel && entry.savedRange) {
+        sel.removeAllRanges();
+        sel.addRange(entry.savedRange);
+      }
+    } catch (fErr) { /* no caret this round */ }
+  }
+
+  function applyInlineFormat(styles) {
+    var entry = inlineEdit;
+    if (!entry || !styles || typeof styles !== 'object') return;
+    for (var prop in styles) {
+      if (!Object.prototype.hasOwnProperty.call(styles, prop) || !FORMAT_PROPS[prop]) continue;
+      var value = String(styles[prop] == null ? '' : styles[prop]).slice(0, 200);
+      if (!value || /[;{}<>]/.test(value)) continue;
+      if (!Object.prototype.hasOwnProperty.call(entry.origInline, prop)) entry.origInline[prop] = entry.el.style[prop];
+      entry.el.style[prop] = value;
+      entry.formatStyles[prop] = value;
+    }
+    recordInlineSnapshot(entry);
+    refocusInline(entry);
+    post('inline-typography', readTypography(entry.el));
+  }
+
+  // Session undo/redo. The browser's own undo stack knows nothing about the
+  // formatting previewed through element styles, so the session keeps its
+  // own snapshots (markup + applied formatting): one after every format
+  // change and one a moment after typing pauses.
+  function snapshotOf(entry) {
+    return { html: entry.el.innerHTML, fmt: JSON.stringify(entry.formatStyles) };
+  }
+
+  function postInlineHistory(entry) {
+    post('inline-history', { canUndo: entry.histIndex > 0, canRedo: entry.histIndex < entry.history.length - 1 });
+  }
+
+  function recordInlineSnapshot(entry) {
+    if (entry.histTimer) { clearTimeout(entry.histTimer); entry.histTimer = null; }
+    var snap = snapshotOf(entry);
+    var top = entry.history[entry.histIndex];
+    if (top && top.html === snap.html && top.fmt === snap.fmt) return;
+    entry.history = entry.history.slice(0, entry.histIndex + 1);
+    entry.history.push(snap);
+    if (entry.history.length > 100) entry.history.shift();
+    entry.histIndex = entry.history.length - 1;
+    postInlineHistory(entry);
+  }
+
+  function stepInlineHistory(dir) {
+    var entry = inlineEdit;
+    if (!entry) return;
+    recordInlineSnapshot(entry); // fold in typing that has not settled yet
+    var next = entry.histIndex + dir;
+    if (next < 0 || next >= entry.history.length) return;
+    entry.histIndex = next;
+    var snap = entry.history[next];
+    entry.el.innerHTML = snap.html;
+    var want = {};
+    try { want = JSON.parse(snap.fmt); } catch (jErr) { want = {}; }
+    var props = {};
+    var k;
+    for (k in entry.formatStyles) if (Object.prototype.hasOwnProperty.call(entry.formatStyles, k)) props[k] = 1;
+    for (k in want) if (Object.prototype.hasOwnProperty.call(want, k)) props[k] = 1;
+    for (k in props) {
+      if (Object.prototype.hasOwnProperty.call(want, k)) {
+        entry.el.style[k] = want[k];
+        entry.formatStyles[k] = want[k];
+      } else {
+        entry.el.style[k] = Object.prototype.hasOwnProperty.call(entry.origInline, k) ? entry.origInline[k] : '';
+        delete entry.formatStyles[k];
+      }
+    }
+    try {
+      entry.el.focus({ preventScroll: true });
+      var range = document.createRange();
+      range.selectNodeContents(entry.el);
+      range.collapse(false);
+      var sel = window.getSelection();
+      if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+      entry.savedRange = range.cloneRange();
+    } catch (cErr) { /* no caret this round */ }
+    postInlineHistory(entry);
+    post('inline-typography', readTypography(entry.el));
   }
 
   function teardownInline(entry) {
-    if (entry.chip && entry.chip.parentNode) entry.chip.parentNode.removeChild(entry.chip);
+    if (entry.blurTimer) { clearTimeout(entry.blurTimer); entry.blurTimer = null; }
+    inlineHold = false;
     entry.el.removeEventListener('blur', entry.onBlur);
+    entry.el.removeEventListener('focus', entry.onFocus);
+    entry.el.removeEventListener('input', entry.onInput);
+    if (entry.histTimer) { clearTimeout(entry.histTimer); entry.histTimer = null; }
     entry.el.removeEventListener('paste', entry.onPaste, true);
+    document.removeEventListener('selectionchange', entry.onSelectionChange);
+    document.removeEventListener('pointerdown', entry.onDocPointerDown, true);
     try {
       if (entry.origContentEditable != null) entry.el.setAttribute('contenteditable', entry.origContentEditable);
       else entry.el.removeAttribute('contenteditable');
@@ -458,8 +636,10 @@ const BRIDGE_SOURCE = `(function () {
       // Undoes stabilizeInlineHost's pinned white-space ('' clears it).
       entry.el.style.whiteSpace = entry.origWhiteSpace || '';
     } catch (wsErr) { /* keep going */ }
+    try { entry.el.style.caretColor = entry.origCaretColor || ''; } catch (caretErr) { /* keep going */ }
     if (inlineEdit === entry) inlineEdit = null;
     paintSelection(entry.el);
+    post('inline-edit-ended', {});
   }
 
   // Walks the edit back out: original markup restored, nothing reported.
@@ -480,6 +660,7 @@ const BRIDGE_SOURCE = `(function () {
       teardownInline(entry);
       restoreInlineEntry(entry);
       if (openPanel) describeElement(entry.el);
+      else restoreOutline(entry.el);
       return;
     }
     var newText = '';
@@ -487,10 +668,12 @@ const BRIDGE_SOURCE = `(function () {
       newText = String(entry.el.innerText || entry.el.textContent || '').replace(/\\s+/g, ' ').trim();
     } catch (tErr) { newText = ''; }
     teardownInline(entry);
-    if (!newText || newText === entry.snapshot.text) return;
+    var hasFormat = Object.keys(entry.formatStyles).length > 0;
+    if (!newText) { restoreInlineEntry(entry); restoreOutline(entry.el); return; }
+    if (newText === entry.snapshot.text && !hasFormat) { restoreOutline(entry.el); return; }
 
     var editId = ++inlineEditSequence;
-    var pending = { id: editId, el: entry.el, origHtml: entry.origHtml, timer: null };
+    var pending = { id: editId, el: entry.el, origHtml: entry.origHtml, origInline: entry.origInline, timer: null };
     // If the parent never answers (bug, tab hidden forever, teardown race),
     // revert on our own so the frame cannot keep showing text the source
     // does not have.
@@ -502,6 +685,7 @@ const BRIDGE_SOURCE = `(function () {
       if (Object.prototype.hasOwnProperty.call(entry.snapshot, k)) payload[k] = entry.snapshot[k];
     }
     payload.newText = newText;
+    payload.styles = entry.formatStyles;
     payload.editId = editId;
     payload.scroll = { x: window.pageXOffset || 0, y: window.pageYOffset || 0 };
     post('element-text-committed', payload);
@@ -555,7 +739,12 @@ const BRIDGE_SOURCE = `(function () {
     return out;
   }
 
-  function stabilizeInlineHost(el, hostWhiteSpace) {
+  // The text nodes must be collected BEFORE the element becomes a contenteditable
+  // host: afterwards every descendant inherits the host's pre-wrap, so
+  // collectEditingTextNodes would skip nested inline elements as
+  // "preformatted" and the first/last trims would eat real spaces (the space
+  // in a "Ray's " text node followed by an inline element).
+  function stabilizeInlineHost(el, hostWhiteSpace, nodes) {
     // The caller reads this BEFORE entering edit mode: once the element is a
     // contenteditable host, Blink's UA style already reports pre-wrap, so
     // reading it here would always look preformatted and skip the fix.
@@ -564,7 +753,6 @@ const BRIDGE_SOURCE = `(function () {
     // an author value, which is exactly why the DOM is normalized below.
     el.style.whiteSpace = hostWhiteSpace;
     try {
-      var nodes = collectEditingTextNodes(el);
       for (var i = 0; i < nodes.length; i++) {
         var value = nodes[i].nodeValue;
         var collapsed = value.replace(/\\s+/g, ' ');
@@ -575,6 +763,66 @@ const BRIDGE_SOURCE = `(function () {
         else nodes[i].nodeValue = collapsed;
       }
     } catch (trimErr) { /* worst case is the pre-fix shift, never a crash */ }
+  }
+
+  // The caret defaults to the text color, which makes it invisible whenever
+  // the text is transparent (gradient/clipped text), matches its background,
+  // or the page sets caret-color itself. Picks a caret color that is visible
+  // for the edit session; the caller restores the inline value afterwards.
+  var caretCtx = null;
+  function parseCssColor(value) {
+    try {
+      if (!caretCtx) {
+        var canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        caretCtx = canvas.getContext('2d', { willReadFrequently: true });
+      }
+      caretCtx.clearRect(0, 0, 1, 1);
+      caretCtx.fillStyle = '#000';
+      caretCtx.fillStyle = value;
+      caretCtx.fillRect(0, 0, 1, 1);
+      var d = caretCtx.getImageData(0, 0, 1, 1).data;
+      return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
+    } catch (colorErr) { return null; }
+  }
+
+  function relLuminance(c) {
+    var lin = function (v) { v = v / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+  }
+
+  // First mostly-opaque background color behind the element. Returns null
+  // when an image/gradient is hit first (unknowable), white when nothing
+  // paints (the canvas default).
+  function effectiveBackground(el) {
+    var node = el;
+    while (node && node.nodeType === 1) {
+      var cs = window.getComputedStyle(node);
+      var bg = parseCssColor(cs.backgroundColor);
+      if (bg && bg.a >= 0.5) return bg;
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return null;
+      node = node.parentElement;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  }
+
+  function chooseCaretColor(el) {
+    try {
+      var cs = window.getComputedStyle(el);
+      var caret = parseCssColor(cs.caretColor && cs.caretColor !== 'auto' ? cs.caretColor : cs.color);
+      var bg = effectiveBackground(el);
+      var visible = !!caret && caret.a >= 0.5;
+      if (visible && bg) {
+        var l1 = relLuminance(caret);
+        var l2 = relLuminance(bg);
+        var contrast = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+        visible = contrast >= 2.5;
+      }
+      if (visible) return null;
+      if (!bg) return '#6366f1';
+      return relLuminance(bg) > 0.4 ? '#000000' : '#ffffff';
+    } catch (caretErr) { return null; }
   }
 
   // Text-bearing roles only (defense in depth for the dblclick path):
@@ -598,6 +846,8 @@ const BRIDGE_SOURCE = `(function () {
     // (see stabilizeInlineHost).
     var hostWhiteSpace = '';
     try { hostWhiteSpace = window.getComputedStyle(el).whiteSpace || ''; } catch (wsErr) { hostWhiteSpace = ''; }
+    var editTextNodes = [];
+    if (hostWhiteSpace === 'normal' || hostWhiteSpace === 'nowrap') editTextNodes = collectEditingTextNodes(el);
 
     var entry = {
       el: el,
@@ -606,8 +856,19 @@ const BRIDGE_SOURCE = `(function () {
       origContentEditable: el.getAttribute('contenteditable'),
       origSpellcheck: el.getAttribute('spellcheck'),
       origWhiteSpace: el.style.whiteSpace,
-      chip: null,
+      origCaretColor: el.style.caretColor,
+      formatStyles: {},
+      origInline: {},
+      history: [],
+      histIndex: 0,
+      histTimer: null,
+      onInput: null,
+      savedRange: null,
+      blurTimer: null,
       onBlur: null,
+      onFocus: null,
+      onSelectionChange: null,
+      onDocPointerDown: null,
       onPaste: null
     };
     try { el.contentEditable = 'plaintext-only'; } catch (ceErr) { /* unsupported value */ }
@@ -617,7 +878,9 @@ const BRIDGE_SOURCE = `(function () {
     el.setAttribute('spellcheck', 'false');
     // Before focusing: the caret and hint chip should be placed against the
     // stabilized layout, not the pre-edit one.
-    stabilizeInlineHost(el, hostWhiteSpace);
+    stabilizeInlineHost(el, hostWhiteSpace, editTextNodes);
+    var caretColor = chooseCaretColor(el);
+    if (caretColor) el.style.caretColor = caretColor;
     try {
       el.focus();
       var range = document.createRange();
@@ -629,8 +892,37 @@ const BRIDGE_SOURCE = `(function () {
       }
     } catch (focusErr) { /* no caret this round */ }
     paintSelection(el);
-    entry.chip = showInlineHint(el);
-    entry.onBlur = function () { finishInlineEdit(true, false); };
+    // Blur commits after a short grace period: a click on the parent's text
+    // toolbar moves focus out of this frame, and the toolbar's hold message
+    // (or focus coming straight back) must be able to cancel the commit.
+    entry.onBlur = function () {
+      if (entry.blurTimer) clearTimeout(entry.blurTimer);
+      entry.blurTimer = setTimeout(function () {
+        entry.blurTimer = null;
+        if (inlineEdit !== entry || inlineHold) return;
+        finishInlineEdit(true, false);
+      }, 180);
+    };
+    entry.onFocus = function () {
+      if (entry.blurTimer) { clearTimeout(entry.blurTimer); entry.blurTimer = null; }
+    };
+    entry.onInput = function () {
+      if (entry.histTimer) clearTimeout(entry.histTimer);
+      entry.histTimer = setTimeout(function () { entry.histTimer = null; recordInlineSnapshot(entry); }, 400);
+    };
+    entry.onSelectionChange = function () {
+      try {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount && entry.el.contains(sel.anchorNode)) entry.savedRange = sel.getRangeAt(0).cloneRange();
+      } catch (rangeErr) { /* keep the previous range */ }
+    };
+    // With the toolbar holding the session, a click back on the page ends the
+    // hold: outside the element it commits (the blur already happened).
+    entry.onDocPointerDown = function (e) {
+      if (!inlineHold) return;
+      inlineHold = false;
+      if (!entry.el.contains(e.target)) finishInlineEdit(true, false);
+    };
     entry.onPaste = function (e) {
       // Plain text only: the parent's engine swaps flat text, so rich
       // pasted markup would be discarded on apply anyway.
@@ -643,8 +935,14 @@ const BRIDGE_SOURCE = `(function () {
       }
     };
     el.addEventListener('blur', entry.onBlur);
+    el.addEventListener('focus', entry.onFocus);
+    el.addEventListener('input', entry.onInput);
     el.addEventListener('paste', entry.onPaste, true);
+    entry.history = [snapshotOf(entry)];
+    document.addEventListener('selectionchange', entry.onSelectionChange);
+    document.addEventListener('pointerdown', entry.onDocPointerDown, true);
     inlineEdit = entry;
+    post('inline-edit-started', snapshot);
     return true;
   }
 
@@ -715,6 +1013,15 @@ const BRIDGE_SOURCE = `(function () {
     if (inlineEdit) {
       // While an IME composition is live, Enter/Escape belong to it.
       if (e.isComposing) return;
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        var lower = String(e.key || '').toLowerCase();
+        if (lower === 'z' || lower === 'y') {
+          e.preventDefault();
+          e.stopPropagation();
+          stepInlineHistory(lower === 'y' || e.shiftKey ? 1 : -1);
+          return;
+        }
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -1178,6 +1485,15 @@ const BRIDGE_SOURCE = `(function () {
       editSelectParent();
     } else if (d.type === 'deselect') {
       clearSelection(false);
+    } else if (d.type === 'inline-format') {
+      applyInlineFormat(d.payload && d.payload.styles);
+    } else if (d.type === 'inline-undo' || d.type === 'inline-redo') {
+      stepInlineHistory(d.type === 'inline-redo' ? 1 : -1);
+    } else if (d.type === 'inline-hold') {
+      inlineHold = !!(d.payload && d.payload.hold);
+      if (inlineHold && inlineEdit && inlineEdit.blurTimer) { clearTimeout(inlineEdit.blurTimer); inlineEdit.blurTimer = null; }
+    } else if (d.type === 'inline-finish') {
+      finishInlineEdit(!!(d.payload && d.payload.commit), false);
     } else if (d.type === 'inline-edit-result') {
       resolveInlineEdit(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null);
     } else if (d.type === 'restore-scroll') {

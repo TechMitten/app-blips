@@ -33,6 +33,9 @@ coverage/
 # Operator notes, not for the repo
 USAGE_TRACKING.md
 
+# Local Node runtime
+.node/
+
 # Misc
 .eslintcache
 .agents/

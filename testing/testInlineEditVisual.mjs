@@ -14,7 +14,7 @@
 // allow-same-origin); Playwright reaches the frame over CDP, the parent
 // page only ever uses postMessage.
 
-import { chromium } from 'playwright';
+import { chromium } from '@playwright/test';
 import { injectPreviewBridge } from '../src/previewBridge.js';
 
 const FIXTURE = `<!DOCTYPE html>
@@ -70,6 +70,8 @@ const FIXTURE = `<!DOCTYPE html>
     spacing
     </pre>
     <p id="preserve" class="preserve">  spaced   out  </p>
+    <span id="brand" style="white-space:nowrap">Ray's <span style="color:#c33">Dental Clinic</span></span>
+    <span id="grad" style="background:linear-gradient(90deg,#c33,#36c);-webkit-background-clip:text;background-clip:text;color:transparent">Gradient text</span>
     <span id="outer"> <span id="innerspan">Nested span text</span> </span>
   </div>
 </body>
@@ -130,7 +132,7 @@ const editState = (sel) => frame.evaluate((s) => {
 
 // --- in-place stability across element shapes ---
 console.log('--- single-click (in-place) stability ---');
-for (const sel of ['#hero', '#para', '#nested', '#li', '#wraptext', '#innerspan']) {
+for (const sel of ['#hero', '#para', '#nested', '#li', '#wraptext', '#innerspan', '#brand']) {
   frame = await fresh();
   await enable();
   const before = await rect(sel);
@@ -140,6 +142,26 @@ for (const sel of ['#hero', '#para', '#nested', '#li', '#wraptext', '#innerspan'
   const ok = sameBox(before, after) && before.text === after.text;
   if (!ok) failures++;
   console.log(`${sel.padEnd(12)} ${ok ? 'stable' : 'MOVED/CHANGED'}  htmlAfter=${JSON.stringify(after.html)}`);
+}
+
+// --- the caret must stay visible (transparent/gradient text hid it) ---
+console.log('\n--- caret visibility ---');
+frame = await fresh();
+await enable();
+await frame.locator('#grad').click();
+await page.waitForTimeout(120);
+{
+  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('#grad')).caretColor);
+  const ok = !/^rgba\(.*,\s*0\)$/.test(caret) && caret !== 'transparent';
+  if (!ok) failures++;
+  console.log(`#grad        caret-color=${caret} ${ok ? 'visible' : 'INVISIBLE'}`);
+}
+await page.keyboard.press('Escape');
+{
+  const inline = await frame.evaluate(() => document.querySelector('#grad').style.caretColor);
+  const ok = inline === '';
+  if (!ok) failures++;
+  console.log(`#grad        caret-color restored after cancel: ${ok}`);
 }
 
 // --- preformatted content must not be normalized ---
@@ -185,6 +207,76 @@ await page.waitForTimeout(200);
   const ok = c && c.text === 'Fresh bread, every morning' && c.newText === 'Warm rolls' && typeof c.editId === 'number';
   if (!ok) failures++;
   console.log(ok ? `anchor/newText/editId ok: ${JSON.stringify(c.text)} -> ${JSON.stringify(c.newText)}` : `BAD payload: ${JSON.stringify(c)}`);
+}
+
+// --- toolbar formatting: live preview, reported on commit, undone on cancel ---
+console.log('\n--- text formatting (inline-format) ---');
+const send = (type, payload) => page.evaluate(([t, ty, pl]) => {
+  document.getElementById('f').contentWindow.postMessage({ __orion: 'orion-preview-bridge', v: 1, token: t, type: ty, payload: pl }, '*');
+}, [token, type, payload]);
+frame = await fresh();
+await enable();
+await page.evaluate(() => { window.__commits = []; });
+await frame.locator('#hero').click();
+await send('inline-hold', { hold: true });
+await page.waitForTimeout(250); // past the blur grace period: session must survive
+await send('inline-format', { styles: { fontSize: '50px', fontWeight: '700', color: '#dc2626' } });
+await page.waitForTimeout(150);
+{
+  const live = await frame.evaluate(() => { const e = document.querySelector('#hero'); return { size: e.style.fontSize, editable: e.isContentEditable }; });
+  await send('inline-finish', { commit: true });
+  await page.waitForTimeout(250);
+  const c = (await page.evaluate(() => window.__commits))[0];
+  const ok = live.size === '50px' && live.editable && c && c.styles && c.styles.fontSize === '50px' && c.styles.color === '#dc2626' && c.newText === c.text;
+  if (!ok) failures++;
+  console.log(`live=${JSON.stringify(live)} styles=${JSON.stringify(c && c.styles)} -> ${ok ? 'ok' : 'BAD'}`);
+}
+frame = await fresh();
+await enable();
+await frame.locator('#hero').click();
+await send('inline-format', { styles: { fontSize: '50px' } });
+await send('inline-finish', { commit: false });
+await page.waitForTimeout(250);
+{
+  const st = await frame.evaluate(() => { const e = document.querySelector('#hero'); return { size: e.style.fontSize, outline: e.style.outline, editable: e.hasAttribute('contenteditable') }; });
+  const ok = st.size === '' && st.outline === '' && !st.editable;
+  if (!ok) failures++;
+  console.log(`cancel restores formatting + outline: ${ok ? 'ok' : 'BAD ' + JSON.stringify(st)}`);
+}
+
+// --- session undo/redo covers typing AND formatting ---
+console.log('\n--- session undo/redo ---');
+frame = await fresh();
+await enable();
+await page.evaluate(() => { window.__hist = []; window.addEventListener('message', (e) => { if (e.data && e.data.type === 'inline-history') window.__hist.push(e.data.payload); }); });
+await frame.locator('#hero').click();
+await page.keyboard.type('Warm rolls');
+await page.waitForTimeout(600); // let the typing snapshot settle
+await send('inline-format', { styles: { fontSize: '50px' } });
+await page.waitForTimeout(100);
+const heroState = () => frame.evaluate(() => { const e = document.querySelector('#hero'); return { text: e.innerText.trim(), size: e.style.fontSize }; });
+{
+  const a = await heroState();
+  await page.keyboard.press('Control+z'); // undo the format
+  await page.waitForTimeout(100);
+  const b = await heroState();
+  await send('inline-undo', {}); // undo the typing (parent button path)
+  await page.waitForTimeout(100);
+  const c = await heroState();
+  await page.keyboard.press('Control+Shift+z'); // redo typing
+  await send('inline-redo', {}); // redo format
+  await page.waitForTimeout(100);
+  const d = await heroState();
+  const hist = await page.evaluate(() => window.__hist[window.__hist.length - 1]);
+  const ok = a.text === 'Warm rolls' && a.size === '50px'
+    && b.text === 'Warm rolls' && b.size === ''
+    && c.text === 'Fresh bread, every morning' && c.size === ''
+    && d.text === 'Warm rolls' && d.size === '50px'
+    && hist && hist.canUndo && !hist.canRedo;
+  if (!ok) failures++;
+  console.log(ok ? 'format undo, typing undo, redo x2 all ok' : `BAD ${JSON.stringify({ a, b, c, d, hist })}`);
+  await send('inline-finish', { commit: false });
+  await page.waitForTimeout(150);
 }
 
 // --- failed apply reverts to the exact original markup ---
