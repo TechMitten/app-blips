@@ -1,3 +1,5 @@
+import { injectLoopProtection } from './lib/loopProtection.js';
+
 /**
  * Preview bridge.
  *
@@ -1945,6 +1947,8 @@ export const injectPreviewBridge = (code, options = {}) => {
   if (typeof code !== 'string' || !code) {
     return { srcDoc: '', token };
   }
+
+  code = injectLoopProtection(code);
 
   const initialStorage = options?.initialStorage;
   const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.aiEnabled === true);

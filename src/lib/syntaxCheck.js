@@ -43,6 +43,8 @@ export const extractInlineScripts = (html) => {
     blocks.push({
       code: html.slice(contentStart, closeIdx),
       startLine,
+      startIdx: contentStart,
+      endIdx: closeIdx,
       type,
       unclosed: false
     });
