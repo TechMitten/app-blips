@@ -10,7 +10,8 @@
 <p align="center">
   <a href="https://appblips.com">Website</a> ·
   <a href="https://docs.appblips.com/">Documentation</a> ·
-  <a href="https://docs.appblips.com/quickstart-self-hosted">Self-hosting guide</a>
+  <a href="https://docs.appblips.com/quickstart-self-hosted">Self-hosting guide</a> ·
+  <a href="#license">License</a>
 </p>
 
 <p align="center">
@@ -23,23 +24,6 @@
 </p>
 
 https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
-
-## License
-
-AppBlips is licensed under the **Elastic License 2.0 (ELv2)**.
-
-This is a source-available license: the code is public, but it can't be turned into a competing service.
-
-**What you can do:**
-- Run AppBlips on your own computer for your own use, or inside your own organization, free of charge.
-- Modify the code, and share copies or modified versions, as long as you keep the license and copyright notices and mark your changes.
-
-**What you can't do:**
-- Offer AppBlips to other people as a hosted or managed service, whether paid or free. The public service at [appblips.com](https://appblips.com) is run by TechMitten LLC.
-
-The hosted-mode code (Firebase sign-in, cloud projects, public deploys, and [`.env.hosted.example`](.env.hosted.example)) is in this repository because it powers appblips.com. It is not a supported setup for anyone else.
-
-For the full legal terms, read the [LICENSE](LICENSE) file.
 
 ## Why AppBlips?
 
@@ -204,6 +188,19 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 - In self-hosted mode, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Keep it on localhost, or add your own access control if other devices can reach it. (In hosted mode the proxy requires a valid Firebase ID token and App Check token.)
 - On appblips.com, deployed apps are served from a separate hostname, never the app's own origin — they're AI-generated code with full script privileges, so keeping them off-origin stops them reading anything the SPA stores.
 
-## Contributing
+## License
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md); please run `npm run lint` before submitting a PR.
+AppBlips is licensed under the **Elastic License 2.0 (ELv2)**.
+
+This is a source-available license: the code is public, but it can't be turned into a competing service.
+
+**What you can do:**
+- Run AppBlips on your own computer for your own use, or inside your own organization, free of charge.
+- Modify the code, and share copies or modified versions, as long as you keep the license and copyright notices and mark your changes.
+
+**What you can't do:**
+- Offer AppBlips to other people as a hosted or managed service, whether paid or free. The public service at [appblips.com](https://appblips.com) is run by TechMitten LLC.
+
+The hosted-mode code (Firebase sign-in, cloud projects, public deploys, and [`.env.hosted.example`](.env.hosted.example)) is in this repository because it powers appblips.com. It is not a supported setup for anyone else.
+
+For the full legal terms, read the [LICENSE](LICENSE) file.

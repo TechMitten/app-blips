@@ -63,6 +63,7 @@ import usePageNavigation from './hooks/usePageNavigation';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildSiteShell } from './lib/siteRouter';
 import { createZip } from './lib/zip';
+import { injectLoopProtection } from './lib/loopProtection';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -383,7 +384,6 @@ export default function App() {
 
     if (chatMode !== 'build') return;
     if (isGeneratingRef.current) return;
-    if (isAutoFixingRef.current) return;
 
     const errorList = Array.isArray(errors) ? errors : (errors?.errors || []);
     if (syntaxErrorRetriesRef.current >= 2) {
@@ -425,7 +425,7 @@ export default function App() {
       const syntax = checkSyntaxFiles(filesRef.current);
       if (syntax.errors && syntax.errors.length > 0) {
         reloadStateRef.current.pending = false;
-        if (!isAutoFixingRef.current && syntaxErrorRetriesRef.current < 2) {
+        if (syntaxErrorRetriesRef.current < 2) {
           handleSyntaxError(syntax.errors);
         }
         return;
@@ -499,12 +499,6 @@ export default function App() {
           pendingRuntimeErrorRef.current = payload;
         }
       }
-      return;
-    }
-
-    if (isAutoFixingRef.current) {
-      // Already actively auto-fixing; prevent secondary error storms in the same broken preview
-      // from incrementing retries or firing duplicate auto-fix jobs.
       return;
     }
 
@@ -1339,9 +1333,12 @@ export default function App() {
   // added per page here, never stored in `files`. The relay URL is made
   // absolute against this origin: a new tab is a blob: page, where a relative
   // URL cannot resolve.
-  const buildOutputFiles = () => (!firebaseEnabled && aiEnabled
-    ? mapPages(files, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: absoluteRelayUrl() }))
-    : files);
+  const buildOutputFiles = () => {
+    const protectedFiles = mapPages(files, (html) => injectLoopProtection(html));
+    return (!firebaseEnabled && aiEnabled)
+      ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: absoluteRelayUrl() }))
+      : protectedFiles;
+  };
 
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
