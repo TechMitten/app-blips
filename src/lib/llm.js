@@ -424,6 +424,7 @@ export const requestModelText = async ({
     }
 
     endThinking();
+    if (onChunk) onChunk('', 'edit_stream_done');
     rawEntry?.finish({
       status: response.status,
       text,

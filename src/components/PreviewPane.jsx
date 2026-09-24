@@ -59,6 +59,7 @@ export default function PreviewPane({
   generationStatus,
   thinkingSince = null,
   liveCodeRef,
+  liveCodeStreamDone,
   liveCodePage = null,
   isAutoFixing,
   onCancelGeneration,
@@ -431,6 +432,7 @@ export default function PreviewPane({
             generationStatus={generationStatus}
             thinkingSince={thinkingSince}
             liveCodeRef={liveCodeRef}
+            liveCodeStreamDone={liveCodeStreamDone}
             liveCodePage={liveCodePage}
             hasCode={hasCode}
             isAutoFixing={isAutoFixing}

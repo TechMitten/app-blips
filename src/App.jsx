@@ -206,6 +206,8 @@ export default function App() {
   const liveCodeRef = useRef('');
   // Which page the live code peek is writing: { page, step?, total? } or null.
   const [liveCodePage, setLiveCodePage] = useState(null);
+  // Whether the current live code stream has finished
+  const [liveCodeStreamDone, setLiveCodeStreamDone] = useState(false);
   // Body of a page being created (not in `files` yet), for the code view's tab.
   const [streamingPageCode, setStreamingPageCode] = useState('');
   // Pages finished during the CURRENT build ({ 'index.html': html, ... }). The
@@ -1113,6 +1115,7 @@ export default function App() {
           pageStreamRef.current = '';
           liveCodeRef.current = '';
           setStreamingPageCode('');
+          setLiveCodeStreamDone(false);
           return;
         }
         if (kind === 'page_stream') {
@@ -1125,10 +1128,15 @@ export default function App() {
           setStreamingPageCode(html || '');
           return;
         }
+        if (kind === 'edit_stream_done') {
+          setLiveCodeStreamDone(true);
+          return;
+        }
         if (kind === 'edit_stream_reset') {
           editStreamRef.current = '';
           liveCodeRef.current = '';
           setStreamingPageCode('');
+          setLiveCodeStreamDone(false);
           return;
         }
         if (kind === 'edit_stream') {
@@ -2162,6 +2170,7 @@ export default function App() {
               generationStatus={generationStatus}
               thinkingSince={thinkingSince}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
+              liveCodeStreamDone={liveCodeStreamDone}
               liveCodePage={studioMode === 'website' ? liveCodePage : null}
               isAutoFixing={isAutoFixing}
               onCancelGeneration={handleCancelGeneration}
