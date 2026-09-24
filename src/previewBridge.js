@@ -807,19 +807,26 @@ const BRIDGE_SOURCE = `(function () {
     return { r: 255, g: 255, b: 255, a: 1 };
   }
 
+  // An opaque text color is the most reliable caret: it was chosen to be
+  // readable against whatever actually paints behind it, which the
+  // ancestor walk cannot see (absolutely positioned images/overlays,
+  // pseudo-elements). Only transparent text falls back to guessing from
+  // the background.
   function chooseCaretColor(el) {
     try {
       var cs = window.getComputedStyle(el);
-      var caret = parseCssColor(cs.caretColor && cs.caretColor !== 'auto' ? cs.caretColor : cs.color);
-      var bg = effectiveBackground(el);
-      var visible = !!caret && caret.a >= 0.5;
-      if (visible && bg) {
-        var l1 = relLuminance(caret);
-        var l2 = relLuminance(bg);
-        var contrast = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-        visible = contrast >= 2.5;
+      var text = parseCssColor(cs.color);
+      var textVisible = !!text && text.a >= 0.5;
+      if (cs.caretColor && cs.caretColor !== 'auto') {
+        var own = parseCssColor(cs.caretColor);
+        var ownVisible = !!own && own.a >= 0.5;
+        if (ownVisible && textVisible && own.r === text.r && own.g === text.g && own.b === text.b) return null;
+        if (textVisible) return cs.color;
+        if (ownVisible) return null;
+      } else if (textVisible) {
+        return null;
       }
-      if (visible) return null;
+      var bg = effectiveBackground(el);
       if (!bg) return '#6366f1';
       return relLuminance(bg) > 0.4 ? '#000000' : '#ffffff';
     } catch (caretErr) { return null; }
@@ -831,7 +838,29 @@ const BRIDGE_SOURCE = `(function () {
   // means. Returns false (caller falls back to select + panel) when the
   // element cannot be anchored deterministically: no text, text over the
   // report cap, or a form control.
-  function tryStartInlineEdit(el) {
+  // Collapsed range at the clicked point, so entering edit mode puts the
+  // caret where the user clicked instead of selecting all the text. Null
+  // when there is no point or it resolves outside the element.
+  function caretRangeAtPoint(el, point) {
+    if (!point) return null;
+    try {
+      var range = null;
+      if (document.caretPositionFromPoint) {
+        var pos = document.caretPositionFromPoint(point.x, point.y);
+        if (pos && pos.offsetNode) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+        }
+      } else if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(point.x, point.y);
+      }
+      if (!range || !el.contains(range.startContainer)) return null;
+      range.collapse(true);
+      return range;
+    } catch (pointErr) { return null; }
+  }
+
+  function tryStartInlineEdit(el, point) {
     if (inlineEdit || !editingActive) return false;
     if (!isSelectable(el)) return false;
     var role = detectRole(el);
@@ -883,8 +912,12 @@ const BRIDGE_SOURCE = `(function () {
     if (caretColor) el.style.caretColor = caretColor;
     try {
       el.focus();
-      var range = document.createRange();
-      range.selectNodeContents(el);
+      var range = caretRangeAtPoint(el, point);
+      if (!range) {
+        range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+      }
       var sel = window.getSelection();
       if (sel) {
         sel.removeAllRanges();
@@ -987,7 +1020,7 @@ const BRIDGE_SOURCE = `(function () {
     // link/button URLs, section backgrounds) opens the parent's editor
     // panel. Links and buttons also edit in place -- via double-click.
     var role = detectRole(el);
-    if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el)) return;
+    if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) return;
     if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     editSelectedEl = el;
     paintSelection(el);
@@ -1005,7 +1038,7 @@ const BRIDGE_SOURCE = `(function () {
     e.preventDefault();
     e.stopPropagation();
     clearHover();
-    tryStartInlineEdit(el);
+    tryStartInlineEdit(el, { x: e.clientX, y: e.clientY });
   }
 
   function editOnKeyDown(e) {

@@ -71,6 +71,10 @@ const FIXTURE = `<!DOCTYPE html>
     </pre>
     <p id="preserve" class="preserve">  spaced   out  </p>
     <span id="brand" style="white-space:nowrap">Ray's <span style="color:#c33">Dental Clinic</span></span>
+    <div style="position:relative;padding:1rem">
+      <div style="position:absolute;inset:0;background:#0f172a"></div>
+      <p id="overlay" style="position:relative;color:#fff;margin:0">White text on a sibling-painted dark layer</p>
+    </div>
     <span id="grad" style="background:linear-gradient(90deg,#c33,#36c);-webkit-background-clip:text;background-clip:text;color:transparent">Gradient text</span>
     <span id="outer"> <span id="innerspan">Nested span text</span> </span>
   </div>
@@ -163,6 +167,20 @@ await page.keyboard.press('Escape');
   if (!ok) failures++;
   console.log(`#grad        caret-color restored after cancel: ${ok}`);
 }
+// The dark background is painted by a sibling layer, not an ancestor, so
+// the ancestor walk sees "white"; the caret must follow the white text
+// rather than being forced black.
+frame = await fresh();
+await enable();
+await frame.locator('#overlay').click();
+await page.waitForTimeout(120);
+{
+  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('#overlay')).caretColor);
+  const ok = caret === 'rgb(255, 255, 255)';
+  if (!ok) failures++;
+  console.log(`#overlay     caret-color=${caret} ${ok ? 'follows text' : 'WRONG (invisible on dark layer)'}`);
+}
+await page.keyboard.press('Escape');
 
 // --- preformatted content must not be normalized ---
 console.log('\n--- preformatted must be left alone ---');

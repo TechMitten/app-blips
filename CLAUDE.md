@@ -113,4 +113,4 @@ Both `vite.config.js` (dev server headers) and `index.html` (meta CSP) set `fram
 
 ## Testing Guidelines
 
-- Always ask for permission before using a headless browser (e.g. Playwright, `chromium-cli`) to test changes. Don't launch one on your own initiative.
+- You must ask for permission before using a headless browser (e.g. Playwright, `chromium-cli`) to test changes, every time. Don't launch one on your own initiative, and don't treat an earlier approval, from this session or a past one, as standing permission.
