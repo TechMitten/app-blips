@@ -1,11 +1,165 @@
-/* Optional workspace walkthrough, portaled above the app's modal stack. */
+/* Optional workspace walkthrough, portaled above the app's modal stack.
+   Geometry comes from useTourGeometry; everything here is presentation. */
+:root {
+  --tour-ring: var(--color-indigo-400);
+  --tour-ring-glow: rgb(57 135 208 / 0.45);
+  --tour-scrim: rgb(2 6 23 / 0.62);
+  --tour-card-border: var(--hairline);
+  --tour-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+:is(html.dark, .force-dark) {
+  /* Literal, not the slate/indigo ramps: dark theme remaps those, and the
+     ring must read as a bright edge whatever the palette does. */
+  --tour-ring: rgb(255 255 255 / 0.9);
+  --tour-ring-glow: rgb(255 255 255 / 0.22);
+  --tour-scrim: rgb(0 0 0 / 0.7);
+  --tour-card-border: rgb(255 255 255 / 0.1);
+}
+
 .tour-layer { position: fixed; inset: 0; z-index: 90; isolation: isolate; }
-.tour-spotlight { position: absolute; border: 2px solid #81afda; border-radius: 12px; box-shadow: 0 0 0 100vmax rgb(2 6 23 / 0.64); pointer-events: none; }
-.tour-dimmer { position: absolute; inset: 0; background: rgb(2 6 23 / 0.64); }
-.tour-card { position: absolute; padding: 20px; overflow-y: auto; overscroll-behavior: contain; }
+/* Catches scrim taps (the spotlight itself is pointer-events: none). */
+.tour-hitbox { position: absolute; inset: 0; }
+
+/* The cutout: one huge box-shadow around the anchor. Geometry transitions so
+   the spotlight glides from anchor to anchor instead of teleporting. */
+.tour-spotlight {
+  position: absolute;
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px var(--tour-ring), 0 0 0 100vmax var(--tour-scrim);
+  pointer-events: none;
+  transition: left 0.45s var(--tour-ease), top 0.45s var(--tour-ease), width 0.45s var(--tour-ease), height 0.45s var(--tour-ease), opacity 0.2s ease;
+}
+.tour-spotlight::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  animation: tour-pulse 2.2s ease-out infinite;
+}
+/* No anchor on screen: full scrim, no hole. */
+.tour-spotlight-empty { left: 50%; top: 50%; width: 0; height: 0; opacity: 1; box-shadow: 0 0 0 100vmax var(--tour-scrim); }
+.tour-spotlight-empty::after { display: none; }
+
+@keyframes tour-pulse {
+  0% { box-shadow: 0 0 0 0 var(--tour-ring-glow); }
+  70%, 100% { box-shadow: 0 0 0 12px transparent; }
+}
+
+.tour-card {
+  position: absolute;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--tour-card-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 48px -12px rgb(var(--shadow-color) / 0.35), 0 0 0 1px var(--hairline);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: left 0.45s var(--tour-ease), top 0.45s var(--tour-ease);
+  animation: tour-card-in 0.35s var(--tour-ease);
+}
 .tour-card:focus { outline: none; }
-.tour-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.tour-button:disabled { cursor: default; }
-.tour-close { display: grid; place-items: center; width: 36px; height: 36px; cursor: pointer; }
-.tour-step { min-height: 28px; cursor: pointer; }
-.tour-card button:focus-visible, .tour-invite-button:focus-visible { outline: 2px solid #3987d0; outline-offset: 3px; }
+/* The arrow must poke out of the card, so the card can't clip it -- but it
+   also scrolls if a step is taller than the viewport. Only the floating card
+   gets an arrow, and it only overflows when the viewport is tiny. */
+.tour-card:has(.tour-arrow) { overflow: visible; }
+
+.tour-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--tour-card-border);
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+}
+.tour-card[data-placement='bottom'] .tour-arrow { top: 0; border-right: 0; border-bottom: 0; }
+.tour-card[data-placement='top'] .tour-arrow { top: 100%; border-left: 0; border-top: 0; }
+.tour-card[data-placement='right'] .tour-arrow { left: 0; border-top: 0; border-right: 0; }
+.tour-card[data-placement='left'] .tour-arrow { left: 100%; border-bottom: 0; border-left: 0; }
+
+/* Phones: a bottom sheet. The spotlight still moves; the card stays put. */
+.tour-card-sheet {
+  left: 0; right: 0; bottom: 0; top: auto;
+  width: auto;
+  border-radius: 22px 22px 0 0;
+  border-bottom: 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  animation-name: tour-sheet-in;
+}
+.tour-card-sheet::before {
+  content: '';
+  display: block;
+  width: 36px; height: 4px;
+  margin: -6px auto 10px;
+  border-radius: 999px;
+  background: var(--color-slate-300);
+}
+
+.tour-step-body { animation: tour-step-in 0.3s var(--tour-ease); }
+.tour-step-icon {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: 11px;
+  color: var(--color-brand);
+  background: var(--color-indigo-50);
+  box-shadow: inset 0 0 0 1px var(--color-indigo-100);
+}
+:is(html.dark, .force-dark) .tour-step-icon { color: var(--color-accent); background: rgb(255 255 255 / 0.07); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1); }
+
+.tour-tips { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--color-slate-50); font-size: 12.5px; line-height: 1.5; color: var(--color-slate-600); }
+.tour-tips li { position: relative; padding-left: 14px; }
+.tour-tips li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 5px; height: 5px; border-radius: 50%; background: var(--tour-ring); }
+
+.tour-dots { display: flex; align-items: center; gap: 2px; }
+.tour-dot { display: grid; place-items: center; min-width: 20px; min-height: 28px; padding: 0 2px; cursor: pointer; border-radius: 6px; }
+.tour-dot-mark { display: block; width: 7px; height: 7px; border-radius: 999px; background: var(--color-slate-300); transition: width 0.3s var(--tour-ease), background-color 0.3s ease; }
+.tour-dot-mark.is-done { background: color-mix(in srgb, var(--color-accent) 45%, transparent); }
+.tour-dot-mark.is-active { width: 22px; background: var(--color-accent); }
+.tour-dot:hover .tour-dot-mark:not(.is-active) { background: color-mix(in srgb, var(--color-accent) 65%, transparent); }
+
+.tour-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 8px 12px; border-radius: 10px; font-family: var(--font-control); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background-color 0.15s ease, transform 0.15s ease; }
+.tour-button:active { transform: translateY(1px); }
+.tour-button-primary { padding-inline: 14px; box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.2); }
+.tour-close { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; flex-shrink: 0; }
+.tour-card button:focus-visible, .tour-invite button:focus-visible { outline: 2px solid var(--color-indigo-400); outline-offset: 2px; }
+/* Arrow-key hint is noise on touch devices. */
+@media (hover: none) { .tour-kbd-hint { display: none; } }
+
+.tour-card-shake { animation: tour-shake 0.4s ease; }
+
+@keyframes tour-card-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes tour-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes tour-step-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+@keyframes tour-shake {
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+/* First-visit invitation: a floating toast, so it never shifts the layout. */
+.tour-invite {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(400px, calc(100vw - 32px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--tour-card-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px -12px rgb(var(--shadow-color) / 0.35), 0 0 0 1px var(--hairline);
+  animation: tour-invite-in 0.5s var(--tour-ease) 0.6s both;
+}
+.tour-invite-icon { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 11px; color: var(--color-brand); background: var(--color-indigo-50); }
+:is(html.dark, .force-dark) .tour-invite-icon { color: var(--color-accent); background: rgb(255 255 255 / 0.07); }
+@media (max-width: 639px) {
+  /* The prompt dock owns the bottom of a phone screen; drop in under the header. */
+  .tour-invite { left: 16px; right: 16px; width: auto; bottom: auto; top: calc(var(--chrome-row-h) + env(safe-area-inset-top) + 10px); animation-name: tour-invite-drop; }
+}
+@keyframes tour-invite-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes tour-invite-drop { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight, .tour-card, .tour-dot-mark, .tour-button { transition: none; }
+  .tour-spotlight::after { animation: none; }
+  .tour-card, .tour-card-sheet, .tour-step-body, .tour-card-shake, .tour-invite { animation: none; }
+}

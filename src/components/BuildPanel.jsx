@@ -70,6 +70,7 @@ export default function BuildPanel({
         </button>
         <button
           type="button"
+          data-tour="newchat"
           onClick={onNewChat}
           disabled={isGenerating}
           className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"

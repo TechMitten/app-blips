@@ -18,13 +18,35 @@ export const THEME_KEY = 'orion-theme';
 export const THEME_META_COLOR = { light: '#f1f3f5', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
-// falls back to light.
+// falls back to dark.
 export const loadThemePreference = () => {
   try {
     const stored = safeStorage('local')?.getItem(THEME_KEY);
-    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light';
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
   } catch {
-    return 'light';
+    return 'dark';
+  }
+};
+
+export const HAS_SIGNED_IN_KEY = 'orion-has-signed-in';
+
+// Set once a session lands in this browser (sign-in, sign-up or a restored
+// session); the auth modal uses it to open on "Sign in" instead of "Sign up".
+// Deliberately survives sign-out: it says "this browser has an account", not
+// "someone is signed in".
+export const markHasSignedIn = () => {
+  try {
+    safeStorage('local')?.setItem(HAS_SIGNED_IN_KEY, 'true');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+export const hasSignedInBefore = () => {
+  try {
+    return safeStorage('local')?.getItem(HAS_SIGNED_IN_KEY) === 'true';
+  } catch {
+    return false;
   }
 };
 

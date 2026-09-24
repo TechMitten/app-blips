@@ -1,14 +1,55 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  FolderOpen, Search, X, Plus, Clock, Edit2, Trash2, Layers, Check, ExternalLink
+  FolderOpen, Search, X, Check, Pencil, Trash2, Smartphone, Globe, ChevronRight, Layers,
 } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { formatModifiedTime } from '../lib/helpers';
 
-// Saved-apps browser: search, open, in-place rename, delete-with-confirm.
-// Owns its editing/search/confirmation UI state; the actual persistence goes
-// through onRenameProject / onDeleteProject (both resolve to a success bool).
+// One identifying icon per studio. Tints come from the indigo/sky ramps, which
+// the dark theme remaps (dark fill, light glyph), so both themes stay legible.
+const STUDIO_ICONS = {
+  app: { Icon: Smartphone, label: 'App', tile: 'bg-indigo-100 text-indigo-700 ring-indigo-200/80 dark:ring-indigo-400/25' },
+  website: { Icon: Globe, label: 'Website', tile: 'bg-sky-100 text-sky-700 ring-sky-200/80 dark:ring-sky-400/25' },
+};
+
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'app', label: 'Apps' },
+  { key: 'website', label: 'Websites' },
+];
+
+const studioOf = (project) => (project.studioMode === 'website' ? 'website' : 'app');
+
+const toDate = (value) => {
+  if (!value) return null;
+  const d = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// "Edited 5m ago" style; the exact timestamp stays available as a tooltip.
+const formatRelative = (value) => {
+  const d = toDate(value);
+  if (!d) return 'Just now';
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  });
+};
+
+const ICON_BTN = 'inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 dark:text-slate-500';
+
+// Saved-projects browser: search, studio filter, open, in-place rename,
+// delete-with-confirm. Owns its editing/search/confirmation UI state; the
+// actual persistence goes through onRenameProject / onDeleteProject (both
+// resolve to a success bool).
 export default function ProjectsListModal({
   projects,
   currentProjectId,
@@ -17,21 +58,44 @@ export default function ProjectsListModal({
   onRenameProject,
   onDeleteProject,
 }) {
-  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
   const [editingProjectId, setEditingProjectId] = useState(null);
   const [editingProjectName, setEditingProjectName] = useState('');
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const searchRef = useRef(null);
 
-  const matchesQuery = (p) => !projectSearchQuery.trim() || (p.name || '').toLowerCase().includes(projectSearchQuery.toLowerCase().trim());
-  const visibleProjects = projects.filter(matchesQuery);
+  const counts = {
+    all: projects.length,
+    app: projects.filter((p) => studioOf(p) === 'app').length,
+    website: projects.filter((p) => studioOf(p) === 'website').length,
+  };
+  const trimmedQuery = query.trim().toLowerCase();
+  const visibleProjects = projects.filter((p) =>
+    (filter === 'all' || studioOf(p) === filter)
+    && (!trimmedQuery || (p.name || '').toLowerCase().includes(trimmedQuery))
+  );
+  const isFiltered = Boolean(trimmedQuery) || filter !== 'all';
 
   const cancelProjectRename = () => {
     setEditingProjectId(null);
     setEditingProjectName('');
     setRenamingProjectId(null);
   };
+
+  // Escape backs out one layer at a time: rename, then the modal. The delete
+  // confirmation handles its own keys while open.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape' || projectToDelete) return;
+      if (editingProjectId) cancelProjectRename();
+      else onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [editingProjectId, projectToDelete, onClose]);
 
   const startProjectRename = (project) => {
     setEditingProjectId(project.id);
@@ -68,291 +132,286 @@ export default function ProjectsListModal({
     }
   };
 
+  const clearFilters = () => {
+    setQuery('');
+    setFilter('all');
+    searchRef.current?.focus();
+  };
+
   return (
     <>
       <Modal
         zIndex={60}
         scrimClass="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in"
-        cardClass="w-full max-w-4xl bg-surface rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[88vh] animate-scale-in"
-        cardProps={{ onClick: (e) => e.stopPropagation() }}
+        cardClass="w-full max-w-2xl bg-surface rounded-2xl border border-slate-200 shadow-2xl dark:bg-[#17171c] dark:border-white/12 dark:shadow-[0_24px_64px_-16px_rgb(0_0_0/0.9)] overflow-hidden flex flex-col h-[min(640px,85vh)] animate-scale-in"
+        cardProps={{
+          onClick: (e) => e.stopPropagation(),
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-labelledby': 'projects-modal-title',
+        }}
       >
-        {/* Modal Header Bar */}
-        <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60 sticky top-0 z-20 backdrop-blur-md">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 brand-gradient rounded-2xl flex items-center justify-center text-white shadow-xs shadow-indigo-500/25 ring-1 ring-indigo-500/20 dark:shadow-none dark:ring-white/20">
-              <FolderOpen size={20} className="drop-shadow-xs" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Your Saved Apps</h2>
-                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                  {projects.length}
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Pick up where you left off or manage your applications</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Search Bar */}
-            {projects.length > 0 && (
-              <div className="relative flex-1 sm:w-60">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={projectSearchQuery}
-                  onChange={(e) => setProjectSearchQuery(e.target.value)}
-                  placeholder="Search apps..."
-                  className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm rounded-xl bg-surface border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs transition-all"
-                />
-                {projectSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setProjectSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Close X button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-200/70 transition-colors shrink-0"
-              title="Close modal"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Modal Body / Apps List */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 custom-scrollbar bg-slate-50/40">
-          {projects.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <div className="w-16 h-16 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-indigo-500 shadow-premium-sm">
-                <FolderOpen size={28} />
-              </div>
-              <h3 className="text-slate-900 font-bold text-base sm:text-lg">No saved apps yet</h3>
-              <p className="text-slate-500 mt-1.5 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed">
-                Build your first application in the workspace and it will be saved automatically to this list.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  document.getElementById('prompt')?.focus();
-                }}
-                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl brand-gradient text-white font-semibold text-xs sm:text-sm shadow-premium-md hover:shadow-premium-lg transition-all"
-              >
-                <Plus size={15} strokeWidth={2.4} />
-                <span>Create an App</span>
-              </button>
-            </div>
-          ) : visibleProjects.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-3 text-slate-400">
-                <Search size={22} />
-              </div>
-              <h3 className="text-slate-800 font-bold text-base">No matching apps</h3>
-              <p className="text-slate-500 mt-1 text-xs sm:text-sm">
-                No applications match &ldquo;{projectSearchQuery}&rdquo;
-              </p>
-              <button
-                type="button"
-                onClick={() => setProjectSearchQuery('')}
-                className="mt-4 px-4 py-1.5 rounded-lg bg-surface border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 shadow-2xs transition-colors"
-              >
-                Clear Search
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleProjects.map((project) => {
-                const isCurrent = currentProjectId === project.id;
-                const initialLetter = (project.name || 'U').trim()[0]?.toUpperCase() || 'A';
-                const versionCount = project.versions?.length || 1;
-
-                return (
-                  <div
-                    key={project.id}
-                    className={`rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative group bg-surface shadow-2xs hover:shadow-premium-md ${
-                      isCurrent
-                        ? 'border-indigo-300 ring-2 ring-indigo-500/20 bg-indigo-50/10'
-                        : 'border-slate-200/90 hover:border-indigo-300'
-                    }`}
-                  >
-                    {/* Card Header & Content */}
-                    <div className="p-5 pb-4">
-                      {editingProjectId === project.id ? (
-                        /* In-place Rename */
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                              Rename Application
-                            </label>
-                            <span className="text-[11px] text-slate-400">Press Enter to save</span>
-                          </div>
-                          <input
-                            autoFocus
-                            type="text"
-                            value={editingProjectName}
-                            onChange={(e) => setEditingProjectName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                submitProjectRename(project);
-                              }
-                              if (e.key === 'Escape') {
-                                e.preventDefault();
-                                cancelProjectRename();
-                              }
-                            }}
-                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                            placeholder="App name"
-                          />
-                          <div className="flex items-center gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => submitProjectRename(project)}
-                              disabled={!editingProjectName.trim() || renamingProjectId === project.id}
-                              className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                                !editingProjectName.trim() || renamingProjectId === project.id
-                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-2xs'
-                              }`}
-                            >
-                              <Check size={13} />
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelProjectRename}
-                              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors"
-                            >
-                              <X size={13} />
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        /* Standard Card Info */
-                        <div>
-                          <div className="flex items-start justify-between gap-3 mb-2.5">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              {/* App Icon Avatar */}
-                              <div className="w-10 h-10 rounded-xl brand-gradient text-white font-bold text-sm flex items-center justify-center shadow-2xs shrink-0 ring-1 ring-black/5 dark:ring-white/10">
-                                {initialLetter}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4
-                                    onClick={() => onLoadProject(project)}
-                                    className="font-bold text-slate-900 text-base leading-snug truncate cursor-pointer hover:text-indigo-600 transition-colors"
-                                    title={project.name}
-                                  >
-                                    {project.name}
-                                  </h4>
-                                  {isCurrent && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shrink-0">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                                      Active
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                                  <span className="flex items-center gap-1">
-                                    <Clock size={11} className="text-slate-400" />
-                                    {formatModifiedTime(project.lastModified)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Top Right Actions (Rename & Delete) */}
-                            <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => startProjectRename(project)}
-                                aria-label="Rename app"
-                                title="Rename app"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors border border-transparent hover:border-indigo-100"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setProjectToDelete(project)}
-                                aria-label="Delete app"
-                                title="Delete app"
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-100"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Card Bottom / Footer Row */}
-                    {editingProjectId !== project.id && (
-                      <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-slate-200/80 text-xs font-semibold text-slate-600 shadow-2xs">
-                            <Layers size={12} className="text-indigo-500" />
-                            {versionCount} version{versionCount !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => onLoadProject(project)}
-                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-2xs ${
-                            isCurrent
-                              ? 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-indigo-500/20'
-                              : 'bg-surface hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200'
-                          }`}
-                        >
-                          <span>{isCurrent ? 'Open in Editor' : 'Open App'}</span>
-                          <ExternalLink size={12} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Modal Bottom Bar */}
-        <div className="bg-slate-50/90 border-t border-slate-200/80 px-6 sm:px-8 py-4 flex items-center justify-between text-xs text-slate-500">
-          <div className="font-medium">
-            {projects.length > 0 && (
-              <span>
-                Showing <span className="font-bold text-slate-700">
-                  {visibleProjects.length}
-                </span> of <span className="font-bold text-slate-700">{projects.length}</span> apps
-              </span>
-            )}
+        {/* Header: title + count, close */}
+        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
+          <div className="min-w-0">
+            <h2 id="projects-modal-title" className="text-lg font-semibold tracking-tight text-slate-900">
+              Your projects
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {projects.length === 0
+                ? 'Nothing saved yet'
+                : `${projects.length} saved · pick up where you left off`}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="nav-btn bg-surface hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold px-4 py-1.5 rounded-xl border border-slate-200 shadow-2xs transition-colors"
+            aria-label="Close"
+            className={`${ICON_BTN} -mr-1.5 -mt-1 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-white`}
           >
-            Close
+            <X size={18} />
           </button>
         </div>
+
+        {/* Toolbar: search + studio filter */}
+        {projects.length > 0 && (
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-6 pb-4 sm:flex-row sm:items-center dark:border-white/10">
+            <div className="relative flex-1">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                autoFocus
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search projects"
+                aria-label="Search projects"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-indigo-500 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/15 dark:bg-black/30 dark:placeholder:text-slate-500 dark:hover:border-white/25 dark:focus:bg-black/40 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                  aria-label="Clear search"
+                  className="absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            <div role="tablist" aria-label="Filter by studio" className="inline-flex shrink-0 rounded-lg bg-slate-100 p-0.5 dark:bg-black/30 dark:ring-1 dark:ring-white/10">
+              {FILTERS.map(({ key, label }) => {
+                const active = filter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setFilter(key)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
+                      active
+                        ? 'bg-surface text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white dark:shadow-none'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                    }`}
+                  >
+                    {label}
+                    <span className={`text-[11px] tabular-nums ${active ? 'text-slate-500 dark:text-white/60' : 'text-slate-400 dark:text-slate-500'}`}>
+                      {counts[key]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {projects.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80 dark:ring-indigo-400/25">
+                <FolderOpen size={22} aria-hidden="true" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-900">No projects yet</h3>
+              <p className="mt-1 max-w-xs text-sm leading-relaxed text-slate-500">
+                Anything you build is saved here automatically, so you can come back to it any time.
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="brand-fill-text mt-5 inline-flex h-9 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+              >
+                Start building
+              </button>
+            </div>
+          ) : visibleProjects.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-white/[0.06]">
+                <Search size={20} aria-hidden="true" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">No matching projects</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                {trimmedQuery
+                  ? <>Nothing matches &ldquo;{query.trim()}&rdquo;{filter !== 'all' && ` in ${FILTERS.find((f) => f.key === filter).label}`}.</>
+                  : `No ${FILTERS.find((f) => f.key === filter).label.toLowerCase()} saved yet.`}
+              </p>
+              {isFiltered && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-4 text-sm font-semibold text-indigo-600 hover:underline underline-offset-2"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-1 p-3" aria-label="Saved projects">
+              {visibleProjects.map((project) => {
+                const isCurrent = currentProjectId === project.id;
+                const studio = STUDIO_ICONS[studioOf(project)];
+                const versionCount = project.versions?.length || 1;
+                const isEditing = editingProjectId === project.id;
+                const isRenaming = renamingProjectId === project.id;
+                const name = project.name || 'Untitled App';
+
+                return (
+                  <li
+                    key={project.id}
+                    className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                      isEditing
+                        ? 'bg-slate-100 ring-1 ring-slate-200 dark:bg-white/[0.06] dark:ring-white/12'
+                        : 'hover:bg-slate-100 focus-within:bg-slate-100 dark:hover:bg-white/[0.06] dark:focus-within:bg-white/[0.06]'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ${studio.tile}`}
+                      title={`${studio.label} project`}
+                    >
+                      <studio.Icon size={18} aria-hidden="true" />
+                    </div>
+
+                    {isEditing ? (
+                      /* In-place rename */
+                      <form
+                        className="flex min-w-0 flex-1 items-center gap-2"
+                        onSubmit={(e) => { e.preventDefault(); submitProjectRename(project); }}
+                      >
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingProjectName}
+                          onChange={(e) => setEditingProjectName(e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          aria-label="Project name"
+                          disabled={isRenaming}
+                          className="h-9 min-w-0 flex-1 rounded-lg border border-indigo-500 bg-surface px-3 text-sm font-medium text-slate-900 outline-none ring-2 ring-indigo-500/20 dark:bg-black/40"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!editingProjectName.trim() || isRenaming}
+                          aria-label="Save name"
+                          title="Save (Enter)"
+                          className="brand-fill-text inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelProjectRename}
+                          aria-label="Cancel rename"
+                          title="Cancel (Esc)"
+                          className={`${ICON_BTN} h-9 w-9 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white`}
+                        >
+                          <X size={16} />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        {/* The whole row opens the project; the stretched
+                            ::after makes the row the hit target while the
+                            action buttons sit above it. */}
+                        <button
+                          type="button"
+                          onClick={() => onLoadProject(project)}
+                          className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-indigo-400/60"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-sm font-semibold text-slate-900" title={name}>
+                              {name}
+                            </span>
+                            {isCurrent && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                                Open
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                            <span>{studio.label}</span>
+                            <span aria-hidden="true" className="text-slate-300">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <Layers size={11} aria-hidden="true" />
+                              {versionCount} version{versionCount !== 1 ? 's' : ''}
+                            </span>
+                            <span aria-hidden="true" className="text-slate-300">·</span>
+                            <span title={formatModifiedTime(project.lastModified)}>
+                              Edited {formatRelative(project.lastModified)}
+                            </span>
+                          </span>
+                        </button>
+
+                        <div className="relative z-10 flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => startProjectRename(project)}
+                            aria-label={`Rename ${name}`}
+                            title="Rename"
+                            className={`${ICON_BTN} hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white`}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProjectToDelete(project)}
+                            aria-label={`Delete ${name}`}
+                            title="Delete"
+                            className={`${ICON_BTN} hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                        <ChevronRight size={16} className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500" aria-hidden="true" />
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer: result count + keyboard hint */}
+        {projects.length > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs text-slate-500 dark:border-white/10 dark:bg-black/20">
+            <span>
+              {isFiltered
+                ? <>Showing <span className="font-semibold text-slate-700">{visibleProjects.length}</span> of {projects.length}</>
+                : <><span className="font-semibold text-slate-700">{projects.length}</span> project{projects.length !== 1 ? 's' : ''}</>}
+            </span>
+            <span className="hidden items-center gap-1.5 sm:inline-flex">
+              <kbd className="rounded border border-slate-200 bg-surface px-1.5 py-px font-mono text-[10px] text-slate-500 dark:border-white/15 dark:bg-white/[0.06]">Esc</kbd>
+              to close
+            </span>
+          </div>
+        )}
       </Modal>
 
       {projectToDelete && (
         <ConfirmModal
-          title="Delete App"
+          title="Delete project"
           subtitle="This cannot be undone."
           onClose={() => setProjectToDelete(null)}
           onConfirm={confirmDeleteProject}
@@ -367,11 +426,11 @@ export default function ProjectsListModal({
           }`}
         >
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed">
-            Delete <span className="font-bold text-slate-900">{projectToDelete.name || 'Untitled App'}</span> from your saved applications?
+            Delete <span className="font-bold text-slate-900">{projectToDelete.name || 'Untitled App'}</span> and all of its versions?
           </div>
           {currentProjectId === projectToDelete.id && (
             <p className="text-xs font-medium text-slate-500">
-              This app is currently open. Deleting it will clear the current workspace.
+              This project is currently open. Deleting it will clear the current workspace.
             </p>
           )}
         </ConfirmModal>

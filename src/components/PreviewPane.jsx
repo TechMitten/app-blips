@@ -3,10 +3,10 @@ import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
   ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, MousePointerClick
 } from 'lucide-react';
-import { pageLabel } from '../lib/pages';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
+import PagePicker from './PagePicker';
 import ElementToolbar from './ElementToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
 import { PREVIEW_MODES } from '../lib/constants';
@@ -164,7 +164,7 @@ export default function PreviewPane({
               bar. The disabled ends already say "nowhere to go from here", so
               this needs no separate versions.length > 1 gate. */}
           {versions.length > 0 && (
-            <div className="preview-version nav-segmented-group" role="group" aria-label="Version history">
+            <div data-tour="versions" className="preview-version nav-segmented-group" role="group" aria-label="Version history">
               <button
                 onClick={onUndo}
                 disabled={currentVersionIndex <= 0}
@@ -191,6 +191,13 @@ export default function PreviewPane({
               </button>
             </div>
           )}
+
+          {/* Page switcher for multi-page sites, in every device mode (on
+              desktop it sits alongside the mockup's browser tabs). The code
+              view has its own file tabs. */}
+          {pages.length > 1 && activeTab === 'preview' && (
+            <PagePicker pages={pages} activePage={activePage} onSelectPage={onSelectPage} />
+          )}
         </div>
 
         {/* Zone 2 -- what device it is drawn for. Icon-only: the names moved
@@ -199,7 +206,7 @@ export default function PreviewPane({
         <div className="preview-center flex items-center gap-1.5 sm:gap-2">
           {activeTab === 'preview' && (
             <>
-              <div className="preview-fold-device nav-segmented-group" role="group" aria-label="Device preset">
+              <div data-tour="devices" className="preview-fold-device nav-segmented-group" role="group" aria-label="Device preset">
                 {DEVICE_PRESETS.map(({ mode, Icon }) => (
                   <button
                     key={mode}
@@ -283,6 +290,7 @@ export default function PreviewPane({
               choices that isn't there. */}
           {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
             <button
+              data-tour="edit"
               onClick={onToggleEditMode}
               aria-pressed={isEditMode}
               aria-label="Click-to-edit mode"
@@ -405,33 +413,6 @@ export default function PreviewPane({
             to sit behind, so it would just tint the running app. */}
         {!isBareFill && <div className="absolute inset-0 opacity-50 pointer-events-none workspace-grid"></div>}
 
-        {/* Desktop preview shows pages as browser tabs (DeviceMockup) and the code
-            view has its own file tabs; only the tablet/phone preview uses this
-            strip. */}
-        {pages.length > 1 && activeTab === 'preview' && previewMode !== 'desktop' && (
-          <div
-            className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-1 overflow-x-auto rounded-full border border-black/10 bg-white/90 p-1 shadow-md backdrop-blur dark:border-white/10 dark:bg-zinc-900/90"
-            role="tablist"
-            aria-label="Site pages"
-          >
-            {pages.map((name) => (
-              <button
-                key={name}
-                type="button"
-                role="tab"
-                aria-selected={name === activePage}
-                onClick={() => onSelectPage?.(name)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  name === activePage
-                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                    : 'text-zinc-600 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/10'
-                }`}
-              >
-                {pageLabel(name)}
-              </button>
-            ))}
-          </div>
-        )}
 
 
         {activeTab === 'preview' ? (

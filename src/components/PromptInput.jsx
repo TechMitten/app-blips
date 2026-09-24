@@ -252,6 +252,7 @@ export default function PromptInput({
               </div>
               <button
                 type="button"
+                data-tour="mode"
                 onClick={cycleMode}
                 aria-label={`${MODE_LABELS[selectedMode]} mode. Activate to switch mode.`}
                 title={`${MODE_LABELS[selectedMode]} mode — click to switch`}

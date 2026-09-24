@@ -1,30 +1,13 @@
-import { useEffect, useRef } from 'react';
 import { SlidersHorizontal, Smartphone, Tablet, Monitor, RotateCcwSquare, ZoomOut, ZoomIn, Undo2, Redo2 } from 'lucide-react';
 import { PREVIEW_MODES } from '../lib/constants';
+import useDetailsDismiss from '../hooks/useDetailsDismiss';
 
 export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }) {
-  const toolsRef = useRef(null);
-  useEffect(() => {
-    const dismiss = (event) => {
-      const details = toolsRef.current;
-      if (!details?.open) return;
-      if (event.type === 'keydown') {
-        if (event.key !== 'Escape') return;
-        details.querySelector('summary')?.focus();
-      } else if (details.contains(event.target)) return;
-      details.open = false;
-    };
-    document.addEventListener('pointerdown', dismiss);
-    document.addEventListener('keydown', dismiss);
-    return () => {
-      document.removeEventListener('pointerdown', dismiss);
-      document.removeEventListener('keydown', dismiss);
-    };
-  }, []);
+  const toolsRef = useDetailsDismiss();
 
   return (
     <details ref={toolsRef} className="preview-compact-tools">
-      <summary role="button" className="nav-btn nav-btn-secondary nav-btn-icon" aria-label="Preview tools" data-tip="Preview tools">
+      <summary role="button" data-tour="tools" className="nav-btn nav-btn-secondary nav-btn-icon" aria-label="Preview tools" data-tip="Preview tools">
         <SlidersHorizontal size={16} />
       </summary>
       <div className="preview-tools-menu bg-surface border border-slate-200 rounded-lg shadow-xl">

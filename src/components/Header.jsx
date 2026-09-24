@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, LogIn, BarChart3, Menu, X, UserRound
+  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -24,6 +24,7 @@ export default function Header({
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
+  onStartTour,
   authStatus,
   isSignedIn,
   userEmail,
@@ -232,6 +233,18 @@ export default function Header({
             <span className="hidden xl:inline">Help</span>
           </a>
 
+          <button
+            type="button"
+            data-tour="tour"
+            onClick={onStartTour}
+            className="nav-btn nav-ghost nav-btn-icon"
+            data-tip="Take the workspace tour"
+            aria-label="Take the workspace tour"
+          >
+            <Compass size={16} />
+            <span className="hidden xl:inline">Tour</span>
+          </button>
+
           {/* Hosted mode + signed-in only, same gate as the account control */}
           {firebaseEnabled && isSignedIn && (
             <button
@@ -400,6 +413,14 @@ export default function Header({
                 <CircleHelp size={16} />
                 <span>Help</span>
               </a>
+              <button
+                type="button"
+                onClick={() => runMobileAction(onStartTour)}
+                className="mobile-menu-item"
+              >
+                <Compass size={16} />
+                <span>Take the tour</span>
+              </button>
               {firebaseEnabled && isSignedIn && (
                 <>
                   <button

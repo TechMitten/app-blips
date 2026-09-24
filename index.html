@@ -18,7 +18,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#f1f3f5" />
+    <meta name="theme-color" content="#080808" />
     <!-- Resolve the theme and chat font size before first paint so there is no
          light/small flash. Inline is required (it must run before the deferred
          module bundle); the meta CSP above sets no script-src, so inline scripts
@@ -28,10 +28,11 @@
       (function () {
         try {
           var pref = localStorage.getItem('orion-theme');
+          // Dark unless the user explicitly chose light (or system on a light OS).
           var dark =
-            pref === 'dark' ||
-            (pref === 'system' &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches);
+            pref === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              : pref !== 'light';
           document.documentElement.classList.toggle('dark', dark);
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', dark ? '#080808' : '#f1f3f5');
@@ -40,7 +41,8 @@
             document.documentElement.dataset.chatFont = font;
           }
         } catch (e) {
-          /* storage blocked -- fall through to the light/default sizes */
+          /* storage blocked -- fall back to the dark theme and default sizes */
+          document.documentElement.classList.add('dark');
         }
       })();
     </script>

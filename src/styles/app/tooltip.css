@@ -62,6 +62,13 @@
   transition-delay: 0.3s, 0.3s, 0s;
 }
 
+/* A dropdown's trigger keeps hover and focus after it opens its menu, and the
+   bubble would sit on top of the options. The open menu already says what the
+   key does. */
+details[open] > summary[data-tip]::after {
+  display: none;
+}
+
 /* Right-hand keys: a centred bubble would hang past the pane edge and be
    clipped by .preview-pane's overflow. */
 [data-tip][data-tip-align='end']::after {

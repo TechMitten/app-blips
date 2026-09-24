@@ -22,7 +22,7 @@ import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
-import { TriangleAlert, Loader2 } from 'lucide-react';
+import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
@@ -48,7 +48,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -219,6 +219,7 @@ export default function App() {
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
   const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
@@ -1586,6 +1587,18 @@ export default function App() {
   // The studio-choice screen. Forced on a fresh session (gate), or opened by
   // "New" once work was confirmed away. Picking seeds the untitled name and
   // the studio's default preview device.
+  // Signing in from the picker must land back on the picker (or the picked
+  // studio's hero), not resume the account's newest project: the resume in
+  // useProjects runs on the signed-out -> signed-in flip unless the
+  // start-fresh marker is set. Remember whether we set it so dismissing the
+  // modal without signing in leaves storage as we found it.
+  const pickerSetStartFreshRef = useRef(false);
+  const openPickerSignIn = () => {
+    pickerSetStartFreshRef.current = !isStartFresh();
+    markStartFresh();
+    setIsAuthModalOpen(true);
+  };
+
   const handleChooseStudio = (mode) => {
     if (!STUDIO_MODES[mode]) return;
     // Hosted mode: a studio can't be entered signed out. Remember the pick,
@@ -1593,7 +1606,7 @@ export default function App() {
     // lands. (Self-hosted is always signed in, so this never triggers there.)
     if (firebaseEnabled && !isSignedIn) {
       setPendingStudio(mode);
-      setIsAuthModalOpen(true);
+      openPickerSignIn();
       return;
     }
     resetCurrentWorkspace(mode);
@@ -1601,6 +1614,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (isSignedIn) pickerSetStartFreshRef.current = false;
     if (!pendingStudio || !isSignedIn) return;
     setPendingStudio(null);
     handleChooseStudio(pendingStudio);
@@ -1610,6 +1624,10 @@ export default function App() {
   const handleCloseAuthModal = () => {
     setIsAuthModalOpen(false);
     setPendingStudio(null);
+    if (pickerSetStartFreshRef.current) {
+      pickerSetStartFreshRef.current = false;
+      clearStartFresh();
+    }
   };
 
   const handleCancelStudioChoice = () => {
@@ -1688,6 +1706,28 @@ export default function App() {
     );
   }
 
+  // Every sign-out affordance (studio picker, header menu, account settings)
+  // asks first: signing out also clears this browser's copy of the workspace.
+  const handleConfirmSignOut = () => {
+    setIsSignOutConfirmOpen(false);
+    handleSignOut();
+  };
+  const signOutConfirmModal = isSignOutConfirmOpen && (
+    <ConfirmModal
+      title="Sign out?"
+      subtitle="You can sign back in any time."
+      onClose={() => setIsSignOutConfirmOpen(false)}
+      onConfirm={handleConfirmSignOut}
+      confirmLabel="Sign out"
+      icon={LogOut}
+      confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+    >
+      <p className="text-sm text-slate-600 leading-relaxed">
+        Your projects stay saved to your account. This browser will be cleared of the current workspace until you sign in again.
+      </p>
+    </ConfirmModal>
+  );
+
   // Fresh session with nothing to resume and no studio picked: the whole
   // workspace stays behind the studio choice. A project resume (or adopted
   // pending job) sets studioMode before the resume flag clears, so returning
@@ -1704,12 +1744,15 @@ export default function App() {
           onOpenProjects={() => setIsProjectsListOpen(true)}
           requireSignIn={firebaseEnabled}
           isSignedIn={isSignedIn}
-          onSignIn={() => setIsAuthModalOpen(true)}
-          onSignOut={handleSignOut}
+          onSignIn={openPickerSignIn}
+          onSignOut={() => setIsSignOutConfirmOpen(true)}
+          resolvedTheme={resolvedTheme}
+          onThemeChange={setThemePreference}
         />
         {isAuthModalOpen && firebaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
         )}
+        {signOutConfirmModal}
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -1740,12 +1783,13 @@ export default function App() {
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onStartTour={startTour}
         authStatus={authStatus}
         isSignedIn={isSignedIn}
         userEmail={user?.email}
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         onSignIn={() => setIsAuthModalOpen(true)}
-        onSignOut={handleSignOut}
+        onSignOut={() => setIsSignOutConfirmOpen(true)}
         firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
@@ -1758,7 +1802,7 @@ export default function App() {
 
       {!showHero && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
-        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} />
+        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
 
       {isSettingsOpen && (
@@ -1799,6 +1843,8 @@ export default function App() {
           onDeleteProject={handleDeleteProject}
         />
       )}
+
+      {signOutConfirmModal}
 
       {isExitConfirmOpen && (
         <ConfirmModal
@@ -1913,7 +1959,7 @@ export default function App() {
           username={username}
           usernameLoading={usernameLoading}
           onClose={() => setIsAccountSettingsOpen(false)}
-          onSignOut={handleSignOut}
+          onSignOut={() => setIsSignOutConfirmOpen(true)}
         />
       )}
 

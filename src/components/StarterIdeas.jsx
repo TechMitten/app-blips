@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 
 // Seed prompts for the empty state. A short, curated gallery — static and
@@ -71,6 +71,18 @@ const randomSample = (list, n) => {
   return copy.slice(0, n);
 };
 
+// Hides every chip that wrapped onto a second row, so the pills always stay on
+// one line whatever the container width. Reads all offsets first, then writes,
+// so hiding one chip can't shift what gets measured for the next.
+const fitChipsToOneRow = (row) => {
+  const chips = Array.from(row.children);
+  chips.forEach((chip) => { chip.style.display = ''; });
+  if (chips.length === 0) return;
+  const firstTop = chips[0].offsetTop;
+  const wrapped = chips.map((chip) => chip.offsetTop > firstTop);
+  chips.forEach((chip, i) => { chip.style.display = wrapped[i] ? 'none' : ''; });
+};
+
 // `sampleSize` switches from the curated/featured list to a fresh random pick
 // of that many ideas from the whole pool each time the gallery mounts.
 // `variant="chips"` renders the same ideas as a centered row of pills (the
@@ -82,10 +94,21 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
     return (featured.length > 0 ? featured : ideas).slice(0, MAX_VISIBLE);
   }, [ideas, sampleSize]);
   const cards = assignHues(visible);
+  const chipRowRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const row = chipRowRef.current;
+    if (variant !== 'chips' || !row) return undefined;
+    fitChipsToOneRow(row);
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => fitChipsToOneRow(row));
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [variant, visible]);
 
   if (variant === 'chips') {
     return (
-      <div className="flex flex-wrap items-center justify-center gap-2 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+      <div ref={chipRowRef} className="flex flex-wrap items-center justify-center gap-2 animate-fade-in" style={{ animationDelay: '0.08s' }}>
         {cards.map(({ starter, hue }) => {
           const IconComponent = starter.icon || Sparkles;
           return (
