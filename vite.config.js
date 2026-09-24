@@ -4,6 +4,8 @@ import { Readable, pipeline } from 'node:stream'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
 import { handleAiChat, handleAiSession } from './functions/_lib/aiRelay.js'
 import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
+import { handleDebugUnlock } from './functions/_lib/debugUnlock.js'
+import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 
 // Dev-middleware plumbing. Vite's connect server does not catch rejections from
@@ -40,6 +42,20 @@ function guarded(handler) {
         res.destroy()
       }
     }
+  }
+}
+
+// Prints which AI provider/mode is active (and what is still missing) once the
+// dev server is up, so a misconfigured .env is obvious before the first request.
+function configSummaryPlugin(mode) {
+  return {
+    name: 'appblips-config-summary',
+    configureServer(server) {
+      server.httpServer?.once('listening', () => {
+        // Same env the middleware below reads: .env plus the process environment.
+        console.log('\n' + formatConfigSummary(describeConfig(loadEnv(mode, process.cwd(), ''))) + '\n')
+      })
+    },
   }
 }
 
@@ -121,6 +137,29 @@ function selfHostedAppAiDevMiddleware(mode) {
         })
         const response = await handleSelfHostedAiChat(request, env)
         sendWebResponse(res, response)
+      }))
+    },
+  }
+}
+
+// PIN gate for the hidden raw-LLM-log panel (functions/_lib/debugUnlock.js).
+function debugUnlockDevMiddleware(mode) {
+  return {
+    name: 'appblips-debug-unlock-dev-middleware',
+    configureServer(server) {
+      const env = loadEnv(mode, process.cwd(), '')
+      server.middlewares.use('/api/debug-unlock', guarded(async (req, res) => {
+        const chunks = []
+        if (req.method === 'POST') for await (const chunk of req) chunks.push(chunk)
+        const request = new Request('http://' + (req.headers.host || 'localhost') + '/api/debug-unlock', {
+          method: req.method,
+          headers: {
+            ...(req.headers['x-forwarded-for'] ? { 'x-forwarded-for': req.headers['x-forwarded-for'] } : {}),
+            ...(req.method === 'POST' ? { 'content-type': 'application/json' } : {}),
+          },
+          ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
+        })
+        sendWebResponse(res, await handleDebugUnlock(request, env))
       }))
     },
   }
@@ -320,7 +359,7 @@ function seoPlugin(mode) {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
+  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/firebase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,

@@ -1,7 +1,7 @@
 {
   "projectType": "saas",
   "projectName": "AppBlips",
-  "projectDescription": "AppBlips is a text-to-app generator that turns plain-English descriptions into working, single-file React apps with a live preview — available as a hosted service or self-hosted via Docker.",
+  "projectDescription": "AppBlips is a text-to-app generator that turns plain-English descriptions into working, single-file React apps with a live preview — available at appblips.com, or run locally for your own use.",
   "theme": "almond",
   "primaryColor": "#080808",
   "lightColor": "#58b9ea",
@@ -68,7 +68,7 @@
     "Deploy to a public URL as an installable PWA (hosted mode)",
     "Visual element editor for point-and-click style changes",
     "Configurable reasoning effort (Off / Low / Medium / High)",
-    "Self-hosted Docker deployment with no sign-in required",
+    "Local self-hosted copy (Node.js or Docker) with no sign-in required",
     "BYOK and relay modes for generated-app AI access"
   ],
   "publicApiSurface": [
@@ -88,9 +88,7 @@
     "APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS — rate-limit window in seconds",
     "APPBLIPS_GENERATED_AI_MODE — byok (default) or relay mode for app AI",
     "APPBLIPS_APP_AI_RELAY_URL — public URL of the generated-app AI relay",
-    "APPBLIPS_APP_LLM_BASE_URL — LLM endpoint for generated-app relay",
-    "APPBLIPS_APP_LLM_API_KEY — API key for generated-app relay",
-    "APPBLIPS_APP_LLM_MODEL — model for generated-app relay",
+    "APPBLIPS_APP_AI_MAX_TOKENS — token cap for AI calls made by generated apps (provider is always the builder's)",
     "APPBLIPS_APP_AI_ALLOWED_ORIGINS — CORS allowlist for cross-origin relay callers",
     "APPBLIPS_APP_AI_RATE_LIMIT_MAX — per-IP rate limit for the app AI relay",
     "SELF_HOSTED_MODE — toggle between hosted and self-hosted operating modes"

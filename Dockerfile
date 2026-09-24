@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # ---- Build stage -----------------------------------------------------------
-# Builds the static client in self-hosted mode (SELF_HOSTED_MODE=true is the
+# Local self-hosted image: builds the static client in self-hosted mode (SELF_HOSTED_MODE=true is the
 # default already, set explicitly here for clarity). No Firebase env vars are
 # needed: self-hosted mode never touches src/firebase.js's Firebase init.
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-ARG APPBLIPS_GENERATED_AI_MODE=byok
+ARG APPBLIPS_GENERATED_AI_MODE=relay
 ARG APPBLIPS_APP_AI_RELAY_URL=
 ENV SELF_HOSTED_MODE=true
 ENV APPBLIPS_GENERATED_AI_MODE=$APPBLIPS_GENERATED_AI_MODE

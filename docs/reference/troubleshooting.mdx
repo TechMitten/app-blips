@@ -41,9 +41,12 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
 
     **Check the following in your `.env` file:**
 
-    - `APPBLIPS_LLM_BASE_URL` — must be the full base URL of your AI provider (e.g. `https://api.openai.com/v1`)
-    - `APPBLIPS_LLM_API_KEY` — must be a valid, active key for that provider
-    - `APPBLIPS_LLM_MODEL` — must be a model name your provider recognizes and your key has access to
+    - Exactly one provider key is filled in (for example `APPBLIPS_OPENAI_API_KEY`), or `APPBLIPS_LLM_PROVIDER` picks one if several are
+    - The key is valid and active for that provider
+    - `APPBLIPS_LLM_MODEL` is a model name your provider recognizes and your key has access to
+    - For another OpenAI-compatible service, `APPBLIPS_LLM_BASE_URL` is the full base URL (for example `http://localhost:11434/v1`)
+
+    When AppBlips starts, it prints which provider it found and which values are still missing. Check that output first.
 
     Also confirm that your API key has remaining quota and has not been revoked in your provider's dashboard.
   </Accordion>
@@ -55,7 +58,7 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
 
     1. Dismiss the current build and try again.
     2. Check your AI provider's status page for any ongoing outages or elevated latency.
-    3. If you have **Reasoning effort** set to **High** in Settings, try lowering it — higher reasoning takes longer and is more likely to hit timeout thresholds on slower providers.
+    3. If **Reasoning: building** or **Reasoning: editing** is on in Settings, try turning it off — reasoning takes longer and is more likely to hit timeouts on slower providers.
   </Accordion>
 
   <Accordion title="Rate limit error">
@@ -64,7 +67,7 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     **To fix:**
 
     - Wait for the rate limit window to reset and try again.
-    - If you are running a self-hosted instance and need a higher limit, increase `APPBLIPS_CHAT_RATE_LIMIT_MAX` or `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` in your `.env` file and restart the server.
+    - If you are running a self-hosted copy and need a higher limit, increase `APPBLIPS_CHAT_RATE_LIMIT_MAX` or `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` in your `.env` file and restart the server.
 
     <Note>
       The built-in rate limiter is tracked in memory per server instance. It is intended as a speed bump, not a strict billing cap.

@@ -47,3 +47,5 @@ USAGE_TRACKING.md
 .env copy.example
 .vscode/users.json
 .mcp.json
+# Private maintainer notes
+CLOUDFLARE_ENV_GUIDE.md

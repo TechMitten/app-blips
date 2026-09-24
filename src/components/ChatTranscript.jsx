@@ -1,7 +1,8 @@
-import { Loader2, RotateCcw, User } from 'lucide-react';
+import { Brain, Loader2, RotateCcw, User } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
+import ThinkingElapsed from './ThinkingElapsed';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -77,6 +78,7 @@ export default function ChatTranscript({
   streamingReply,
   isGenerating,
   generationStatus = null,
+  thinkingSince = null,
   chatMode,
   studioMode = 'app',
   chatBottomRef,
@@ -145,6 +147,13 @@ export default function ChatTranscript({
             <ReplyRow className="animate-fade-in">
               <Markdown text={streamingReply} />
             </ReplyRow>
+          ) : isGenerating && thinkingSince ? (
+            <ReplyRow className="animate-fade-in flex items-center gap-2.5">
+              <Brain className="animate-pulse text-indigo-600 dark:text-white" size={14} />
+              <span role="status" className="text-[length:var(--chat-label-text)] font-bold">
+                Thinking… <span className="font-semibold text-slate-500 dark:text-white/60"><ThinkingElapsed since={thinkingSince} /></span>
+              </span>
+            </ReplyRow>
           ) : isGenerating ? (
             <ReplyRow className="animate-fade-in flex items-center gap-2.5">
               <Loader2 className="animate-spin text-indigo-600 dark:text-white" size={14} />
@@ -155,7 +164,15 @@ export default function ChatTranscript({
           ) : null}
           {/* The reply above usually finishes long before the work does; keep a
               live progress line so the pauses after the edits are explained. */}
-          {isGenerating && streamingReply && generationStatus && chatMode !== 'ask' && (
+          {isGenerating && streamingReply && thinkingSince && chatMode !== 'ask' ? (
+            <div
+              role="status"
+              className="flex items-center gap-2 pl-1 text-[length:var(--chat-label-text)] font-semibold text-slate-500 dark:text-white/60 animate-fade-in"
+            >
+              <Brain className="animate-pulse shrink-0" size={12} />
+              <span>Thinking… <ThinkingElapsed since={thinkingSince} /></span>
+            </div>
+          ) : isGenerating && streamingReply && generationStatus && chatMode !== 'ask' && (
             <div
               key={generationStatus}
               role="status"

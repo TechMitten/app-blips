@@ -25,6 +25,7 @@ export default function BuildPanel({
   streamingReply,
   isGenerating,
   generationStatus = null,
+  thinkingSince = null,
   error,
   prompt,
   onPromptChange,
@@ -166,6 +167,7 @@ export default function BuildPanel({
                 streamingReply={streamingReply}
                 isGenerating={isGenerating}
                 generationStatus={generationStatus}
+                thinkingSince={thinkingSince}
                 chatMode={chatMode}
                 studioMode={studioMode}
                 chatBottomRef={chatBottomRef}

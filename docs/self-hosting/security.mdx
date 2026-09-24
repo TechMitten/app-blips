@@ -1,56 +1,51 @@
 ---
-title: "Security Guide for Self-Hosted Instances"
+title: "Security Guide for Self-Hosted Copies"
 sidebarTitle: "Security"
-description: "Key security boundaries for self-hosted AppBlips: API access control, sandboxed previews, BYOK key handling, and relay mode hardening steps."
+description: "Key security boundaries for a self-hosted AppBlips: keeping it on your own computer, sandboxed previews, how your API key is protected, and BYOK key handling."
 ---
 
-Self-hosting AppBlips puts you in full control of your data, your AI keys, and your infrastructure — but it also means you own the security posture of your installation. This page covers the key security boundaries to understand before you expose AppBlips beyond localhost, so you can make informed decisions about access control, key handling, and network exposure.
+A self-hosted copy of AppBlips is designed to run on your own computer, for a single user. This page explains the security boundaries that matter in that setup, and what to do if other devices can reach it.
 
-## The Builder API Has No Authentication
+## Keep It on Your Own Computer
 
 <Warning>
-  In self-hosted mode, the `/api/chat` endpoint accepts every request as the same local user — there is no login check and no per-user isolation. **Anyone who can reach the endpoint can spend your configured AI budget.** Do not expose AppBlips directly to the internet without putting your own access control in front of it first. A reverse proxy with HTTP basic auth, a VPN, or firewall rules limiting access to trusted IP ranges are all practical options.
+  A self-hosted copy has **no sign-in**. The builder endpoint (`/api/chat`) and the AI relay for your generated apps (`/api/app-ai/chat`) accept every request as the same local user. **Anyone who can reach them can spend your API key.**
 </Warning>
+
+- `npm run dev` and the Docker setup are meant to be opened at `localhost`. The Docker Compose file binds to `127.0.0.1` for this reason.
+- If you do make AppBlips reachable from other devices on your network, put your own access control in front of it, such as a firewall rule or a VPN.
+- Set a spend limit with your AI provider. AppBlips' built-in rate limits are in-memory speed bumps that reset on restart, not billing caps.
+
+## Your API Key
+
+Your provider key lives only in `.env` and is used only by the AppBlips server. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML. In relay mode, exported apps contain only the relay URL.
 
 ## Sandboxed Preview
 
-Generated apps never run directly inside the main AppBlips page. Every generated app executes in a fully isolated preview environment, which means:
+Generated apps never run directly inside the main AppBlips page. Every generated app runs in an isolated preview, which means:
 
 - The generated app cannot access the parent page's DOM, cookies, or `localStorage`
 - The parent page cannot reach into the generated app's DOM
 - The generated app cannot make credentialed requests that carry your AppBlips session
 
-This isolation is the primary protection against malicious or buggy generated code affecting your AppBlips session. It applies both in the live preview and when you open a saved app for review.
+This isolation is the main protection against malicious or buggy generated code affecting AppBlips itself.
+
+## Relay Origins
+
+The AI relay accepts calls only from AppBlips' own origin unless you list others in `APPBLIPS_APP_AI_ALLOWED_ORIGINS`. List only exact origins you control, and add `null` (the origin of `file://` pages) only if you knowingly want any locally opened HTML file to use your key.
 
 ## BYOK Key Storage
 
-In the default `byok` mode, each person using a generated AI-enabled app is prompted to enter their own provider endpoint, model name, and API key the first time AI is needed. AppBlips handles this key as follows:
+If you switch to `byok` mode, each person using a generated AI-enabled app enters their own provider endpoint, model, and API key the first time AI is needed:
 
 - The key is stored in the **browser only** — in `sessionStorage` by default, or `localStorage` if the user checks **Remember on this device**
-- The key is **never sent to your AppBlips server** at any point
+- The key is **never sent to AppBlips**
 - The key is **never embedded in the generated HTML** when an app is exported
 
 <Note>
-  While a generated app is running and connected to AI, JavaScript executing inside that app can access the key in order to make AI calls via `blip.ai.text(...)`. Advise users not to enter high-privilege or shared API keys into generated apps, and to prefer keys with spend limits or scoped permissions from their AI provider.
+  While a generated app is connected to AI, JavaScript running inside that app can read the key in order to make AI calls. Only enter keys with spend limits or scoped permissions, never shared or high-privilege keys.
 </Note>
 
-## Relay Mode Security
+## Opening Exported Apps
 
-When you set `APPBLIPS_GENERATED_AI_MODE=relay`, your server acts as a proxy between generated apps and your AI provider. The provider key never leaves the server — the browser only receives the relay URL. This removes the need for users to supply their own keys, but it shifts the billing and access control responsibility entirely onto you.
-
-<Warning>
-  The built-in per-IP rate limiter (`APPBLIPS_APP_AI_RATE_LIMIT_MAX` / `APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS`) is a speed bump against runaway usage, not a billing boundary. It resets on restart and offers no protection against distributed clients. For any installation accessible beyond localhost, put a real authentication layer or API gateway in front of the relay endpoint before going live.
-</Warning>
-
-If apps generated by your instance are served from a different origin than AppBlips itself, set `APPBLIPS_APP_AI_ALLOWED_ORIGINS` explicitly to the exact origins you want to permit. Leaving it blank allows only same-origin callers. Do not add origins you do not control, and avoid adding `null` unless you specifically intend to serve apps as local `file://` pages.
-
-## Hosting Exported Apps on a Separate Origin
-
-If you self-host AppBlips and also plan to host exported apps somewhere publicly accessible, serve the exported apps from a different domain or subdomain than your AppBlips instance. Generated apps are self-contained HTML with full script privileges, so keeping them on a separate origin limits what a compromised or malicious app can access from your AppBlips installation.
-
-## Recommended Hardening Steps
-
-1. **Keep AppBlips behind localhost or a firewall** unless you have added explicit authentication in front of it. The `/api/chat` endpoint has no built-in auth.
-2. **Use HTTPS** if AppBlips is reachable over any network. Terminate TLS at a reverse proxy such as [Nginx](https://nginx.org/) or [Caddy](https://caddyserver.com/) and proxy to AppBlips on port 3000.
-3. **Set `APPBLIPS_APP_AI_ALLOWED_ORIGINS` explicitly** if you run in relay mode and any generated apps are served from a different origin. List only the exact origins you control.
-4. **Monitor your AI provider's usage dashboard** regularly for unexpected spend — especially after any change to rate limit settings or network exposure. Provider-side spend limits are an additional safeguard worth enabling.
+Exported apps are self-contained HTML with full script privileges. Open or host them separately from AppBlips (for example, as a local file or on a different domain) rather than serving them from the same origin as AppBlips, so an app can't read what AppBlips stores in the browser.

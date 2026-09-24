@@ -12,6 +12,10 @@ export const safeStorage = (kind) => {
   }
 };
 
+// sessionStorage flag remembering that the raw-log panel was unlocked in this
+// tab. UI convenience only -- the PIN itself is checked server-side.
+export const DEBUG_UNLOCKED_KEY = 'orion-debug-unlocked';
+
 export const THEME_KEY = 'orion-theme';
 // Mirrored by the pre-paint script in index.html -- keep both in sync.
 // Light matches the canvas token (--color-slate-50 in index.css).
@@ -172,10 +176,18 @@ export const isStartFresh = () => {
   }
 };
 
+// Legacy single setting, read only to seed the per-kind keys below.
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
-// Sent to /api/chat as `reasoning_effort` for the heavy generation call. 'none'
-// disables reasoning; the rest map straight to the OpenAI-compatible values.
-export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'medium', 'high'];
+// Separate efforts for the initial build (first generation of an app/site)
+// and for edits (the surgical refinement loop). Sent to /api/chat as
+// `reasoning_effort`. Each is a simple Off/On toggle: 'none' disables
+// reasoning and On is sent as 'low', since higher efforts made every call in a
+// build pipeline think for minutes.
+export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
+export const EDIT_REASONING_EFFORT_KEY = 'orion-reasoning-effort-edit';
+export const REASONING_EFFORT_OPTIONS = ['none', 'low'];
+// Efforts saved before the Off/On toggle; any of them now means On.
+const LEGACY_ON_EFFORTS = ['low', 'medium', 'high'];
 
 // One of REASONING_EFFORT_OPTIONS; anything unrecognised falls back to 'none',
 // which is also the default so reasoning stays off until the user opts in.
@@ -199,10 +211,14 @@ export const saveChatMode = (mode) => {
   }
 };
 
-export const loadReasoningEffort = () => {
+// kind: 'build' | 'edit'. Falls back to the legacy single setting, so users
+// who had already picked an effort keep it for both until they change one.
+export const loadReasoningEffort = (kind) => {
   try {
-    const stored = safeStorage('local')?.getItem(REASONING_EFFORT_KEY);
-    return REASONING_EFFORT_OPTIONS.includes(stored) ? stored : 'none';
+    const storage = safeStorage('local');
+    const key = kind === 'edit' ? EDIT_REASONING_EFFORT_KEY : BUILD_REASONING_EFFORT_KEY;
+    const stored = storage?.getItem(key) ?? storage?.getItem(REASONING_EFFORT_KEY);
+    return LEGACY_ON_EFFORTS.includes(stored) ? 'low' : 'none';
   } catch {
     return 'none';
   }

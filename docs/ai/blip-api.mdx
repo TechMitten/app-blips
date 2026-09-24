@@ -8,7 +8,7 @@ When you generate an app with the AI toggle enabled, AppBlips injects the `blip`
 
 ## blip.ai.text(messages, options)
 
-Sends a list of messages to the configured AI provider and returns the model's reply. In BYOK mode, if no provider has been connected yet, this call automatically opens the **Connect your AI provider** dialog before proceeding.
+Sends a list of messages to the configured AI provider and returns the model's reply. In self-hosted BYOK mode, if no provider has been connected yet, this call automatically opens the **Connect your AI provider** dialog before proceeding.
 
 <ParamField body="messages" type="array" required>
   An array of message objects that form the conversation. Each object must have a `role` (`"user"` or `"assistant"`) and a `content` string.
@@ -83,7 +83,7 @@ console.log(result.text);
 
 Opens the **Connect your AI provider** dialog programmatically, letting the user update their endpoint, model, and API key at any time. Returns a Promise that resolves when the user saves their settings and rejects with a `configuration_required` error if they cancel.
 
-In relay mode this resolves immediately without showing any dialog, because the provider is configured server-side.
+On appblips.com and in self-hosted relay mode, this resolves immediately without showing any dialog, because the provider is configured on the server.
 
 ```javascript
 // Wire to a settings button

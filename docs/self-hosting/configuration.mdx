@@ -1,166 +1,171 @@
 ---
 title: "Self-Hosting Configuration Reference"
 sidebarTitle: "Configuration"
-description: "Complete environment variable reference for self-hosted AppBlips. Configure your LLM provider, rate limits, and AI mode for user-generated apps."
+description: "Every .env variable for a self-hosted AppBlips: AI provider and model, limits and tuning, AI inside your generated apps (which shares the builder's provider), and the debug panel."
 ---
 
-All configuration for a self-hosted AppBlips instance lives in a single `.env` file in the project root. Copy `.env.example` to `.env` to get started, then fill in the values for your setup. Variables fall into five groups: the required LLM provider for the builder, optional LLM tuning, optional rate limiting, the AI mode for apps your users generate, and the relay provider settings used when you choose to fund app AI yourself.
+All configuration for a self-hosted copy of AppBlips lives in one `.env` file in the project folder. Copy `.env.example` to `.env`, fill in an API key and a model, and leave everything else blank to use the defaults. When AppBlips starts, it prints which provider it found and what is still missing. It never prints key values.
 
-## Required: LLM Provider
+## Required: AI Provider
 
-These three variables power the AppBlips builder — the AI that turns your descriptions into working apps. All three must be set before AppBlips will start successfully.
+Fill in the API key for **one** provider, plus the model. The provider whose key is filled in becomes active.
 
-<ParamField body="APPBLIPS_LLM_BASE_URL" type="string" required>
-  The base URL of an OpenAI-compatible chat completions API. Use `https://api.openai.com/v1` for OpenAI, or substitute any compatible provider's endpoint.
+<ParamField body="APPBLIPS_OPENAI_API_KEY" type="string">
+  OpenAI API key.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_API_KEY" type="string" required>
-  Your API key for the builder LLM provider. This value is read server-side only and is never exposed to the browser.
+<ParamField body="APPBLIPS_OPENROUTER_API_KEY" type="string">
+  OpenRouter API key. OpenRouter is the recommended way to reach Claude, Gemini, and most other models with a single key.
+</ParamField>
+
+<ParamField body="APPBLIPS_DEEPSEEK_API_KEY" type="string">
+  DeepSeek API key.
+</ParamField>
+
+<ParamField body="APPBLIPS_ZAI_API_KEY" type="string">
+  Z.ai API key.
 </ParamField>
 
 <ParamField body="APPBLIPS_LLM_MODEL" type="string" required>
-  The model name to use for building apps — for example, `gpt-4o`. The model must be available at the endpoint you specified in `APPBLIPS_LLM_BASE_URL`.
+  The model to use, written exactly as your provider names it. For example `gpt-5.1` (OpenAI), `anthropic/claude-sonnet-5` or `google/gemini-3-pro` (OpenRouter), `deepseek-chat` (DeepSeek), or `glm-5.3-flash` (Z.ai).
 </ParamField>
 
-## Optional: LLM Tuning
+Keys are read only by the AppBlips server and are never sent to the browser.
 
-These variables let you constrain or adjust the builder's AI responses. Leave them blank to use provider defaults (except temperature, which defaults to `0.2`).
+### Other OpenAI-compatible services
+
+Any other service that speaks the OpenAI chat-completions API works too: Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.
+
+<ParamField body="APPBLIPS_LLM_BASE_URL" type="string">
+  The service's base URL, for example `http://localhost:11434/v1` for Ollama. If you use one of the named providers above, this instead overrides that provider's default endpoint.
+</ParamField>
+
+<ParamField body="APPBLIPS_LLM_API_KEY" type="string">
+  The service's API key. Ollama needs none, so put any text.
+</ParamField>
+
+<ParamField body="APPBLIPS_LLM_PROVIDER" type="string">
+  Chooses the provider explicitly when more than one key is filled in: `openai`, `openrouter`, `deepseek`, `zai`, or `openai-compatible`. Blank means the first key found, in that order.
+</ParamField>
+
+## Optional: Limits and Tuning
 
 <ParamField body="APPBLIPS_LLM_MAX_TOKENS" type="number">
-  Maximum number of tokens the builder LLM may return in a single response. Useful for controlling costs on providers that bill per token.
-</ParamField>
-
-<ParamField body="APPBLIPS_LLM_ASK_MAX_TOKENS" type="number">
-  Maximum number of tokens the LLM may return in a single Ask-mode chat reply. Independent of `APPBLIPS_LLM_MAX_TOKENS`, which does not apply to Ask mode. Defaults to `8192`, which leaves headroom for reasoning tokens on thinking models.
+  Maximum length of one builder response, in tokens. Blank means the provider default.
 </ParamField>
 
 <ParamField body="APPBLIPS_LLM_TEMPERATURE" type="number">
-  Sampling temperature for builder responses. Lower values produce more predictable output; higher values produce more varied results. Defaults to `0.2`. Users can also adjust reasoning effort per-request in the in-app Settings modal — that setting is independent of this one.
+  Sampling temperature for the builder. Defaults to `0.2`.
 </ParamField>
 
-## Optional: Rate Limiting
+<ParamField body="APPBLIPS_LLM_ASK_MAX_TOKENS" type="number">
+  Token cap for Ask-mode chat replies only, independent of `APPBLIPS_LLM_MAX_TOKENS`. Defaults to `8192`.
+</ParamField>
 
-AppBlips includes a built-in rate limiter on `/api/chat` to help prevent runaway usage from spending your AI budget unexpectedly.
+<ParamField body="APPBLIPS_LLM_REASONING_PARAM" type="string">
+  How your provider expects the reasoning setting: `reasoning_effort`, `reasoning`, `thinking`, or `omit` (send nothing). Blank uses the provider's usual format. You only need this for an unusual OpenAI-compatible service. Whether reasoning is on is chosen per user in [Settings](/reference/settings#ai).
+</ParamField>
 
 <ParamField body="APPBLIPS_CHAT_RATE_LIMIT_MAX" type="number">
-  Maximum number of requests allowed per window per user. Defaults to `60`.
+  Requests allowed per window on `/api/chat`. Defaults to `60`.
 </ParamField>
 
 <ParamField body="APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS" type="number">
-  Length of the rate-limit window in seconds. Defaults to `300` (five minutes).
+  Length of the rate-limit window in seconds. Defaults to `300`.
 </ParamField>
 
 <Note>
-  Rate limit counts are tracked in memory within a single server process. Restarting the server resets all counters. Treat this as a speed bump against accidental overuse, not a hard billing cap.
+  Rate-limit counts are kept in memory and reset when AppBlips restarts. They guard against accidental runaway usage, not as a billing cap. Set a spend limit with your provider as well.
 </Note>
 
-## Generated-App AI Mode
+## AI Inside Your Apps
 
-When users build an app that uses `blip.ai.text(...)`, that app needs its own AI connection. These two variables control how that connection works.
+Apps you build with the **AI** switch on call `blip.ai.text(...)`. They always use the **same provider, key, and model** as the builder, through your own AppBlips (unless you switch to BYOK). There is nothing to configure. See [Relay Mode](/ai/relay-mode) and [BYOK Mode](/ai/byok-mode).
 
 <ParamField body="APPBLIPS_GENERATED_AI_MODE" type="string">
-  Controls how generated apps get access to AI. Accepts one of two values:
-
-  - `byok` *(default)* — each person using a finished app enters their own provider endpoint, model, and API key directly in that app. Your server is never involved.
-  - `relay` — your server proxies all generated-app AI requests using the `APPBLIPS_APP_LLM_*` variables below. You pay for generated-app AI on behalf of your users.
+  - `relay` *(default, or blank)* — apps call your AppBlips at `/api/app-ai/chat`, which uses your provider.
+  - `byok` — each person using a finished app enters their own endpoint, model, and key inside that app.
 </ParamField>
 
 <ParamField body="APPBLIPS_APP_AI_RELAY_URL" type="string">
-  The URL embedded in generated apps when pointing them at the relay. Defaults to `/api/app-ai/chat`, which works for apps served from the same origin as AppBlips. Set an absolute `https://` URL if you host exported apps on a different domain.
+  URL that generated apps call for AI. Defaults to `/api/app-ai/chat` on your AppBlips; exported apps get it as a full address automatically. Change it only if your relay lives at a different address.
 </ParamField>
 
 <Warning>
-  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client bundle at build time, not read at runtime. If you change either value, you must rebuild the image — a plain container restart will not pick up the new values. Run `docker compose up --build` to apply the change.
+  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time. After changing either one, restart `npm run dev`, or run `docker compose up --build` with Docker.
 </Warning>
 
-## Relay Provider (when `APPBLIPS_GENERATED_AI_MODE=relay`)
+### App AI limits
 
-When you set `APPBLIPS_GENERATED_AI_MODE=relay`, configure a separate LLM provider for generated-app AI here. These credentials are kept server-side and are never sent to the browser.
+Generated apps always share the builder's provider, key, endpoint, and model; there is no separate key to configure. Only these limits are separate, and they are never inherited from the builder.
 
-<ParamField body="APPBLIPS_APP_LLM_BASE_URL" type="string">
-  Base URL of the OpenAI-compatible API to use for relay requests. Example: `https://api.openai.com/v1`.
+<ParamField body="APPBLIPS_APP_AI_MAX_TOKENS" type="number">
+  Maximum tokens per response. Defaults to `4096`.
 </ParamField>
 
-<ParamField body="APPBLIPS_APP_LLM_API_KEY" type="string">
-  API key for the relay LLM provider. Kept on the server; never exposed to generated apps or their users.
+<ParamField body="APPBLIPS_APP_AI_TEMPERATURE" type="number">
+  Sampling temperature. Defaults to `0.2`.
 </ParamField>
 
-<ParamField body="APPBLIPS_APP_LLM_MODEL" type="string">
-  Model name to use for relay requests. Example: `gpt-4o`.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_LLM_MAX_TOKENS" type="number">
-  Maximum tokens per relay response. Leave blank to use the provider default.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_LLM_TEMPERATURE" type="number">
-  Sampling temperature for relay responses. Defaults to `0.2`.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_LLM_REASONING_EFFORT" type="string">
-  Operator-set reasoning effort for relay requests. Accepted values depend on your provider and model — for example, `none`, `low`, `medium`, or `high`. Defaults to `none`. This is a server-side operator setting; the per-user reasoning effort control in the app's Settings modal does not apply to relay calls.
+<ParamField body="APPBLIPS_APP_AI_REASONING_EFFORT" type="string">
+  Reasoning effort for generated-app AI, for example `none` or `low`. Defaults to `none` (off).
 </ParamField>
 
 <ParamField body="APPBLIPS_APP_AI_ALLOWED_ORIGINS" type="string">
-  Comma-separated list of exact origins permitted to call the relay from a different domain. For example: `https://myapp.example.com,https://other.example.com`. Same-origin callers are always allowed. Only add `null` if you intentionally want apps opened as local `file://` pages to reach your relay.
+  Other origins allowed to call the relay, comma-separated and exact. Same-origin callers are always allowed. Add `null` only if you knowingly want local `file://` pages to use your key.
 </ParamField>
 
 <ParamField body="APPBLIPS_APP_AI_RATE_LIMIT_MAX" type="number">
-  Per-IP rate limit on relay requests. Defaults to `20` requests per window.
+  Relay requests allowed per client IP per window. Defaults to `20`.
 </ParamField>
 
 <ParamField body="APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS" type="number">
-  Window length in seconds for the relay rate limit. Defaults to `60`.
+  Relay rate-limit window in seconds. Defaults to `60`.
 </ParamField>
 
-## Hosting Mode
+## Debug Panel (optional)
 
-<ParamField body="SELF_HOSTED_MODE" type="boolean">
-  Controls whether AppBlips runs in self-hosted mode. Defaults to `true`, which enables single-user local operation with no sign-in, no cloud sync, and no deploy-to-public-URL feature. Set to `false` only if you are running the full hosted-mode stack — most self-hosters should leave this unset or set to `true`.
+<ParamField body="APPBLIPS_DEBUG_PIN" type="string">
+  PIN that unlocks a hidden panel showing the raw AI traffic (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>). Blank disables the feature.
 </ParamField>
 
-## Complete `.env` Example
+<ParamField body="APPBLIPS_DEBUG_PIN_RATE_LIMIT_MAX" type="number">
+  Wrong PIN guesses allowed per IP per window. Defaults to `5`.
+</ParamField>
 
-The following shows a minimal configuration (builder only, BYOK mode) and a full relay configuration side by side.
+<ParamField body="APPBLIPS_DEBUG_PIN_RATE_LIMIT_WINDOW_SECONDS" type="number">
+  Window for PIN guesses in seconds. Defaults to `300`.
+</ParamField>
+
+## About Hosted Mode
+
+The repository also contains the hosted mode that runs [appblips.com](https://appblips.com): Firebase sign-in, cloud projects, and public deploys, switched on with `SELF_HOSTED_MODE=false`. It is there because appblips.com is built from this repository. It is not a supported self-hosting setup, and the Elastic License 2.0 does not permit offering AppBlips to other people as a hosted service. Leave `SELF_HOSTED_MODE` unset.
+
+## Example `.env` Files
 
 <CodeGroup>
-```bash Minimal (BYOK)
-# Builder — required
-APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
-APPBLIPS_LLM_API_KEY=sk-...
-APPBLIPS_LLM_MODEL=gpt-4o
-
-# Optional tuning
-APPBLIPS_LLM_TEMPERATURE=0.2
-APPBLIPS_LLM_MAX_TOKENS=
-
-# Optional rate limiting
-APPBLIPS_CHAT_RATE_LIMIT_MAX=60
-APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS=300
-
-# Generated-app AI: users supply their own keys (default)
-APPBLIPS_GENERATED_AI_MODE=byok
+```bash Minimal
+# The only two lines you need
+APPBLIPS_OPENAI_API_KEY=sk-...
+APPBLIPS_LLM_MODEL=gpt-5.1
 ```
 
-```bash Relay Mode
-# Builder — required
-APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
-APPBLIPS_LLM_API_KEY=sk-...
-APPBLIPS_LLM_MODEL=gpt-4o
+```bash OpenRouter
+APPBLIPS_OPENROUTER_API_KEY=sk-or-...
+APPBLIPS_LLM_MODEL=anthropic/claude-sonnet-5
+```
 
-# Generated-app AI: server pays via relay
-APPBLIPS_GENERATED_AI_MODE=relay
-APPBLIPS_APP_AI_RELAY_URL=/api/app-ai/chat
+```bash Ollama (local model)
+APPBLIPS_LLM_BASE_URL=http://localhost:11434/v1
+APPBLIPS_LLM_API_KEY=ollama
+APPBLIPS_LLM_MODEL=llama3.1
+```
 
-# Relay provider
-APPBLIPS_APP_LLM_BASE_URL=https://api.openai.com/v1
-APPBLIPS_APP_LLM_API_KEY=sk-...
-APPBLIPS_APP_LLM_MODEL=gpt-4o
-APPBLIPS_APP_LLM_REASONING_EFFORT=none
+```bash BYOK for app AI
+APPBLIPS_OPENAI_API_KEY=sk-...
+APPBLIPS_LLM_MODEL=gpt-5.1
 
-# Relay access controls
-APPBLIPS_APP_AI_ALLOWED_ORIGINS=https://myapp.example.com
-APPBLIPS_APP_AI_RATE_LIMIT_MAX=20
-APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS=60
+# People using your finished apps bring their own key
+APPBLIPS_GENERATED_AI_MODE=byok
 ```
 </CodeGroup>

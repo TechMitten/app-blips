@@ -22,25 +22,32 @@ Here are quick answers to the most common questions about AppBlips — what it c
   <Accordion title="What is the difference between hosted and self-hosted?">
     **Hosted** ([appblips.com](https://appblips.com)) is the easiest way to start. Sign in with your account, build apps directly in your browser, and your projects sync automatically. Apps you publish get their own public URL and can be installed as a PWA.
 
-    **Self-hosted** runs AppBlips on your own machine or server. There is no account, no cloud sync, and no data sent to AppBlips — just you and the app. You bring your own AI provider API key, which stays on your server. Deploying apps to a public URL is not built in; you would need to export and host the HTML file yourself.
+    **Self-hosted** means running your own copy of AppBlips on your computer, for your own use. There is no account, no cloud sync, and no data sent to AppBlips — just you and the app. You bring your own AI provider API key, which stays in your `.env` file. Deploying apps to a public URL is not included; export the HTML file instead.
   </Accordion>
 
-  <Accordion title="Can I use a model other than GPT-4o?">
-    Yes. AppBlips works with any endpoint that is compatible with the OpenAI chat completions API format. That includes OpenAI, Azure OpenAI, Groq, Ollama, and many other providers.
+  <Accordion title="What does the license allow?">
+    AppBlips is source-available under the [Elastic License 2.0](https://github.com/techmitten/app-blips/blob/master/LICENSE). You can run it for yourself or inside your own organization, modify it, and share copies, as long as you keep the license and copyright notices.
 
-    In self-hosted mode, set the provider, key, and model in your `.env` file:
+    You can't offer AppBlips to other people as a hosted or managed service, whether paid or free. The public service is [appblips.com](https://appblips.com). The license text is the authoritative version.
+  </Accordion>
+
+  <Accordion title="Which AI models can I use?">
+    In a self-hosted copy, AppBlips has built-in support for OpenAI, OpenRouter (Claude, Gemini, and most other models), DeepSeek, and Z.ai, plus any other service compatible with the OpenAI chat completions API, such as Ollama or Groq.
+
+    Fill in one provider's key and the model in your `.env` file:
 
     ```bash
-    APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
-    APPBLIPS_LLM_API_KEY=your-api-key
-    APPBLIPS_LLM_MODEL=gpt-4o
+    APPBLIPS_OPENROUTER_API_KEY=your-api-key
+    APPBLIPS_LLM_MODEL=anthropic/claude-sonnet-5
     ```
+
+    See [Configuration](/self-hosting/configuration) for other services.
 
     On the hosted service at appblips.com, the AI provider is managed for you.
   </Accordion>
 
   <Accordion title="What happens to my API key in self-hosted mode?">
-    Your API key lives only in the `.env` file on the machine running AppBlips. The key is used exclusively by the server-side proxy when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+    Your API key lives only in the `.env` file on your computer. The key is used exclusively by the AppBlips server when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="Can I export the generated app?">
@@ -50,11 +57,15 @@ Here are quick answers to the most common questions about AppBlips — what it c
   <Accordion title="Can I deploy the app publicly?">
     On **appblips.com** (hosted mode), yes. Any app you build can be published to its own public URL with one click, and it is automatically installable as a Progressive Web App (PWA). You can optionally password-protect the deployed link.
 
-    In **self-hosted** mode, AppBlips does not include a public hosting feature. You can still share your app by exporting it as an HTML file and hosting it on any static file host of your choice.
+    A **self-hosted** copy does not include public deploys. You can still share an app by exporting it as an HTML file and putting it on any static file host.
+  </Accordion>
+
+  <Accordion title="How does AI inside my apps get paid for?">
+    When you build an app with the AI toggle on, the finished app can make AI calls using `blip.ai.text()`. On appblips.com, the platform provides that AI. In a self-hosted copy, by default the app uses your own provider and key through your AppBlips ([relay mode](/ai/relay-mode)), with nothing extra to set up.
   </Accordion>
 
   <Accordion title="What is BYOK mode for AI in apps?">
-    BYOK stands for **Bring Your Own Key**. When you build an app with the AI toggle enabled, the finished app can make AI calls using `blip.ai.text()`. In BYOK mode (the default for self-hosted), whoever uses the finished app is prompted to enter their own AI provider credentials the first time an AI feature is triggered.
+    BYOK stands for **Bring Your Own Key**. It is an opt-in self-hosted mode (`APPBLIPS_GENERATED_AI_MODE=byok`) where whoever uses the finished app is prompted to enter their own AI provider credentials the first time an AI feature is triggered.
 
     The key the end user enters is stored only in their browser — in session storage by default, or local storage if they choose "Remember on this device." It is never written into the generated HTML and is never sent to AppBlips.
   </Accordion>

@@ -11,7 +11,7 @@
 //
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
-// which is UI-only) and spend the LLM budget behind APPBLIPS_LLM_API_KEY. So,
+// which is UI-only) and spend the LLM budget behind the configured provider key. So,
 // in hosted mode (SELF_HOSTED_MODE=false), every request must carry a valid
 // Firebase ID token, verified against Firebase itself (not just "a token was
 // present"). Self-hosted mode is the default (SELF_HOSTED_MODE unset or
@@ -22,7 +22,7 @@
 // if they expose it beyond localhost.
 
 import { wrapWithTokenTracking } from './trackTokens.js';
-import { applyReasoningSetting } from './reasoning.js';
+import { resolveProvider, applyProviderSettings } from './providers.js';
 
 let jwksCache = { keys: [], expiry: 0 };
 const cryptoKeysCache = new Map();
@@ -335,13 +335,22 @@ const readJsonWithLimit = async (request, maxBytes) => {
   }
 };
 
+// Misconfiguration is the operator's problem. Self-hosters (who are the
+// operator) get the exact fix; in hosted mode the signed-in visitor gets a
+// generic message and the details go to the server log instead of the client.
+const configError = (env, detail) => {
+  const hosted = isHostedMode(env);
+  if (hosted) console.error(`[chat] ${detail}`);
+  return new Response(
+    JSON.stringify({ error: hosted ? 'The AI service is temporarily unavailable. Please try again later.' : `AppBlips isn't set up yet. ${detail}` }),
+    { status: 500, headers: { 'content-type': 'application/json' } },
+  );
+};
+
 // Core keys are required in every hosting mode; FIREBASE_API_KEY is only
 // needed to verify tokens in hosted mode (SELF_HOSTED_MODE=false).
-const validateEnv = (env) => {
-  const missing = [];
-  if (!env.APPBLIPS_LLM_BASE_URL) missing.push('APPBLIPS_LLM_BASE_URL');
-  if (!env.APPBLIPS_LLM_API_KEY) missing.push('APPBLIPS_LLM_API_KEY');
-  if (!env.APPBLIPS_LLM_MODEL) missing.push('APPBLIPS_LLM_MODEL');
+const validateEnv = (env, provider) => {
+  const missing = [...provider.missing];
   if (env.SELF_HOSTED_MODE === 'false' && !env.FIREBASE_API_KEY) missing.push('FIREBASE_API_KEY');
   return missing;
 };
@@ -351,11 +360,13 @@ export async function handleChatProxy(request, env, waitUntil) {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const missingEnv = validateEnv(env);
+  const provider = resolveProvider(env, 'APPBLIPS_LLM');
+  if (provider.error) return configError(env, provider.error);
+  const missingEnv = validateEnv(env, provider);
   if (missingEnv.length) {
-    return new Response(
-      JSON.stringify({ error: `Server is missing required configuration: ${missingEnv.join(', ')}.` }),
-      { status: 500, headers: { 'content-type': 'application/json' } },
+    return configError(
+      env,
+      `Missing configuration: ${missingEnv.join(', ')}. Add ${missingEnv.length > 1 ? 'them' : 'it'} to your .env (or your host's environment variables) and restart.`,
     );
   }
 
@@ -383,9 +394,9 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  const url = toChatCompletionsUrl(env.APPBLIPS_LLM_BASE_URL);
-  const apiKey = env.APPBLIPS_LLM_API_KEY;
-  const model = env.APPBLIPS_LLM_MODEL;
+  const url = toChatCompletionsUrl(provider.baseUrl);
+  const apiKey = provider.apiKey;
+  const model = provider.model;
 
   const hosted = isHostedMode(env);
 
@@ -429,20 +440,6 @@ export async function handleChatProxy(request, env, waitUntil) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  // Reasoning effort is a per-user setting chosen in the app's Settings modal
-  // and sent by the client; the server no longer reads it from env. Client
-  // requests omit it only for auxiliary calls, which default to 'none' here.
-  // applyReasoningSetting translates it into the wire format of whichever
-  // provider APPBLIPS_LLM_MODEL / APPBLIPS_LLM_BASE_URL point at (OpenAI-style
-  // reasoning_effort pass-through, or Z.ai's thinking toggle + effort) and
-  // drops stream_options for providers that don't document it.
-  const { provider, reasoningEnabled } = applyReasoningSetting(bodyObj, {
-    effort: reasoning_effort ?? 'none',
-    model,
-    baseUrl: env.APPBLIPS_LLM_BASE_URL,
-    providerOverride: env.APPBLIPS_LLM_PROVIDER,
-  });
-
   if (ask === true) {
     const parsedAskMax = parseInt(env.APPBLIPS_LLM_ASK_MAX_TOKENS, 10);
     bodyObj.max_tokens = parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
@@ -456,16 +453,14 @@ export async function handleChatProxy(request, env, waitUntil) {
   }
 
   if (tools) bodyObj.tools = tools;
-  if (tool_choice) {
-    // Thinking backends reject both required and named tool choices while
-    // reasoning is on, and Z.ai rejects them unconditionally -- its schema
-    // only accepts tool_choice: 'auto'. Resolve this here, where the
-    // effective provider and reasoning setting are both known. The refinement
-    // loop already nudges the model if auto returns no tool call.
-    const forcedToolChoice = tool_choice === 'required' || tool_choice?.type === 'function';
-    const mustDowngrade = forcedToolChoice && (provider === 'zai' || reasoningEnabled);
-    bodyObj.tool_choice = mustDowngrade ? 'auto' : tool_choice;
-  }
+  if (tool_choice) bodyObj.tool_choice = tool_choice;
+
+  // Reasoning is a per-user setting sent by the client ('none' when omitted).
+  // applyProviderSettings writes it in the configured provider's format (see
+  // providers.js), drops stream_options where unsupported, and relaxes forced
+  // tool choices the provider would reject -- the refinement loop already
+  // nudges the model if 'auto' returns no tool call.
+  applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
 
   let upstream;
   try {

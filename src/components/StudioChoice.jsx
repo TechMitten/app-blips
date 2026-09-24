@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import {
-  Zap, Database, Smartphone, Layout, FileText, MousePointerClick, FolderOpen, History, Search, LogIn, LogOut, Sun, Moon,
+  Zap, Database, Smartphone, Layout, FileText, MousePointerClick, FolderOpen, History, Search, LogIn, LogOut, Sun, Moon, Settings,
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 
@@ -124,13 +124,14 @@ const ProjectsArtifact = () => (
 
 const ARTIFACTS = { app: PhoneArtifact, website: BrowserArtifact, projects: ProjectsArtifact };
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, resolvedTheme = 'light', onThemeChange }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, resolvedTheme = 'light', onThemeChange, onOpenSettings }) {
   // Escape mirrors the on-screen back control, but only when there is
-  // something to go back to (the forced gate has none).
+  // something to go back to (the forced gate has none). A modal open over the
+  // picker (e.g. Settings) handles its own Escape first.
   useEffect(() => {
     if (!onCancel) return;
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') onCancel();
+      if (event.key === 'Escape' && !event.defaultPrevented) onCancel();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -240,9 +241,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             })}
           </div>
 
-          {/* Exits from the choice: sign out, theme, or -- mid-session only --
-              backing out. */}
-          {(onCancel || canSignOut || onThemeChange) && (
+          {/* Exits from the choice: sign out, theme, settings, or -- mid-session
+              only -- backing out. */}
+          {(onCancel || canSignOut || onThemeChange || onOpenSettings) && (
             <div className="mt-6 flex items-center gap-3 animate-stagger-3">
               {canSignOut && (
                 <button
@@ -274,6 +275,17 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   {resolvedTheme === 'dark'
                     ? <Sun size={17} aria-hidden="true" />
                     : <Moon size={17} aria-hidden="true" />}
+                </button>
+              )}
+              {onOpenSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  aria-label="Settings"
+                  title="Settings"
+                  className="studio-exit inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-colors hover:text-slate-950 dark:text-white/80 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                >
+                  <Settings size={17} aria-hidden="true" />
                 </button>
               )}
             </div>

@@ -2,11 +2,13 @@
 
 Thanks for helping out. Issues and pull requests are welcome.
 
+AppBlips is licensed under the [Elastic License 2.0](LICENSE). By opening a pull request, you agree that your contribution is licensed under the same terms.
+
 ## Running it locally
 
 ```bash
 npm install
-cp .env.example .env    # then set APPBLIPS_LLM_BASE_URL, APPBLIPS_LLM_API_KEY and APPBLIPS_LLM_MODEL
+cp .env.example .env    # then fill in one provider key and APPBLIPS_LLM_MODEL (e.g. APPBLIPS_OPENAI_API_KEY)
 npm run dev             # http://localhost:5175
 ```
 

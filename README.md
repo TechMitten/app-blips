@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="LICENSE"><img alt="License: Elastic License 2.0" src="https://img.shields.io/badge/license-Elastic_2.0-blue.svg"></a>
   <a href="https://docs.appblips.com/"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.appblips.com-080808"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
@@ -24,6 +24,22 @@
 
 https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
 
+## License
+
+AppBlips is licensed under the **Elastic License 2.0 (ELv2)**.
+
+This is a source-available license: the code is public, but it can't be turned into a competing service.
+
+**What you can do:**
+- Run AppBlips on your own computer for your own use, or inside your own organization, free of charge.
+- Modify the code, and share copies or modified versions, as long as you keep the license and copyright notices and mark your changes.
+
+**What you can't do:**
+- Offer AppBlips to other people as a hosted or managed service, whether paid or free. The public service at [appblips.com](https://appblips.com) is run by TechMitten LLC.
+
+The hosted-mode code (Firebase sign-in, cloud projects, public deploys, and [`.env.hosted.example`](.env.hosted.example)) is in this repository because it powers appblips.com. It is not a supported setup for anyone else.
+
+For the full legal terms, read the [LICENSE](LICENSE) file.
 
 ## Why AppBlips?
 
@@ -44,8 +60,8 @@ Under the hood, AppBlips is a React app that sends your build prompt to an AI mo
 
 There are two ways to run it:
 
-- **Hosted** ([appblips.com](https://appblips.com)) — sign in and build straight from your browser, with nothing to install. Your projects sync to your account, and any app or website can be deployed to its own public URL as an installable PWA.
-- **Self-hosted** — run it on your own machine or server. A single local user, no sign-in and no cloud sync — just you and the app.
+- **Hosted** ([appblips.com](https://appblips.com)) — the official service. Sign in and build straight from your browser, with nothing to install. Your projects sync to your account, and any app or website can be deployed to its own public URL as an installable PWA.
+- **Self-hosted** — run your own copy on your computer, for your own use. A single local user, no sign-in and no cloud sync — just you and the app. See [License](#license) for what is allowed.
 
 See [Quick start](#quick-start) below to pick one.
 
@@ -75,7 +91,7 @@ Go to **[appblips.com](https://appblips.com)**, sign in, and start typing. There
 
 ### Self-hosted
 
-Prefer to run AppBlips yourself? There is no signup, and once it is running, using it is as simple as typing a prompt. You need one server-side API key to power the builder. People using an AI-enabled app made by your default self-hosted installation enter their own key inside that finished app.
+Prefer to run AppBlips on your own computer? There is no signup, and once it is running, using it is as simple as typing a prompt. You need one server-side API key to power the builder. AI inside the apps you build uses the same key.
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 20.19+ (or 22.12+) and npm (npm comes bundled with Node.js).
 
@@ -86,15 +102,14 @@ npm install                                             # install dependencies
 cp .env.example .env                                    # create your local config file
 ```
 
-Open the new `.env` file and set, at minimum, the AI provider to use:
+Open the new `.env` file and fill in **two lines**: the API key for one AI provider, and the model. The file lists OpenAI, OpenRouter, DeepSeek and Z.ai; a provider is active once its key is filled in, so leave the others blank:
 
 ```
-APPBLIPS_LLM_BASE_URL=https://api.openai.com/v1
-APPBLIPS_LLM_API_KEY=your-api-key
-APPBLIPS_LLM_MODEL=gpt-4o
+APPBLIPS_OPENAI_API_KEY=your-api-key
+APPBLIPS_LLM_MODEL=gpt-5.1
 ```
 
-Any OpenAI-chat-completions-compatible endpoint works here, not just OpenAI's own.
+Use OpenRouter to reach Claude, Gemini and most other models. Any other OpenAI-chat-completions-compatible endpoint works too (see "Advanced" in `.env.example`). When AppBlips starts, it prints which provider it found and what is still missing.
 
 Then start AppBlips:
 
@@ -112,40 +127,40 @@ Turn on the **AI** switch before generating or refining an app, then describe th
 
 AppBlips teaches the generated code the `blip.ai.text(messages, options)` API. References such as `BLIP.AI.TEXT` in a build prompt are accepted too; generated JavaScript uses the canonical lowercase form.
 
-In the default self-hosted `byok` mode, the first AI request in the preview or exported app opens a small **Connect your AI provider** dialog. The person using the finished app enters an OpenAI-compatible endpoint, a model name, and their own API key. The key is stored only in that browser: session storage by default, or local storage when **Remember on this device** is selected. It is never inserted into the generated HTML or saved in the AppBlips project. The provider must allow browser requests with CORS.
+By default, AI in your apps uses the same provider and model as the builder, so there is nothing extra to set up. If you would rather have each person bring their own key, set `APPBLIPS_GENERATED_AI_MODE=byok`. In that self-hosted `byok` mode, the first AI request in the preview or exported app opens a small **Connect your AI provider** dialog. The person using the finished app enters an OpenAI-compatible endpoint, a model name, and their own API key. The key is stored only in that browser: session storage by default, or local storage when **Remember on this device** is selected. It is never inserted into the generated HTML or saved in the AppBlips project. The provider must allow browser requests with CORS.
 
 The generated app can also expose a settings action that calls `blip.ai.configure()`. It can check `blip.ai.isConfigured()` and disconnect with `blip.ai.clearConfiguration()`. App authors do not need to design their own API-key form.
 
-If the operator wants to pay for generated-app AI instead of using BYOK, configure the server-side `APPBLIPS_APP_LLM_*` variables. This provider is used by hosted AppBlips and by self-hosted instances set to `APPBLIPS_GENERATED_AI_MODE=relay`. The browser receives only a public relay token or URL; the provider key remains on the server, so nontechnical hosted customers never enter a provider key.
+When self-hosted, generated apps reach your provider through your own AppBlips at `/api/app-ai/chat`. They always share the builder's provider, key and model. The browser only ever receives the relay URL; the provider key stays in your `.env`.
 
 ## Running with Docker
 
-For a longer-lived self-hosted setup, use Docker instead of `npm run dev`. The image builds the static client and serves it — along with the builder `/api/chat` endpoint and optional `/api/app-ai/chat` relay — from a small dependency-free Node server ([`server.js`](server.js)), so no `wrangler` or Cloudflare-specific tooling is required.
+If you'd rather not run the dev server, you can use Docker instead of `npm run dev`. The image builds the static client and serves it — along with the builder `/api/chat` endpoint and optional `/api/app-ai/chat` relay — from a small dependency-free Node server ([`server.js`](server.js)), so no `wrangler` or Cloudflare-specific tooling is required.
 
 ```bash
 docker compose up --build
 ```
 
-This reads environment variables from the same `.env` file as above and serves the app on `http://localhost:3000`.
+This reads environment variables from the same `.env` file as above and serves the app on `http://localhost:3000`. The port is bound to `127.0.0.1`, so only your own computer can reach it.
 
 `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time, so after changing either one, rerun `docker compose up --build` (a plain restart won't pick it up). Other variables are read at runtime.
 
 ## Configuration
 
-Builder and operator settings live in the `.env` file. In self-hosted BYOK mode, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for the full, authoritative list. The key groups:
+Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for the full, authoritative list. The key groups:
 
 | Group | Variables | Notes |
 | --- | --- | --- |
-| LLM (required) | `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL` | Server-side only, never exposed to the browser bundle |
+| LLM (required, one provider) | `APPBLIPS_OPENAI_API_KEY`, `APPBLIPS_OPENROUTER_API_KEY`, `APPBLIPS_DEEPSEEK_API_KEY` or `APPBLIPS_ZAI_API_KEY`, plus `APPBLIPS_LLM_MODEL` | A provider is active when its key is filled in; if several are, the first listed wins, or set `APPBLIPS_LLM_PROVIDER`. Any other OpenAI-compatible API: `APPBLIPS_LLM_BASE_URL`, `APPBLIPS_LLM_API_KEY`, `APPBLIPS_LLM_MODEL`. Server-side only, never exposed to the browser bundle |
 | LLM tuning (optional) | `APPBLIPS_LLM_MAX_TOKENS`, `APPBLIPS_LLM_ASK_MAX_TOKENS`, `APPBLIPS_LLM_TEMPERATURE` | `APPBLIPS_LLM_ASK_MAX_TOKENS` caps Ask-mode replies only (default `8192`, independent of `APPBLIPS_LLM_MAX_TOKENS`). `APPBLIPS_LLM_TEMPERATURE` defaults to `0.2`. Reasoning effort is a per-user choice in the app's Settings modal |
 | Rate limiting (optional) | `APPBLIPS_CHAT_RATE_LIMIT_MAX`, `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` | Per-user limit on `/api/chat`, defaulting to 60 requests per 300s. Tracked in memory per server instance, so treat it as a speed bump rather than a hard budget cap |
-| Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. `byok` is the safe default; `relay` makes the operator fund app AI |
-| Generated-app relay provider | `APPBLIPS_APP_LLM_BASE_URL`, `APPBLIPS_APP_LLM_API_KEY`, `APPBLIPS_APP_LLM_MODEL` (optional: `APPBLIPS_APP_LLM_MAX_TOKENS`, `APPBLIPS_APP_LLM_TEMPERATURE`, `APPBLIPS_APP_LLM_REASONING_EFFORT`) | Powers generated-app AI in hosted mode and in self-hosted relay mode; separate from the builder provider and server-side only |
+| Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | Self-hosted only. The default `relay` sends app AI through your builder provider; `byok` makes each person using a finished app bring their own key |
+| Generated-app AI limits (optional) | `APPBLIPS_APP_AI_MAX_TOKENS`, `APPBLIPS_APP_AI_TEMPERATURE`, `APPBLIPS_APP_AI_REASONING_EFFORT` | AI in generated apps always uses the builder's provider, key and model; only these limits are separate (defaults: 4096 tokens, 0.2, reasoning off) |
 | Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, `APPBLIPS_APP_AI_RATE_LIMIT_MAX`, `APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS` | Exact cross-origin allowlist and per-IP in-memory rate limit |
-| Deployed-app AI sessions | `APPBLIPS_SESSION_SECRET`, `APPBLIPS_AI_SESSION_TTL_SECONDS`, `APPBLIPS_AI_REQUIRE_SESSION`, `APPBLIPS_AI_REQUIRE_ORIGIN`, `TURNSTILE_SECRET`, `VITE_AI_SESSION_ENABLED`, `VITE_AI_TURNSTILE_SITE_KEY` | Hosted mode. Replaces the durable in-HTML deployment token with short-lived, server-signed session tokens minted at `/ai/session`; optional Turnstile gate |
-| Hosting mode | `SELF_HOSTED_MODE` | Defaults to self-hosted. Only `false` enables the Firebase-backed hosted mode |
+| Deployed-app AI sessions | `APPBLIPS_SESSION_SECRET`, `APPBLIPS_AI_SESSION_TTL_SECONDS`, `APPBLIPS_AI_REQUIRE_SESSION`, `APPBLIPS_AI_REQUIRE_ORIGIN`, `TURNSTILE_SECRET`, `VITE_AI_SESSION_ENABLED`, `VITE_AI_TURNSTILE_SITE_KEY` | Used only by the official appblips.com deployment. Replaces the durable in-HTML deployment token with short-lived, server-signed session tokens minted at `/ai/session`; optional Turnstile gate |
+| Hosting mode | `SELF_HOSTED_MODE` | Defaults to self-hosted and is not in `.env.example`. `false` enables the Firebase-backed hosted mode that runs appblips.com; its settings are in [`.env.hosted.example`](.env.hosted.example). See [License](#license) |
 
-> **Note:** in self-hosted mode `/api/chat` performs no authentication — every request is treated as the same local user. If you expose the app beyond localhost, you're responsible for putting your own access control in front of it.
+> **Note:** self-hosted AppBlips is meant to run on your own computer. `/api/chat` performs no authentication — every request is treated as the same local user — so keep it on localhost. If you reach it from other devices on your network, put your own access control in front of it.
 
 ---
 
@@ -159,7 +174,7 @@ Builder and operator settings live in the `.env` file. In self-hosted BYOK mode,
 | `npm run build` | Production build to `dist/` |
 | `npm run lint` | Run ESLint |
 | `npm run preview` | Preview the production build locally |
-| `npm run usage` | Local usage dashboard for operators (hosted mode only; needs the Firebase CLI logged in) |
+| `npm run usage` | Usage dashboard for the appblips.com maintainers (hosted mode only; needs the Firebase CLI logged in) |
 
 There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (e.g. `node testing/testChatProxy.js`, `node testing/test-ai-relay.js`) that exercise the proxy, AI relay, bridge and preview behavior.
 
@@ -173,9 +188,9 @@ src/
   lib/               # Framework-free logic: LLM calls, surgical edits, prompts, deploy, crypto...
   hooks/             # Stateful concerns: auth, projects, deployment, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
-functions/           # Cloudflare Pages Functions: /api/chat proxy, deployed-app server
-server.js            # Standalone Node server for Docker self-hosted deployments
-scripts/             # Operator tooling (usage dashboard)
+functions/           # /api/chat proxy and AI relays, plus the Cloudflare Pages Functions behind appblips.com
+server.js            # Standalone Node server used by the Docker setup
+scripts/             # Maintainer tooling for appblips.com (usage dashboard)
 testing/             # Standalone Node scripts for exercising the proxy, AI relay and preview
 ```
 
@@ -185,14 +200,10 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and the parent can't reach the app's DOM. See [`src/previewBridge.js`](src/previewBridge.js) for details.
 - Self-hosted BYOK credentials are entered explicitly by the finished-app user and live in browser storage only. Session storage is the default; persistent storage is opt-in. They are never bundled into HTML, but the provider must permit browser CORS and any script running in that app can access that key while it is connected.
-- A self-hosted generated-app relay exposes operator-funded AI. Restrict `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, put authentication or a gateway in front of public installations when appropriate, and treat the built-in per-IP limiter as a speed bump rather than a billing boundary.
-- In self-hosted mode, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Don't expose it beyond localhost without adding your own access control. (In hosted mode the proxy requires a valid Firebase ID token and App Check token.)
-- Deployed apps are served from a separate hostname, never the app's own origin — they're AI-generated code with full script privileges, so keeping them off-origin stops them reading anything the SPA stores.
+- The self-hosted generated-app relay (`/api/app-ai/chat`) spends your provider key. It only accepts same-origin calls unless you list other origins in `APPBLIPS_APP_AI_ALLOWED_ORIGINS`, and its per-IP limiter is a speed bump, not a billing boundary. Keep it on your own machine.
+- In self-hosted mode, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Keep it on localhost, or add your own access control if other devices can reach it. (In hosted mode the proxy requires a valid Firebase ID token and App Check token.)
+- On appblips.com, deployed apps are served from a separate hostname, never the app's own origin — they're AI-generated code with full script privileges, so keeping them off-origin stops them reading anything the SPA stores.
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `npm run lint` before submitting a PR.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md); please run `npm run lint` before submitting a PR.

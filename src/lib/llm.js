@@ -2,6 +2,7 @@ import authProvider from './auth';
 import { firebaseEnabled } from '../firebase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
+import { beginRawEntry, recordRaw } from './rawLog';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -49,6 +50,12 @@ function parseClarifyingQuestionArgs(rawArguments) {
   return { question: q };
 }
 
+// Reasoning for calls that only produce chat text (clarifying question, intro
+// and completion replies, ask-mode answers). These stay fast regardless of the
+// user's build/edit reasoning toggles, which only govern calls that write or
+// fix code.
+const CHAT_REASONING_EFFORT = 'none';
+
 export const generateClarifyingQuestion = async ({
   prompt,
   currentCode = null,
@@ -72,8 +79,9 @@ export const generateClarifyingQuestion = async ({
     messages,
     tools: [ASK_CLARIFYING_QUESTIONS_TOOL],
     tool_choice: 'auto',
-    reasoningEffort: 'none',
-    signal
+    reasoningEffort: CHAT_REASONING_EFFORT,
+    signal,
+    label: 'clarifying question'
   });
 
   const toolCall = message.tool_calls?.find(t => t.function?.name === 'ask_clarifying_questions');
@@ -85,7 +93,7 @@ export const generateClarifyingQuestion = async ({
 };
 
 // Streams the one-sentence conversational acknowledgement for a build/edit turn
-// as its own cheap, reasoning-disabled call. It runs BEFORE the heavy
+// as its own cheap, reasoning-free call. It runs BEFORE the heavy
 // generation/edit call so the chat shows the assistant's reply immediately,
 // instead of only once the (hidden) reasoning has finished and code starts
 // arriving. Deltas are forwarded as the 'reply' chunk kind so the UI can render
@@ -112,8 +120,9 @@ export const generateChatReply = async ({
   let streamed = '';
   const message = await requestModelText({
     messages,
-    reasoningEffort: 'none',
+    reasoningEffort: CHAT_REASONING_EFFORT,
     signal,
+    label: 'chat reply',
     onChunk: (delta, kind) => {
       if (kind !== 'content') return;
       streamed += delta;
@@ -123,6 +132,55 @@ export const generateChatReply = async ({
 
   const text = (streamed || message.content || '').trim();
   return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
+};
+
+// Best-effort purpose for the raw debug log when a caller passes no `label`.
+const inferRawLabel = ({ tools, askMode, forceTemperatureZero }) => {
+  if (askMode) return 'ask';
+  if (forceTemperatureZero) return 'auto-fix';
+  const names = (tools || []).map((t) => t?.function?.name).filter(Boolean);
+  return names.length ? `tools: ${names.join(', ')}` : 'completion';
+};
+
+// Raw debug-log entries for the parts of the loop that never reach the model
+// call itself: tool execution results and the corrective re-prompts.
+const logToolResult = (toolCall, result) =>
+  recordRaw({ kind: 'tool_result', label: toolCall?.function?.name || 'tool', toolCall, result });
+const logNote = (label, text) => recordRaw({ kind: 'note', label, text });
+
+// Reasoning a provider returns alongside a reply. Providers name it
+// differently (reasoning_content, reasoning, reasoning_details) and several
+// reject a tool-calling follow-up whose earlier reasoning is missing, so
+// whatever arrives is kept under its own field name and echoed back unchanged
+// on the next request. A provider only ever receives fields it sent itself.
+const REASONING_TEXT_FIELDS = ['reasoning_content', 'reasoning'];
+const REASONING_ECHO_FIELDS = [...REASONING_TEXT_FIELDS, 'reasoning_details'];
+
+// Streamed reasoning_details arrive as fragments keyed by `index`: text-like
+// parts concatenate, everything else (signatures, ids, formats) keeps the
+// latest value.
+const mergeReasoningDetails = (acc, items) => {
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const i = Number.isInteger(item.index) ? item.index : acc.length;
+    if (!acc[i]) { acc[i] = { ...item }; continue; }
+    for (const [key, value] of Object.entries(item)) {
+      if (value == null || key === 'index') continue;
+      if ((key === 'text' || key === 'summary') && typeof acc[i][key] === 'string') acc[i][key] += value;
+      else acc[i][key] = value;
+    }
+  }
+};
+
+// The assistant message to append to a tool-calling conversation, carrying
+// any provider reasoning that has to be sent back.
+const assistantTurn = (message) => {
+  const turn = { role: 'assistant', content: message.content || null };
+  for (const field of REASONING_ECHO_FIELDS) {
+    if (message[field]?.length) turn[field] = message[field];
+  }
+  if (message.tool_calls?.length) turn.tool_calls = message.tool_calls;
+  return turn;
 };
 
 // --- API Helper with Exponential Backoff ---
@@ -135,9 +193,13 @@ export const requestModelText = async ({
   retryCount = 0,
   signal = null,
   forceTemperatureZero = false,
-  askMode = false
+  askMode = false,
+  label = null
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
+  // Raw debug-log handle; stays null until the request body exists, and inert
+  // unless the PIN-gated panel has been unlocked.
+  let rawEntry = null;
 
   try {
     const token = await authProvider.getIdToken();
@@ -165,6 +227,13 @@ export const requestModelText = async ({
     if (forceTemperatureZero) bodyObj.auto_fix = true;
     // Ask-mode replies use a dedicated, smaller server-side output cap.
     if (askMode) bodyObj.ask = true;
+
+    rawEntry = beginRawEntry({
+      kind: 'request',
+      label: label || inferRawLabel({ tools, askMode, forceTemperatureZero }),
+      attempt: retryCount + 1,
+      request: bodyObj,
+    });
 
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -196,8 +265,10 @@ export const requestModelText = async ({
     }
     if (!response.ok) {
       let message = `API Error: ${response.status}`;
+      rawEntry?.update({ status: response.status });
       try {
         const errData = await response.json();
+        rawEntry?.update({ errorBody: errData });
         if (errData?.error) {
           message = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
         }
@@ -214,6 +285,7 @@ export const requestModelText = async ({
 
     if (!onChunk) {
       const data = await response.json();
+      rawEntry?.finish({ status: response.status, response: data });
       return data.choices[0].message;
     }
 
@@ -222,7 +294,22 @@ export const requestModelText = async ({
 
     let text = '';
     let reasoning = '';
+    // Provider reasoning fields to echo back, keyed by field name.
+    const echoed = {};
     let toolCallsBuffer = [];
+    let finishReason;
+    let usage;
+
+    // With reasoning on, the model thinks silently (or streams hidden
+    // reasoning_content) before any output. Bracket that window so the UI can
+    // show a "Thinking" state until the first content or tool-call delta.
+    let thinking = Boolean(reasoningEffort && reasoningEffort !== 'none');
+    const endThinking = () => {
+      if (!thinking) return;
+      thinking = false;
+      onChunk('', 'thinking_end');
+    };
+    if (thinking) onChunk('', 'thinking_start');
     // One live-preview segment per streamed tool call, so a turn that edits
     // several pages doesn't blur them into one stream.
     let lastStreamedIdx = -1;
@@ -254,33 +341,55 @@ export const requestModelText = async ({
         const trimmedLine = line.trim();
         if (trimmedLine.startsWith('data: ')) {
           const data = trimmedLine.slice(6);
+          rawEntry?.stream(data);
           if (data === '[DONE]') {
             isDone = true;
             break;
           }
           try {
             const json = JSON.parse(data);
+            // Read before `choices[0]` below, which throws on usage-only chunks.
+            if (json.usage) usage = json.usage;
+            if (json.choices?.[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
             const delta = json.choices[0]?.delta;
             
             if (delta?.content) {
+              endThinking();
               text += delta.content;
+              rawEntry?.progress({ text });
               onChunk(delta.content, 'content');
             }
 
-            if (delta?.reasoning_content) {
-              // Thinking tokens never become code, but they must be retained:
-              // DeepSeek requires reasoning_content from prior assistant turns to
-              // be passed back on every subsequent tool-calling request, or it
-              // returns a 400. Forwarding to the UI only flips a "thinking"
-              // indicator; the accumulated text is returned to the caller below.
-              reasoning += delta.reasoning_content;
-              onChunk(delta.reasoning_content, 'reasoning');
+            // Thinking tokens never become code, but they are retained for
+            // echoing back (see REASONING_ECHO_FIELDS). Forwarding to the UI
+            // only flips a "thinking" indicator.
+            let reasoningDelta = '';
+            for (const field of REASONING_TEXT_FIELDS) {
+              const piece = delta?.[field];
+              if (typeof piece !== 'string' || !piece) continue;
+              echoed[field] = (echoed[field] || '') + piece;
+              // A provider may send the same text in two fields; show it once.
+              reasoningDelta ||= piece;
+            }
+            if (Array.isArray(delta?.reasoning_details)) {
+              mergeReasoningDetails(echoed.reasoning_details ??= [], delta.reasoning_details);
+            }
+            if (reasoningDelta) {
+              reasoning += reasoningDelta;
+              rawEntry?.progress({ reasoning });
+              onChunk(reasoningDelta, 'reasoning');
             }
 
             if (delta?.tool_calls) {
+              endThinking();
               for (const tc of delta.tool_calls) {
                 const idx = tc.index ?? (tc.id ? toolCallsBuffer.length : Math.max(0, toolCallsBuffer.length - 1));
                 if (!toolCallsBuffer[idx]) toolCallsBuffer[idx] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
+                // Keep provider-specific data attached to the call (e.g. thought
+                // signatures); it must be sent back with the call next turn.
+                for (const [key, value] of Object.entries(tc)) {
+                  if (value != null && !['index', 'id', 'type', 'function'].includes(key)) toolCallsBuffer[idx][key] = value;
+                }
                 if (tc.function?.arguments) {
                   toolCallsBuffer[idx].function.arguments += tc.function.arguments;
                   // Surgical-edit arguments are the only "code being written"
@@ -314,13 +423,27 @@ export const requestModelText = async ({
       }
     }
 
-    return { content: text, reasoning_content: reasoning || undefined, tool_calls: toolCallsBuffer.filter(Boolean) };
+    endThinking();
+    rawEntry?.finish({
+      status: response.status,
+      text,
+      reasoning: reasoning || undefined,
+      reasoningDetails: echoed.reasoning_details,
+      toolCalls: toolCallsBuffer.filter(Boolean),
+      finishReason,
+      usage,
+    });
+    return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
+    if (onChunk) onChunk('', 'thinking_end');
+    const aborted = signal?.aborted || err.name === 'AbortError';
+    const willRetry = !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
+    rawEntry?.finish({ error: aborted ? 'Aborted' : (err.message || String(err)), willRetry });
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable) {
+    if (willRetry) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, label
       });
     }
     throw new Error(err.message || 'Failed to generate app.');
@@ -387,7 +510,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
 // than through create_page: some providers deliver tool-call arguments as a
 // single event once the whole call is finished, which left the live views blank
 // for the entire page and looked like a hang.
-const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk, projectName }) => {
+const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk, projectName, reasoningEffort }) => {
   let result = files;
   const targets = [...new Set(findBrokenLinks(files).map((b) => b.target))].slice(0, MAX_PAGES - 1);
   if (onChunk && targets.length) {
@@ -416,7 +539,8 @@ const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, o
           ],
           onChunk: forwardLive,
           signal,
-          reasoningEffort: 'none'
+          reasoningEffort,
+          label: `create page: ${pageName}`
         });
         html = sanitizeHtmlResponse(message.content || message || '');
       }
@@ -448,12 +572,17 @@ const generateAppCodeCore = async (
   aiEnabled = false,
   aiMode = 'hosted',
   isAutoFix = false,
-  reasoningEffort = 'none',
+  reasoningEffort = { build: 'none', edit: 'none' },
   studioMode = 'app',
   currentFiles = null,
   projectName = ''
 ) => {
   const isWebsite = studioMode === 'website';
+  // Separate user-chosen efforts for the initial build and for edits. Error
+  // fixes follow the effort of the step they repair; chat-only calls use
+  // CHAT_REASONING_EFFORT instead.
+  const buildEffort = reasoningEffort?.build ?? 'none';
+  const editEffort = reasoningEffort?.edit ?? 'none';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = isWebsite ? 'website' : 'app';
@@ -478,7 +607,7 @@ const generateAppCodeCore = async (
         )
       }
     ];
-    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort, askMode: true });
+    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort: CHAT_REASONING_EFFORT, askMode: true });
     const rawText = (message.content || message).trim();
     return {
       code: currentCode || '',
@@ -566,7 +695,8 @@ const generateAppCodeCore = async (
         onChunk,
         signal,
         forceTemperatureZero: isAutoFix,
-        reasoningEffort: isAutoFix ? 'none' : reasoningEffort
+        reasoningEffort: buildEffort,
+        label: isAutoFix ? 'auto-fix build' : 'initial build'
       });
 
       rawText = message.content || message;
@@ -603,7 +733,8 @@ const generateAppCodeCore = async (
             tool_choice: 'required',
             signal,
             forceTemperatureZero: true,
-            reasoningEffort: 'none'
+            reasoningEffort: buildEffort,
+            label: 'syntax repair'
           });
         } catch {
           repairMessage = await requestModelText({
@@ -612,18 +743,15 @@ const generateAppCodeCore = async (
             tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
             signal,
             forceTemperatureZero: true,
-            reasoningEffort: 'none'
+            reasoningEffort: buildEffort,
+            label: 'syntax repair (forced tool)'
           });
         }
 
-        repairMessages.push({
-          role: 'assistant',
-          content: repairMessage.content || null,
-          reasoning_content: repairMessage.reasoning_content || undefined,
-          tool_calls: repairMessage.tool_calls?.length ? repairMessage.tool_calls : undefined
-        });
+        repairMessages.push(assistantTurn(repairMessage));
 
         if (!repairMessage.tool_calls || repairMessage.tool_calls.length === 0) {
+          logNote('re-prompt: no tool called', 'You must call the apply_surgical_edits tool to fix the syntax errors.');
           repairMessages.push({ role: 'user', content: 'You must call the apply_surgical_edits tool to fix the syntax errors.' });
           continue;
         }
@@ -636,6 +764,7 @@ const generateAppCodeCore = async (
           const result = executeRefinementTool(nextCode, toolCall);
           nextCode = result.code;
           if (result.applied) editsApplied = true;
+          logToolResult(toolCall, result.result);
           repairMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result.result) });
         }
 
@@ -643,9 +772,11 @@ const generateAppCodeCore = async (
           code = nextCode;
           check = checkSyntax(code);
           if (check.errors.length) {
+            logNote('re-prompt: syntax errors remain', buildSyntaxRepairInstruction(check.errors));
             repairMessages.push({ role: 'user', content: buildSyntaxRepairInstruction(check.errors) });
           }
         } else {
+          logNote('re-prompt: no edits applied', 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.');
           repairMessages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
         }
       }
@@ -653,7 +784,7 @@ const generateAppCodeCore = async (
 
     let files = makeFiles(code);
     if (isWebsite) {
-      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk, projectName });
+      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk, projectName, reasoningEffort: buildEffort });
     }
 
     return {
@@ -698,6 +829,7 @@ const generateAppCodeCore = async (
   const nudgeSyntaxRepair = () => {
     syntaxRepairCycles++;
     if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
+    logNote('re-prompt: syntax errors', buildSyntaxRepairInstruction(syntaxErrors));
     messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
   };
 
@@ -717,12 +849,13 @@ const generateAppCodeCore = async (
     // Once edits have applied cleanly, the next turn is normally just the model
     // confirming it is done (or tidying up). That round trip re-sends the whole
     // site and leaves the UI with nothing new to show, so say so, and skip the
-    // hidden reasoning pass -- the thinking already happened before the edits.
+    // reasoning pass -- the thinking already happened before the edits.
+    // Repair turns (syntax errors, broken links, auto-fix) keep the edit effort.
     const confirmingEdits = editsApplied && syntaxErrors.length === 0;
     if (turn === 1) reportStatus(`Writing edits to your ${noun}…`);
     else if (confirmingEdits) reportStatus('Edits applied — reviewing the result…');
     else reportStatus('Working out the next step…');
-    const turnReasoning = isAutoFix || confirmingEdits ? 'none' : reasoningEffort;
+    const turnReasoning = confirmingEdits ? 'none' : editEffort;
 
     let message;
     try {
@@ -733,11 +866,12 @@ const generateAppCodeCore = async (
         tool_choice: turn === 1 ? 'required' : 'auto',
         signal,
         // This loop only ever applies surgical edits, so keep temperature at
-        // zero; reasoning follows the user's Settings effort (auto-fix stays
-        // pinned off). The proxy downgrades forced tool choices to 'auto' for
+        // zero; reasoning follows the user's edit effort (off for confirming
+        // turns). The proxy downgrades forced tool choices to 'auto' for
         // thinking backends.
         forceTemperatureZero: true,
-        reasoningEffort: turnReasoning
+        reasoningEffort: turnReasoning,
+        label: `refine turn ${turn}`
       });
     } catch (e) {
       if (turn !== 1 || signal?.aborted) throw e;
@@ -751,7 +885,8 @@ const generateAppCodeCore = async (
         signal,
         // Same reasoning policy as the 'required' attempt above.
         forceTemperatureZero: true,
-        reasoningEffort: turnReasoning
+        reasoningEffort: turnReasoning,
+        label: `refine turn ${turn} (forced tool)`
       });
     }
 
@@ -759,12 +894,7 @@ const generateAppCodeCore = async (
       replyParts.push(message.content.trim());
     }
 
-    messages.push({
-      role: 'assistant',
-      content: message.content || null,
-      reasoning_content: message.reasoning_content || undefined,
-      tool_calls: message.tool_calls?.length ? message.tool_calls : undefined
-    });
+    messages.push(assistantTurn(message));
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
       if (editsApplied) {
@@ -777,6 +907,7 @@ const generateAppCodeCore = async (
         if (brokenLinks.length && linkRepairCycles < MAX_LINK_REPAIR_ATTEMPTS) {
           linkRepairCycles++;
           if (onChunk) onChunk('Fixing links between pages…', 'status');
+          logNote('re-prompt: broken links', buildBrokenLinkInstruction(brokenLinks));
           messages.push({ role: 'user', content: buildBrokenLinkInstruction(brokenLinks) });
           continue;
         }
@@ -792,6 +923,7 @@ const generateAppCodeCore = async (
       }
       if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
       nudged = true;
+      logNote('re-prompt: no tool called', 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.');
       messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
       continue;
     }
@@ -813,6 +945,7 @@ const generateAppCodeCore = async (
       const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);
       workingFiles = nextFiles;
       if (applied) editsApplied = true;
+      logToolResult(toolCall, result);
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
 
@@ -832,6 +965,7 @@ const generateAppCodeCore = async (
             parsed.syntaxErrors = syntaxErrors;
             parsed.instruction = buildSyntaxRepairInstruction(syntaxErrors);
             lastMsg.content = JSON.stringify(parsed);
+            logNote('syntax errors appended to tool result', parsed.instruction);
           } catch {
             messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
           }
@@ -876,8 +1010,9 @@ const generateCompletionReply = async ({ prompt, editMode, studioMode, signal })
         },
         { role: 'user', content: `Request: ${prompt}` }
       ],
-      reasoningEffort: 'none',
-      signal
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal,
+      label: 'completion reply'
     });
     const text = String(message?.content || '').trim().replace(/^["'“”]+|["'“”]+$/g, '').trim();
     return text || fallback;
@@ -895,7 +1030,12 @@ export const generateAppCode = async (...args) => {
   // messages for.
   if (isBuildResult && !isAutoFix) {
     if (onChunk) onChunk('Writing a summary of the changes…', 'status');
-    const completion = await generateCompletionReply({ prompt, editMode: result.editMode, studioMode, signal });
+    const completion = await generateCompletionReply({
+      prompt,
+      editMode: result.editMode,
+      studioMode,
+      signal
+    });
     const separator = result.reply ? '\n\n' : '';
     // Surface it in the live transcript right away, then persist it with the
     // version (appended to the opening acknowledgement when there is one).

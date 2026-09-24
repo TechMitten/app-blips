@@ -1,7 +1,7 @@
 ---
 title: "Add AI to Your Apps: Modes and Prompt Tips"
 sidebarTitle: "Overview"
-description: "Enable the AI toggle before generating to give your app the blip.ai.text() API. Choose between BYOK and relay mode to control how credentials are supplied."
+description: "Enable the AI toggle before generating to give your app the blip.ai.text() API. Learn how AI access works on appblips.com and in a self-hosted copy."
 ---
 
 When you enable the AI toggle before generating, AppBlips teaches the finished app the `blip.ai.text()` API. That means the app you get back can call an AI model at runtime — not just during the build — so you can create things like joke generators, recipe suggesters, writing assistants, and anything else that needs live AI responses. The toggle is off by default; flipping it on is the only thing you need to do before writing your prompt.
@@ -37,33 +37,35 @@ Describe what the user does, when the AI should respond, and what the response s
   Be specific about when the AI call should happen (on a button press, on form submit, etc.) and what the output should look like. The more detail you give, the better the generated code handles loading states, errors, and display.
 </Tip>
 
-## Two Access Modes
+## Where the AI Comes From
 
-AI-enabled apps can get their credentials in two ways, depending on how AppBlips is configured.
+On [appblips.com](https://appblips.com), AI in your apps is provided by the platform. There is nothing to set up and no key to enter, in the preview or in apps you deploy.
+
+In a self-hosted copy, you choose between two modes:
 
 <CardGroup cols={2}>
-  <Card title="BYOK Mode" icon="key" href="/ai/byok-mode">
-    Each person using your app enters their own API key, endpoint, and model name. The key never leaves their browser and is never baked into the HTML. This is the default for self-hosted installations.
+  <Card title="Relay mode (default)" icon="server" href="/ai/relay-mode">
+    AI calls go through your own AppBlips using the same provider, key, and model as the builder. Nothing extra to configure, and no credential prompt. The key stays in your `.env`; only a relay URL is embedded in the app.
   </Card>
-  <Card title="Relay Mode" icon="server" href="/ai/relay-mode">
-    The operator (you, running the self-hosted server) provides a key server-side. Users never see a credential prompt — AI calls are proxied through your server. The key stays on the server; only a relay URL is embedded in the app.
+  <Card title="BYOK mode" icon="key" href="/ai/byok-mode">
+    Opt in with `APPBLIPS_GENERATED_AI_MODE=byok`. Whoever uses the finished app enters their own API key, endpoint, and model. The key stays in their browser and is never baked into the HTML.
   </Card>
 </CardGroup>
 
 ## Accessing AI in the Preview
 
-The live preview supports `blip.ai.text()` in real time — you can test your AI feature before exporting or sharing anything. In BYOK mode, the first AI call opens a **Connect your AI provider** dialog right inside the preview. Enter your endpoint, model, and API key, and subsequent calls in that session use those credentials automatically.
+The live preview supports `blip.ai.text()` in real time — you can test your AI feature before exporting or sharing anything. On appblips.com and in self-hosted relay mode, AI calls just work: no dialog appears and no key is needed.
 
 <Info>
-  In relay mode, AI calls in the preview go through your server's relay endpoint — no dialog appears and no key is needed from the preview user.
+  In self-hosted BYOK mode, the first AI call opens a **Connect your AI provider** dialog right inside the preview. Enter your endpoint, model, and API key, and later calls in that session use those credentials automatically.
 </Info>
 
 ## Exporting AI-Enabled Apps
 
-When you export an AI-enabled app as an HTML file, the AI bridge is included automatically. The behavior on first use depends on the mode the app was built in:
+On appblips.com, AI-enabled apps get their AI access when you [deploy](/features/exporting-deploying) them. In a self-hosted copy, the AI bridge is added to exported HTML automatically, and its behavior depends on the mode:
 
-- **BYOK mode:** The exported HTML contains no credentials. Anyone who opens the file sees the **Connect your AI provider** dialog on their first AI call. Each person supplies their own key; nothing is shared.
-- **Relay mode:** The exported HTML embeds the relay URL (for example `/api/app-ai/chat`) but not the provider key, which stays on your server. Anyone who opens the file can make AI calls through your relay as long as they can reach that URL.
+- **Relay mode:** The exported HTML embeds your AppBlips relay URL (`/api/app-ai/chat` by default) but not the provider key, which stays in your `.env`. **Open in new tab** works as is. A downloaded file opened from somewhere else needs its origin allowed; see [Relay Mode](/ai/relay-mode#using-exported-files).
+- **BYOK mode:** The exported HTML contains no credentials. Anyone who opens the file sees the **Connect your AI provider** dialog on their first AI call and supplies their own key.
 
 <Note>
   For the full JavaScript API — including streaming, error codes, and the `configure()`, `isConfigured()`, and `clearConfiguration()` helpers — see the [blip.ai API Reference](/ai/blip-api).
