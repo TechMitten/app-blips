@@ -573,7 +573,7 @@ const generateAppCodeCore = async (
   aiEnabled = false,
   aiMode = 'hosted',
   isAutoFix = false,
-  reasoningEffort = { build: 'none', edit: 'none' },
+  reasoningEffort = { build: 'low', edit: 'low' },
   studioMode = 'app',
   currentFiles = null,
   projectName = ''
@@ -582,8 +582,8 @@ const generateAppCodeCore = async (
   // Separate user-chosen efforts for the initial build and for edits. Error
   // fixes follow the effort of the step they repair; chat-only calls use
   // CHAT_REASONING_EFFORT instead.
-  const buildEffort = reasoningEffort?.build ?? 'none';
-  const editEffort = reasoningEffort?.edit ?? 'none';
+  const buildEffort = reasoningEffort?.build ?? 'low';
+  const editEffort = reasoningEffort?.edit ?? 'low';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = isWebsite ? 'website' : 'app';

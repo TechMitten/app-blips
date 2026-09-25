@@ -66,14 +66,14 @@ These settings influence how the AI model reasons and communicates before and du
 
 ### Reasoning
 
-Reasoning has two separate switches, so you can have the AI think harder when building a new app without slowing down small edits.
+Reasoning has two separate choices, so you can have the AI think harder when building a new app without slowing down small edits.
 
-<ParamField body="Reasoning: building" type="Off | On" default="Off">
-  Lets the AI reason before generating a new app from scratch. Can improve complex apps, but is slower and uses more tokens.
+<ParamField body="Reasoning: building" type="Low | High" default="Low">
+  Lets the AI reason before generating a new app from scratch. **Low** is faster and cheaper; **High** thinks harder for complex apps.
 </ParamField>
 
-<ParamField body="Reasoning: editing" type="Off | On" default="Off">
-  Lets the AI reason before changing an existing app. **Off** makes small tweaks faster; turn it on for tricky changes.
+<ParamField body="Reasoning: editing" type="Low | High" default="Low">
+  Lets the AI reason before changing an existing app. **Low** keeps small tweaks fast; use **High** for tricky changes.
 </ParamField>
 
 <Tip>
