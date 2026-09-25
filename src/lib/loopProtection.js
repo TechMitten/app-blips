@@ -5,11 +5,15 @@ const INJECTED_FUNCTION = `
 window.__orion_loop_check = function(id) {
   var s = window.__orion_loop_state = window.__orion_loop_state || {};
   var n = Date.now();
-  if (!s[id] || n - s[id].last > 100) { s[id] = { start: n, last: n }; }
-  else {
-    s[id].last = n;
-    if (n - s[id].start > 1500) throw new Error("Infinite loop detected! Script halted to protect your browser.");
-  }
+  var e = s[id];
+  // Start a fresh window on first entry and clear it once the current
+  // synchronous task finishes. A genuinely infinite loop never yields, so the
+  // timeout never runs and the elapsed check below still halts it. A loop that
+  // merely runs again each frame/tick (animation, game, timer) yields between
+  // runs, so its window resets and it is never mistaken for a hang. The old
+  // 100ms-gap heuristic accumulated across those runs and threw on valid code.
+  if (!e) { s[id] = { start: n }; setTimeout(function () { delete s[id]; }, 0); return; }
+  if (n - e.start > 1500) throw new Error("Infinite loop detected! Script halted to protect your browser.");
 };
 `;
 
