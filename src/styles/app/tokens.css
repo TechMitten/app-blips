@@ -73,9 +73,21 @@
   /* Depth kit for light theme */
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0);
-  --stage-bg: #edf2f7;
-  --stage-inset: inset 0 1px 0 0 rgb(15 23 42 / 0.06);
-  --ambient: none;
+  /* Preview stage. The device is presented on a soft studio sweep, not a flat
+     panel: a brand-tinted key light pools behind the device, a wide white
+     softbox washes down from the top edge, a shallow floor gradient grounds
+     the base, and a gentle vignette pulls focus to the centre. --stage-bg is
+     the ground; --ambient carries the light. --stage-inset adds the shadow
+     the toolbar casts down onto the stage so the bar reads as lifted. */
+  --stage-bg: #e9eef5;
+  --stage-inset:
+    inset 0 1px 0 0 rgb(15 23 42 / 0.05),
+    inset 0 14px 28px -22px rgb(15 23 42 / 0.28);
+  --ambient:
+    radial-gradient(68% 56% at 50% 43%, rgb(from var(--color-accent) r g b / 0.12) 0%, transparent 64%),
+    radial-gradient(78% 40% at 50% -6%, rgb(255 255 255 / 0.75) 0%, transparent 68%),
+    radial-gradient(54% 22% at 50% 92%, rgb(15 23 42 / 0.09) 0%, transparent 72%),
+    radial-gradient(122% 100% at 50% 46%, transparent 56%, rgb(15 23 42 / 0.06) 100%);
   --panel-edge: 1px 0 0 0 rgb(15 23 42 / 0.06);
   --well-bg: #ffffff;
   --well-inset: none;
@@ -122,20 +134,26 @@
 
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.055);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0.035);
-  /* The stage is the toolbar's own surface (#14161f, build-panel.css), so the
-     strip above, left and right of the device reads as one continuous band
-     with it. It used to be a separate #171717 well with three black inset
-     vignettes and a white top glow -- together they turned the margins around
-     the browser into a third gray unrelated to either neighbour. Depth now
-     comes from the device's own shadow alone. */
-  --stage-bg: #14161f;
+  /* Preview stage, night variant. The same studio sweep as light: a cool
+     brand-blue key light behind the device with a teal secondary, a dim top
+     wash, a black floor pool and a deeper vignette. --stage-bg stays a hair
+     under the pane header so the margins still sit in the chrome family,
+     with the depth coming from the light rather than a third unrelated gray. */
+  --stage-bg: #12141d;
   /* The tool rows sit one step above the stage they float over. With both at
-     #14161f the toolbar dissolved into the canvas and stopped reading as its
+     #12141d the toolbar dissolved into the canvas and stopped reading as its
      own section; lifting the bars (not sinking the stage) keeps the margins
      around the device matching the chrome family while the row stays defined. */
   --pane-header-bg: #1b1e2b;
-  --stage-inset: none;
-  --ambient: none;
+  --stage-inset:
+    inset 0 1px 0 0 rgb(0 0 0 / 0.45),
+    inset 0 14px 30px -20px rgb(0 0 0 / 0.55);
+  --ambient:
+    radial-gradient(68% 56% at 50% 43%, rgb(56 130 190 / 0.20) 0%, transparent 64%),
+    radial-gradient(60% 38% at 70% 26%, rgb(48 129 166 / 0.12) 0%, transparent 70%),
+    radial-gradient(80% 42% at 50% -6%, rgb(150 178 214 / 0.06) 0%, transparent 72%),
+    radial-gradient(54% 22% at 50% 94%, rgb(0 0 0 / 0.5) 0%, transparent 72%),
+    radial-gradient(122% 100% at 50% 46%, transparent 48%, rgb(0 0 0 / 0.5) 100%);
   --panel-edge: 1px 0 0 0 rgb(255 255 255 / 0.045);
   --well-bg: #0a0a0a;
   --well-inset: inset 0 1px 3px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(0 0 0 / 0.3);

@@ -114,11 +114,15 @@ body {
   background: var(--color-slate-500);
 }
 
-/* Subtle workspace grid */
+/* Subtle workspace grid. The dots are concentrated around the device and
+   masked away toward the edges, so the stage reads as lit from the centre
+   rather than tiled edge to edge. */
 .workspace-grid {
   background-image:
     radial-gradient(circle, var(--grid-dot) 0.8px, transparent 0.8px);
   background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(80% 74% at 50% 48%, #000 0%, rgb(0 0 0 / 0.55) 48%, transparent 82%);
+  mask-image: radial-gradient(80% 74% at 50% 48%, #000 0%, rgb(0 0 0 / 0.55) 48%, transparent 82%);
 }
 
 /* Inset shadow for preview area depth — stronger recessed feel */
@@ -126,6 +130,28 @@ body {
   background-color: var(--stage-bg);
   background-image: var(--ambient);
   box-shadow: var(--stage-inset);
+}
+
+/* Device key light. A soft brand-tinted halo anchored to the device wrapper
+   rather than the stage, so the light stays behind the device at every zoom
+   and orientation (and travels with it if the canvas scrolls). Painted above
+   the workspace grid, which is why the dots thin out into the light. */
+.device-stage::before {
+  content: '';
+  position: absolute;
+  inset: -20% -8%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(56% 50% at 50% 47%, rgb(from var(--color-accent) r g b / 0.14) 0%, transparent 70%);
+}
+
+:is(html.dark, .force-dark) .device-stage::before {
+  background: radial-gradient(56% 50% at 50% 47%, rgb(74 150 214 / 0.24) 0%, transparent 70%);
+}
+
+/* Bare preview has no stage to light. */
+.preview-canvas:has(.device-bare) .device-stage::before {
+  display: none;
 }
 
 /* Header depth -- enough to separate from the workspace, quiet enough to

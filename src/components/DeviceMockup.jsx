@@ -380,7 +380,7 @@ export default function DeviceMockup({
 
   return (
     <div
-      className="palette-stock relative shrink-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="palette-stock device-stage relative shrink-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
       style={{
         width: box.width * zoomLevel,
         height: box.height * zoomLevel
