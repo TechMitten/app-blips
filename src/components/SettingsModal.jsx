@@ -7,7 +7,7 @@ import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash)
-// and AI (reasoning effort, clarifying questions).
+// and AI (building reasoning, clarifying questions).
 // The LLM endpoint/key/model are fixed server-side (see functions/api/chat.js)
 // and are not user-configurable; reasoning effort is a per-user choice.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
@@ -110,8 +110,6 @@ export default function SettingsModal({
   onBuildPaneSideChange,
   buildReasoningEffort,
   onBuildReasoningEffortChange,
-  editReasoningEffort,
-  onEditReasoningEffortChange,
   onDeleteAllProjects,
   projectCount = 0,
   onDeleteAccount,
@@ -369,18 +367,6 @@ export default function SettingsModal({
                   label="Reasoning for building"
                   value={buildReasoningEffort}
                   onChange={onBuildReasoningEffortChange}
-                  options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
-                />
-              </SettingRow>
-              <SettingRow
-                id="set-reasoning-edit"
-                title="Reasoning: editing"
-                description="Let the AI reason before changing an existing app. Low keeps small tweaks fast; use High for tricky changes."
-              >
-                <Segmented
-                  label="Reasoning for editing"
-                  value={editReasoningEffort}
-                  onChange={onEditReasoningEffortChange}
                   options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
                 />
               </SettingRow>

@@ -51,10 +51,14 @@ function parseClarifyingQuestionArgs(rawArguments) {
 }
 
 // Reasoning for calls that only produce chat text (clarifying question, intro
-// and completion replies, ask-mode answers). These stay fast regardless of the
-// user's build/edit reasoning toggles, which only govern calls that write or
-// fix code.
-const CHAT_REASONING_EFFORT = 'none';
+// and completion replies, ask-mode answers). Only the initial build follows the
+// user's Build reasoning toggle, so these are hardcoded to LOW.
+const CHAT_REASONING_EFFORT = 'low';
+
+// Reasoning for every code-writing/fixing call other than the initial build:
+// the surgical refinement loop and all syntax/broken-link/auto-fix repair
+// passes. Hardcoded to LOW so the user's toggle only governs building.
+const EDIT_REASONING_EFFORT = 'low';
 
 export const generateClarifyingQuestion = async ({
   prompt,
@@ -573,17 +577,15 @@ const generateAppCodeCore = async (
   aiEnabled = false,
   aiMode = 'hosted',
   isAutoFix = false,
-  reasoningEffort = { build: 'low', edit: 'low' },
+  reasoningEffort = { build: 'low' },
   studioMode = 'app',
   currentFiles = null,
   projectName = ''
 ) => {
   const isWebsite = studioMode === 'website';
-  // Separate user-chosen efforts for the initial build and for edits. Error
-  // fixes follow the effort of the step they repair; chat-only calls use
-  // CHAT_REASONING_EFFORT instead.
+  // Only the initial build follows the user's reasoning toggle. Edits, error
+  // repair and chat-only calls are hardcoded to LOW (see the constants above).
   const buildEffort = reasoningEffort?.build ?? 'low';
-  const editEffort = reasoningEffort?.edit ?? 'low';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = isWebsite ? 'website' : 'app';
@@ -734,7 +736,7 @@ const generateAppCodeCore = async (
             tool_choice: 'required',
             signal,
             forceTemperatureZero: true,
-            reasoningEffort: buildEffort,
+            reasoningEffort: EDIT_REASONING_EFFORT,
             label: 'syntax repair'
           });
         } catch {
@@ -744,7 +746,7 @@ const generateAppCodeCore = async (
             tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
             signal,
             forceTemperatureZero: true,
-            reasoningEffort: buildEffort,
+            reasoningEffort: EDIT_REASONING_EFFORT,
             label: 'syntax repair (forced tool)'
           });
         }
@@ -848,15 +850,11 @@ const generateAppCodeCore = async (
     const currentTools = getRefinementTools(studioMode);
 
     // Once edits have applied cleanly, the next turn is normally just the model
-    // confirming it is done (or tidying up). That round trip re-sends the whole
-    // site and leaves the UI with nothing new to show, so say so, and skip the
-    // reasoning pass -- the thinking already happened before the edits.
-    // Repair turns (syntax errors, broken links, auto-fix) keep the edit effort.
+    // confirming it is done (or tidying up).
     const confirmingEdits = editsApplied && syntaxErrors.length === 0;
     if (turn === 1) reportStatus(`Writing edits to your ${noun}…`);
     else if (confirmingEdits) reportStatus('Edits applied — reviewing the result…');
     else reportStatus('Working out the next step…');
-    const turnReasoning = confirmingEdits ? 'none' : editEffort;
 
     let message;
     try {
@@ -867,11 +865,10 @@ const generateAppCodeCore = async (
         tool_choice: turn === 1 ? 'required' : 'auto',
         signal,
         // This loop only ever applies surgical edits, so keep temperature at
-        // zero; reasoning follows the user's edit effort (off for confirming
-        // turns). The proxy downgrades forced tool choices to 'auto' for
-        // thinking backends.
+        // zero and reasoning at LOW. The proxy downgrades forced tool choices
+        // to 'auto' for thinking backends.
         forceTemperatureZero: true,
-        reasoningEffort: turnReasoning,
+        reasoningEffort: EDIT_REASONING_EFFORT,
         label: `refine turn ${turn}`
       });
     } catch (e) {
@@ -884,9 +881,9 @@ const generateAppCodeCore = async (
         tools: currentTools,
         tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
         signal,
-        // Same reasoning policy as the 'required' attempt above.
+        // Same LOW reasoning as the 'required' attempt above.
         forceTemperatureZero: true,
-        reasoningEffort: turnReasoning,
+        reasoningEffort: EDIT_REASONING_EFFORT,
         label: `refine turn ${turn} (forced tool)`
       });
     }
