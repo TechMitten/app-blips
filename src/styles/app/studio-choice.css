@@ -1,42 +1,32 @@
-/* Studio choice gate (StudioChoice.jsx): the forced App/Website pick shown
-   before a workspace exists. Only what Tailwind can't express lives here --
-   the CTA pill's hover/focus fill, which follows the app's brand-button
-   convention of inverting to a white key with dark ink on dark
-   (see .brand-fill-text in buttons.css); a navy gradient would vibrate on
-   the night canvas. */
+/* Studio choice gate (StudioChoice.jsx): the branded project-type picker shown
+   before a workspace exists. The screen is deliberately always-dark regardless
+   of the app theme -- a deep-navy stage with a teal aurora, glassy cards and a
+   teal-to-blue gradient CTA. Only what Tailwind can't express lives here. */
 
-/* Backdrop. Two pseudo-element layers on one node:
-     ::before  aurora -- three soft brand-hued glows that drift slowly
-     ::after   grid   -- hairline lattice, masked so it fades out toward the
-                         edges and lets the glows lead
-   Hues come from the indigo ramp (the app's navy-blue accent) plus one violet
-   and one cyan for depth. Alphas are per-theme: on the pale canvas they are
-   tints, on the night canvas they are light. */
-.studio-bg {
-  --studio-glow-a: 57 135 208 / 0.22;
-  --studio-glow-b: 139 92 246 / 0.14;
-  --studio-glow-c: 34 211 238 / 0.14;
-  --studio-grid: 15 23 42 / 0.07;
-  overflow: hidden;
+.studio-choice {
+  background-color: #06111c;
 }
 
-:is(html.dark, .force-dark) .studio-bg {
-  --studio-glow-a: 57 135 208 / 0.30;
-  --studio-glow-b: 139 92 246 / 0.22;
-  --studio-glow-c: 34 211 238 / 0.12;
-  --studio-grid: 255 255 255 / 0.06;
+/* Backdrop, two stacked pseudo-element layers:
+     ::before  aurora -- soft teal/cyan glows that drift slowly
+     ::after   star    -- faint tiled starfield, masked toward the centre
+   The base wash is a navy vertical gradient pinned on the node itself. */
+.studio-bg {
+  background: linear-gradient(160deg, #0b1a2a 0%, #08131f 46%, #050e17 100%);
+  overflow: hidden;
 }
 
 .studio-bg::before {
   content: '';
   position: absolute;
-  inset: -20%;
+  inset: -25%;
   background:
-    radial-gradient(38% 34% at 50% 8%, rgb(var(--studio-glow-a)), transparent 70%),
-    radial-gradient(30% 30% at 12% 30%, rgb(var(--studio-glow-b)), transparent 70%),
-    radial-gradient(32% 30% at 88% 26%, rgb(var(--studio-glow-c)), transparent 70%);
-  filter: blur(24px);
-  animation: studio-aurora-drift 28s ease-in-out infinite alternate;
+    radial-gradient(48% 46% at 74% 42%, rgb(24 190 173 / 0.26), transparent 70%),
+    radial-gradient(42% 42% at 20% 80%, rgb(13 148 136 / 0.22), transparent 72%),
+    radial-gradient(46% 52% at 46% 34%, rgb(20 160 170 / 0.16), transparent 72%),
+    radial-gradient(60% 55% at 50% -8%, rgb(37 83 138 / 0.6), transparent 72%);
+  filter: blur(30px);
+  animation: studio-aurora-drift 32s ease-in-out infinite alternate;
   will-change: transform;
 }
 
@@ -45,12 +35,18 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, rgb(var(--studio-grid)) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--studio-grid)) 1px, transparent 1px);
-  background-size: 56px 56px;
-  background-position: center top;
-  -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
-  mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+    radial-gradient(1.4px 1.4px at 22% 24%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1px 1px at 68% 14%, rgb(255 255 255 / 0.5), transparent),
+    radial-gradient(1.2px 1.2px at 40% 62%, rgb(255 255 255 / 0.45), transparent),
+    radial-gradient(1px 1px at 86% 52%, rgb(255 255 255 / 0.5), transparent),
+    radial-gradient(1.4px 1.4px at 12% 44%, rgb(255 255 255 / 0.55), transparent),
+    radial-gradient(1px 1px at 54% 88%, rgb(255 255 255 / 0.4), transparent),
+    radial-gradient(1.2px 1.2px at 78% 82%, rgb(255 255 255 / 0.5), transparent),
+    radial-gradient(1px 1px at 34% 8%, rgb(255 255 255 / 0.45), transparent);
+  background-size: 260px 260px;
+  opacity: 0.6;
+  -webkit-mask-image: radial-gradient(85% 80% at 50% 42%, #000 0%, transparent 100%);
+  mask-image: radial-gradient(85% 80% at 50% 42%, #000 0%, transparent 100%);
 }
 
 @keyframes studio-aurora-drift {
@@ -62,79 +58,89 @@
   .studio-bg::before { animation: none; }
 }
 
-/* The logo's wordmark is white with a soft shadow, so it vanishes on the light
-   canvas. Seat it on a dark navy plate in light mode; on the night canvas it
-   already has contrast, so the plate drops away. */
-.studio-logo-badge {
-  padding: 0.5rem 1.75rem;
-  border-radius: 1.25rem;
-  background: radial-gradient(120% 140% at 30% 0%, #1e3a5f 0%, #0f1c33 70%);
-  box-shadow: 0 10px 30px -12px rgb(15 28 51 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+/* The outer glass panel that frames the whole picker. */
+.studio-panel {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0.012) 100%);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow: 0 50px 90px -50px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(2px);
 }
 
-:is(html.dark, .force-dark) .studio-logo-badge {
+/* newlog.webp is white lettering on an opaque black field with generous empty
+   margin. The stage behind it is dark, so key the black out (#studio-logo-key
+   in StudioChoice.jsx turns brightness into alpha) and crop the margin away. */
+.studio-logo-badge {
   padding: 0;
   background: none;
   box-shadow: none;
 }
 
-/* newlog.webp is white lettering on an opaque black field with generous empty
-   margin. Both places this sits (the navy plate, the night canvas) are dark,
-   so `screen` blending drops the black; the fixed-ratio box with cover crops
-   the margin away (lettering spans ~85% of the width). */
 .studio-logo-img {
   display: block;
-  width: 14rem;
+  width: 13rem;
   aspect-ratio: 3.2 / 1;
   object-fit: cover;
-  mix-blend-mode: screen;
-}
-
-@media (min-width: 640px) {
-  .studio-logo-img { width: 16rem; }
-}
-
-/* On the night canvas the badge's plate is gone, and the animated/z-indexed
-   wrapper isolates the `screen` blend from the canvas behind it, so the
-   image's black field would show through as a hard rectangle. Key the black
-   out instead (#studio-logo-key in StudioChoice.jsx turns brightness into
-   alpha), so the lettering sits directly on the canvas with no edges. */
-:is(html.dark, .force-dark) .studio-logo-img {
-  mix-blend-mode: normal;
   filter: url(#studio-logo-key);
 }
 
+@media (min-width: 640px) {
+  .studio-logo-img { width: 15rem; }
+}
+
+/* Mobile top row: a smaller mark so it shares the line with the icons. */
+.studio-logo-badge--compact .studio-logo-img {
+  width: 9rem;
+}
+
+/* Cards: a translucent navy tile that lifts and warms its edge on hover. */
+.studio-card {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0.018) 100%);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.studio-card:hover,
+.studio-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgb(45 212 191 / 0.45);
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.85), 0 0 0 1px rgb(45 212 191 / 0.14);
+}
+
+/* The clipped photo strips are pre-keyed transparent PNGs (public/studio/). */
+.studio-card-image {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 22px 28px rgb(0 0 0 / 0.5));
+  transition: transform 0.3s ease;
+}
+
+.studio-card:hover .studio-card-image { transform: translateY(-4px) scale(1.02); }
+
 .studio-card-cta {
-  border: 1px solid transparent;
-  background-image: linear-gradient(135deg, #2c70af, #1e598f);
+  background-image: linear-gradient(100deg, #17b8a6 0%, #2f7fd0 100%);
   color: #ffffff;
+  box-shadow: 0 12px 24px -12px rgb(23 184 166 / 0.6);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Dark: the stock ladder puts canvas #080808 / card #141414 / border #262626
-   only a few percent apart, so cards dissolve into the page. Lift the card
-   one step, give it a visible edge, and recess the artifact well below it. */
-:is(html.dark, .force-dark) .studio-card {
-  background: #1c1c22;
-  border-color: rgb(255 255 255 / 0.16);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 12px 32px -14px rgb(0 0 0 / 0.8);
+.studio-card:hover .studio-card-cta,
+.studio-card:focus-visible .studio-card-cta {
+  filter: brightness(1.08);
+  box-shadow: 0 16px 30px -12px rgb(23 184 166 / 0.75);
 }
 
-:is(html.dark, .force-dark) .studio-card:hover,
-:is(html.dark, .force-dark) .studio-card:focus-visible {
-  border-color: rgb(165 180 252 / 0.6);
+.studio-icon-btn {
+  border: 1px solid rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.72);
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-:is(html.dark, .force-dark) .studio-card-well {
-  background-color: #101014;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
-}
-
-:is(html.dark, .force-dark) .studio-card-artifact {
-  border-color: #6b6b78;
-}
-
-:is(html.dark, .force-dark) .studio-card-cta {
+.studio-icon-btn:hover {
   color: #ffffff;
+  border-color: rgb(255 255 255 / 0.32);
+  background-color: rgb(255 255 255 / 0.06);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -145,9 +151,9 @@
   }
   .studio-card,
   .studio-card:hover,
-  .studio-card-artifact,
-  .studio-card:hover .studio-card-artifact,
-  .studio-card:focus-visible .studio-card-artifact {
+  .studio-card:focus-visible,
+  .studio-card-image,
+  .studio-card:hover .studio-card-image {
     transition: none;
     transform: none;
   }
