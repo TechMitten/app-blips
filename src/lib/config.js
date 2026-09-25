@@ -176,15 +176,15 @@ export const isStartFresh = () => {
   }
 };
 
-// Legacy single setting, read only to seed the per-kind keys below.
+// Legacy single setting, read only to seed the build key below.
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
-// Separate efforts for the initial build (first generation of an app/site)
-// and for edits (the surgical refinement loop). Sent to /api/chat as
-// `reasoning_effort`. Each is a Low/High choice where Low is sent as 'low' and
-// High as 'medium', since higher efforts made every call in a build pipeline
-// think for minutes. Low is the default (and the minimum).
+// The initial build (first generation of an app/site) is the only call whose
+// reasoning is user-configurable. Sent to /api/chat as `reasoning_effort`; a
+// Low/High choice where Low is sent as 'low' and High as 'medium', since higher
+// efforts made every call in a build pipeline think for minutes. Low is the
+// default (and the minimum). Edits, error repair and chat calls are hardcoded
+// to LOW in llm.js.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
-export const EDIT_REASONING_EFFORT_KEY = 'orion-reasoning-effort-edit';
 export const REASONING_EFFORT_OPTIONS = ['low', 'medium'];
 // Efforts saved before the Low/High choice (and the legacy combined key); the
 // top ones map to High, everything else falls back to Low.
@@ -211,15 +211,14 @@ export const saveChatMode = (mode) => {
   }
 };
 
-// kind: 'build' | 'edit'. Falls back to the legacy single setting, so users
-// who had already picked an effort keep it for both until they change one.
-// Older saved 'none' (and the pre-toggle 'medium'/'high') migrate: the top
-// efforts become High, everything else becomes the Low default.
-export const loadReasoningEffort = (kind) => {
+// Build reasoning only. Falls back to the legacy single setting, so users who
+// had already picked an effort keep it. Older saved 'none' (and the pre-toggle
+// 'medium'/'high') migrate: the top efforts become High, everything else
+// becomes the Low default.
+export const loadReasoningEffort = () => {
   try {
     const storage = safeStorage('local');
-    const key = kind === 'edit' ? EDIT_REASONING_EFFORT_KEY : BUILD_REASONING_EFFORT_KEY;
-    const stored = storage?.getItem(key) ?? storage?.getItem(REASONING_EFFORT_KEY);
+    const stored = storage?.getItem(BUILD_REASONING_EFFORT_KEY) ?? storage?.getItem(REASONING_EFFORT_KEY);
     return HIGH_EFFORTS.includes(stored) ? 'medium' : 'low';
   } catch {
     return 'low';

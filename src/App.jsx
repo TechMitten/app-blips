@@ -48,7 +48,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, EDIT_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -80,8 +80,7 @@ export default function App() {
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
-  const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort('build'));
-  const [editReasoningEffort, setEditReasoningEffort] = useState(() => loadReasoningEffort('edit'));
+  const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort());
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
@@ -902,10 +901,6 @@ export default function App() {
   }, [buildReasoningEffort]);
 
   useEffect(() => {
-    localStorage.setItem(EDIT_REASONING_EFFORT_KEY, editReasoningEffort);
-  }, [editReasoningEffort]);
-
-  useEffect(() => {
     return () => {
       cancelPendingReload();
     };
@@ -1172,7 +1167,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, { build: buildReasoningEffort, edit: editReasoningEffort }, studioMode, files, projectName);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1762,8 +1757,6 @@ export default function App() {
           onBuildPaneSideChange={setBuildPaneSide}
           buildReasoningEffort={buildReasoningEffort}
           onBuildReasoningEffortChange={setBuildReasoningEffort}
-          editReasoningEffort={editReasoningEffort}
-          onEditReasoningEffortChange={setEditReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           projectCount={myProjects.length}
           onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}

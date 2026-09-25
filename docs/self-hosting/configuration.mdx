@@ -63,7 +63,7 @@ Any other service that speaks the OpenAI chat-completions API works too: Ollama,
 </ParamField>
 
 <ParamField body="APPBLIPS_LLM_REASONING_PARAM" type="string">
-  How your provider expects the reasoning setting: `reasoning_effort`, `reasoning`, `thinking`, or `omit` (send nothing). Blank uses the provider's usual format. You only need this for an unusual OpenAI-compatible service. How much reasoning is used is chosen per user in [Settings](/reference/settings#ai).
+  How your provider expects the reasoning setting: `reasoning_effort`, `reasoning`, `thinking`, or `omit` (send nothing). Blank uses the provider's usual format. You only need this for an unusual OpenAI-compatible service. How much reasoning is used when building is chosen per user in [Settings](/reference/settings#ai); edits and chat replies always use low reasoning.
 </ParamField>
 
 <ParamField body="APPBLIPS_CHAT_RATE_LIMIT_MAX" type="number">
