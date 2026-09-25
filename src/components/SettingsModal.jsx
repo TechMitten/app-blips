@@ -13,7 +13,7 @@ import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
-const REASONING_EFFORT_LABELS = { none: 'Off', low: 'On' };
+const REASONING_EFFORT_LABELS = { low: 'Low', medium: 'High' };
 
 const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
@@ -363,7 +363,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-reasoning-build"
                 title="Reasoning: building"
-                description="Let the AI reason before generating a new app from scratch. Can improve complex apps, but is slower and uses more tokens."
+                description="Let the AI reason before generating a new app from scratch. Low is faster and cheaper; High thinks harder for complex apps."
               >
                 <Segmented
                   label="Reasoning for building"
@@ -375,7 +375,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-reasoning-edit"
                 title="Reasoning: editing"
-                description="Let the AI reason before changing an existing app. Off makes small tweaks faster; turn it on for tricky changes."
+                description="Let the AI reason before changing an existing app. Low keeps small tweaks fast; use High for tricky changes."
               >
                 <Segmented
                   label="Reasoning for editing"

@@ -180,17 +180,17 @@ export const isStartFresh = () => {
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // Separate efforts for the initial build (first generation of an app/site)
 // and for edits (the surgical refinement loop). Sent to /api/chat as
-// `reasoning_effort`. Each is a simple Off/On toggle: 'none' disables
-// reasoning and On is sent as 'low', since higher efforts made every call in a
-// build pipeline think for minutes.
+// `reasoning_effort`. Each is a Low/High choice where Low is sent as 'low' and
+// High as 'medium', since higher efforts made every call in a build pipeline
+// think for minutes. Low is the default (and the minimum).
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
 export const EDIT_REASONING_EFFORT_KEY = 'orion-reasoning-effort-edit';
-export const REASONING_EFFORT_OPTIONS = ['none', 'low'];
-// Efforts saved before the Off/On toggle; any of them now means On.
-const LEGACY_ON_EFFORTS = ['low', 'medium', 'high'];
+export const REASONING_EFFORT_OPTIONS = ['low', 'medium'];
+// Efforts saved before the Low/High choice (and the legacy combined key); the
+// top ones map to High, everything else falls back to Low.
+const HIGH_EFFORTS = ['medium', 'high'];
 
-// One of REASONING_EFFORT_OPTIONS; anything unrecognised falls back to 'none',
-// which is also the default so reasoning stays off until the user opts in.
+// 'build' | 'ask'; anything unrecognised falls back to 'build'.
 export const CHAT_MODE_KEY = 'orion-chat-mode';
 
 // 'build' | 'ask'. The AI stop of the mode reel is Build + aiEnabled, which is
@@ -213,14 +213,16 @@ export const saveChatMode = (mode) => {
 
 // kind: 'build' | 'edit'. Falls back to the legacy single setting, so users
 // who had already picked an effort keep it for both until they change one.
+// Older saved 'none' (and the pre-toggle 'medium'/'high') migrate: the top
+// efforts become High, everything else becomes the Low default.
 export const loadReasoningEffort = (kind) => {
   try {
     const storage = safeStorage('local');
     const key = kind === 'edit' ? EDIT_REASONING_EFFORT_KEY : BUILD_REASONING_EFFORT_KEY;
     const stored = storage?.getItem(key) ?? storage?.getItem(REASONING_EFFORT_KEY);
-    return LEGACY_ON_EFFORTS.includes(stored) ? 'low' : 'none';
+    return HIGH_EFFORTS.includes(stored) ? 'medium' : 'low';
   } catch {
-    return 'none';
+    return 'low';
   }
 };
 
