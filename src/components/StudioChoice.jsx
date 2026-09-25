@@ -180,8 +180,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     aria-label={CTA_LABELS[key]}
                     className={`studio-card group flex flex-col rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08131f] sm:p-5${isProjects ? ' sm:col-span-2 lg:col-span-1' : ''}`}
                   >
-                    <div className="studio-card-well mb-5 flex h-60 items-center justify-center">
+                    <div className="studio-card-well relative mb-5 flex h-60 items-center justify-center">
                       <img src={image.src} alt={image.alt} className="studio-card-image" loading="lazy" />
+                      {isProjects && savedAppsCount > 0 && (
+                        <span className="absolute right-1 top-1 inline-flex items-center rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-semibold text-white/75 backdrop-blur-sm">
+                          {savedAppsCount} saved
+                        </span>
+                      )}
                     </div>
 
                     <h2 className="px-1 text-2xl font-bold tracking-tight text-white">{CARD_TITLES[key]}</h2>
@@ -203,11 +208,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                         {CTA_LABELS[key]}
                         {hasChevron && <ChevronRight size={18} aria-hidden="true" />}
                       </span>
-                      {isProjects && savedAppsCount > 0 && (
-                        <span className="mt-2 block px-1 text-[13px] font-medium text-white/55">
-                          {savedAppsCount} saved
-                        </span>
-                      )}
                     </div>
                   </button>
                 );

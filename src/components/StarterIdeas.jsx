@@ -1,11 +1,12 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 
-// Seed prompts for the empty state. A short, curated gallery — static and
-// deterministic, with no marquee and no hidden horizontal scroller. Presets
-// flagged `featured` are surfaced (falling back to the full list, which is
-// what Ask mode's six presets use); picking one drops its prompt into the
-// composer via onPick.
+// Seed prompts for the empty state. A curated gallery with no marquee and no
+// hidden horizontal scroller. When `sampleSize` is set (App and Website
+// studios) a fresh random sample is drawn from the whole pool on every mount,
+// so the gallery rotates between launches; otherwise presets flagged
+// `featured` are surfaced, falling back to the full list (what Ask mode's six
+// presets use). Picking one drops its prompt into the composer via onPick.
 //
 // Tile palettes are a fixed set of six hues spaced around the colour wheel.
 // Tailwind's own ramp cannot be used for this: it bunches sky/blue/indigo/

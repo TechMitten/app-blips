@@ -1312,6 +1312,23 @@ const BRIDGE_SOURCE = `(function () {
       document.body.style.MozUserSelect = value;
     }
 
+    // Programmatic scrolling must be INSTANT. If the page (or scroller) sets
+    // scroll-behavior: smooth -- common in generated websites, e.g. Tailwind's
+    // scroll-smooth on <html> for anchor nav -- assigning scrollTop/scrollLeft
+    // starts a smooth animation instead of moving immediately. The next move
+    // reads the still-unmoved value back, subtracts from it, clamps at 0 and the
+    // page never advances. Forcing auto around the assignment (inline style
+    // overrides both the CSS rule and an inline smooth) makes the drag track the
+    // pointer, then restores the page's own setting so anchor links stay smooth.
+    function setScrollPosition(el, left, top) {
+      if (!el) return;
+      var prev = el.style.scrollBehavior;
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft = left;
+      el.scrollTop = top;
+      el.style.scrollBehavior = prev;
+    }
+
     function onPointerDown(e) {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (isFormControl(e.target)) return;
@@ -1374,8 +1391,7 @@ const BRIDGE_SOURCE = `(function () {
       velocityY = velocityY * 0.6 + moveY * 0.4;
 
       if (mainScrollEl) {
-        mainScrollEl.scrollTop -= moveY;
-        mainScrollEl.scrollLeft -= moveX;
+        setScrollPosition(mainScrollEl, mainScrollEl.scrollLeft - moveX, mainScrollEl.scrollTop - moveY);
       }
 
       lastX = e.clientX;
@@ -1417,8 +1433,7 @@ const BRIDGE_SOURCE = `(function () {
           velocityX *= 0.96;
           velocityY *= 0.96;
 
-          scrollTarget.scrollTop -= velocityY;
-          scrollTarget.scrollLeft -= velocityX;
+          setScrollPosition(scrollTarget, scrollTarget.scrollLeft - velocityX, scrollTarget.scrollTop - velocityY);
 
           momentumId = requestAnimationFrame(applyMomentum);
         };
