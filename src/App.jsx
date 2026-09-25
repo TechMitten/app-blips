@@ -1804,8 +1804,6 @@ export default function App() {
           isSignedIn={isSignedIn}
           onSignIn={openPickerSignIn}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
-          resolvedTheme={resolvedTheme}
-          onThemeChange={setThemePreference}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
         {settingsModal}
@@ -1889,8 +1887,8 @@ export default function App() {
           confirmLabel="Exit"
           confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
         >
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
             <span>
               Your current work stays as it is until you pick a studio. Choose &ldquo;Go back&rdquo; on the next screen to return to it, or pick a studio to start something new.
             </span>
@@ -1907,8 +1905,8 @@ export default function App() {
           confirmLabel="Continue"
           confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
         >
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
             <span>
               You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You&apos;ll pick the studio on the next screen.
             </span>
@@ -1925,8 +1923,8 @@ export default function App() {
           confirmLabel="Rewind"
           confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
         >
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
             <span>
               The project will go back to how it was after &ldquo;{versions[rewindTargetIndex].prompt}&rdquo;. Later messages are hidden from the chat but stay in version history until you send a new prompt, which replaces them.
             </span>
