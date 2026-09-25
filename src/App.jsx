@@ -46,7 +46,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
 
@@ -1298,6 +1298,15 @@ export default function App() {
     setAutoFixMessage(null);
     setGenerationStatus(null);
     clearStreamingState();
+    // A cancelled first build produced nothing, so the workspace drops back to
+    // the empty hero. Discard the name chosen just before it started, or the
+    // next prompt would silently build under that name instead of asking for a
+    // new one.
+    if (versions.length === 0 && !generatedCode) {
+      setProjectName(STUDIO_MODES[studioModeRef.current]?.untitledName || 'Untitled App');
+      setTempProjectName('');
+      setHasSentFirstPrompt(false);
+    }
   };
 
   // "New chat": starts a fresh chat session. The next prompt is sent with no
@@ -2019,7 +2028,7 @@ export default function App() {
                 ? WEBSITE_STARTER_PRESETS
                 : STARTER_PRESETS
           }
-          starterSampleSize={chatMode !== 'ask' && studioMode === 'website' ? 4 : undefined}
+          starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
           onPickStarter={setPrompt}
           error={error}
           interruptedJob={interruptedJob}
@@ -2075,7 +2084,7 @@ export default function App() {
                     ? WEBSITE_STARTER_PRESETS
                     : STARTER_PRESETS
               }
-              starterSampleSize={chatMode !== 'ask' && studioMode === 'website' ? 4 : undefined}
+              starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
               onPickStarter={setPrompt}
               versions={versions}
               currentVersionIndex={currentVersionIndex}

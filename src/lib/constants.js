@@ -193,8 +193,149 @@ export const STARTER_PRESETS = [
     category: "Strategy",
     icon: Coins,
     color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Piano Keyboard",
+    prompt: "A playable multi-octave piano with velocity-sensitive keys, touch and computer-keyboard support, a selection of instrument voices (grand piano, synth, organ), a sustain toggle, and a record-and-playback loop feature.",
+    category: "Music",
+    icon: Music,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Trivia Quiz",
+    prompt: "An animated trivia quiz game with multiple categories and difficulty levels, a 15-second question timer, streak bonuses, lifelines, an explanations panel after each answer, and a final score card with shareable results.",
+    category: "Quiz",
+    icon: Trophy,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Markdown Notes",
+    prompt: "A lightweight note-taking app with a live split-pane Markdown editor and preview, nested folders and tags, full-text search, pinned notes, and automatic local saving with an export-to-file option.",
+    category: "Notes",
+    icon: Edit2,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Expense Splitter",
+    prompt: "A group expense splitter that tracks who paid for what, supports equal and custom splits, shows each person's net balance, suggests the fewest settling-up payments, and keeps a running history per trip or household.",
+    category: "Finance",
+    icon: Wallet,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Event Countdown",
+    prompt: "A polished countdown app with large animated day/hour/minute/second digits for multiple saved events, custom colors and emoji per event, a progress bar for elapsed time, and milestone markers as the date approaches.",
+    category: "Utility",
+    icon: Clock,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Dice Roller",
+    prompt: "A tabletop dice roller supporting standard polyhedral dice (d4 through d20), roll modifiers, advantage and disadvantage modes, saved roll presets, an animated roll, and a scrollable history with running totals.",
+    category: "Tabletop",
+    icon: Dices,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Sleep Sounds",
+    prompt: "An ambient sound mixer with looping rain, thunder, waves, wind, and fireplace tracks, independent volume sliders per layer, a sleep timer with fade-out, and saveable soundscape presets.",
+    category: "Audio",
+    icon: Waves,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Password Generator",
+    prompt: "A secure password generator with adjustable length, character-set toggles, a passphrase mode, a live strength meter, one-click copy, and a locally stored history of recently generated passwords.",
+    category: "Security",
+    icon: KeyRound,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "HIIT Interval Timer",
+    prompt: "A high-intensity interval training timer with configurable work and rest rounds, a preparation countdown, a large color-coded phase display, audio beeps, and a session summary of completed rounds.",
+    category: "Fitness",
+    icon: Flame,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Periodic Table",
+    prompt: "An interactive periodic table with color-coded element groups, click-to-expand element details such as atomic mass, category, and electron configuration, plus search, property filters, and an element-symbol quiz mode.",
+    category: "Science",
+    icon: Atom,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Color Palette Studio",
+    prompt: "A color palette generator that builds harmonious schemes from a base color, shows HEX, RGB, and HSL values with copy buttons, previews palettes on UI mockups, saves favorites, and exports as CSS variables.",
+    category: "Design",
+    icon: Palette,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Kanban Board",
+    prompt: "A drag-and-drop kanban task board with customizable columns and cards, labels and due dates, card counts per column, a quick-add bar, and persistent local storage across reloads.",
+    category: "Productivity",
+    icon: ListTodo,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Water Tracker",
+    prompt: "A hydration tracker with an animated filling bottle visual, one-tap glass and bottle quick-add buttons, a daily goal ring, streak tracking, and a weekly intake chart.",
+    category: "Health",
+    icon: Heart,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Word Grid",
+    prompt: "A Wordle-style word guessing game with six attempts, color-coded letter feedback, an on-screen keyboard that tracks used letters, daily-puzzle and unlimited modes, and a stats panel with guess distribution.",
+    category: "Word",
+    icon: WholeWord,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Sliding Puzzle",
+    prompt: "A sliding tile puzzle game with shuffled 3x3, 4x4, and 5x5 boards, numbered and photo modes, smooth tile animations, move and time counters, and a solvability check on shuffle.",
+    category: "Puzzle",
+    icon: Puzzle,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Tic-Tac-Toe AI",
+    prompt: "A sleek tic-tac-toe game with an unbeatable minimax AI plus easy and medium difficulties, a local two-player mode, win-line animations, and a running scoreboard across rounds.",
+    category: "Strategy",
+    icon: Gamepad2,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Sudoku",
+    prompt: "A full-featured Sudoku app with multiple difficulty levels, a note-taking mode, hints and mistake checking, a timer, undo, and auto-generated puzzles with a unique-solution guarantee.",
+    category: "Puzzle",
+    icon: Blocks,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Scientific Calculator",
+    prompt: "A scientific calculator with a full expression display, trig, log, powers and roots, memory keys, a degree/radian toggle, a calculation history tape, and keyboard input support.",
+    category: "Utility",
+    icon: Calculator,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Invoice Maker",
+    prompt: "A freelance invoice builder with line items, automatic totals and tax, client and business details, a live printable preview, invoice numbering, and saved invoice history with status tracking.",
+    category: "Business",
+    icon: Receipt,
+    color: "text-teal-600 bg-teal-50"
   }
 ];
+
+// How many ideas each studio samples from its pool on every launch. Ask mode
+// has no sample size (it shows a fixed set). App's larger pool is sampled the
+// same way websites already are, so the empty state rotates between visits.
+export const STARTER_SAMPLE_SIZE = {
+  app: 6,
+  website: 4
+};
 
 export const WEBSITE_STARTER_PRESETS = [
   {
