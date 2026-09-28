@@ -6,10 +6,6 @@
 // names of variables that still need filling in.
 import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits } from './providers.js';
 
-const SUPABASE_VARS = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'];
-
-const filled = (env, name) => String(env?.[name] ?? '').trim() !== '';
-
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
 
 // Returns [{ level: 'info' | 'warn' | 'error', label?, text }].
@@ -63,16 +59,6 @@ export const describeConfig = (env) => {
     });
   }
 
-  if (hosted) {
-    const missing = SUPABASE_VARS.filter((name) => !filled(env, name));
-    if (missing.length) {
-      lines.push({
-        level: 'error',
-        label: 'Supabase',
-        text: `${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} empty. See .env.hosted.example.`,
-      });
-    }
-  }
   return lines;
 };
 
