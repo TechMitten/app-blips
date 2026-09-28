@@ -3,7 +3,6 @@ import { Turnstile } from '@marsidev/react-turnstile';
 import authProvider from '../lib/auth';
 import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
-import { hasSignedInBefore } from '../lib/config';
 import { TURNSTILE_SITE_KEY } from '../lib/constants';
 
 const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
@@ -15,7 +14,7 @@ const LINK_CLASS = 'font-semibold text-brand hover:underline underline-offset-2 
 // directly (only ever mounted when supabaseEnabled -- see App.jsx). The
 // auth-state listener in useAuth closes the modal the moment a session lands.
 export default function AuthModal({ onClose = () => {}, dismissible = true }) {
-  const [authMode, setAuthMode] = useState(() => (hasSignedInBefore() ? 'signin' : 'signup')); // 'signin' | 'signup' | 'reset'
+  const [authMode, setAuthMode] = useState('signup'); // 'signin' | 'signup' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');

@@ -74,6 +74,38 @@ const BRIDGE_SOURCE = `(function () {
   var CHANNEL = '${BRIDGE_CHANNEL}';
   var VERSION = ${BRIDGE_PROTOCOL_VERSION};
 
+  // Chromium refuses declarative autofocus in this deliberately opaque,
+  // cross-origin preview frame and logs a warning for every generated input.
+  // Strip only the preview DOM attribute before the browser's autofocus task
+  // runs. The user's source is untouched, so exports and deployments retain
+  // the requested autofocus behavior on their normal same-origin page.
+  function removeBlockedAutofocus(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (root.hasAttribute && root.hasAttribute('autofocus')) root.removeAttribute('autofocus');
+    if (root.querySelectorAll) {
+      var autofocusNodes = root.querySelectorAll('[autofocus]');
+      for (var autofocusIndex = 0; autofocusIndex < autofocusNodes.length; autofocusIndex += 1) {
+        autofocusNodes[autofocusIndex].removeAttribute('autofocus');
+      }
+    }
+  }
+
+  var autofocusObserver = new MutationObserver(function (records) {
+    for (var recordIndex = 0; recordIndex < records.length; recordIndex += 1) {
+      var record = records[recordIndex];
+      if (record.type === 'attributes') removeBlockedAutofocus(record.target);
+      for (var nodeIndex = 0; nodeIndex < record.addedNodes.length; nodeIndex += 1) {
+        removeBlockedAutofocus(record.addedNodes[nodeIndex]);
+      }
+    }
+  });
+  autofocusObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['autofocus'],
+    childList: true,
+    subtree: true
+  });
+
   function post(type, payload) {
     try {
       // targetOrigin '*' is required: this frame has an opaque origin and
