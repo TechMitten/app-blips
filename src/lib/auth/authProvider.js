@@ -6,9 +6,9 @@
 // User shape: { id, email, displayName, username, user_metadata: { username } } | null
 //
 // authProvider.onAuthStateChanged(callback) -> unsubscribe
-// authProvider.signIn(email, password) -> Promise<void>
-// authProvider.signUp(email, password) -> Promise<void>
-// authProvider.sendPasswordReset(email) -> Promise<void>
+// authProvider.signIn(email, password, captchaToken) -> Promise<void>
+// authProvider.signUp(email, password, captchaToken) -> Promise<void>
+// authProvider.sendPasswordReset(email, captchaToken) -> Promise<void>
 // authProvider.signOut() -> Promise<void>
 // authProvider.updatePassword(newPassword) -> Promise<void>
 // authProvider.updateProfile({ displayName }) -> Promise<void>

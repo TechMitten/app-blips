@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import authProvider from '../lib/auth';
 import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
 import { hasSignedInBefore } from '../lib/config';
+import { TURNSTILE_SITE_KEY } from '../lib/constants';
 
 const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
@@ -20,11 +22,19 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const [authError, setAuthError] = useState(null);
   const [authInfo, setAuthInfo] = useState(null);
   const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const captchaRef = useRef(null);
+
+  const resetCaptcha = () => {
+    setCaptchaToken('');
+    captchaRef.current?.reset();
+  };
 
   const handleAuthModeSwitch = (mode) => {
     setAuthMode(mode);
     setAuthError(null);
     setAuthInfo(null);
+    resetCaptcha();
   };
 
   const handleAuthSubmit = async (e) => {
@@ -35,6 +45,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
       setAuthError(isReset ? 'Enter your email.' : 'Enter your email and password.');
       return;
     }
+    if (!captchaToken) {
+      setAuthError('Complete the browser verification to continue.');
+      return;
+    }
 
     setAuthLoading(true);
     setAuthError(null);
@@ -42,13 +56,13 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
 
     try {
       if (authMode === 'reset') {
-        await authProvider.sendPasswordReset(email);
+        await authProvider.sendPasswordReset(email, captchaToken);
         setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
       } else if (authMode === 'signup') {
-        await authProvider.signUp(email, authPassword);
+        await authProvider.signUp(email, authPassword, captchaToken);
         setAuthInfo('We sent a confirmation link to your email. Confirm your account, then sign in.');
       } else {
-        await authProvider.signIn(email, authPassword);
+        await authProvider.signIn(email, authPassword, captchaToken);
         // onAuthStateChange closes the modal on success.
       }
     } catch (err) {
@@ -61,6 +75,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
       setAuthInfo(null);
     } finally {
       setAuthLoading(false);
+      resetCaptcha();
     }
   };
 
@@ -193,9 +208,23 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
           )}
         </div>
 
+        <div className="flex min-h-[65px] justify-center">
+          <Turnstile
+            ref={captchaRef}
+            siteKey={TURNSTILE_SITE_KEY}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken('')}
+            onError={() => {
+              setCaptchaToken('');
+              setAuthError('Browser verification failed. Please try again.');
+            }}
+            options={{ theme: 'auto', size: 'flexible', refreshExpired: 'auto' }}
+          />
+        </div>
+
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !captchaToken}
           className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {authLoading && <Loader2 className="animate-spin" size={16} />}

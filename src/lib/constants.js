@@ -42,7 +42,7 @@ export const STUDIO_MODES = {
 
 // Cloudflare Turnstile site key for Supabase auth bot protection. Public by
 // design (the matching secret lives in Supabase Auth > Bot and Abuse Protection).
-export const TURNSTILE_SITE_KEY = '0x4AAAAAAEj8I1oDBw3Rwb8l';
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAFGCRo9hPxFTPw8W';
 
 export const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
 

@@ -19,6 +19,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@marsidev/react-turnstile": "^1.6.1",
     "@supabase/supabase-js": "^2.117.2",
     "acorn": "^8.18.0",
     "lucide-react": "^0.577.0",
