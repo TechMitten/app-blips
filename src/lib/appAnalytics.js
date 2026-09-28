@@ -36,10 +36,7 @@ export const injectAppAnalyticsSnippet = (html, websiteId) => {
 
 const withAuthHeaders = async () => {
   const token = await authProvider.getIdToken();
-  const appCheckTokenStr = await authProvider.getAppCheckToken();
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  if (appCheckTokenStr) headers['X-Firebase-AppCheck'] = appCheckTokenStr;
-  return headers;
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 };
 
 // Umami's own error responses aren't always a plain string -- validation

@@ -82,7 +82,6 @@ function llmProxyDevMiddleware(mode) {
           headers: {
             'content-type': 'application/json',
             ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
-            ...(req.headers['x-firebase-appcheck'] ? { 'x-firebase-appcheck': req.headers['x-firebase-appcheck'] } : {}),
           },
           body: Buffer.concat(chunks),
         })
@@ -181,7 +180,6 @@ function analyticsProxyDevMiddleware(mode) {
 
       const forwardedHeaders = (req) => ({
         ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
-        ...(req.headers['x-firebase-appcheck'] ? { 'x-firebase-appcheck': req.headers['x-firebase-appcheck'] } : {}),
       })
 
       server.middlewares.use('/api/analytics/website', guarded(async (req, res) => {
@@ -361,7 +359,7 @@ function seoPlugin(mode) {
 export default defineConfig(({ mode }) => ({
   plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
-  // in .env), but it's the one flag both the client bundle (src/firebase.js)
+  // in .env), but it's the one flag both the client bundle (src/supabase.js)
   // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
   // so it's allow-listed here to reach import.meta.env too.
   envPrefix: ['VITE_', 'SELF_HOSTED_MODE', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL'],

@@ -44,11 +44,11 @@ export function TourInvitation({ onStart }) {
   );
 }
 
-export default function GuidedTour({ onClose, onViewChange, firebaseEnabled, hasCode, showCodeView, studioMode }) {
+export default function GuidedTour({ onClose, onViewChange, supabaseEnabled, hasCode, showCodeView, studioMode }) {
   const wideScreen = useMediaQuery('(min-width: 1024px)');
   const steps = useMemo(
-    () => buildTourSteps({ wideScreen, firebaseEnabled, hasCode, showCodeView, studioMode }),
-    [wideScreen, firebaseEnabled, hasCode, showCodeView, studioMode],
+    () => buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeView, studioMode }),
+    [wideScreen, supabaseEnabled, hasCode, showCodeView, studioMode],
   );
   const [index, setIndex] = useState(0);
   // Crossing the breakpoint changes the step count; never point past the end.

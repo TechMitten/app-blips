@@ -19,8 +19,8 @@
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@supabase/supabase-js": "^2.117.2",
     "acorn": "^8.18.0",
-    "firebase": "^12.18.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
@@ -38,9 +38,5 @@
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.1"
-  },
-  "allowScripts": {
-    "@firebase/util@1.15.3": true,
-    "protobufjs@7.6.6": true
   }
 }

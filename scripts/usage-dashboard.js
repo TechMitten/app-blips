@@ -3,92 +3,29 @@
 //
 //   npm run usage            → http://127.0.0.1:5178  (Ctrl+C to stop)
 //
-// Reads the whole `usage` collection over the Firestore REST API using the
-// logged-in Firebase CLI's own Google identity (the same class of access as
-// `gcloud auth print-access-token` / the Firebase console -- IAM-based, so
-// firestore.rules don't apply). Account uids are resolved to emails the same
-// way, via the admin Identity Toolkit endpoint. Self-hosted installs have no
-// usage collection, so this is a hosted-mode tool. Binds to loopback only and
-// never exposes the OAuth token to the served page -- the page talks to this
-// server, and this server talks to Google.
-import fs from 'node:fs';
+// Reads usage and account data through Supabase's server-only service role.
+// Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before starting it. The
+// dashboard binds to loopback and never exposes that key to the served page.
 import http from 'node:http';
-import os from 'node:os';
-import { firebaseProjectId } from '../functions/_lib/firebaseServer.js';
-
-// firebase-tools' public installed-app OAuth client (the same constants the
-// CLI itself embeds), used to exchange the stored login refresh token.
-const OAUTH_CLIENT_ID = '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com';
-const OAUTH_CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
-
-const configstorePath = () => {
-  if (process.env.FIREBASE_TOOLS_CONFIG) return process.env.FIREBASE_TOOLS_CONFIG;
-  const base = process.env.XDG_CONFIG_HOME || `${os.homedir()}/.config`;
-  return `${base}/configstore/firebase-tools.json`;
-};
-
-let cachedToken = null; // { token, expiresAt }
-
-async function getAccessToken() {
-  const now = Date.now();
-  if (cachedToken && now < cachedToken.expiresAt) return cachedToken.token;
-
-  let refreshToken;
-  try {
-    const stored = JSON.parse(fs.readFileSync(configstorePath(), 'utf8'));
-    refreshToken = stored.tokens?.refresh_token;
-  } catch {
-    throw new Error('Could not read the Firebase CLI credentials file. Run `firebase login` first.');
-  }
-  if (!refreshToken) {
-    throw new Error('No Firebase CLI refresh token found. Run `firebase login` first.');
-  }
-
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    body: new URLSearchParams({
-      client_id: OAUTH_CLIENT_ID,
-      client_secret: OAUTH_CLIENT_SECRET,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Google token exchange failed (HTTP ${res.status}). Run \`firebase login\`. ${detail.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  cachedToken = { token: data.access_token, expiresAt: now + ((data.expires_in || 3600) - 120) * 1000 };
-  return cachedToken.token;
-}
+import { supabaseUrl, supabaseHeaders, supabaseServiceKey } from '../functions/_lib/supabaseServer.js';
 
 async function fetchUsageDocs() {
-  const token = await getAccessToken();
-  const url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId(process.env)}/databases/(default)/documents:runQuery`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'usage' }] } }),
+  if (!supabaseServiceKey(process.env)) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required.');
+  const res = await fetch(`${supabaseUrl(process.env)}/rest/v1/usage?select=*`, {
+    headers: supabaseHeaders(process.env, { service: true }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Firestore query failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
+    throw new Error(`Supabase query failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
   }
-  const entries = await res.json();
-  const intOf = (field) => (field?.integerValue ? parseInt(field.integerValue, 10) || 0 : 0);
-  return entries
-    .filter((entry) => entry.document)
-    .map((entry) => {
-      const fields = entry.document.fields || {};
-      return {
-        uid: fields.user_id?.stringValue || '(unknown)',
-        date: fields.date?.stringValue || '',
-        builder: intOf(fields.builderRequests),
-        deployed: intOf(fields.deployedRequests),
-        builderTokens: intOf(fields.builderTokens),
-        deployedTokens: intOf(fields.deployedTokens),
-      };
-    })
+  return (await res.json()).map((row) => ({
+      uid: row.user_id || '(unknown)',
+      date: row.date || '',
+      builder: Number(row.builder_requests) || 0,
+      deployed: Number(row.deployed_requests) || 0,
+      builderTokens: Number(row.builder_tokens) || 0,
+      deployedTokens: Number(row.deployed_tokens) || 0,
+    }))
     .filter((doc) => doc.date);
 }
 
@@ -184,7 +121,7 @@ function aggregate(docs) {
 
   return {
     generatedAt: new Date().toISOString(),
-    project: firebaseProjectId(process.env),
+    project: new URL(supabaseUrl(process.env)).hostname.split('.')[0],
     today,
     days: days30,
     totals,
@@ -193,8 +130,8 @@ function aggregate(docs) {
   };
 }
 
-// The Account column shows emails instead of raw Firebase uids, resolved via
-// the admin Identity Toolkit endpoint with the same OAuth identity. Resolved
+// The Account column shows emails instead of raw user ids, resolved via
+// the Supabase admin users endpoint. Resolved
 // uids are cached for the server's lifetime; lookup failures back off for a
 // few minutes rather than hammering the API on every auto-refresh.
 const emailCache = new Map();
@@ -204,20 +141,16 @@ async function lookupEmails(uids) {
   const unknown = uids.filter((uid) => !emailCache.has(uid));
   if (unknown.length && Date.now() > emailLookupBackoffUntil) {
     try {
-      const token = await getAccessToken();
-      const url = `https://identitytoolkit.googleapis.com/v1/projects/${firebaseProjectId(process.env)}/accounts:lookup`;
-      for (let i = 0; i < unknown.length; i += 100) {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ localId: unknown.slice(i, i + 100) }),
+      for (let i = 0; i < unknown.length; i += 50) {
+        const res = await fetch(`${supabaseUrl(process.env)}/auth/v1/admin/users?page=${Math.floor(i / 50) + 1}&per_page=50`, {
+          headers: supabaseHeaders(process.env, { service: true }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         for (const account of data.users || []) {
-          emailCache.set(account.localId, { email: account.email || '', name: account.displayName || '' });
+          if (unknown.includes(account.id)) emailCache.set(account.id, { email: account.email || '', name: account.user_metadata?.display_name || '' });
         }
-        for (const uid of unknown.slice(i, i + 100)) {
+        for (const uid of unknown.slice(i, i + 50)) {
           if (!emailCache.has(uid)) emailCache.set(uid, { email: '', name: '' }); // deleted/unknown account
         }
       }

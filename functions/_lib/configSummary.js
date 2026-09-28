@@ -6,14 +6,7 @@
 // names of variables that still need filling in.
 import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits } from './providers.js';
 
-const FIREBASE_CLIENT_VARS = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID',
-];
+const SUPABASE_VARS = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'];
 
 const filled = (env, name) => String(env?.[name] ?? '').trim() !== '';
 
@@ -26,7 +19,7 @@ export const describeConfig = (env) => {
   lines.push({
     level: 'info',
     label: 'Mode',
-    text: hosted ? 'hosted (Firebase sign-in, deploys)' : 'self-hosted (single local user)',
+    text: hosted ? 'hosted (Supabase sign-in, deploys)' : 'self-hosted (single local user)',
   });
 
   const builder = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
@@ -71,11 +64,11 @@ export const describeConfig = (env) => {
   }
 
   if (hosted) {
-    const missing = [...FIREBASE_CLIENT_VARS, 'FIREBASE_API_KEY'].filter((name) => !filled(env, name));
+    const missing = SUPABASE_VARS.filter((name) => !filled(env, name));
     if (missing.length) {
       lines.push({
         level: 'error',
-        label: 'Firebase',
+        label: 'Supabase',
         text: `${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} empty. See .env.hosted.example.`,
       });
     }

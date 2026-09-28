@@ -19,14 +19,10 @@
 
 const APPS_HOSTNAME = 'my.appblips.com';
 
-import { firebaseProjectId, getAppCheckToken } from './_lib/firebaseServer.js';
+import { supabaseUrl, supabaseHeaders } from './_lib/supabaseServer.js';
 import { injectSeoDefaults } from './_lib/seoDefaults.js';
 import { getHash, resolvePageLink } from '../src/lib/pages.js';
-export { getAppCheckToken } from './_lib/firebaseServer.js';
 
-const FIRESTORE_API_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId()}/databases/(default)/documents`;
-const STORAGE_BUCKET = 'appbips-f46e2.firebasestorage.app';
-const FIREBASE_STORAGE_URL = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o`;
 const BUCKET = 'orion-deploys';
 
 const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
@@ -287,35 +283,29 @@ const injectSlug = (html, slug) => {
   return tag + html;
 };
 
-// Turns a Firestore REST `deployments` document into the fields the server
+// Turns a Supabase REST `deployments` document into the fields the server
 // uses. The client stores extra pages as filenames ("about.html"); URLs and
 // storage paths here use the bare name ("about"), so the extension is stripped
 // before validating -- validating the raw value would reject every page.
 export const parseDeploymentDoc = (doc) => ({
-  name: doc.fields?.name?.stringValue || null,
-  storage_path: doc.fields?.storage_path?.stringValue || null,
+  name: doc?.name || null,
+  storage_path: doc?.storage_path || null,
   page_names: [...new Set(
-    (doc.fields?.page_names?.arrayValue?.values || [])
-      .map((v) => v.stringValue)
+    (doc?.page_names || [])
       .filter((n) => typeof n === 'string')
       .map((n) => n.replace(/\.html$/, ''))
       .filter((n) => n !== 'index' && PAGE_SEGMENT_PATTERN.test(n)),
   )],
-  bundle: doc.fields?.bundle?.booleanValue === true,
+  bundle: doc?.bundle === true,
 });
 
 const fetchDeploymentRow = async (slug, env) => {
-  const headers = {};
-  const appCheckToken = await getAppCheckToken(env);
-  if (appCheckToken) {
-    headers['X-Firebase-AppCheck'] = appCheckToken;
-  }
-  const res = await fetch(`${FIRESTORE_API_URL}/deployments/${encodeURIComponent(slug)}`, {
-    headers,
+  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=name,storage_path,page_names,bundle&limit=1`, {
+    headers: supabaseHeaders(env),
   });
-  if (res.status === 404) return { ok: true, row: null };
   if (!res.ok) return { ok: false, row: null };
-  return { ok: true, row: parseDeploymentDoc(await res.json()) };
+  const rows = await res.json();
+  return { ok: true, row: rows?.[0] ? parseDeploymentDoc(rows[0]) : null };
 };
 
 export async function onRequest(context) {
@@ -471,16 +461,7 @@ export async function onRequest(context) {
       }
     }
 
-    const storageHeaders = {};
-    const appCheckToken = await getAppCheckToken(env);
-    if (appCheckToken) {
-      storageHeaders['X-Firebase-AppCheck'] = appCheckToken;
-    }
-
-    const object = await fetch(
-      `${FIREBASE_STORAGE_URL}/${encodeURIComponent(BUCKET + '/' + storagePath)}?alt=media`,
-      { headers: storageHeaders },
-    );
+    const object = await fetch(`${supabaseUrl(env)}/storage/v1/object/public/${BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`);
 
     if (!object.ok) {
       return notice(404, 'Not found', 'This app is no longer deployed.');

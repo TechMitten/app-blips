@@ -44,7 +44,7 @@ export default function HeroSidebar({
   recents = [],
   onLoadProject,
   onOpenSettings,
-  firebaseEnabled,
+  supabaseEnabled,
   isSignedIn,
   authStatus,
   userEmail,
@@ -92,7 +92,7 @@ export default function HeroSidebar({
             <span className={`hero-rail-count hidden ${collapsed ? '' : 'lg:inline-flex'}`}>{savedAppsCount}</span>
           ) : null}
         />
-        {firebaseEnabled && isSignedIn && (
+        {supabaseEnabled && isSignedIn && (
           <RailItem icon={BarChart3} label="Analytics" collapsed={collapsed} onClick={onOpenAnalytics} />
         )}
 
@@ -117,7 +117,7 @@ export default function HeroSidebar({
 
         <RailItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
         <RailItem icon={CircleHelp} label="Help" collapsed={collapsed} href={DOCS_URL} />
-        {!firebaseEnabled ? null : isSignedIn ? (
+        {!supabaseEnabled ? null : isSignedIn ? (
           <RailItem
             icon={UserRound}
             label={userEmail ? userEmail.split('@')[0] : 'Account'}

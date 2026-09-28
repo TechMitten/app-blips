@@ -3,7 +3,7 @@ import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
 import { generatedAiMode, generatedAiRelayUrl, previewAiViaParent, absoluteRelayUrl } from './lib/generatedAiMode';
-import { firebaseEnabled } from './firebase';
+import { supabaseEnabled } from './supabase';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -131,8 +131,8 @@ export default function App() {
   const [textSession, setTextSession] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
-  // and never written into `versions`/localStorage/Firestore (see
-  // CLAUDE.md-adjacent plan notes -- avoids Firestore's 1MiB per-project doc
+  // and never written into `versions`/localStorage/Supabase (see
+  // CLAUDE.md-adjacent plan notes -- avoids Supabase's 1MiB per-project doc
   // cap and keeps applySurgicalEdits/history untouched). { dataUrl, name, source }
   const [attachment, setAttachment] = useState(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
@@ -187,7 +187,7 @@ export default function App() {
   // project's data lands. Cleared once the resume attempt (successful or not)
   // finishes.
   const [isResumingProject, setIsResumingProject] = useState(
-    () => (firebaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
+    () => (supabaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
   );
   const [projectName, setProjectName] = useState('Untitled App');
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -914,7 +914,7 @@ export default function App() {
     const job = loadPendingJob();
     if (!job) return;
     // The current project id is captured via closure; use the ref-based value.
-    const resumedId = firebaseEnabled
+    const resumedId = supabaseEnabled
       ? currentProjectId
       : localStorage.getItem('orion-current-project-id') || null;
     const jobBelongsHere =
@@ -1339,7 +1339,7 @@ export default function App() {
   // URL cannot resolve.
   const buildOutputFiles = () => {
     const protectedFiles = mapPages(files, (html) => injectLoopProtection(html));
-    return (!firebaseEnabled && aiEnabled)
+    return (!supabaseEnabled && aiEnabled)
       ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: absoluteRelayUrl() }))
       : protectedFiles;
   };
@@ -1360,7 +1360,7 @@ export default function App() {
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
   // one file per page (links like about.html keep working when unzipped).
   // Self-hosted mode's stand-in for Deploy (no public-URL hosting without
-  // Firebase Storage); in hosted mode it sits alongside Deploy.
+  // Supabase Storage); in hosted mode it sits alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
     const outputFiles = buildOutputFiles();
@@ -1635,7 +1635,7 @@ export default function App() {
     // Hosted mode: a studio can't be entered signed out. Remember the pick,
     // open the sign-in modal, and the effect below resumes it once a session
     // lands. (Self-hosted is always signed in, so this never triggers there.)
-    if (firebaseEnabled && !isSignedIn) {
+    if (supabaseEnabled && !isSignedIn) {
       setPendingStudio(mode);
       openPickerSignIn();
       return;
@@ -1698,7 +1698,7 @@ export default function App() {
   // profile doc, and finally the auth account itself. Throws with a
   // user-facing message so the Settings dialog can show it.
   const handleDeleteAccount = async ({ password } = {}) => {
-    if (!firebaseEnabled || !user?.id) return;
+    if (!supabaseEnabled || !user?.id) return;
     await authProvider.reauthenticate({ password });
     const ok = await handleDeleteAllProjects();
     if (!ok) throw new Error('Some of your apps could not be deleted, so your account was kept. Please try again.');
@@ -1768,7 +1768,7 @@ export default function App() {
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           projectCount={myProjects.length}
-          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
+          onDeleteAccount={supabaseEnabled && isSignedIn ? handleDeleteAccount : null}
         />
   );
 
@@ -1802,14 +1802,14 @@ export default function App() {
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
-          requireSignIn={firebaseEnabled}
+          requireSignIn={supabaseEnabled}
           isSignedIn={isSignedIn}
           onSignIn={openPickerSignIn}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
         {settingsModal}
-        {isAuthModalOpen && firebaseEnabled && (
+        {isAuthModalOpen && supabaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
         )}
         {signOutConfirmModal}
@@ -1850,7 +1850,7 @@ export default function App() {
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={() => setIsSignOutConfirmOpen(true)}
-        firebaseEnabled={firebaseEnabled}
+        supabaseEnabled={supabaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
         mobileView={mobileView}
@@ -1862,7 +1862,7 @@ export default function App() {
 
       {!showHero && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
-        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+        <GuidedTour onClose={closeTour} onViewChange={setMobileView} supabaseEnabled={supabaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
 
       {settingsModal}
@@ -1961,7 +1961,7 @@ export default function App() {
       )}
 
 
-      {isAnalyticsOpen && firebaseEnabled && isSignedIn && (
+      {isAnalyticsOpen && supabaseEnabled && isSignedIn && (
         <AnalyticsDashboardModal
           apps={myAnalyticsApps}
           appsLoading={analyticsAppsLoading}
@@ -1987,7 +1987,7 @@ export default function App() {
         />
       )}
 
-      {isAccountSettingsOpen && isSignedIn && firebaseEnabled && (
+      {isAccountSettingsOpen && isSignedIn && supabaseEnabled && (
         <AccountSettingsModal
           user={user}
           username={username}
@@ -1999,7 +1999,7 @@ export default function App() {
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
 
-      {isAuthModalOpen && firebaseEnabled && (
+      {isAuthModalOpen && supabaseEnabled && (
         <AuthModal onClose={handleCloseAuthModal} />
       )}
 
@@ -2040,7 +2040,7 @@ export default function App() {
           recents={myProjects}
           onLoadProject={loadProject}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          firebaseEnabled={firebaseEnabled}
+          supabaseEnabled={supabaseEnabled}
           isSignedIn={isSignedIn}
           authStatus={authStatus}
           userEmail={user?.email}
@@ -2147,7 +2147,7 @@ export default function App() {
               isDeployStale={isDeployStale}
               isSignedIn={isSignedIn}
               onOpenDeployModal={openDeployModal}
-              firebaseEnabled={firebaseEnabled}
+              supabaseEnabled={supabaseEnabled}
               onExportHtml={handleExportHtml}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}

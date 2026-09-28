@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { db, firebaseEnabled } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase, supabaseEnabled } from '../supabase';
 import { fetchAnalyticsStats } from '../lib/appAnalytics';
 
 // How often to re-poll Umami's /active endpoint for the selected app. Umami's
@@ -25,15 +24,18 @@ export default function useAnalytics({ isSignedIn, user }) {
   const [activeVisitors, setActiveVisitors] = useState(null);
 
   const loadMyAnalyticsApps = useCallback(async () => {
-    if (!firebaseEnabled || !isSignedIn || !user?.id) return [];
+    if (!supabaseEnabled || !isSignedIn || !user?.id) return [];
     setAppsLoading(true);
     setError(null);
     try {
-      const q = query(collection(db, 'deployments'), where('user_id', '==', user.id));
-      const snapshot = await getDocs(q);
-      const apps = snapshot.docs
-        .map((d) => d.data())
-        .filter((row) => row.analyticsEnabled && row.analyticsWebsiteId);
+      const { data, error: queryError } = await supabase.from('deployments')
+        .select('*').eq('analytics_enabled', true).not('analytics_website_id', 'is', null);
+      if (queryError) throw queryError;
+      const apps = (data || []).map((row) => ({
+        ...row,
+        analyticsEnabled: row.analytics_enabled,
+        analyticsWebsiteId: row.analytics_website_id,
+      }));
       setMyAnalyticsApps(apps);
       return apps;
     } catch (err) {

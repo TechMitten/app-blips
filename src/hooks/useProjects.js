@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { db, firebaseEnabled } from '../firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { supabase, supabaseEnabled } from '../supabase';
 import { isValidUuid } from '../lib/helpers';
 import { clearStartFresh, isStartFresh } from '../lib/config';
 import {
@@ -13,19 +12,19 @@ import { migrateChatSessions } from '../lib/chatSessions';
 import { LANDING_PAGE, versionFiles } from '../lib/pages';
 
 // Project persistence: the saved-apps list (localStorage rows when
-// self-hosted, Firestore rows when signed in with Firebase enabled),
+// self-hosted, Supabase rows when signed in with hosted mode enabled),
 // load/save/rename/delete, the auto-save-name debounce, and the
 // resume-last-project effect.
 //
 // Hosted mode never uses localStorage for project data: signed in, everything
-// lives in Firestore (and the last-open project is simply the most recently
+// lives in Supabase (and the last-open project is simply the most recently
 // updated one); signed out, work is in memory only, and signing out wipes the
 // workspace and any browser-side leftovers so the next visitor sees nothing.
 //
-// `useCloud` (not `isSignedIn` alone) decides Firestore vs. localStorage: in
+// `useCloud` (not `isSignedIn` alone) decides Supabase vs. localStorage: in
 // a self-hosted build the mock auth provider always reports `isSignedIn`
-// true, but there's no Firebase project behind `db` to talk to, so cloud
-// storage additionally requires `firebaseEnabled`.
+// true, but there's no Supabase project behind the client to talk to, so cloud
+// storage additionally requires `supabaseEnabled`.
 //
 // The workspace state itself (versions, currentVersionIndex, projectName, …)
 // stays in App because the generation flow owns it; this hook reads it via the
@@ -39,7 +38,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setIsResumingProject, clearStreamingState, resetWorkspace
   } = workspace;
 
-  const useCloud = isSignedIn && firebaseEnabled;
+  const useCloud = isSignedIn && supabaseEnabled;
 
   // Last-open pointer: self-hosted only. Hosted resumes the newest cloud row.
   // Adopting a project (load or save) cancels a pending start-fresh marker in
@@ -47,7 +46,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   // to it like normal.
   const rememberProjectId = (id) => {
     clearStartFresh();
-    if (!firebaseEnabled) localStorage.setItem('orion-current-project-id', id);
+    if (!supabaseEnabled) localStorage.setItem('orion-current-project-id', id);
   };
 
   const [myProjects, setMyProjects] = useState([]);
@@ -56,29 +55,9 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
 
   const fetchCloudProjects = useCallback(async () => {
     if (!user?.id) return [];
-    try {
-      const q = query(
-        collection(db, 'projects'),
-        where('user_id', '==', user.id),
-        orderBy('updated_at', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => d.data());
-      return cloudRowsToProjects(data);
-    } catch (err) {
-      // If composite index is still building, fall back to where-only query and sort client-side
-      if (err?.code === 'failed-precondition') {
-        const fallbackQ = query(
-          collection(db, 'projects'),
-          where('user_id', '==', user.id)
-        );
-        const snapshot = await getDocs(fallbackQ);
-        const data = snapshot.docs.map(d => d.data());
-        const projects = cloudRowsToProjects(data);
-        return projects.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
-      }
-      throw err;
-    }
+    const { data, error } = await supabase.from('projects').select('*').order('updated_at', { ascending: false });
+    if (error) throw error;
+    return cloudRowsToProjects(data);
   }, [user?.id]);
 
   const loadUserProjects = useCallback(async () => {
@@ -87,7 +66,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       if (useCloud) {
         projects = await fetchCloudProjects();
       } else {
-        projects = firebaseEnabled ? [] : localRowsToProjects(readProjectRows());
+        projects = supabaseEnabled ? [] : localRowsToProjects(readProjectRows());
       }
       setMyProjects(projects);
       return projects;
@@ -96,7 +75,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       // Self-hosted only: fall back to the local list. Hosted never reads
       // local rows, so a cloud failure shows an empty list rather than
       // another account's leftovers.
-      const projects = firebaseEnabled ? [] : localRowsToProjects(readProjectRows());
+      const projects = supabaseEnabled ? [] : localRowsToProjects(readProjectRows());
       setMyProjects(projects);
       return projects;
     }
@@ -106,9 +85,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     try {
       let row;
       if (useCloud) {
-        const docRef = doc(db, 'projects', projectId);
-        const docSnap = await getDoc(docRef);
-        const data = docSnap.exists() ? docSnap.data() : null;
+        const { data, error } = await supabase.from('projects').select('*').eq('id', projectId).maybeSingle();
+        if (error) throw error;
         if (!data) return;
         row = { id: data.id, name: data.name, data: data.data };
       } else {
@@ -161,7 +139,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
 
     if (!versionsToSave.length && !params.force) return;
     // Hosted + signed out: nothing is persisted, work stays in memory.
-    if (firebaseEnabled && !useCloud) return;
+    if (supabaseEnabled && !useCloud) return;
 
     let projectId = idToSave || currentProjectId || (useCloud ? crypto.randomUUID() : Date.now().toString());
 
@@ -185,13 +163,14 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
           projectId = cloudId;
         }
 
-        await setDoc(doc(db, 'projects', cloudId), {
+        const { error } = await supabase.from('projects').upsert({
           id: cloudId,
           user_id: user.id,
           name: nameToSave,
           data: projectData,
           updated_at: new Date().toISOString()
         });
+        if (error) throw error;
       } else {
         const rows = readProjectRows();
         const existingIndex = rows.findIndex(r => r.id === projectId);
@@ -271,7 +250,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         const startFresh = isStartFresh();
 
         if (!currentProjectId && !startFresh) {
-          if (firebaseEnabled) {
+          if (supabaseEnabled) {
             // loadUserProjects returns rows newest-first.
             if (projects[0]) await loadProjectById(projects[0].id);
           } else {
@@ -324,10 +303,11 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
   const renameProject = async (project, trimmedName) => {
     try {
       if (useCloud) {
-        await updateDoc(doc(db, 'projects', project.id), {
+        const { error } = await supabase.from('projects').update({
           name: trimmedName,
           updated_at: new Date().toISOString()
-        });
+        }).eq('id', project.id);
+        if (error) throw error;
       } else {
         const rows = readProjectRows();
         const idx = rows.findIndex(r => r.id === project.id);
@@ -362,7 +342,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         // Deployment first: if it fails the project row survives, so the
         // user can retry instead of leaving a live app nothing points to.
         await removeDeployment(project.deployment);
-        await deleteDoc(doc(db, 'projects', projectId));
+        const { error } = await supabase.from('projects').delete().eq('id', projectId);
+        if (error) throw error;
       } else {
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
       }
@@ -388,7 +369,8 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         try {
           if (useCloud) {
             await removeDeployment(project.deployment);
-            await deleteDoc(doc(db, 'projects', project.id));
+            const { error } = await supabase.from('projects').delete().eq('id', project.id);
+            if (error) throw error;
           }
           clearPreviewStorage(project.id);
         } catch (err) {

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
-import { firebaseEnabled } from '../firebase';
+import { supabaseEnabled } from '../supabase';
 import { APPS_ORIGIN } from '../lib/deploy';
 
 const APPS_HOST = APPS_ORIGIN.replace(/^https?:\/\//, '');
@@ -139,8 +139,8 @@ function PrimaryButton({ icon, arrow = true, size = 'lg', className = '', childr
 // Publish-to-public-URL modal: deploy / redeploy / remove / copy link. All
 // state and handlers come from useDeployment via props; `onRequireSignIn`
 // swaps this modal for the auth modal. Deploy is a hosted-mode-only feature
-// (Firebase Storage), so this renders a simple unavailable state instead when
-// !firebaseEnabled -- self-hosted builds never reach the rest of this UI.
+// (Supabase Storage), so this renders a simple unavailable state instead when
+// !supabaseEnabled -- self-hosted builds never reach the rest of this UI.
 export default function DeployModal({
   isSignedIn,
   username,
@@ -278,7 +278,7 @@ export default function DeployModal({
     </div>
   );
 
-  if (!firebaseEnabled) {
+  if (!supabaseEnabled) {
     return (
       <Modal zIndex={70} cardClass="w-full max-w-md xl:max-w-lg bg-surface rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-scale-in">
         {header}

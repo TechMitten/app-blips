@@ -201,7 +201,7 @@ export default function usePreviewBridge({
         }).catch((error) => {
           send("ai-chat-error", {
             requestId,
-            code: error?.isRateLimit ? "rate_limited" : (/session|sign in|App Check/i.test(error?.message || "") ? "unauthorized" : "upstream_error"),
+            code: error?.isRateLimit ? "rate_limited" : (/session|sign in/i.test(error?.message || "") ? "unauthorized" : "upstream_error"),
             message: "AI request failed.",
           }, data.token);
         });

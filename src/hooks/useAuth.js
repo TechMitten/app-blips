@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import authProvider, { firebaseEnabled } from '../lib/auth';
+import authProvider, { supabaseEnabled } from '../lib/auth';
 import { markHasSignedIn } from '../lib/config';
 import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/username';
 
-// Session lifecycle, driven by the auth adapter (Firebase or the self-hosted
+// Session lifecycle, driven by the auth adapter (Supabase or the self-hosted
 // mock, see src/lib/auth): restores the session on mount and keeps it in
 // sync. The auth modal's form state lives in <AuthModal> (self-contained,
 // like AccountSettingsModal).
@@ -14,8 +14,7 @@ export default function useAuth() {
   // Transient 'signedIn' | 'signedOut' notification (null when hidden).
   const [authToast, setAuthToast] = useState(null);
   const prevAuthStatusRef = useRef(null);
-  // Permanent per-user handle, stored in Firestore (users/{uid}.username) --
-  // see src/lib/username.js. Not part of the Firebase Auth user object.
+  // Permanent per-user handle, stored in the Supabase profiles table.
   const [username, setUsername] = useState('');
   const [usernameLoading, setUsernameLoading] = useState(false);
 
@@ -41,7 +40,7 @@ export default function useAuth() {
 
   // --- Load the permanent username once per signed-in user ---
   useEffect(() => {
-    if (!firebaseEnabled || !user?.id) {
+    if (!supabaseEnabled || !user?.id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsername('');
       return;
@@ -65,7 +64,7 @@ export default function useAuth() {
   // Close the auth modal the moment a session lands.
   useEffect(() => {
     if (authStatus === 'signedIn') {
-      if (firebaseEnabled) markHasSignedIn();
+      if (supabaseEnabled) markHasSignedIn();
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsAuthModalOpen(false);
     }

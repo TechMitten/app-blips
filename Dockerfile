@@ -2,8 +2,8 @@
 
 # ---- Build stage -----------------------------------------------------------
 # Local self-hosted image: builds the static client in self-hosted mode (SELF_HOSTED_MODE=true is the
-# default already, set explicitly here for clarity). No Firebase env vars are
-# needed: self-hosted mode never touches src/firebase.js's Firebase init.
+# default already, set explicitly here for clarity). No Supabase env vars are
+# needed: self-hosted mode never touches src/supabase.js's Supabase init.
 FROM node:22-alpine AS builder
 WORKDIR /app
 
@@ -31,7 +31,7 @@ ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist
 # Copy the whole _lib dir: chatProxy.js pulls in trackTokens/usageTracking/
-# firebaseServer transitively, and a hand-kept file list goes stale.
+# supabaseServer transitively, and a hand-kept file list goes stale.
 COPY --from=builder /app/functions/_lib ./functions/_lib
 COPY server.js ./server.js
 

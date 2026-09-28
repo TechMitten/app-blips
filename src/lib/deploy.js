@@ -1,6 +1,4 @@
-import { db, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, deleteDoc, runTransaction } from 'firebase/firestore';
-import { ref, uploadString, deleteObject, listAll } from 'firebase/storage';
+import { supabase } from '../supabase';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
@@ -55,9 +53,10 @@ export const pageObjectPath = (path, pageName) => `${path.replace(/[.]html$/, ''
 
 const deleteObjectIfPresent = async (objectPath) => {
   try {
-    await deleteObject(ref(storage, `${DEPLOY_BUCKET}/${objectPath}`));
+    const { error } = await supabase.storage.from(DEPLOY_BUCKET).remove([objectPath]);
+    if (error) throw error;
   } catch (error) {
-    if (error?.code !== 'storage/object-not-found') {
+    if (error?.statusCode !== '404') {
       throw new Error(error.message || 'Failed to remove deployment.');
     }
   }
@@ -100,13 +99,11 @@ export const registerDeployment = async ({
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await runTransaction(db, async (transaction) => {
-        const docRef = doc(db, 'deployments', encodeURIComponent(candidate));
-        const docSnap = await transaction.get(docRef);
-        if (docSnap.exists() && docSnap.data().user_id !== userId) {
-          throw new Error('taken');
-        }
-        transaction.set(docRef, {
+      const { data: existing, error: readError } = await supabase.from('deployments')
+        .select('user_id, ai_token_generation').eq('slug', candidate).maybeSingle();
+      if (readError) throw readError;
+      if (existing && existing.user_id !== userId) throw new Error('taken');
+      const { error } = await supabase.from('deployments').upsert({
           slug: candidate,
           user_id: userId,
           project_id: String(projectId ?? ''),
@@ -116,17 +113,17 @@ export const registerDeployment = async ({
           page_names: extraPageNames,
           bundle: Boolean(bundle),
           name: name || null,
-          analyticsEnabled: Boolean(analyticsEnabled),
-          analyticsWebsiteId: analyticsWebsiteId || null,
-          aiEnabled: Boolean(aiEnabled),
+          analytics_enabled: Boolean(analyticsEnabled),
+          analytics_website_id: analyticsWebsiteId || null,
+          ai_enabled: Boolean(aiEnabled),
           // Public by design: this binds/rate-limits a real deployment; it is not a provider secret.
-          aiToken: aiEnabled ? aiToken : null,
+          ai_token: aiEnabled ? aiToken : null,
           // Bumping this invalidates every outstanding short-lived AI session
           // token for the deployment. Redeploying (or toggling AI) rotates it.
-          aiTokenGeneration: aiEnabled ? (Number(docSnap.exists() ? docSnap.data()?.aiTokenGeneration : 0) || 0) + 1 : null,
+          ai_token_generation: aiEnabled ? (Number(existing?.ai_token_generation || 0) || 0) + 1 : null,
           updated_at: new Date().toISOString()
         });
-      });
+      if (error) throw error;
       return candidate;
     } catch (error) {
       if (error.message !== 'taken' && attempt === 2) {
@@ -141,7 +138,8 @@ export const registerDeployment = async ({
 
 export const unregisterDeployment = async (slug) => {
   try {
-    await deleteDoc(doc(db, 'deployments', encodeURIComponent(slug)));
+    const { error } = await supabase.from('deployments').delete().eq('slug', slug);
+    if (error) throw error;
   } catch (error) {
     throw new Error(error.message || 'Failed to remove the deploy link.');
   }
@@ -167,23 +165,28 @@ export const sweepUserDeployments = async (uid) => {
   const failures = [];
   const attempt = async (fn) => {
     try { await fn(); } catch (error) {
-      if (error?.code !== 'storage/object-not-found') failures.push(error);
+      if (error?.statusCode !== '404') failures.push(error);
     }
   };
 
-  const snapshot = await getDocs(query(collection(db, 'deployments'), where('user_id', '==', uid)));
-  for (const d of snapshot.docs) {
-    const { storage_path: path } = d.data();
-    await attempt(() => deleteDoc(d.ref));
-    if (path) await attempt(() => deleteObject(ref(storage, `${DEPLOY_BUCKET}/${path}`)));
+  const { data: deployments, error } = await supabase.from('deployments').select('slug, storage_path').eq('user_id', uid);
+  if (error) throw error;
+  for (const deployment of deployments || []) {
+    await attempt(() => unregisterDeployment(deployment.slug));
+    if (deployment.storage_path) await attempt(() => deleteObjectIfPresent(deployment.storage_path));
   }
 
-  const removeFolder = async (folderRef) => {
-    const { items, prefixes } = await listAll(folderRef);
-    for (const item of items) await attempt(() => deleteObject(item));
-    for (const prefix of prefixes) await removeFolder(prefix);
+  const removeFolder = async (prefix) => {
+    const { data, error: listError } = await supabase.storage.from(DEPLOY_BUCKET).list(prefix, { limit: 1000 });
+    if (listError) throw listError;
+    const paths = (data || []).filter((item) => item.id).map((item) => `${prefix}/${item.name}`);
+    if (paths.length) {
+      const { error: removeError } = await supabase.storage.from(DEPLOY_BUCKET).remove(paths);
+      if (removeError) throw removeError;
+    }
+    for (const folder of (data || []).filter((item) => !item.id)) await removeFolder(`${prefix}/${folder.name}`);
   };
-  await attempt(() => removeFolder(ref(storage, `${DEPLOY_BUCKET}/${uid}`)));
+  await attempt(() => removeFolder(uid));
 
   if (failures.length) throw new Error(failures[0].message || 'Failed to remove published apps.');
 };
@@ -210,10 +213,10 @@ export const uploadDeploy = async ({ path, files, password, preventIndexing, fav
 
   const put = async (objectPath, html) => {
     try {
-      await uploadString(ref(storage, `${DEPLOY_BUCKET}/${objectPath}`), html, 'raw', {
-        contentType: 'text/html; charset=utf-8',
-        cacheControl: 'public, max-age=60'
+      const { error } = await supabase.storage.from(DEPLOY_BUCKET).upload(objectPath, new Blob([html], { type: 'text/html; charset=utf-8' }), {
+        contentType: 'text/html; charset=utf-8', cacheControl: '60', upsert: true
       });
+      if (error) throw error;
     } catch (error) {
       const message = error.message || '';
       if (/unauthorized/i.test(message)) {

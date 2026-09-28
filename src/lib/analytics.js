@@ -1,8 +1,8 @@
-import { firebaseEnabled } from '../firebase';
+import { supabaseEnabled } from '../supabase';
 
 // Umami analytics for every deployed app and the hosted platform.
 //
-// Enabled ONLY in the hosted version (firebaseEnabled / SELF_HOSTED_MODE=false).
+// Enabled ONLY in the hosted version (supabaseEnabled / SELF_HOSTED_MODE=false).
 // Disabled in the self-hosted version (SELF_HOSTED_MODE=true or unset).
 //
 // The script tag is spliced in at deploy time only -- never into
@@ -18,7 +18,7 @@ import { firebaseEnabled } from '../firebase';
 export const UMAMI_SCRIPT_SRC = 'https://umami.techmitten.com/script.js';
 export const UMAMI_WEBSITE_ID = 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3';
 
-export const UMAMI_SCRIPT_TAG = firebaseEnabled
+export const UMAMI_SCRIPT_TAG = supabaseEnabled
   ? `<script defer src="${UMAMI_SCRIPT_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>`
   : '';
 
@@ -36,7 +36,7 @@ export const UMAMI_RECORDER_SRC = 'https://umami.techmitten.com/recorder.js';
 // mirroring the insertion strategy in pwa.js's injectPwaSnippet (index-based,
 // single insertion point, rest of the document untouched).
 export const injectAnalyticsSnippet = (html) => {
-  if (!firebaseEnabled || typeof html !== 'string' || !html) return html;
+  if (!supabaseEnabled || typeof html !== 'string' || !html) return html;
   // A user prompt can legitimately ask the model for umami tracking with this
   // same endpoint -- don't load it twice and double-count every event.
   if (html.includes('umami.techmitten.com/script.js')) return html;
@@ -65,7 +65,7 @@ export const injectAnalyticsSnippet = (html) => {
 // app for hosted mode. Dedupes if either script was already injected by
 // Vite's HTML transform.
 export const initAnalytics = () => {
-  if (!firebaseEnabled || typeof document === 'undefined') return;
+  if (!supabaseEnabled || typeof document === 'undefined') return;
 
   if (!document.querySelector(`script[src="${UMAMI_SCRIPT_SRC}"]`)) {
     const script = document.createElement('script');

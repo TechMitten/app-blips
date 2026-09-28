@@ -4,7 +4,7 @@
 
 export const LANDING_PAGE = 'index.html';
 export const MAX_PAGES = 12;
-// Firestore caps a project doc at 1 MiB and every version snapshots all pages,
+// Supabase caps a project doc at 1 MiB and every version snapshots all pages,
 // so keep any single version comfortably below it.
 export const MAX_FILES_BYTES = 400 * 1024;
 

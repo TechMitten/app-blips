@@ -21,11 +21,7 @@ const request = (body) => new Request('https://my.appblips.com/ai/chat', {
 
 const installFetch = ({ validToken, inspectUpstream, upstreamStatus = 200 }) => {
   globalThis.fetch = async (url, options = {}) => {
-    if (String(url).includes('firebaseappcheck.googleapis.com')) {
-      return Response.json({ token: 'server-app-check', ttl: '3600s' });
-    }
     if (String(url).includes('firestore.googleapis.com')) {
-      assert.equal(options.headers['X-Firebase-AppCheck'], 'server-app-check');
       const query = JSON.parse(options.body);
       assert.equal(query.structuredQuery.where.fieldFilter.value.stringValue, validToken);
       return Response.json([{ document: { fields: {
@@ -120,17 +116,12 @@ await assertNoSecret(response);
 console.log('AI relay security checks passed.');
 
 // Published Functions may lack the build-time VITE_FIREBASE_* variables.
-// AI must use the same project and App Check identity as the app-serving route.
+// AI must use the same project as the app-serving route.
 const fallbackToken = 'production-defaults-regression';
 const originalMock = globalThis.fetch;
 globalThis.fetch = async (url, options) => {
-  if (String(url).includes('firebaseappcheck.googleapis.com')) {
-    assert.ok(String(url).includes('/projects/appbips-f46e2/apps/'));
-    return Response.json({ token: 'server-app-check', ttl: '3600s' });
-  }
   if (String(url).includes('firestore.googleapis.com')) {
     assert.ok(String(url).includes('/projects/appbips-f46e2/'));
-    assert.equal(options.headers['X-Firebase-AppCheck'], 'server-app-check');
     return Response.json([{ document: { fields: {
       aiEnabled: { booleanValue: true },
       aiToken: { stringValue: fallbackToken },

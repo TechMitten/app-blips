@@ -26,9 +26,6 @@ const installFetch = ({ validToken } = {}) => {
   firestoreCalls = 0;
   globalThis.fetch = async (url, options = {}) => {
     const target = String(url);
-    if (target.includes('firebaseappcheck.googleapis.com')) {
-      return Response.json({ token: 'server-app-check', ttl: '3600s' });
-    }
     if (target.includes('firestore.googleapis.com')) {
       firestoreCalls += 1;
       const asked = JSON.parse(options.body).structuredQuery.where.fieldFilter.value.stringValue;

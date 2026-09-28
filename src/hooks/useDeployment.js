@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { firebaseEnabled } from '../firebase';
+import { supabaseEnabled } from '../supabase';
 import {
   registerDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
   deployUrlForSlug, deployObjectPath, makeAiToken, removeStalePages, removeDeployment
@@ -9,9 +9,9 @@ import { createAnalyticsWebsite } from '../lib/appAnalytics';
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
 // the project's data blob by `saveProject`) plus the modal/UI state around
-// deploy / redeploy / undeploy. Deploy is a Firebase Storage feature with no
+// deploy / redeploy / undeploy. Deploy is a Supabase Storage feature with no
 // self-hosted equivalent, so every action here is a no-op unless
-// firebaseEnabled -- DeployModal shows a "not available" state in that case.
+// supabaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
   files, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
   deployment, setDeployment, saveProject, aiEnabled
@@ -42,7 +42,7 @@ export default function useDeployment({
 
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
     if (!getLanding(files) || isDeploying) return false;
-    if (!firebaseEnabled) {
+    if (!supabaseEnabled) {
       setDeployError('Deploy is not available in self-hosted mode.');
       return false;
     }
@@ -120,7 +120,7 @@ export default function useDeployment({
 
   const handleUndeploy = async () => {
     if (!deployment || isDeploying) return;
-    if (!firebaseEnabled) return;
+    if (!supabaseEnabled) return;
 
     setIsDeploying(true);
     setDeployError(null);

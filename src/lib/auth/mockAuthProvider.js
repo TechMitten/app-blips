@@ -44,8 +44,6 @@ export default {
   signIn: noop,
   signUp: noop,
   sendPasswordReset: noop,
-  signInWithGithub: noop,
-  signInWithGoogle: noop,
   signOut: noop,
   updatePassword: noop,
   updateProfile,
@@ -53,5 +51,4 @@ export default {
   getPrimaryProviderId: () => null,
   reauthenticate: noop,
   getIdToken: async () => 'local-mode',
-  getAppCheckToken: async () => null,
 };

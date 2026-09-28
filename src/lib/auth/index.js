@@ -1,9 +1,9 @@
-import { firebaseEnabled } from '../../firebase';
-import firebaseAuthProvider from './firebaseAuthProvider';
+import { supabaseEnabled } from '../../supabase';
+import supabaseAuthProvider from './supabaseAuthProvider';
 import mockAuthProvider from './mockAuthProvider';
 
-export { firebaseEnabled };
+export { supabaseEnabled };
 
-const authProvider = firebaseEnabled ? firebaseAuthProvider : mockAuthProvider;
+const authProvider = supabaseEnabled ? supabaseAuthProvider : mockAuthProvider;
 
 export default authProvider;

@@ -27,9 +27,6 @@ const deploymentFields = (gen, enabled = true) => ({
 const installFetch = ({ gen = 1, enabled = true, turnstileSuccess = true } = {}) => {
   globalThis.fetch = async (url, options = {}) => {
     const target = String(url);
-    if (target.includes('firebaseappcheck.googleapis.com')) {
-      return Response.json({ token: 'server-app-check', ttl: '3600s' });
-    }
     if (target.includes('challenges.cloudflare.com')) {
       return Response.json({ success: turnstileSuccess });
     }

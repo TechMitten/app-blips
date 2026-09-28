@@ -16,7 +16,6 @@
 // stay server-side only.
 
 import { authorize } from './chatProxy.js';
-import { getAppCheckToken } from '../[[path]].js';
 
 let adminTokenCache = { token: null, expiry: 0 };
 
@@ -89,29 +88,20 @@ const validateEnv = (env) => {
   return missing;
 };
 
-const DEFAULT_FIREBASE_PROJECT_ID = 'appbips-f46e2';
+import { supabaseUrl, supabaseHeaders } from './supabaseServer.js';
 
-// `deployments/{slug}` is publicly readable per firestore.rules, but this
-// Firebase project also enforces App Check at the Firestore level, which
-// applies before security rules are even evaluated -- an unauthenticated
-// call gets a flat 403 regardless of what the rules allow. functions/[[path]].js
-// already solves this for its own Firestore reads via a debug-token exchange
-// (there's no real App Check attestation provider in a server environment);
-// reuse that instead of duplicating it.
+// `deployments/{slug}` is publicly readable per Supabase RLS.
 const getDeploymentDoc = async (slug, env) => {
-  const projectId = env?.FIREBASE_PROJECT_ID || env?.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID;
-  const firestoreApiUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-  const headers = {};
-  const appCheckToken = await getAppCheckToken(env);
-  if (appCheckToken) headers['X-Firebase-AppCheck'] = appCheckToken;
-  const res = await fetch(`${firestoreApiUrl}/deployments/${encodeURIComponent(slug)}`, { headers });
-  if (res.status === 404) return null;
+  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=user_id,analytics_enabled,analytics_website_id&limit=1`, {
+    headers: supabaseHeaders(env),
+  });
   if (!res.ok) throw new Error(`Failed to look up deployment: ${res.status}`);
-  const doc = await res.json();
+  const [doc] = await res.json();
+  if (!doc) return null;
   return {
-    user_id: doc.fields?.user_id?.stringValue || null,
-    analyticsEnabled: doc.fields?.analyticsEnabled?.booleanValue || false,
-    analyticsWebsiteId: doc.fields?.analyticsWebsiteId?.stringValue || null,
+    user_id: doc.user_id || null,
+    analyticsEnabled: doc.analytics_enabled || false,
+    analyticsWebsiteId: doc.analytics_website_id || null,
   };
 };
 

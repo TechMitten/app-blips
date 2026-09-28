@@ -1,5 +1,5 @@
 import { consumeToken } from './rateLimit.js';
-import { firebaseProjectId, getAppCheckToken } from './firebaseServer.js';
+import { supabaseUrl, supabaseHeaders } from './supabaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
 import { wrapWithTokenTracking } from './trackTokens.js';
@@ -38,30 +38,19 @@ const json = (body, status, headers = {}) => new Response(JSON.stringify(body), 
 
 const errorResponse = (code, status, message, headers) => json({ error: { code, message } }, status, headers);
 
-const runQueryUrl = (env) =>
-  `https://firestore.googleapis.com/v1/projects/${firebaseProjectId(env)}/databases/(default)/documents:runQuery`;
-
 const runDeploymentQuery = async (fieldPath, value, env) => {
-  const headers = { 'content-type': 'application/json' };
-  const appCheckToken = await getAppCheckToken(env);
-  if (appCheckToken) headers['X-Firebase-AppCheck'] = appCheckToken;
-  const response = await fetch(runQueryUrl(env), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId: 'deployments' }],
-        where: { fieldFilter: { field: { fieldPath }, op: 'EQUAL', value: { stringValue: value } } },
-        limit: 1,
-      },
-    }),
+  const columns = { aiToken: 'ai_token', slug: 'slug' };
+  const column = columns[fieldPath];
+  if (!column) throw new Error('invalid deployment lookup');
+  const response = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?${column}=eq.${encodeURIComponent(value)}&limit=1`, {
+    headers: supabaseHeaders(env),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
     throw new Error(`deployment lookup failed: ${response.status} ${detail.slice(0, 200)}`);
   }
   const rows = await response.json();
-  return rows?.[0]?.document?.fields || null;
+  return rows?.[0] || null;
 };
 
 // Legacy path: the public static deployment token embedded in older deploys.
@@ -71,14 +60,14 @@ export const validateDeploymentToken = async (token, env) => {
   if (cached && cached.expiresAt > Date.now()) return cached.valid;
 
   const fields = await runDeploymentQuery('aiToken', token, env);
-  const valid = Boolean(fields?.aiEnabled?.booleanValue && fields?.aiToken?.stringValue === token);
+  const valid = Boolean(fields?.ai_enabled && fields?.ai_token === token);
   cacheSet(tokenCache, token, { valid });
   return valid;
 };
 
 // Session path: resolve the deployment by its public slug. Cached (so
 // revocation via `aiTokenGeneration` takes effect within ~60s without a
-// Firestore read per request); pass { fresh: true } to bypass the cache.
+// Supabase read per request); pass { fresh: true } to bypass the cache.
 export const fetchDeploymentBySlug = async (slug, env, { fresh = false } = {}) => {
   if (!slug || typeof slug !== 'string' || slug.length > 128) return null;
   if (!fresh) {
@@ -90,12 +79,7 @@ export const fetchDeploymentBySlug = async (slug, env, { fresh = false } = {}) =
   return fields;
 };
 
-const fieldInt = (field, fallback = 0) => {
-  if (!field) return fallback;
-  if (field.integerValue !== undefined) return Number(field.integerValue) || fallback;
-  if (field.doubleValue !== undefined) return Math.trunc(Number(field.doubleValue)) || fallback;
-  return fallback;
-};
+const fieldInt = (field, fallback = 0) => Number(field) || fallback;
 
 export const clearAiCachesForTesting = () => {
   tokenCache.clear();
@@ -179,12 +163,12 @@ export async function handleAiSession(request, env) {
     console.error('[ai-session]', err?.message || err);
     return errorResponse('upstream_error', 502, 'Deployment validation failed.');
   }
-  if (!fields || !fields.aiEnabled?.booleanValue) {
+  if (!fields || !fields.ai_enabled) {
     console.error('[ai-session] mint rejected: deployment missing or AI disabled for slug');
     return errorResponse('unauthorized', 403, 'AI is not enabled for this app.');
   }
 
-  const signed = await signSessionToken({ slug, gen: fieldInt(fields.aiTokenGeneration, 1) }, env);
+  const signed = await signSessionToken({ slug, gen: fieldInt(fields.ai_token_generation, 1) }, env);
   if (!signed) return errorResponse('configuration_required', 503, 'AI session tokens are not configured.');
   return json({ token: signed.token, expiresIn: signed.ttl, expiresAt: Date.now() + signed.ttl * 1000 }, 200);
 }
@@ -193,10 +177,10 @@ export async function handleAiChat(request, env, waitUntil) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   if (!originAllowed(request, env)) return errorResponse('unauthorized', 403, 'Request origin is not allowed.');
 
-  // Ahead of the body read and of every Firestore lookup below. Token
+  // Ahead of the body read and of every Supabase lookup below. Token
   // validation costs a database query per request and used to run with no
   // limiter in front of it, so an unauthenticated caller could drive unbounded
-  // Firestore reads (and unbounded cache growth) with a stream of junk tokens.
+  // Supabase reads (and unbounded cache growth) with a stream of junk tokens.
   const ipRate = consumeToken(`chat-ip:${clientIp(request)}`, ipRateLimit(env));
   if (!ipRate.allowed) return errorResponse('rate_limited', 429, 'Rate limit exceeded.', { 'Retry-After': String(ipRate.retryAfter) });
 
@@ -229,26 +213,26 @@ export async function handleAiChat(request, env, waitUntil) {
       console.error('[ai-relay]', err?.message || err);
       return errorResponse('upstream_error', 502, 'Deployment validation failed.');
     }
-    let enabled = Boolean(fields?.aiEnabled?.booleanValue);
-    let generation = fieldInt(fields?.aiTokenGeneration, 1);
+    let enabled = Boolean(fields?.ai_enabled);
+    let generation = fieldInt(fields?.ai_token_generation, 1);
     if (!enabled || generation !== session.gen) {
       // A stale cache (e.g. right after a redeploy bumped the generation on
       // another isolate) must not strand freshly minted tokens -- re-check
-      // against live Firestore once before rejecting.
+      // against live Supabase once before rejecting.
       try {
         fields = await fetchDeploymentBySlug(session.slug, env, { fresh: true });
       } catch (err) {
         console.error('[ai-relay]', err?.message || err);
         return errorResponse('upstream_error', 502, 'Deployment validation failed.');
       }
-      enabled = Boolean(fields?.aiEnabled?.booleanValue);
-      generation = fieldInt(fields?.aiTokenGeneration, 1);
+      enabled = Boolean(fields?.ai_enabled);
+      generation = fieldInt(fields?.ai_token_generation, 1);
       if (!enabled || generation !== session.gen) {
         console.error('[ai-relay] session rejected: revoked generation or AI disabled');
         return errorResponse('unauthorized', 403, 'AI session is no longer valid.');
       }
     }
-    ownerUid = fields?.user_id?.stringValue;
+    ownerUid = fields?.user_id;
     rateKey = `chat:${session.slug}`;
   } else if (env.APPBLIPS_AI_REQUIRE_SESSION === 'true') {
     return errorResponse('unauthorized', 403, 'Invalid deployment token.');

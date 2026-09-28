@@ -30,7 +30,7 @@ export default function Header({
   userEmail,
   onOpenAccountSettings,
   onSignIn,
-  firebaseEnabled,
+  supabaseEnabled,
   onOpenAnalytics,
   studioMode = 'app',
   mobileView,
@@ -246,7 +246,7 @@ export default function Header({
           </button>
 
           {/* Hosted mode + signed-in only, same gate as the account control */}
-          {firebaseEnabled && isSignedIn && (
+          {supabaseEnabled && isSignedIn && (
             <button
               onClick={onOpenAnalytics}
               className="nav-btn nav-ghost nav-btn-icon"
@@ -262,7 +262,7 @@ export default function Header({
         {/* Rank 4: Account + theme */}
         <span className="chrome-divider" aria-hidden="true" />
         <div className="nav-rank">
-          {!firebaseEnabled ? null : isSignedIn ? (
+          {!supabaseEnabled ? null : isSignedIn ? (
             <button
               onClick={onOpenAccountSettings}
               className="nav-btn nav-ghost nav-btn-icon"
@@ -421,7 +421,7 @@ export default function Header({
                 <Compass size={16} />
                 <span>Take the tour</span>
               </button>
-              {firebaseEnabled && isSignedIn && (
+              {supabaseEnabled && isSignedIn && (
                 <>
                   <button
                     type="button"
@@ -444,7 +444,7 @@ export default function Header({
                   </button>
                 </>
               )}
-              {firebaseEnabled && !isSignedIn && authStatus !== 'loading' && (
+              {supabaseEnabled && !isSignedIn && authStatus !== 'loading' && (
                 <button
                   type="button"
                   onClick={() => runMobileAction(onSignIn)}
