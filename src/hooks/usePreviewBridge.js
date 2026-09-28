@@ -16,6 +16,10 @@ export default function usePreviewBridge({
   previewSrcDoc,
   previewToken,
   previewMode,
+  // True while the iframe element is mounted. The Code tab unmounts it, and
+  // switching back mounts a NEW element, so the handshake effect must re-run
+  // to bind its listeners to that element's contentWindow.
+  frameMounted = true,
   onRuntimeError,
   onReady,
   onStorageChange,
@@ -118,7 +122,7 @@ export default function usePreviewBridge({
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!iframe || !previewSrcDoc) return;
+    if (!frameMounted || !iframe || !previewSrcDoc) return;
 
     const send = (type, payload, token = currentTokenRef.current) => {
       try {
@@ -288,7 +292,7 @@ export default function usePreviewBridge({
       send('configure', { enabled: false });
       send('set-editing', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, iframeRef]);
+  }, [previewSrcDoc, previewToken, previewMode, frameMounted, iframeRef]);
 
   // Editing toggles are delivered as their own push so flipping the picker on
   // or off does not re-run (and thus does not disturb) the main handshake

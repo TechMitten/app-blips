@@ -642,6 +642,7 @@ export default function App() {
     previewSrcDoc,
     previewToken,
     previewMode,
+    frameMounted: activeTab === 'preview',
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
@@ -674,6 +675,19 @@ export default function App() {
     setTextSession(null);
     setElementEditError(null);
     pendingScrollRef.current = null;
+  }, []);
+
+  // The Code tab unmounts the preview iframe, so any selection or in-place
+  // text session dies with it; drop the parent's copy so the toolbar does not
+  // come back pointing at an element the new frame never selected.
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab);
+    if (tab !== 'preview') {
+      setSelectedElement(null);
+      setTextSession(null);
+      setElementEditError(null);
+      pendingScrollRef.current = null;
+    }
   }, []);
 
   const handleCancelElementSelection = useCallback(() => {
@@ -2182,7 +2196,7 @@ export default function App() {
             <PreviewPane
               projectName={projectName}
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
               showCodeView={showCodeView}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
