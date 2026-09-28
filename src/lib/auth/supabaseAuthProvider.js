@@ -23,7 +23,12 @@ const signIn = async (email, password, captchaToken) => throwIfError(await supab
   email, password, options: { captchaToken },
 }));
 const signUp = async (email, password, captchaToken) => throwIfError(await supabase.auth.signUp({
-  email, password, options: { captchaToken },
+  email,
+  password,
+  options: {
+    captchaToken,
+    emailRedirectTo: `${window.location.origin}/`,
+  },
 }));
 const sendPasswordReset = async (email, captchaToken) => throwIfError(await supabase.auth.resetPasswordForEmail(email, {
   redirectTo: `${window.location.origin}/`,

@@ -18,6 +18,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const [authMode, setAuthMode] = useState(() => (hasSignedInBefore() ? 'signin' : 'signup')); // 'signin' | 'signup' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [authInfo, setAuthInfo] = useState(null);
@@ -32,6 +33,8 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
 
   const handleAuthModeSwitch = (mode) => {
     setAuthMode(mode);
+    setAuthPassword('');
+    setAuthPasswordConfirm('');
     setAuthError(null);
     setAuthInfo(null);
     resetCaptcha();
@@ -43,6 +46,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
     const isReset = authMode === 'reset';
     if (!email || (!isReset && !authPassword)) {
       setAuthError(isReset ? 'Enter your email.' : 'Enter your email and password.');
+      return;
+    }
+    if (authMode === 'signup' && authPassword !== authPasswordConfirm) {
+      setAuthError('Passwords do not match.');
       return;
     }
     if (!captchaToken) {
@@ -206,6 +213,26 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
               {isSignup && <p className="mt-1.5 text-xs text-slate-500">Use at least 6 characters.</p>}
             </div>
           )}
+          {isSignup && (
+            <div>
+              <label htmlFor="auth-password-confirm" className={LABEL_CLASS}>Confirm password</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  id="auth-password-confirm"
+                  type={showAuthPassword ? 'text' : 'password'}
+                  value={authPasswordConfirm}
+                  onChange={(e) => setAuthPasswordConfirm(e.target.value)}
+                  placeholder="Enter your password again"
+                  autoComplete="new-password"
+                  className={`${INPUT_CLASS} pr-11`}
+                />
+              </div>
+              {authPasswordConfirm && authPassword !== authPasswordConfirm && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">Passwords do not match.</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex min-h-[65px] justify-center">
@@ -224,7 +251,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
 
         <button
           type="submit"
-          disabled={busy || !captchaToken}
+          disabled={busy || !captchaToken || (isSignup && (!authPasswordConfirm || authPassword !== authPasswordConfirm))}
           className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {authLoading && <Loader2 className="animate-spin" size={16} />}
