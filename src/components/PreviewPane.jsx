@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, MousePointerClick
+  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, MousePointerClick, Move
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -74,6 +74,8 @@ export default function PreviewPane({
   studioMode = 'app',
   isEditMode = false,
   onToggleEditMode,
+  isDragMode = false,
+  onToggleDragMode,
   selectedElement = null,
   selectionKey = 0,
   textSession = null,
@@ -305,6 +307,22 @@ export default function PreviewPane({
             </button>
           )}
 
+          {/* Drag mode: a secondary key that only exists while click-to-edit
+              is on. While it is on, dragging an element in the preview moves
+              it, and a click selects without starting text editing. */}
+          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && isEditMode && (
+            <button
+              data-tour="drag"
+              onClick={onToggleDragMode}
+              aria-pressed={isDragMode}
+              aria-label="Drag mode"
+              data-tip={isDragMode ? 'Drag elements in the preview to move them' : 'Turn on drag mode to move elements'}
+              className={`nav-btn nav-ghost nav-btn-icon ${isDragMode ? 'nav-ghost-active' : ''}`}
+            >
+              <Move size={16} />
+            </button>
+          )}
+
           {activeTab === 'preview' && hasCode && (
             <button
               onClick={onReloadPreview}
@@ -404,6 +422,7 @@ export default function PreviewPane({
               onEditWithAI={onElementEditWithAI}
               onCancel={onCancelElementSelection}
               onSelectParent={onSelectParentElement}
+              isDragMode={isDragMode}
             />
           )}
         </div>

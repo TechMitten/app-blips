@@ -826,19 +826,79 @@ const applyStructureChange = (code, element, op, dir) => {
   };
 };
 
-const STRUCTURE_KEYS = ['remove', 'duplicate', 'move'];
+// Re-indent the continuation lines of a moved block from its old nesting
+// depth to its new one. Lines that do not carry the old indent are left as
+// they are rather than guessed at.
+const reindent = (text, from, to) => {
+  if (from === to) return text;
+  return text.split('\n').map((line, i) => (i > 0 && line.startsWith(from) ? to + line.slice(from.length) : line)).join('\n');
+};
+
+// Drag-and-drop: cut the element's block (landmark included) and insert it
+// directly before or after another element's block, anywhere in the page.
+// Both ends must be located uniquely, or the drop fails over to the AI path.
+const applyMoveTo = (code, element, target, position) => {
+  const what = describeTarget(element);
+  const range = locateElement(code, element);
+  if (!range.ok) return range;
+  if (PROTECTED_TAGS.has(String(target.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
+  const other = locateElement(code, target);
+  if (!other.ok) return { ok: false, reason: other.reason === 'ambiguous' ? 'ambiguous' : 'drop-target-not-found' };
+
+  const dragStart = blockStart(code, range.start);
+  const targetStart = blockStart(code, other.start);
+  // Overlapping blocks mean one contains the other: nothing to move past.
+  if (!(range.end <= targetStart || other.end <= dragStart)) return { ok: false, reason: 'invalid-drop' };
+  // Already there: only whitespace/comments between the two on that side.
+  const gap = position === 'after' ? [other.end, dragStart] : [range.end, targetStart];
+  if (gap[0] <= gap[1] && ONLY_GAP_RE.test(code.slice(gap[0], gap[1]))) return { ok: false, reason: 'no-op' };
+
+  const removal = lineSpan(code, dragStart, range.end);
+  const block = code.slice(dragStart, range.end);
+  const slot = lineSpan(code, targetStart, other.end);
+  let at;
+  let insert;
+  if (slot.ownLine) {
+    const text = removal.ownLine ? reindent(block, removal.indent, slot.indent) : block;
+    if (position === 'before') {
+      at = slot.start;
+      insert = `${slot.indent}${text}\n`;
+    } else {
+      at = slot.end;
+      insert = code[at - 1] === '\n' ? `${slot.indent}${text}\n` : `\n${slot.indent}${text}`;
+    }
+  } else if (position === 'before') {
+    at = targetStart;
+    insert = `${block} `;
+  } else {
+    at = other.end;
+    insert = ` ${block}`;
+  }
+
+  // The slot never falls inside the removed span (the blocks do not
+  // overlap and whole-line spans hold nothing else), so splice around it.
+  const next = at <= removal.start
+    ? code.slice(0, at) + insert + code.slice(at, removal.start) + code.slice(removal.end)
+    : code.slice(0, removal.start) + code.slice(removal.end, at) + insert + code.slice(at);
+  if (next === code) return { ok: false, reason: 'no-op' };
+  return { ok: true, code: next, summary: `moved the ${what} ${position} the ${describeTarget(target)}` };
+};
+
+const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo'];
 
 /**
  * Apply click-to-edit changes to the source document.
  *
- * Structural changes (`remove`, `duplicate`, `move`) stand alone; every
+ * Structural changes (`remove`, `duplicate`, `move`, `moveTo`) stand alone; every
  * other key may be combined and is applied in one version.
  *
  * @param {string} code current generated HTML (never carries the preview bridge)
  * @param {object} element the bridge's element-selected payload
  * @param {{ text?: string, style?: Record<string, string>, src?: string, alt?: string, href?: string,
  *   target?: '_blank' | null, backgroundColor?: string, backgroundImage?: string,
- *   remove?: true, duplicate?: true, move?: -1 | 1 }} changes
+ *   remove?: true, duplicate?: true, move?: -1 | 1,
+ *   moveTo?: { target: object, position: 'before' | 'after' } }} changes
+ *   (`moveTo.target` is a lite snapshot of the element dropped against)
  * @returns {{ ok: true, code: string, summary: string } | { ok: false, reason: string }}
  */
 export const applyDirectEdit = (code, element, changes) => {
@@ -853,7 +913,17 @@ export const applyDirectEdit = (code, element, changes) => {
     }
     const op = structural[0];
     if (op === 'move' && changes.move !== -1 && changes.move !== 1) return { ok: false, reason: 'invalid' };
-    const result = applyStructureChange(code, element, op, changes.move);
+    let result;
+    if (op === 'moveTo') {
+      const { target, position } = changes.moveTo;
+      if (!target || typeof target !== 'object' || (position !== 'before' && position !== 'after')) {
+        return { ok: false, reason: 'invalid' };
+      }
+      if (PROTECTED_TAGS.has(String(element.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
+      result = applyMoveTo(code, element, target, position);
+    } else {
+      result = applyStructureChange(code, element, op, changes.move);
+    }
     return result.ok ? { ok: true, code: result.code, summary: `Inline edit: ${result.summary}.` } : result;
   }
 
@@ -904,6 +974,8 @@ const FAILURE_MESSAGES = {
   'no-sibling': 'There is nothing on that side to move it past.',
   'not-adjacent': 'Its neighbour is not next to it in the page source (it may be added by a script), so it could not be moved directly.',
   'sibling-not-found': 'Its neighbour could not be found in the page source, so it could not be moved directly.',
+  'drop-target-not-found': 'The spot where it was dropped could not be found in the page source (it may be added by a script), so it could not be moved directly.',
+  'invalid-drop': 'An element cannot be moved inside itself.',
   'invalid-color': 'That is not a valid color. Use a hex value like #1e293b.',
   'invalid-image-url': 'That image URL cannot be used as a background (it contains quotes, brackets or line breaks).',
   'no-op': 'Nothing changed.',

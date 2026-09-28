@@ -585,6 +585,53 @@ check('move without a sibling reports no-sibling', () => {
   assert.strictEqual(applyDirectEdit(FIXTURE, element, { move: 1 }).reason, 'no-sibling');
 });
 
+check('moveTo reorders across the page, carrying the landmark and re-indenting', () => {
+  const heading = { tag: 'h1', role: 'heading', text: 'Fresh bread, every morning', attributes: { class: 'text-5xl font-black text-white' } };
+  const intoAbout = applyDirectEdit(FIXTURE, el(heading), {
+    moveTo: { target: { tag: 'p', role: 'text', text: 'Baked in Bend since 2012 & loved daily.', attributes: {} }, position: 'before' },
+  });
+  assert.ok(intoAbout.ok, `expected ok, got: ${intoAbout.reason}`);
+  assert.match(intoAbout.code, /bg-\[#1c1917\]">\n {4}<img src="https:\/\/images\.unsplash\.com\/photo-bread"/);
+  assert.match(intoAbout.code, /\)">\n {4}<h1 class="text-5xl font-black text-white">Fresh bread, every morning<\/h1>\n {4}<p>Baked in Bend/);
+  assert.match(intoAbout.summary, /moved the heading "Fresh bread, every morning" before the text "Baked in Bend/);
+
+  // A section moves with its @section landmark, and nested lines re-indent.
+  const code = '<body>\n  <!-- @section: a -->\n  <section>\n    <p>A</p>\n  </section>\n  <main>\n    <p>B</p>\n  </main>\n</body>';
+  const moved = applyDirectEdit(code, el({ tag: 'section', text: 'A' }), {
+    moveTo: { target: { tag: 'p', text: 'B', attributes: {} }, position: 'after' },
+  });
+  assert.ok(moved.ok, `expected ok, got: ${moved.reason}`);
+  assert.strictEqual(
+    moved.code,
+    '<body>\n  <main>\n    <p>B</p>\n    <!-- @section: a -->\n    <section>\n      <p>A</p>\n    </section>\n  </main>\n</body>',
+  );
+});
+
+check('moveTo handles inline neighbours sharing a line', () => {
+  const code = '<div><img src="a.png"> <img src="b.png"> <img src="c.png"></div>';
+  const result = applyDirectEdit(code, el({ tag: 'img', role: 'image', attributes: { src: 'a.png' } }), {
+    moveTo: { target: { tag: 'img', attributes: { src: 'c.png' } }, position: 'after' },
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.strictEqual(result.code, '<div> <img src="b.png"> <img src="c.png"> <img src="a.png"></div>');
+});
+
+check('moveTo refuses nesting, missing targets, no-ops and bad payloads', () => {
+  const inside = applyDirectEdit(FIXTURE, el(HEADER_EL), {
+    moveTo: { target: { tag: 'h1', text: 'Fresh bread, every morning', attributes: {} }, position: 'after' },
+  });
+  assert.strictEqual(inside.reason, 'invalid-drop');
+  const missing = applyDirectEdit(FIXTURE, el(ABOUT_EL), {
+    moveTo: { target: { tag: 'div', text: 'Rendered by a script', attributes: {} }, position: 'after' },
+  });
+  assert.strictEqual(missing.reason, 'drop-target-not-found');
+  const noop = applyDirectEdit(FIXTURE, el(ABOUT_EL), { moveTo: { target: HEADER_EL, position: 'after' } });
+  assert.strictEqual(noop.reason, 'no-op');
+  assert.strictEqual(applyDirectEdit(FIXTURE, el(ABOUT_EL), { moveTo: { target: HEADER_EL, position: 'inside' } }).reason, 'invalid');
+  assert.strictEqual(applyDirectEdit(FIXTURE, el(ABOUT_EL), { moveTo: { target: { tag: 'body' }, position: 'after' } }).reason, 'protected-element');
+  assert.strictEqual(applyDirectEdit(FIXTURE, el({ tag: 'body' }), { moveTo: { target: HEADER_EL, position: 'after' } }).reason, 'protected-element');
+});
+
 check('structure edits refuse ambiguous elements and the page itself', () => {
   const dup = el({ tag: 'p', role: 'text', text: 'Duplicate text in footer' });
   assert.strictEqual(applyDirectEdit(FIXTURE, dup, { remove: true }).reason, 'ambiguous');

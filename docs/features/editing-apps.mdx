@@ -52,6 +52,14 @@ The editor bar has keys to rearrange whatever you have selected. Each one is sav
 | Duplicate it right below itself | Duplicate | Ctrl+D (⌘D on Mac) |
 | Delete it | Delete | Delete or Backspace |
 
+### Drag to move
+
+You can also drag text, images, buttons or whole sections to a new spot. While click-to-edit is on, a **Drag mode** key (the move icon) appears next to it. Turn it on, then press on an element in the preview and drag it: a line shows where it will land, before or after the element under your pointer, anywhere on the page. Release to move it, or press Escape to cancel. Hold the pointer near the top or bottom edge of the preview to scroll while you drag.
+
+In drag mode, hovering outlines what a drag would move, and a click selects an element without editing its text. To move a container such as a card or a section, click it (use **Select Parent** if needed), then drag from anywhere inside it. Turn drag mode off to edit text in place again. Words inside a paragraph or heading move with their paragraph. Elements stay in the normal page flow, so the layout still adapts to every screen size. List items can only be moved among list items, and table cells among table cells.
+
+If the dragged element or the spot where you drop it can't be found exactly in the page source (for example, because a script added it), nothing moves. The element is selected so you can describe the move to AI instead.
+
 Ctrl+Z (⌘Z on Mac) undoes the last change, even while you're working in the preview. When you move or delete a whole section, its section marker goes with it. A duplicate gets no `id` attributes, so links to the original section still land on the original.
 
 ## Links, Buttons and Backgrounds

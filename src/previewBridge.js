@@ -273,7 +273,8 @@ const BRIDGE_SOURCE = `(function () {
   // reports the element as selected (the panel's escape hatch, e.g. for
   // select-parent); select-parent walks the selection up one ancestor at
   // a time so containers (section backgrounds, wallpaper) can be reached
-  // from their children.
+  // from their children. Dragging an element moves it (see "Drag to move"
+  // below), in drag mode only.
   // ------------------------------------------------------------------
 
   var editingActive = false;
@@ -288,6 +289,12 @@ const BRIDGE_SOURCE = `(function () {
   var EDIT_HOVER_OUTLINE = '2px dashed rgba(99, 102, 241, 0.85)';
   var EDIT_SELECT_OUTLINE = '3px solid rgba(99, 102, 241, 1)';
   var EDIT_CURSOR_CSS = '* { cursor: crosshair !important; }';
+  var DRAG_MODE_CURSOR_CSS = '* { cursor: grab !important; }';
+  // Drag mode (the parent's secondary toggle): pressing and dragging moves
+  // an element, and a click only selects -- no in-place text editing.
+  var dragModeActive = false;
+
+  function editCursorCss() { return dragModeActive ? DRAG_MODE_CURSOR_CSS : EDIT_CURSOR_CSS; }
 
   function isBridgeNode(el) {
     var node = el;
@@ -1098,9 +1105,14 @@ const BRIDGE_SOURCE = `(function () {
   function editOnMouseOver(e) {
     // No hover outlines while a text session is live: the caret's own
     // focus outline is the only visual state that matters there.
-    if (!editingActive || inlineEdit) return;
+    if (!editingActive || inlineEdit || (drag && drag.active)) return;
     var el = e.target;
     if (!isSelectable(el)) return;
+    // Drag mode outlines what a drag from here would move.
+    if (dragModeActive) {
+      el = editSelectedEl && editSelectedEl.contains(el) ? editSelectedEl : promoteToBlock(el);
+      if (!isSelectable(el)) return;
+    }
     if (el === editHoveredEl) return;
     clearHover();
     editHoveredEl = el;
@@ -1109,10 +1121,22 @@ const BRIDGE_SOURCE = `(function () {
 
   function editOnMouseOut(e) {
     if (!editingActive) return;
+    // In drag mode the outlined element can be an ancestor of the one the
+    // pointer leaves, so clear only when the pointer leaves the outline.
+    if (dragModeActive) {
+      if (editHoveredEl && !(e.relatedTarget && editHoveredEl.contains(e.relatedTarget))) clearHover();
+      return;
+    }
     if (e.target === editHoveredEl) clearHover();
   }
 
   function editOnClick(e) {
+    if (dragSuppressClick) {
+      dragSuppressClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (!editingActive) return;
     var el = e.target;
     if (inlineEdit) {
@@ -1136,7 +1160,13 @@ const BRIDGE_SOURCE = `(function () {
     // link/button URLs, section backgrounds) opens the parent's editor
     // panel. Links and buttons also edit in place -- via double-click.
     var role = detectRole(el);
-    if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) return;
+    if (dragModeActive) {
+      // Select what a drag would move (a paragraph, not a word in it).
+      var block = promoteToBlock(el);
+      if (isSelectable(block)) el = block;
+    } else if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) {
+      return;
+    }
     if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     editSelectedEl = el;
     paintSelection(el);
@@ -1146,7 +1176,7 @@ const BRIDGE_SOURCE = `(function () {
   // Links and buttons select on the first click (the panel owns their URL)
   // and edit their text in place on the second.
   function editOnDblClick(e) {
-    if (!editingActive || inlineEdit) return;
+    if (!editingActive || dragModeActive || inlineEdit) return;
     var el = e.target;
     if (!isSelectable(el)) return;
     var role = detectRole(el);
@@ -1159,6 +1189,12 @@ const BRIDGE_SOURCE = `(function () {
 
   function editOnKeyDown(e) {
     if (!editingActive) return;
+    if (drag && drag.active && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      endDrag(false);
+      return;
+    }
     if (inlineEdit) {
       // While an IME composition is live, Enter/Escape belong to it.
       if (e.isComposing) return;
@@ -1212,6 +1248,323 @@ const BRIDGE_SOURCE = `(function () {
     post('element-shortcut', { action: action });
   }
 
+  // --- Drag to move ------------------------------------------------------
+  // Drag mode only (see dragModeActive). Press on an element and drag it
+  // past a small threshold to move it. An insertion line shows where it
+  // will land: before or after the element under the pointer, in normal
+  // page flow (nothing is absolutely positioned). A press that never
+  // crosses the threshold stays a click, which in drag mode only selects
+  // (no in-place typing), so select-parent still works. Like every other
+  // edit this side only reports: element-drop carries the dragged element's
+  // snapshot plus a lite snapshot of the drop target, and the parent moves
+  // the source. Pressing inside the selected element drags the selection,
+  // which is how a container reached with select-parent gets moved.
+
+  var DRAG_THRESHOLD = 6;
+  var DRAG_EDGE = 48;
+  var DRAG_CSS = '* { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; }';
+  var PHRASING_PARENT_ROLES = { heading: 1, text: 1, link: 1, button: 1 };
+  var REPLACED_TAGS = { IMG: 1, SVG: 1, PICTURE: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1 };
+  var STRUCTURED_TAGS = { LI: 1, DT: 1, DD: 1, TR: 1, TD: 1, TH: 1, THEAD: 1, TBODY: 1, TFOOT: 1, OPTION: 1 };
+  var STRUCTURED_PARENTS = { UL: 1, OL: 1, MENU: 1, DL: 1, TABLE: 1, THEAD: 1, TBODY: 1, TFOOT: 1, TR: 1, SELECT: 1, DATALIST: 1 };
+  var drag = null;
+  var dragSuppressClick = false;
+
+  function upperTag(el) { return String((el && el.tagName) || '').toUpperCase(); }
+
+  function isInlineBox(el) {
+    try { return window.getComputedStyle(el).display === 'inline'; } catch (dErr) { return false; }
+  }
+
+  // Words inside running text (a strong, an inline link, an icon in a
+  // heading) move with their paragraph rather than out of it, and a click
+  // on an SVG's inner shape moves the whole graphic.
+  function promoteToBlock(el) {
+    var node = el;
+    try {
+      var svg = node.closest ? node.closest('svg') : null;
+      if (svg) node = svg;
+    } catch (svgErr) { /* keep the hit */ }
+    while (node && node.parentElement && node.parentElement !== document.body &&
+           !REPLACED_TAGS[upperTag(node)] && isInlineBox(node) &&
+           PHRASING_PARENT_ROLES[detectRole(node.parentElement)]) {
+      node = node.parentElement;
+    }
+    return node;
+  }
+
+  function isMovable(el) {
+    if (!isSelectable(el) || !document.body || el === document.body) return false;
+    var tag = upperTag(el);
+    if (tag === 'HTML' || tag === 'HEAD' || tag === 'BODY' || NON_SIBLING_TAGS[tag]) return false;
+    return document.body.contains(el);
+  }
+
+  function dragSubjectFor(target) {
+    if (!target || target.nodeType !== 1) return null;
+    if (editSelectedEl && editSelectedEl.contains(target) && isMovable(editSelectedEl)) return editSelectedEl;
+    var el = promoteToBlock(target);
+    return isMovable(el) ? el : null;
+  }
+
+  // Keeps lists and tables valid: list items only among list items, cells
+  // only among cells, and nothing else dropped between them.
+  function structureAllows(dragged, target) {
+    var dt = upperTag(dragged);
+    var tt = upperTag(target);
+    if (STRUCTURED_TAGS[dt] || STRUCTURED_TAGS[tt] || STRUCTURED_PARENTS[upperTag(target.parentElement)]) return dt === tt;
+    return true;
+  }
+
+  function validDropTarget(el, dragged) {
+    return !!el && isMovable(el) && el !== dragged && !dragged.contains(el) && !el.contains(dragged) &&
+      structureAllows(dragged, el);
+  }
+
+  function contentChildren(el) {
+    var out = [];
+    for (var c = el.firstElementChild; c; c = c.nextElementSibling) {
+      if (!NON_SIBLING_TAGS[upperTag(c)] && !isBridgeNode(c)) out.push(c);
+    }
+    return out;
+  }
+
+  function nearestChild(kids, x, y) {
+    var best = null;
+    var bestDist = Infinity;
+    for (var i = 0; i < kids.length; i++) {
+      var r = kids[i].getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      var dx = x < r.left ? r.left - x : (x > r.right ? x - r.right : 0);
+      var dy = y < r.top ? r.top - y : (y > r.bottom ? y - r.bottom : 0);
+      var dist = dx * dx + dy * dy;
+      if (dist < bestDist) { bestDist = dist; best = kids[i]; }
+    }
+    return best;
+  }
+
+  // Row layouts (flex rows, grids, inline blocks) take a vertical line and
+  // split left/right; everything else splits top/bottom.
+  function sideBySide(el) {
+    var box = el.getBoundingClientRect();
+    var sibs = [contentSibling(el, -1), contentSibling(el, 1)];
+    for (var i = 0; i < sibs.length; i++) {
+      if (!sibs[i]) continue;
+      var other = sibs[i].getBoundingClientRect();
+      var overlap = Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top);
+      if (overlap > Math.min(box.height, other.height) / 2) return true;
+    }
+    return false;
+  }
+
+  // Where a drop at (x, y) would put the dragged element, or null when it
+  // would stay where it is (or there is nowhere valid under the pointer).
+  function resolveDrop(x, y, dragged) {
+    var hit = null;
+    try { hit = document.elementFromPoint(x, y); } catch (hitErr) { hit = null; }
+    if (!hit || isBridgeNode(hit) || hit === dragged || dragged.contains(hit)) return null;
+    // A container (or a like-for-like element) dragged over a sibling's
+    // content -- a card over another card's heading, a section over the
+    // next section's text -- targets the sibling itself: reordering is what
+    // that drag means, not nesting one inside the other. Anything else
+    // (an image, a paragraph) targets what is under the pointer, so it can
+    // be dropped into a nested card or column.
+    var sibling = null;
+    var reorders = detectRole(dragged) === 'container';
+    for (var a = hit; a && a !== document.body; a = a.parentElement) {
+      if (a.parentElement === dragged.parentElement) {
+        if (reorders || upperTag(a) === upperTag(dragged)) sibling = a;
+        break;
+      }
+    }
+    var el = sibling && validDropTarget(sibling, dragged) ? sibling : promoteToBlock(hit);
+    // Pointer on a container's own padding or in the gap between its
+    // children: aim at the nearest child, except on the container's top or
+    // bottom edge, which drops beside the container itself.
+    var kids = el === hit && el !== sibling ? contentChildren(el) : [];
+    if (kids.length) {
+      var box = el.getBoundingClientRect();
+      var edge = Math.min(16, box.height / 4);
+      var onEdge = y - box.top < edge || box.bottom - y < edge;
+      if (!onEdge || !validDropTarget(el, dragged)) {
+        var near = nearestChild(kids, x, y);
+        if (near === dragged) return null;
+        if (near) el = near;
+      }
+    }
+    while (el && !validDropTarget(el, dragged)) {
+      if (el.contains(dragged)) return null;
+      el = el.parentElement;
+    }
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    var horizontal = sideBySide(el);
+    var position = horizontal
+      ? (x < r.left + r.width / 2 ? 'before' : 'after')
+      : (y < r.top + r.height / 2 ? 'before' : 'after');
+    if (contentSibling(el, position === 'before' ? -1 : 1) === dragged) return null;
+    return { el: el, position: position, horizontal: horizontal };
+  }
+
+  function dragChrome(css) {
+    var node = document.createElement('div');
+    node.setAttribute('data-orion-bridge', 'true');
+    node.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;margin:0;' + css;
+    document.documentElement.appendChild(node);
+    return node;
+  }
+
+  function placeBox(node, left, top, width, height) {
+    node.style.left = left + 'px';
+    node.style.top = top + 'px';
+    node.style.width = Math.max(0, width) + 'px';
+    node.style.height = Math.max(0, height) + 'px';
+  }
+
+  function paintDrag() {
+    var b = drag.el.getBoundingClientRect();
+    placeBox(drag.ghost, b.left, b.top, b.width, b.height);
+    var t = drag.target;
+    if (!t) { drag.line.style.display = 'none'; return; }
+    var r = t.el.getBoundingClientRect();
+    var vw = window.innerWidth || document.documentElement.clientWidth;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var clamp = function (v, max) { return Math.max(0, Math.min(v, max - 4)); };
+    drag.line.style.display = 'block';
+    if (t.horizontal) placeBox(drag.line, clamp(t.position === 'before' ? r.left - 4 : r.right, vw), r.top, 4, r.height);
+    else placeBox(drag.line, r.left, clamp(t.position === 'before' ? r.top - 4 : r.bottom, vh), r.width, 4);
+  }
+
+  function updateDrag() {
+    drag.target = resolveDrop(drag.x, drag.y, drag.el);
+    paintDrag();
+  }
+
+  // Assignments must be instant even on scroll-behavior: smooth pages (see
+  // setScrollPosition in the touch simulation); the author's exact style
+  // attribute is put back afterwards.
+  function scrollInstant(el, dy) {
+    var attr = el.getAttribute('style');
+    el.style.scrollBehavior = 'auto';
+    el.scrollTop += dy;
+    if (attr == null) el.removeAttribute('style');
+    else el.setAttribute('style', attr);
+  }
+
+  function scrollerAt(x, y) {
+    var node = null;
+    try { node = document.elementFromPoint(x, y); } catch (sErr) { node = null; }
+    for (; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+      var oy = '';
+      try { oy = window.getComputedStyle(node).overflowY; } catch (oErr) { oy = ''; }
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 1) return node;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  // Holding the pointer near the top or bottom edge scrolls, faster the
+  // closer it gets, so an element can be carried to any part of the page.
+  function dragAutoScroll() {
+    if (!drag || !drag.active) return;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var step = 0;
+    if (drag.y < DRAG_EDGE) step = -Math.ceil((DRAG_EDGE - drag.y) / 3);
+    else if (drag.y > vh - DRAG_EDGE) step = Math.ceil((drag.y - (vh - DRAG_EDGE)) / 3);
+    if (step) {
+      try { scrollInstant(scrollerAt(drag.x, drag.y), step); } catch (scrollErr) { /* nothing to scroll */ }
+      updateDrag();
+    }
+    drag.raf = requestAnimationFrame(dragAutoScroll);
+  }
+
+  function startDrag() {
+    drag.active = true;
+    clearHover();
+    try {
+      var sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+    } catch (selErr) { /* nothing selected */ }
+    try { document.documentElement.setPointerCapture(drag.pointerId); } catch (capErr) { /* events still arrive while pressed */ }
+    if (editStyleEl) editStyleEl.textContent = editCursorCss() + DRAG_CSS;
+    drag.ghost = dragChrome('z-index:2147483646;background:rgba(99,102,241,0.12);border:2px dashed rgba(99,102,241,0.9);border-radius:4px;');
+    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(99,102,241);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);');
+    drag.raf = requestAnimationFrame(dragAutoScroll);
+  }
+
+  function endDrag(commit) {
+    var d = drag;
+    drag = null;
+    if (!d || !d.active) return;
+    if (d.raf) cancelAnimationFrame(d.raf);
+    try { document.documentElement.releasePointerCapture(d.pointerId); } catch (relErr) { /* already released */ }
+    if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+    if (d.line && d.line.parentNode) d.line.parentNode.removeChild(d.line);
+    if (editStyleEl) editStyleEl.textContent = editCursorCss();
+    // The click that follows the release must not select what is under it.
+    // It is dispatched in the same task as pointerup, so clear the flag in
+    // the next one in case no click comes.
+    dragSuppressClick = true;
+    setTimeout(function () { dragSuppressClick = false; }, 0);
+    if (!commit || !d.target || !editingActive) return;
+    post('element-drop', {
+      element: buildElementDescription(d.el),
+      target: describeLite(d.target.el),
+      position: d.target.position
+    });
+  }
+
+  function dragOnPointerDown(e) {
+    if (!editingActive || !dragModeActive || drag) return;
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    // A finger drag scrolls the page (and the browser cancels the pointer).
+    if (e.pointerType === 'touch') return;
+    if (inlineEdit && inlineEdit.el.contains(e.target)) return;
+    var el = dragSubjectFor(e.target);
+    if (!el) return;
+    drag = {
+      el: el, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
+      active: false, target: null, raf: 0, ghost: null, line: null
+    };
+  }
+
+  function dragOnPointerMove(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    if (!drag.active) {
+      var dx = e.clientX - drag.startX;
+      var dy = e.clientY - drag.startY;
+      if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+      // A text session (or a commit still waiting on the parent, which is
+      // about to reload the page) owns the gesture.
+      if (inlineEdit || pendingCommits.length || !editingActive || !dragModeActive) { drag = null; return; }
+      startDrag();
+    }
+    e.preventDefault();
+    updateDrag();
+  }
+
+  function dragOnPointerUp(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (drag.active) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    endDrag(true);
+  }
+
+  function dragOnPointerCancel(e) {
+    if (drag && e.pointerId === drag.pointerId) endDrag(false);
+  }
+
+  // Images and links are natively draggable; that drag would take the
+  // pointer away from the move gesture.
+  function dragOnNativeDragStart(e) {
+    if (!editingActive) return;
+    if (inlineEdit && inlineEdit.el.contains(e.target)) return;
+    e.preventDefault();
+  }
+
   function editSelectParent() {
     if (!editingActive || !editSelectedEl) return;
     abortInlineEdit();
@@ -1231,9 +1584,27 @@ const BRIDGE_SOURCE = `(function () {
     if (notify) post('element-deselected', {});
   }
 
-  function setEditingEnabled(enabled) {
-    if (!!enabled === editingActive) return;
+  // Entering or leaving drag mode keeps the selection (a container picked
+  // with select-parent can be dragged next). A live text session is
+  // committed rather than dropped: the click on the parent's toggle has
+  // already blurred it, which is a commit anyway.
+  function setDragMode(on) {
+    if (on === dragModeActive) return;
+    endDrag(false);
+    if (inlineEdit) finishInlineEdit(true, false);
+    clearHover();
+    dragModeActive = on;
+    if (editStyleEl) editStyleEl.textContent = editCursorCss();
+  }
+
+  function setEditingEnabled(enabled, dragOn) {
+    if (!!enabled === editingActive) {
+      setDragMode(!!enabled && !!dragOn);
+      return;
+    }
+    endDrag(false);
     editingActive = !!enabled;
+    dragModeActive = editingActive && !!dragOn;
     abortInlineEdit();
     clearHover();
     clearSelection(false);
@@ -1241,9 +1612,9 @@ const BRIDGE_SOURCE = `(function () {
       if (!editStyleEl) {
         editStyleEl = document.createElement('style');
         editStyleEl.setAttribute('data-orion-bridge', 'true');
-        editStyleEl.textContent = EDIT_CURSOR_CSS;
         (document.head || document.documentElement).appendChild(editStyleEl);
       }
+      editStyleEl.textContent = editCursorCss();
     } else if (editStyleEl) {
       if (editStyleEl.parentNode) editStyleEl.parentNode.removeChild(editStyleEl);
       editStyleEl = null;
@@ -1255,6 +1626,11 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('click', editOnClick, true);
   document.addEventListener('dblclick', editOnDblClick, true);
   document.addEventListener('keydown', editOnKeyDown, true);
+  document.addEventListener('pointerdown', dragOnPointerDown, true);
+  document.addEventListener('pointermove', dragOnPointerMove, true);
+  document.addEventListener('pointerup', dragOnPointerUp, true);
+  document.addEventListener('pointercancel', dragOnPointerCancel, true);
+  document.addEventListener('dragstart', dragOnNativeDragStart, true);
 
   // Dead-link guard. The frame's document is about:srcdoc, so a relative
   // href ("about.html", "/pricing", "") would navigate the frame to a blank
@@ -1653,7 +2029,7 @@ const BRIDGE_SOURCE = `(function () {
       desiredEnabled = !!(d.payload && d.payload.enabled);
       sync();
     } else if (d.type === 'set-editing') {
-      setEditingEnabled(!!(d.payload && d.payload.enabled));
+      setEditingEnabled(!!(d.payload && d.payload.enabled), !!(d.payload && d.payload.drag));
     } else if (d.type === 'nav-back' || d.type === 'nav-forward') {
       var goBack = d.type === 'nav-back';
       try {

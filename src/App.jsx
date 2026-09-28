@@ -123,6 +123,9 @@ export default function App() {
   // bridge's element-selected payload; `selectionKey` remounts the editor on
   // every new selection so its local form state resets.
   const [isEditMode, setIsEditMode] = useState(false);
+  // Drag mode lives inside click-to-edit: on, dragging an element in the
+  // preview moves it; off, click-to-edit never drags.
+  const [isDragMode, setIsDragMode] = useState(false);
   const [selectedElement, setSelectedElement] = useState(null);
   const [selectionKey, setSelectionKey] = useState(0);
   const [elementEditError, setElementEditError] = useState(null);
@@ -602,6 +605,10 @@ export default function App() {
   const handleElementShortcutTrampoline = useCallback((action) => {
     elementActionRef.current?.(action);
   }, []);
+  const elementDropRef = useRef(null);
+  const handleElementDropTrampoline = useCallback((drop) => {
+    elementDropRef.current?.(drop);
+  }, []);
 
   const handleElementSelected = useCallback((payload) => {
     setSelectedElement(payload);
@@ -648,6 +655,7 @@ export default function App() {
     onStorageChange: handleStorageChange,
     aiEnabled: previewAiViaParent && aiEnabled,
     editingEnabled: isPreviewEditing,
+    dragEnabled: isPreviewEditing && isDragMode,
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
     onElementTextCommitted: handleElementTextCommittedTrampoline,
@@ -656,6 +664,7 @@ export default function App() {
     onInlineEditEnded: handleInlineEditEnded,
     onInlineHistory: handleInlineHistory,
     onElementShortcut: handleElementShortcutTrampoline,
+    onElementDrop: handleElementDropTrampoline,
     onNavigatePage: pageNav.navigateToHref,
   });
   scrollToHashRef.current = scrollToHash;
@@ -671,6 +680,7 @@ export default function App() {
 
   const handleToggleEditMode = useCallback(() => {
     setIsEditMode((on) => !on);
+    setIsDragMode(false);
     setSelectedElement(null);
     setTextSession(null);
     setElementEditError(null);
@@ -688,6 +698,15 @@ export default function App() {
       setElementEditError(null);
       pendingScrollRef.current = null;
     }
+  }, []);
+
+  // Switching drag mode keeps the selection (so a container picked with
+  // select-parent can be dragged next) but ends any in-place text session,
+  // which the frame aborts on its side.
+  const handleToggleDragMode = useCallback(() => {
+    setIsDragMode((on) => !on);
+    setTextSession(null);
+    setElementEditError(null);
   }, []);
 
   const handleCancelElementSelection = useCallback(() => {
@@ -775,6 +794,23 @@ export default function App() {
     if (changes) handleApplyElementEdit(changes);
   }, [handleApplyElementEdit]);
   elementActionRef.current = handleElementAction;
+
+  // Drag-to-move in the preview: a `moveTo` direct edit. The dragged
+  // element need not be the selected one, so failures select it to offer
+  // the AI path with the reason.
+  const handleElementDrop = useCallback(({ element, target, position }) => {
+    if (isGeneratingRef.current) return;
+    const result = applyElementChangesToSource(element, { moveTo: { target, position } });
+    if (result.ok || result.reason === 'no-op') {
+      setSelectedElement(null);
+      setElementEditError(null);
+      return;
+    }
+    setSelectedElement(element);
+    setElementEditError(`${describeDirectEditFailure(result.reason)} Describe where it should go below to move it with AI.`);
+    setSelectionKey((n) => n + 1);
+  }, [applyElementChangesToSource]);
+  elementDropRef.current = handleElementDrop;
 
   // "Apply with AI" runs the edit straight away as a normal refinement; "Add
   // to chat" (or a chat box that already holds a draft or an attachment,
@@ -1671,6 +1707,7 @@ export default function App() {
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
     setIsEditMode(false);
+    setIsDragMode(false);
     setSelectedElement(null);
     setElementEditError(null);
     setStudioMode(nextStudioMode);
@@ -2251,6 +2288,8 @@ export default function App() {
               autoFollowCode={autoFollowCode}
               studioMode={studioMode}
               isEditMode={isEditMode}
+              isDragMode={isDragMode}
+              onToggleDragMode={handleToggleDragMode}
               onToggleEditMode={handleToggleEditMode}
               selectedElement={selectedElement}
               selectionKey={selectionKey}

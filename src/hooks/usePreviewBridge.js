@@ -25,6 +25,9 @@ export default function usePreviewBridge({
   onStorageChange,
   aiEnabled = false,
   editingEnabled = false,
+  // Drag mode: a sub-mode of editing in which dragging moves elements and a
+  // click selects without starting in-place text editing.
+  dragEnabled = false,
   onElementSelected,
   onElementDeselected,
   onElementTextCommitted,
@@ -33,6 +36,7 @@ export default function usePreviewBridge({
   onInlineEditEnded,
   onInlineHistory,
   onElementShortcut,
+  onElementDrop,
   onNavigatePage,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
@@ -46,6 +50,7 @@ export default function usePreviewBridge({
   const onInlineEditEndedRef = useRef(onInlineEditEnded);
   const onInlineHistoryRef = useRef(onInlineHistory);
   const onElementShortcutRef = useRef(onElementShortcut);
+  const onElementDropRef = useRef(onElementDrop);
   const onNavigatePageRef = useRef(onNavigatePage);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
@@ -66,6 +71,7 @@ export default function usePreviewBridge({
   // main effect below does not need editingEnabled as a dependency -- a
   // toggle must not re-run the whole handshake effect.
   const editingEnabledRef = useRef(editingEnabled);
+  const dragEnabledRef = useRef(dragEnabled);
   // Read live so toggling AI never re-runs the handshake effect (or reloads).
   const aiEnabledRef = useRef(aiEnabled);
   useEffect(() => { aiEnabledRef.current = aiEnabled; }, [aiEnabled]);
@@ -85,9 +91,11 @@ export default function usePreviewBridge({
     onInlineEditEndedRef.current = onInlineEditEnded;
     onInlineHistoryRef.current = onInlineHistory;
     onElementShortcutRef.current = onElementShortcut;
+    onElementDropRef.current = onElementDrop;
     onNavigatePageRef.current = onNavigatePage;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
+    dragEnabledRef.current = dragEnabled;
   });
 
   // Reject any still-pending screenshot request on unmount so its promise
@@ -146,7 +154,7 @@ export default function usePreviewBridge({
     // document must be told the picker is still on).
     const push = () => {
       send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
-      send('set-editing', { enabled: editingEnabledRef.current });
+      send('set-editing', { enabled: editingEnabledRef.current, drag: editingEnabledRef.current && dragEnabledRef.current });
     };
 
     // Belt-and-braces against the same compositor staleness that DeviceMockup's
@@ -243,6 +251,16 @@ export default function usePreviewBridge({
         const action = data.payload?.action;
         if (ELEMENT_SHORTCUT_ACTIONS.has(action)) onElementShortcutRef.current(action);
       }
+      // Drag-to-move: the dragged element's snapshot, a lite snapshot of the
+      // element it was dropped against, and which side. Untrusted shapes are
+      // dropped here; the direct-edit engine re-validates the rest.
+      else if (data.type === 'element-drop' && onElementDropRef.current) {
+        const { element, target, position } = data.payload || {};
+        if (element && typeof element === 'object' && target && typeof target === 'object'
+          && (position === 'before' || position === 'after')) {
+          onElementDropRef.current({ element, target, position });
+        }
+      }
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
@@ -298,8 +316,8 @@ export default function usePreviewBridge({
   // or off does not re-run (and thus does not disturb) the main handshake
   // effect above. A disabled picker also clears any live selection.
   useEffect(() => {
-    sendRef.current('set-editing', { enabled: editingEnabled });
-  }, [editingEnabled]);
+    sendRef.current('set-editing', { enabled: editingEnabled, drag: editingEnabled && dragEnabled });
+  }, [editingEnabled, dragEnabled]);
 
   // Imperative request/response wrapper on top of the otherwise push-only
   // protocol -- see the pendingCapturesRef/onMessage handling above for the

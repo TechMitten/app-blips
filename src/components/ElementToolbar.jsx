@@ -58,6 +58,7 @@ export default function ElementToolbar({
   onEditWithAI,
   onCancel,
   onSelectParent,
+  isDragMode = false,
 }) {
   const role = element.role || 'container';
   const isImage = role === 'image';
@@ -172,7 +173,7 @@ export default function ElementToolbar({
     </button>
   );
 
-  const structureKey = (action, Icon, label, disabled, extraClass = '') => (
+  const structureKey = (action, Icon, label, disabled, extraClass = '', tipSuffix = '') => (
     <button
       type="button"
       onClick={() => onAction(action)}
@@ -180,7 +181,7 @@ export default function ElementToolbar({
       className={`nav-btn nav-ghost nav-btn-icon element-bar-btn-icon ${extraClass} disabled:opacity-40 disabled:cursor-not-allowed`}
       aria-label={label}
       aria-keyshortcuts={action === 'delete' ? 'Delete' : undefined}
-      data-tip={`${label} (${ELEMENT_SHORTCUT_HINTS[action]})`}
+      data-tip={`${label} (${ELEMENT_SHORTCUT_HINTS[action]})${tipSuffix ? `, ${tipSuffix}` : ''}`}
       data-tip-align="end"
     >
       <Icon size={16} />
@@ -382,9 +383,11 @@ export default function ElementToolbar({
               <p className="element-bar-hint">
                 <Type size={14} className="shrink-0" aria-hidden="true" />
                 <span>
-                  {showLink
-                    ? 'Double-click it on the page to edit its text in place'
-                    : 'Click the text on the page to edit it in place'}
+                  {isDragMode
+                    ? 'Drag it on the page to move it, or turn off drag mode to edit its text'
+                    : showLink
+                      ? 'Double-click it on the page to edit its text in place'
+                      : 'Click the text on the page to edit it in place'}
                 </span>
               </p>
             )}
@@ -465,8 +468,8 @@ export default function ElementToolbar({
           <>
             <span className="chrome-divider element-bar-divider" aria-hidden="true" />
             <div className="element-bar-struct" role="group" aria-label="Arrange">
-              {structureKey('move-up', ArrowUp, 'Move up', !element.prevSibling)}
-              {structureKey('move-down', ArrowDown, 'Move down', !element.nextSibling)}
+              {structureKey('move-up', ArrowUp, 'Move up', !element.prevSibling, '', 'or drag it in drag mode')}
+              {structureKey('move-down', ArrowDown, 'Move down', !element.nextSibling, '', 'or drag it in drag mode')}
               {structureKey('duplicate', CopyPlus, 'Duplicate', false)}
               {structureKey('delete', Trash2, 'Delete', false, 'element-bar-danger')}
             </div>
