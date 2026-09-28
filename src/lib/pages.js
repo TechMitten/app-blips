@@ -87,6 +87,41 @@ export function findBrokenLinks(files) {
   return broken;
 }
 
+const MAX_LINK_TARGETS = 80;
+
+// Element ids in a page's markup (scripts, styles and comments excluded),
+// in document order.
+function anchorIds(html) {
+  const markup = String(html || '').replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  const ids = [];
+  const re = /<[a-zA-Z][a-zA-Z0-9-]*\b[^>]*?\sid\s*=\s*(?:"([^"]+)"|'([^']+)')/g;
+  let m;
+  while ((m = re.exec(markup))) {
+    const id = (m[1] ?? m[2]).trim();
+    if (id && !/\s/.test(id) && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * Suggestions for a link's href in the click-to-edit bar: sections on the
+ * current page (`#id`), the site's other pages, then their sections
+ * (`about.html#team`). Each is `{ value, label }`.
+ */
+export function collectLinkTargets(files, activePage = LANDING_PAGE) {
+  const targets = [];
+  const names = pageNames(files);
+  anchorIds(files?.[activePage]).forEach((id) => targets.push({ value: `#${id}`, label: 'Section on this page' }));
+  names.filter((n) => n !== activePage).forEach((n) => {
+    const title = pageTitle(files[n]);
+    targets.push({ value: n, label: title ? `${pageLabel(n)} page · ${title}` : `${pageLabel(n)} page` });
+  });
+  names.filter((n) => n !== activePage).forEach((n) => {
+    anchorIds(files[n]).forEach((id) => targets.push({ value: `${n}#${id}`, label: `Section on the ${pageLabel(n)} page` }));
+  });
+  return targets.slice(0, MAX_LINK_TARGETS);
+}
+
 export function pageTitle(html) {
   const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html || '');
   return m ? m[1].replace(/\s+/g, ' ').trim() : '';

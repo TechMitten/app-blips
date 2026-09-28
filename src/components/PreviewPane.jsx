@@ -85,6 +85,8 @@ export default function PreviewPane({
   elementEditError = null,
   isApplyingElementEdit = false,
   onApplyElementEdit,
+  onElementAction,
+  linkTargets = [],
   onElementEditWithAI,
   onCancelElementSelection,
   onSelectParentElement,
@@ -397,6 +399,8 @@ export default function PreviewPane({
               isApplying={isApplyingElementEdit}
               error={elementEditError}
               onApply={onApplyElementEdit}
+              onAction={onElementAction}
+              linkTargets={linkTargets}
               onEditWithAI={onElementEditWithAI}
               onCancel={onCancelElementSelection}
               onSelectParent={onSelectParentElement}

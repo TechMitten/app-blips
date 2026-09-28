@@ -42,6 +42,30 @@ Sometimes you want to edit a container, section background, or wrapper element r
 
 Keep pressing **Select Parent** to move further up the tree until you've highlighted the element you actually want to edit.
 
+## Arranging Elements
+
+The editor bar has keys to rearrange whatever you have selected. Each one is saved straight away as a new version, with no AI involved:
+
+| Action | Key in the bar | Shortcut |
+| --- | --- | --- |
+| Move up / down among its neighbours | Arrow keys | Alt+↑ / Alt+↓ (⌥ on Mac) |
+| Duplicate it right below itself | Duplicate | Ctrl+D (⌘D on Mac) |
+| Delete it | Delete | Delete or Backspace |
+
+Ctrl+Z (⌘Z on Mac) undoes the last change, even while you're working in the preview. When you move or delete a whole section, its section marker goes with it. A duplicate gets no `id` attributes, so links to the original section still land on the original.
+
+## Links, Buttons and Backgrounds
+
+- **Links:** type a web address, or pick one of your site's pages or a `#section` from the suggestions. The arrow key next to the field makes the link open in a new tab.
+- **Fill color:** available for sections, buttons and links. If the element has a gradient, a solid fill replaces it.
+- **Wallpaper:** upload an image as a section's background, whether or not the section had one before.
+
+## Asking AI About One Element
+
+When a change is more than a quick tweak, click **Ask AI** in the editor bar and describe it. **Apply with AI** makes the change right away. **Add to chat** puts the request in the chat box so you can add to it before sending. Either way, the request includes the element's exact source code and the page section it's in, so the AI edits that element and not a look-alike somewhere else.
+
+If a direct edit can't be matched to the page's source, for example because a script creates that part of the page, the bar tells you why and switches to Ask AI.
+
 ## Undo/Redo History
 
 Every edit — whether made through a prompt or the visual editor — saves a version to your history automatically. Use the **Undo** button in the toolbar to step back to any previous version, and **Redo** to move forward again. You can undo and redo freely at any point without losing your work.

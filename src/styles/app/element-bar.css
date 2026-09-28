@@ -465,3 +465,19 @@
   .element-bar-keys { display: none; }
 }
 .element-bar-chip svg { margin-right: 0.3rem; }
+
+/* --- Structure keys and toggles (ElementToolbar.jsx) --------------------- */
+
+.element-bar-struct { display: flex; align-items: center; gap: 0.125rem; }
+
+.element-bar .nav-ghost.element-bar-danger:hover:not(:disabled) {
+  color: var(--color-red-600);
+  background: rgb(from var(--color-red-500) r g b / 0.1);
+}
+
+/* On/off key (open in new tab): lit like the toolbar's active toggle. */
+.element-bar .nav-ghost.element-bar-toggle[aria-pressed="true"] {
+  color: var(--color-brand);
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  border-color: rgb(from var(--color-accent) r g b / 0.4);
+}

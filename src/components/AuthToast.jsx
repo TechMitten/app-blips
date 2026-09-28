@@ -53,11 +53,11 @@ export default function AuthToast({ kind, onDismiss }) {
       </div>
       <div>
         <p className="text-lg font-semibold text-slate-900">
-          {signedIn ? 'Signed in' : 'Signed out'}
+          {signedIn ? 'Sign-in successful' : 'Signed out'}
         </p>
         <p className="text-sm text-slate-500 mt-1">
           {signedIn
-            ? 'Welcome Back!! Your apps are now syncing to your account.'
+            ? 'Welcome back! Your apps are now syncing to your account.'
             : 'You have been signed out of your account.'}
         </p>
       </div>

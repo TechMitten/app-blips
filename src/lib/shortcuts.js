@@ -16,6 +16,26 @@ export const SHORTCUT_HINTS = {
   help: '?',
 };
 
+// Click-to-edit structure keys for the selected element. The preview frame
+// matches the same keys itself (src/previewBridge.js, editOnKeyDown) while
+// focus is inside it; elementShortcutAction covers focus in the element bar.
+export const ELEMENT_SHORTCUT_HINTS = {
+  delete: 'Del',
+  duplicate: isApple ? '⌘D' : 'Ctrl+D',
+  'move-up': isApple ? '⌥↑' : 'Alt+↑',
+  'move-down': isApple ? '⌥↓' : 'Alt+↓',
+};
+
+export function elementShortcutAction(event) {
+  if (event.isComposing || isTypingTarget(event.target)) return null;
+  const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+  if (plain && (event.key === 'Delete' || event.key === 'Backspace')) return 'delete';
+  if (hasCommandModifier(event) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'd') return 'duplicate';
+  if (event.altKey && !event.ctrlKey && !event.metaKey && event.key === 'ArrowUp') return 'move-up';
+  if (event.altKey && !event.ctrlKey && !event.metaKey && event.key === 'ArrowDown') return 'move-down';
+  return null;
+}
+
 // The platform's own "command" modifier, and only that one -- accepting either
 // Ctrl or Meta would swallow Ctrl+Z inside a macOS text field.
 export function hasCommandModifier(event) {

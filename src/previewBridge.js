@@ -443,16 +443,107 @@ const BRIDGE_SOURCE = `(function () {
     };
   }
 
-  function buildElementDescriptionRaw(el) {
-    var tag = el.tagName.toLowerCase();
-    var ATTR_NAMES = ['src', 'srcset', 'href', 'alt', 'title', 'aria-label', 'placeholder', 'type', 'class', 'style', 'id'];
+  var REPORTED_ATTRS = ['src', 'srcset', 'href', 'target', 'rel', 'alt', 'title', 'aria-label', 'placeholder', 'type', 'class', 'style', 'id'];
+
+  function readReportedAttributes(el) {
     var attributes = {};
-    for (var i = 0; i < ATTR_NAMES.length; i++) {
-      var name = ATTR_NAMES[i];
+    for (var i = 0; i < REPORTED_ATTRS.length; i++) {
+      var name = REPORTED_ATTRS[i];
       var value;
       try { value = el.getAttribute(name); } catch (attrErr) { value = null; }
       if (value != null) attributes[name] = capString(value, name === 'class' || name === 'style' ? 3000 : 1500);
     }
+    return attributes;
+  }
+
+  function fullTextOf(el) {
+    try { return String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(); } catch (textErr) { return ''; }
+  }
+
+  // Rank of this element among same-tag elements with identical visible
+  // text (document order). Lets the parent pick the right source
+  // occurrence when the text repeats (e.g. brand name in header + footer).
+  function textRank(el, fullText) {
+    var rank = { ordinal: -1, count: 0 };
+    if (!fullText || fullText.length > 600) return rank;
+    try {
+      var sameTag = document.getElementsByTagName(el.tagName);
+      if (sameTag.length > 3000) return rank;
+      var wantedText = fullText.toLowerCase();
+      for (var s = 0; s < sameTag.length; s++) {
+        if (collapseText(sameTag[s]).toLowerCase() === wantedText) {
+          if (sameTag[s] === el) rank.ordinal = rank.count;
+          rank.count++;
+        }
+      }
+    } catch (ordErr) { return { ordinal: -1, count: 0 }; }
+    return rank;
+  }
+
+  // Rank among ALL same-tag elements (bridge nodes excluded). The parent
+  // uses it as a last resort to find text-less elements (spacers, images
+  // without a unique src, huge sections) and only when its own source count
+  // agrees.
+  function tagRank(el) {
+    var rank = { ordinal: -1, count: 0 };
+    try {
+      var same = document.getElementsByTagName(el.tagName);
+      if (same.length > 5000) return rank;
+      for (var i = 0; i < same.length; i++) {
+        if (isBridgeNode(same[i])) continue;
+        if (same[i] === el) rank.ordinal = rank.count;
+        rank.count++;
+      }
+    } catch (rankErr) { return { ordinal: -1, count: 0 }; }
+    return rank;
+  }
+
+  // Leading textContent (hidden descendants included), which the parent
+  // checks a rank-only match against.
+  function rawTextOf(el) {
+    try { return capString(String(el.textContent || '').replace(/\\s+/g, ' ').trim(), 200); } catch (rawErr) { return ''; }
+  }
+
+  // Just enough of an element for the parent to locate it in the source:
+  // what a sibling needs for move-up / move-down.
+  function describeLite(el) {
+    return withOriginalStyleAttrs(el, function () {
+      var fullText = fullTextOf(el);
+      var outerFull = '';
+      try { outerFull = el.outerHTML || ''; } catch (outerErr) { outerFull = ''; }
+      var tr = textRank(el, fullText);
+      var gr = tagRank(el);
+      return {
+        tag: el.tagName.toLowerCase(),
+        role: detectRole(el),
+        text: capString(fullText, 600),
+        textTruncated: fullText.length > 600,
+        rawText: rawTextOf(el),
+        textOrdinal: tr.ordinal,
+        textCount: tr.count,
+        tagOrdinal: gr.ordinal,
+        tagCount: gr.count,
+        attributes: readReportedAttributes(el),
+        outerHTML: capString(outerFull, 4000),
+        outerHTMLTruncated: outerFull.length > 4000
+      };
+    });
+  }
+
+  var NON_SIBLING_TAGS = { SCRIPT: 1, STYLE: 1, TEMPLATE: 1, LINK: 1, META: 1, NOSCRIPT: 1 };
+
+  // Nearest element sibling in direction dir that is real page content.
+  function contentSibling(el, dir) {
+    var node = dir < 0 ? el.previousElementSibling : el.nextElementSibling;
+    while (node && (NON_SIBLING_TAGS[node.tagName] || isBridgeNode(node))) {
+      node = dir < 0 ? node.previousElementSibling : node.nextElementSibling;
+    }
+    return node || null;
+  }
+
+  function buildElementDescriptionRaw(el) {
+    var tag = el.tagName.toLowerCase();
+    var attributes = readReportedAttributes(el);
 
     var computed = null;
     try { computed = window.getComputedStyle(el); } catch (styleErr) { computed = null; }
@@ -463,8 +554,7 @@ const BRIDGE_SOURCE = `(function () {
       rect = { x: box.left, y: box.top, width: box.width, height: box.height };
     } catch (rectErr) { rect = null; }
 
-    var fullText = '';
-    try { fullText = String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(); } catch (textErr) { fullText = ''; }
+    var fullText = fullTextOf(el);
 
     var outerFull = '';
     try { outerFull = el.outerHTML || ''; } catch (outerErr) { outerFull = ''; }
@@ -486,32 +576,21 @@ const BRIDGE_SOURCE = `(function () {
       }
     }
 
-    // Rank of this element among same-tag elements with identical visible
-    // text (document order). Lets the parent pick the right source
-    // occurrence when the text repeats (e.g. brand name in header + footer).
-    var textOrdinal = -1;
-    var textCount = 0;
-    if (fullText && fullText.length <= 600) {
-      try {
-        var sameTag = document.getElementsByTagName(el.tagName);
-        if (sameTag.length <= 3000) {
-          var wantedText = fullText.toLowerCase();
-          for (var s = 0; s < sameTag.length; s++) {
-            if (collapseText(sameTag[s]).toLowerCase() === wantedText) {
-              if (sameTag[s] === el) textOrdinal = textCount;
-              textCount++;
-            }
-          }
-        }
-      } catch (ordErr) { textOrdinal = -1; textCount = 0; }
-    }
+    var tr = textRank(el, fullText);
+    var gr = tagRank(el);
+    var isRoot = tag === 'html' || tag === 'head' || tag === 'body';
+    var prevSib = isRoot ? null : contentSibling(el, -1);
+    var nextSib = isRoot ? null : contentSibling(el, 1);
 
     var payload = {
       tag: tag,
       role: detectRole(el),
-      textOrdinal: textOrdinal,
-      textCount: textCount,
+      textOrdinal: tr.ordinal,
+      textCount: tr.count,
+      tagOrdinal: gr.ordinal,
+      tagCount: gr.count,
       text: capString(fullText, 600),
+      rawText: rawTextOf(el),
       textTruncated: fullText.length > 600,
       attributes: attributes,
       backgroundColor: computed ? capString(computed.backgroundColor, 100) : null,
@@ -526,7 +605,10 @@ const BRIDGE_SOURCE = `(function () {
       parentText: parentText,
       childIndex: childIndex,
       typography: readTypography(el),
-      boundingBox: rect
+      boundingBox: rect,
+      prevSibling: prevSib ? describeLite(prevSib) : null,
+      nextSibling: nextSib ? describeLite(nextSib) : null,
+      scroll: { x: window.pageXOffset || 0, y: window.pageYOffset || 0 }
     };
     return payload;
   }
@@ -1105,7 +1187,29 @@ const BRIDGE_SOURCE = `(function () {
     }
     if (e.key === 'Escape' && editSelectedEl) {
       clearSelection(true);
+      return;
     }
+    // Structure shortcuts for the selected element, and undo/redo (the
+    // parent's own shortcut cannot see keys while focus is in this frame).
+    // The parent applies them to the source; this side only reports.
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return;
+    var mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    var key = String(e.key || '');
+    var lowerKey = key.toLowerCase();
+    var action = null;
+    if (mod && (lowerKey === 'z' || lowerKey === 'y')) {
+      action = lowerKey === 'y' || e.shiftKey ? 'redo' : 'undo';
+    } else if (editSelectedEl) {
+      if ((key === 'Delete' || key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey) action = 'delete';
+      else if (mod && lowerKey === 'd') action = 'duplicate';
+      else if (e.altKey && !e.ctrlKey && !e.metaKey && key === 'ArrowUp') action = 'move-up';
+      else if (e.altKey && !e.ctrlKey && !e.metaKey && key === 'ArrowDown') action = 'move-down';
+    }
+    if (!action) return;
+    e.preventDefault();
+    e.stopPropagation();
+    post('element-shortcut', { action: action });
   }
 
   function editSelectParent() {

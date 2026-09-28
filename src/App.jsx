@@ -30,7 +30,7 @@ import { slugifyName, sweepUserDeployments } from './lib/deploy';
 import authProvider from './lib/auth';
 import { deleteUserProfile } from './lib/username';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
-import { applyDirectEdit, buildElementEditPrompt } from './lib/directEdits';
+import { applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure } from './lib/directEdits';
 import {
   loadPreviewStorage,
   savePreviewStorage,
@@ -39,7 +39,7 @@ import {
 } from './lib/previewStorage';
 import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
-import { LANDING_PAGE, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
+import { LANDING_PAGE, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
 import { checkSyntaxFiles } from './lib/pageTools';
 import {
@@ -597,6 +597,11 @@ export default function App() {
   const handleElementTextCommittedTrampoline = useCallback((payload) => {
     elementTextCommittedRef.current?.(payload);
   }, []);
+  // Same for the frame's keyboard shortcuts (handleElementAction below).
+  const elementActionRef = useRef(null);
+  const handleElementShortcutTrampoline = useCallback((action) => {
+    elementActionRef.current?.(action);
+  }, []);
 
   const handleElementSelected = useCallback((payload) => {
     setSelectedElement(payload);
@@ -649,6 +654,7 @@ export default function App() {
     onInlineTypography: handleInlineTypography,
     onInlineEditEnded: handleInlineEditEnded,
     onInlineHistory: handleInlineHistory,
+    onElementShortcut: handleElementShortcutTrampoline,
     onNavigatePage: pageNav.navigateToHref,
   });
   scrollToHashRef.current = scrollToHash;
@@ -710,28 +716,75 @@ export default function App() {
       versionsToSave: finalVersions,
       indexToSave: updatedVersions.length,
     });
+    // The frame reloads from the edited source; put it back where the user
+    // was working instead of at the top of the page.
+    if (element.scroll && typeof element.scroll.y === 'number') {
+      pendingScrollRef.current = { x: element.scroll.x || 0, y: element.scroll.y || 0 };
+    }
     return result;
   }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
 
   const handleApplyElementEdit = useCallback((changes) => {
-    if (!selectedElement) return;
+    if (!selectedElement || isGeneratingRef.current) return;
     const result = applyElementChangesToSource(selectedElement, changes);
     if (!result.ok) {
-      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Try "Edit with AI" below.');
+      if (result.reason === 'no-op' || result.reason === 'no-changes') {
+        // Nothing to write (e.g. Apply with untouched fields): just close.
+        deselectElement();
+        setSelectedElement(null);
+        setElementEditError(null);
+        return;
+      }
+      setElementEditError(`${describeDirectEditFailure(result.reason)} Describe the change below to apply it with AI.`);
+      setSelectionKey((n) => n + 1);
       return;
     }
     setElementEditError(null);
     setSelectedElement(null);
-  }, [selectedElement, applyElementChangesToSource]);
+  }, [selectedElement, applyElementChangesToSource, deselectElement]);
 
-  const handleElementEditWithAI = useCallback((instruction) => {
+  // Structure edits (toolbar keys or the frame's keyboard shortcuts) are
+  // ordinary direct edits; undo/redo come from the frame because the global
+  // shortcut cannot see keys while focus is inside it.
+  const undoRedoRef = useRef(null);
+  const handleElementAction = useCallback((action) => {
+    if (action === 'undo' || action === 'redo') {
+      if (!isGeneratingRef.current) undoRedoRef.current?.[action]?.();
+      return;
+    }
+    const changes = {
+      delete: { remove: true },
+      duplicate: { duplicate: true },
+      'move-up': { move: -1 },
+      'move-down': { move: 1 },
+    }[action];
+    if (changes) handleApplyElementEdit(changes);
+  }, [handleApplyElementEdit]);
+  elementActionRef.current = handleElementAction;
+
+  // "Apply with AI" runs the edit straight away as a normal refinement; "Add
+  // to chat" (or a chat box that already holds a draft or an attachment,
+  // which a run would clear) only prefills. The prompt quotes the element's
+  // exact source so the surgical edit can anchor on it.
+  const handleElementEditWithAI = useCallback((instruction, { run = false } = {}) => {
     if (!selectedElement) return;
-    const prefill = buildElementEditPrompt(selectedElement, instruction);
-    setPrompt((current) => (current.trim() ? `${current}\n${prefill}` : prefill));
+    const prefill = buildElementEditPrompt(selectedElement, instruction, {
+      code: activeCode,
+      page: activePage,
+      multiPage: Object.keys(files).length > 1,
+    });
+    const canRun = run && String(instruction ?? '').trim() && chatMode !== 'ask'
+      && !isGeneratingRef.current && !prompt.trim() && !attachment;
+    deselectElement();
     setSelectedElement(null);
     setElementEditError(null);
+    if (canRun) {
+      handleGenerateRef.current?.(null, prefill);
+      return;
+    }
+    setPrompt((current) => (current.trim() ? `${current}\n${prefill}` : prefill));
     setMobileView('chat');
-  }, [selectedElement]);
+  }, [selectedElement, activeCode, activePage, files, chatMode, prompt, attachment, deselectElement]);
 
   // In-place text editing: the bridge committed a typed edit on the page.
   // The payload carries the element snapshot captured BEFORE the typing
@@ -747,20 +800,26 @@ export default function App() {
     }
     const result = applyElementChangesToSource(payload, { text: payload.newText, style: payload.styles });
     if (result.ok) {
+      // (applyElementChangesToSource queued the payload's scroll offset.)
       replyInlineEditResult(true, payload.editId);
       setSelectedElement(null);
       setElementEditError(null);
-      if (payload.scroll && typeof payload.scroll.y === 'number') {
-        pendingScrollRef.current = { x: payload.scroll.x || 0, y: payload.scroll.y || 0 };
-      }
     } else {
       replyInlineEditResult(false, payload.editId);
       setSelectedElement(payload);
-      setElementEditError('Could not apply this edit directly (the element could not be matched uniquely in the source). Describe the change below and it will be applied with AI.');
+      setElementEditError(`${describeDirectEditFailure(result.reason)} Describe the change below and it will be applied with AI.`);
       setSelectionKey((n) => n + 1);
     }
   }, [replyInlineEditResult, applyElementChangesToSource]);
   elementTextCommittedRef.current = handleElementTextCommitted;
+
+  // href suggestions for the element bar: only computed while a link or
+  // button is selected, since it scans every page's markup.
+  const selectedRole = selectedElement?.role;
+  const linkTargets = useMemo(
+    () => (selectedRole === 'link' || selectedRole === 'button' ? collectLinkTargets(files, activePage) : []),
+    [selectedRole, files, activePage],
+  );
 
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
@@ -1517,6 +1576,7 @@ export default function App() {
       switchVersion(currentVersionIndex + 1);
     }
   };
+  undoRedoRef.current = { undo: handleUndo, redo: handleRedo };
 
   // Accelerators for chrome that is already on screen; the bindings and the
   // hints printed in each control's tooltip share one source (lib/shortcuts).
@@ -2188,6 +2248,8 @@ export default function App() {
               onRedoText={redoInlineText}
               elementEditError={elementEditError}
               onApplyElementEdit={handleApplyElementEdit}
+              onElementAction={handleElementAction}
+              linkTargets={linkTargets}
               onElementEditWithAI={handleElementEditWithAI}
               onCancelElementSelection={handleCancelElementSelection}
               onSelectParentElement={handleSelectParentElement}

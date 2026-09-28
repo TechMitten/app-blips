@@ -7,7 +7,9 @@
 // `element-selected` event (see the editing section of src/previewBridge.js).
 
 import assert from 'node:assert';
-import { applyDirectEdit, buildElementEditPrompt } from '../src/lib/directEdits.js';
+import {
+  applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure, locateElement,
+} from '../src/lib/directEdits.js';
 
 const FIXTURE = `<!DOCTYPE html>
 <html lang="en">
@@ -354,7 +356,8 @@ check('background image swaps an inline style url()', () => {
   });
   const result = applyDirectEdit(FIXTURE, element, { backgroundImage: 'https://images.unsplash.com/photo-wheat' });
   assert.ok(result.ok, `expected ok, got: ${result.reason}`);
-  assert.match(result.code, /url\("https:\/\/images\.unsplash\.com\/photo-wheat"\)/);
+  // The url is quoted so it cannot end the double-quoted style attribute.
+  assert.match(result.code, /style="background-image: url\('https:\/\/images\.unsplash\.com\/photo-wheat'\)"/);
 });
 
 check('combined text + href edit applies atomically', () => {
@@ -383,6 +386,222 @@ check('no-op change reports no-changes', () => {
   assert.strictEqual(result.reason, 'no-op');
 });
 
+
+console.log('locator-backed edits:');
+
+// Value of `attr` on the first opening tag matching `tagPrefix`, parsed the
+// way a browser would (so a prematurely closed attribute shows up).
+const attrOf = (code, tagPrefix, attr) => {
+  const at = code.indexOf(tagPrefix);
+  assert.ok(at !== -1, `missing ${tagPrefix}`);
+  const open = /^<[^>]*>/.exec(code.slice(at))[0];
+  const m = new RegExp(`\\s${attr}="([^"]*)"`).exec(open);
+  return m ? m[1] : null;
+};
+
+const FOOTER_EL = {
+  tag: 'footer',
+  role: 'container',
+  text: 'Duplicate text in footer Duplicate text in footer',
+  attributes: { class: 'bg-stone-900 text-stone-300' },
+};
+
+check('wallpaper is added to a section with no inline background', () => {
+  const result = applyDirectEdit(FIXTURE, el(FOOTER_EL), { backgroundImage: 'https://images.unsplash.com/photo-floor' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.strictEqual(
+    attrOf(result.code, '<footer', 'style'),
+    "background-image: url('https://images.unsplash.com/photo-floor'); background-size: cover; background-position: center;",
+  );
+});
+
+check('uploaded data: URI wallpapers keep their ";base64," intact', () => {
+  const dataUrl = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==';
+  const result = applyDirectEdit(FIXTURE, el(FOOTER_EL), { backgroundImage: dataUrl });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.ok(attrOf(result.code, '<footer', 'style').includes(`url('${dataUrl}')`));
+});
+
+check('wallpaper URLs that could break out of the style are refused', () => {
+  const result = applyDirectEdit(FIXTURE, el(FOOTER_EL), { backgroundImage: "https://x.test/a.jpg') ; color: red" });
+  assert.strictEqual(result.reason, 'invalid-image-url');
+});
+
+check('fill color falls back to inline style when several bg tokens exist', () => {
+  const code = '<body>\n  <div class="bg-white bg-opacity-50 p-4">Card</div>\n</body>';
+  const element = el({ tag: 'div', text: 'Card', attributes: { class: 'bg-white bg-opacity-50 p-4' } });
+  const result = applyDirectEdit(code, element, { backgroundColor: '#ff0000' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<div class="bg-white bg-opacity-50 p-4" style="background-color: #ff0000;">Card<\/div>/);
+});
+
+check('fill color over a gradient also clears the gradient', () => {
+  const code = '<body>\n  <a href="#go" class="bg-gradient-to-r from-amber-500 to-rose-500 bg-slate-900">Go</a>\n</body>';
+  const element = el({
+    tag: 'a',
+    role: 'link',
+    text: 'Go',
+    attributes: { href: '#go', class: 'bg-gradient-to-r from-amber-500 to-rose-500 bg-slate-900' },
+    backgroundImage: 'linear-gradient(to right, rgb(245, 158, 11), rgb(244, 63, 94))',
+  });
+  const result = applyDirectEdit(code, element, { backgroundColor: '#123456' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.strictEqual(attrOf(result.code, '<a', 'style'), 'background-color: #123456; background-image: none;');
+  assert.match(result.code, /bg-slate-900/); // token left alone; inline style wins
+});
+
+check('alt text is added to an image that has none', () => {
+  const code = '<body>\n  <img src="https://x.test/a.jpg" class="w-full">\n</body>';
+  const element = el({ tag: 'img', role: 'image', attributes: { src: 'https://x.test/a.jpg', class: 'w-full' }, outerHTML: '<img src="https://x.test/a.jpg" class="w-full">' });
+  const result = applyDirectEdit(code, element, { alt: 'A "quoted" view' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<img src="https:\/\/x\.test\/a\.jpg" class="w-full" alt="A &quot;quoted&quot; view">/);
+});
+
+check('href is added to a link that has none', () => {
+  const code = '<body>\n  <a class="cta">Book now</a>\n</body>';
+  const element = el({ tag: 'a', role: 'link', text: 'Book now', attributes: { class: 'cta' }, outerHTML: '<a class="cta">Book now</a>' });
+  const result = applyDirectEdit(code, element, { href: 'contact.html' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<a class="cta" href="contact\.html">Book now<\/a>/);
+});
+
+check('open-in-new-tab adds target/rel and merges an existing rel', () => {
+  const code = '<body>\n  <a href="https://x.test" rel="nofollow">Partner</a>\n</body>';
+  const element = el({ tag: 'a', role: 'link', text: 'Partner', attributes: { href: 'https://x.test', rel: 'nofollow' } });
+  const on = applyDirectEdit(code, element, { target: '_blank' });
+  assert.ok(on.ok, `expected ok, got: ${on.reason}`);
+  assert.match(on.code, /<a href="https:\/\/x\.test" rel="nofollow noopener noreferrer" target="_blank">Partner<\/a>/);
+
+  const blankEl = el({ ...element, attributes: { href: 'https://x.test', rel: 'nofollow noopener noreferrer', target: '_blank' } });
+  const off = applyDirectEdit(on.code, blankEl, { target: null });
+  assert.ok(off.ok, `expected ok, got: ${off.reason}`);
+  assert.match(off.code, /<a href="https:\/\/x\.test" rel="nofollow">Partner<\/a>/);
+});
+
+check('attribute lookups ignore look-alikes inside other attribute values', () => {
+  const code = '<body>\n  <a data-note="set alt=here" class="x">Hi</a>\n</body>';
+  const element = el({ tag: 'a', role: 'link', text: 'Hi', attributes: { class: 'x', 'data-note': 'set alt=here' } });
+  const result = applyDirectEdit(code, element, { href: '#hi' });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<a data-note="set alt=here" class="x" href="#hi">Hi<\/a>/);
+});
+
+check('markup inside scripts and comments is never matched', () => {
+  const code = "<body>\n  <!-- <p>Hello</p> -->\n  <script>const t = '<p>Hello</p>';</script>\n  <p>Hello</p>\n</body>";
+  const found = locateElement(code, el({ tag: 'p', role: 'text', text: 'Hello' }));
+  assert.ok(found.ok, `expected ok, got: ${found.reason}`);
+  assert.strictEqual(code.slice(found.start, found.end), '<p>Hello</p>');
+  assert.ok(found.start > code.indexOf('</script>'));
+});
+
+check('tag rank locates a text-less element when counts agree', () => {
+  const code = '<body>\n  <div class="spacer h-8"></div>\n  <p>x</p>\n  <div class="spacer h-8"></div>\n</body>';
+  const found = locateElement(code, el({ tag: 'div', attributes: { class: 'spacer h-8' }, tagOrdinal: 1, tagCount: 2 }));
+  assert.ok(found.ok, `expected ok, got: ${found.reason}`);
+  assert.strictEqual(found.strategy, 'ordinal');
+  assert.ok(found.start > code.indexOf('<p>'));
+  // A count mismatch (JS-inserted elements) refuses rather than guessing.
+  const refused = locateElement(code, el({ tag: 'div', attributes: { class: 'spacer h-8' }, tagOrdinal: 1, tagCount: 3 }));
+  assert.strictEqual(refused.ok, false);
+});
+
+console.log('structure edits:');
+
+const ABOUT_EL = {
+  tag: 'section',
+  role: 'container',
+  text: 'Baked in Bend since 2012 & loved daily.',
+  attributes: { class: 'py-24 bg-slate-900 text-white' },
+};
+const HEADER_EL = {
+  tag: 'header',
+  role: 'container',
+  text: 'Fresh bread, every morning',
+  attributes: { class: 'min-h-screen flex items-center justify-center bg-[#1c1917]' },
+};
+
+check('remove takes the section, its landmark and its line', () => {
+  const result = applyDirectEdit(FIXTURE, el(ABOUT_EL), { remove: true });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.ok(!result.code.includes('@section: about'));
+  assert.ok(!result.code.includes('Baked in Bend'));
+  assert.match(result.code, /<\/header>\n\n\n {2}<footer/);
+  assert.match(result.summary, /removed the section "Baked in Bend/);
+});
+
+check('remove drops an inline element with its indentation', () => {
+  const element = el({ tag: 'a', role: 'link', text: 'Menu', attributes: { href: '/menu', class: 'hover:text-amber-300' } });
+  const result = applyDirectEdit(FIXTURE, element, { remove: true });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /Sunrise Bakery<\/a>\n {4}<a href="#contact"/);
+});
+
+check('duplicate inserts a copy on its own line without ids', () => {
+  const code = '<body>\n  <div id="card-1" class="card">\n    <h3 id="t1">Plan</h3>\n  </div>\n</body>';
+  const element = el({ tag: 'div', text: 'Plan', attributes: { id: 'card-1', class: 'card' } });
+  const result = applyDirectEdit(code, element, { duplicate: true });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.strictEqual(
+    result.code,
+    '<body>\n  <div id="card-1" class="card">\n    <h3 id="t1">Plan</h3>\n  </div>\n  <div class="card">\n    <h3>Plan</h3>\n  </div>\n</body>',
+  );
+});
+
+check('move up swaps with the previous sibling', () => {
+  const element = el({
+    tag: 'a',
+    role: 'link',
+    text: 'Order Now',
+    attributes: { href: '#contact', class: 'rounded-full bg-amber-500 px-4 py-2 font-bold' },
+    prevSibling: { tag: 'a', text: 'Menu', attributes: { href: '/menu', class: 'hover:text-amber-300' } },
+  });
+  const result = applyDirectEdit(FIXTURE, element, { move: -1 });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /font-bold">Order Now<\/a>\n {4}<a href="\/menu" class="hover:text-amber-300">Menu<\/a>\n {2}<\/nav>/);
+  assert.match(result.summary, /moved the link "Order Now" up/);
+});
+
+check('move down carries @section landmarks with their sections', () => {
+  const result = applyDirectEdit(FIXTURE, el({ ...HEADER_EL, nextSibling: ABOUT_EL }), { move: 1 });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  const about = result.code.indexOf('<!-- @section: about -->');
+  const hero = result.code.indexOf('<!-- @section: hero -->');
+  assert.ok(about !== -1 && hero !== -1 && about < hero);
+  assert.ok(result.code.indexOf('<section') < result.code.indexOf('<header'));
+  assert.match(result.code, /<!-- @section: about -->\n {2}<section/);
+  assert.match(result.code, /<!-- @section: hero -->\n {2}<header/);
+});
+
+check('move refuses when the neighbour is not adjacent in the source', () => {
+  const code = '<body>\n  <p>One</p>\n  stray words\n  <p>Two</p>\n</body>';
+  const element = el({ tag: 'p', role: 'text', text: 'Two', prevSibling: { tag: 'p', text: 'One', attributes: {} } });
+  const result = applyDirectEdit(code, element, { move: -1 });
+  assert.strictEqual(result.reason, 'not-adjacent');
+});
+
+check('move without a sibling reports no-sibling', () => {
+  const element = el({ tag: 'a', role: 'link', text: 'Menu', attributes: { href: '/menu' } });
+  assert.strictEqual(applyDirectEdit(FIXTURE, element, { move: 1 }).reason, 'no-sibling');
+});
+
+check('structure edits refuse ambiguous elements and the page itself', () => {
+  const dup = el({ tag: 'p', role: 'text', text: 'Duplicate text in footer' });
+  assert.strictEqual(applyDirectEdit(FIXTURE, dup, { remove: true }).reason, 'ambiguous');
+  const ranked = el({ tag: 'p', role: 'text', text: 'Duplicate text in footer', textOrdinal: 1, textCount: 2 });
+  const removed = applyDirectEdit(FIXTURE, ranked, { remove: true });
+  assert.ok(removed.ok, `expected ok, got: ${removed.reason}`);
+  assert.strictEqual(removed.code.split('Duplicate text in footer').length - 1, 1);
+  assert.strictEqual(applyDirectEdit(FIXTURE, el({ tag: 'body' }), { remove: true }).reason, 'protected-element');
+  assert.strictEqual(applyDirectEdit(FIXTURE, el(ABOUT_EL), { remove: true, href: '/x' }).reason, 'invalid');
+});
+
+check('failure reasons have specific messages', () => {
+  assert.match(describeDirectEditFailure('ambiguous'), /more than once/);
+  assert.match(describeDirectEditFailure('not-adjacent'), /could not be moved/);
+  assert.match(describeDirectEditFailure('whatever'), /could not be found/);
+});
+
 console.log('buildElementEditPrompt:');
 
 check('prompt carries element context and instruction', () => {
@@ -405,6 +624,17 @@ check('prompt works without an instruction (user appends)', () => {
   const prompt = buildElementEditPrompt(el({ tag: 'section', role: 'container', parentTag: 'main' }));
   assert.match(prompt, /section \(<section>/);
   assert.match(prompt, /:\s*$/);
+});
+
+check('prompt with source context quotes the element, its section and page', () => {
+  const prompt = buildElementEditPrompt(el(ABOUT_EL), 'make it warmer', { code: FIXTURE, page: 'about.html', multiPage: true });
+  assert.match(prompt, /^Target element \(in the "about" section of about\.html\), as it appears in the source:/);
+  assert.match(prompt, /```html\n<section class="py-24 bg-slate-900 text-white" style=/);
+  assert.match(prompt, /\n {2}<p>Baked in Bend since 2012 &amp; loved daily\.<\/p>\n<\/section>\n```/);
+  assert.match(prompt, /: make it warmer$/);
+  // Unlocatable elements fall back to the plain description.
+  const plain = buildElementEditPrompt(el({ tag: 'div', text: 'Not in source' }), 'x', { code: FIXTURE, page: 'index.html', multiPage: false });
+  assert.match(plain, /^Directly edit the section \(<div>/);
 });
 
 console.log(`\n${passed} checks passed${process.exitCode ? ' (with failures above)' : ''}`);

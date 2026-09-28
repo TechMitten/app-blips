@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   X, ArrowUpToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
+  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
+import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts';
 
 // Contextual toolbar for the Website Studio's click-to-edit mode. It docks
 // under the preview toolbar (PreviewPane owns the dock, so the bar slides in
@@ -10,11 +12,16 @@ import { compressImageDataUrl } from '../lib/attachments';
 // language as the bars above it: segmented tracks, ghost keys, one filled
 // key. Text is edited IN PLACE on the page (the bridge's contentEditable
 // session -- see src/previewBridge.js), so this bar owns everything else:
-// image URL / upload, alt, link URL, background color / wallpaper. Text roles
-// land here only via the Esc escape hatch or a failed in-place apply; the bar
-// then offers select-parent and the "Ask AI" handoff (buildElementEditPrompt).
-// All state is local and keyed per selection -- PreviewPane remounts this
-// component with a fresh key whenever a new element is picked.
+// image URL / upload, alt, link URL (with page/section suggestions and a
+// new-tab toggle), fill color (sections, buttons, links) / wallpaper, and the
+// structure keys (move, duplicate, delete -- also Alt+arrows, Mod+D, Del).
+// Text roles land here only via the Esc escape hatch or a failed in-place
+// apply; the bar then offers select-parent and the "Ask AI" handoff
+// (buildElementEditPrompt), which either applies right away or prefills the
+// chat. All state is local and keyed per selection -- PreviewPane remounts
+// this component with a fresh key whenever a new element is picked.
+
+const PAGE_ROOT_TAGS = new Set(['html', 'head', 'body']);
 
 const ROLE_LABELS = {
   text: 'Text',
@@ -46,6 +53,8 @@ export default function ElementToolbar({
   isApplying = false,
   error = null,
   onApply,
+  onAction,
+  linkTargets = [],
   onEditWithAI,
   onCancel,
   onSelectParent,
@@ -53,17 +62,24 @@ export default function ElementToolbar({
   const role = element.role || 'container';
   const isImage = role === 'image';
   const isContainer = role === 'container';
+  const isClickable = role === 'link' || role === 'button';
   // Text is edited in place on the page, so there is no text field here;
   // leaf text-bearing roles only reach this bar via the Esc escape hatch or a
   // failed in-place apply.
   const isTextRole = !isImage && !isContainer;
-  const showLink = role === 'link' || role === 'button';
-  const showBackground = isContainer || Boolean(element.backgroundImage);
+  // A <button> has no href to edit; select its parent <a> for that.
+  const showLink = role === 'link' || (role === 'button' && (element.tag === 'a' || element.attributes?.href !== undefined));
+  const showBackground = isContainer || isClickable || Boolean(element.backgroundImage);
+  const showWallpaper = showBackground && !isClickable;
   const hasEditableFields = isImage || showLink || showBackground;
+  const canRestructure = Boolean(onAction) && !PAGE_ROOT_TAGS.has(element.tag);
 
   const [src, setSrc] = useState(element.attributes?.src || '');
   const [alt, setAlt] = useState(element.attributes?.alt || '');
   const [href, setHref] = useState(element.attributes?.href || '');
+  const initialNewTab = element.attributes?.target === '_blank';
+  const [newTab, setNewTab] = useState(initialNewTab);
+  const linkListId = useId();
   const currentBgHex = rgbToHex(element.backgroundColor) || '#ffffff';
   const [bgColor, setBgColor] = useState(currentBgHex);
   const [bgImage, setBgImage] = useState('');
@@ -107,6 +123,7 @@ export default function ElementToolbar({
       if (alt.trim() !== (element.attributes?.alt || '')) changes.alt = alt.trim();
     }
     if (showLink && href.trim() && href.trim() !== (element.attributes?.href || '')) changes.href = href.trim();
+    if (showLink && newTab !== initialNewTab) changes.target = newTab ? '_blank' : null;
     if (showBackground) {
       if (bgColor.toLowerCase() !== currentBgHex.toLowerCase()) changes.backgroundColor = bgColor;
       if (bgImage) changes.backgroundImage = bgImage;
@@ -114,8 +131,9 @@ export default function ElementToolbar({
     onApply(changes);
   };
 
-  const handleAiSend = () => {
-    onEditWithAI(aiInstruction);
+  // Apply runs the edit now; Add to chat only prefills the prompt box.
+  const handleAiSend = (run) => {
+    onEditWithAI(aiInstruction, { run });
   };
 
   const submitOnEnter = (fn) => (e) => {
@@ -154,12 +172,37 @@ export default function ElementToolbar({
     </button>
   );
 
+  const structureKey = (action, Icon, label, disabled, extraClass = '') => (
+    <button
+      type="button"
+      onClick={() => onAction(action)}
+      disabled={busy || disabled}
+      className={`nav-btn nav-ghost nav-btn-icon element-bar-btn-icon ${extraClass} disabled:opacity-40 disabled:cursor-not-allowed`}
+      aria-label={label}
+      aria-keyshortcuts={action === 'delete' ? 'Delete' : undefined}
+      data-tip={`${label} (${ELEMENT_SHORTCUT_HINTS[action]})`}
+      data-tip-align="end"
+    >
+      <Icon size={16} />
+    </button>
+  );
+
   return (
     <div
       className="element-bar"
       role="toolbar"
       aria-label={`Edit selected ${ROLE_LABELS[role] || 'element'}`}
-      onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          onCancel();
+          return;
+        }
+        const action = canRestructure && !busy ? elementShortcutAction(e.nativeEvent) : null;
+        if (action) {
+          e.preventDefault();
+          onAction(action);
+        }
+      }}
     >
       {/* What is selected */}
       <div className="element-bar-id">
@@ -198,7 +241,7 @@ export default function ElementToolbar({
               autoFocus
               value={aiInstruction}
               onChange={(e) => setAiInstruction(e.target.value)}
-              onKeyDown={submitOnEnter(handleAiSend)}
+              onKeyDown={submitOnEnter(() => handleAiSend(Boolean(aiInstruction.trim())))}
               placeholder='Describe the change, e.g. "make this section darker with a subtle gradient"'
               aria-label="Describe the change for AI"
               className="element-bar-input element-bar-grow"
@@ -249,12 +292,32 @@ export default function ElementToolbar({
                   value={href}
                   onChange={(e) => setHref(e.target.value)}
                   onKeyDown={submitOnEnter(handleApply)}
-                  placeholder="Link URL  https://…"
+                  placeholder={linkTargets.length ? 'Link URL, page or #section' : 'Link URL  https://…'}
                   aria-label="Link URL"
+                  list={linkTargets.length ? linkListId : undefined}
                   className="element-bar-input element-bar-input-icon"
                   disabled={isApplying}
                 />
+                {linkTargets.length > 0 && (
+                  <datalist id={linkListId}>
+                    {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
+                  </datalist>
+                )}
               </label>
+            )}
+
+            {showLink && (
+              <button
+                type="button"
+                onClick={() => setNewTab((on) => !on)}
+                aria-pressed={newTab}
+                aria-label="Open link in a new tab"
+                className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
+                data-tip={newTab ? 'Opens in a new tab' : 'Opens in the same tab'}
+                disabled={isApplying}
+              >
+                <ExternalLink size={16} />
+              </button>
             )}
 
             {showBackground && (
@@ -282,6 +345,11 @@ export default function ElementToolbar({
                   className="element-bar-input element-bar-hex"
                   disabled={isApplying}
                 />
+              </>
+            )}
+
+            {showWallpaper && (
+              <>
                 <span className="chrome-divider element-bar-divider" aria-hidden="true" />
                 <span className="element-bar-label">Wallpaper</span>
                 {fileInput(bgFileRef)}
@@ -289,7 +357,7 @@ export default function ElementToolbar({
                   bgFileRef,
                   bgImage ? 'Change' : 'Upload',
                   element.backgroundImage && !bgImage
-                    ? 'Replace this background image (URL-based wallpapers go through Ask AI)'
+                    ? 'Replace this background image'
                     : 'Set a background image from your computer',
                 )}
                 {bgImage && (
@@ -348,13 +416,23 @@ export default function ElementToolbar({
             )}
             <button
               type="button"
-              onClick={handleAiSend}
-              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
-              data-tip="Prefill the chat with this element and your request"
+              onClick={() => handleAiSend(false)}
+              className="nav-btn nav-ghost element-bar-btn"
+              data-tip="Add this element and your request to the chat box, to send later"
+            >
+              <MessageSquarePlus size={15} />
+              <span>Add to chat</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAiSend(true)}
+              disabled={!aiInstruction.trim()}
+              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+              data-tip="AI makes this change now, as a new version"
               data-tip-align="end"
             >
               <Sparkles size={15} />
-              <span>Send to chat</span>
+              <span>Apply with AI</span>
             </button>
           </>
         ) : (
@@ -381,6 +459,17 @@ export default function ElementToolbar({
                 <span>{isApplying ? 'Applying…' : 'Apply'}</span>
               </button>
             )}
+          </>
+        )}
+        {canRestructure && !showAiInput && (
+          <>
+            <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+            <div className="element-bar-struct" role="group" aria-label="Arrange">
+              {structureKey('move-up', ArrowUp, 'Move up', !element.prevSibling)}
+              {structureKey('move-down', ArrowDown, 'Move down', !element.nextSibling)}
+              {structureKey('duplicate', CopyPlus, 'Duplicate', false)}
+              {structureKey('delete', Trash2, 'Delete', false, 'element-bar-danger')}
+            </div>
           </>
         )}
         <span className="chrome-divider element-bar-divider" aria-hidden="true" />

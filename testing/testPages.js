@@ -174,3 +174,16 @@ assert.equal(sniffStreamedPage('apply_surgical_edits', '{"fi'), null);
 assert.equal(sniffStreamedPage('create_page', '{"name":"our-menu.html","html":"<!DOC'), 'our-menu.html');
 assert.equal(sniffStreamedPage('create_page', '{"name":"../x.html"'), null);
 console.log('testPages (live peek): ok');
+
+// Link suggestions for the click-to-edit bar.
+{
+  const { collectLinkTargets } = await import('../src/lib/pages.js');
+  const files = {
+    'index.html': '<title>Home</title><section id="hero"></section><!-- <div id="ghost"> --><script>el.id = "x"; var s = \'<p id="fake">\';</script><div id="contact"></div>',
+    'about.html': '<title>About us</title><section id="team"></section>',
+  };
+  assert.deepEqual(collectLinkTargets(files, 'index.html').map((t) => t.value), ['#hero', '#contact', 'about.html', 'about.html#team']);
+  assert.deepEqual(collectLinkTargets(files, 'about.html').map((t) => t.value), ['#team', 'index.html', 'index.html#hero', 'index.html#contact']);
+  assert.equal(collectLinkTargets(files, 'index.html')[2].label, 'About page · About us');
+}
+console.log('testPages (link targets): ok');

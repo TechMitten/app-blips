@@ -8,6 +8,9 @@ import { requestModelText } from '../lib/llm';
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
 // can no longer touch its document. The mobile touch-scroll simulation now runs
 // inside the frame (src/previewBridge.js); this effect just drives it.
+
+const ELEMENT_SHORTCUT_ACTIONS = new Set(['delete', 'duplicate', 'move-up', 'move-down', 'undo', 'redo']);
+
 export default function usePreviewBridge({
   iframeRef,
   previewSrcDoc,
@@ -25,6 +28,7 @@ export default function usePreviewBridge({
   onInlineTypography,
   onInlineEditEnded,
   onInlineHistory,
+  onElementShortcut,
   onNavigatePage,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
@@ -37,6 +41,7 @@ export default function usePreviewBridge({
   const onInlineTypographyRef = useRef(onInlineTypography);
   const onInlineEditEndedRef = useRef(onInlineEditEnded);
   const onInlineHistoryRef = useRef(onInlineHistory);
+  const onElementShortcutRef = useRef(onElementShortcut);
   const onNavigatePageRef = useRef(onNavigatePage);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
@@ -75,6 +80,7 @@ export default function usePreviewBridge({
     onInlineTypographyRef.current = onInlineTypography;
     onInlineEditEndedRef.current = onInlineEditEnded;
     onInlineHistoryRef.current = onInlineHistory;
+    onElementShortcutRef.current = onElementShortcut;
     onNavigatePageRef.current = onNavigatePage;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
@@ -227,6 +233,12 @@ export default function usePreviewBridge({
       else if (data.type === 'inline-typography' && onInlineTypographyRef.current) onInlineTypographyRef.current(data.payload);
       else if (data.type === 'inline-history' && onInlineHistoryRef.current) onInlineHistoryRef.current(data.payload);
       else if (data.type === 'inline-edit-ended' && onInlineEditEndedRef.current) onInlineEditEndedRef.current();
+      // Keyboard shortcut pressed inside the frame (structure edits on the
+      // selection, undo/redo). Untrusted: only known actions pass.
+      else if (data.type === 'element-shortcut' && onElementShortcutRef.current) {
+        const action = data.payload?.action;
+        if (ELEMENT_SHORTCUT_ACTIONS.has(action)) onElementShortcutRef.current(action);
+      }
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current

@@ -91,7 +91,7 @@ export function buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeV
       view: 'preview',
       placement: 'bottom',
       title: 'Edit text directly',
-      body: 'Turn on click-to-edit, then select any element in the preview to change its words, font, size, color, or alignment. No prompt needed. Saving creates a new version.',
+      body: 'Turn on click-to-edit, then select any element in the preview to change its words, font, color, links or images, or to move, duplicate or delete it. No prompt needed. Every change is saved as a new version.',
     });
   }
 
