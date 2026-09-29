@@ -1,7 +1,23 @@
 import { trackApiUsage } from './usageTracking.js';
 
+// fetch() has already decoded the upstream body, so its content-encoding and
+// content-length no longer describe what is relayed. Passing them on makes the
+// browser try to gunzip plain text ("Failed to fetch"). Hop-by-hop headers
+// don't belong on a relayed response either.
+const DROPPED_HEADERS = ['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'keep-alive'];
+const relayHeaders = (headers) => {
+  const out = new Headers(headers);
+  for (const name of DROPPED_HEADERS) out.delete(name);
+  return out;
+};
+
 export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kind }, waitUntil) {
-  if (!upstreamResponse.ok) return upstreamResponse;
+  if (!upstreamResponse.ok) {
+    return new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: relayHeaders(upstreamResponse.headers),
+    });
+  }
 
   if (bodyObj.stream) {
     let tokens = 0;
@@ -37,7 +53,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
     
     return new Response(readable, {
       status: upstreamResponse.status,
-      headers: upstreamResponse.headers,
+      headers: relayHeaders(upstreamResponse.headers),
     });
   } else {
     // Non-streamed
@@ -57,7 +73,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
       
       return new Response(text, {
         status: upstreamResponse.status,
-        headers: upstreamResponse.headers,
+        headers: relayHeaders(upstreamResponse.headers),
       });
     };
     

@@ -32,6 +32,12 @@ Fill in the API key for **one** provider, plus the model. The provider whose key
 
 Keys are read only by the AppBlips server and are never sent to the browser.
 
+### Or set it in the app
+
+You can leave these lines blank and choose a provider, model, and API key in the app instead, under [Settings → AI](/reference/settings#your-own-ai-provider). That setting is stored in your browser only, and it takes priority over `.env` while it's switched on. AppBlips then starts with a warning instead of an error.
+
+The in-app setting covers building, editing, chat, and AI in the preview. Apps you export or open in a new tab still call your AppBlips relay, which uses the `.env` provider. Fill it in too if those apps use AI.
+
 ### Other OpenAI-compatible services
 
 Any other service that speaks the OpenAI chat-completions API works too: Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.

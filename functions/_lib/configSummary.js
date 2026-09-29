@@ -19,7 +19,10 @@ export const describeConfig = (env) => {
   });
 
   const builder = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
-  if (builder.error) {
+  if (builder.unconfigured && !hosted) {
+    // Self-hosted can run without one: users can pick a provider in the app.
+    lines.push({ level: 'warn', label: 'Builder AI', text: 'No provider in .env. Set one there, or pick one in the app under Settings → AI.' });
+  } else if (builder.error) {
     lines.push({ level: 'error', label: 'Builder AI', text: builder.error });
   } else if (builder.missing.length) {
     lines.push({

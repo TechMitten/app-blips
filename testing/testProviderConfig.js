@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resolveAppProvider } from '../functions/_lib/providers.js';
+import { resolveAppProvider, resolveUserProvider, USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS } from '../functions/_lib/providers.js';
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
@@ -73,8 +73,8 @@ test('summary shows BYOK only when it is chosen explicitly', () => {
   assert.match(summary({ ...builderEnv, APPBLIPS_GENERATED_AI_MODE: 'byok' }), /BYOK/);
 });
 
-test('summary explains an empty configuration', () => {
-  const lines = describeConfig({});
+test('hosted summary explains an empty configuration', () => {
+  const lines = describeConfig({ SELF_HOSTED_MODE: 'false' });
   assert.ok(lines.some((l) => l.level === 'error' && /APPBLIPS_OPENROUTER_API_KEY/.test(l.text)));
 });
 
@@ -132,8 +132,9 @@ test('pre-rename APPBLIPS_APP_LLM_* limits still apply and are flagged as rename
 
 // --- Config errors: detail for the operator, nothing for hosted visitors ----
 
-const chat = (env) => handleChatProxy(new Request('https://app.example/api/chat', {
+const chat = (env, headers = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
   method: 'POST',
+  headers,
   body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
 }), { APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000', ...env });
 
@@ -143,12 +144,52 @@ test('self-hosted config error tells the operator what to fix', async () => {
   const { error } = await response.json();
   assert.match(error, /isn't set up yet/);
   assert.match(error, /APPBLIPS_OPENROUTER_API_KEY/);
+  assert.match(error, /Settings → AI/);
 });
+
+test('self-hosted summary only warns when no provider is in .env', () => {
+  const line = describeConfig({}).find((l) => l.label === 'Builder AI');
+  assert.equal(line.level, 'warn');
+  assert.match(line.text, /Settings → AI/);
+  assert.equal(describeConfig({ SELF_HOSTED_MODE: 'false' }).find((l) => l.label === 'Builder AI').level, 'error');
+  // A real mistake (unknown provider) is still an error.
+  assert.equal(describeConfig({ APPBLIPS_LLM_PROVIDER: 'nope' }).find((l) => l.label === 'Builder AI').level, 'error');
+});
+
+// --- User-supplied provider (Settings → AI) --------------------------------
+
+test('resolveUserProvider accepts each preset and uses the preset endpoint', () => {
+  for (const { id } of USER_PROVIDER_OPTIONS) {
+    const p = resolveUserProvider({ id, apiKey: 'k', model: 'm', baseUrl: 'https://evil.invalid' });
+    assert.equal(p.error, undefined);
+    assert.equal(p.userSupplied, true);
+    assert.notEqual(p.baseUrl, 'https://evil.invalid');
+    assert.ok(p.baseUrl.startsWith('https://'));
+  }
+  assert.ok(!USER_PROVIDER_IDS.includes('openai-compatible'));
+});
+
+test('resolveUserProvider rejects bad input', () => {
+  const bad = [
+    null, 'x', [],
+    { id: 'openai-compatible', apiKey: 'k', model: 'm' },
+    { id: 'nope', apiKey: 'k', model: 'm' },
+    { id: 'openai', apiKey: '', model: 'm' },
+    { id: 'openai', apiKey: 'a b', model: 'm' },
+    { id: 'openai', apiKey: 'k'.repeat(513), model: 'm' },
+    { id: 'openai', apiKey: 'k', model: '' },
+    { id: 'openai', apiKey: 'k', model: 'm'.repeat(201) },
+  ];
+  for (const input of bad) assert.ok(resolveUserProvider(input).error, JSON.stringify(input));
+});
+
 
 test('hosted config error is generic to the client and logged server-side', async (t) => {
   const logged = [];
   t.mock.method(console, 'error', (...args) => logged.push(args.join(' ')));
-  const response = await chat({ SELF_HOSTED_MODE: 'false', FIREBASE_API_KEY: 'k' });
+  // Sign-in is checked first: a user with their own provider needs no env key.
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ id: 'user-1' })));
+  const response = await chat({ SELF_HOSTED_MODE: 'false' }, { authorization: 'Bearer t' });
   assert.equal(response.status, 500);
   const { error } = await response.json();
   assert.doesNotMatch(error, /APPBLIPS_|\.env/);

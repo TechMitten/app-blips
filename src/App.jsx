@@ -22,6 +22,7 @@ import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
+import GalleryView from './components/gallery/GalleryView';
 import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
@@ -56,6 +57,8 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
+import useGalleryRoute from './hooks/useGalleryRoute';
+import { fetchRemixSource } from './lib/gallery';
 import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
@@ -203,6 +206,10 @@ export default function App() {
 
   // --- Streaming state ---
   const [streamingGeneratedCode, setStreamingGeneratedCode] = useState('');
+  // Reasoning is display-only build progress. It is kept separately from the
+  // streamed HTML so it can appear in the small live peek without ever being
+  // included in generatedCode or the large Code view.
+  const [streamingReasoning, setStreamingReasoning] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
   // Full text of the code as the model writes it. A ref, not state: the build
   // overlay's live peek polls it on animation frames and paces the reveal itself.
@@ -244,6 +251,7 @@ export default function App() {
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
   const streamingReplyRef = useRef('');
+  const streamingCodeStartedRef = useRef(false);
   const editStreamRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
@@ -268,6 +276,7 @@ export default function App() {
   const clearStreamingState = useCallback(() => {
     setThinkingSince(null);
     setStreamingGeneratedCode('');
+    setStreamingReasoning('');
     setStreamingReply('');
     liveCodeRef.current = '';
     setLiveCodePage(null);
@@ -280,6 +289,7 @@ export default function App() {
     streamingBufferRef.current = '';
     streamingGeneratedCodeRef.current = '';
     streamingReplyRef.current = '';
+    streamingCodeStartedRef.current = false;
     replyFrozenRef.current = false;
   }, []);
 
@@ -314,10 +324,20 @@ export default function App() {
     isDeployModalOpen, setIsDeployModalOpen, isDeploying, deployError, setDeployError,
     deployCopied, confirmUndeploy, setConfirmUndeploy, isDeployStale, deploymentUrl,
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
+    galleryPost, galleryPostLoading, galleryError,
   } = useDeployment({
     files, isSignedIn, user, username, projectName, currentProjectId,
-    currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
+    currentVersionId, deployment, setDeployment, saveProject, aiEnabled, studioMode,
   });
+
+  // --- Gallery (hosted mode only; `?gallery` / `?app=<id>` deep links) ---
+  const {
+    isGalleryOpen, activePostId: activeGalleryPostId,
+    openGallery, openPost: openGalleryPost, closePost: closeGalleryPost, closeGallery,
+  } = useGalleryRoute(supabaseEnabled);
+  // Id of a just-remixed project awaiting its first save (see the effect
+  // below handleRemixFromGallery).
+  const remixSaveRef = useRef(null);
 
   // --- Analytics dashboard ---
   const {
@@ -1164,6 +1184,11 @@ export default function App() {
           return;
         }
         if (kind === 'reasoning') {
+          // Some providers put content and reasoning deltas in the same SSE
+          // chunk. Content is handled first, so ignore a reasoning delta that
+          // arrives after actual code has begun.
+          if (streamingCodeStartedRef.current) return;
+          setStreamingReasoning((previous) => `${previous}${chunk}`);
           return;
         }
         if (kind === 'reply') {
@@ -1220,6 +1245,8 @@ export default function App() {
           // Plain streamed text for an additional page (see createMissingPages):
           // same handling as the landing page's stream, but into the page-code
           // state the code view's tab for that page reads.
+          streamingCodeStartedRef.current = true;
+          setStreamingReasoning('');
           pageStreamRef.current += chunk;
           const html = HTML_STREAM_START_RE.test(pageStreamRef.current) ? sanitizeHtmlResponse(pageStreamRef.current) : '';
           liveCodeRef.current = html || '';
@@ -1238,6 +1265,8 @@ export default function App() {
           return;
         }
         if (kind === 'edit_stream') {
+          streamingCodeStartedRef.current = true;
+          setStreamingReasoning('');
           editStreamRef.current = `${editStreamRef.current}${chunk}`;
           liveCodeRef.current = extractStreamedEditCode(editStreamRef.current);
           // A page that doesn't exist yet has no code to show except what is
@@ -1256,6 +1285,8 @@ export default function App() {
         }
         streamingGeneratedCodeRef.current = `${streamingGeneratedCodeRef.current}${chunk}`;
         if (HTML_STREAM_START_RE.test(streamingGeneratedCodeRef.current)) {
+          streamingCodeStartedRef.current = true;
+          setStreamingReasoning('');
           const sanitized = sanitizeHtmlResponse(streamingGeneratedCodeRef.current);
           setStreamingGeneratedCode(sanitized);
           liveCodeRef.current = sanitized;
@@ -1755,6 +1786,15 @@ export default function App() {
     setIsStudioChoiceOpen(false);
   };
 
+  // A remix is saved only once its project id and versions are committed, so
+  // saveProject's closure sees the new project rather than the one it replaced
+  // (which would otherwise hand the old project's preview storage to it).
+  useEffect(() => {
+    if (!remixSaveRef.current || remixSaveRef.current !== currentProjectId || versions.length === 0) return;
+    remixSaveRef.current = null;
+    saveProject({ force: true });
+  }, [currentProjectId, versions, saveProject]);
+
   useEffect(() => {
     if (isSignedIn) pickerSetStartFreshRef.current = false;
     if (!pendingStudio || !isSignedIn) return;
@@ -1817,6 +1857,43 @@ export default function App() {
     await deleteUserProfile(user.id);
     await authProvider.deleteAccount();
     setIsSettingsOpen(false);
+  };
+
+  // Copies a gallery post's published source into a brand-new project of the
+  // caller's own. The current project is already auto-saved, so switching away
+  // loses nothing -- except a build still streaming, which must finish first.
+  const handleRemixFromGallery = async (post) => {
+    if (isGenerating) throw new Error('Wait for the current build to finish before remixing.');
+    const source = await fetchRemixSource(post);
+    const sessionId = newChatSessionId();
+    const name = `${post.title} (remix)`.slice(0, 80);
+    const version = {
+      id: Date.now(),
+      prompt: `Remix “${post.title}” by @${post.author_username}`,
+      files: source.files,
+      timestamp: new Date().toLocaleTimeString(),
+      editMode: 'remix',
+      editSummary: null,
+      reply: `Here's your copy of @${post.author_username}'s “${post.title}”. Tell me what you'd like to change.`,
+      chatMode: 'build',
+      sessionId,
+    };
+    resetCurrentWorkspace(source.studioMode);
+    const projectId = crypto.randomUUID();
+    loadProject({
+      id: projectId,
+      name,
+      versions: [version],
+      currentVersionIndex: 0,
+      chatContextStartIndex: 0,
+      currentChatSessionId: sessionId,
+      deployment: null,
+      aiEnabled: source.aiEnabled,
+      studioMode: source.studioMode,
+    });
+    remixSaveRef.current = projectId;
+    setIsStudioChoiceOpen(false);
+    closeGallery();
   };
 
   const handleRequireSignInFromDeploy = () => {
@@ -1883,6 +1960,20 @@ export default function App() {
         />
   );
 
+  const galleryOverlay = supabaseEnabled && isGalleryOpen && (
+    <GalleryView
+      userId={user?.id || null}
+      isSignedIn={Boolean(isSignedIn && user?.id)}
+      activePostId={activeGalleryPostId}
+      onOpenPost={openGalleryPost}
+      onClosePost={closeGalleryPost}
+      onClose={closeGallery}
+      onRequireSignIn={() => setIsAuthModalOpen(true)}
+      onRemix={handleRemixFromGallery}
+    />
+  );
+  const onOpenGallery = supabaseEnabled ? openGallery : undefined;
+
   const signOutConfirmModal = isSignOutConfirmOpen && (
     <ConfirmModal
       title="Sign out?"
@@ -1918,7 +2009,9 @@ export default function App() {
           onSignIn={openPickerSignIn}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenGallery={onOpenGallery}
         />
+        {galleryOverlay}
         {settingsModal}
         {isAuthModalOpen && supabaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
@@ -1949,6 +2042,7 @@ export default function App() {
         savedAppsCount={myProjects.length}
         versionsCount={versions.length}
         onOpenApps={() => setIsProjectsListOpen(true)}
+        onOpenGallery={onOpenGallery}
         isHistoryOpen={isHistoryOpen}
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
         resolvedTheme={resolvedTheme}
@@ -2068,6 +2162,12 @@ export default function App() {
           onUndeploy={handleUndeploy}
           onCopyUrl={handleCopyDeployUrl}
           onRequireSignIn={handleRequireSignInFromDeploy}
+          projectName={projectName}
+          galleryPost={galleryPost}
+          galleryPostLoading={galleryPostLoading}
+          galleryError={galleryError}
+          onCaptureThumbnail={async () => (await requestScreenshot()).dataUrl}
+          onViewInGallery={(postId) => { closeDeployModal(); openGalleryPost(postId); }}
         />
       )}
 
@@ -2110,6 +2210,8 @@ export default function App() {
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
 
+      {galleryOverlay}
+
       {isAuthModalOpen && supabaseEnabled && (
         <AuthModal onClose={handleCloseAuthModal} />
       )}
@@ -2147,6 +2249,7 @@ export default function App() {
           onDismissInterruptedJob={handleDismissInterruptedJob}
           onNewApp={handleNewApp}
           onOpenApps={() => setIsProjectsListOpen(true)}
+          onOpenGallery={onOpenGallery}
           savedAppsCount={myProjects.length}
           recents={myProjects}
           onLoadProject={loadProject}
@@ -2277,6 +2380,7 @@ export default function App() {
               isGenerating={isGenerating && chatMode === 'build'}
               generationStatus={generationStatus}
               thinkingSince={thinkingSince}
+              streamingReasoning={streamingReasoning}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
               liveCodeStreamDone={liveCodeStreamDone}
               liveCodePage={studioMode === 'website' ? liveCodePage : null}

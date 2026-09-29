@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Rocket, Globe, KeyRound, TriangleAlert, Trash2, Copy, Check,
   ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon, User, BarChart3,
-  Link2, ShieldCheck, ArrowRight, Share2
+  Link2, ShieldCheck, ArrowRight, Share2, LayoutGrid, Camera, Upload, Shuffle
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatModifiedTime } from '../lib/helpers';
 import { supabaseEnabled } from '../supabase';
 import { APPS_ORIGIN } from '../lib/deploy';
+import { galleryFileUrl } from '../lib/gallery';
+import { compressImageDataUrl } from '../lib/attachments';
+import { TITLE_MAX, DESCRIPTION_MAX } from '../lib/galleryFormat';
 
 const APPS_HOST = APPS_ORIGIN.replace(/^https?:\/\//, '');
 
@@ -161,6 +164,12 @@ export default function DeployModal({
   onUndeploy,
   onCopyUrl,
   onRequireSignIn,
+  projectName = '',
+  galleryPost = null,
+  galleryPostLoading = false,
+  galleryError = null,
+  onCaptureThumbnail,
+  onViewInGallery,
 }) {
   const noun = studioMode === 'website' ? 'website' : 'app';
   const Noun = noun === 'website' ? 'Website' : 'App';
@@ -187,6 +196,28 @@ export default function DeployModal({
   // live" view. Dismissing it reveals the full redeploy options rather than
   // closing the modal.
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Gallery listing. The existing post (if any) arrives after the modal opens,
+  // so the form is seeded from it once, during render, when it first shows up.
+  // A first deploy is listed by default; a redeploy starts off and is switched
+  // on only if the app is already listed, so an unlisted app stays unlisted.
+  const [galleryEnabled, setGalleryEnabled] = useState(() => !deployment);
+  const [galleryTitle, setGalleryTitle] = useState(projectName);
+  const [galleryDescription, setGalleryDescription] = useState('');
+  const [allowRemix, setAllowRemix] = useState(true);
+  const [seededPostId, setSeededPostId] = useState(null);
+  if (galleryPost && galleryPost.id !== seededPostId) {
+    setSeededPostId(galleryPost.id);
+    setGalleryEnabled(true);
+    setGalleryTitle(galleryPost.title);
+    setGalleryDescription(galleryPost.description || '');
+    setAllowRemix(galleryPost.allow_remix);
+  }
+  // A new thumbnail, { dataUrl } -- only uploaded when set.
+  const [thumbnail, setThumbnail] = useState(null);
+  const [thumbnailBusy, setThumbnailBusy] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState('');
+  const existingThumbnailUrl = galleryFileUrl(galleryPost?.thumbnail_path);
 
   const passwordsMatch = password.length === 0 || (password === confirmPassword && password.length > 0);
 
@@ -221,9 +252,70 @@ export default function DeployModal({
     reader.readAsDataURL(file);
   };
 
+  const toThumbnail = async (dataUrl) => {
+    const compressed = await compressImageDataUrl(dataUrl, { maxDimension: 960, quality: 0.8 });
+    setThumbnail({ dataUrl: compressed });
+  };
+
+  const captureThumbnail = async () => {
+    if (!onCaptureThumbnail || thumbnailBusy) return;
+    setThumbnailBusy(true);
+    setThumbnailError('');
+    try {
+      await toThumbnail(await onCaptureThumbnail());
+    } catch (err) {
+      setThumbnailError(err?.message || "Couldn't capture the preview. Upload an image instead.");
+    } finally {
+      setThumbnailBusy(false);
+    }
+  };
+
+  const handleThumbnailUpload = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 8 * 1024 * 1024) {
+      setThumbnailError('Choose an image smaller than 8MB.');
+      return;
+    }
+    setThumbnailError('');
+    const reader = new FileReader();
+    reader.onload = () => toThumbnail(reader.result).catch(() => setThumbnailError('Failed to read the image.'));
+    reader.onerror = () => setThumbnailError('Failed to read the image.');
+    reader.readAsDataURL(file);
+  };
+
+  // Listed by default, so grab the live preview once on open. The ref keeps
+  // StrictMode's double effect run from capturing twice.
+  const initialCaptureRef = useRef(false);
+  useEffect(() => {
+    if (initialCaptureRef.current || !galleryEnabled || !hasCode) return;
+    initialCaptureRef.current = true;
+    captureThumbnail();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // First switch-on with nothing to show yet grabs the live preview.
+  const toggleGallery = () => {
+    const next = !galleryEnabled;
+    setGalleryEnabled(next);
+    if (next && !thumbnail && !existingThumbnailUrl) captureThumbnail();
+  };
+
+  const galleryActive = galleryEnabled && !passwordEnabled;
+  const galleryValid = !galleryActive || (galleryTitle.trim().length > 0 && !thumbnailBusy);
+
   const handleDeployClick = async () => {
-    if (canSubmitPassword && (deployment || username)) {
-      const ok = await onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled);
+    if (canSubmitPassword && galleryValid && (deployment || username)) {
+      let thumbnailBlob = null;
+      if (galleryActive && thumbnail) thumbnailBlob = await (await fetch(thumbnail.dataUrl)).blob();
+      const gallery = {
+        enabled: galleryActive,
+        title: galleryTitle,
+        description: galleryDescription,
+        allowRemix,
+        thumbnailBlob,
+      };
+      const ok = await onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled, gallery);
       if (ok) setShowSuccess(true);
     }
   };
@@ -344,6 +436,88 @@ export default function DeployModal({
       </OptionCard>
 
       <OptionCard
+        icon={LayoutGrid}
+        tint="amber"
+        title="Show in Gallery"
+        pill={galleryPost ? 'Listed' : 'Optional'}
+        description={passwordEnabled
+          ? `Password-protected ${noun}s can't be listed in the gallery.`
+          : `Share your ${noun} with the AppBlips community. Anyone can view it; signed-in users can like, comment and remix.`}
+        onClick={passwordEnabled || galleryPostLoading ? undefined : toggleGallery}
+        checked={galleryActive}
+        action={galleryPostLoading
+          ? <Loader2 size={18} className="animate-spin text-slate-400 mt-1" />
+          : <Switch checked={galleryActive} />}
+      >
+        {galleryActive && (
+          <div className="space-y-2.5 cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="gallery-thumb-picker relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5">
+              {(thumbnail?.dataUrl || existingThumbnailUrl) ? (
+                <img
+                  src={thumbnail?.dataUrl || existingThumbnailUrl}
+                  alt="Gallery thumbnail"
+                  className="h-full w-full object-cover object-top"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                  {thumbnailBusy ? 'Capturing preview...' : 'No thumbnail yet'}
+                </div>
+              )}
+              {thumbnailBusy && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <Loader2 size={22} className="animate-spin text-white" />
+                </div>
+              )}
+              <div className="absolute bottom-2 right-2 flex gap-1.5">
+                {onCaptureThumbnail && (
+                  <button type="button" onClick={captureThumbnail} disabled={thumbnailBusy} className="gallery-thumb-btn">
+                    <Camera size={13} /> Capture preview
+                  </button>
+                )}
+                <label className="gallery-thumb-btn cursor-pointer">
+                  <Upload size={13} /> Upload
+                  <input type="file" accept="image/*" className="sr-only" onChange={handleThumbnailUpload} />
+                </label>
+              </div>
+            </div>
+            {thumbnailError && <p className="text-xs text-rose-500 font-medium">{thumbnailError}</p>}
+            <input
+              type="text"
+              value={galleryTitle}
+              maxLength={TITLE_MAX}
+              onChange={(e) => setGalleryTitle(e.target.value)}
+              placeholder="Title"
+              aria-label="Gallery title"
+              className={FIELD_CLASS}
+            />
+            <textarea
+              value={galleryDescription}
+              maxLength={DESCRIPTION_MAX}
+              onChange={(e) => setGalleryDescription(e.target.value)}
+              placeholder={`What does your ${noun} do? (optional)`}
+              aria-label="Gallery description"
+              rows={2}
+              className={`${FIELD_CLASS} resize-none`}
+            />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={allowRemix}
+              onClick={() => setAllowRemix(!allowRemix)}
+              className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left"
+            >
+              <Shuffle size={16} className="text-slate-400 shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-slate-800">Allow remixing</span>
+                <span className="block text-xs text-slate-500">Others can copy your {noun}&rsquo;s source into their own project.</span>
+              </span>
+              <Switch checked={allowRemix} />
+            </button>
+          </div>
+        )}
+      </OptionCard>
+
+      <OptionCard
         icon={Search}
         tint="rose"
         title="Search engine visibility"
@@ -410,6 +584,30 @@ export default function DeployModal({
           <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight mt-4">Your {noun} is live!</h2>
           <p className="text-sm text-slate-500 mt-1 leading-snug">Anyone with this link can use it.</p>
         </div>
+
+        {(galleryError || (galleryPost && onViewInGallery)) && (
+          <div className="px-6 pt-4">
+            {galleryError ? (
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3.5 text-sm text-amber-800 flex items-start gap-2.5">
+                <TriangleAlert size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                <span>{galleryError}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onViewInGallery(galleryPost.id)}
+                className="w-full flex items-center gap-3 rounded-2xl border border-amber-200 dark:border-amber-500/25 bg-amber-50/70 dark:bg-amber-500/10 p-3.5 text-left hover:border-amber-300 dark:hover:border-amber-500/40 transition-colors"
+              >
+                <Tile icon={LayoutGrid} tint="amber" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-slate-900">Listed in the Gallery</span>
+                  <span className="block text-xs text-slate-500">See how it looks to the community</span>
+                </span>
+                <ArrowRight size={18} className="text-slate-400" />
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="px-6 pt-4 space-y-3">
           <input
@@ -619,7 +817,7 @@ export default function DeployModal({
               <PrimaryButton
                 icon={<Rocket size={20} />}
                 onClick={handleDeployClick}
-                disabled={isDeploying || !canSubmitPassword}
+                disabled={isDeploying || !canSubmitPassword || !galleryValid}
               >
                 Redeploy {Noun}
               </PrimaryButton>
@@ -659,7 +857,7 @@ export default function DeployModal({
               <PrimaryButton
                 icon={<Rocket size={20} />}
                 onClick={handleDeployClick}
-                disabled={isDeploying || !hasCode || !canSubmitPassword}
+                disabled={isDeploying || !hasCode || !canSubmitPassword || !galleryValid}
               >
                 Deploy {Noun}
               </PrimaryButton>

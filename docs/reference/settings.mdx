@@ -81,3 +81,29 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
 <ParamField body="Clarifying questions" type="toggle" default="Off">
   When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
 </ParamField>
+
+### Your own AI provider
+
+By default AppBlips uses the AI provider it was set up with. Switch on **Use my own AI provider** to use your own account instead.
+
+<ParamField body="Provider" type="OpenAI | OpenRouter | DeepSeek | Z.ai">
+  Which service to call. Each option uses that service's standard endpoint. OpenRouter is the way to reach Claude, Gemini, and most other models.
+</ParamField>
+
+<ParamField body="Model" type="string">
+  The model to use, written exactly as your provider names it, for example `gpt-5.1` or `anthropic/claude-sonnet-5`.
+</ParamField>
+
+<ParamField body="API key" type="string">
+  Your key for that provider.
+</ParamField>
+
+<ParamField body="Remember on this device" type="toggle" default="On">
+  When off, the key is forgotten when the browser tab closes. Use this on shared computers.
+</ParamField>
+
+Click **Test connection** to check the settings, then **Save**. Your provider is used for building, editing, chat, and AI inside the preview. Published and exported apps that use AI keep using AppBlips' default provider.
+
+<Note>
+  Your key is stored in this browser only, never in your projects. It is sent to the AppBlips server with each request, which passes it on to your provider and does not keep it.
+</Note>

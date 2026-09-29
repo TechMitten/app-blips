@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound
+  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -19,6 +19,7 @@ export default function Header({
   savedAppsCount,
   versionsCount,
   onOpenApps,
+  onOpenGallery,
   isHistoryOpen,
   onToggleHistory,
   resolvedTheme,
@@ -185,6 +186,18 @@ export default function Header({
             <span>Apps</span>
             {savedAppsCount > 0 && <span className="nav-count">{savedAppsCount}</span>}
           </button>
+
+          {onOpenGallery && (
+            <button
+              onClick={onOpenGallery}
+              className="nav-btn nav-ghost nav-btn-icon"
+              data-tip="Community gallery"
+              aria-label="Community gallery"
+            >
+              <LayoutGrid size={16} />
+              <span className="hidden xl:inline">Gallery</span>
+            </button>
+          )}
 
           <button
             data-tour="history"
@@ -382,6 +395,16 @@ export default function Header({
                 <span>Apps</span>
                 {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
               </button>
+              {onOpenGallery && (
+                <button
+                  type="button"
+                  onClick={() => runMobileAction(onOpenGallery)}
+                  className="mobile-menu-item"
+                >
+                  <LayoutGrid size={16} />
+                  <span>Gallery</span>
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="History"

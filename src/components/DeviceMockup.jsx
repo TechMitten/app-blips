@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
   Lock, Star, X, MoreVertical, Brain
@@ -245,7 +245,12 @@ function BuildingStatusMessage() {
 // rather than rendering them as they land it reveals the text on animation
 // frames at a steady pace that speeds up in proportion to the backlog -- it
 // types, rather than flickers.
-const PEEK_LINES = 9;
+// Most lines kept from the stream: enough to fill the tall mobile/tablet card
+// (up to 420px, about 19 lines). How many are shown is measured from the
+// card (see `capacity` in LiveCodePeek); the compact desktop card shows
+// COMPACT_PEEK_LINES and stays content-sized up to that.
+const PEEK_LINES = 22;
+const COMPACT_PEEK_LINES = 14;
 // Once the text has stopped growing (and the typing has caught up) for this
 // long, the model is no longer writing code -- it is reviewing, summarizing or
 // waiting -- so the peek steps aside until more code arrives.
@@ -254,10 +259,13 @@ const PEEK_IDLE_MS = 1500;
 // One highlighted line. Memoized on its text so lines that have finished
 // streaming are never touched again -- only the line being written re-renders.
 const PeekLine = memo(function PeekLine({ text }) {
-  return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text) }} />;
+  // syntaxHighlightHtml returns '' for an empty string, which would render no
+  // row at all; a blank line must still take one line of height, or the panel
+  // shows a varying number of rows as blank lines scroll through it.
+  return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text || ' ') }} />;
 });
 
-function LiveCodePeek({ codeRef, page = null, streamDone = false, className = '' }) {
+function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = '', compact = false, className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
   const [idle, setIdle] = useState(false);
   // Flips one frame after the first lines exist so the entrance transitions
@@ -266,6 +274,37 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, className = ''
   const streamDoneRef = useRef(streamDone);
   useEffect(() => { streamDoneRef.current = streamDone; }, [streamDone]);
   const hasLines = view.lines.length > 0;
+  // Lines that fit the tall card. Lines fill from the top until the card is
+  // full, then the newest stays at the bottom and older ones scroll off. Plain
+  // CSS can't do both (bottom-aligned leaves a gap above a short stream), so
+  // the body shows exactly as many lines as fit.
+  const bodyRef = useRef(null);
+  const [measured, setMeasured] = useState(PEEK_LINES);
+  const capacity = compact ? COMPACT_PEEK_LINES : measured;
+  const shown = view.lines.length > capacity ? view.lines.slice(-capacity) : view.lines;
+  const shownStart = view.start + view.lines.length - shown.length;
+  const scrolledOff = shownStart > 0;
+  // Keep the visible panel anchored to the newest thought. Without this, the
+  // intentionally compact preview shows the beginning of a long reasoning
+  // stream and then appears to stop while the text continues arriving.
+  const visibleReasoning = reasoning.length > 600 ? `…${reasoning.slice(-600)}` : reasoning;
+
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el || compact || typeof ResizeObserver === 'undefined') return undefined;
+    const measure = () => {
+      const style = getComputedStyle(el);
+      const lineHeight = parseFloat(style.lineHeight);
+      const inner = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      if (lineHeight > 0 && inner > 0) {
+        setMeasured(Math.max(1, Math.min(PEEK_LINES, Math.floor(inner / lineHeight))));
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasLines, compact]);
 
   useEffect(() => {
     if (!hasLines) return undefined;
@@ -317,22 +356,30 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, className = ''
     return () => cancelAnimationFrame(raf);
   }, [codeRef]);
 
-  if (!hasLines) return null;
+  if (!hasLines && !reasoning) return null;
   return (
-    <div className={`live-code-peek w-[min(600px,92%)] text-left ${entered && !idle ? 'is-visible' : ''} ${className}`} aria-hidden="true">
+    <div className={`live-code-peek w-[min(600px,92%)] text-left ${compact ? 'live-code-peek-compact' : ''} ${(reasoning || (entered && !idle)) ? 'is-visible' : ''} ${className}`}>
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
         <span className="live-code-peek-label">{page?.page ? 'writing' : 'writing code'}</span>
         {page?.page && <span key={page.page} className="live-code-peek-page">{page.page}</span>}
         {page?.total > 1 && <span className="live-code-peek-step">{page.step} of {page.total}</span>}
       </div>
-      <pre className="live-code-peek-body">
-        <code>
-          {view.lines.map((line, i) => (
-            <PeekLine key={view.start + i} text={line} />
-          ))}
-        </code>
-      </pre>
+      {hasLines && (
+        <pre ref={bodyRef} className={`live-code-peek-body ${scrolledOff ? 'is-scrolled' : ''}`}>
+          <code>
+            {shown.map((line, i) => (
+              <PeekLine key={shownStart + i} text={line} />
+            ))}
+          </code>
+        </pre>
+      )}
+      {reasoning && (
+        <div className="live-code-peek-reasoning" aria-label="Model reasoning">
+          <span className="live-code-peek-reasoning-label">thinking</span>
+          <span className="live-code-peek-reasoning-text"><span>{visibleReasoning}</span></span>
+        </div>
+      )}
     </div>
   );
 }
@@ -356,6 +403,7 @@ export default function DeviceMockup({
   liveCodeRef = null,
   liveCodeStreamDone = false,
   liveCodePage = null,
+  streamingReasoning = '',
   hasCode,
   isAutoFixing = false,
   isTransitioning = false,
@@ -612,7 +660,7 @@ export default function DeviceMockup({
                 )}
               </div>
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} className="mt-8" />
+                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} compact={mode === 'desktop'} className="mt-8" />
               )}
             </div>
           )}

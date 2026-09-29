@@ -3,6 +3,7 @@ import { supabaseEnabled } from '../supabase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
 import { beginRawEntry, recordRaw } from './rawLog';
+import { activeUserProvider } from './config';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -198,7 +199,12 @@ export const requestModelText = async ({
   signal = null,
   forceTemperatureZero = false,
   askMode = false,
-  label = null
+  label = null,
+  // { id, model, apiKey } to use instead of the saved Settings → AI provider
+  // (the settings "Test connection" button); undefined = read the saved one.
+  userProvider = undefined,
+  // false = fail fast instead of backing off (a one-shot connection test).
+  retry = true
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
   // Raw debug-log handle; stays null until the request body exists, and inert
@@ -234,10 +240,14 @@ export const requestModelText = async ({
       request: bodyObj,
     });
 
+    // The user's own provider rides along with the request but is added only
+    // to the wire copy: bodyObj is what the raw debug log records, and the key
+    // must never show up there.
+    const provider = userProvider === undefined ? activeUserProvider() : userProvider;
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers,
-      body: JSON.stringify(bodyObj),
+      body: JSON.stringify(provider ? { ...bodyObj, user_provider: provider } : bodyObj),
       signal
     });
     if (response.status === 401) {
@@ -427,13 +437,13 @@ export const requestModelText = async ({
   } catch (err) {
     if (onChunk) onChunk('', 'thinking_end');
     const aborted = signal?.aborted || err.name === 'AbortError';
-    const willRetry = !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
+    const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
     rawEntry?.finish({ error: aborted ? 'Aborted' : (err.message || String(err)), willRetry });
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     if (willRetry) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, label
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, label, userProvider
       });
     }
     throw new Error(err.message || 'Failed to generate app.');

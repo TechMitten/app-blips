@@ -339,6 +339,9 @@
    at the bottom restores the dark editor look and its token colors. Lines are single-row,
    clipped, and fade out toward the top so new text reads as scrolling up. */
 .live-code-peek {
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(280px, 40vh, 420px);
   border-radius: 12px;
   overflow: hidden;
   --peek-fg: #24292f;
@@ -367,6 +370,16 @@
   visibility: visible;
   transition-delay: 0s;
 }
+
+/* Desktop previews have much more horizontal room, so the shared tall
+   mobile/tablet card would leave an oversized empty tail below the stream. */
+.live-code-peek-compact {
+  min-height: 0;
+}
+/* The compact card is content-sized, so cap how tall the stream can grow. */
+.live-code-peek-compact .live-code-peek-body {
+  max-height: calc(14 * 1.55em + 22px);
+}
 .live-code-peek .token-comment { color: var(--peek-comment); }
 .live-code-peek .token-doctype { color: var(--peek-doctype); }
 .live-code-peek .token-tag-name { color: var(--peek-tag); }
@@ -388,7 +401,6 @@
   height: 6px;
   border-radius: 999px;
   background: var(--peek-accent);
-  animation: build-caret 1.15s steps(1, end) infinite;
 }
 
 .live-code-peek-label {
@@ -418,15 +430,28 @@
 .live-code-peek-body {
   margin: 0;
   padding: 10px 14px 12px;
-  height: calc(9 * 1.55em + 22px);
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  /* In the tall card the body stretches to fill the card's min-height;
+     LiveCodePeek shows only as many lines as fit, so they fill from the top
+     and the newest line ends up at the bottom once the card is full. */
   overflow: hidden;
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--peek-fg);
+}
+/* In the tall card the body's size must not depend on how many lines it
+   shows, or measuring it (to decide how many lines to show) feeds back on
+   itself. */
+.live-code-peek:not(.live-code-peek-compact) .live-code-peek-body {
+  flex-basis: 0;
+}
+/* Fade the top only once earlier lines have scrolled off, so the first lines
+   of a stream aren't dimmed. */
+.live-code-peek-body.is-scrolled {
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 45%);
   mask-image: linear-gradient(180deg, transparent 0, #000 45%);
 }
@@ -444,6 +469,45 @@
   border-radius: 0;
   font-size: inherit;
   color: inherit;
+}
+
+.live-code-peek-reasoning {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.55rem 0.75rem 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--peek-fg) 16%, transparent);
+  color: var(--peek-fg);
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  opacity: 0.82;
+}
+
+/* Fixed-height window pinned to the newest line. The streamed text is a
+   sliding tail of the reasoning, so its wrapped line count changes on almost
+   every chunk; sizing the box to the text made the whole card jump. Older
+   lines overflow off the top and fade out, like the code body above. */
+.live-code-peek-reasoning-text {
+  flex: 1 0 auto;
+  height: calc(6 * 1.45em);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 35%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 35%);
+}
+
+.live-code-peek-reasoning-label {
+  flex: none;
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--peek-comment);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 /* Caret on the line currently being written */

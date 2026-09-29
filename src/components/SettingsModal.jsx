@@ -1,15 +1,22 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import authProvider from '../lib/auth';
-import { CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS } from '../lib/config';
+import {
+  CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
+  loadUserProvider, saveUserProvider, clearUserProvider, activeUserProvider,
+} from '../lib/config';
+import { requestModelText } from '../lib/llm';
+import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash)
-// and AI (building reasoning, clarifying questions).
-// The LLM endpoint/key/model are fixed server-side (see functions/api/chat.js)
-// and are not user-configurable; reasoning effort is a per-user choice.
+// and AI (building reasoning, clarifying questions, own provider).
+// By default the LLM provider/key/model come from server env (see
+// functions/_lib/chatProxy.js). The AI tab can also set the user's own
+// provider preset, model and key, stored only in this browser (lib/config)
+// and sent with each /api/chat request; reasoning effort is a per-user choice.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -85,6 +92,202 @@ function Segmented({ label, value, options, onChange, renderOption }) {
           {renderOption ? renderOption(option) : <span>{option.label}</span>}
         </button>
       ))}
+    </div>
+  );
+}
+
+// Example model ids, shown as placeholders only.
+const MODEL_PLACEHOLDERS = {
+  openai: 'e.g. gpt-5.1',
+  openrouter: 'e.g. anthropic/claude-sonnet-5',
+  deepseek: 'e.g. deepseek-chat',
+  zai: 'e.g. glm-5.3-flash',
+};
+const INPUT_CLASS = 'mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400';
+const SECONDARY_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50';
+const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
+
+const blankProvider = () => ({ enabled: false, id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '', remember: true });
+const initialDraft = () => {
+  const saved = loadUserProvider();
+  if (!saved) return blankProvider();
+  return { ...saved, id: USER_PROVIDER_OPTIONS.some((p) => p.id === saved.id) ? saved.id : USER_PROVIDER_OPTIONS[0].id };
+};
+
+// The user's own provider (a preset, a model and a key) instead of the
+// server's env provider. The on/off switch applies at once; field edits are a
+// draft until Save, so a half-typed key is never used or stored.
+function UserProviderSettings() {
+  const [draft, setDraft] = useState(initialDraft);
+  const [saved, setSaved] = useState(() => loadUserProvider());
+  const [showKey, setShowKey] = useState(false);
+  const [status, setStatus] = useState(null); // { kind: 'testing' | 'ok' | 'error', text }
+  const [active, setActive] = useState(() => activeUserProvider());
+
+  const update = (fields) => {
+    setDraft((d) => ({ ...d, ...fields }));
+    setStatus(null);
+  };
+  const persist = (next) => {
+    if (!saveUserProvider(next)) {
+      setStatus({ kind: 'error', text: 'Could not save: browser storage is unavailable.' });
+      return false;
+    }
+    setSaved(next);
+    setActive(activeUserProvider());
+    return true;
+  };
+
+  const complete = draft.model.trim() && draft.apiKey.trim();
+  const dirty = !saved
+    || saved.id !== draft.id
+    || saved.model !== draft.model.trim()
+    || saved.apiKey !== draft.apiKey.trim()
+    || saved.remember !== draft.remember;
+
+  const onToggle = (enabled) => {
+    update({ enabled });
+    persist({ ...(saved || { ...draft, model: '', apiKey: '' }), enabled });
+  };
+
+  const onSave = () => {
+    const next = { ...draft, model: draft.model.trim(), apiKey: draft.apiKey.trim(), enabled: true };
+    if (persist(next)) {
+      setDraft(next);
+      setStatus({ kind: 'ok', text: 'Saved.' });
+    }
+  };
+
+  const onTest = async () => {
+    setStatus({ kind: 'testing', text: 'Testing…' });
+    try {
+      await requestModelText({
+        messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
+        askMode: true,
+        reasoningEffort: 'none',
+        userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
+        label: 'provider test',
+        retry: false,
+      });
+      setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });
+    } catch (err) {
+      setStatus({ kind: 'error', text: err?.message || 'The test request failed.' });
+    }
+  };
+
+  const onClear = () => {
+    clearUserProvider();
+    setSaved(null);
+    setActive(null);
+    setDraft(blankProvider());
+    setShowKey(false);
+    setStatus(null);
+  };
+
+  const summary = !draft.enabled
+    ? "Off. The app's default AI provider is used."
+    : active
+      ? `On. Using ${providerLabel(active.id)} · ${active.model}.`
+      : "Not active yet: save a model and API key. Until then the app's default provider is used.";
+
+  return (
+    <div className="py-4 last:pb-0">
+      <SettingRow id="set-own-provider" title="Use my own AI provider" description={summary}>
+        <Switch checked={draft.enabled} onChange={onToggle} labelledBy="set-own-provider" />
+      </SettingRow>
+
+      {draft.enabled && (
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm text-slate-600">
+              Provider
+              <select
+                value={draft.id}
+                onChange={(e) => update({ id: e.target.value })}
+                className={`${INPUT_CLASS} bg-surface`}
+              >
+                {USER_PROVIDER_OPTIONS.map((p) => (
+                  // Native option lists don't inherit the select's colors on every
+                  // platform (white-on-white in dark mode), so theme them directly.
+                  <option key={p.id} value={p.id} className="bg-surface text-slate-900">{p.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm text-slate-600">
+              Model
+              <input
+                type="text"
+                value={draft.model}
+                onChange={(e) => update({ model: e.target.value })}
+                placeholder={MODEL_PLACEHOLDERS[draft.id] || 'Model id'}
+                autoComplete="off"
+                spellCheck={false}
+                className={INPUT_CLASS}
+              />
+            </label>
+          </div>
+          <label className="block text-sm text-slate-600">
+            API key
+            <div className="relative">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={draft.apiKey}
+                onChange={(e) => update({ apiKey: e.target.value })}
+                placeholder={`Your ${providerLabel(draft.id)} API key`}
+                autoComplete="off"
+                spellCheck={false}
+                className={`${INPUT_CLASS} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((v) => !v)}
+                className="absolute inset-y-0 right-0 mt-1.5 flex items-center px-3.5 text-slate-400 hover:text-slate-700 transition-colors"
+                aria-label={showKey ? 'Hide API key' : 'Show API key'}
+              >
+                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+          <div className="flex items-center justify-between gap-4">
+            <span id="set-provider-remember" className="text-sm text-slate-600">
+              Remember on this device
+              <span className="block text-xs text-slate-500">When off, the key is forgotten when this tab closes.</span>
+            </span>
+            <Switch checked={draft.remember} onChange={(remember) => update({ remember })} labelledBy="set-provider-remember" />
+          </div>
+          <p className="text-xs text-slate-500 leading-snug">
+            Your key stays in this browser, never in your projects. It is sent to this app&apos;s server, which passes it to {providerLabel(draft.id)} for each request.
+            Published and exported apps that use AI keep using the app&apos;s default provider.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={!complete || !dirty || status?.kind === 'testing'}
+              className="brand-fill-text rounded-lg px-4 py-1.5 bg-brand text-white font-semibold text-sm hover:bg-brand-hover transition-colors disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button type="button" onClick={onTest} disabled={!complete || status?.kind === 'testing'} className={SECONDARY_BUTTON}>
+              Test connection
+            </button>
+            <button type="button" onClick={onClear} disabled={!saved && !complete} className={SECONDARY_BUTTON}>
+              Clear
+            </button>
+            {status && (
+              <span
+                role={status.kind === 'error' ? 'alert' : 'status'}
+                className={`inline-flex items-center gap-1.5 text-xs ${status.kind === 'error' ? 'text-red-600' : status.kind === 'ok' ? 'text-emerald-600' : 'text-slate-500'}`}
+              >
+                {status.kind === 'testing' && <Loader2 size={14} className="animate-spin" />}
+                {status.kind === 'ok' && <CircleCheck size={14} />}
+                {status.kind === 'error' && <CircleAlert size={14} />}
+                {status.text}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -373,6 +576,7 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
+              <UserProviderSettings />
             </>
           )}
         </div>

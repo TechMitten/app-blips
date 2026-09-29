@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
   FileText, History, Search, LogIn, LogOut, Settings, CircleHelp,
-  CheckCircle2, Cloud, Files, Code2, Rocket, ChevronRight,
+  CheckCircle2, Cloud, Files, Code2, Rocket, ChevronRight, LayoutGrid,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -40,7 +40,7 @@ const CARD_IMAGES = {
   projects: { src: '/studio/openproject.png', alt: 'Project library on a laptop and phone' },
 };
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenGallery }) {
   // Escape mirrors the on-screen back control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -109,6 +109,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     className="text-sm font-semibold text-white/60 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
                   >
                     Go back
+                  </button>
+                )}
+                {onOpenGallery && (
+                  <button
+                    type="button"
+                    onClick={onOpenGallery}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-white/60 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70"
+                  >
+                    <LayoutGrid size={15} aria-hidden="true" />
+                    Explore the Gallery
                   </button>
                 )}
                 <div className="flex items-center gap-2.5">

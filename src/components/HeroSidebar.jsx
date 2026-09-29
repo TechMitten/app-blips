@@ -1,6 +1,6 @@
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
-  CircleHelp, LogIn, BarChart3, UserRound,
+  CircleHelp, LogIn, BarChart3, UserRound, LayoutGrid,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -40,6 +40,7 @@ export default function HeroSidebar({
   onToggleCollapsed,
   onNewApp,
   onOpenApps,
+  onOpenGallery,
   savedAppsCount = 0,
   recents = [],
   onLoadProject,
@@ -92,6 +93,9 @@ export default function HeroSidebar({
             <span className={`hero-rail-count hidden ${collapsed ? '' : 'lg:inline-flex'}`}>{savedAppsCount}</span>
           ) : null}
         />
+        {onOpenGallery && (
+          <RailItem icon={LayoutGrid} label="Gallery" collapsed={collapsed} onClick={onOpenGallery} />
+        )}
         {supabaseEnabled && isSignedIn && (
           <RailItem icon={BarChart3} label="Analytics" collapsed={collapsed} onClick={onOpenAnalytics} />
         )}

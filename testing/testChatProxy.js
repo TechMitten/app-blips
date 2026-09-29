@@ -272,3 +272,63 @@ test('a provider with a key but no model names the missing variable', async (t) 
   assert.equal(response.status, 500);
   assert.match((await response.json()).error, /APPBLIPS_LLM_MODEL/);
 });
+
+// --- User-supplied provider (Settings → AI) --------------------------------
+
+const userProvider = { id: 'openrouter', apiKey: 'user-key', model: 'user/model' };
+
+test('a user provider works with no provider in the env', async (t) => {
+  const { response, upstream } = await runWith(t, {}, { user_provider: userProvider, reasoning_effort: 'low' });
+  assert.equal(response.status, 200);
+  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.headers.Authorization, 'Bearer user-key');
+  assert.equal(upstream.body.model, 'user/model');
+  assert.deepEqual(upstream.body.reasoning, { effort: 'low' });
+  assert.equal(Object.hasOwn(upstream.body, 'user_provider'), false);
+});
+
+test('a user provider wins over the env provider; without one the env is used', async (t) => {
+  const envProvider = { APPBLIPS_OPENAI_API_KEY: 'env-key', APPBLIPS_LLM_MODEL: 'env-model', APPBLIPS_LLM_BASE_URL: 'https://llm.example/v1' };
+  const withUser = await runWith(t, envProvider, { user_provider: userProvider });
+  assert.equal(withUser.upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(withUser.upstream.headers.Authorization, 'Bearer user-key');
+  t.mock.restoreAll();
+  const withoutUser = await runWith(t, envProvider);
+  assert.equal(withoutUser.upstream.url, 'https://llm.example/v1/chat/completions');
+  assert.equal(withoutUser.upstream.headers.Authorization, 'Bearer env-key');
+});
+
+test('incomplete user provider settings are a 400, not a config error', async (t) => {
+  const { response, upstream } = await runWith(t, {}, { user_provider: { ...userProvider, apiKey: '' } });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /API key is empty/);
+  assert.equal(upstream, undefined);
+});
+
+test('a provider rejecting the user key is not reported as a 401', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('{"error":"bad key"}', { status: 401 }));
+  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: userProvider }),
+  }), noLlmEnv);
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /OpenRouter rejected the API key/);
+});
+
+test('hosted mode still requires sign-in and validates user_provider', async (t) => {
+  const hostedEnv = { SELF_HOSTED_MODE: 'false', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
+  const send = (payload, headers = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
+  }), hostedEnv);
+  assert.equal((await send({ user_provider: userProvider })).status, 401);
+
+  t.mock.method(globalThis, 'fetch', async (url) => (String(url).includes('/auth/v1/user')
+    ? new Response(JSON.stringify({ id: 'user-1' }))
+    : new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })));
+  const auth = { authorization: 'Bearer t' };
+  assert.equal((await send({ user_provider: 'openrouter' }, auth)).status, 400);
+  assert.equal((await send({ user_provider: { ...userProvider, apiKey: 5 } }, auth)).status, 400);
+  assert.equal((await send({ user_provider: userProvider }, auth)).status, 200);
+});

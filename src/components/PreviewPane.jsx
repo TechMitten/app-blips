@@ -58,6 +58,7 @@ export default function PreviewPane({
   isGenerating,
   generationStatus,
   thinkingSince = null,
+  streamingReasoning = '',
   liveCodeRef,
   liveCodeStreamDone,
   liveCodePage = null,
@@ -454,6 +455,7 @@ export default function PreviewPane({
             isGenerating={isGenerating}
             generationStatus={generationStatus}
             thinkingSince={thinkingSince}
+            streamingReasoning={streamingReasoning}
             liveCodeRef={liveCodeRef}
             liveCodeStreamDone={liveCodeStreamDone}
             liveCodePage={liveCodePage}

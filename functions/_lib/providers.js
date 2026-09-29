@@ -94,7 +94,8 @@ const varNames = (id, prefix) => {
 // Picks the active provider for `prefix` and returns its settings:
 //   { id, apiKey, model, baseUrl, reasoningParam, forcedToolChoice, streamUsage,
 //     missing }   -- `missing` lists the variables still to be filled in
-// or { error } when nothing usable is configured, so callers can report it.
+// or { error } when nothing usable is configured, so callers can report it
+// ({ error, unconfigured: true } when no provider key is set at all).
 // `alsoConfigured` lists other providers whose keys are set but were passed
 // over. The ambiguity is logged once per prefix; `quiet` means the caller
 // reports it itself (the startup summary), so the log is skipped.
@@ -109,7 +110,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
     const configured = PROVIDER_IDS.filter((candidate) => read(env, varNames(candidate, prefix).own.apiKey));
     if (!configured.length) {
       const example = varNames('openrouter', prefix).own.apiKey;
-      return { error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${prefix}_MODEL, then restart.` };
+      return { unconfigured: true, error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${prefix}_MODEL, then restart.` };
     }
     id = configured[0];
     alsoConfigured = configured.slice(1);
@@ -138,6 +139,48 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   };
   provider.missing = missingVars(provider);
   return provider;
+};
+
+// Providers a user can pick in Settings → AI instead of the env provider.
+// Presets only: the endpoint and request format come from the preset, never
+// from the user, because OpenAI-compatible APIs still differ in what they
+// accept (see the capability flags above).
+export const USER_PROVIDER_IDS = PROVIDER_IDS.filter((id) => id !== DEFAULT_PROVIDER);
+export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({ id, label: PROVIDERS[id].label }));
+export const providerLabel = (id) => PROVIDERS[id]?.label || id;
+
+const MAX_USER_KEY_LENGTH = 512;
+const MAX_USER_MODEL_LENGTH = 200;
+
+// Builds a provider from a user-supplied { id, apiKey, model } (the request's
+// `user_provider` field). Same shape as resolveProvider, or { error }. The
+// operator's APPBLIPS_LLM_BASE_URL / _REASONING_PARAM belong to the env
+// provider and are deliberately not applied here.
+export const resolveUserProvider = (input) => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return { error: 'Invalid provider settings.' };
+  const id = typeof input.id === 'string' ? input.id.trim().toLowerCase() : '';
+  const apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
+  const model = typeof input.model === 'string' ? input.model.trim() : '';
+  if (!USER_PROVIDER_IDS.includes(id)) return { error: `Choose one of: ${USER_PROVIDER_OPTIONS.map((p) => p.label).join(', ')}.` };
+  if (!apiKey) return { error: 'The API key is empty.' };
+  // eslint-disable-next-line no-control-regex
+  if (apiKey.length > MAX_USER_KEY_LENGTH || /[\s\x00-\x1f\x7f]/.test(apiKey)) return { error: 'The API key is not valid.' };
+  if (!model) return { error: 'The model is empty.' };
+  // eslint-disable-next-line no-control-regex
+  if (model.length > MAX_USER_MODEL_LENGTH || /[\x00-\x1f\x7f]/.test(model)) return { error: 'The model name is not valid.' };
+  const preset = PROVIDERS[id];
+  return {
+    id,
+    ...PRESET_DEFAULTS,
+    ...preset,
+    apiKey,
+    model,
+    baseUrl: preset.baseUrl,
+    reasoningParam: preset.reasoningParam,
+    alsoConfigured: [],
+    missing: [],
+    userSupplied: true,
+  };
 };
 
 // The variables still to be filled in for `provider`.

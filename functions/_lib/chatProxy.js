@@ -9,6 +9,12 @@
 // they never reach the client bundle. The browser only ever talks to this
 // app's own origin at POST /api/chat.
 //
+// Optionally, a user can pick their own provider in Settings → AI; the client
+// then sends `user_provider: { id, apiKey, model }` with each request and it
+// replaces the env provider for that request only. Presets only (see
+// resolveUserProvider): the endpoint always comes from the preset. The key is
+// used for the upstream call and never stored or logged here.
+//
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
 // which is UI-only) and spend the LLM budget behind the configured provider key. So,
@@ -22,7 +28,7 @@
 // if they expose it beyond localhost.
 
 import { wrapWithTokenTracking } from './trackTokens.js';
-import { resolveProvider, applyProviderSettings } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey } from './supabaseServer.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
@@ -151,6 +157,13 @@ const validateHostedPayload = (payload, env) => {
   if (reasoning_effort != null && reasoning_effort !== false && !ALLOWED_EFFORTS.has(reasoning_effort)) {
     return 'Unsupported reasoning_effort.';
   }
+  const up = payload.user_provider;
+  if (up != null) {
+    if (typeof up !== 'object' || Array.isArray(up)) return 'Invalid user_provider.';
+    for (const field of ['id', 'apiKey', 'model']) {
+      if (typeof up[field] !== 'string') return 'Invalid user_provider.';
+    }
+  }
   return null;
 };
 
@@ -174,32 +187,49 @@ const configError = (env, detail) => {
   const hosted = isHostedMode(env);
   if (hosted) console.error(`[chat] ${detail}`);
   return new Response(
-    JSON.stringify({ error: hosted ? 'The AI service is temporarily unavailable. Please try again later.' : `AppBlips isn't set up yet. ${detail}` }),
+    JSON.stringify({
+      error: hosted
+        ? 'The AI service is temporarily unavailable. Please try again later.'
+        : `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.`,
+    }),
     { status: 500, headers: { 'content-type': 'application/json' } },
   );
 };
 
-// Core keys are required in every hosting mode; a Supabase publishable key is only
-// needed to verify tokens in hosted mode (SELF_HOSTED_MODE=false).
-const validateEnv = (env, provider) => {
-  const missing = [...provider.missing];
-  if (env.SELF_HOSTED_MODE === 'false' && !supabasePublishableKey(env)) missing.push('SUPABASE_PUBLISHABLE_KEY');
-  return missing;
+// The provider for this request: the user's own (Settings → AI) when the
+// client sent one, otherwise the env provider. Returns { provider } or
+// { response } (an error to send back).
+const pickProvider = (env, payload) => {
+  if (payload?.user_provider != null) {
+    const provider = resolveUserProvider(payload.user_provider);
+    if (provider.error) return { response: badRequest(`Your AI provider settings are incomplete: ${provider.error}`) };
+    return { provider };
+  }
+  const provider = resolveProvider(env, 'APPBLIPS_LLM');
+  if (provider.error) return { response: configError(env, provider.error) };
+  if (provider.missing.length) {
+    return {
+      response: configError(
+        env,
+        `Missing configuration: ${provider.missing.join(', ')}. Add ${provider.missing.length > 1 ? 'them' : 'it'} to your .env (or your host's environment variables) and restart.`,
+      ),
+    };
+  }
+  return { provider };
 };
+
+// A provider rejecting the user's own key must not reach the client as a 401,
+// which it reads as an expired AppBlips session.
+const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
 
 export async function handleChatProxy(request, env, waitUntil) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  const provider = resolveProvider(env, 'APPBLIPS_LLM');
-  if (provider.error) return configError(env, provider.error);
-  const missingEnv = validateEnv(env, provider);
-  if (missingEnv.length) {
-    return configError(
-      env,
-      `Missing configuration: ${missingEnv.join(', ')}. Add ${missingEnv.length > 1 ? 'them' : 'it'} to your .env (or your host's environment variables) and restart.`,
-    );
+  // A Supabase publishable key is needed to verify tokens in hosted mode.
+  if (isHostedMode(env) && !supabasePublishableKey(env)) {
+    return configError(env, 'Missing configuration: SUPABASE_PUBLISHABLE_KEY.');
   }
 
   const user = await authorize(request, env);
@@ -217,10 +247,6 @@ export async function handleChatProxy(request, env, waitUntil) {
       headers: { 'content-type': 'application/json', 'Retry-After': String(windowSeconds) },
     });
   }
-
-  const url = toChatCompletionsUrl(provider.baseUrl);
-  const apiKey = provider.apiKey;
-  const model = provider.model;
 
   const hosted = isHostedMode(env);
 
@@ -240,6 +266,13 @@ export async function handleChatProxy(request, env, waitUntil) {
       return badRequest('Invalid JSON body.');
     }
   }
+
+  const picked = pickProvider(env, payload);
+  if (picked.response) return picked.response;
+  const { provider } = picked;
+  const url = toChatCompletionsUrl(provider.baseUrl);
+  const apiKey = provider.apiKey;
+  const model = provider.model;
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix, ask } = payload;
 
@@ -301,6 +334,11 @@ export async function handleChatProxy(request, env, waitUntil) {
       status: 502,
       headers: { 'content-type': 'application/json' },
     });
+  }
+
+  if (provider.userSupplied && (upstream.status === 401 || upstream.status === 403)) {
+    upstream.body?.cancel().catch(() => {});
+    return rejectedUserKey(provider);
   }
 
   return wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);

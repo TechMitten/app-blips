@@ -6,6 +6,7 @@ import {
 } from '../lib/deploy';
 import { getLanding } from '../lib/pages';
 import { createAnalyticsWebsite } from '../lib/appAnalytics';
+import { fetchPostBySlug, publishToGallery, unpublishPost } from '../lib/gallery';
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
 // the project's data blob by `saveProject`) plus the modal/UI state around
@@ -14,13 +15,19 @@ import { createAnalyticsWebsite } from '../lib/appAnalytics';
 // supabaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
   files, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
-  deployment, setDeployment, saveProject, aiEnabled
+  deployment, setDeployment, saveProject, aiEnabled, studioMode
 }) {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState(null);
   const [deployCopied, setDeployCopied] = useState(false);
   const [confirmUndeploy, setConfirmUndeploy] = useState(false);
+  // The deployment's gallery listing, if any: undefined while loading, null
+  // when not listed. Fetched fresh on each modal open.
+  const [galleryPost, setGalleryPost] = useState(null);
+  const [galleryPostLoading, setGalleryPostLoading] = useState(false);
+  // Non-fatal: the deploy itself succeeded but the gallery step did not.
+  const [galleryError, setGalleryError] = useState(null);
 
   // The live deployment is one version behind the workspace.
   const isDeployStale = Boolean(deployment) && (deployment.versionId !== currentVersionId || Boolean(deployment.aiEnabled) !== Boolean(aiEnabled));
@@ -30,8 +37,17 @@ export default function useDeployment({
 
   const openDeployModal = () => {
     setDeployError(null);
+    setGalleryError(null);
     setConfirmUndeploy(false);
+    setGalleryPost(null);
     setIsDeployModalOpen(true);
+    if (supabaseEnabled && isSignedIn && deployment?.slug) {
+      setGalleryPostLoading(true);
+      fetchPostBySlug(deployment.slug)
+        .then(setGalleryPost)
+        .catch((err) => console.warn('Failed to load gallery listing:', err))
+        .finally(() => setGalleryPostLoading(false));
+    }
   };
 
   const closeDeployModal = () => {
@@ -40,7 +56,9 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
+  // `gallery`: { enabled, title, description, allowRemix, thumbnailBlob }, or
+  // null to leave any existing listing as it is.
+  const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false, gallery = null) => {
     if (!getLanding(files) || isDeploying) return false;
     if (!supabaseEnabled) {
       setDeployError('Deploy is not available in self-hosted mode.');
@@ -50,6 +68,7 @@ export default function useDeployment({
 
     setIsDeploying(true);
     setDeployError(null);
+    setGalleryError(null);
     setConfirmUndeploy(false);
 
     try {
@@ -89,7 +108,8 @@ export default function useDeployment({
         aiEnabled,
         aiToken,
         pageNames: uploaded.pageNames,
-        bundle: uploaded.bundled
+        bundle: uploaded.bundled,
+        passwordProtected: Boolean(password)
       });
 
       // Pages dropped since the last deploy (or folded into a password bundle)
@@ -109,6 +129,33 @@ export default function useDeployment({
       };
       setDeployment(next);
       saveProject({ deploymentToSave: next, force: true });
+
+      // The app is live either way; a gallery failure is reported separately
+      // rather than failing the deploy. A password deploy is never listed
+      // (the DB also drops any existing listing when it becomes protected).
+      if (gallery) {
+        try {
+          if (gallery.enabled && !password) {
+            const post = await publishToGallery({
+              slug,
+              userId: user.id,
+              title: gallery.title || projectName,
+              description: gallery.description,
+              allowRemix: gallery.allowRemix,
+              thumbnailBlob: gallery.thumbnailBlob,
+              source: { files, studioMode, aiEnabled: Boolean(aiEnabled) },
+            });
+            setGalleryPost(post);
+          } else if (galleryPost) {
+            // After a password deploy the row is already gone (DB trigger);
+            // this still removes its thumbnail/source files.
+            await unpublishPost(galleryPost);
+            setGalleryPost(null);
+          }
+        } catch (err) {
+          setGalleryError(err.message || 'Your app is live, but publishing to the gallery failed.');
+        }
+      }
       return true;
     } catch (err) {
       setDeployError(err.message || 'Failed to deploy.');
@@ -129,6 +176,7 @@ export default function useDeployment({
       await removeDeployment(deployment);
 
       setDeployment(null);
+      setGalleryPost(null);
       setConfirmUndeploy(false);
       saveProject({ deploymentToSave: null, force: true });
     } catch (err) {
@@ -165,5 +213,8 @@ export default function useDeployment({
     handleDeploy,
     handleUndeploy,
     handleCopyDeployUrl,
+    galleryPost,
+    galleryPostLoading,
+    galleryError,
   };
 }
