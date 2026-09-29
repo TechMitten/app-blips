@@ -284,6 +284,8 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
   const shown = view.lines.length > capacity ? view.lines.slice(-capacity) : view.lines;
   const shownStart = view.start + view.lines.length - shown.length;
   const scrolledOff = shownStart > 0;
+  const progressLine = Math.min(19, Math.max(1, shownStart + shown.length));
+  const progressTotal = Math.max(19, view.start + view.lines.length);
   // Keep the visible panel anchored to the newest thought. Without this, the
   // intentionally compact preview shows the beginning of a long reasoning
   // stream and then appears to stop while the text continues arriving.
@@ -361,9 +363,8 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
     <div className={`live-code-peek w-[min(600px,92%)] text-left ${compact ? 'live-code-peek-compact' : ''} ${(reasoning || (entered && !idle)) ? 'is-visible' : ''} ${className}`}>
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
-        <span className="live-code-peek-label">{page?.page ? 'writing' : 'writing code'}</span>
+        <span className="live-code-peek-label">generating code</span>
         {page?.page && <span key={page.page} className="live-code-peek-page">{page.page}</span>}
-        {page?.total > 1 && <span className="live-code-peek-step">{page.step} of {page.total}</span>}
       </div>
       {hasLines && (
         <pre ref={bodyRef} className={`live-code-peek-body ${scrolledOff ? 'is-scrolled' : ''}`}>
@@ -380,6 +381,14 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
           <span className="live-code-peek-reasoning-text"><span>{visibleReasoning}</span></span>
         </div>
       )}
+      <div className="live-code-peek-footer">
+        <span className="live-code-peek-activity" aria-hidden="true">
+          <i /><i /><i /><i /><i /><i /><i /><i />
+        </span>
+        <span className="live-code-peek-footer-label">Writing code...</span>
+        <span className="live-code-peek-progress-count">{progressLine} / {progressTotal}</span>
+        <span className="live-code-peek-progress" aria-hidden="true"><span /></span>
+      </div>
     </div>
   );
 }
@@ -604,8 +613,19 @@ export default function DeviceMockup({
             )}
           </div>
           {(isGenerating || isErrorAutoFix) && (
-            <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-10 p-6 text-center">
-              <div className="flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
+            <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
+              <div className="building-device-status" aria-hidden="true">
+                <span className="building-device-time">9:41</span>
+                <span className="building-device-icons">
+                  <span className="building-signal"><i /><i /><i /><i /></span>
+                  <span className="building-wifi"><i /><i /></span>
+                  <span className="building-battery"><i /></span>
+                </span>
+              </div>
+              {mode !== 'desktop' && (
+                <div className="building-device-notch" aria-hidden="true"><span /></div>
+              )}
+              <div className="building-main flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                 <div className="building-spinner relative w-16 h-16 mb-6">
                   <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
                   <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
@@ -625,9 +645,13 @@ export default function DeviceMockup({
                       : 'Building...'}
                 </h3>
                 {isThinking ? (
-                  <p role="status" className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                    Reasoning through your request · <ThinkingElapsed since={thinkingSince} />
-                  </p>
+                  <>
+                    <p role="status" className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                      Reasoning through your request
+                    </p>
+                    <span className="building-progress-dots" aria-hidden="true"><i /><i /><i /></span>
+                    <p className="building-remaining"><ThinkingElapsed since={thinkingSince} /> elapsed</p>
+                  </>
                 ) : isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
                   <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
                     {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
@@ -660,7 +684,7 @@ export default function DeviceMockup({
                 )}
               </div>
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} compact={mode === 'desktop'} className="mt-8" />
+                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} compact={mode === 'desktop'} className="mt-6" />
               )}
             </div>
           )}

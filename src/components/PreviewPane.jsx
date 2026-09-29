@@ -432,7 +432,7 @@ export default function PreviewPane({
       {/* Container for Device or Code */}
       <div
         ref={containerRef}
-        className={`preview-canvas flex-1 min-w-0 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning ? 'overflow-hidden' : 'overflow-auto'}`}
+        className={`preview-canvas flex-1 min-w-0 min-h-0 flex items-center-safe justify-center-safe p-6 relative custom-scrollbar ${isTransitioning || isAutoZoom ? 'overflow-hidden' : 'overflow-auto'}`}
       >
         {/* Subtle workspace grid. It exists to read as a surface *behind* the
             device mockup; with the bare full-bleed preview there is no mockup

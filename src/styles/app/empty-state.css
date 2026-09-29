@@ -549,3 +549,417 @@
   border-bottom-color: rgb(148 163 255 / 0.1);
   background: rgb(255 255 255 / 0.03);
 }
+
+/* ===== Phone build state ====================================================
+   The generating state is deliberately a self-contained visual system. It
+   sits above the real preview iframe, so the phone remains useful while code
+   is arriving, but the state feels like a native creation surface: midnight
+   glass, a blueprint grid, electric-blue light, and a compact code terminal. */
+.building-overlay {
+  --build-ink: #f5f7ff;
+  --build-muted: #95a6d1;
+  --build-blue: #6ea1ff;
+  --build-blue-bright: #a9c6ff;
+  --build-panel: #0b1427;
+  container-type: inline-size;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(90% 42% at 50% 22%, rgb(41 82 177 / 0.28), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(26 67 152 / 0.22), transparent 74%),
+    linear-gradient(180deg, #101a31 0%, #080e1d 54%, #060b16 100%);
+}
+
+.building-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(112 157 255 / 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(112 157 255 / 0.075) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.9), transparent 92%);
+}
+
+.building-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(2 7 19 / 0.42) 100%),
+    linear-gradient(90deg, rgb(1 5 14 / 0.28), transparent 24%, transparent 76%, rgb(1 5 14 / 0.34));
+}
+
+.building-device-status {
+  position: absolute;
+  top: clamp(18px, 5.2%, 42px);
+  left: clamp(24px, 10%, 42px);
+  right: clamp(16px, 5.5%, 28px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #edf3ff;
+  font: 500 clamp(12px, 4cqi, 16px)/1 var(--font-control);
+  letter-spacing: -0.03em;
+}
+
+.building-device-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(6px, 1.6vw, 9px);
+}
+
+.building-signal {
+  display: inline-flex;
+  align-items: end;
+  gap: 1.5px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.building-signal i {
+  display: block;
+  width: 2.5px;
+  flex: 0 0 2.5px;
+  border-radius: 1.5px 1.5px 0 0;
+  background: currentColor;
+}
+
+.building-signal i:nth-child(1) { height: 4px; }
+.building-signal i:nth-child(2) { height: 6px; }
+.building-signal i:nth-child(3) { height: 8px; }
+.building-signal i:nth-child(4) { height: 11px; }
+
+.building-wifi {
+  position: relative;
+  display: block;
+  width: 17px;
+  height: 13px;
+  overflow: hidden;
+}
+
+.building-wifi::before,
+.building-wifi::after,
+.building-wifi i {
+  content: '';
+  position: absolute;
+  left: 50%;
+  border: 1.5px solid currentColor;
+  border-left-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.building-wifi::before { top: -9px; width: 21px; height: 21px; }
+.building-wifi::after { top: -5px; width: 14px; height: 14px; }
+.building-wifi i { top: 7px; width: 3px; height: 3px; border: 0; border-radius: 50%; background: currentColor; }
+
+.building-battery {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+}
+
+.building-battery::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: -4px;
+  width: 2px;
+  height: 6px;
+  border-radius: 0 2px 2px 0;
+  background: currentColor;
+}
+
+.building-battery i {
+  position: absolute;
+  inset: 2px 4px 2px 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.building-device-notch {
+  position: absolute;
+  top: clamp(16px, 4.9%, 40px);
+  left: 50%;
+  z-index: 2;
+  width: clamp(96px, 30%, 132px);
+  height: clamp(30px, 5.8%, 44px);
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #010207;
+  box-shadow: inset 0 -1px 1px rgb(255 255 255 / 0.06), 0 1px 5px rgb(0 0 0 / 0.7);
+}
+
+.building-device-notch span {
+  position: absolute;
+  top: 50%;
+  right: 15%;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2f72e5, #04091a 65%);
+  box-shadow: 0 0 7px rgb(44 104 237 / 0.8);
+}
+
+.building-main {
+  width: min(100%, 460px);
+  margin-top: clamp(12px, 4cqi, 18px);
+  color: var(--build-ink);
+}
+
+.building-spinner {
+  width: clamp(92px, 28cqi, 112px) !important;
+  height: clamp(92px, 28cqi, 112px) !important;
+  margin-bottom: clamp(12px, 3.5cqi, 16px) !important;
+  filter: drop-shadow(0 0 17px rgb(65 113 255 / 0.22));
+}
+
+.building-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 28%, rgb(69 110 255 / 0.25), transparent 49%), #101b40;
+  border: 1px solid rgb(111 141 255 / 0.7);
+  box-shadow: inset 0 0 20px rgb(43 81 210 / 0.45), 0 0 20px rgb(49 92 228 / 0.26);
+}
+
+.building-spinner-track {
+  border-color: transparent !important;
+  background: repeating-conic-gradient(from -4deg, rgb(90 139 255 / 0.9) 0deg 1.2deg, transparent 1.2deg 9deg) !important;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+}
+
+.building-spinner-ring {
+  border-color: transparent !important;
+  background: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(82 128 255 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg) !important;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+  animation: build-sweep 1.8s linear infinite;
+}
+
+.building-spinner-glyph {
+  z-index: 1;
+  width: clamp(36px, 10.5cqi, 44px);
+  height: clamp(36px, 10.5cqi, 44px);
+  color: #b4c9ff !important;
+  filter: drop-shadow(0 0 8px rgb(92 137 255 / 0.9));
+}
+
+.building-title {
+  color: var(--build-ink) !important;
+  font-size: clamp(20px, 6cqi, 25px) !important;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  font-style: normal;
+  text-shadow: 0 2px 18px rgb(77 119 255 / 0.16);
+}
+
+.building-status {
+  color: var(--build-muted) !important;
+  font: 500 clamp(12px, 4cqi, 15px)/1.35 var(--font-control) !important;
+  font-style: normal;
+}
+
+.building-status-live::after { display: none !important; }
+
+.building-progress-dots {
+  display: inline-flex;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.building-progress-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2b4d9d;
+  box-shadow: 0 0 0 1px rgb(111 151 255 / 0.06);
+  animation: build-dot-pulse 1.35s ease-in-out infinite;
+}
+
+.building-progress-dots i:nth-child(1) { animation-delay: -0.9s; background: #79aeff; box-shadow: 0 0 10px rgb(81 139 255 / 0.85); }
+.building-progress-dots i:nth-child(2) { animation-delay: -0.45s; background: #5289f3; box-shadow: 0 0 10px rgb(81 139 255 / 0.65); }
+
+.building-remaining {
+  margin-top: 11px;
+  color: #8196c5;
+  font: 500 clamp(11px, 3.6cqi, 14px)/1 var(--font-control);
+  font-style: normal;
+}
+
+.live-code-peek {
+  width: min(600px, 98%);
+  min-height: clamp(260px, 45%, 520px);
+  border-radius: 23px;
+  background: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
+  border: 1px solid rgb(95 142 255 / 0.95);
+  box-shadow:
+    0 0 0 1px rgb(47 94 212 / 0.35),
+    0 0 24px rgb(42 97 255 / 0.24),
+    inset 0 1px 0 rgb(177 204 255 / 0.2);
+}
+
+.live-code-peek-bar {
+  min-height: 52px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgb(98 142 234 / 0.35);
+  background: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
+}
+
+.live-code-peek-dot {
+  width: 15px;
+  height: 15px;
+  background: #5b97ff;
+  box-shadow: 0 0 12px rgb(82 143 255 / 0.9);
+}
+
+.live-code-peek-label {
+  color: #b9cdf6;
+  font-size: clamp(9px, 3cqi, 12px);
+  letter-spacing: 0.09em;
+  white-space: nowrap;
+}
+
+.live-code-peek-page,
+.live-code-peek-step { display: none; }
+
+.live-code-peek-body {
+  padding: 16px 14px 12px;
+  color: #bcd0f9;
+  font-size: clamp(9px, 3.2cqi, 12px);
+  line-height: 1.72;
+}
+
+.live-code-peek-body .line-content { color: #bcd0f9; }
+.live-code-peek .token-comment { color: #7484a9; }
+.live-code-peek .token-doctype,
+.live-code-peek .token-keyword { color: #d58dff; }
+.live-code-peek .token-tag-name { color: #6cc9ff; }
+.live-code-peek .token-attr-name { color: #75e0dd; }
+.live-code-peek .token-string { color: #ffc35a; }
+
+.live-code-peek-footer {
+  display: flex;
+  align-items: center;
+  gap: clamp(9px, 2.4vw, 16px);
+  min-height: 61px;
+  padding: 0 18px;
+  border-top: 1px solid rgb(98 142 234 / 0.3);
+  color: #9bb1dd;
+  font: 500 clamp(9px, 3.2cqi, 12px)/1 var(--font-control);
+  font-style: normal;
+}
+
+.live-code-peek-activity {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  animation: build-activity-spin 2.4s linear infinite;
+}
+
+.live-code-peek-activity i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #609cff;
+  box-shadow: 0 0 5px rgb(86 145 255 / 0.9);
+}
+
+.live-code-peek-activity i:nth-child(1) { transform: translateY(-10px); opacity: 1; }
+.live-code-peek-activity i:nth-child(2) { transform: translate(7px, -7px); opacity: .9; }
+.live-code-peek-activity i:nth-child(3) { transform: translate(10px, 0); opacity: .75; }
+.live-code-peek-activity i:nth-child(4) { transform: translate(7px, 7px); opacity: .65; }
+.live-code-peek-activity i:nth-child(5) { transform: translateY(10px); opacity: .55; }
+.live-code-peek-activity i:nth-child(6) { transform: translate(-7px, 7px); opacity: .45; }
+.live-code-peek-activity i:nth-child(7) { transform: translate(-10px, 0); opacity: .35; }
+.live-code-peek-activity i:nth-child(8) { transform: translate(-7px, -7px); opacity: .25; }
+
+.live-code-peek-footer-label { white-space: nowrap; }
+.live-code-peek-progress-count { margin-left: auto; white-space: nowrap; }
+.live-code-peek-progress { display: block; width: clamp(70px, 23%, 120px); height: 7px; border-radius: 999px; background: rgb(57 89 158 / 0.5); overflow: hidden; }
+.live-code-peek-progress span { display: block; width: 62%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5594ff, #6c9eff); box-shadow: 0 0 10px rgb(80 143 255 / 0.7); }
+
+@keyframes build-dot-pulse {
+  0%, 100% { transform: scale(.78); opacity: .55; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes build-activity-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 430px) {
+  .building-overlay { padding: 18px !important; }
+  .building-main { margin-top: 12px; }
+  .live-code-peek { width: 100% !important; }
+  .live-code-peek-footer { gap: 8px; padding-inline: 13px; }
+  .live-code-peek-progress { width: 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .building-spinner-ring,
+  .live-code-peek-activity,
+  .building-progress-dots i { animation: none; }
+}
+
+/* Dark mode historically gave the build overlay a higher-specificity
+   "all direct children are in the instrument layer" rule. Repeat the few
+   positioning and surface rules here so the reference phone treatment wins
+   in the normal dark application theme too. */
+:is(html.dark, .force-dark) .building-overlay {
+  background:
+    radial-gradient(90% 42% at 50% 22%, rgb(41 82 177 / 0.28), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(26 67 152 / 0.22), transparent 74%),
+    linear-gradient(180deg, #101a31 0%, #080e1d 54%, #060b16 100%);
+}
+
+:is(html.dark, .force-dark) .building-overlay > .building-device-status {
+  position: absolute;
+  top: clamp(18px, 5.2%, 42px);
+  left: clamp(24px, 10%, 42px);
+  right: clamp(16px, 5.5%, 28px);
+  z-index: 3;
+}
+
+:is(html.dark, .force-dark) .building-overlay > .building-device-notch {
+  position: absolute;
+  top: clamp(16px, 4.9%, 40px);
+  left: 50%;
+  z-index: 2;
+}
+
+:is(html.dark, .force-dark) .building-spinner-glyph {
+  color: #c1d2ff !important;
+  filter: drop-shadow(0 0 10px rgb(92 137 255 / 0.95));
+}
+
+:is(html.dark, .force-dark) .live-code-peek {
+  min-height: clamp(260px, 45%, 520px);
+  background: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
+  border-color: rgb(95 142 255 / 0.95);
+  box-shadow:
+    0 0 0 1px rgb(47 94 212 / 0.35),
+    0 0 24px rgb(42 97 255 / 0.24),
+    inset 0 1px 0 rgb(177 204 255 / 0.2);
+}
+
+:is(html.dark, .force-dark) .live-code-peek-bar {
+  min-height: 52px;
+  background: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
+}
