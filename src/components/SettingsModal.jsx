@@ -1,7 +1,10 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
+import {
+  SettingRow, Switch, TabList, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
+} from './SettingControls';
 import authProvider from '../lib/auth';
 import {
   CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
@@ -39,43 +42,6 @@ const loadTab = () => {
   }
 };
 
-// One setting: label + helper text on the left, control on the right. Stacks on
-// narrow widths so segmented controls never squeeze the copy.
-function SettingRow({ id, title, description, children }) {
-  return (
-    <div className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-x-6 gap-y-2.5">
-      <div className="min-w-0 sm:max-w-[60%]">
-        <h3 id={id} className="text-sm font-semibold text-slate-900">{title}</h3>
-        <p className="mt-0.5 text-xs text-slate-600 leading-snug">{description}</p>
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
-  );
-}
-
-function Switch({ checked, onChange, labelledBy }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-labelledby={labelledBy}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-        checked
-          ? 'bg-emerald-500 border-transparent'
-          : 'bg-slate-200 border-slate-300 hover:bg-slate-300/70 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600/70'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-          checked ? 'translate-x-5.75 bg-white' : 'translate-x-0.75 bg-white dark:bg-slate-300'
-        }`}
-      />
-    </button>
-  );
-}
-
 function Segmented({ label, value, options, onChange, renderOption }) {
   return (
     <div className="nav-segmented-group" role="group" aria-label={label}>
@@ -103,8 +69,7 @@ const MODEL_PLACEHOLDERS = {
   deepseek: 'e.g. deepseek-chat',
   zai: 'e.g. glm-5.3-flash',
 };
-const INPUT_CLASS = 'mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400';
-const SECONDARY_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50';
+const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
 
 const blankProvider = () => ({ enabled: false, id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '', remember: true });
@@ -361,29 +326,9 @@ export default function SettingsModal({
     setConfirmDeleteAll(false);
     if (!ok) setDeleteAllError('Some apps could not be deleted. Check your connection and try again.');
   };
-  const tabRefs = useRef({});
-
   const selectTab = (id) => {
     setTab(id);
     try { sessionStorage.setItem(TAB_STORAGE_KEY, id); } catch { /* storage unavailable */ }
-  };
-
-  // WAI-ARIA tabs pattern: roving tabindex, arrows/Home/End move + activate.
-  const onTabKeyDown = (event) => {
-    const index = TABS.findIndex((t) => t.id === tab);
-    const vertical = window.matchMedia('(min-width: 640px)').matches;
-    const prevKey = vertical ? 'ArrowUp' : 'ArrowLeft';
-    const nextKey = vertical ? 'ArrowDown' : 'ArrowRight';
-    let next = null;
-    if (event.key === nextKey) next = (index + 1) % TABS.length;
-    else if (event.key === prevKey) next = (index - 1 + TABS.length) % TABS.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = TABS.length - 1;
-    if (next === null) return;
-    event.preventDefault();
-    const id = TABS[next].id;
-    selectTab(id);
-    tabRefs.current[id]?.focus();
   };
 
   return (
@@ -405,48 +350,14 @@ export default function SettingsModal({
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col sm:flex-row">
-        <div
-          role="tablist"
-          aria-label="Settings categories"
-          aria-orientation="vertical"
-          onKeyDown={onTabKeyDown}
-          className="shrink-0 grid grid-cols-2 sm:flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-48 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60"
-        >
-          {TABS.map((t) => {
-            const { id, label } = t;
-            const Icon = t.Icon;
-            const active = tab === id;
-            return (
-              <button
-                key={id}
-                ref={(el) => { tabRefs.current[id] = el; }}
-                type="button"
-                role="tab"
-                id={`settings-tab-${id}`}
-                aria-selected={active}
-                aria-controls={`settings-panel-${id}`}
-                tabIndex={active ? 0 : -1}
-                onClick={() => selectTab(id)}
-                className={`flex min-w-0 items-center justify-center sm:justify-start gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-500 ${
-                  active
-                    ? 'bg-indigo-500/10 text-indigo-600 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <Icon size={16} aria-hidden="true" className="shrink-0" />
-                <span className="truncate">{label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <TabList tabs={TABS} active={tab} onSelect={selectTab} idPrefix="settings" label="Settings categories" />
 
-        {/* Fixed-height panel area so the modal doesn't resize between tabs. */}
         <div
           role="tabpanel"
           id={`settings-panel-${tab}`}
           aria-labelledby={`settings-tab-${tab}`}
           tabIndex={0}
-          className="flex-1 min-w-0 px-6 py-5 overflow-y-auto custom-scrollbar sm:h-[26rem] divide-y divide-slate-200 focus-visible:outline-none"
+          className={`${TAB_PANEL_CLASS} divide-y divide-slate-200`}
         >
           {tab === 'appearance' && (
             <>
@@ -586,7 +497,7 @@ export default function SettingsModal({
         <button
           type="button"
           onClick={onClose}
-          className="brand-fill-text rounded-lg px-5 py-2 bg-brand text-white font-semibold text-sm hover:bg-brand-hover shadow-sm transition-colors active:scale-[0.98]"
+          className={PRIMARY_BUTTON}
         >
           Done
         </button>

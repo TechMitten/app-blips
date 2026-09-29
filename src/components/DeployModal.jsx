@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Rocket, Globe, KeyRound, TriangleAlert, Trash2, Copy, Check,
-  ExternalLink, LogIn, Loader2, X, Lock, Search, ImageIcon, User, BarChart3,
-  Link2, ShieldCheck, ArrowRight, Share2, LayoutGrid, Camera, Upload, Shuffle
+  Rocket, TriangleAlert, Trash2, Copy, CopyCheck, Check, SquareArrowOutUpRight,
+  LogIn, LoaderCircle, X, Share2, Camera, ImageUp, ArrowRight, Globe, LockKeyhole, LayoutGrid
 } from 'lucide-react';
 import Modal from './Modal';
+import {
+  SettingRow, Switch, TabList, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
+} from './SettingControls';
 import { formatModifiedTime } from '../lib/helpers';
 import { supabaseEnabled } from '../supabase';
 import { APPS_ORIGIN } from '../lib/deploy';
@@ -14,128 +16,66 @@ import { TITLE_MAX, DESCRIPTION_MAX } from '../lib/galleryFormat';
 
 const APPS_HOST = APPS_ORIGIN.replace(/^https?:\/\//, '');
 
-// Tinted icon tiles. Decorative accents only -- they keep their hue in both
-// themes (same approach as StarterIdeas). Seven distinct hues, one per tile
-// in the modal, so no two rows (however far apart) ever read as "the same
-// icon" -- a plain gray/slate tile also disappears against this modal's dark,
-// low-contrast card chrome, so every tile gets a real, saturated hue.
-const TILE_TINTS = {
-  blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-  violet: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
-  emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-  teal: 'bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400',
-  rose: 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400',
-  sky: 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
-};
+// Same shell as SettingsModal: header bar, tab sidebar beside a panel of
+// divided rows, footer bar with the actions on the right. The states without
+// options (signed out, username, success) drop the sidebar and use the
+// narrower card.
+const CARD_BASE = 'w-full max-h-[90vh] bg-surface rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col';
+const CARD_CLASS = `${CARD_BASE} max-w-lg xl:max-w-xl`;
+const TABBED_CARD_CLASS = `${CARD_BASE} max-w-lg sm:max-w-2xl xl:max-w-3xl`;
+// Footer buttons share the primary's px-5/py-2 box so the bar reads as one row.
+const FOOTER_BUTTON = 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+const DANGER_BUTTON = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+const DANGER_BUTTON_SOLID = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
-function Tile({ icon: Icon, tint = 'blue', size = 'md' }) {
-  const box = size === 'lg' ? 'w-12 h-12 rounded-2xl' : 'w-11 h-11 rounded-xl';
+function ModalHeader({ title, onClose, disabled = false }) {
   return (
-    <div className={`${box} ${TILE_TINTS[tint]} flex items-center justify-center shrink-0`}>
-      {Icon && <Icon size={size === 'lg' ? 24 : 20} />}
+    <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h2 id="deploy-title" className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+        <Rocket size={20} aria-hidden="true" className="shrink-0 text-slate-500" />
+        {title}
+      </h2>
+      <button
+        type="button"
+        onClick={onClose}
+        disabled={disabled}
+        className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label="Close"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }
 
-function Switch({ checked }) {
-  // On-state deliberately does NOT use bg-brand: --color-brand flips to white
-  // in dark theme (every primary button relies on that to invert), which
-  // would render an "enabled" switch as a solid white pill. emerald-500 is
-  // the same on-color every other toggle in the app uses (SettingsModal),
-  // and it isn't part of the brand-inversion story so it stays green in both
-  // themes.
+function ModalFooter({ children }) {
   return (
-    <span
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 ${
-        checked
-          ? 'bg-emerald-500 border-transparent'
-          : 'bg-slate-200 border-slate-300 dark:bg-slate-700 dark:border-slate-600'
-      }`}
-    >
-      <span
-        // Positioned by `left` against the track's own width instead of a
-        // fixed translate-x, so the on-state thumb always lands flush with
-        // the right edge regardless of how the track's box resolves.
-        className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full shadow-sm transition-[left] duration-200 ${
-          checked ? 'left-[calc(100%-1.1875rem)] bg-white' : 'left-[3px] bg-white dark:bg-slate-300'
-        }`}
-      />
-    </span>
-  );
-}
-
-// One settings row: tinted tile, title (+ optional pill), description, and
-// either a trailing control (`action`) or a full-width one below (`children`).
-function OptionCard({ icon, tint, title, pill, description, action, children, onClick, checked }) {
-  const interactive = Boolean(onClick);
-  return (
-    <div
-      onClick={onClick}
-      role={interactive ? 'switch' : undefined}
-      aria-checked={interactive ? checked : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onKeyDown={interactive ? (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
-      } : undefined}
-      className={`rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-4 transition-colors ${
-        interactive ? 'cursor-pointer hover:border-slate-300 dark:hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-brand/40' : ''
-      }`}
-    >
-      <div className="flex items-start gap-3.5">
-        <Tile icon={icon} tint={tint} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-slate-900 leading-tight">{title}</h3>
-            {pill && (
-              <span className="rounded-full border border-slate-300 dark:border-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                {pill}
-              </span>
-            )}
-          </div>
-          {description && (
-            <p className="text-xs text-slate-500 leading-relaxed mt-1">{description}</p>
-          )}
-        </div>
-        {action}
-      </div>
-      {children && <div className="mt-3.5">{children}</div>}
+    <div className="shrink-0 bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-end gap-3">
+      {children}
     </div>
   );
 }
 
-const FIELD_CLASS =
-  'w-full bg-surface border border-slate-300 dark:border-white/15 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-brand/40 focus:border-brand outline-none transition-all hover:border-slate-400 dark:hover:border-white/25';
-
-// The modal's main CTA (Deploy/Redeploy/Sign in). Deliberately hardcoded blue
-// rather than the app's usual `bg-brand`/`brand-fill-text` treatment: --color-brand
-// flips to white in dark theme (see the Switch comment above) and
-// .brand-fill-text exists specifically to chase that with a white gradient +
-// dark text, which doesn't match the vivid blue button this modal is
-// designed around. bg-blue-600 is still a themed token (it's re-pinned for
-// dark mode in index.css), so it shifts appropriately between themes without
-// ever turning white -- this is a one-off for this modal's CTA, not a
-// pattern to copy elsewhere.
-//
-// The trailing arrow is absolutely positioned rather than laid out inline
-// with `ml-auto`: an `ml-auto` sibling consumes all remaining flex space
-// itself, which left-aligns the icon+label pair instead of letting
-// `justify-center` center it. Taking the arrow out of flow lets the label
-// center properly while the arrow still pins to the right edge.
-function PrimaryButton({ icon, arrow = true, size = 'lg', className = '', children, ...rest }) {
-  const sizeClass = size === 'sm' ? 'text-sm py-3' : 'text-base py-3.5';
+// Callout above the rows: amber for warnings, red for errors (same look as
+// the Danger Zone notices in SettingsModal).
+function Notice({ tone = 'warning', children }) {
+  const look = tone === 'error'
+    ? 'border-red-100 bg-red-50 text-red-500'
+    : 'border-amber-200 bg-amber-50 text-amber-500';
   return (
-    <button
-      type="button"
-      {...rest}
-      className={`relative w-full inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 ${sizeClass} font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${className}`}
-    >
-      <span className="inline-flex items-center gap-2.5">
-        {icon}
-        {children}
-      </span>
-      {arrow && <ArrowRight size={20} className="absolute right-5 top-1/2 -translate-y-1/2" />}
-    </button>
+    <div role={tone === 'error' ? 'alert' : undefined} className={`rounded-xl border px-4 py-3 text-sm leading-relaxed flex items-start gap-3 ${look}`}>
+      <TriangleAlert size={18} className="shrink-0 mt-0.5" />
+      <span className="text-slate-600">{children}</span>
+    </div>
+  );
+}
+
+function Spinner({ label }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm text-slate-600">
+      <LoaderCircle size={24} className="animate-spin text-slate-400" />
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -347,78 +287,330 @@ export default function DeployModal({
     setClaimingUsername(false);
   };
 
-  const header = (
-    <div className="shrink-0 px-6 pt-6 pb-5 flex items-start gap-4">
-      <Tile icon={Rocket} tint="blue" size="lg" />
-      <div className="min-w-0 flex-1">
-        <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight">
-          {deployment ? 'Deployment' : `Deploy your ${noun}`}
-        </h2>
-        <p className="text-sm text-slate-500 mt-1 leading-snug">
-          {deployment ? `Your ${noun} is live at this link.` : `Publish your ${noun} to a public URL in seconds.`}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onClose}
-        disabled={isDeploying}
-        className="shrink-0 rounded-xl p-2 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label="Close"
-      >
-        <X size={18} />
-      </button>
-    </div>
-  );
+
+  // Always opens on General; not persisted like Settings' tab, since each
+  // deploy is a fresh pass through the options.
+  const [tab, setTab] = useState('general');
+
+  const cardProps = { role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'deploy-title' };
 
   if (!supabaseEnabled) {
     return (
-      <Modal zIndex={70} cardClass="w-full max-w-md xl:max-w-lg bg-surface rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-scale-in">
-        {header}
-        <div className="px-6 pb-6">
-          <OptionCard
-            icon={Globe}
-            tint="blue"
+      <Modal zIndex={70} cardClass={CARD_CLASS} cardProps={cardProps}>
+        <ModalHeader title={`Deploy your ${noun}`} onClose={onClose} />
+        <div className="px-6 py-5">
+          <SettingRow
             title="Not available in self-hosted mode"
             description="Deploying to a public URL needs the hosted build."
           />
         </div>
-        <div className="px-6 pb-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-2xl px-4 py-3 font-semibold text-sm text-slate-600 hover:text-slate-900 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
-          >
+        <ModalFooter>
+          <button type="button" onClick={onClose} className={PRIMARY_BUTTON}>
             Close
           </button>
-        </div>
+        </ModalFooter>
       </Modal>
     );
   }
 
-  // Shared option cards -- identical between the first-deploy and redeploy
-  // flows, so they're built once here rather than duplicated in both branches.
-  const optionCards = (
+  const openDeployment = () => window.open(deploymentUrl, '_blank', 'noopener,noreferrer');
+
+  const urlField = (
+    <input
+      readOnly
+      value={deploymentUrl}
+      aria-label={`${Noun} URL`}
+      onFocus={(e) => e.target.select()}
+      className={`${FIELD_CLASS} min-w-0 font-mono select-all`}
+    />
+  );
+
+  const linkDetails = (
+    <div className="flex flex-wrap sm:flex-nowrap gap-2">
+      {urlField}
+      <button type="button" onClick={onCopyUrl} className={`${SECONDARY_BUTTON} shrink-0`}>
+        {deployCopied ? <CopyCheck size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+        {deployCopied ? 'Copied' : 'Copy'}
+      </button>
+      <button type="button" onClick={openDeployment} className={`${SECONDARY_BUTTON} shrink-0`}>
+        <SquareArrowOutUpRight size={14} aria-hidden="true" />
+        Open
+      </button>
+    </div>
+  );
+
+  if (showSuccess && deployment && !isDeploying) {
+    const dismissSuccess = () => setShowSuccess(false);
+    return (
+      <Modal zIndex={70} cardClass={CARD_CLASS} cardProps={cardProps}>
+        <ModalHeader title={`Your ${noun} is live`} onClose={dismissSuccess} />
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+          {galleryError && <Notice>{galleryError}</Notice>}
+          <div className="divide-y divide-slate-200">
+            <SettingRow
+              id="deploy-link"
+              title="Public link"
+              description="Anyone with this link can use it."
+              details={
+                <div className="flex gap-2">
+                  {urlField}
+                  <button type="button" onClick={handleShare} className={`${SECONDARY_BUTTON} shrink-0`}>
+                    {deployCopied ? <Check size={14} aria-hidden="true" /> : <Share2 size={14} aria-hidden="true" />}
+                    {deployCopied ? 'Copied' : 'Share'}
+                  </button>
+                </div>
+              }
+            />
+            {!galleryError && galleryPost && onViewInGallery && (
+              <SettingRow
+                id="deploy-listed"
+                title="Listed in the Gallery"
+                description="See how it looks to the community."
+              >
+                <button type="button" onClick={() => onViewInGallery(galleryPost.id)} className={SECONDARY_BUTTON}>
+                  View
+                  <ArrowRight size={14} aria-hidden="true" />
+                </button>
+              </SettingRow>
+            )}
+          </div>
+        </div>
+        <ModalFooter>
+          <button type="button" onClick={dismissSuccess} className={FOOTER_BUTTON}>
+            Done
+          </button>
+          <button type="button" onClick={openDeployment} className={PRIMARY_BUTTON}>
+            <SquareArrowOutUpRight size={16} aria-hidden="true" />
+            Open {noun}
+          </button>
+        </ModalFooter>
+      </Modal>
+    );
+  }
+
+  // The options only exist once the user can deploy: signed in, and either
+  // managing an existing deployment or holding a username for a new one.
+  const tabbed = Boolean(isSignedIn && (deployment || (!usernameLoading && username)));
+
+  let footer;
+  if (deployment && isSignedIn) {
+    footer = (
+      <>
+        <button
+          type="button"
+          onClick={() => (confirmUndeploy ? onUndeploy() : setConfirmUndeploy(true))}
+          disabled={isDeploying}
+          className={`${confirmUndeploy ? DANGER_BUTTON_SOLID : DANGER_BUTTON} mr-auto`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+          {confirmUndeploy ? 'Really remove?' : 'Remove'}
+        </button>
+        <button
+          type="button"
+          onClick={handleDeployClick}
+          disabled={isDeploying || !canSubmitPassword || !galleryValid}
+          className={PRIMARY_BUTTON}
+        >
+          <Rocket size={16} aria-hidden="true" />
+          Redeploy {Noun}
+        </button>
+      </>
+    );
+  } else if (!isSignedIn) {
+    footer = (
+      <>
+        <button type="button" onClick={onClose} className={FOOTER_BUTTON}>
+          {deployment ? 'Close' : 'Cancel'}
+        </button>
+        <button type="button" onClick={onRequireSignIn} className={PRIMARY_BUTTON}>
+          <LogIn size={16} aria-hidden="true" />
+          Sign in
+        </button>
+      </>
+    );
+  } else {
+    footer = (
+      <>
+        <button type="button" onClick={onClose} disabled={isDeploying} className={FOOTER_BUTTON}>
+          Cancel
+        </button>
+        {username && (
+          <button
+            type="button"
+            onClick={handleDeployClick}
+            disabled={isDeploying || !hasCode || !canSubmitPassword || !galleryValid}
+            className={PRIMARY_BUTTON}
+          >
+            <Rocket size={16} aria-hidden="true" />
+            Deploy {Noun}
+          </button>
+        )}
+      </>
+    );
+  }
+
+  const title = deployment ? 'Manage deployment' : `Deploy your ${noun}`;
+
+  if (!tabbed) {
+    let body;
+    if (deployment) {
+      body = (
+        <div className="divide-y divide-slate-200">
+          <SettingRow
+            title="Sign in to manage this deployment"
+            description="You need to be signed in to update or remove it."
+          />
+          <SettingRow
+            id="deploy-url"
+            title="Public link"
+            description={`Deployed ${formatModifiedTime(deployment.deployedAt)}.`}
+            details={linkDetails}
+          />
+        </div>
+      );
+    } else if (!isSignedIn) {
+      body = (
+        <SettingRow
+          title="Sign in to deploy"
+          description={`Deploying needs an account, so your ${noun} can be stored and stay reachable at a stable link.`}
+        />
+      );
+    } else if (usernameLoading) {
+      body = <Spinner label="Checking your account..." />;
+    } else {
+      body = (
+        <form onSubmit={handleClaimUsername}>
+          <SettingRow
+            id="deploy-username"
+            title="Choose a username"
+            description={`It becomes the first part of every ${noun} link you publish, and can't be changed once set.`}
+            details={
+              <>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={usernameInput}
+                    onChange={(e) => { setUsernameInput(e.target.value); setUsernameError(''); }}
+                    placeholder="Choose a username"
+                    aria-labelledby="deploy-username"
+                    autoFocus
+                    className={`${FIELD_CLASS} min-w-0`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={claimingUsername || !usernameInput.trim()}
+                    className={`${PRIMARY_BUTTON} shrink-0`}
+                  >
+                    {claimingUsername ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />}
+                    {claimingUsername ? 'Setting...' : 'Set username'}
+                  </button>
+                </div>
+                {usernameError && <p className="text-xs text-red-600 mt-2">{usernameError}</p>}
+              </>
+            }
+          />
+        </form>
+      );
+    }
+
+    return (
+      <Modal zIndex={70} cardClass={CARD_CLASS} cardProps={cardProps}>
+        <ModalHeader title={title} onClose={onClose} />
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+          {deployError && <Notice tone="error">{deployError}</Notice>}
+          {body}
+        </div>
+        <ModalFooter>{footer}</ModalFooter>
+      </Modal>
+    );
+  }
+
+  // ---- Tabbed options -------------------------------------------------------
+
+  const tabs = [
+    { id: 'general', label: 'General', Icon: Globe },
+    { id: 'privacy', label: 'Privacy', Icon: LockKeyhole, attention: passwordEnabled && !canSubmitPassword },
+    { id: 'gallery', label: 'Gallery', Icon: LayoutGrid, attention: galleryActive && !galleryTitle.trim() },
+  ];
+
+  const linkRow = deployment ? (
+    <SettingRow
+      id="deploy-url"
+      title="Public link"
+      description={`Deployed ${formatModifiedTime(deployment.deployedAt)}.`}
+      details={linkDetails}
+    />
+  ) : (
+    <SettingRow
+      id="deploy-slug"
+      title={`${Noun} URL`}
+      description={`Choose a custom path, or leave it blank to generate one. Published at ${APPS_HOST}.`}
+      details={
+        <div className="flex items-stretch rounded-lg border border-slate-300 overflow-hidden focus-within:border-slate-500 transition-colors">
+          <span className="flex items-center px-3 text-sm font-mono text-slate-500 bg-slate-50 border-r border-slate-300 whitespace-nowrap">
+            {username}/
+          </span>
+          <input
+            type="text"
+            value={customSlug}
+            onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            placeholder="my-app-name"
+            aria-labelledby="deploy-slug"
+            className="w-full min-w-0 bg-transparent px-3 py-2 text-sm font-mono text-slate-900 placeholder:text-slate-400 outline-none"
+          />
+        </div>
+      }
+    />
+  );
+
+  const generalRows = (
     <>
-      <OptionCard
-        icon={Lock}
-        tint="violet"
-        title="Password protection"
-        pill="Optional"
-        description={deployment
-          ? `Require a password to access your ${noun}. Leave this off to redeploy as a public link.`
-          : `Require a password to access your ${noun}.`}
-        onClick={togglePassword}
-        checked={passwordEnabled}
-        action={<Switch checked={passwordEnabled} />}
+      {linkRow}
+
+      <SettingRow
+        id="deploy-favicon"
+        title={`${Noun} icon`}
+        description="An image for the browser tab icon (favicon), up to 200KB."
+        details={faviconError && <p className="text-xs text-red-600">{faviconError}</p>}
       >
-        {passwordEnabled && (
-          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          {favicon && (
+            <img src={favicon} alt="Favicon preview" className="w-8 h-8 rounded-md border border-slate-200 object-cover" />
+          )}
+          <label className={`${SECONDARY_BUTTON} cursor-pointer`}>
+            <ImageUp size={14} aria-hidden="true" />
+            {favicon ? 'Change' : 'Upload'}
+            <input type="file" accept="image/*" className="sr-only" onChange={handleFaviconUpload} aria-labelledby="deploy-favicon" />
+          </label>
+        </div>
+      </SettingRow>
+
+      <SettingRow
+        id="deploy-analytics"
+        title="Analytics"
+        description="Track visits and usage with built-in analytics."
+      >
+        <Switch checked={analyticsEnabled} onChange={setAnalyticsEnabled} labelledBy="deploy-analytics" />
+      </SettingRow>
+    </>
+  );
+
+  const privacyRows = (
+    <>
+      <SettingRow
+        id="deploy-password"
+        title="Password protection"
+        description={deployment
+          ? `Require a password to open your ${noun}. Leave this off to redeploy as a public link.`
+          : `Require a password to open your ${noun}.`}
+        details={passwordEnabled && (
+          <div className="space-y-2">
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter a password"
-              autoFocus
+              aria-label="Password"
               className={FIELD_CLASS}
             />
             <input
@@ -426,457 +618,134 @@ export default function DeployModal({
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm password"
+              aria-label="Confirm password"
               className={FIELD_CLASS}
             />
             {password.length > 0 && confirmPassword.length > 0 && !passwordsMatch && (
-              <p className="text-xs text-rose-500 font-medium">Passwords do not match.</p>
+              <p className="text-xs text-red-600">Passwords do not match.</p>
             )}
           </div>
         )}
-      </OptionCard>
-
-      <OptionCard
-        icon={LayoutGrid}
-        tint="amber"
-        title="Show in Gallery"
-        pill={galleryPost ? 'Listed' : 'Optional'}
-        description={passwordEnabled
-          ? `Password-protected ${noun}s can't be listed in the gallery.`
-          : `Share your ${noun} with the AppBlips community. Anyone can view it; signed-in users can like, comment and remix.`}
-        onClick={passwordEnabled || galleryPostLoading ? undefined : toggleGallery}
-        checked={galleryActive}
-        action={galleryPostLoading
-          ? <Loader2 size={18} className="animate-spin text-slate-400 mt-1" />
-          : <Switch checked={galleryActive} />}
       >
-        {galleryActive && (
-          <div className="space-y-2.5 cursor-default" onClick={(e) => e.stopPropagation()}>
-            <div className="gallery-thumb-picker relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5">
-              {(thumbnail?.dataUrl || existingThumbnailUrl) ? (
-                <img
-                  src={thumbnail?.dataUrl || existingThumbnailUrl}
-                  alt="Gallery thumbnail"
-                  className="h-full w-full object-cover object-top"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                  {thumbnailBusy ? 'Capturing preview...' : 'No thumbnail yet'}
-                </div>
-              )}
-              {thumbnailBusy && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <Loader2 size={22} className="animate-spin text-white" />
-                </div>
-              )}
-              <div className="absolute bottom-2 right-2 flex gap-1.5">
-                {onCaptureThumbnail && (
-                  <button type="button" onClick={captureThumbnail} disabled={thumbnailBusy} className="gallery-thumb-btn">
-                    <Camera size={13} /> Capture preview
-                  </button>
-                )}
-                <label className="gallery-thumb-btn cursor-pointer">
-                  <Upload size={13} /> Upload
-                  <input type="file" accept="image/*" className="sr-only" onChange={handleThumbnailUpload} />
-                </label>
-              </div>
-            </div>
-            {thumbnailError && <p className="text-xs text-rose-500 font-medium">{thumbnailError}</p>}
-            <input
-              type="text"
-              value={galleryTitle}
-              maxLength={TITLE_MAX}
-              onChange={(e) => setGalleryTitle(e.target.value)}
-              placeholder="Title"
-              aria-label="Gallery title"
-              className={FIELD_CLASS}
-            />
-            <textarea
-              value={galleryDescription}
-              maxLength={DESCRIPTION_MAX}
-              onChange={(e) => setGalleryDescription(e.target.value)}
-              placeholder={`What does your ${noun} do? (optional)`}
-              aria-label="Gallery description"
-              rows={2}
-              className={`${FIELD_CLASS} resize-none`}
-            />
-            <button
-              type="button"
-              role="switch"
-              aria-checked={allowRemix}
-              onClick={() => setAllowRemix(!allowRemix)}
-              className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left"
-            >
-              <Shuffle size={16} className="text-slate-400 shrink-0" />
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-medium text-slate-800">Allow remixing</span>
-                <span className="block text-xs text-slate-500">Others can copy your {noun}&rsquo;s source into their own project.</span>
-              </span>
-              <Switch checked={allowRemix} />
-            </button>
-          </div>
-        )}
-      </OptionCard>
+        <Switch checked={passwordEnabled} onChange={togglePassword} labelledBy="deploy-password" />
+      </SettingRow>
 
-      <OptionCard
-        icon={Search}
-        tint="rose"
-        title="Search engine visibility"
-        description={`Prevent search engines from indexing your ${noun}.`}
-        onClick={() => setPreventIndexing(!preventIndexing)}
-        checked={preventIndexing}
-        action={<Switch checked={preventIndexing} />}
-      />
-
-      <OptionCard
-        icon={BarChart3}
-        tint="emerald"
-        title="Analytics"
-        description="Track visits and usage with built-in analytics."
-        onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
-        checked={analyticsEnabled}
-        action={<Switch checked={analyticsEnabled} />}
-      />
-
-      <OptionCard
-        icon={ImageIcon}
-        tint="sky"
-        title={`${Noun} icon (favicon)`}
-        description="Upload an image to use as your browser tab icon."
+      <SettingRow
+        id="deploy-noindex"
+        title="Hide from search engines"
+        description={`Ask search engines not to index your ${noun}.`}
       >
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFaviconUpload}
-            className="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200/70 dark:file:bg-white/10 file:text-slate-800 hover:file:bg-slate-300/70 dark:hover:file:bg-white/15 transition-colors cursor-pointer"
-          />
-          {favicon && (
-            <img src={favicon} alt="Favicon preview" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/10 object-cover shrink-0" />
-          )}
-        </div>
-        {faviconError && <p className="text-xs text-rose-500 font-medium mt-2">{faviconError}</p>}
-      </OptionCard>
+        <Switch checked={preventIndexing} onChange={setPreventIndexing} labelledBy="deploy-noindex" />
+      </SettingRow>
     </>
   );
 
-  const secondaryButtonClass =
-    'inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-
-  if (showSuccess && deployment && !isDeploying) {
-    const dismissSuccess = () => setShowSuccess(false);
-    return (
-      <Modal
-        zIndex={70}
-        cardClass="relative w-full max-w-md xl:max-w-lg bg-surface rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-scale-in"
-      >
-        <button
-          type="button"
-          onClick={dismissSuccess}
-          className="absolute top-4 right-4 rounded-xl p-2 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
-          aria-label="Close"
-        >
-          <X size={18} />
-        </button>
-        <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 flex items-center justify-center">
-            <Check size={28} />
-          </div>
-          <h2 className="text-xl 2xl:text-2xl font-bold text-slate-900 leading-tight mt-4">Your {noun} is live!</h2>
-          <p className="text-sm text-slate-500 mt-1 leading-snug">Anyone with this link can use it.</p>
-        </div>
-
-        {(galleryError || (galleryPost && onViewInGallery)) && (
-          <div className="px-6 pt-4">
-            {galleryError ? (
-              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3.5 text-sm text-amber-800 flex items-start gap-2.5">
-                <TriangleAlert size={16} className="text-amber-500 shrink-0 mt-0.5" />
-                <span>{galleryError}</span>
-              </div>
+  const galleryRows = (
+    <SettingRow
+      id="deploy-gallery"
+      title="Show in Gallery"
+      description={passwordEnabled
+        ? `Password-protected ${noun}s can't be listed in the gallery.`
+        : `${galleryPost ? 'Currently listed. ' : ''}Share your ${noun} with the AppBlips community. Anyone can view it; signed-in users can like, comment and remix.`}
+      details={galleryActive && (
+        <div className="space-y-2.5">
+          <div className="gallery-thumb-picker relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+            {(thumbnail?.dataUrl || existingThumbnailUrl) ? (
+              <img
+                src={thumbnail?.dataUrl || existingThumbnailUrl}
+                alt="Gallery thumbnail"
+                className="h-full w-full object-cover object-top"
+              />
             ) : (
-              <button
-                type="button"
-                onClick={() => onViewInGallery(galleryPost.id)}
-                className="w-full flex items-center gap-3 rounded-2xl border border-amber-200 dark:border-amber-500/25 bg-amber-50/70 dark:bg-amber-500/10 p-3.5 text-left hover:border-amber-300 dark:hover:border-amber-500/40 transition-colors"
-              >
-                <Tile icon={LayoutGrid} tint="amber" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-slate-900">Listed in the Gallery</span>
-                  <span className="block text-xs text-slate-500">See how it looks to the community</span>
-                </span>
-                <ArrowRight size={18} className="text-slate-400" />
-              </button>
+              <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                {thumbnailBusy ? 'Capturing preview...' : 'No thumbnail yet'}
+              </div>
             )}
+            {thumbnailBusy && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <LoaderCircle size={22} className="animate-spin text-white" />
+              </div>
+            )}
+            <div className="absolute bottom-2 right-2 flex gap-1.5">
+              {onCaptureThumbnail && (
+                <button type="button" onClick={captureThumbnail} disabled={thumbnailBusy} className="gallery-thumb-btn">
+                  <Camera size={13} /> Capture preview
+                </button>
+              )}
+              <label className="gallery-thumb-btn cursor-pointer">
+                <ImageUp size={13} /> Upload
+                <input type="file" accept="image/*" className="sr-only" onChange={handleThumbnailUpload} />
+              </label>
+            </div>
           </div>
-        )}
-
-        <div className="px-6 pt-4 space-y-3">
+          {thumbnailError && <p className="text-xs text-red-600">{thumbnailError}</p>}
           <input
-            readOnly
-            value={deploymentUrl}
-            aria-label={`${Noun} URL`}
-            onFocus={(e) => e.target.select()}
-            className="w-full bg-surface border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-slate-800 text-center focus:ring-2 focus:ring-brand/40 outline-none transition-all select-all"
+            type="text"
+            value={galleryTitle}
+            maxLength={TITLE_MAX}
+            onChange={(e) => setGalleryTitle(e.target.value)}
+            placeholder="Title"
+            aria-label="Gallery title"
+            className={FIELD_CLASS}
           />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.open(deploymentUrl, '_blank', 'noopener,noreferrer')}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors active:scale-[0.99]"
-            >
-              <ExternalLink size={16} />
-              Open {noun}
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
-              className={`${secondaryButtonClass} flex-1 py-3`}
-            >
-              {deployCopied ? <Check size={16} className="text-emerald-500" /> : <Share2 size={16} />}
-              {deployCopied ? 'Link copied' : 'Share'}
-            </button>
+          <textarea
+            value={galleryDescription}
+            maxLength={DESCRIPTION_MAX}
+            onChange={(e) => setGalleryDescription(e.target.value)}
+            placeholder={`What does your ${noun} do? (optional)`}
+            aria-label="Gallery description"
+            rows={2}
+            className={`${FIELD_CLASS} resize-none`}
+          />
+          <div className="flex items-center justify-between gap-4 pt-1">
+            <span id="deploy-remix" className="text-sm text-slate-600">
+              Allow remixing
+              <span className="block text-xs text-slate-500">Others can copy your {noun}&rsquo;s source into their own project.</span>
+            </span>
+            <Switch checked={allowRemix} onChange={setAllowRemix} labelledBy="deploy-remix" />
           </div>
         </div>
-
-        <div className="px-6 pt-3 pb-6">
-          <button
-            type="button"
-            onClick={dismissSuccess}
-            className="w-full rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors"
-          >
-            Done
-          </button>
-        </div>
-      </Modal>
-    );
-  }
+      )}
+    >
+      {galleryPostLoading
+        ? <LoaderCircle size={18} className="animate-spin text-slate-400" aria-label="Loading gallery listing" />
+        : <Switch checked={galleryActive} onChange={toggleGallery} labelledBy="deploy-gallery" disabled={passwordEnabled} />}
+    </SettingRow>
+  );
 
   return (
-    <Modal
-      zIndex={70}
-      cardClass="w-full max-w-md xl:max-w-lg 2xl:max-w-xl max-h-[92vh] bg-surface rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-scale-in flex flex-col"
-    >
-      {header}
+    <Modal zIndex={70} cardClass={TABBED_CARD_CLASS} cardProps={cardProps}>
+      <ModalHeader title={title} onClose={onClose} disabled={isDeploying} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 pb-2 space-y-3">
-        {deployError && (
-          <div className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-4 text-sm text-rose-700 flex items-start gap-3 animate-fade-in">
-            <TriangleAlert size={18} className="text-rose-500 shrink-0 mt-0.5" />
-            <span>{deployError}</span>
-          </div>
-        )}
+      <div className="flex-1 min-h-0 flex flex-col sm:flex-row">
+        <TabList tabs={tabs} active={tab} onSelect={setTab} idPrefix="deploy" label="Deployment options" />
 
-        {isDeploying ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm text-slate-600">
-            <Loader2 size={28} className="animate-spin text-brand" />
-            <span>{deployment && confirmUndeploy ? 'Removing deployment...' : `Uploading your ${noun}...`}</span>
-          </div>
-        ) : deployment ? (
-          <>
-            {!isSignedIn && (
-              <OptionCard
-                icon={KeyRound}
-                tint="blue"
-                title="Sign in to manage this deployment"
-                description="You need to be signed in to update or remove it."
-              />
-            )}
-            {isSignedIn && isDeployStale && (
-              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm text-amber-800 flex items-start gap-3">
-                <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                <span>The live version is older than what&rsquo;s in your workspace. Redeploy to update the link.</span>
+        <div
+          role="tabpanel"
+          id={`deploy-panel-${tab}`}
+          aria-labelledby={`deploy-tab-${tab}`}
+          tabIndex={0}
+          className={`${TAB_PANEL_CLASS} space-y-5`}
+        >
+          {deployError && <Notice tone="error">{deployError}</Notice>}
+          {isDeploying ? (
+            <Spinner label={deployment && confirmUndeploy ? 'Removing deployment...' : `Uploading your ${noun}...`} />
+          ) : (
+            <>
+              {tab === 'general' && deployment && isDeployStale && (
+                <Notice>The live version is older than what&rsquo;s in your workspace. Redeploy to update the link.</Notice>
+              )}
+              <div className="divide-y divide-slate-200">
+                {tab === 'general' && generalRows}
+                {tab === 'privacy' && privacyRows}
+                {tab === 'gallery' && galleryRows}
               </div>
-            )}
-
-            <OptionCard
-              icon={Globe}
-              tint="teal"
-              title="Public URL"
-              description={`Deployed ${formatModifiedTime(deployment.deployedAt)}.`}
-            >
-              <input
-                readOnly
-                value={deploymentUrl}
-                onFocus={(e) => e.target.select()}
-                className="w-full bg-surface border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-800 focus:ring-2 focus:ring-brand/40 outline-none transition-all select-all"
-              />
-              <div className="mt-2.5 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onCopyUrl}
-                  className={`${secondaryButtonClass} flex-1`}
-                >
-                  {deployCopied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
-                  {deployCopied ? 'Copied' : 'Copy link'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.open(deploymentUrl, '_blank', 'noopener,noreferrer')}
-                  className={`${secondaryButtonClass} flex-1`}
-                >
-                  <ExternalLink size={15} />
-                  Open
-                </button>
-              </div>
-            </OptionCard>
-
-            {isSignedIn && optionCards}
-          </>
-        ) : !isSignedIn ? (
-          <OptionCard
-            icon={KeyRound}
-            tint="blue"
-            title="Sign in to deploy"
-            description={`Deploying needs an account, so your ${noun} can be stored and stay reachable at a stable link.`}
-          />
-        ) : usernameLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm text-slate-600">
-            <Loader2 size={28} className="animate-spin text-brand" />
-            <span>Checking your account...</span>
-          </div>
-        ) : !username ? (
-          <>
-            <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm text-amber-800 flex items-start gap-3">
-              <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
-              <span>Choose a username first. It&rsquo;s used in your {noun}&rsquo;s URL and can&rsquo;t be changed once set.</span>
-            </div>
-            <form onSubmit={handleClaimUsername}>
-              <OptionCard
-                icon={User}
-                tint="blue"
-                title="Username"
-                description={`This becomes the first segment of every ${noun} link you publish.`}
-              >
-                <input
-                  type="text"
-                  value={usernameInput}
-                  onChange={(e) => { setUsernameInput(e.target.value); setUsernameError(''); }}
-                  placeholder="Choose a username"
-                  autoFocus
-                  className={FIELD_CLASS}
-                />
-                {usernameError && <p className="text-xs text-rose-500 font-medium mt-2">{usernameError}</p>}
-                <PrimaryButton
-                  type="submit"
-                  size="sm"
-                  arrow={false}
-                  disabled={claimingUsername || !usernameInput.trim()}
-                  className="mt-3"
-                  icon={claimingUsername ? <Loader2 size={16} className="animate-spin" /> : <User size={16} />}
-                >
-                  {claimingUsername ? 'Setting username...' : 'Set username'}
-                </PrimaryButton>
-              </OptionCard>
-            </form>
-          </>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-brand/30 bg-brand/[0.06] dark:bg-white/[0.06] p-4 flex items-start gap-3.5">
-              <Tile icon={Globe} tint="amber" />
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900 leading-tight">
-                  We&rsquo;ll deploy your {noun} and give you a link
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                  Re-deploy anytime and your link always points to the latest version.
-                </p>
-              </div>
-            </div>
-
-            <OptionCard
-              icon={Link2}
-              tint="teal"
-              title={`${Noun} URL`}
-              description="Choose a custom path (optional)."
-            >
-              <div className="flex items-stretch rounded-xl border border-slate-300 dark:border-white/15 bg-surface overflow-hidden focus-within:ring-2 focus-within:ring-brand/40 focus-within:border-brand transition-all">
-                <span className="flex items-center px-3.5 text-sm font-mono text-slate-400 bg-slate-50 dark:bg-white/5 border-r border-slate-300 dark:border-white/15 whitespace-nowrap">
-                  {username}/
-                </span>
-                <input
-                  type="text"
-                  value={customSlug}
-                  onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="my-app-name"
-                  className="w-full min-w-0 bg-transparent px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none"
-                />
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                Published at {APPS_HOST}. Leave blank to auto-generate a path.
-              </p>
-            </OptionCard>
-
-            {optionCards}
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="shrink-0 px-6 pt-4 pb-5 space-y-3">
-        {deployment ? (
-          <>
-            {isSignedIn ? (
-              <PrimaryButton
-                icon={<Rocket size={20} />}
-                onClick={handleDeployClick}
-                disabled={isDeploying || !canSubmitPassword || !galleryValid}
-              >
-                Redeploy {Noun}
-              </PrimaryButton>
-            ) : (
-              <PrimaryButton icon={<LogIn size={20} />} onClick={onRequireSignIn}>
-                Sign in
-              </PrimaryButton>
-            )}
-            {isSignedIn && (
-              <button
-                type="button"
-                onClick={() => (confirmUndeploy ? onUndeploy() : setConfirmUndeploy(true))}
-                disabled={isDeploying}
-                className={`w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  confirmUndeploy
-                    ? 'text-rose-600 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20'
-                    : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10'
-                }`}
-              >
-                <Trash2 size={15} />
-                {confirmUndeploy ? 'Really remove?' : 'Remove deployment'}
-              </button>
-            )}
-          </>
-        ) : !isSignedIn ? (
-          <>
-            <PrimaryButton icon={<LogIn size={20} />} onClick={onRequireSignIn}>
-              Sign in
-            </PrimaryButton>
-            <button type="button" onClick={onClose} className={`${secondaryButtonClass} w-full`}>
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            {username && (
-              <PrimaryButton
-                icon={<Rocket size={20} />}
-                onClick={handleDeployClick}
-                disabled={isDeploying || !hasCode || !canSubmitPassword || !galleryValid}
-              >
-                Deploy {Noun}
-              </PrimaryButton>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isDeploying}
-              className={`${secondaryButtonClass} w-full`}
-            >
-              Cancel
-            </button>
-          </>
-        )}
-        <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400 pt-0.5">
-          <ShieldCheck size={13} />
-          Secure deployment with a unique public URL.
-        </p>
-      </div>
+      <ModalFooter>{footer}</ModalFooter>
     </Modal>
   );
 }
