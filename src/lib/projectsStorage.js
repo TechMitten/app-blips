@@ -36,6 +36,6 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   // Enumerated explicitly (local rows spread ...row.data instead): a field
   // missing here silently vanishes for hosted users on load. Legacy rows
   // predate the studio split and default to 'app'.
-  studioMode: row.data?.studioMode === 'website' ? 'website' : 'app',
+  studioMode: row.data?.studioMode === 'website' ? 'website' : row.data?.studioMode === 'game' ? 'game' : 'app',
   lastModified: row.updated_at
 }));

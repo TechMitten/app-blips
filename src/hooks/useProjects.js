@@ -111,7 +111,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       setCurrentChatSessionId(migrated.currentChatSessionId);
       setDeployment(projectData.deployment || null);
       setAiEnabled(Boolean(projectData.aiEnabled));
-      setStudioMode(projectData.studioMode === 'website' ? 'website' : 'app');
+      setStudioMode(projectData.studioMode === 'website' ? 'website' : projectData.studioMode === 'game' ? 'game' : 'app');
       if (migrated.versions[projectData.currentVersionIndex]) {
         setFiles(versionFiles(migrated.versions[projectData.currentVersionIndex]));
         setActivePage(LANDING_PAGE);
@@ -151,7 +151,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         chatContextStartIndex: Math.min(chatContextStartToSave ?? 0, versionsToSave.length),
         currentChatSessionId: sessionIdToSave ?? null,
         aiEnabled: Boolean(aiEnabledToSave),
-        studioMode: studioModeToSave === 'website' ? 'website' : 'app',
+        studioMode: studioModeToSave === 'website' ? 'website' : studioModeToSave === 'game' ? 'game' : 'app',
       };
 
       if (useCloud) {
@@ -288,7 +288,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setCurrentChatSessionId(migrated.currentChatSessionId);
     setDeployment(project.deployment || null);
     setAiEnabled(Boolean(project.aiEnabled));
-    setStudioMode(project.studioMode === 'website' ? 'website' : 'app');
+    setStudioMode(project.studioMode === 'website' ? 'website' : project.studioMode === 'game' ? 'game' : 'app');
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));
       setActivePage(LANDING_PAGE);

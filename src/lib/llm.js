@@ -17,12 +17,23 @@ import {
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
+  GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   CHAT_REPLY_SYSTEM_PROMPT,
   WEBSITE_CHAT_REPLY_SYSTEM_PROMPT,
+  GAME_CHAT_REPLY_SYSTEM_PROMPT,
   buildInitialGenerationPrompt,
   buildWebsiteInitialGenerationPrompt,
+  buildGameInitialGenerationPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
+
+// The studio's lowercase noun, used in prompts, labels and error copy. Games
+// ride the same single-file pipeline as apps -- only the prompts differ.
+const studioNoun = (studioMode) => (
+  studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'
+);
+
+const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
 
 // Builds an OpenAI-compatible `content` value: a plain string when there's no
 // attachment (existing wire format, unchanged), or the standard multi-modal
@@ -69,13 +80,17 @@ export const generateClarifyingQuestion = async ({
   studioMode = 'app'
 }) => {
   const isWebsite = studioMode === 'website';
+  const isGame = studioMode === 'game';
+  const clarifyPrompt = isWebsite
+    ? WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT
+    : isGame ? GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT : CLARIFYING_QUESTIONS_SYSTEM_PROMPT;
   const messages = [
-    { role: 'system', content: isWebsite ? WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT : CLARIFYING_QUESTIONS_SYSTEM_PROMPT },
+    { role: 'system', content: clarifyPrompt },
     ...chatHistory,
     {
       role: 'user',
       content: currentCode
-        ? `${isWebsite ? 'Current Website Code' : 'Current App Code'}:\n\`\`\`html\n${currentCode.length > 8000 ? `${currentCode.slice(0, 4000)}\n...[truncated]...\n${currentCode.slice(-4000)}` : currentCode}\n\`\`\`\n\nRequest: ${prompt}`
+        ? `Current ${capitalize(studioNoun(studioMode))} Code:\n\`\`\`html\n${currentCode.length > 8000 ? `${currentCode.slice(0, 4000)}\n...[truncated]...\n${currentCode.slice(-4000)}` : currentCode}\n\`\`\`\n\nRequest: ${prompt}`
         : `Request: ${prompt}`
     }
   ];
@@ -111,9 +126,13 @@ export const generateChatReply = async ({
   studioMode = 'app'
 }) => {
   const isWebsite = studioMode === 'website';
-  const noun = isWebsite ? 'website' : 'app';
+  const isGame = studioMode === 'game';
+  const noun = studioNoun(studioMode);
+  const replyPrompt = isWebsite
+    ? WEBSITE_CHAT_REPLY_SYSTEM_PROMPT
+    : isGame ? GAME_CHAT_REPLY_SYSTEM_PROMPT : CHAT_REPLY_SYSTEM_PROMPT;
   const messages = [
-    { role: 'system', content: isWebsite ? WEBSITE_CHAT_REPLY_SYSTEM_PROMPT : CHAT_REPLY_SYSTEM_PROMPT },
+    { role: 'system', content: replyPrompt },
     {
       role: 'user',
       content: currentCode
@@ -578,15 +597,18 @@ const generateAppCodeCore = async (
   projectName = ''
 ) => {
   const isWebsite = studioMode === 'website';
+  const isGame = studioMode === 'game';
   // Only the initial build follows the user's reasoning toggle. Edits, error
   // repair and chat-only calls are hardcoded to LOW (see the constants above).
   const buildEffort = reasoningEffort?.build ?? 'low';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
-  const noun = isWebsite ? 'website' : 'app';
+  const noun = studioNoun(studioMode);
   const buildInitialPrompt = isWebsite
     ? (p) => buildWebsiteInitialGenerationPrompt(p, projectName)
-    : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
+    : isGame
+      ? (p) => buildGameInitialGenerationPrompt(p, projectName)
+      : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
   if (isAskMode) {
     const messages = [
       {
@@ -600,7 +622,7 @@ const generateAppCodeCore = async (
       {
         role: 'user',
         content: buildUserContent(
-          currentCode ? `${formatFilesForPrompt(startFiles, 'App')}\n\nQuestion: ${prompt}` : prompt,
+          currentCode ? `${formatFilesForPrompt(startFiles, capitalize(noun))}\n\nQuestion: ${prompt}` : prompt,
           attachment
         )
       }
@@ -991,7 +1013,7 @@ const generateAppCodeCore = async (
 // that call fails too, a fixed line is used so the turn always ends with a
 // message.
 const generateCompletionReply = async ({ prompt, editMode, studioMode, signal }) => {
-  const noun = studioMode === 'website' ? 'website' : 'app';
+  const noun = studioNoun(studioMode);
   const verb = editMode === 'full-generation' ? 'built' : 'updated';
   const fallback = `Done — I've ${verb} your ${noun}.`;
   try {

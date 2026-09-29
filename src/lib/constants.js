@@ -16,8 +16,8 @@ import {
   Shirt, Flower2, Car, Wine, Baby, Users, Paintbrush, Waves, Tent
 } from 'lucide-react';
 
-// The two studios share one workspace pipeline (prompt -> code -> versions);
-// the mode changes the prompts, starter ideas, default preview device and the
+// The studios share one workspace pipeline (prompt -> code -> versions); the
+// mode changes the prompts, starter ideas, default preview device and the
 // default project name. Persisted per-project as `studioMode`. `description`
 // is the user-facing "what makes this studio different" line -- surfaced in
 // the studio switcher tooltips and the mobile menu.
@@ -28,7 +28,7 @@ export const STUDIO_MODES = {
     article: 'app',
     untitledName: 'Untitled App',
     defaultPreviewMode: 'mobile',
-    description: 'Interactive tools, games, and dashboards — JavaScript-driven, saves your data, feels native on a phone.',
+    description: 'Interactive tools and dashboards — JavaScript-driven, saves your data, feels native on a phone.',
   },
   website: {
     key: 'website',
@@ -37,6 +37,14 @@ export const STUDIO_MODES = {
     untitledName: 'Untitled Website',
     defaultPreviewMode: 'desktop',
     description: 'Content-first pages — landing pages, portfolios, blogs — that you edit by clicking them in the preview.',
+  },
+  game: {
+    key: 'game',
+    label: 'Game',
+    article: 'game',
+    untitledName: 'Untitled Game',
+    defaultPreviewMode: 'mobile',
+    description: 'Playable browser games — canvas and Phaser engines, physics, scores and sound — with touch and keyboard controls.',
   },
 };
 
@@ -329,12 +337,122 @@ export const STARTER_PRESETS = [
   }
 ];
 
+// Game-studio starters. These are gameplay-first: each one names the loop, the
+// controls and the win/lose condition so the build starts from something
+// actually playable rather than a static mockup. Kept separate from the app
+// pool, which still carries its own arcade ideas.
+export const GAME_STARTER_PRESETS = [
+  {
+    title: "Neon Breakout",
+    prompt: "A neon arcade breakout game on a canvas with a smooth paddle, multi-hit bricks, falling power-ups (wide paddle, multi-ball, laser), particle shatter effects, three lives, and a persistent high-score table.",
+    category: "Arcade",
+    icon: Gamepad2,
+    featured: true,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Tower Defense",
+    prompt: "A grid-based tower defense game where enemies march along a path toward a base, the player places and upgrades several tower types with their own projectiles and effects, waves escalate in difficulty, and gold and lives determine win or loss.",
+    category: "Strategy",
+    icon: Target,
+    featured: true,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Platform Runner",
+    prompt: "A side-scrolling platformer with a responsive jump arc, coyote time, moving platforms, collectible coins, stompable enemies, checkpoint flags, and multiple levels loaded from a simple tile map with parallax backgrounds.",
+    category: "Platformer",
+    icon: Rocket,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Asteroid Field",
+    prompt: "A twin-stick space shooter where the ship thrusts and rotates with keyboard or touch, asteroids split when shot, enemy saucers hunt the player, screen wrap, and a wave counter drives the difficulty up.",
+    category: "Shooter",
+    icon: Bomb,
+    featured: true,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Endless Runner",
+    prompt: "A one-tap endless runner with auto-scrolling lanes, jump and slide over obstacles, collectible coins, speed that ramps over distance, a score based on meters plus pickups, and an instant restart on death.",
+    category: "Arcade",
+    icon: Bird,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Dungeon Crawler",
+    prompt: "A small roguelike dungeon crawler with procedurally generated rooms, grid or smooth movement, melee and ranged attacks, enemies with simple AI, loot and health pickups, and a floor-by-floor difficulty curve.",
+    category: "Roguelike",
+    icon: Swords,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Physics Stacker",
+    prompt: "A physics tower-builder where the player drops blocks that topple realistically, a swinging crane adds challenge, height is scored, and a Matter.js simulation handles collisions and stability.",
+    category: "Physics",
+    icon: Blocks,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Match-3 Puzzle",
+    prompt: "A juicy match-3 board with swipe-or-click swapping, cascading matches, special gems for four- and five-in-a-row, a move or time limit, and a score target per level.",
+    category: "Puzzle",
+    icon: Shapes,
+    color: "text-fuchsia-600 bg-fuchsia-50"
+  },
+  {
+    title: "Space Invaders",
+    prompt: "A retro wave-based shooter where rows of aliens march and descend, the player's turret fires upward, enemy bombs fall, a destructible bunker line provides cover, and waves speed up as they shrink.",
+    category: "Retro",
+    icon: Ghost,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Sokoban Puzzle",
+    prompt: "A block-pushing Sokoban puzzler with hand-designed levels, undo and restart, move and push counters, a level select grid, and a win state when every crate sits on a target.",
+    category: "Puzzle",
+    icon: Puzzle,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Racing Time Trial",
+    prompt: "A top-down or pseudo-3D racing time trial where the car steers with keyboard or touch, the track has drifting physics and checkpoints, lap times are recorded, and a ghost of the best run is replayed.",
+    category: "Racing",
+    icon: Gauge,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Tower Stacker",
+    prompt: "A precision stacking game where a moving block must be dropped to line up with the tower below, overlapping edges are sliced off, the tower speeds up, and the height sets the score.",
+    category: "Arcade",
+    icon: Coins,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Whack-a-Mole",
+    prompt: "A fast reaction game with moles popping from a grid of holes, tap or click to hit them, bombs that cost a life, a combo multiplier, a 60-second timer, and a local high-score board.",
+    category: "Casual",
+    icon: Flame,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Zeppelin Duel",
+    prompt: "A local two-player airship duel on a single shared screen: player one uses WASD and F, player two uses arrows and Enter, each aims and fires cannons with gravity arcs over destructible terrain, and wind shifts each turn.",
+    category: "Party",
+    icon: Gamepad2,
+    color: "text-sky-600 bg-sky-50"
+  }
+];
+
 // How many ideas each studio samples from its pool on every launch. Ask mode
 // has no sample size (it shows a fixed set). App's larger pool is sampled the
-// same way websites already are, so the empty state rotates between visits.
+// same way websites and games already are, so the empty state rotates between
+// visits.
 export const STARTER_SAMPLE_SIZE = {
   app: 6,
-  website: 4
+  website: 4,
+  game: 4
 };
 
 export const WEBSITE_STARTER_PRESETS = [

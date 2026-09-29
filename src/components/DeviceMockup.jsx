@@ -250,7 +250,7 @@ function BuildingStatusMessage() {
 // card (see `capacity` in LiveCodePeek); the compact desktop card shows
 // COMPACT_PEEK_LINES and stays content-sized up to that.
 const PEEK_LINES = 22;
-const COMPACT_PEEK_LINES = 14;
+const COMPACT_PEEK_LINES = 12;
 // Once the text has stopped growing (and the typing has caught up) for this
 // long, the model is no longer writing code -- it is reviewing, summarizing or
 // waiting -- so the peek steps aside until more code arrives.
@@ -617,7 +617,7 @@ export default function DeviceMockup({
                 </div>
                 <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
                   {isErrorAutoFix || generationStatus?.includes('Syntax errors found')
-                    ? 'Error checking...'
+                    ? 'Auto Error Checking'
                     : isThinking
                       ? 'Thinking...'
                     : generationStatus?.startsWith('Analyzing') 

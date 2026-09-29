@@ -158,7 +158,7 @@ export default function ChatTranscript({
             <ReplyRow className="animate-fade-in flex items-center gap-2.5">
               <Loader2 className="animate-spin text-indigo-600 dark:text-white" size={14} />
               <span className="text-[length:var(--chat-label-text)] font-bold">
-                {chatMode === 'ask' ? 'Thinking...' : `Building ${studioMode === 'website' ? 'website' : 'app'}...`}
+                {chatMode === 'ask' ? 'Thinking...' : `Building ${studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'}...`}
               </span>
             </ReplyRow>
           ) : null}

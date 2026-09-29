@@ -47,7 +47,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
 
@@ -112,7 +112,7 @@ export default function App() {
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
-  // Which studio the workspace is in: 'app' or 'website'. Drives
+  // Which studio the workspace is in: 'app', 'website' or 'game'. Drives
   // prompt selection, starter ideas, preview defaults and copy; persisted
   // per-project so reopening restores it. Starts null: a fresh session must
   // pick a studio first (StudioChoice gate) -- a project resume or an
@@ -359,13 +359,13 @@ export default function App() {
 
   // Website workspaces live on the desktop preset (a site's primary
   // viewport); the user can still switch devices per-preview. Re-fires when
-  // a project loads so opening a website project reasserts it. App studios
-  // offer no desktop preset (apps are touch-device mockups), so a desktop
-  // choice persisted from a website workspace snaps back to mobile.
+  // a project loads so opening a website project reasserts it. App and game
+  // studios offer no desktop preset (they are touch-device mockups), so a
+  // desktop choice persisted from a website workspace snaps back to mobile.
   useEffect(() => {
     if (studioMode === 'website') {
       setPreviewMode('desktop');
-    } else if (studioMode === 'app') {
+    } else if (studioMode) {
       setPreviewMode((mode) => (mode === 'desktop' ? 'mobile' : mode));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1054,7 +1054,7 @@ export default function App() {
       // the build started in (its retry banner lives there) instead of
       // stopping at the studio-choice gate.
       if (!studioModeRef.current) {
-        setStudioMode(job.studioMode === 'website' ? 'website' : 'app');
+        setStudioMode(job.studioMode === 'website' ? 'website' : job.studioMode === 'game' ? 'game' : 'app');
       }
     }
     // If the job belongs to a different project, leave the record intact but
@@ -1685,7 +1685,7 @@ export default function App() {
     if (!interruptedJob) return;
     const jobPrompt = interruptedJob.prompt;
     const jobChatMode = interruptedJob.chatMode || 'build';
-    const jobStudioMode = interruptedJob.studioMode === 'website' ? 'website' : 'app';
+    const jobStudioMode = interruptedJob.studioMode === 'website' ? 'website' : interruptedJob.studioMode === 'game' ? 'game' : 'app';
     setInterruptedJob(null);
     clearPendingJob();
     setChatMode(jobChatMode);
@@ -2239,7 +2239,9 @@ export default function App() {
               ? ASK_STARTER_PRESETS
               : studioMode === 'website'
                 ? WEBSITE_STARTER_PRESETS
-                : STARTER_PRESETS
+                : studioMode === 'game'
+                  ? GAME_STARTER_PRESETS
+                  : STARTER_PRESETS
           }
           starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
           onPickStarter={setPrompt}
@@ -2296,7 +2298,9 @@ export default function App() {
                   ? ASK_STARTER_PRESETS
                   : studioMode === 'website'
                     ? WEBSITE_STARTER_PRESETS
-                    : STARTER_PRESETS
+                    : studioMode === 'game'
+                      ? GAME_STARTER_PRESETS
+                      : STARTER_PRESETS
               }
               starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
               onPickStarter={setPrompt}

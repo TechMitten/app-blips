@@ -31,14 +31,15 @@ Tools like Bolt and Lovable are great, but they're built for developers — mult
 
 ## What it is
 
-AppBlips lets you describe an app or website in plain language and get back a working version you can preview, tweak, and use immediately. Type what you want, and AppBlips builds it as a single, self-contained app or a website with the structure and styling you asked for.
+AppBlips lets you describe an app, a game, or a website in plain language and get back a working version you can preview, tweak, and use immediately. Type what you want, and AppBlips builds it as a single, self-contained app or game, or a website with the structure and styling you asked for.
 
-AppBlips has two studios, switchable from the header:
+AppBlips has three studios, chosen from the launch screen:
 
-- **App Studio** — interactive tools, games, and dashboards. JavaScript-driven, saves its data in the browser, and designed to feel native on a phone (mobile preview by default).
+- **App Studio** — interactive tools and dashboards. JavaScript-driven, saves its data in the browser, and designed to feel native on a phone (mobile preview by default).
 - **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), then lets you refine it with prompts or click-to-edit tools.
+- **Game Studio** — playable browser games with a real game loop: raw Canvas 2D for simple arcade games or the Phaser 3 engine (loaded from CDN) for sprite, tilemap and physics-heavy games, with controls, scoring, levels, juice, and sound tuned for both touch and keyboard.
 
-Both studios share the same workflow: prompt, live preview, versions, export, and deploy.
+The studios share the same workflow: prompt, live preview, versions, export, and deploy.
 
 Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a server-side proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
 
@@ -51,11 +52,11 @@ See [Quick start](#quick-start) below to pick one.
 
 ## Features
 
-- **One simple prompt box** — describe your idea in plain English and get a working app or website back
-- **App and Website studios** — pick the studio that fits; each has its own prompts, starter ideas, and default preview size
+- **One simple prompt box** — describe your idea in plain English and get a working app, game, or website back
+- **App, Website, and Game studios** — pick the studio that fits; each has its own prompts, starter ideas, and default preview size
 - **Click-to-edit websites** — in the Website Studio, click text, images, and links right in the preview to change them directly, with an AI-assisted edit through chat when a change needs more nuance
 - **Instant live preview** — see exactly what you built, right next to the prompt, with no extra deploy step
-- **Ask for changes in plain English** — request a tweak and AppBlips edits the app or website for you, no code required
+- **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **AI-powered generated apps** — turn on AI before building and ask for features that call `blip.ai.text(...)`
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to

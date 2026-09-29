@@ -6,7 +6,8 @@ import Modal from './Modal';
 // generate-after-naming flow reads it.
 export default function NamingModal({ name, onNameChange, onConfirm, onCancel, studioMode = 'app' }) {
   const isWebsite = studioMode === 'website';
-  const noun = isWebsite ? 'Website' : 'App';
+  const isGame = studioMode === 'game';
+  const noun = isWebsite ? 'Website' : isGame ? 'Game' : 'App';
   return (
     <Modal zIndex={65}>
       <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
@@ -33,7 +34,7 @@ export default function NamingModal({ name, onNameChange, onConfirm, onCancel, s
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder={isWebsite ? 'e.g. Sunrise Bakery, Studio Nova...' : 'e.g. Recipe Assistant, Task Manager...'}
+              placeholder={isWebsite ? 'e.g. Sunrise Bakery, Studio Nova...' : isGame ? 'e.g. Nebula Blaster, Pixel Putt...' : 'e.g. Recipe Assistant, Task Manager...'}
             />
           </div>
           <p className="text-xs text-slate-400">Helps you find this {noun.toLowerCase()} later.</p>

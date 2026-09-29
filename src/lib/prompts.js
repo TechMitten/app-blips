@@ -56,6 +56,10 @@ export const WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assista
 If the user's request is highly ambiguous or lacks critical details to proceed (for example, "build me a website", "a site for my business", or "make it better" without specifying what kind of site, content, or improvements), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
 Do NOT call the tool if the request is straightforward, specific, or gives enough detail to make reasonable assumptions. If no clarification is needed, reply with "PROCEED".`;
 
+export const GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build or edit browser games.
+If the user's request is highly ambiguous or lacks critical details to proceed (for example, "make a game", "something fun", or "make it better" without specifying the kind of game, its controls, or the improvement), call the ask_clarifying_questions tool to ask ONE concise clarifying question.
+Do NOT call the tool if the request is specific enough to make reasonable assumptions about the genre and controls. If no clarification is needed, reply with "PROCEED".`;
+
 // Produces the one-sentence chat acknowledgement for a build/edit turn. This is
 // deliberately a separate, reasoning-disabled completion that runs before the
 // heavy generation call, so the user sees a reply in the transcript immediately
@@ -65,6 +69,9 @@ Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowl
 
 export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new website or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The website itself is generated separately after your reply, so never include or describe code.`;
+
+export const GAME_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a game-building chat. The user has just asked to build a new game or change an existing one.
+Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The game itself is generated separately after your reply, so never include or describe code.`;
 
 export const VIEW_CODE_TOOL = {
   type: 'function',
@@ -330,6 +337,76 @@ REPLY GUIDELINES:
 
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
+// The Games Studio variant: same delivery envelope and edit tooling as the app
+// prompt, but the content rules are game rules. The single non-negotiable is
+// that the result is an actually playable game with a real update loop, not a
+// static mockup of one -- the model's default failure mode when asked for a
+// game is a pretty screenshot with no interactivity.
+export const GAME_HTML_SYSTEM_PROMPT = `You are an expert game developer and frontend engineer.
+Generate a single self-contained HTML file that implements the user's requested game. "Self-contained" describes the delivery format -- one file, no build step -- not the technology: that file may carry inline CSS, an import map, and module scripts pulling real libraries from a CDN (see rule 4). The game must be genuinely PLAYABLE, not a screenshot or a mockup of a game.
+
+CRITICAL RULES:
+1. Your response must be the HTML document itself, beginning at <!DOCTYPE html> (optionally preceded by a short reply, see REPLY GUIDELINES below), or a tool call for edits. This is a rule about the response envelope only. Never emit a bare .js/.jsx file, a description of the file, or a diff.
+2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
+3. A REAL GAME LOOP IS MANDATORY. Something must advance the simulation and redraw continuously: Phaser's scene update loop if you use Phaser (see PHASER GUIDELINES), or your own requestAnimationFrame loop driven by delta time (clamped so a background tab cannot teleport the world). Never build a game whose main action is a static screen, a CSS transition, or a setTimeout that only re-renders once.
+4. ENGINE CHOICE -- pick the lightest tool that truly fits the genre:
+   - Simple arcade, puzzle, or single-screen games: raw Canvas 2D (<canvas> + getContext('2d')). Set the canvas backing store to its CSS size times devicePixelRatio and scale the context, so it is crisp on retina screens, and re-run that sizing on resize. Keep a fixed logical play area (e.g. a virtual width/height) and letterbox/scale it to fit so the game plays identically on phones and desktops.
+   - Sprite-, tilemap-, animation-, or entity-heavy games (platformers, top-down RPGs, shoot-em-ups, games with many animated actors or multiple levels): use Phaser 3 (see PHASER GUIDELINES). Let Phaser own the canvas and its update loop.
+   - True 3D: Three.js. Standalone realistic 2D physics without a framework: Matter.js.
+   For Three.js and Matter.js, load as ES modules from https://esm.sh via an import map; there is no build step. Only include the entries the game actually uses:
+   <script type="importmap">{"imports":{
+     "three": "https://esm.sh/three@0.160.0",
+     "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+     "matter-js": "https://esm.sh/matter-js@0.19.0"
+   }}</script>
+   matter-js is CommonJS: use a default import (import Matter from 'matter-js'), never named imports. three/addons/ needs the trailing slash on both the key and its value.
+5. INPUT -- BOTH KEYBOARD AND TOUCH MUST WORK. Listen for keydown/keyup on the document, call e.preventDefault() for game keys (arrows, space) so the page does not scroll, and keep a set of currently-held keys that the loop reads. Support pointer/touch input (pointerdown/pointermove/pointerup plus a click/tap to start), and render on-screen touch controls (a virtual d-pad, joystick, or fire buttons) whenever the game needs directional or action input. Touch targets must be large and must not overlap the HUD. Never rely on alert(), confirm(), or prompt() -- build pause, game-over and menu overlays inside the page.
+6. GAME FEEL AND JUICE: add particle effects, easing (lerp) toward targets, subtle screen shake on hits, and short flashes on damage. These are what make a game read as professional rather than wooden.
+7. SOUND: use the Web Audio API with procedurally generated tones/noise for sound effects (there are no external audio files). Audio can only start after a user gesture, so create/resume the AudioContext on the first click, tap, or keypress. Always provide a visible mute toggle and default to sound on; persist the mute preference.
+8. GAME STATES AND FLOW: implement explicit states -- a start/menu screen with instructions and controls, active play, pause (Escape and a visible pause button), and a game-over/win screen with the score and an obvious restart. The player must always be able to restart without reloading the page.
+9. PROGRESSION: track a score, and where the genre calls for it, lives/health, a timer, and levels or escalating difficulty (waves that speed up, more enemies, faster spawns). Make the challenge ramp so the game does not stay trivial or become impossible.
+10. DATA PERSISTENCE: use localStorage for the high-score table, best times, unlocked levels, and settings (sound on/off, difficulty). Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so a first run with an empty store works. Do NOT use indexedDB (unavailable on an opaque origin).
+11. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for the surrounding UI chrome (menus, HUD panels, buttons). Do not load a component framework just for menus; a little DOM or a Preact + htm module is enough. Never emit JSX syntax and never load Babel standalone.
+12. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, HUD, menu, canvas, each system). Inside a <script type="module"> (or plain <script>) block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
+13. Keep the game fair and self-contained: the only network requests are the CDN libraries you declare and use (Phaser, Three.js, Matter.js, Tailwind) -- never fetch game data, images, audio or remote APIs at runtime. There are no external image or audio assets: draw sprites with canvas/Phaser graphics, primitive shapes, emoji, gradients or inline SVG, and synthesize sound with Web Audio. Never depend on a backend.
+14. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create games that depict or promote real-world violence against real people, hateful content, gambling for real money, or sexual content, and any request intended to deceive or defraud. If a request violates this, do NOT generate the requested game. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
+15. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. "make a game" without specifying the kind). Do NOT ask questions if the request is specific enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
+16. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the game, and a <meta name="description"> of one sentence, so the page is understandable when shared.
+
+PHASER GUIDELINES (use these only when the game is built on Phaser 3):
+- Load Phaser 3 exactly once, as a classic script in the <head>, before any module script:
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+  It exposes the global Phaser. Do NOT add Phaser to the import map and do NOT import it as a module.
+- Mount the game to a dedicated container element you put in the markup -- never document.body:
+  new Phaser.Game({ type: Phaser.AUTO, parent: 'game', backgroundColor: '#0b1020',
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 480, height: 800 },
+    physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
+    scene: [BootScene, MenuScene, PlayScene] })
+  Use Phaser.Scale.FIT with a fixed logical width/height so the game is responsive on phones and desktops; choose portrait dimensions for mobile-first games and landscape for desktop-first ones.
+- Structure the game as Phaser scenes with preload/create/update methods (class X extends Phaser.Scene, or scene objects). Use one scene per state (boot, menu, play, game-over) so the start/pause/game-over flow (rule 8) becomes scene transitions.
+- Generate ALL textures in code: this.add.graphics() + generateTexture(), this.textures.generate(), this.add.rectangle()/circle()/triangle(), this.add.text(), and the Graphics API. For tilemaps, define the map data as a plain array in code and build the level from it -- no tileset images.
+- Input: this.input.keyboard.createCursorKeys() and this.input.keyboard.addKeys('W,A,S,D,SPACE'), plus pointer events (this.input.on('pointerdown', ...)). For touch, add large Tailwind-styled DOM buttons around the canvas that set input flags the active scene reads; do not rely on hidden keyboard input being available on phones.
+- Use Arcade Physics for movement and collision (this.physics.add.sprite, groups, collider, overlap) rather than writing collision math by hand. Use this.tweens for easing and this.add.particles for juice.
+- Do not use Phaser's audio loader (there are no audio files); keep the Web Audio approach from rule 7 for procedural sound effects and the mute toggle.
+- Keep the Phaser.Game instance in a module-scoped const that the rest of the code can reach, and make sure scenes are defined before the game config references them.
+
+SURGICAL EDIT GUIDELINES:
+- Analyze the full code structure before deciding where and how to edit.
+- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
+- Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name --> in HTML, and // @section: name inside a script block, where an HTML comment would be a syntax error. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
+- When you add a new region of markup or module code, give it its own landmark in the matching syntax so it is anchorable next time.
+- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
+- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- NEVER break the game loop: an edit that stops requestAnimationFrame from being scheduled, throws inside the update/draw functions, or leaves input listeners detached turns a working game into a frozen screen. Keep the loop and input wiring intact.
+
+REPLY GUIDELINES:
+- You MUST ALWAYS add ONE short, plain-English sentence of conversational reply (max ~15 words) acknowledging the request or explaining what you will do. Never more than one sentence, never a list, never a restatement of your plan.
+- Initial generation (no tools available yet): put your reply FIRST, followed by a single blank line, then the HTML starting immediately at <!DOCTYPE html>. Never put any text after the HTML.
+- Edits (tool-calling turns): your reply MUST accompany the tool call. Never skip a required tool call in order to reply instead, but always include the reply in the text content before calling the tool.
+
+Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
+
 const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
 - Use blip.ai.text(messages, { temperature?, maxTokens?, onChunk? }) for every AI text feature. This function returns a Promise that resolves to an object like: { text: "response" }. When onChunk is provided it receives streamed text deltas. Always generate this canonical lowercase spelling for blip.ai.text.
 - Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this text API.
@@ -349,7 +426,11 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 - Editing: use list_pages to see the pages, and pass file to view_code, list_sections and apply_surgical_edits to target a page (omit it for index.html). Use create_page for a new page and delete_page to remove one, then fix any links that pointed at it.`;
 
 export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted", studioMode = "app") => {
-  const base = studioMode === "website" ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT : HTML_SYSTEM_PROMPT;
+  const base = studioMode === "website"
+    ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
+    : studioMode === "game"
+      ? GAME_HTML_SYSTEM_PROMPT
+      : HTML_SYSTEM_PROMPT;
   if (!aiEnabled) return base;
   const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : (aiMode === "relay" ? RELAY_AI_PROMPT : HOSTED_AI_PROMPT);
   return base + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;
@@ -387,7 +468,7 @@ export const buildInitialGenerationPrompt = (prompt, layoutTarget, projectName) 
   }
 };
 
-export const buildSyntaxRepairInstruction = (errors) => `The current app code contains JavaScript syntax errors that will break the app:
+export const buildSyntaxRepairInstruction = (errors) => `The current code contains JavaScript syntax errors that will break it:
 
 ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
 
@@ -405,4 +486,23 @@ export const buildWebsiteInitialGenerationPrompt = (prompt, projectName) => {
   return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.
 
 Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.${nameInstruction}`;
+};
+
+// The Games Studio's initial-generation instruction. Games are single-file like
+// apps, but the brief leads with gameplay: a playable loop, both control
+// schemes, and a start/play/game-over flow -- the parts a generic "build an
+// app" brief tends to omit, yielding pretty but dead screens.
+export const buildGameInitialGenerationPrompt = (prompt, projectName) => {
+  const trimmedPrompt = prompt.trim();
+  const nameInstruction = buildProjectNameInstruction(projectName, 'game');
+
+  return `Create a complete, playable browser game based on this request: ${trimmedPrompt}.
+
+Build it like a real game, not a mockup:
+- Pick the right engine: raw Canvas 2D with a requestAnimationFrame loop for a simple arcade or puzzle game, or Phaser 3 (loaded from its CDN per the PHASER GUIDELINES) for a sprite-, tilemap-, animation- or physics-heavy game such as a platformer, top-down RPG or shoot-em-up. Either way it must run a real update loop and scale to fit both phone and desktop.
+- Support BOTH keyboard and touch/pointer input. Render large on-screen touch controls when the game needs directional or action input.
+- Include a start screen with controls, active play with a visible score/HUD, a pause state, and a game-over or win screen with restart. Add escalating difficulty, particle/juice effects, and a high-score saved to localStorage.
+- Add procedural Web Audio sound effects with a visible mute toggle (sound starts on the first user interaction).
+- Make it self-contained -- no external image or audio assets, no runtime data fetches, and never use alert(), confirm() or prompt().
+- Size the play area so it feels like a real game on a phone in portrait as well as on a desktop.${nameInstruction}`;
 };

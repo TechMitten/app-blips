@@ -101,6 +101,8 @@ export default function BuildPanel({
                   <>Ask anything.<br />Build nothing.</>
                 ) : studioMode === 'website' ? (
                   <>Prompt in.<br />Website out.</>
+                ) : studioMode === 'game' ? (
+                  <>Prompt in.<br />Game out.</>
                 ) : (
                   <>Prompt in.<br />App out.</>
                 )}
@@ -111,7 +113,9 @@ export default function BuildPanel({
                   ? 'Get a straight answer about your app, or anything else.'
                   : studioMode === 'website'
                     ? "Describe the website you want in plain words. We'll build a working version in seconds — then click any element in the preview to edit it."
-                    : "Describe the app you want in plain words. We'll build a working version in seconds — interactive, and it saves your data."}
+                    : studioMode === 'game'
+                      ? "Describe the game you want in plain words. We'll build a playable version in seconds — controls, score, and all."
+                      : "Describe the app you want in plain words. We'll build a working version in seconds — interactive, and it saves your data."}
               </p>
             </div>
           )}

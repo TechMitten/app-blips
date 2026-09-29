@@ -141,7 +141,7 @@ export default function PromptInput({
   };
 
   const isWebsite = studioMode === 'website';
-  const noun = isWebsite ? 'Website' : 'App';
+  const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : 'App';
 
   const submitLabel = isGenerating
     ? (chatMode === 'ask' ? 'Thinking...' : (isClarifying ? 'Answering...' : (hasCode ? `Updating ${noun}...` : `Building ${noun}...`)))
@@ -210,9 +210,13 @@ export default function PromptInput({
                   ? (isChatActive
                     ? "e.g. Change the hero photo, add a pricing section..."
                     : "e.g. A one-page site for a cozy neighborhood bakery...")
-                  : (isChatActive
-                    ? "e.g. Make the background dark, add a reset button..."
-                    : "e.g. A minimalist task manager with categories...")
+                  : studioMode === 'game'
+                    ? (isChatActive
+                      ? "e.g. Add a boss wave, make the paddle bigger..."
+                      : "e.g. A neon breakout with power-ups and a high-score table...")
+                    : (isChatActive
+                      ? "e.g. Make the background dark, add a reset button..."
+                      : "e.g. A minimalist task manager with categories...")
           }
           className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
           disabled={isGenerating}

@@ -25,8 +25,9 @@ export function setTourState(state) {
 
 export function buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeView, studioMode }) {
   const site = studioMode === 'website';
-  const noun = site ? 'site' : 'app';
-  const aNoun = site ? 'a site' : 'an app';
+  const game = studioMode === 'game';
+  const noun = site ? 'site' : game ? 'game' : 'app';
+  const aNoun = site ? 'a site' : game ? 'a game' : 'an app';
   const steps = [];
 
   steps.push({
@@ -137,7 +138,7 @@ export function buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeV
         target: ['apps'],
         placement: 'bottom',
         title: 'All your projects',
-        body: `Work saves automatically. Apps (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app or website studio.`,
+        body: `Work saves automatically. Apps (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio.`,
       },
       {
         id: 'finish',

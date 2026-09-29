@@ -224,7 +224,7 @@ export const fetchRemixSource = async (post) => {
   if (limitError) throw new Error(limitError);
   return {
     files: clean,
-    studioMode: data.studioMode === 'website' ? 'website' : 'app',
+    studioMode: data.studioMode === 'website' ? 'website' : data.studioMode === 'game' ? 'game' : 'app',
     aiEnabled: Boolean(data.aiEnabled),
   };
 };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  FolderOpen, Search, X, Check, Pencil, Trash2, Smartphone, Globe, ChevronRight, Layers,
+  FolderOpen, Search, X, Check, Pencil, Trash2, Smartphone, Globe, ChevronRight, Layers, Gamepad2,
 } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
@@ -11,15 +11,17 @@ import { formatModifiedTime } from '../lib/helpers';
 const STUDIO_ICONS = {
   app: { Icon: Smartphone, label: 'App', tile: 'bg-indigo-100 text-indigo-700 ring-indigo-200/80 dark:ring-indigo-400/25' },
   website: { Icon: Globe, label: 'Website', tile: 'bg-sky-100 text-sky-700 ring-sky-200/80 dark:ring-sky-400/25' },
+  game: { Icon: Gamepad2, label: 'Game', tile: 'bg-violet-100 text-violet-700 ring-violet-200/80 dark:ring-violet-400/25' },
 };
 
 const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'app', label: 'Apps' },
   { key: 'website', label: 'Websites' },
+  { key: 'game', label: 'Games' },
 ];
 
-const studioOf = (project) => (project.studioMode === 'website' ? 'website' : 'app');
+const studioOf = (project) => (project.studioMode === 'website' ? 'website' : project.studioMode === 'game' ? 'game' : 'app');
 
 const toDate = (value) => {
   if (!value) return null;
@@ -71,6 +73,7 @@ export default function ProjectsListModal({
     all: projects.length,
     app: projects.filter((p) => studioOf(p) === 'app').length,
     website: projects.filter((p) => studioOf(p) === 'website').length,
+    game: projects.filter((p) => studioOf(p) === 'game').length,
   };
   const trimmedQuery = query.trim().toLowerCase();
   const visibleProjects = projects.filter((p) =>

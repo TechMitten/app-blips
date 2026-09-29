@@ -378,7 +378,7 @@
 }
 /* The compact card is content-sized, so cap how tall the stream can grow. */
 .live-code-peek-compact .live-code-peek-body {
-  max-height: calc(14 * 1.55em + 22px);
+  max-height: calc(12 * 1.55em + 22px);
 }
 .live-code-peek .token-comment { color: var(--peek-comment); }
 .live-code-peek .token-doctype { color: var(--peek-doctype); }

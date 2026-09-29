@@ -320,7 +320,7 @@ export default function Header({
           <button
             onClick={onExit}
             className="nav-btn nav-ghost nav-btn-icon"
-            data-tip="Exit to the studio picker (app or website)"
+            data-tip="Exit to the studio picker (app, website or game)"
             aria-label="Exit to the studio picker"
           >
             <DoorOpen size={16} />

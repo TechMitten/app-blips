@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import {
   FileText, History, Search, LogIn, LogOut, Settings, CircleHelp,
   CheckCircle2, Cloud, Files, Code2, Rocket, ChevronRight, LayoutGrid,
+  Gamepad2, Trophy, Smartphone,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -13,8 +14,8 @@ import { DOCS_URL } from '../lib/constants';
 // A deliberately branded, always-dark stage (see studio-choice.css): the cards
 // preview the artifact each studio produces via product imagery.
 
-const CARD_TITLES = { app: 'Mobile & Web App', website: 'Responsive Website', projects: 'Quick Start & Library' };
-const CTA_LABELS = { app: 'Build an app', website: 'Build a website', projects: 'Browse Templates' };
+const CARD_TITLES = { app: 'Mobile & Web App', website: 'Responsive Website', game: 'Browser Game', projects: 'Quick Start & Library' };
+const CTA_LABELS = { app: 'Build an app', website: 'Build a website', game: 'Build a game', projects: 'Browse Templates' };
 
 const CAPABILITIES = {
   app: [
@@ -27,6 +28,11 @@ const CAPABILITIES = {
     { Icon: Files, label: 'Perfect for Portfolios & Blogs' },
     { Icon: Code2, label: 'SEO-Ready HTML Structure' },
   ],
+  game: [
+    { Icon: Gamepad2, label: 'Canvas 2D & Phaser Engines' },
+    { Icon: Trophy, label: 'Score, Levels & Juice' },
+    { Icon: Smartphone, label: 'Touch + Keyboard Controls' },
+  ],
   projects: [
     { Icon: Rocket, label: 'Use a Pre-made Template' },
     { Icon: History, label: 'Resume or Clone Previous Work' },
@@ -37,6 +43,7 @@ const CAPABILITIES = {
 const CARD_IMAGES = {
   app: { src: '/studio/apps.png', alt: 'Mobile app dashboard on a phone' },
   website: { src: '/studio/websites.png', alt: 'Responsive website on a laptop and phones' },
+  game: { src: '/gamecard.png', alt: 'Playable browser game on a phone and laptop' },
   projects: { src: '/studio/openproject.png', alt: 'Project library on a laptop and phone' },
 };
 
@@ -71,7 +78,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       <div className="studio-bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative z-1 h-full overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col px-4 py-6 sm:px-8">
+        <div className="mx-auto flex h-full min-h-[34rem] w-full max-w-6xl flex-col px-4 py-3 sm:px-8 sm:py-4">
           {/* Zero-size defs for the logo: alpha = 3*(R+G+B), so the mark's
               opaque black field becomes transparent (see studio-choice.css). */}
           <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
@@ -80,10 +87,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             </filter>
           </svg>
 
-          <div className="studio-panel relative flex flex-1 flex-col rounded-[28px] px-6 py-10 sm:px-12 sm:py-10">
+          <div className="studio-panel relative flex min-h-0 flex-1 flex-col rounded-[28px] px-4 py-4 sm:px-8 sm:py-5 lg:px-12 lg:py-6">
             {/* Exits from the choice, tucked into the top-right corner:
                 sign out / back, then settings and help. */}
-            <div className="mb-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 animate-stagger-1">
+            <div className="mb-2 flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-2 animate-stagger-1 sm:mb-3">
               {/* Mobile: the mark sits top-left, aligned with the icons. */}
               <div className="studio-logo-badge studio-logo-badge--compact mr-auto sm:hidden">
                 <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img" />
@@ -147,23 +154,24 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               </div>
             </div>
 
-            <header className="flex flex-col items-center text-center animate-stagger-1">
+            <header className="flex shrink-0 flex-col items-center text-center animate-stagger-1">
               {/* On sm+ the mark lifts up into the controls row and centers
                   against the icon buttons; the negative margins keep the
-                  heading below exactly where it was. */}
-              <div className="studio-logo-badge hidden sm:block sm:-mt-[60px] sm:mb-[60px] sm:-translate-y-[20px]">
+                  heading below exactly where it was. Kept modest so the mark
+                  does not eat the height the cards need. */}
+              <div className="studio-logo-badge hidden sm:block sm:-mt-[38px] sm:mb-[6px] sm:-translate-y-[8px]">
                 <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img" />
               </div>
 
-              <h1 className="mt-6 text-[clamp(1.2rem,6.4vw,2.75rem)] font-black tracking-tight text-white sm:text-5xl">
+              <h1 className="mt-4 text-[clamp(1.2rem,6.4vw,2.75rem)] font-black tracking-tight text-white sm:mt-1 sm:text-4xl">
                 What will you build?
               </h1>
-              <p className="mt-3 max-w-[52ch] text-base font-medium text-white/60">
-                Start with an app, a website, or something you&rsquo;ve already made.
+              <p className="mt-2 max-w-[52ch] text-sm font-medium text-white/60 sm:mt-1.5 sm:text-base">
+                Start with an app, a website, a game, or something you&rsquo;ve already made.
               </p>
 
               {requireSignIn && !isSignedIn && (
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
                   <span className="text-sm font-medium text-white/70">Sign in to start building.</span>
                   <button
                     type="button"
@@ -177,8 +185,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               )}
             </header>
 
-            <div className="mt-8 grid w-full gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-stagger-3">
-              {['app', 'website', 'projects'].map((key) => {
+            <div className="mt-3 grid min-h-0 w-full flex-1 grid-cols-2 grid-rows-2 gap-2.5 animate-stagger-3 sm:mt-4 sm:gap-4">
+              {['app', 'website', 'game', 'projects'].map((key) => {
                 const isProjects = key === 'projects';
                 const image = CARD_IMAGES[key];
                 const hasChevron = !isProjects;
@@ -188,35 +196,35 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     type="button"
                     onClick={isProjects ? handleOpenProjects : () => onSelectStudio(key)}
                     aria-label={CTA_LABELS[key]}
-                    className={`studio-card group flex flex-col rounded-3xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08131f] sm:p-5${isProjects ? ' sm:col-span-2 lg:col-span-1' : ''}`}
+                    className="studio-card group flex min-h-0 flex-col overflow-hidden rounded-3xl p-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08131f] sm:p-4"
                   >
-                    <div className="studio-card-well relative mb-5 flex h-60 items-center justify-center">
+                    <div className="studio-card-well relative mb-2 flex min-h-[2.5rem] flex-1 items-center justify-center sm:mb-3">
                       <img src={image.src} alt={image.alt} className="studio-card-image" loading="lazy" />
                       {isProjects && savedAppsCount > 0 && (
-                        <span className="absolute right-1 top-1 inline-flex items-center rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-semibold text-white/75 backdrop-blur-sm">
+                        <span className="absolute right-1 top-1 inline-flex items-center rounded-full border border-white/10 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white/75 backdrop-blur-sm sm:px-3 sm:py-1 sm:text-xs">
                           {savedAppsCount} saved
                         </span>
                       )}
                     </div>
 
-                    <h2 className="px-1 text-2xl font-bold tracking-tight text-white">{CARD_TITLES[key]}</h2>
+                    <h2 className="px-1 text-sm font-bold leading-tight tracking-tight text-white sm:text-lg lg:text-xl">{CARD_TITLES[key]}</h2>
 
-                    <div className="mt-4 space-y-2.5 px-1">
+                    <div className="studio-card-capabilities mt-2 space-y-1.5 px-1">
                       {CAPABILITIES[key].map((cap) => {
                         const { Icon, label } = cap;
                         return (
-                          <div key={label} className="flex items-center gap-2.5 text-sm font-medium text-white/80">
-                            <Icon size={16} className="shrink-0 text-white/90" aria-hidden="true" />
+                          <div key={label} className="flex items-center gap-2 text-xs font-medium text-white/80 lg:text-sm">
+                            <Icon size={14} className="shrink-0 text-white/90" aria-hidden="true" />
                             <span>{label}</span>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="mt-auto pt-6">
-                      <span className="studio-card-cta flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold">
+                    <div className="mt-auto pt-2 sm:pt-3">
+                      <span className="studio-card-cta flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold sm:gap-2 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-sm">
                         {CTA_LABELS[key]}
-                        {hasChevron && <ChevronRight size={18} aria-hidden="true" />}
+                        {hasChevron && <ChevronRight size={15} className="shrink-0" aria-hidden="true" />}
                       </span>
                     </div>
                   </button>

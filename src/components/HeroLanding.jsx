@@ -14,6 +14,10 @@ const COPY = {
     title: 'What website should we build?',
     subtitle: 'Describe your site, then click to edit it.',
   },
+  game: {
+    title: 'What game should we build?',
+    subtitle: 'Describe the game, then play it right here.',
+  },
   app: {
     title: 'What should we build?',
     subtitle: "Describe your app in plain words. We'll build it.",
@@ -59,7 +63,7 @@ export default function HeroLanding({
     saveHeroRailCollapsed(next);
   };
 
-  const copy = COPY[chatMode === 'ask' ? 'ask' : studioMode === 'website' ? 'website' : 'app'];
+  const copy = COPY[chatMode === 'ask' ? 'ask' : studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'];
 
   return (
     <div className="hero-landing dark force-dark flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row">

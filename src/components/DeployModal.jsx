@@ -111,8 +111,8 @@ export default function DeployModal({
   onCaptureThumbnail,
   onViewInGallery,
 }) {
-  const noun = studioMode === 'website' ? 'website' : 'app';
-  const Noun = noun === 'website' ? 'Website' : 'App';
+  const noun = studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app';
+  const Noun = noun === 'website' ? 'Website' : noun === 'game' ? 'Game' : 'App';
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [customSlug, setCustomSlug] = useState('');
