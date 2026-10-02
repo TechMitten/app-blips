@@ -354,8 +354,20 @@ function seoPlugin(mode) {
   }
 }
 
+// VITE_* values are baked into the bundle at build time, so a mistyped key
+// ships to every user and only shows up as "Invalid API key" / sign-in loops
+// at runtime (a Pages build once baked in the literal text
+// "SUPABASE_PUBLISHABLE_KEY"). Fail the build instead. Accepts the new
+// sb_publishable_ keys and legacy anon JWTs; unset still means single-user.
+function checkSupabaseConfig(mode) {
+  const key = loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_PUBLISHABLE_KEY
+  if (key && !/^(sb_publishable_[\w-]+|eyJ[\w-]+\.[\w-]+\.[\w-]+)$/.test(key)) {
+    throw new Error(`VITE_SUPABASE_PUBLISHABLE_KEY doesn't look like a Supabase publishable key (got "${key.slice(0, 24)}..."). Set it to the sb_publishable_... value from the Supabase dashboard.`)
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
   // The app's version, for the self-hosted update check (src/lib/updates.js).
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
