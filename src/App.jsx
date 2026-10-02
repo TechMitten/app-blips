@@ -25,6 +25,7 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import GalleryView from './components/gallery/GalleryView';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
+import UpdateNotice from './components/UpdateNotice';
 import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
@@ -2040,6 +2041,7 @@ export default function App() {
         {galleryOverlay}
         {settingsModal}
         {isDesktop && <DesktopStorageNotice />}
+        {!supabaseEnabled && <UpdateNotice />}
         {isAuthModalOpen && supabaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
         )}
@@ -2238,6 +2240,7 @@ export default function App() {
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
       {isDesktop && <DesktopStorageNotice />}
+      {!supabaseEnabled && <UpdateNotice />}
 
       {galleryOverlay}
 

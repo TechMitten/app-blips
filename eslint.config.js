@@ -8,7 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // `android/` holds the Capacitor native project; its assets/public is a
   // minified copy of dist/ written by `cap sync`, not source we maintain.
-  globalIgnores(['dist', 'dist-desktop', '.wrangler', 'android']),
+  globalIgnores(['dist', 'dist-desktop', 'dist-electron', '.wrangler', 'android']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -19,7 +19,8 @@ export default defineConfig([
     plugins: { react },
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // __APPBLIPS_VERSION__ is substituted by Vite's `define` (vite.config.js).
+      globals: { ...globals.browser, __APPBLIPS_VERSION__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

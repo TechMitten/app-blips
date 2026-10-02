@@ -2,8 +2,10 @@ name: Desktop
 
 # Builds the desktop installers on each OS natively: Windows NSIS (.exe) on
 # windows-latest, AppImage + .deb on ubuntu-latest. Run it by hand from the
-# Actions tab, or push a tag like v0.1.0 to also attach them to a draft
-# GitHub Release (bump "version" in package.json to match first).
+# Actions tab, or push a tag like v0.1.0 to also collect them into one draft
+# GitHub Release (bump "version" in package.json to match first). Publishing
+# that draft is what rolls the update out: installed apps check the latest
+# published release, using the latest*.yml files uploaded alongside.
 
 on:
   workflow_dispatch:
@@ -35,12 +37,22 @@ jobs:
             dist-desktop/*.exe
             dist-desktop/*.AppImage
             dist-desktop/*.deb
+            dist-desktop/*.blockmap
+            dist-desktop/latest*.yml
           if-no-files-found: error
-      - if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+
+  # One job creates the release, so the two builds can't each start their own
+  # draft (the tag lookup doesn't see drafts).
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: |
-            dist-desktop/*.exe
-            dist-desktop/*.AppImage
-            dist-desktop/*.deb
+          files: release/*

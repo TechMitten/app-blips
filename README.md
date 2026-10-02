@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
 
 ## Why AppBlips?
 
-Tools like Bolt and Lovable are great, but they're built for developers — multi-file projects, build pipelines, and IDE-style interfaces. **AppBlips is built to be simple.** Every app or website is designed around plain-language prompting, instant preview, and a clean path from idea to working result. It strips away setup work so you can focus on the app itself.
+**AppBlips is built for everyone.** If you've never written a line of code, you can describe what you want in plain language and use the result a few seconds later. If you code every day, you get a fast way to sketch ideas, prototype tools, and build small apps and games without setting up a project. Every app or website is designed around plain-language prompting, instant preview, and a clean path from idea to working result, and the code is always there to read, export, and change. AppBlips strips away setup work so you can focus on the app itself.
 
 ## What it is
 
@@ -83,6 +83,8 @@ Want your own copy on your computer? Download the installer for your system from
 
 The first time you open it, AppBlips asks for an AI provider, a model and your API key. OpenAI, OpenRouter (for Claude, Gemini and most other models), DeepSeek and Z.ai (pay-as-you-go or a GLM Coding Plan) are supported. Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
 
+The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
+
 On macOS, or want to change AppBlips itself? See [Running from source](#running-from-source) below.
 
 ### AI inside the apps you build
@@ -101,7 +103,7 @@ In the desktop app and when running from source, generated apps reach your provi
 
 ---
 
-*The sections below are for running AppBlips from source (macOS, contributors, servers) and for developers working on AppBlips itself. If you use appblips.com or installed the desktop app, you're already set — open AppBlips and start typing.*
+*The sections below cover running AppBlips from source (on macOS, on a server, or to change AppBlips itself) and how the project is put together. If you use appblips.com or installed the desktop app, you're already set — open AppBlips and start typing.*
 
 ## Running from source
 
@@ -123,7 +125,16 @@ APPBLIPS_LLM_MODEL=gpt-5.1
 
 Any other OpenAI-chat-completions-compatible endpoint works too, including local models through Ollama or LM Studio (see "Advanced" in `.env.example`). Then start AppBlips with `npm run dev` and open `http://localhost:5175`. It prints which AI provider it found when it starts.
 
+To update later, run `git pull && npm install` and restart (AppBlips shows a notice when a new version is out).
+
 To build the desktop app from source instead, run `npm run desktop` (or `npm run desktop:dist` for installers in `dist-desktop/`).
+
+### Releasing a new version
+
+1. Bump `version` in `package.json` (for example `0.2.0`) and commit.
+2. Push a matching tag: `git tag v0.2.0 && git push origin v0.2.0`.
+3. The **Desktop** workflow builds the Windows and Linux installers and collects them, with the `latest*.yml` update files, into a draft GitHub release.
+4. Write the release notes and publish the draft. That is what rolls the update out: desktop apps on Windows and AppImage download it, and every other self-hosted copy shows a notice linking to it.
 
 ### Running with Docker
 

@@ -13,7 +13,9 @@ import { isDesktop } from '../lib/desktop';
 import {
   CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
   loadUserProvider, saveUserProvider, clearUserProvider, activeUserProvider,
+  loadCheckUpdates, saveCheckUpdates,
 } from '../lib/config';
+import { CURRENT_VERSION } from '../lib/updates';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 
@@ -315,6 +317,11 @@ export default function SettingsModal({
   initialTab = null,
 }) {
   const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
+  const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
+  const onCheckUpdatesChange = (enabled) => {
+    setCheckUpdates(enabled);
+    saveCheckUpdates(enabled);
+  };
   // The AI tab's provider panel reports unsaved edits here. Leaving the tab or
   // closing Settings with any asks first (Save / Discard / Keep editing), so
   // details typed in aren't silently lost by clicking Done.
@@ -489,6 +496,15 @@ export default function SettingsModal({
               <SettingRow id="set-splash" title="Skip splash screen" description="Skip the intro animation on launch. Takes effect on the next page load.">
                 <Switch checked={skipSplash} onChange={onSkipSplashChange} labelledBy="set-splash" />
               </SettingRow>
+              {!supabaseEnabled && (
+                <SettingRow
+                  id="set-updates"
+                  title="Check for updates"
+                  description={`You're on AppBlips ${CURRENT_VERSION}. When on, AppBlips asks GitHub about new versions${isDesktop ? ' and downloads them in the background where it can' : ''}. GitHub sees your IP address. Takes effect on the next launch.`}
+                >
+                  <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
+                </SettingRow>
+              )}
             </>
           )}
 

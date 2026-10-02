@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Readable, pipeline } from 'node:stream'
+import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
 import { handleAiChat, handleAiSession } from './functions/_lib/aiRelay.js'
 import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
@@ -361,6 +362,10 @@ function seoPlugin(mode) {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
+  // The app's version, for the self-hosted update check (src/lib/updates.js).
+  define: {
+    __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
+  },
   plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
   // in .env), but it's the one flag both the client bundle (src/supabase.js)

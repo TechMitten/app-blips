@@ -7,13 +7,13 @@ copyright: Copyright © 2026 TechMitten
 directories:
   output: dist-desktop
   buildResources: build
-# The main process uses only Node built-ins and the renderer is pre-bundled in
-# dist/, so no node_modules ship in the app.
+# The renderer is pre-bundled in dist/ and the main process (with the server
+# handlers and electron-updater) in dist-electron/ (scripts/build-electron.js),
+# so no node_modules ship in the app.
 files:
   - dist/**
-  - electron/**
-  - functions/_lib/**
-  - src/lib/pages.js
+  - dist-electron/**
+  - electron/preload.cjs
   - build/icon.png
   - package.json
   - "!**/node_modules/**"
@@ -43,4 +43,12 @@ linux:
   icon: build/icon.png
   synopsis: Turn a text prompt into a working app, website or game.
   artifactName: AppBlips-${version}-${arch}.${ext}
-publish: null
+# Where electron-updater looks for new versions (Windows and AppImage builds
+# update themselves; see electron/updater.js). Builds never upload by
+# themselves (--publish never): the Desktop workflow attaches the installers
+# and latest*.yml files to a draft release, which updates go out from once
+# it is published.
+publish:
+  provider: github
+  owner: TechMitten
+  repo: app-blips

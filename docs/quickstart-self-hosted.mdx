@@ -70,6 +70,17 @@ Prefer containers? [Docker](/self-hosting/docker) runs the same thing from a sin
   A self-hosted copy has **no sign-in**. The `/api/chat` and `/api/app-ai/chat` endpoints accept every request as the same local user and spend your API key. Keep AppBlips on your own computer. If other devices on your network can reach it, put your own access control in front of it.
 </Warning>
 
+## Updating
+
+AppBlips tells you when a new version is out (you can turn this off in **Settings → Workspace → Check for updates**). To update, run this in the project folder, then restart AppBlips:
+
+```bash
+git pull
+npm install
+```
+
+With Docker, run `docker compose up --build` after `git pull`.
+
 ## Supported AI Providers
 
 | Provider | `.env` key | Example model |

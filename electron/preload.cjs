@@ -24,6 +24,17 @@ if (window.location.protocol === 'appblips:') {
       set: call('desktop:provider:set'),
       clear: call('desktop:provider:clear'),
     },
+    updates: {
+      check: call('desktop:update:check'),
+      install: call('desktop:update:install'),
+      // Status pushes from the updater ({ status, version }). Returns an
+      // unsubscribe function.
+      onStatus: (listener) => {
+        const handler = (_event, state) => listener(state);
+        ipcRenderer.on('desktop:update', handler);
+        return () => ipcRenderer.removeListener('desktop:update', handler);
+      },
+    },
     folder: {
       get: call('desktop:folder:get'),
       open: call('desktop:folder:open'),

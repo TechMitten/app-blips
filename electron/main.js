@@ -22,6 +22,7 @@ import { describeConfig, formatConfigSummary } from '../functions/_lib/configSum
 import { resolveProvider } from '../functions/_lib/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { createProviderStore, providerEnv } from './providerStore.js';
+import { createUpdater } from './updater.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -69,6 +70,9 @@ if (!app.requestSingleInstanceLock()) {
 let mainWindow = null;
 let projectStore;
 let providerStore;
+let updater;
+// Set once queued project writes are on disk, so the next quit goes ahead.
+let flushed = false;
 
 // ---- Settings (projects folder location) -----------------------------------
 const settingsFile = () => join(app.getPath('userData'), 'settings.json');
@@ -220,6 +224,9 @@ function registerIpc() {
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', () => providerStore.clear());
+
+  handle('desktop:update:check', () => updater.check());
+  handle('desktop:update:install', () => updater.install());
 
   handle('desktop:folder:get', () => projectStore.root);
   handle('desktop:folder:open', async (id) => {
@@ -376,6 +383,15 @@ app.whenReady().then(() => {
     crypto: safeStorage,
   });
 
+  updater = createUpdater({
+    app,
+    send: (state) => mainWindow?.webContents.send('desktop:update', state),
+    beforeInstall: async () => {
+      await projectStore.flush();
+      flushed = true;
+    },
+  });
+
   protocol.handle(SCHEME, handleAppRequest);
   registerIpc();
   buildMenu();
@@ -392,7 +408,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => app.quit());
 
 // Let queued project writes finish before the process exits.
-let flushed = false;
 app.on('before-quit', (event) => {
   if (flushed || !projectStore) return;
   event.preventDefault();

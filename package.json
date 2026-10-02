@@ -10,7 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/TechMitten/app-blips.git"
   },
-  "main": "electron/main.js",
+  "main": "dist-electron/main.cjs",
   "desktopName": "appblips.desktop",
   "type": "module",
   "scripts": {
@@ -19,9 +19,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "usage": "node scripts/usage-dashboard.js",
-    "desktop": "vite build --mode desktop && electron .",
+    "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
-    "desktop:dist": "vite build --mode desktop && electron-builder --publish never"
+    "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

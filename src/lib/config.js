@@ -107,6 +107,45 @@ export const loadSkipSplash = () => {
   }
 };
 
+export const CHECK_UPDATES_KEY = 'orion-check-updates';
+export const DISMISSED_UPDATE_KEY = 'orion-update-dismissed';
+
+// Boolean: whether a self-hosted copy asks GitHub for new releases
+// (lib/updates.js, desktop updater). On by default; off is stored explicitly.
+export const loadCheckUpdates = () => {
+  try {
+    return safeStorage('local')?.getItem(CHECK_UPDATES_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
+export const saveCheckUpdates = (enabled) => {
+  try {
+    safeStorage('local')?.setItem(CHECK_UPDATES_KEY, enabled ? 'true' : 'false');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+// The release version whose update notice the user closed, so it doesn't
+// come back until an even newer one is out.
+export const loadDismissedUpdate = () => {
+  try {
+    return safeStorage('local')?.getItem(DISMISSED_UPDATE_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
+export const saveDismissedUpdate = (version) => {
+  try {
+    safeStorage('local')?.setItem(DISMISSED_UPDATE_KEY, String(version));
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
 export const AUTO_FOLLOW_CODE_KEY = 'orion-auto-follow-code';
 
 // Boolean: whether the Code tab auto-scrolls to follow the latest streamed
