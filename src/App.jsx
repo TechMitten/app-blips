@@ -4,6 +4,7 @@ import { injectPreviewBridge } from './previewBridge';
 import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
 import { generatedAiMode, generatedAiRelayUrl, previewAiViaParent, absoluteRelayUrl } from './lib/generatedAiMode';
 import { supabaseEnabled } from './supabase';
+import { isDesktop, desktopBridge } from './lib/desktop';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -23,6 +24,7 @@ import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import GalleryView from './components/gallery/GalleryView';
+import DesktopStorageNotice from './components/DesktopStorageNotice';
 import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
@@ -64,7 +66,7 @@ import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import usePageNavigation from './hooks/usePageNavigation';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
-import { buildSiteShell } from './lib/siteRouter';
+import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
 
@@ -90,6 +92,20 @@ export default function App() {
     return window.matchMedia('(min-width: 1280px)').matches && stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState(null);
+  // Desktop first run: nothing can be built until an AI provider is set, so
+  // open Settings → AI when neither it nor environment variables provide one.
+  useEffect(() => {
+    if (!isDesktop) return undefined;
+    let cancelled = false;
+    desktopBridge.provider.get().then((info) => {
+      const ready = info.envConfigured || (info.enabled && info.id && info.model && info.hasKey);
+      if (cancelled || ready) return;
+      setSettingsInitialTab('ai');
+      setIsSettingsOpen(true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
@@ -1473,27 +1489,36 @@ export default function App() {
     }
   };
 
-  // Pages as they leave the app (new tab / export): the self-hosted AI bridge is
+  // Pages as they leave the app in an export: the self-hosted AI bridge is
   // added per page here, never stored in `files`. The relay URL is made
-  // absolute against this origin: a new tab is a blob: page, where a relative
-  // URL cannot resolve.
-  const buildOutputFiles = () => {
+  // absolute against this origin, since the file is opened elsewhere. A
+  // desktop export gets the BYOK bridge instead: the relay lives at
+  // appblips://app, which a browser opening the file can't reach.
+  const buildExportFiles = () => {
     const protectedFiles = mapPages(files, (html) => injectLoopProtection(html));
+    const mode = isDesktop ? 'byok' : generatedAiMode;
     return (!supabaseEnabled && aiEnabled)
-      ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode: generatedAiMode, relayUrl: absoluteRelayUrl() }))
+      ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode, relayUrl: absoluteRelayUrl() }))
       : protectedFiles;
   };
 
+  // The new tab is a blob: page with AppBlips' own origin, so the generated
+  // code must not run in it directly: it would reach AppBlips' storage
+  // (sign-in session, saved provider key) and /api/chat. The tab gets a
+  // trusted shell instead, with the app in a sandboxed iframe like the preview
+  // (lib/newTabShell.js). AI goes through the shell to the self-hosted relay,
+  // and only when the AI switch is on; hosted mode has no new-tab AI.
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
-    const outputFiles = buildOutputFiles();
-    // Sibling pages have nothing to resolve against from a blob: URL, so a
-    // multi-page site opens as one document that routes between its pages.
-    const outputHtml = Object.keys(outputFiles).length > 1
-      ? buildSiteShell(outputFiles, projectName)
-      : getLanding(outputFiles);
-    const blob = new Blob([outputHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
+    const aiMode = supabaseEnabled || !aiEnabled ? 'off' : (generatedAiMode === 'byok' ? 'byok' : 'relay');
+    const shellHtml = buildNewTabShell({
+      files,
+      title: projectName || 'Preview',
+      aiMode,
+      relayUrl: absoluteRelayUrl(),
+      initialStorage: { ...previewStorageRef.current },
+    });
+    const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
     window.open(url, '_blank');
   };
 
@@ -1503,7 +1528,7 @@ export default function App() {
   // Supabase Storage); in hosted mode it sits alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
-    const outputFiles = buildOutputFiles();
+    const outputFiles = buildExportFiles();
     const baseName = slugifyName(projectName) || 'app';
     const names = pageNames(outputFiles);
     const blob = names.length > 1
@@ -1934,7 +1959,8 @@ export default function App() {
   // Shared by the studio picker and the workspace/hero, like signOutConfirmModal.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
-          onClose={() => setIsSettingsOpen(false)}
+          onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
+          initialTab={settingsInitialTab}
           themePreference={themePreference}
           onThemePreferenceChange={setThemePreference}
           resolvedTheme={resolvedTheme}
@@ -2013,6 +2039,7 @@ export default function App() {
         />
         {galleryOverlay}
         {settingsModal}
+        {isDesktop && <DesktopStorageNotice />}
         {isAuthModalOpen && supabaseEnabled && (
           <AuthModal onClose={handleCloseAuthModal} />
         )}
@@ -2163,6 +2190,7 @@ export default function App() {
           onCopyUrl={handleCopyDeployUrl}
           onRequireSignIn={handleRequireSignInFromDeploy}
           projectName={projectName}
+          previewMode={previewMode}
           galleryPost={galleryPost}
           galleryPostLoading={galleryPostLoading}
           galleryError={galleryError}
@@ -2209,6 +2237,7 @@ export default function App() {
       )}
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
+      {isDesktop && <DesktopStorageNotice />}
 
       {galleryOverlay}
 

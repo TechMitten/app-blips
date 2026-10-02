@@ -77,11 +77,15 @@ function llmProxyDevMiddleware(mode) {
         }
         const chunks = []
         for await (const chunk of req) chunks.push(chunk)
-        const request = new Request('http://localhost/api/chat', {
+        // The real Host and Origin go through: self-hosted mode refuses
+        // browser requests from other sites (isForeignOrigin in chatProxy.js).
+        const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim()
+        const request = new Request(protocol + '://' + (req.headers.host || 'localhost') + '/api/chat', {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
             ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+            ...(req.headers.origin ? { origin: req.headers.origin } : {}),
           },
           body: Buffer.concat(chunks),
         })

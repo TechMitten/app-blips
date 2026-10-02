@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Rocket, TriangleAlert, Trash2, Copy, CopyCheck, Check, SquareArrowOutUpRight,
-  LogIn, LoaderCircle, X, Share2, Camera, ImageUp, ArrowRight, Globe, LockKeyhole, LayoutGrid
+  LogIn, LoaderCircle, X, Share2, Camera, ImageUp, ArrowRight, Globe, LockKeyhole, LayoutGrid,
+  Smartphone, Tablet, Monitor
 } from 'lucide-react';
 import Modal from './Modal';
 import {
@@ -105,6 +106,7 @@ export default function DeployModal({
   onCopyUrl,
   onRequireSignIn,
   projectName = '',
+  previewMode = 'desktop',
   galleryPost = null,
   galleryPostLoading = false,
   galleryError = null,
@@ -144,6 +146,9 @@ export default function DeployModal({
   const [galleryEnabled, setGalleryEnabled] = useState(() => !deployment);
   const [galleryTitle, setGalleryTitle] = useState(projectName);
   const [galleryDescription, setGalleryDescription] = useState('');
+  const [galleryDevice, setGalleryDevice] = useState(() => (
+    ['mobile', 'tablet', 'desktop'].includes(previewMode) ? previewMode : 'desktop'
+  ));
   const [allowRemix, setAllowRemix] = useState(true);
   const [seededPostId, setSeededPostId] = useState(null);
   if (galleryPost && galleryPost.id !== seededPostId) {
@@ -151,6 +156,7 @@ export default function DeployModal({
     setGalleryEnabled(true);
     setGalleryTitle(galleryPost.title);
     setGalleryDescription(galleryPost.description || '');
+    setGalleryDevice(['mobile', 'tablet', 'desktop'].includes(galleryPost.device_type) ? galleryPost.device_type : 'desktop');
     setAllowRemix(galleryPost.allow_remix);
   }
   // A new thumbnail, { dataUrl } -- only uploaded when set.
@@ -252,6 +258,7 @@ export default function DeployModal({
         enabled: galleryActive,
         title: galleryTitle,
         description: galleryDescription,
+        deviceType: galleryDevice,
         allowRemix,
         thumbnailBlob,
       };
@@ -649,6 +656,29 @@ export default function DeployModal({
         : `${galleryPost ? 'Currently listed. ' : ''}Share your ${noun} with the AppBlips community. Anyone can view it; signed-in users can like, comment and remix.`}
       details={galleryActive && (
         <div className="space-y-2.5">
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">Showcase device</span>
+            <p className="mb-2 text-xs text-slate-500">Choose the mockup visitors will see in the Gallery.</p>
+            <div className="gallery-device-picker" role="group" aria-label="Gallery showcase device">
+              {[
+                ['mobile', 'Smartphone', Smartphone],
+                ['tablet', 'Tablet', Tablet],
+                ['desktop', 'Desktop', Monitor],
+              ].map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setGalleryDevice(value)}
+                  className={galleryDevice === value ? 'is-active' : ''}
+                  aria-pressed={galleryDevice === value}
+                  aria-label={label}
+                >
+                  <Icon size={16} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="gallery-thumb-picker relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
             {(thumbnail?.dataUrl || existingThumbnailUrl) ? (
               <img

@@ -332,3 +332,88 @@ test('hosted mode still requires sign-in and validates user_provider', async (t)
   assert.equal((await send({ user_provider: { ...userProvider, apiKey: 5 } }, auth)).status, 400);
   assert.equal((await send({ user_provider: userProvider }, auth)).status, 200);
 });
+
+// Self-hosted mode has no sign-in, so browser requests from other sites
+// (including text/plain "simple" POSTs that skip CORS preflight, and
+// sandboxed apps with Origin "null") must not reach the provider.
+test('self-hosted refuses browser requests from other origins before calling the provider', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('provider must not be called');
+  });
+  const send = (origin, settings = {}, url = 'http://localhost:5175/api/chat') => handleChatProxy(new Request(url, {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain', ...(origin ? { origin } : {}) },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { ...env, ...settings });
+
+  for (const origin of ['https://evil.example', 'null', 'http://localhost:5176', 'https://localhost:5175']) {
+    const response = await send(origin);
+    assert.equal(response.status, 403, origin);
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('self-hosted accepts its own origin, listed origins, the desktop scheme and no-origin clients', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
+  const send = (origin, settings = {}, url = 'http://localhost:5175/api/chat') => handleChatProxy(new Request(url, {
+    method: 'POST',
+    headers: origin ? { origin } : {},
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { ...env, ...settings });
+
+  assert.equal((await send('http://localhost:5175')).status, 200);
+  assert.equal((await send(null)).status, 200);
+  assert.equal((await send('https://proxy.example', { APPBLIPS_CHAT_ALLOWED_ORIGINS: 'https://other.example, https://proxy.example' })).status, 200);
+  assert.equal((await send('appblips://app', {}, 'appblips://app/api/chat')).status, 200);
+});
+
+test('hosted mode leaves other-origin requests to the sign-in check', async () => {
+  const response = await handleChatProxy(new Request('https://appblips.com/api/chat', {
+    method: 'POST',
+    headers: { origin: 'https://evil.example' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { SELF_HOSTED_MODE: 'false', SUPABASE_PUBLISHABLE_KEY: 'pk' });
+  assert.equal(response.status, 401);
+});
+
+// A provider's own 429 (e.g. Z.ai balance or concurrency limits) is passed
+// to self-hosted users with its reason, marked as coming from the provider.
+test('provider 429 reaches self-hosted users with the provider reason', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(
+    JSON.stringify({ error: { code: '1113', message: 'Insufficient balance or no resource package.' } }),
+    { status: 429, headers: { 'content-type': 'application/json', 'retry-after': '30' } },
+  ));
+  const response = await handleChatProxy(new Request('http://localhost:5175/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), env);
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get('retry-after'), '30');
+  const body = await response.json();
+  assert.equal(body.source, 'provider');
+  assert.match(body.error, /turned the request down: Insufficient balance or no resource package\./);
+});
+
+// Self-hosted users spend their own key, so neither the builder proxy nor the
+// app AI relay throttles them; hosted keeps its per-user limit.
+test('self-hosted builder requests are not rate limited', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
+  const send = (settings) => handleChatProxy(new Request('http://localhost:5175/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { ...env, APPBLIPS_CHAT_RATE_LIMIT_MAX: '2', ...settings });
+  for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `self-hosted request ${i + 1}`);
+});
+
+test('self-hosted app AI relay is not rate limited', async (t) => {
+  const { handleSelfHostedAiChat } = await import('../functions/_lib/selfHostedAiRelay.js');
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { headers: { 'content-type': 'application/json' } }));
+  const relayEnv = { ...env, APPBLIPS_APP_AI_RATE_LIMIT_MAX: '1' };
+  for (let i = 0; i < 5; i++) {
+    const response = await handleSelfHostedAiChat(new Request('http://localhost:5175/api/app-ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: `call ${i}` }] }),
+    }), relayEnv);
+    assert.equal(response.status, 200, `relay request ${i + 1}`);
+  }
+});

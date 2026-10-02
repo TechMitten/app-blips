@@ -8,7 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // `android/` holds the Capacitor native project; its assets/public is a
   // minified copy of dist/ written by `cap sync`, not source we maintain.
-  globalIgnores(['dist', '.wrangler', 'android']),
+  globalIgnores(['dist', 'dist-desktop', '.wrangler', 'android']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -34,9 +34,17 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'server.js', 'functions/**/*.js', 'testing/**/*.js', 'scripts/**/*.js'],
+    files: ['vite.config.js', 'server.js', 'functions/**/*.js', 'testing/**/*.js', 'scripts/**/*.js', 'electron/**/*.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    // Sandboxed Electron preload: CommonJS with both browser and Node globals.
+    files: ['electron/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.browser, ...globals.node },
     },
   },
 ])

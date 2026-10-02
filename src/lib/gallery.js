@@ -16,7 +16,7 @@ import { LANDING_PAGE, validatePageName, checkFilesLimits } from './pages';
 // the deploy-time snippets or the preview bridge) and exists only while the
 // author allows remixing.
 
-const POST_COLUMNS = 'id, slug, user_id, author_username, title, description, thumbnail_path, remix_path, allow_remix, likes_count, comments_count, views_count, created_at, updated_at, hidden';
+const POST_COLUMNS = 'id, slug, user_id, author_username, title, description, device_type, thumbnail_path, remix_path, allow_remix, likes_count, comments_count, views_count, created_at, updated_at, hidden';
 const COMMENT_COLUMNS = 'id, post_id, user_id, author_username, body, created_at';
 const VIEWER_KEY = 'appblips-gallery-viewer';
 const SOURCE_FORMAT = 1;
@@ -80,9 +80,14 @@ const removePaths = async (paths) => {
 // re-uploaded on every publish while remixing is allowed, so remixes track the
 // latest deploy.
 export const publishToGallery = async ({
-  slug, userId, title, description = '', allowRemix = true, thumbnailBlob = null, source = null,
+  slug, userId, title, description = '', deviceType = 'desktop', allowRemix = true, thumbnailBlob = null, source = null,
 }) => {
-  const fields = { title: title.trim(), description: description.trim(), allow_remix: Boolean(allowRemix) };
+  const fields = {
+    title: title.trim(),
+    description: description.trim(),
+    device_type: ['mobile', 'tablet', 'desktop'].includes(deviceType) ? deviceType : 'desktop',
+    allow_remix: Boolean(allowRemix),
+  };
   let post = await fetchPostBySlug(slug);
 
   if (post) {

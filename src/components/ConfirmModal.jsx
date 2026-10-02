@@ -2,12 +2,17 @@ import Modal, { ModalCloseButton } from './Modal';
 
 // Generic header/body/footer confirmation dialog (delete app, start new app).
 // `children` is the message body; `confirmClass` styles the confirm button.
+// An optional secondary action (e.g. "Discard changes") sits between Cancel
+// and the confirm button.
 export default function ConfirmModal({
   title,
   subtitle,
   onClose,
   onConfirm,
   confirmLabel,
+  cancelLabel = 'Cancel',
+  secondaryLabel,
+  onSecondary,
   busyLabel,
   busy = false,
   confirmDisabled = false,
@@ -33,8 +38,18 @@ export default function ConfirmModal({
           onClick={onClose}
           className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
         >
-          Cancel
+          {cancelLabel}
         </button>
+        {secondaryLabel && (
+          <button
+            type="button"
+            onClick={onSecondary}
+            disabled={busy}
+            className="rounded-lg px-4 py-2 font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {secondaryLabel}
+          </button>
+        )}
         <button
           type="button"
           onClick={onConfirm}

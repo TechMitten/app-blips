@@ -101,7 +101,7 @@ console.log('testPages (serving): ok');
 
 // --- client-side site router (password bundle / new-tab shell) ---
 import vm from 'node:vm';
-const { SITE_ROUTER_SOURCE, buildSiteShell } = await import('../src/lib/siteRouter.js');
+const { SITE_ROUTER_SOURCE } = await import('../src/lib/siteRouter.js');
 assert.ok(!SITE_ROUTER_SOURCE.includes('</'), 'router source must not contain a closing tag');
 assert.ok(!SITE_ROUTER_SOURCE.includes('\\') && !SITE_ROUTER_SOURCE.includes('${'), 'router source must stay template-safe');
 
@@ -152,8 +152,6 @@ assert.equal(rt.click('/about'), true);
 assert.deepEqual(rt.written, ['<h1>About</h1>']);
 assert.deepEqual(rt.pushed, [], 'no history changes without a slug');
 
-const shell = buildSiteShell({ 'index.html': '<p>x</p></script><script>evil()</script>' }, 'T<b>');
-assert.equal((shell.match(/<\/script>/g) || []).length, 1, 'page HTML cannot end the shell script early');
 console.log('testPages (router): ok');
 
 // --- zip export ---

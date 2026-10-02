@@ -1,16 +1,20 @@
-import { useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, HardDrive } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
+import DataSettings from './DataSettings';
+import DesktopProviderSettings from './DesktopProviderSettings';
 import {
   SettingRow, Switch, TabList, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
 import authProvider from '../lib/auth';
+import { supabaseEnabled } from '../supabase';
+import { isDesktop } from '../lib/desktop';
 import {
   CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
   loadUserProvider, saveUserProvider, clearUserProvider, activeUserProvider,
 } from '../lib/config';
-import { requestModelText } from '../lib/llm';
+import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
@@ -20,6 +24,9 @@ import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 // functions/_lib/chatProxy.js). The AI tab can also set the user's own
 // provider preset, model and key, stored only in this browser (lib/config)
 // and sent with each /api/chat request; reasoning effort is a per-user choice.
+// The desktop app swaps that for DesktopProviderSettings (key kept in the main
+// process). Data (self-hosted and desktop only) holds project backup/import
+// and the desktop projects folder.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -29,6 +36,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  ...(supabaseEnabled ? [] : [{ id: 'data', label: 'Data', Icon: HardDrive }]),
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
@@ -68,6 +76,7 @@ const MODEL_PLACEHOLDERS = {
   openrouter: 'e.g. anthropic/claude-sonnet-5',
   deepseek: 'e.g. deepseek-chat',
   zai: 'e.g. glm-5.3-flash',
+  'zai-coding': 'e.g. glm-5.3',
 };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
@@ -81,8 +90,9 @@ const initialDraft = () => {
 
 // The user's own provider (a preset, a model and a key) instead of the
 // server's env provider. The on/off switch applies at once; field edits are a
-// draft until Save, so a half-typed key is never used or stored.
-function UserProviderSettings() {
+// draft until Save, so a half-typed key is never used or stored. `guardRef`
+// lets the modal stop the user leaving with unsaved edits.
+function UserProviderSettings({ guardRef }) {
   const [draft, setDraft] = useState(initialDraft);
   const [saved, setSaved] = useState(() => loadUserProvider());
   const [showKey, setShowKey] = useState(false);
@@ -104,6 +114,17 @@ function UserProviderSettings() {
   };
 
   const complete = draft.model.trim() && draft.apiKey.trim();
+  // Field edits Save hasn't stored yet (only while the switch is on: the
+  // fields are hidden otherwise).
+  const base = saved
+    ? { ...saved, id: USER_PROVIDER_OPTIONS.some((p) => p.id === saved.id) ? saved.id : USER_PROVIDER_OPTIONS[0].id }
+    : blankProvider();
+  const unsaved = draft.enabled && (
+    draft.id !== base.id
+    || draft.model.trim() !== base.model
+    || draft.apiKey.trim() !== base.apiKey
+    || draft.remember !== base.remember
+  );
   const dirty = !saved
     || saved.id !== draft.id
     || saved.model !== draft.model.trim()
@@ -115,13 +136,20 @@ function UserProviderSettings() {
     persist({ ...(saved || { ...draft, model: '', apiKey: '' }), enabled });
   };
 
+  // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = () => {
     const next = { ...draft, model: draft.model.trim(), apiKey: draft.apiKey.trim(), enabled: true };
-    if (persist(next)) {
-      setDraft(next);
-      setStatus({ kind: 'ok', text: 'Saved.' });
-    }
+    if (!persist(next)) return false;
+    setDraft(next);
+    setStatus({ kind: 'ok', text: 'Saved.' });
+    return true;
   };
+
+  useEffect(() => {
+    if (!guardRef) return undefined;
+    guardRef.current = { unsaved, complete: Boolean(complete), save: onSave };
+    return () => { guardRef.current = null; };
+  });
 
   const onTest = async () => {
     setStatus({ kind: 'testing', text: 'Testing…' });
@@ -129,7 +157,10 @@ function UserProviderSettings() {
       await requestModelText({
         messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
         askMode: true,
-        reasoningEffort: 'none',
+        // The same effort the app's own chat calls use. 'none' would ask
+        // some models to switch thinking off, which always-thinking models
+        // (e.g. Z.ai glm-5.3-flash) reject, failing a working setup.
+        reasoningEffort: CHAT_REASONING_EFFORT,
         userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
         label: 'provider test',
         retry: false,
@@ -281,8 +312,34 @@ export default function SettingsModal({
   onDeleteAllProjects,
   projectCount = 0,
   onDeleteAccount,
+  initialTab = null,
 }) {
-  const [tab, setTab] = useState(loadTab);
+  const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
+  // The AI tab's provider panel reports unsaved edits here. Leaving the tab or
+  // closing Settings with any asks first (Save / Discard / Keep editing), so
+  // details typed in aren't silently lost by clicking Done.
+  const providerGuardRef = useRef(null);
+  const [pendingLeave, setPendingLeave] = useState(null); // { run, complete } while asking
+  const [isSavingProvider, setIsSavingProvider] = useState(false);
+  const leaveAfterCheck = (run) => {
+    const guard = providerGuardRef.current;
+    if (guard?.unsaved) setPendingLeave({ run, complete: guard.complete });
+    else run();
+  };
+  const saveProviderAndLeave = async () => {
+    setIsSavingProvider(true);
+    const ok = await providerGuardRef.current?.save();
+    setIsSavingProvider(false);
+    const leave = pendingLeave;
+    setPendingLeave(null);
+    if (ok) leave?.run();
+  };
+  const discardProviderAndLeave = () => {
+    const leave = pendingLeave;
+    setPendingLeave(null);
+    leave?.run();
+  };
+  const closeSettings = () => leaveAfterCheck(onClose);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [deleteAllError, setDeleteAllError] = useState(null);
@@ -327,8 +384,11 @@ export default function SettingsModal({
     if (!ok) setDeleteAllError('Some apps could not be deleted. Check your connection and try again.');
   };
   const selectTab = (id) => {
-    setTab(id);
-    try { sessionStorage.setItem(TAB_STORAGE_KEY, id); } catch { /* storage unavailable */ }
+    if (id === tab) return;
+    leaveAfterCheck(() => {
+      setTab(id);
+      try { sessionStorage.setItem(TAB_STORAGE_KEY, id); } catch { /* storage unavailable */ }
+    });
   };
 
   return (
@@ -341,7 +401,7 @@ export default function SettingsModal({
         <h2 id="settings-title" className="text-xl font-bold text-slate-900">Settings</h2>
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeSettings}
           className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           aria-label="Close"
         >
@@ -432,6 +492,8 @@ export default function SettingsModal({
             </>
           )}
 
+          {tab === 'data' && <DataSettings />}
+
           {tab === 'danger' && (
             <>
               <SettingRow
@@ -487,7 +549,9 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              <UserProviderSettings />
+              {isDesktop
+                ? <DesktopProviderSettings guardRef={providerGuardRef} />
+                : <UserProviderSettings guardRef={providerGuardRef} />}
             </>
           )}
         </div>
@@ -496,12 +560,34 @@ export default function SettingsModal({
       <div className="shrink-0 bg-slate-50 border-t border-slate-200 px-6 py-3 flex justify-end gap-3">
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeSettings}
           className={PRIMARY_BUTTON}
         >
           Done
         </button>
       </div>
+      {pendingLeave && (
+        <ConfirmModal
+          title="Save your AI provider?"
+          subtitle="You changed it but haven't saved."
+          onClose={() => { if (!isSavingProvider) setPendingLeave(null); }}
+          cancelLabel="Keep editing"
+          secondaryLabel="Discard changes"
+          onSecondary={discardProviderAndLeave}
+          onConfirm={saveProviderAndLeave}
+          confirmLabel="Save"
+          busyLabel="Saving…"
+          busy={isSavingProvider}
+          confirmDisabled={!pendingLeave.complete}
+          confirmClass={PRIMARY_BUTTON}
+        >
+          <p className="text-sm text-slate-600 leading-relaxed">
+            {pendingLeave.complete
+              ? 'Save the provider, model and API key you entered so AppBlips can use them?'
+              : 'The model or API key is still empty. Fill them in and save, or discard your changes.'}
+          </p>
+        </ConfirmModal>
+      )}
       {confirmDeleteAccount && (
         <ConfirmModal
           title="Delete your account?"

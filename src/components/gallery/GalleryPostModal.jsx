@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   X, Heart, Share2, Shuffle, MoreHorizontal, Flag, Pencil, Trash2, Maximize2,
-  Smartphone, Monitor, Loader2, Send, Check, Link2, MessageCircle, Play, TriangleAlert
+  Smartphone, Tablet, Monitor, Loader2, Send, Check, Link2, MessageCircle, Play, TriangleAlert
 } from 'lucide-react';
 import Modal from '../Modal';
 import GalleryAvatar from './GalleryAvatar';
@@ -22,7 +22,6 @@ export default function GalleryPostModal({
   const [post, setPost] = useState(initialPost);
   const [loadError, setLoadError] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const [device, setDevice] = useState('desktop');
   const [frameLoaded, setFrameLoaded] = useState(false);
   const [comments, setComments] = useState(null);
   const [commentsError, setCommentsError] = useState(null);
@@ -206,6 +205,13 @@ export default function GalleryPostModal({
 
   const url = post ? appUrl(post.slug) : '';
   const canRemix = Boolean(post?.allow_remix && post?.remix_path);
+  const device = ['mobile', 'tablet', 'desktop'].includes(post?.device_type) ? post.device_type : 'desktop';
+  const deviceMeta = {
+    mobile: { label: 'Smartphone', Icon: Smartphone },
+    tablet: { label: 'Tablet', Icon: Tablet },
+    desktop: { label: 'Desktop', Icon: Monitor },
+  }[device];
+  const DeviceIcon = deviceMeta.Icon;
 
   const closeButton = (
     <button type="button" onClick={onClose} className="gallery-icon-btn" aria-label="Close">
@@ -241,13 +247,9 @@ export default function GalleryPostModal({
         {/* Stage: the live app */}
         <div className="gallery-stage">
           <div className="gallery-stage-bar">
-            <div className="gallery-segmented" role="group" aria-label="Preview size">
-              <button type="button" onClick={() => setDevice('desktop')} className={device === 'desktop' ? 'is-active' : ''} aria-pressed={device === 'desktop'} aria-label="Desktop view">
-                <Monitor size={15} />
-              </button>
-              <button type="button" onClick={() => setDevice('phone')} className={device === 'phone' ? 'is-active' : ''} aria-pressed={device === 'phone'} aria-label="Phone view">
-                <Smartphone size={15} />
-              </button>
+            <div className="gallery-showcase-device" aria-label={`Showcased as ${deviceMeta.label}`}>
+              <DeviceIcon size={15} />
+              <span>{deviceMeta.label}</span>
             </div>
             <span className="gallery-stage-url" title={url}>{url.replace(/^https?:\/\//, '')}</span>
             {post && (
@@ -257,7 +259,7 @@ export default function GalleryPostModal({
             )}
             <span className="sm:hidden ml-auto">{closeButton}</span>
           </div>
-          <div className={`gallery-frame-wrap ${device === 'phone' ? 'is-phone' : ''}`}>
+          <div className={`gallery-frame-wrap is-${device}`}>
             {post && (
               <iframe
                 key={post.slug}

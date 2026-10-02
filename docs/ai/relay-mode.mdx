@@ -22,7 +22,7 @@ The generated HTML embeds only the relay URL — not the key itself. This means:
 
 ## Setup
 
-There is nothing to set up. Generated apps always use **exactly the same provider, key, and model as the builder** — whatever you filled in during the [quickstart](/quickstart-self-hosted). Change the builder's provider or model and your apps follow.
+There is nothing to set up. Generated apps always use **exactly the same provider, key, and model as the builder** — whatever you set up in the [desktop app](/quickstart-desktop) or when [running from source](/quickstart-self-hosted). Change the builder's provider or model and your apps follow.
 
 Only the limits for generated-app AI are separate from the builder. Blank values mean 4096 tokens, temperature `0.2`, and reasoning off:
 
@@ -42,19 +42,12 @@ The relay only accepts calls from AppBlips' own origin by default. A downloaded 
   `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time. After changing either one, restart `npm run dev`, or run `docker compose up --build` if you use Docker. A plain container restart is not enough.
 </Warning>
 
-## Rate Limiting
+## Usage Limits
 
-The relay includes a built-in per-IP rate limiter to catch runaway loops in a generated app:
-
-```bash
-APPBLIPS_APP_AI_RATE_LIMIT_MAX=20
-APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS=60
-```
-
-The defaults are 20 requests per 60 seconds per IP address. Requests over the limit receive a `429` response, which `blip.ai.text()` surfaces as a `rate_limited` error.
+The relay doesn't limit how many requests your apps make: they spend your own provider key, so only your provider's limits apply. If the provider refuses a request (for example for lack of credit), `blip.ai.text()` rejects with its error.
 
 <Warning>
-  The relay spends your provider key and has no sign-in. Keep AppBlips on your own computer. The rate limiter is an in-memory speed bump that resets on restart, not a billing boundary, so also set a spend limit with your AI provider.
+  The relay spends your provider key and has no sign-in. Keep AppBlips on your own computer, and set a spend limit with your AI provider in case an app you build calls the AI in a loop.
 </Warning>
 
 ## Relay vs BYOK

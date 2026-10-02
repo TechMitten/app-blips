@@ -2,15 +2,20 @@
 // Manages project-scoped localStorage persistence for generated apps running
 // inside the origin-isolated preview iframe. The parent window persists storage
 // per project under `orion-preview-storage:<projectId>` and hydrates the iframe
-// on load, synchronizing mutations over postMessage.
+// on load, synchronizing mutations over postMessage. In the desktop app the
+// same maps are kept on disk, next to each project (lib/desktop.js).
 
 import { safeStorage } from './config.js';
+import { isDesktop, createAppDataStorage } from './desktop.js';
 
 const STORAGE_PREFIX = 'orion-preview-storage:';
 const MAX_STORAGE_BYTES = 2 * 1024 * 1024; // 2MB quota per project
 const MAX_KEY_LENGTH = 256;
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+const desktopStore = isDesktop ? createAppDataStorage(STORAGE_PREFIX) : null;
+const previewStore = () => desktopStore || safeStorage('local');
 
 export const getPreviewStorageKey = (projectId) => {
   return `${STORAGE_PREFIX}${projectId || 'draft'}`;
@@ -23,7 +28,7 @@ export const getPreviewStorageKey = (projectId) => {
  */
 export const loadPreviewStorage = (projectId) => {
   try {
-    const store = safeStorage('local');
+    const store = previewStore();
     if (!store) return {};
     const raw = store.getItem(getPreviewStorageKey(projectId));
     if (!raw) return {};
@@ -51,7 +56,7 @@ export const loadPreviewStorage = (projectId) => {
  */
 export const savePreviewStorage = (projectId, storeMap) => {
   try {
-    const store = safeStorage('local');
+    const store = previewStore();
     if (!store) return false;
 
     const clean = Object.create(null);
@@ -83,7 +88,7 @@ export const savePreviewStorage = (projectId, storeMap) => {
  */
 export const clearPreviewStorage = (projectId) => {
   try {
-    const store = safeStorage('local');
+    const store = previewStore();
     store?.removeItem(getPreviewStorageKey(projectId));
   } catch (err) {
     console.warn('[previewStorage] Failed to clear storage for', projectId, err);
@@ -96,7 +101,7 @@ export const clearPreviewStorage = (projectId) => {
  */
 export const clearAllPreviewStorage = () => {
   try {
-    const store = safeStorage('local');
+    const store = previewStore();
     if (!store) return;
     const keys = [];
     for (let i = 0; i < store.length; i++) {
@@ -120,7 +125,7 @@ export const migratePreviewStorage = (fromProjectId, toProjectId) => {
   if (fromKey === toKey) return;
 
   try {
-    const store = safeStorage('local');
+    const store = previewStore();
     if (!store) return;
     const existing = store.getItem(fromKey);
     if (existing) {

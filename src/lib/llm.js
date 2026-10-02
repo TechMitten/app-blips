@@ -65,7 +65,7 @@ function parseClarifyingQuestionArgs(rawArguments) {
 // Reasoning for calls that only produce chat text (clarifying question, intro
 // and completion replies, ask-mode answers). Only the initial build follows the
 // user's Build reasoning toggle, so these are hardcoded to LOW.
-const CHAT_REASONING_EFFORT = 'low';
+export const CHAT_REASONING_EFFORT = 'low';
 
 // Reasoning for every code-writing/fixing call other than the initial build:
 // the surgical refinement loop and all syntax/broken-link/auto-fix repair
@@ -275,9 +275,17 @@ export const requestModelText = async ({
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const err = new Error(retryAfter
-        ? `You're sending requests too quickly. Please try again in about ${retryAfter}s.`
-        : "You're sending requests too quickly. Please slow down and try again shortly.");
+      // The proxy marks a 429 that came from the AI provider itself (low
+      // balance, busy model, ...) and passes its reason along; only this
+      // app's own limiter is "you're sending requests too quickly".
+      const errData = await response.json().catch(() => null);
+      rawEntry?.update({ status: 429, errorBody: errData });
+      const fromProvider = errData?.source === 'provider' && typeof errData.error === 'string';
+      const err = new Error(fromProvider
+        ? errData.error
+        : retryAfter
+          ? `You're sending requests too quickly. Please try again in about ${retryAfter}s.`
+          : "You're sending requests too quickly. Please slow down and try again shortly.");
       err.isRateLimit = true;
       throw err;
     }

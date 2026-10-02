@@ -1,8 +1,11 @@
 // localStorage <-> Supabase row plumbing for the projects list. Pure helpers --
 // no React, no hooks -- so the auth hook (local -> cloud import) and the
-// projects hook can share them without an import cycle.
+// projects hook can share them without an import cycle. In the desktop app the
+// same rows live on disk instead (lib/desktop.js).
+import { isDesktop, readDesktopRows, writeDesktopRows } from './desktop.js';
 
 export const readProjectRows = () => {
+  if (isDesktop) return readDesktopRows();
   try {
     return JSON.parse(localStorage.getItem('orion-projects') || '[]');
   } catch {
@@ -11,6 +14,10 @@ export const readProjectRows = () => {
 };
 
 export const writeProjectRows = (rows) => {
+  if (isDesktop) {
+    writeDesktopRows(rows);
+    return;
+  }
   localStorage.setItem('orion-projects', JSON.stringify(rows));
 };
 

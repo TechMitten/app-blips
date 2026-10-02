@@ -1,7 +1,8 @@
 // Client-side page router for multi-page sites that ship all their pages in a
 // single document: the password unlock wrapper (crypto.js, after decrypting the
-// bundle) and the "open in new tab" preview shell. Both embed `siteStart`, which
-// document.write()s the current page and swaps pages on internal link clicks.
+// bundle) embeds `siteStart`, which document.write()s the current page and
+// swaps pages on internal link clicks. ("Open in new tab" has its own sandboxed
+// shell instead: lib/newTabShell.js.)
 //
 // The source is a plain string, injected inside an inline <script>, so it must
 // stay free of backslashes, template placeholders, and the literal closing-tag
@@ -10,7 +11,7 @@
 //
 // pushState mode (deployed): pages live at /<slug>/<page-without-.html> and the
 // slug comes from window.__APPBLIPS_SLUG__ (injected by the serving Function).
-// Without pushState (blob: previews) routing is in-memory only.
+// Without pushState (no slug) routing is in-memory only.
 export const SITE_ROUTER_SOURCE = `
 function siteStart(pages, pushState) {
   var slug = window.__APPBLIPS_SLUG__ || '';
@@ -82,17 +83,3 @@ function siteStart(pages, pushState) {
   render(pushState ? pageFromLocation() : 'index.html', pushState ? location.hash.slice(1) : '');
 }
 `;
-
-// A single self-contained HTML document that carries every page and routes
-// between them in memory. Used for "open in new tab", where relative links to
-// sibling pages would otherwise have nothing to resolve to.
-export const buildSiteShell = (files, title = 'Preview') => {
-  // "<" is escaped so no page can contain a sequence that ends the script early.
-  const json = JSON.stringify(files).replace(/</g, '\\u003c');
-  const safeTitle = String(title).replace(/[<>&"]/g, '');
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${safeTitle}</title></head><body><script>
-var SITE_PAGES = ${json};
-${SITE_ROUTER_SOURCE}
-siteStart(SITE_PAGES, false);
-<${'/'}script></body></html>`;
-};

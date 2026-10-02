@@ -56,7 +56,7 @@ export default function useDeployment({
     setConfirmUndeploy(false);
   };
 
-  // `gallery`: { enabled, title, description, allowRemix, thumbnailBlob }, or
+  // `gallery`: { enabled, title, description, deviceType, allowRemix, thumbnailBlob }, or
   // null to leave any existing listing as it is.
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false, gallery = null) => {
     if (!getLanding(files) || isDeploying) return false;
@@ -141,6 +141,7 @@ export default function useDeployment({
               userId: user.id,
               title: gallery.title || projectName,
               description: gallery.description,
+              deviceType: gallery.deviceType,
               allowRemix: gallery.allowRemix,
               thumbnailBlob: gallery.thumbnailBlob,
               source: { files, studioMode, aiEnabled: Boolean(aiEnabled) },

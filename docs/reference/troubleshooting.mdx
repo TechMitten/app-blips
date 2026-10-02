@@ -61,17 +61,14 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     3. If **Reasoning: building** is set to High in Settings, try switching it to Low — reasoning takes longer and is more likely to hit timeouts on slower providers.
   </Accordion>
 
-  <Accordion title="Rate limit error">
-    You have hit the `/api/chat` rate limit. By default, AppBlips allows 60 build requests per 300 seconds per user.
+  <Accordion title="Rate limit or &quot;turned the request down&quot; error">
+    **On appblips.com:** "You're sending requests too quickly" means you hit the per-account request limit. Wait a few minutes and try again.
 
-    **To fix:**
+    **In the desktop app or a copy you run yourself:** AppBlips sets no request limit of its own. An error such as "Z.ai turned the request down: …" comes from your AI provider, and the text after the colon is the provider's reason. Common causes:
 
-    - Wait for the rate limit window to reset and try again.
-    - If you are running a self-hosted copy and need a higher limit, increase `APPBLIPS_CHAT_RATE_LIMIT_MAX` or `APPBLIPS_CHAT_RATE_LIMIT_WINDOW_SECONDS` in your `.env` file and restart the server.
-
-    <Note>
-      The built-in rate limiter is tracked in memory per server instance. It is intended as a speed bump, not a strict billing cap.
-    </Note>
+    - **No credit left** on your provider account. Many providers report this as a rate limit (HTTP 429).
+    - **A plan key on the wrong endpoint.** A Z.ai GLM Coding Plan key needs the **Z.ai Coding Plan** provider, not **Z.ai**.
+    - **The provider's own rate or concurrency limits.** Wait and try again, or check your plan's limits.
   </Accordion>
 </AccordionGroup>
 

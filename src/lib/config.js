@@ -1,3 +1,5 @@
+import { isDesktop } from './desktop.js';
+
 // There is no way to hide a key from the machine that types it in a
 // backend-less SPA. What the sandboxed preview frame buys us is the part that
 // matters: generated code can no longer read it. This toggle is the remaining
@@ -303,7 +305,10 @@ export const saveUserProvider = ({ enabled, id, model, apiKey, remember }) => {
 
 // { id, model, apiKey } for /api/chat when the user's provider is switched on
 // and complete, otherwise null (the server's env provider is used).
+// The desktop app keeps the provider in the main process (Settings → AI writes
+// it there) and attaches it to /api/chat itself, so the renderer sends none.
 export const activeUserProvider = () => {
+  if (isDesktop) return null;
   const cfg = loadUserProvider();
   if (!cfg?.enabled || !cfg.id || !cfg.model.trim() || !cfg.apiKey.trim()) return null;
   return { id: cfg.id, model: cfg.model.trim(), apiKey: cfg.apiKey.trim() };

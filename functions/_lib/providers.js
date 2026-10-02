@@ -61,6 +61,16 @@ const PROVIDERS = {
     forcedToolChoice: false,
     streamUsage: false,
   },
+  // Z.ai's GLM Coding Plan: the same API on the plan's own endpoint. Plan
+  // quota doesn't cover the standard endpoint above, so a plan-only key is
+  // refused there.
+  'zai-coding': {
+    label: 'Z.ai Coding Plan',
+    baseUrl: 'https://api.z.ai/api/coding/paas/v4',
+    reasoningParam: 'thinking',
+    forcedToolChoice: false,
+    streamUsage: false,
+  },
 };
 
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
@@ -75,6 +85,11 @@ const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 const read = (env, name) => String(env?.[name] ?? '').trim();
 const warned = new Set();
 
+// Variable-name scope for a provider id: APPBLIPS_ZAI, APPBLIPS_ZAI_CODING.
+// Hyphens in ids become underscores, since they aren't valid in env names.
+export const providerVarScope = (id, prefix = 'APPBLIPS_LLM') =>
+  `${prefix.replace(/_LLM$/, '')}_${id.toUpperCase().replace(/-/g, '_')}`;
+
 // Variable names for one provider's block. prefix: 'APPBLIPS_LLM' (also used
 // to list the retired APPBLIPS_APP_LLM names).
 const varNames = (id, prefix) => {
@@ -84,7 +99,7 @@ const varNames = (id, prefix) => {
     baseUrl: `${prefix}_BASE_URL`,
   };
   if (id === DEFAULT_PROVIDER) return { own: generic, fallback: generic };
-  const scope = `${prefix.replace(/_LLM$/, '')}_${id.toUpperCase()}`;
+  const scope = providerVarScope(id, prefix);
   return {
     own: { apiKey: `${scope}_API_KEY`, model: `${scope}_MODEL`, baseUrl: `${scope}_BASE_URL` },
     fallback: generic,

@@ -1,4 +1,3 @@
-import { consumeToken } from './rateLimit.js';
 import { resolveAppProvider, applyProviderSettings, appAiLimit } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
@@ -62,14 +61,8 @@ export async function handleSelfHostedAiChat(request, env) {
     return failure('upstream_error', 502, 'App AI service is unavailable.', cors.headers);
   }
 
-  const clientId = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const max = parseInt(env.APPBLIPS_APP_AI_RATE_LIMIT_MAX, 10) || 20;
-  const windowSeconds = parseInt(env.APPBLIPS_APP_AI_RATE_LIMIT_WINDOW_SECONDS, 10) || 60;
-  const rate = consumeToken(`self-hosted-app:${clientId}`, { max, windowSeconds });
-  if (!rate.allowed) {
-    return failure('rate_limited', 429, 'Rate limit exceeded.', { ...cors.headers, 'Retry-After': String(rate.retryAfter) });
-  }
-
+  // No rate limit: this relay spends the self-hosted user's own key, so only
+  // their provider's limits apply (the origin check above keeps other sites out).
   const cap = Math.max(1, parseInt(appAiLimit(env, 'MAX_TOKENS'), 10) || 4096);
   const requestedMax = Number.isFinite(Number(max_tokens)) ? Math.max(1, Math.floor(Number(max_tokens))) : cap;
   const requestedTemperature = Number.parseFloat(temperature);

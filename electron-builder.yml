@@ -1,0 +1,46 @@
+# Desktop installers (npm run desktop:dist). Windows: NSIS installer;
+# Linux: AppImage + .deb. Build Windows on Windows (or the CI workflow in
+# .github/workflows/desktop.yml): cross-building NSIS from Linux needs Wine.
+appId: com.appblips.desktop
+productName: AppBlips
+copyright: Copyright © 2026 TechMitten
+directories:
+  output: dist-desktop
+  buildResources: build
+# The main process uses only Node built-ins and the renderer is pre-bundled in
+# dist/, so no node_modules ship in the app.
+files:
+  - dist/**
+  - electron/**
+  - functions/_lib/**
+  - src/lib/pages.js
+  - build/icon.png
+  - package.json
+  - "!**/node_modules/**"
+npmRebuild: false
+nodeGypRebuild: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  artifactName: AppBlips-Setup-${version}.${ext}
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Development
+  # Add a contact address ("Name <email>") before publishing .deb packages.
+  maintainer: TechMitten
+  syncDesktopName: true
+  icon: build/icon.png
+  synopsis: Turn a text prompt into a working app, website or game.
+  artifactName: AppBlips-${version}-${arch}.${ext}
+publish: null

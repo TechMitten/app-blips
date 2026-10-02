@@ -1,10 +1,14 @@
 ---
-title: "Self-Hosted Quickstart: Run It Locally"
-sidebarTitle: "Self-Hosted Quickstart"
-description: "Run your own copy of AppBlips on your computer with Node.js or Docker. Add one API key and a model name and start generating apps in minutes, with no account."
+title: "Run AppBlips from Source with Node.js"
+sidebarTitle: "Run from Source"
+description: "Run AppBlips from its source code with Node.js: for macOS, contributors, and anyone who prefers it to the desktop app. Add one API key and a model and start building."
 ---
 
-Self-hosting AppBlips means running your own copy on your computer, for your own use: no account, no cloud sync, and your projects stay in your browser. It's designed for a single local user, so there's no sign-in flow. All you need is an API key for a supported AI provider and a few minutes.
+<Tip>
+  On Windows or Linux, the [desktop app](/quickstart-desktop) is the easier way to run your own copy: download it, install it, and add your API key in the app.
+</Tip>
+
+Running from source is for macOS users (there is no installer yet), people who want to change AppBlips itself, and anyone who prefers a terminal. You get the same AppBlips as the desktop app, running in your browser: no account, no cloud sync, and your projects stay in your browser. It's designed for a single local user, so there's no sign-in flow.
 
 ## Prerequisites
 
@@ -35,7 +39,7 @@ Self-hosting AppBlips means running your own copy on your computer, for your own
     ```
   </Step>
   <Step title="Add your API key and model">
-    Open `.env` in any text editor and fill in **two lines**: the API key for one provider, and the model. The file lists OpenAI, OpenRouter, DeepSeek, and Z.ai. The provider whose key is filled in becomes active, so leave the others blank.
+    Open `.env` in any text editor and fill in **two lines**: the API key for one provider, and the model. The file lists OpenAI, OpenRouter, DeepSeek, Z.ai, and Z.ai Coding Plan. The provider whose key is filled in becomes active, so leave the others blank.
 
     ```bash
     APPBLIPS_OPENAI_API_KEY=your-api-key
@@ -60,15 +64,7 @@ Self-hosting AppBlips means running your own copy on your computer, for your own
   </Step>
 </Steps>
 
-## Using Docker Instead
-
-If you'd rather not run the dev server, Docker builds AppBlips and serves it from a single lightweight Node server. Run this in the project folder, with your `.env` file in place:
-
-```bash
-docker compose up --build
-```
-
-AppBlips will be available at [http://localhost:3000](http://localhost:3000). The port is bound to `127.0.0.1`, so only your own computer can reach it. See the [Docker guide](/self-hosting/docker) for rebuilding after config changes.
+Prefer containers? [Docker](/self-hosting/docker) runs the same thing from a single command.
 
 <Warning>
   A self-hosted copy has **no sign-in**. The `/api/chat` and `/api/app-ai/chat` endpoints accept every request as the same local user and spend your API key. Keep AppBlips on your own computer. If other devices on your network can reach it, put your own access control in front of it.
@@ -82,6 +78,7 @@ AppBlips will be available at [http://localhost:3000](http://localhost:3000). Th
 | OpenRouter (Claude, Gemini, and most other models) | `APPBLIPS_OPENROUTER_API_KEY` | `anthropic/claude-sonnet-5` |
 | DeepSeek | `APPBLIPS_DEEPSEEK_API_KEY` | `deepseek-chat` |
 | Z.ai | `APPBLIPS_ZAI_API_KEY` | `glm-5.3-flash` |
+| Z.ai Coding Plan | `APPBLIPS_ZAI_CODING_API_KEY` | `glm-5.3` |
 
 Any other OpenAI-chat-completions-compatible service works too, including local models through Ollama, vLLM, or LM Studio. Fill in `APPBLIPS_LLM_BASE_URL` (for example `http://localhost:11434/v1`), `APPBLIPS_LLM_API_KEY` (Ollama needs none, so put any text), and `APPBLIPS_LLM_MODEL`. See [Configuration](/self-hosting/configuration#other-openai-compatible-services).
 
@@ -93,7 +90,7 @@ Your provider key is used only by the AppBlips server and is never sent to the b
   <Card title="Configuration Reference" icon="sliders" href="/self-hosting/configuration">
     Every `.env` variable: providers, limits, AI in your apps, and more.
   </Card>
-  <Card title="Docker" icon="docker" href="/self-hosting/docker">
-    Build and run AppBlips with Docker Compose, and rebuild after config changes.
+  <Card title="Desktop App" icon="download" href="/quickstart-desktop">
+    Prefer an installed app? Download AppBlips for Windows or Linux.
   </Card>
 </CardGroup>

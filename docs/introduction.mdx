@@ -1,7 +1,7 @@
 ---
 title: "Introduction: Build Apps from Plain English"
 sidebarTitle: "Introduction"
-description: "AppBlips generates working single-file apps and multi-page websites from plain-English prompts. Learn what you can build and how to choose between hosted and self-hosted."
+description: "AppBlips generates working single-file apps and multi-page websites from plain-English prompts. Learn what you can build and how to choose between the hosted service and the desktop app."
 ---
 
 AppBlips is a text-to-app generator built for people who have ideas, not for professional developers. You describe what you want in plain English — "a habit tracker with checkboxes and a progress bar" or "a multi-page portfolio website" — and AppBlips builds it as a real, interactive app you can use right away. There is no code to write, no project to set up, and no build step to run. Whether you are a designer, a student, a small-business owner, or simply someone who wants to prototype an idea quickly, AppBlips gives you a working app or website in seconds.
@@ -48,7 +48,7 @@ When you start a new project, you can choose between two modes: the **App Studio
   </Step>
 </Steps>
 
-## Hosted vs Self-Hosted
+## Hosted vs Desktop App
 
 <Tabs>
   <Tab title="Hosted (appblips.com)">
@@ -63,18 +63,20 @@ When you start a new project, you can choose between two modes: the **App Studio
 
     **Best for:** anyone who wants the simplest possible experience and access to full deploy features.
   </Tab>
-  <Tab title="Self-Hosted">
-    Self-hosting means running your own copy of AppBlips on your computer, for your own use. There is no account and no cloud sync; it is built for a single local user. You bring your own API key.
+  <Tab title="Desktop App">
+    The desktop app is your own copy of AppBlips, installed on your computer for your own use. There is no account and no cloud sync. You bring your own API key.
 
     **Key facts:**
+    - Download and install on Windows or Linux; no terminal or configuration files
     - No account or sign-in required
-    - Works with OpenAI, OpenRouter (Claude, Gemini, and more), DeepSeek, Z.ai, or any OpenAI-compatible service, including local models via Ollama
-    - Run with Node.js (`npm run dev`) or Docker (`docker compose up --build`)
+    - Projects are saved as folders on your computer, which you can back up or move
+    - Works with OpenAI, OpenRouter (Claude, Gemini, and more), DeepSeek, or Z.ai (pay-as-you-go or Coding Plan); your key is encrypted with your system keychain
     - No deploy-to-public-URL feature; export to HTML is always available
-    - No sign-in, so keep it on your own computer
     - Open source under the MIT License
 
     **Best for:** people who want to use their own AI provider and keep everything on their own computer.
+
+    On macOS, or want to change AppBlips itself? [Run it from source](/quickstart-self-hosted) with Node.js, or use [Docker](/self-hosting/docker).
   </Tab>
 </Tabs>
 
@@ -102,5 +104,5 @@ When you start a new project, you can choose between two modes: the **App Studio
 </CardGroup>
 
 <Note>
-  Ready to build your first app? Follow the [Hosted Quickstart](/quickstart-hosted) to get started at appblips.com in under a minute, or the [Self-Hosted Quickstart](/quickstart-self-hosted) to run AppBlips on your own machine.
+  Ready to build your first app? Follow the [Hosted Quickstart](/quickstart-hosted) to get started at appblips.com in under a minute, or the [Desktop App Quickstart](/quickstart-desktop) to install AppBlips on your own computer.
 </Note>

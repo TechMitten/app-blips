@@ -218,6 +218,42 @@ const pickProvider = (env, payload) => {
   return { provider };
 };
 
+// Self-hosted mode has no sign-in, so a browser may call /api/chat only from
+// AppBlips' own page. Browsers label every cross-site POST with Origin --
+// including "simple" text/plain requests that skip the CORS preflight, which
+// any web page, or a sandboxed generated app (Origin "null"), could otherwise
+// send to spend the configured key without reading the reply. A request with
+// no Origin is not a browser on another site (curl, a local script) and still
+// passes. Own origin is built from protocol + host rather than URL.origin,
+// which is "null" for the desktop app's appblips:// scheme. Hosted mode needs
+// none of this: its bearer token can't ride along on a cross-site request.
+export const isForeignOrigin = (request, env) => {
+  const origin = request.headers.get('origin');
+  if (origin === null) return false;
+  let own = '';
+  try {
+    const url = new URL(request.url);
+    own = `${url.protocol}//${url.host}`;
+  } catch { /* invalid request URL: nothing matches */ }
+  if (own && origin === own) return false;
+  const allowed = String(env.APPBLIPS_CHAT_ALLOWED_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
+  return !allowed.includes(origin);
+};
+
+// The human-readable part of an upstream error body (OpenAI-style
+// { error: { message } }, or a plain string), capped for display.
+const upstreamErrorMessage = async (upstream) => {
+  let text = '';
+  try { text = await upstream.text(); } catch { return ''; }
+  let message = text;
+  try {
+    const body = JSON.parse(text);
+    const err = body?.error ?? body;
+    message = typeof err === 'string' ? err : err?.message || body?.message || text;
+  } catch { /* not JSON: use the text */ }
+  return String(message).replace(/\s+/g, ' ').trim().slice(0, 300);
+};
+
 // A provider rejecting the user's own key must not reach the client as a 401,
 // which it reads as an expired AppBlips session.
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
@@ -225,6 +261,13 @@ const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} 
 export async function handleChatProxy(request, env, waitUntil) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
+  }
+
+  if (!isHostedMode(env) && isForeignOrigin(request, env)) {
+    return new Response(JSON.stringify({ error: 'Requests from other sites are not allowed.' }), {
+      status: 403,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   // A Supabase publishable key is needed to verify tokens in hosted mode.
@@ -240,15 +283,20 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
-  if (!allowed) {
-    return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please slow down and try again shortly.' }), {
-      status: 429,
-      headers: { 'content-type': 'application/json', 'Retry-After': String(windowSeconds) },
-    });
-  }
-
   const hosted = isHostedMode(env);
+
+  // Hosted only: there every request spends the platform's key. A self-hosted
+  // user spends their own key, so their own copy doesn't throttle them; only
+  // their provider's limits apply.
+  if (hosted) {
+    const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please slow down and try again shortly.' }), {
+        status: 429,
+        headers: { 'content-type': 'application/json', 'Retry-After': String(windowSeconds) },
+      });
+    }
+  }
 
   let payload;
   if (hosted) {
@@ -339,6 +387,25 @@ export async function handleChatProxy(request, env, waitUntil) {
   if (provider.userSupplied && (upstream.status === 401 || upstream.status === 403)) {
     upstream.body?.cancel().catch(() => {});
     return rejectedUserKey(provider);
+  }
+
+  // A provider's own 429 (low balance, a per-account concurrency cap, an
+  // overloaded model) would otherwise look like this proxy's rate limiter to
+  // the client. Self-hosted gets the provider's reason, marked as such; hosted
+  // keeps it out of public view (logged instead).
+  if (upstream.status === 429) {
+    const detail = await upstreamErrorMessage(upstream);
+    const retryAfter = upstream.headers.get('retry-after');
+    if (isHostedMode(env)) console.error(`[chat] provider 429: ${detail}`);
+    return new Response(JSON.stringify({
+      error: isHostedMode(env)
+        ? 'The AI service is busy. Please try again shortly.'
+        : `${providerLabel(provider.id)} turned the request down${detail ? `: ${detail}` : '.'}`,
+      source: 'provider',
+    }), {
+      status: 429,
+      headers: { 'content-type': 'application/json', ...(retryAfter ? { 'Retry-After': retryAfter } : {}) },
+    });
   }
 
   return wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);

@@ -1,0 +1,77 @@
+---
+title: "Desktop App Quickstart: Install on Windows or Linux"
+sidebarTitle: "Desktop App"
+description: "Run AppBlips as an installed app on Windows or Linux, with projects saved as folders on your computer and your API key kept in the system keychain."
+---
+
+The desktop app is the easiest way to run your own copy of AppBlips. It installs like any other program: no account, no terminal, no configuration files. You bring an API key from an AI provider, and your projects are saved as folders on your computer.
+
+<Note>
+  On macOS there is no installer yet. [Run AppBlips from source](/quickstart-self-hosted) instead.
+</Note>
+
+## Install
+
+<Tabs>
+  <Tab title="Windows">
+    Download `AppBlips-Setup-<version>.exe` from the [Releases page](https://github.com/TechMitten/app-blips/releases) and run it. The installer is not code-signed yet, so Windows SmartScreen may warn you the first time: choose **More info → Run anyway**.
+  </Tab>
+  <Tab title="Linux">
+    Download either file from the [Releases page](https://github.com/TechMitten/app-blips/releases):
+
+    - **AppImage** (any distribution): make it executable with `chmod +x AppBlips-*.AppImage`, then run it.
+    - **.deb** (Debian, Ubuntu and derivatives): install it with `sudo apt install ./AppBlips-*.deb`.
+  </Tab>
+</Tabs>
+
+## Set up your AI provider
+
+The first time you open the app, **Settings → AI** asks for a provider, a model and your API key. Click **Test connection**, then **Save**.
+
+Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
+
+<Note>
+  On Linux without a keyring, the app warns that the key is stored with weak encryption. Install GNOME Keyring or KWallet to protect it properly.
+</Note>
+
+## Where your projects are saved
+
+Each app you build is a folder in `Documents/AppBlips/Projects/`:
+
+| File | What it is |
+| --- | --- |
+| `project.json` | The whole project: every version and the chat history |
+| `app-data.json` | What the app itself saved with `localStorage` while you used its preview |
+| `site/` | The current version's pages as plain `.html` files, rewritten on every change |
+
+The `site/` folder is a convenience copy: open or share those files freely, but edits there are not read back into AppBlips. Renaming an app renames its folder, and deleting one moves the folder to your system trash.
+
+To use a different folder, open **Settings → Data → Projects folder → Change…**. You can move your existing projects there at the same time.
+
+## Move projects from the browser version
+
+Projects in a browser copy of AppBlips live in that browser's storage, which the desktop app cannot read. To bring them over:
+
+1. In the browser copy, open **Settings → Data** and click **Export**. This downloads one backup file.
+2. In the desktop app, open **Settings → Data**, click **Import…** and choose that file.
+
+An app you already have is only replaced if the backup's copy is newer. The same export works as a backup of the desktop app itself.
+
+## AI in the apps you build
+
+- **In the preview** and in **Open in new tab**, AI-enabled apps use your saved provider, as they do in the browser version.
+- **Exported HTML files** can't reach the desktop app, so they include the [bring-your-own-key](/ai/byok-mode) dialog instead: whoever opens the file enters their own provider details.
+
+## Build the installers yourself
+
+From a clone of the repository (see [Run from Source](/quickstart-self-hosted) for the prerequisites):
+
+```bash
+npm install
+npm run desktop        # build the client and open the app
+npm run desktop:dist   # build installers for this OS into dist-desktop/
+```
+
+Electron downloads its runtime the first time it runs. Build each installer on its own OS: Windows installers on Windows and Linux packages on Linux. The repository's **Desktop** GitHub Actions workflow builds both.
+
+If you launch the app from a terminal, the `APPBLIPS_*` variables from [Configuration](/self-hosting/configuration) still apply. A provider saved in Settings → AI takes priority over them.
