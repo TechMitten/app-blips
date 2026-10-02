@@ -87,14 +87,22 @@ async function writeSettings(patch) {
 }
 
 // ---- Server handlers --------------------------------------------------------
-// Env for the handlers: a single-user build with the builder's relay, plus the
-// provider saved in Settings → AI. Node's URL gives a custom scheme the origin
-// "null", so the relay cannot recognise appblips://app as its own origin; it
-// is allow-listed instead. The Open in new tab shell (a blob: window opened
-// from the app) shares that origin and calls the relay for its sandboxed app.
+// Public Supabase URL/publishable key baked in at build time by
+// scripts/build-electron.js (Rolldown `define`). Empty for a single-user
+// build; the service role key is deliberately not baked (secret).
+const BAKED_SUPABASE_URL = __APPBLIPS_SUPABASE_URL__;
+const BAKED_SUPABASE_PUBLISHABLE_KEY = __APPBLIPS_SUPABASE_PUBLISHABLE_KEY__;
+
+// Env for the handlers: the provider saved in Settings → AI plus any baked
+// Supabase config. Node's URL gives a custom scheme the origin "null", so the
+// relay cannot recognise appblips://app as its own origin; it is allow-listed
+// instead. The Open in new tab shell (a blob: window opened from the app)
+// shares that origin and calls the relay for its sandboxed app.
 function handlerEnv() {
   const base = {
     ...process.env,
+    SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || BAKED_SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || BAKED_SUPABASE_PUBLISHABLE_KEY,
     APPBLIPS_GENERATED_AI_MODE: 'relay',
     APPBLIPS_APP_AI_ALLOWED_ORIGINS: [process.env.APPBLIPS_APP_AI_ALLOWED_ORIGINS, APP_ORIGIN].filter(Boolean).join(','),
   };
@@ -120,11 +128,17 @@ async function withSavedProvider(request) {
     }
   }
   const origin = request.headers.get('origin');
+  const authorization = request.headers.get('authorization');
   return new Request(request.url, {
     method: 'POST',
     // Origin is kept for chatProxy's other-site check: a sandboxed app's
-    // request arrives as Origin "null" and must still be refused.
-    headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) },
+    // request arrives as Origin "null" and must still be refused. The Supabase
+    // bearer token is forwarded so a multi-user build verifies sign-in.
+    headers: {
+      'content-type': 'application/json',
+      ...(origin ? { origin } : {}),
+      ...(authorization ? { authorization } : {}),
+    },
     body: body ? JSON.stringify(body) : text,
   });
 }

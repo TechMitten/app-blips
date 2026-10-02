@@ -37,7 +37,12 @@ export default defineConfig([
   {
     files: ['vite.config.js', 'server.js', 'functions/**/*.js', 'testing/**/*.js', 'scripts/**/*.js', 'electron/**/*.js'],
     languageOptions: {
-      globals: globals.node,
+      globals: {
+        ...globals.node,
+        // Substituted by Rolldown's `define` (scripts/build-electron.js).
+        __APPBLIPS_SUPABASE_URL__: 'readonly',
+        __APPBLIPS_SUPABASE_PUBLISHABLE_KEY__: 'readonly',
+      },
     },
   },
   {
