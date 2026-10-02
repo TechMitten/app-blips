@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import authProvider, { supabaseEnabled } from '../lib/auth';
-import { markHasSignedIn } from '../lib/config';
+import { markHasSignedIn, consumeOAuthReturn } from '../lib/config';
 import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/username';
+
+// Read once per page load, at module scope so StrictMode's double render
+// can't consume it before the second pass sees it.
+const returningFromOAuth = consumeOAuthReturn();
+// A failed OAuth redirect reopens the auth modal with the reason.
+const oauthRedirectError = authProvider.consumeOAuthError?.() || null;
 
 // Session lifecycle, driven by the auth adapter (Supabase or the self-hosted
 // mock, see src/lib/auth): restores the session on mount and keeps it in
@@ -10,7 +16,7 @@ import { fetchUsername, claimUsername as claimUsernameForUid } from '../lib/user
 export default function useAuth() {
   const [session, setSession] = useState(null);
   const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'signedOut' | 'signedIn'
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(Boolean(oauthRedirectError));
   // Transient 'signedIn' | 'signedOut' notification (null when hidden).
   const [authToast, setAuthToast] = useState(null);
   const prevAuthStatusRef = useRef(null);
@@ -18,9 +24,10 @@ export default function useAuth() {
   const [username, setUsername] = useState('');
   const [usernameLoading, setUsernameLoading] = useState(false);
   // Set after a password-reset link signs the user in, so the app can ask
-  // for a new password; and when a confirm/reset email link fails.
+  // for a new password; and when a confirm/reset email link or an OAuth
+  // redirect fails.
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const [emailLinkError, setEmailLinkError] = useState(null);
+  const [emailLinkError, setEmailLinkError] = useState(oauthRedirectError);
   const signedInRef = useRef(false);
 
   const isSignedIn = authStatus === 'signedIn';
@@ -87,12 +94,13 @@ export default function useAuth() {
   }, [authStatus]);
 
   // Pop the "signed in/out" toast on real transitions only — the initial
-  // session restore ('loading' -> signedIn/signedOut) is silent.
+  // session restore ('loading' -> signedIn/signedOut) is silent, except right
+  // after an OAuth redirect, where that restore *is* the sign-in.
   useEffect(() => {
     const prev = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (prev === 'signedOut' && authStatus === 'signedIn') setAuthToast('signedIn');
+    if ((prev === 'signedOut' || (prev === 'loading' && returningFromOAuth)) && authStatus === 'signedIn') setAuthToast('signedIn');
     if (prev === 'signedIn' && authStatus === 'signedOut') setAuthToast('signedOut');
   }, [authStatus]);
 
@@ -118,6 +126,7 @@ export default function useAuth() {
     username,
     usernameLoading,
     claimUsername,
+    returningFromOAuth,
     authToast,
     dismissAuthToast: () => setAuthToast(null),
     isAuthModalOpen,

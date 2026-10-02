@@ -122,7 +122,7 @@ export default function App() {
   const {
     authStatus, isSignedIn, user,
     username, usernameLoading, claimUsername,
-    authToast, dismissAuthToast,
+    returningFromOAuth, authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
     isPasswordRecovery, endPasswordRecovery,
     emailLinkError, clearEmailLinkError,
@@ -2028,7 +2028,7 @@ export default function App() {
   if (showStudioChoice) {
     return (
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-        <SplashScreen skip={skipSplash} />
+        <SplashScreen skip={skipSplash || returningFromOAuth} />
         <StudioChoice
           onSelectStudio={handleChooseStudio}
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
@@ -2043,6 +2043,7 @@ export default function App() {
         />
         {galleryOverlay}
         {settingsModal}
+        <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
         {isDesktop && <DesktopStorageNotice />}
         {!supabaseEnabled && <UpdateNotice />}
         {isAuthModalOpen && supabaseEnabled && (
@@ -2065,7 +2066,7 @@ export default function App() {
 
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-      <SplashScreen skip={skipSplash} />
+      <SplashScreen skip={skipSplash || returningFromOAuth} />
       {!showHero && (
       <Header
         projectName={projectName}

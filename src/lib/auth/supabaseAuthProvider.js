@@ -1,5 +1,6 @@
 import { supabase } from '../../supabase';
 import { desktopBridge, isDesktop } from '../desktop';
+import { markOAuthRedirect, consumeOAuthReturn } from '../config';
 
 // Google and GitHub put the profile name in full_name / name / user_name.
 const toUser = (user) => user ? {
@@ -54,6 +55,29 @@ const consumeEmailLink = () => {
   return emailLinkResult;
 };
 
+// A failed web OAuth sign-in comes back as `?error=...&error_description=...`
+// (query or hash). Supabase only logs it, which looked like being bounced to
+// the studio picker for no reason; consume it so the auth modal can say why.
+// Returns a message, or null when the URL carries no OAuth error.
+const OAUTH_ERROR_PARAMS = ['error', 'error_code', 'error_description'];
+const consumeOAuthError = () => {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const source = search.has('error') ? search : hash.has('error') ? hash : null;
+  if (!source) return null;
+  const description = source.get('error_description') || source.get('error');
+  OAUTH_ERROR_PARAMS.forEach((key) => { search.delete(key); hash.delete(key); });
+  const query = search.toString();
+  const fragment = hash.toString();
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${fragment ? `#${fragment}` : ''}`);
+  // The provider handed back verified emails that belong to more than one
+  // existing account, so Supabase can't pick one to link the identity to.
+  if (/multiple accounts with the same email/i.test(description)) {
+    return 'The email addresses on that account match more than one AppBlips account, so we couldn\'t tell which one to sign in to. Sign in another way, or remove the extra email from that provider.';
+  }
+  return `Sign-in didn't complete: ${description}`;
+};
+
 const signIn = async (email, password) => throwIfError(await supabase.auth.signInWithPassword({ email, password }));
 
 // Sign-up is OAuth only. On the web the page redirects to the provider and
@@ -64,7 +88,10 @@ const OAUTH_PROVIDERS = ['google', 'github'];
 const signInWithOAuth = async (provider) => {
   if (!OAUTH_PROVIDERS.includes(provider)) throw new Error('Unsupported sign-in provider.');
   if (!isDesktop) {
-    throwIfError(await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/` } }));
+    markOAuthRedirect();
+    const result = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/` } });
+    if (result.error) consumeOAuthReturn();
+    throwIfError(result);
     return;
   }
   const { redirectUri } = await desktopBridge.auth.begin();
@@ -114,7 +141,7 @@ const getIdToken = async () => {
 };
 
 export default {
-  onAuthStateChanged, consumeEmailLink, signIn, signInWithOAuth, cancelOAuth, sendPasswordReset, signOut,
+  onAuthStateChanged, consumeEmailLink, consumeOAuthError, signIn, signInWithOAuth, cancelOAuth, sendPasswordReset, signOut,
   updatePassword, updateProfile, deleteAccount, reauthenticate, getIdToken,
   getPrimaryProviderId,
 };

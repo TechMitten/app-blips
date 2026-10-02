@@ -56,6 +56,33 @@ export const hasSignedInBefore = () => {
   }
 };
 
+// sessionStorage marker set just before the web OAuth flow navigates away to
+// Google/GitHub. The provider sends the tab back with a full page load, which
+// would otherwise look like a fresh visit (splash replays, the restored
+// session is treated as silent). Per-tab, so only the tab that started the
+// sign-in sees it.
+export const OAUTH_RETURN_KEY = 'orion-oauth-return';
+
+export const markOAuthRedirect = () => {
+  try {
+    safeStorage('session')?.setItem(OAUTH_RETURN_KEY, 'true');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+// Reads and clears the marker, so a later manual reload is a normal load.
+export const consumeOAuthReturn = () => {
+  try {
+    const store = safeStorage('session');
+    const returning = store?.getItem(OAUTH_RETURN_KEY) === 'true';
+    store?.removeItem(OAUTH_RETURN_KEY);
+    return returning;
+  } catch {
+    return false;
+  }
+};
+
 export const CHAT_FONT_KEY = 'orion-chat-font';
 export const CHAT_FONT_OPTIONS = ['small', 'default', 'large', 'xlarge'];
 
