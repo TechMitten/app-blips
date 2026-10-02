@@ -8,9 +8,11 @@
 // authProvider.onAuthStateChanged(callback(user, event)) -> unsubscribe
 //   event is the provider's auth event ('PASSWORD_RECOVERY' after a reset link), when it has one
 // authProvider.consumeEmailLink() -> Promise<'email' | 'recovery' | ... | null> (rejects on a bad/expired link)
-// authProvider.signIn(email, password, captchaToken) -> Promise<void>
-// authProvider.signUp(email, password, captchaToken) -> Promise<void>
-// authProvider.sendPasswordReset(email, captchaToken) -> Promise<void>
+// authProvider.signIn(email, password) -> Promise<void>
+// authProvider.signInWithOAuth('google' | 'github') -> Promise<void>
+//   (web: redirects away and resolves never; desktop: resolves once signed in)
+// authProvider.cancelOAuth() -> void (stops a desktop browser sign-in that is waiting)
+// authProvider.sendPasswordReset(email) -> Promise<void>
 // authProvider.signOut() -> Promise<void>
 // authProvider.updatePassword(newPassword) -> Promise<void>
 // authProvider.updateProfile({ displayName }) -> Promise<void>

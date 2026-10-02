@@ -23,6 +23,7 @@ import { resolveProvider } from '../functions/_lib/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { createProviderStore, providerEnv } from './providerStore.js';
 import { createUpdater } from './updater.js';
+import { createOAuthLoopback, isSupabaseAuthorizeUrl } from './oauthLoopback.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -71,6 +72,8 @@ let mainWindow = null;
 let projectStore;
 let providerStore;
 let updater;
+const oauthLoopback = createOAuthLoopback();
+let oauthResult = null;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
 
@@ -237,6 +240,27 @@ function registerIpc() {
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', () => providerStore.clear());
+
+  // Sign-in with Google/GitHub in the system browser. `begin` opens the
+  // loopback listener and returns the redirect URI to register with Supabase;
+  // `open` sends the browser to the authorize URL Supabase produced for it and
+  // resolves with the code from the redirect. The renderer exchanges the code
+  // (PKCE), so no token passes through here.
+  handle('desktop:auth:begin', async () => {
+    const { redirectUri, result } = await oauthLoopback.begin();
+    oauthResult = result;
+    return { redirectUri };
+  });
+  handle('desktop:auth:open', async (url) => {
+    const supabaseUrl = handlerEnv().SUPABASE_URL;
+    if (!oauthResult || !supabaseUrl || !isSupabaseAuthorizeUrl(url, supabaseUrl)) {
+      throw new Error('Sign-in could not be started.');
+    }
+    const result = oauthResult;
+    await shell.openExternal(url);
+    return result;
+  });
+  handle('desktop:auth:cancel', () => oauthLoopback.cancel());
 
   handle('desktop:update:check', () => updater.check());
   handle('desktop:update:install', () => updater.install());

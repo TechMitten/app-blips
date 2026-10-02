@@ -51,3 +51,6 @@ USAGE_TRACKING.md
 .mcp.json
 # Private maintainer notes
 CLOUDFLARE_ENV_GUIDE.md
+
+# Local Wrangler/Miniflare state
+.wrangler/
