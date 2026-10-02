@@ -307,8 +307,8 @@ export default function DeployModal({
         <ModalHeader title={`Deploy your ${noun}`} onClose={onClose} />
         <div className="px-6 py-5">
           <SettingRow
-            title="Not available in self-hosted mode"
-            description="Deploying to a public URL needs the hosted build."
+            title="Not available in single-user mode"
+            description="Deploying to a public URL needs a configured Supabase project."
           />
         </div>
         <ModalFooter>

@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
 const env = {
-  SELF_HOSTED_MODE: 'true',
   APPBLIPS_LLM_BASE_URL: 'https://llm.example/v1',
   APPBLIPS_LLM_API_KEY: 'test-key',
   APPBLIPS_LLM_MODEL: 'test-model',
@@ -187,7 +186,7 @@ test('REASONING_PARAM overrides a preset', async (t) => {
 
 // --- Key-driven provider selection ----------------------------------------
 
-const noLlmEnv = { SELF_HOSTED_MODE: 'true', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
+const noLlmEnv = { APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
 
 async function runWith(t, settings, payload = {}) {
   let upstream;
@@ -315,8 +314,8 @@ test('a provider rejecting the user key is not reported as a 401', async (t) => 
   assert.match((await response.json()).error, /OpenRouter rejected the API key/);
 });
 
-test('hosted mode still requires sign-in and validates user_provider', async (t) => {
-  const hostedEnv = { SELF_HOSTED_MODE: 'false', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
+test('multi-user mode still requires sign-in and validates user_provider', async (t) => {
+  const hostedEnv = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
   const send = (payload, headers = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
     headers,
@@ -367,12 +366,12 @@ test('self-hosted accepts its own origin, listed origins, the desktop scheme and
   assert.equal((await send('appblips://app', {}, 'appblips://app/api/chat')).status, 200);
 });
 
-test('hosted mode leaves other-origin requests to the sign-in check', async () => {
+test('multi-user mode leaves other-origin requests to the sign-in check', async () => {
   const response = await handleChatProxy(new Request('https://appblips.com/api/chat', {
     method: 'POST',
     headers: { origin: 'https://evil.example' },
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { SELF_HOSTED_MODE: 'false', SUPABASE_PUBLISHABLE_KEY: 'pk' });
+  }), { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' });
   assert.equal(response.status, 401);
 });
 

@@ -61,7 +61,7 @@ export default function useDeployment({
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false, gallery = null) => {
     if (!getLanding(files) || isDeploying) return false;
     if (!supabaseEnabled) {
-      setDeployError('Deploy is not available in self-hosted mode.');
+      setDeployError('Deploy is not available without a configured Supabase project.');
       return false;
     }
     if (!isSignedIn || !user?.id) return false;

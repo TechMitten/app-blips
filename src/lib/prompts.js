@@ -412,9 +412,8 @@ const AI_CAPABILITIES_PROMPT = `AI CAPABILITIES (enabled for this project):
 - Treat user references to blip.ai.text case-insensitively, including BLIP.AI.TEXT and mixed-case variations; they all mean this text API.
 - Handle loading and error states. Error codes are: configuration_required, unauthorized, rate_limited, payload_too_large, upstream_error, and network.`;
 
-const HOSTED_AI_PROMPT = `The hosted platform supplies AI. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
-const BYOK_AI_PROMPT = `This is a self-hosted BYOK app. The injected blip.ai bridge opens its standard provider configuration dialog on the first text request. Do not build or store custom API-key fields. You may provide an AI Settings action that calls blip.ai.configure(), and a disconnect action that calls blip.ai.clearConfiguration(). Explain that each person using a shared static app supplies their own key.`;
-const RELAY_AI_PROMPT = `This self-hosted operator configured a server relay. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
+const BYOK_AI_PROMPT = `This is a BYOK app. The injected blip.ai bridge opens its standard provider configuration dialog on the first text request. Do not build or store custom API-key fields. You may provide an AI Settings action that calls blip.ai.configure(), and a disconnect action that calls blip.ai.clearConfiguration(). Explain that each person using a shared static app supplies their own key.`;
+const RELAY_AI_PROMPT = `This operator configured a server relay. Never call a provider directly, create API-key inputs, or ask an end user for a key.`;
 
 const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 - A website is a set of pages: index.html is the landing page and every other page is its own file such as about.html or pricing.html. Each page is a complete standalone HTML document.
@@ -425,14 +424,14 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 - Initial generation: output only index.html. If the request needs other pages, link to them from the navigation by filename; they are created in a follow-up step.
 - Editing: use list_pages to see the pages, and pass file to view_code, list_sections and apply_surgical_edits to target a page (omit it for index.html). Use create_page for a new page and delete_page to remove one, then fix any links that pointed at it.`;
 
-export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "hosted", studioMode = "app") => {
+export const buildHtmlSystemPrompt = (aiEnabled = false, aiMode = "relay", studioMode = "app") => {
   const base = studioMode === "website"
     ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
     : studioMode === "game"
       ? GAME_HTML_SYSTEM_PROMPT
       : HTML_SYSTEM_PROMPT;
   if (!aiEnabled) return base;
-  const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : (aiMode === "relay" ? RELAY_AI_PROMPT : HOSTED_AI_PROMPT);
+  const modePrompt = aiMode === "byok" ? BYOK_AI_PROMPT : RELAY_AI_PROMPT;
   return base + "\n\n" + AI_CAPABILITIES_PROMPT + "\n" + modePrompt;
 };
 

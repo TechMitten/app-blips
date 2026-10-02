@@ -18,18 +18,16 @@
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
 // which is UI-only) and spend the LLM budget behind the configured provider key. So,
-// in hosted mode (SELF_HOSTED_MODE=false), every request must carry a valid
-// Supabase access token, verified against Supabase itself (not just "a token was
-// present"). Self-hosted mode is the default (SELF_HOSTED_MODE unset or
-// anything other than "false"): there's no Supabase project to verify
-// against, so every request is treated as coming from the single local user,
-// on the assumption that self-hosters put their own access control (network
-// restrictions, a reverse-proxy auth layer, etc.) in front of this endpoint
-// if they expose it beyond localhost.
+// in a multi-user instance (Supabase configured), every request must carry a
+// valid Supabase access token, verified against Supabase itself (not just "a
+// token was present"). Without Supabase, AppBlips is a single local user, so
+// every request is treated as coming from that user, on the assumption that
+// operators put their own access control (network restrictions, a reverse-proxy
+// auth layer, etc.) in front of this endpoint if they expose it beyond localhost.
 
 import { wrapWithTokenTracking } from './trackTokens.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel } from './providers.js';
-import { supabaseUrl, supabaseHeaders, supabasePublishableKey } from './supabaseServer.js';
+import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -38,7 +36,7 @@ const toChatCompletionsUrl = (baseUrl) => {
 };
 
 export const authorize = async (request, env) => {
-  if (env.SELF_HOSTED_MODE !== 'false') return { id: 'local-user' };
+  if (!supabaseConfigured(env)) return { id: 'local-user' };
 
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -86,10 +84,11 @@ const checkRateLimit = async (userId, env) => {
   return { allowed: true, windowSeconds };
 };
 
-// --- Hosted-mode request hardening -------------------------------------
-// Only applied when SELF_HOSTED_MODE=false. Self-hosters keep the transparent
-// relay behaviour. The client is authenticated but not trusted: it must not be
-// able to send arbitrary tools, oversized bodies, or an unbounded output cap.
+// --- Multi-user request hardening ---------------------------------------
+// Only applied when Supabase is configured. Single-user instances keep the
+// transparent relay behaviour. The client is authenticated but not trusted: it
+// must not be able to send arbitrary tools, oversized bodies, or an unbounded
+// output cap.
 const ALLOWED_TOOL_NAMES = new Set([
   'apply_surgical_edits',
   'ask_clarifying_questions',
@@ -103,14 +102,19 @@ const ALLOWED_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
 const ALLOWED_EFFORTS = new Set(['none', 'off', 'disabled', 'minimal', 'low', 'medium', 'high']);
 const DEFAULT_MAX_BODY_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_MESSAGES = 100;
-const DEFAULT_HOSTED_MAX_TOKENS = 32768;
+const DEFAULT_MULTIUSER_MAX_TOKENS = 32768;
+
 // Ask-mode answers are prose, not app code, so they get their own output cap
 // (APPBLIPS_LLM_ASK_MAX_TOKENS) that never falls back to the builder's
 // APPBLIPS_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
 // count toward the limit on thinking models.
 const DEFAULT_ASK_MAX_TOKENS = 8192;
 
-const isHostedMode = (env) => env.SELF_HOSTED_MODE === 'false';
+// Multi-user mode: the operator configured a Supabase project, so every request
+// must carry a valid Supabase access token and the hardening/rate-limit below
+// applies. Without Supabase, AppBlips is a single local user and stays a
+// transparent relay.
+const isMultiUser = (env) => supabaseConfigured(env);
 
 const positiveInt = (value, fallback) => {
   const n = parseInt(value, 10);
@@ -123,7 +127,7 @@ const badRequest = (error, status = 400) => new Response(JSON.stringify({ error 
 });
 
 // Returns an error string, or null when the payload shape is acceptable.
-const validateHostedPayload = (payload, env) => {
+const validateMultiUserPayload = (payload, env) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'Invalid request body.';
   const { messages, tools, tool_choice, reasoning_effort } = payload;
 
@@ -180,15 +184,16 @@ const readJsonWithLimit = async (request, maxBytes) => {
   }
 };
 
-// Misconfiguration is the operator's problem. Self-hosters (who are the
-// operator) get the exact fix; in hosted mode the signed-in visitor gets a
-// generic message and the details go to the server log instead of the client.
+// Misconfiguration is the operator's problem. Single-user operators (who are
+// the operator) get the exact fix; in a multi-user instance the signed-in
+// visitor gets a generic message and the details go to the server log instead
+// of the client.
 const configError = (env, detail) => {
-  const hosted = isHostedMode(env);
-  if (hosted) console.error(`[chat] ${detail}`);
+  const multiUser = isMultiUser(env);
+  if (multiUser) console.error(`[chat] ${detail}`);
   return new Response(
     JSON.stringify({
-      error: hosted
+      error: multiUser
         ? 'The AI service is temporarily unavailable. Please try again later.'
         : `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.`,
     }),
@@ -218,15 +223,16 @@ const pickProvider = (env, payload) => {
   return { provider };
 };
 
-// Self-hosted mode has no sign-in, so a browser may call /api/chat only from
-// AppBlips' own page. Browsers label every cross-site POST with Origin --
+// A single-user instance has no sign-in, so a browser may call /api/chat only
+// from AppBlips' own page. Browsers label every cross-site POST with Origin --
 // including "simple" text/plain requests that skip the CORS preflight, which
 // any web page, or a sandboxed generated app (Origin "null"), could otherwise
 // send to spend the configured key without reading the reply. A request with
 // no Origin is not a browser on another site (curl, a local script) and still
 // passes. Own origin is built from protocol + host rather than URL.origin,
-// which is "null" for the desktop app's appblips:// scheme. Hosted mode needs
-// none of this: its bearer token can't ride along on a cross-site request.
+// which is "null" for the desktop app's appblips:// scheme. A multi-user
+// instance needs none of this: its bearer token can't ride along on a
+// cross-site request.
 export const isForeignOrigin = (request, env) => {
   const origin = request.headers.get('origin');
   if (origin === null) return false;
@@ -263,15 +269,15 @@ export async function handleChatProxy(request, env, waitUntil) {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  if (!isHostedMode(env) && isForeignOrigin(request, env)) {
+  if (!isMultiUser(env) && isForeignOrigin(request, env)) {
     return new Response(JSON.stringify({ error: 'Requests from other sites are not allowed.' }), {
       status: 403,
       headers: { 'content-type': 'application/json' },
     });
   }
 
-  // A Supabase publishable key is needed to verify tokens in hosted mode.
-  if (isHostedMode(env) && !supabasePublishableKey(env)) {
+  // A Supabase publishable key is needed to verify tokens in a multi-user instance.
+  if (isMultiUser(env) && !supabasePublishableKey(env)) {
     return configError(env, 'Missing configuration: SUPABASE_PUBLISHABLE_KEY.');
   }
 
@@ -283,12 +289,12 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  const hosted = isHostedMode(env);
+  const multiUser = isMultiUser(env);
 
-  // Hosted only: there every request spends the platform's key. A self-hosted
-  // user spends their own key, so their own copy doesn't throttle them; only
+  // Multi-user only: there every request spends the operator's key. A single-user
+  // operator spends their own key, so their own copy doesn't throttle them; only
   // their provider's limits apply.
-  if (hosted) {
+  if (multiUser) {
     const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please slow down and try again shortly.' }), {
@@ -299,13 +305,13 @@ export async function handleChatProxy(request, env, waitUntil) {
   }
 
   let payload;
-  if (hosted) {
+  if (multiUser) {
     const maxBytes = positiveInt(env.APPBLIPS_CHAT_MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES);
     const parsed = await readJsonWithLimit(request, maxBytes);
     if (parsed.tooLarge) return badRequest('Request body too large.', 413);
     if (parsed.invalid) return badRequest('Invalid JSON body.');
     payload = parsed.payload;
-    const invalid = validateHostedPayload(payload, env);
+    const invalid = validateMultiUserPayload(payload, env);
     if (invalid) return badRequest(invalid);
   } else {
     try {
@@ -353,8 +359,8 @@ export async function handleChatProxy(request, env, waitUntil) {
       const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
       if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
     }
-    // Hosted mode always bounds output so an unset env var can't mean "unlimited".
-    if (hosted && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_HOSTED_MAX_TOKENS;
+    // Multi-user mode always bounds output so an unset env var can't mean "unlimited".
+    if (multiUser && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_MULTIUSER_MAX_TOKENS;
   }
 
   if (tools) bodyObj.tools = tools;
@@ -391,14 +397,14 @@ export async function handleChatProxy(request, env, waitUntil) {
 
   // A provider's own 429 (low balance, a per-account concurrency cap, an
   // overloaded model) would otherwise look like this proxy's rate limiter to
-  // the client. Self-hosted gets the provider's reason, marked as such; hosted
-  // keeps it out of public view (logged instead).
+  // the client. Single-user gets the provider's reason, marked as such;
+  // multi-user keeps it out of public view (logged instead).
   if (upstream.status === 429) {
     const detail = await upstreamErrorMessage(upstream);
     const retryAfter = upstream.headers.get('retry-after');
-    if (isHostedMode(env)) console.error(`[chat] provider 429: ${detail}`);
+    if (isMultiUser(env)) console.error(`[chat] provider 429: ${detail}`);
     return new Response(JSON.stringify({
-      error: isHostedMode(env)
+      error: isMultiUser(env)
         ? 'The AI service is busy. Please try again shortly.'
         : `${providerLabel(provider.id)} turned the request down${detail ? `: ${detail}` : '.'}`,
       source: 'provider',

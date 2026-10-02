@@ -27,11 +27,10 @@ let node_fs = require("node:fs");
 let node_path = require("node:path");
 let node_url = require("node:url");
 //#region functions/_lib/supabaseServer.js
-const DEFAULT_URL = "https://kiejevuedddhtgyqrntp.supabase.co";
-const DEFAULT_PUBLISHABLE_KEY = "sb_publishable_FcZ5iv2W-IVzAQnmMjxlnA_w72Y5t_a";
-const supabaseUrl = (env = {}) => String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || DEFAULT_URL).replace(/\/$/, "");
-const supabasePublishableKey = (env = {}) => env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || DEFAULT_PUBLISHABLE_KEY;
+const supabaseUrl = (env = {}) => String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+const supabasePublishableKey = (env = {}) => env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 const supabaseServiceKey = (env = {}) => env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseConfigured = (env = {}) => Boolean(supabaseUrl(env) && supabasePublishableKey(env));
 const supabaseHeaders = (env, { service = false, token } = {}) => {
 	const key = service ? supabaseServiceKey(env) : supabasePublishableKey(env);
 	return {
@@ -45,7 +44,7 @@ const supabaseHeaders = (env, { service = false, token } = {}) => {
 const todayUtc = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 async function recordApiUsage(env, { uid, kind, tokens }) {
 	if (!uid || !["builder", "deployed"].includes(kind)) return;
-	if (env?.SELF_HOSTED_MODE !== "false") return;
+	if (!supabaseConfigured(env)) return;
 	const date = todayUtc();
 	try {
 		if (!supabaseServiceKey(env)) return;
@@ -354,7 +353,7 @@ const toChatCompletionsUrl = (baseUrl) => {
 	return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 const authorize = async (request, env) => {
-	if (env.SELF_HOSTED_MODE !== "false") return { id: "local-user" };
+	if (!supabaseConfigured(env)) return { id: "local-user" };
 	const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
 	if (!token) return null;
 	try {
@@ -423,9 +422,9 @@ const ALLOWED_EFFORTS = /* @__PURE__ */ new Set([
 ]);
 const DEFAULT_MAX_BODY_BYTES = 2097152;
 const DEFAULT_MAX_MESSAGES = 100;
-const DEFAULT_HOSTED_MAX_TOKENS = 32768;
+const DEFAULT_MULTIUSER_MAX_TOKENS = 32768;
 const DEFAULT_ASK_MAX_TOKENS = 8192;
-const isHostedMode = (env) => env.SELF_HOSTED_MODE === "false";
+const isMultiUser = (env) => supabaseConfigured(env);
 const positiveInt = (value, fallback) => {
 	const n = parseInt(value, 10);
 	return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -434,7 +433,7 @@ const badRequest = (error, status = 400) => new Response(JSON.stringify({ error 
 	status,
 	headers: { "content-type": "application/json" }
 });
-const validateHostedPayload = (payload, env) => {
+const validateMultiUserPayload = (payload, env) => {
 	if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "Invalid request body.";
 	const { messages, tools, tool_choice, reasoning_effort } = payload;
 	const maxMessages = positiveInt(env.APPBLIPS_CHAT_MAX_MESSAGES, DEFAULT_MAX_MESSAGES);
@@ -482,9 +481,9 @@ const readJsonWithLimit = async (request, maxBytes) => {
 	}
 };
 const configError = (env, detail) => {
-	const hosted = isHostedMode(env);
-	if (hosted) console.error(`[chat] ${detail}`);
-	return new Response(JSON.stringify({ error: hosted ? "The AI service is temporarily unavailable. Please try again later." : `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.` }), {
+	const multiUser = isMultiUser(env);
+	if (multiUser) console.error(`[chat] ${detail}`);
+	return new Response(JSON.stringify({ error: multiUser ? "The AI service is temporarily unavailable. Please try again later." : `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.` }), {
 		status: 500,
 		headers: { "content-type": "application/json" }
 	});
@@ -529,19 +528,19 @@ const upstreamErrorMessage = async (upstream) => {
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
 async function handleChatProxy(request, env, waitUntil) {
 	if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
-	if (!isHostedMode(env) && isForeignOrigin(request, env)) return new Response(JSON.stringify({ error: "Requests from other sites are not allowed." }), {
+	if (!isMultiUser(env) && isForeignOrigin(request, env)) return new Response(JSON.stringify({ error: "Requests from other sites are not allowed." }), {
 		status: 403,
 		headers: { "content-type": "application/json" }
 	});
-	if (isHostedMode(env) && !supabasePublishableKey(env)) return configError(env, "Missing configuration: SUPABASE_PUBLISHABLE_KEY.");
+	if (isMultiUser(env) && !supabasePublishableKey(env)) return configError(env, "Missing configuration: SUPABASE_PUBLISHABLE_KEY.");
 	const user = await authorize(request, env);
 	if (!user) return new Response(JSON.stringify({ error: "Sign in required." }), {
 		status: 401,
 		statusText: "ProxyAuthFailed",
 		headers: { "content-type": "application/json" }
 	});
-	const hosted = isHostedMode(env);
-	if (hosted) {
+	const multiUser = isMultiUser(env);
+	if (multiUser) {
 		const { allowed, windowSeconds } = await checkRateLimit(user.id, env);
 		if (!allowed) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please slow down and try again shortly." }), {
 			status: 429,
@@ -552,13 +551,13 @@ async function handleChatProxy(request, env, waitUntil) {
 		});
 	}
 	let payload;
-	if (hosted) {
+	if (multiUser) {
 		const maxBytes = positiveInt(env.APPBLIPS_CHAT_MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES);
 		const parsed = await readJsonWithLimit(request, maxBytes);
 		if (parsed.tooLarge) return badRequest("Request body too large.", 413);
 		if (parsed.invalid) return badRequest("Invalid JSON body.");
 		payload = parsed.payload;
-		const invalid = validateHostedPayload(payload, env);
+		const invalid = validateMultiUserPayload(payload, env);
 		if (invalid) return badRequest(invalid);
 	} else try {
 		payload = await request.json();
@@ -593,7 +592,7 @@ async function handleChatProxy(request, env, waitUntil) {
 			const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
 			if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
 		}
-		if (hosted && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_HOSTED_MAX_TOKENS;
+		if (multiUser && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_MULTIUSER_MAX_TOKENS;
 	}
 	if (tools) bodyObj.tools = tools;
 	if (tool_choice) bodyObj.tool_choice = tool_choice;
@@ -621,9 +620,9 @@ async function handleChatProxy(request, env, waitUntil) {
 	if (upstream.status === 429) {
 		const detail = await upstreamErrorMessage(upstream);
 		const retryAfter = upstream.headers.get("retry-after");
-		if (isHostedMode(env)) console.error(`[chat] provider 429: ${detail}`);
+		if (isMultiUser(env)) console.error(`[chat] provider 429: ${detail}`);
 		return new Response(JSON.stringify({
-			error: isHostedMode(env) ? "The AI service is busy. Please try again shortly." : `${providerLabel(provider.id)} turned the request down${detail ? `: ${detail}` : "."}`,
+			error: isMultiUser(env) ? "The AI service is busy. Please try again shortly." : `${providerLabel(provider.id)} turned the request down${detail ? `: ${detail}` : "."}`,
 			source: "provider"
 		}), {
 			status: 429,
@@ -683,7 +682,7 @@ const originHeaders = (request, env) => {
 	};
 };
 async function handleSelfHostedAiChat(request, env) {
-	if (env.SELF_HOSTED_MODE === "false" || String(env.APPBLIPS_GENERATED_AI_MODE || "relay").toLowerCase() === "byok") return failure("unauthorized", 403, "Self-hosted app AI relay is disabled.");
+	if (String(env.APPBLIPS_GENERATED_AI_MODE || "relay").toLowerCase() === "byok") return failure("unauthorized", 403, "Self-hosted app AI relay is disabled.");
 	const cors = originHeaders(request, env);
 	if (!cors.allowed) return failure("unauthorized", 403, "Request origin is not allowed.");
 	if (request.method === "OPTIONS") return new Response(null, {
@@ -837,14 +836,14 @@ const handleDebugUnlock = async (request, env) => {
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
 const describeConfig = (env) => {
 	const lines = [];
-	const hosted = env?.SELF_HOSTED_MODE === "false";
+	const multiUser = supabaseConfigured(env);
 	lines.push({
 		level: "info",
 		label: "Mode",
-		text: hosted ? "hosted (Supabase sign-in, deploys)" : "self-hosted (single local user)"
+		text: multiUser ? "multi-user (Supabase sign-in, deploys)" : "single-user (local)"
 	});
 	const builder = resolveProvider(env, "APPBLIPS_LLM", { quiet: true });
-	if (builder.unconfigured && !hosted) lines.push({
+	if (builder.unconfigured && !multiUser) lines.push({
 		level: "warn",
 		label: "Builder AI",
 		text: "No provider in .env. Set one there, or pick one in the app under Settings → AI."
@@ -869,13 +868,13 @@ const describeConfig = (env) => {
 		text: `Several provider keys are set (${[builder.id, ...builder.alsoConfigured].join(", ")}); using ${builder.id}. Set APPBLIPS_LLM_PROVIDER to choose.`
 	});
 	const configuredMode = String(env?.APPBLIPS_GENERATED_AI_MODE || "relay").trim().toLowerCase();
-	if (!hosted && configuredMode === "byok") lines.push({
+	if (!multiUser && configuredMode === "byok") lines.push({
 		level: "info",
 		label: "App AI",
 		text: "BYOK, as configured (people using a finished app enter their own key)"
 	});
 	else if (!builder.error && !builder.missing.length) {
-		const where = hosted ? "deployed apps" : "relay";
+		const where = multiUser ? "deployed apps" : "relay";
 		lines.push({
 			level: "info",
 			label: "App AI",
@@ -15917,7 +15916,6 @@ async function writeSettings(patch) {
 function handlerEnv() {
 	return providerEnv({
 		...process.env,
-		SELF_HOSTED_MODE: "true",
 		APPBLIPS_GENERATED_AI_MODE: "relay",
 		APPBLIPS_APP_AI_ALLOWED_ORIGINS: [process.env.APPBLIPS_APP_AI_ALLOWED_ORIGINS, APP_ORIGIN].filter(Boolean).join(",")
 	}, providerStore.active());

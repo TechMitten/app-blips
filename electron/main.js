@@ -87,7 +87,7 @@ async function writeSettings(patch) {
 }
 
 // ---- Server handlers --------------------------------------------------------
-// Env for the handlers: always self-hosted with the builder's relay, plus the
+// Env for the handlers: a single-user build with the builder's relay, plus the
 // provider saved in Settings → AI. Node's URL gives a custom scheme the origin
 // "null", so the relay cannot recognise appblips://app as its own origin; it
 // is allow-listed instead. The Open in new tab shell (a blob: window opened
@@ -95,7 +95,6 @@ async function writeSettings(patch) {
 function handlerEnv() {
   const base = {
     ...process.env,
-    SELF_HOSTED_MODE: 'true',
     APPBLIPS_GENERATED_AI_MODE: 'relay',
     APPBLIPS_APP_AI_ALLOWED_ORIGINS: [process.env.APPBLIPS_APP_AI_ALLOWED_ORIGINS, APP_ORIGIN].filter(Boolean).join(','),
   };

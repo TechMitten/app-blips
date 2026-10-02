@@ -5,22 +5,23 @@
 // Never includes secret values: only provider names, models, endpoints and the
 // names of variables that still need filling in.
 import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits } from './providers.js';
+import { supabaseConfigured } from './supabaseServer.js';
 
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
 
 // Returns [{ level: 'info' | 'warn' | 'error', label?, text }].
 export const describeConfig = (env) => {
   const lines = [];
-  const hosted = env?.SELF_HOSTED_MODE === 'false';
+  const multiUser = supabaseConfigured(env);
   lines.push({
     level: 'info',
     label: 'Mode',
-    text: hosted ? 'hosted (Supabase sign-in, deploys)' : 'self-hosted (single local user)',
+    text: multiUser ? 'multi-user (Supabase sign-in, deploys)' : 'single-user (local)',
   });
 
   const builder = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
-  if (builder.unconfigured && !hosted) {
-    // Self-hosted can run without one: users can pick a provider in the app.
+  if (builder.unconfigured && !multiUser) {
+    // A single-user instance can run without one: users can pick a provider in the app.
     lines.push({ level: 'warn', label: 'Builder AI', text: 'No provider in .env. Set one there, or pick one in the app under Settings → AI.' });
   } else if (builder.error) {
     lines.push({ level: 'error', label: 'Builder AI', text: builder.error });
@@ -41,10 +42,10 @@ export const describeConfig = (env) => {
   }
 
   const configuredMode = String(env?.APPBLIPS_GENERATED_AI_MODE || 'relay').trim().toLowerCase();
-  if (!hosted && configuredMode === 'byok') {
+  if (!multiUser && configuredMode === 'byok') {
     lines.push({ level: 'info', label: 'App AI', text: 'BYOK, as configured (people using a finished app enter their own key)' });
   } else if (!builder.error && !builder.missing.length) {
-    const where = hosted ? 'deployed apps' : 'relay';
+    const where = multiUser ? 'deployed apps' : 'relay';
     lines.push({ level: 'info', label: 'App AI', text: `${where}, sharing the builder's provider · ${builder.model}` });
   }
   const renamed = renamedAppAiLimits(env);

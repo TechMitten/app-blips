@@ -1,145 +1,102 @@
 // Tests for functions/_lib/usageTracking.js:
-//   1. recordApiUsage builds the Firestore commit the usage/{docId} rules
-//      expect (known fields only, counter +1 per call, server timestamp)
-//   2. it no-ops in self-hosted mode / without a uid / for unknown kinds
-//   3. failures are swallowed -- a Firestore hiccup must never throw
-//   4. handleChatProxy records exactly one 'builder' commit per successful
-//      upstream call, and none on upstream failure or in self-hosted mode
+//   1. recordApiUsage posts one increment to the Supabase `increment_usage` RPC
+//   2. it no-ops in single-user mode / without a uid / for unknown kinds / without a service key
+//   3. failures are swallowed -- a Supabase hiccup must never throw
+//   4. handleChatProxy records exactly one 'builder' increment per successful
+//      upstream call, and none on upstream failure or in single-user mode
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { recordApiUsage, trackApiUsage } from '../functions/_lib/usageTracking.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
-const isUsageCommit = (url) => String(url).includes('firestore.googleapis.com') && String(url).includes('documents:commit');
 
-const captureUsageCommits = (t) => {
-  const commits = [];
+const multiUserEnv = {
+  SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY: 'pk',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+};
+
+const isIncrementCall = (url) => String(url).includes('/rest/v1/rpc/increment_usage');
+
+test('recordApiUsage posts an increment to the Supabase RPC', async (t) => {
+  let called;
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    const target = String(url);
-    if (isUsageCommit(target)) {
-      commits.push({ url: target, options });
-      return Response.json({});
-    }
-    throw new Error(`unexpected fetch in usageTracking test: ${target}`);
+    called = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
+    return Response.json({});
   });
-  return commits;
-};
+  await recordApiUsage(multiUserEnv, { uid: 'user-1', kind: 'builder', tokens: 42 });
+  assert.ok(called.url.includes('/rest/v1/rpc/increment_usage'), 'targets the increment_usage RPC');
+  assert.equal(called.headers.authorization, 'Bearer service-key');
+  assert.equal(called.headers.apikey, 'service-key');
+  assert.deepEqual(called.body, {
+    target_user_id: 'user-1',
+    usage_date: today(),
+    usage_kind: 'builder',
+    token_count: 42,
+  });
+});
 
-const parseCommit = (commit) => {
-  const write = JSON.parse(commit.options.body).writes[0];
-  const incrementField = write.updateTransforms.find((tr) => tr.increment)?.fieldPath;
-  return {
-    docId: write.update.name.split('/documents/usage/')[1],
-    maskedFields: write.updateMask.fieldPaths,
-    writtenFields: Object.keys(write.update.fields),
-    incrementField,
-    incrementValue: write.updateTransforms.find((tr) => tr.increment)?.increment.integerValue,
-    serverTimestamp: write.updateTransforms.some((tr) => tr.setToServerValue === 'REQUEST_TIME'),
-    transforms: write.updateTransforms.map((tr) => tr.fieldPath),
-  };
-};
-
-test('records a builder increment in the shape the usage rules allow', async (t) => {
-  const commits = captureUsageCommits(t);
+test('recordApiUsage no-ops in single-user mode, without a uid, for an unknown kind, or without a service key', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => { calls.push(String(url)); return Response.json({}); });
+  await recordApiUsage({}, { uid: 'user-4', kind: 'builder' });
+  await recordApiUsage(multiUserEnv, { kind: 'builder' });
+  await recordApiUsage(multiUserEnv, { uid: 'user-4', kind: 'tokens' });
   await recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key' },
-    { uid: 'user-1', kind: 'builder' },
+    { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' },
+    { uid: 'user-4', kind: 'builder' },
   );
-  assert.equal(commits.length, 1);
-  const commit = commits[0];
-  assert.ok(commit.url.includes('/projects/usage-test-proj/'), 'commit targets the env project');
-
-  const parsed = parseCommit(commit);
-  assert.equal(parsed.docId, `user-1_${today()}`);
-  assert.deepEqual(parsed.maskedFields, ['user_id', 'date'], 'update mask must not touch counters');
-  assert.deepEqual(parsed.writtenFields, ['user_id', 'date']);
-  assert.equal(parsed.incrementField, 'builderRequests');
-  assert.equal(parsed.incrementValue, '1');
-  assert.ok(parsed.serverTimestamp, 'updatedAt must be a server timestamp');
-  assert.deepEqual(
-    parsed.transforms.sort(),
-    ['builderRequests', 'updatedAt'],
-    'write must produce only rules-known fields',
-  );
+  assert.equal(calls.length, 0);
 });
 
-test('records a deployed increment for the deploying account', async (t) => {
-  const commits = captureUsageCommits(t);
-  await recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key' },
-    { uid: 'user-2', kind: 'deployed' },
-  );
-  assert.equal(parseCommit(commits[0]).incrementField, 'deployedRequests');
-});
-
-test('no-ops in self-hosted mode, without a uid, or for an unknown kind', async (t) => {
-  const commits = captureUsageCommits(t);
-  const env = { SELF_HOSTED_MODE: 'true', FIREBASE_PROJECT_ID: 'usage-test-proj' };
-  await recordApiUsage(env, { uid: 'user-4', kind: 'builder' });
-  await recordApiUsage({ SELF_HOSTED_MODE: 'false' }, { kind: 'builder' });
-  await recordApiUsage({ SELF_HOSTED_MODE: 'false' }, { uid: 'user-4', kind: 'tokens' });
-  assert.equal(commits.length, 0);
-});
-
-test('Firestore failures never throw', async (t) => {
+test('recordApiUsage never throws on Supabase failures', async (t) => {
   t.mock.method(console, 'error', () => {});
-  t.mock.method(console, 'warn', () => {});
   t.mock.method(globalThis, 'fetch', async () => new Response('boom', { status: 500 }));
-  await assert.doesNotReject(() => recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key' },
-    { uid: 'user-5', kind: 'builder' },
-  ));
+  await assert.doesNotReject(() => recordApiUsage(multiUserEnv, { uid: 'user-5', kind: 'builder' }));
 
   t.mock.method(globalThis, 'fetch', () => { throw new Error('network down'); });
-  await assert.doesNotReject(() => recordApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj' },
-    { uid: 'user-5', kind: 'builder' },
-  ));
+  await assert.doesNotReject(() => recordApiUsage(multiUserEnv, { uid: 'user-5', kind: 'builder' }));
 });
 
 test('trackApiUsage hands the write to waitUntil when one exists', async (t) => {
-  const commits = captureUsageCommits(t);
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => { calls.push(String(url)); return Response.json({}); });
   const waited = [];
-  trackApiUsage(
-    { SELF_HOSTED_MODE: 'false', FIREBASE_PROJECT_ID: 'usage-test-proj', FIREBASE_API_KEY: 'test-key' },
-    { uid: 'user-6', kind: 'builder' },
-    (p) => waited.push(p),
-  );
+  trackApiUsage(multiUserEnv, { uid: 'user-6', kind: 'builder' }, (p) => waited.push(p));
   assert.equal(waited.length, 1, 'promise must be kept alive via waitUntil');
   await waited[0];
-  assert.equal(commits.length, 1);
+  assert.equal(calls.length, 1);
 });
 
 // --- Integration through handleChatProxy ---------------------------------
 
-const hostedEnv = {
-  SELF_HOSTED_MODE: 'false',
-  FIREBASE_API_KEY: 'fb-key',
+const proxyEnv = {
+  ...multiUserEnv,
   APPBLIPS_LLM_BASE_URL: 'https://llm.example/v1',
   APPBLIPS_LLM_API_KEY: 'llm-key',
   APPBLIPS_LLM_MODEL: 'test-model',
   APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
 };
 
+const SSE_WITH_USAGE =
+  'data: {"choices":[{"delta":{"content":"Done"}}],"usage":{"total_tokens":7}}\n\ndata: [DONE]\n\n';
+
 const captureProxyFetch = (t, { lookupUser = 'user-proxy', upstreamStatus = 200 } = {}) => {
-  const commits = [];
+  const increments = [];
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
     const target = String(url);
-    if (target.includes('identitytoolkit.googleapis.com')) {
-      return Response.json({ users: lookupUser ? [{ localId: lookupUser }] : [] });
+    if (target.includes('/auth/v1/user')) {
+      return Response.json(lookupUser ? { id: lookupUser } : null);
     }
-    if (isUsageCommit(target)) {
-      commits.push({ url: target, options });
+    if (isIncrementCall(target)) {
+      increments.push({ url: target, options });
       return Response.json({});
     }
     if (upstreamStatus !== 200) return new Response('upstream down', { status: upstreamStatus });
-    return new Response(
-      'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\n',
-      { headers: { 'content-type': 'text/event-stream' } },
-    );
+    return new Response(SSE_WITH_USAGE, { headers: { 'content-type': 'text/event-stream' } });
   });
-  return commits;
+  return increments;
 };
 
 const postChat = (env, waitUntil) => handleChatProxy(new Request('https://app.example/api/chat', {
@@ -148,32 +105,38 @@ const postChat = (env, waitUntil) => handleChatProxy(new Request('https://app.ex
   body: JSON.stringify({ messages: [{ role: 'user', content: 'Build a todo app' }], stream: true }),
 }), env, waitUntil);
 
-test('a successful hosted builder call records exactly one commit', async (t) => {
-  const commits = captureProxyFetch(t, { lookupUser: 'user-proxy' });
+test('a successful multi-user builder call records exactly one increment', async (t) => {
+  const increments = captureProxyFetch(t, { lookupUser: 'user-proxy' });
   const waited = [];
-  const response = await postChat(hostedEnv, (p) => waited.push(p));
+  const response = await postChat(proxyEnv, (p) => waited.push(p));
   assert.equal(response.status, 200);
+  await response.text(); // drain the stream so the token-tracking flush runs
   await Promise.all(waited);
-  assert.equal(commits.length, 1);
-  const parsed = parseCommit(commits[0]);
-  assert.equal(parsed.docId, `user-proxy_${today()}`);
-  assert.equal(parsed.incrementField, 'builderRequests');
+  assert.equal(increments.length, 1);
+  assert.deepEqual(JSON.parse(increments[0].options.body), {
+    target_user_id: 'user-proxy',
+    usage_date: today(),
+    usage_kind: 'builder',
+    token_count: 7,
+  });
 });
 
 test('a failed upstream call records nothing', async (t) => {
-  const commits = captureProxyFetch(t, { upstreamStatus: 502 });
+  const increments = captureProxyFetch(t, { upstreamStatus: 502 });
   const waited = [];
-  const response = await postChat(hostedEnv, (p) => waited.push(p));
+  const response = await postChat(proxyEnv, (p) => waited.push(p));
   assert.equal(response.status, 502);
   await Promise.all(waited);
-  assert.equal(commits.length, 0);
+  assert.equal(increments.length, 0);
 });
 
-test('self-hosted builder calls record nothing', async (t) => {
-  const commits = captureProxyFetch(t);
+test('single-user builder calls record nothing', async (t) => {
+  const increments = captureProxyFetch(t);
   const waited = [];
-  const response = await postChat({ ...hostedEnv, SELF_HOSTED_MODE: 'true' }, (p) => waited.push(p));
+  const singleUser = { ...proxyEnv, SUPABASE_URL: undefined, SUPABASE_PUBLISHABLE_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: undefined };
+  const response = await postChat(singleUser, (p) => waited.push(p));
   assert.equal(response.status, 200);
+  await response.text();
   await Promise.all(waited);
-  assert.equal(commits.length, 0);
+  assert.equal(increments.length, 0);
 });

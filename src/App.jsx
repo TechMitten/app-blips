@@ -1498,7 +1498,7 @@ export default function App() {
   const buildExportFiles = () => {
     const protectedFiles = mapPages(files, (html) => injectLoopProtection(html));
     const mode = isDesktop ? 'byok' : generatedAiMode;
-    return (!supabaseEnabled && aiEnabled)
+    return aiEnabled
       ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode, relayUrl: absoluteRelayUrl() }))
       : protectedFiles;
   };
@@ -1507,11 +1507,11 @@ export default function App() {
   // code must not run in it directly: it would reach AppBlips' storage
   // (sign-in session, saved provider key) and /api/chat. The tab gets a
   // trusted shell instead, with the app in a sandboxed iframe like the preview
-  // (lib/newTabShell.js). AI goes through the shell to the self-hosted relay,
-  // and only when the AI switch is on; hosted mode has no new-tab AI.
+  // (lib/newTabShell.js). AI goes through the shell to the relay, and only
+  // when the AI switch is on.
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
-    const aiMode = supabaseEnabled || !aiEnabled ? 'off' : (generatedAiMode === 'byok' ? 'byok' : 'relay');
+    const aiMode = !aiEnabled ? 'off' : (generatedAiMode === 'byok' ? 'byok' : 'relay');
     const shellHtml = buildNewTabShell({
       files,
       title: projectName || 'Preview',

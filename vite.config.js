@@ -223,63 +223,57 @@ function analyticsProxyDevMiddleware(mode) {
   }
 }
 
-// Injects the Umami analytics + session recorder scripts into <head> only for
-// the hosted version (SELF_HOSTED_MODE=false). In self-hosted mode (the
-// default), this is omitted entirely. The recorder is main-app-only -- it
-// must never reach deployed apps, which get script.js alone (or nothing) via
+// Injects the optional Umami analytics + session recorder scripts into <head>.
+// Only when the operator configures a Umami script URL and website ID
+// (VITE_UMAMI_SCRIPT_URL / VITE_UMAMI_WEBSITE_ID, plus the optional
+// VITE_UMAMI_RECORDER_URL). The recorder is main-app-only -- it must never
+// reach deployed apps, which get script.js alone (or nothing) via
 // deploy.js/crypto.js/functions/[[path]].js.
 function umamiAnalyticsPlugin(mode) {
   return {
     name: 'appblips-umami-analytics',
     transformIndexHtml() {
       const env = loadEnv(mode, process.cwd(), '');
-      const isHosted = (process.env.SELF_HOSTED_MODE ?? env.SELF_HOSTED_MODE) === 'false';
-      if (isHosted) {
-        const websiteId = 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3';
-        return [
-          {
-            tag: 'script',
-            attrs: {
-              defer: true,
-              src: 'https://umami.techmitten.com/script.js',
-              'data-website-id': websiteId,
-            },
-            injectTo: 'head',
-          },
-          {
-            tag: 'script',
-            attrs: {
-              defer: true,
-              src: 'https://umami.techmitten.com/recorder.js',
-              'data-website-id': websiteId,
-            },
-            injectTo: 'head',
-          },
-        ];
+      const scriptUrl = process.env.VITE_UMAMI_SCRIPT_URL ?? env.VITE_UMAMI_SCRIPT_URL;
+      const recorderUrl = process.env.VITE_UMAMI_RECORDER_URL ?? env.VITE_UMAMI_RECORDER_URL;
+      const websiteId = process.env.VITE_UMAMI_WEBSITE_ID ?? env.VITE_UMAMI_WEBSITE_ID;
+      if (!scriptUrl || !websiteId) return [];
+      const tags = [
+        {
+          tag: 'script',
+          attrs: { defer: true, src: scriptUrl, 'data-website-id': websiteId },
+          injectTo: 'head',
+        },
+      ];
+      if (recorderUrl) {
+        tags.push({
+          tag: 'script',
+          attrs: { defer: true, src: recorderUrl, 'data-website-id': websiteId },
+          injectTo: 'head',
+        });
       }
-      return [];
+      return tags;
     },
   };
 }
 
-// SEO surface for the SPA, keyed on the same SELF_HOSTED_MODE flag as
-// everything else. Hosted builds are indexable: description, canonical, Open
-// Graph/Twitter tags, JSON-LD, a <noscript> summary for non-JS crawlers, plus
-// /robots.txt and /sitemap.xml. Self-hosted builds (the default) are marked
-// noindex with a disallow-all robots.txt, so forks and personal instances
-// never publish duplicate copies of the marketing page. Without this, unknown
-// paths fall back to index.html and /robots.txt would come back as HTML.
-// Set VITE_SITE_URL to the public origin (defaults to https://appblips.com).
+// SEO surface for the SPA. Instances that set VITE_SITE_URL (a public origin)
+// are indexable: description, canonical, Open Graph/Twitter tags, JSON-LD, a
+// <noscript> summary for non-JS crawlers, plus /robots.txt and /sitemap.xml.
+// Instances without it are marked noindex with a disallow-all robots.txt, so
+// forks and personal copies never publish duplicate marketing pages. Without
+// this, unknown paths fall back to index.html and /robots.txt would come back
+// as HTML.
 function seoPlugin(mode) {
   const env = loadEnv(mode, process.cwd(), '')
-  const isHosted = (process.env.SELF_HOSTED_MODE ?? env.SELF_HOSTED_MODE) === 'false'
-  const siteUrl = (process.env.VITE_SITE_URL || env.VITE_SITE_URL || 'https://appblips.com').replace(/\/+$/, '')
+  const siteUrl = (process.env.VITE_SITE_URL || env.VITE_SITE_URL || '').replace(/\/+$/, '')
+  const isPublic = Boolean(siteUrl)
   const title = 'AppBlips — Text to App and Website Generator'
   const description =
     'Describe an app or website in plain English and get a working single-file version in seconds, with a live preview, versions, export, and one-click deploy.'
   const image = `${siteUrl}/appblips-logo.png`
 
-  const robots = isHosted
+  const robots = isPublic
     ? `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl}/sitemap.xml\n`
     : 'User-agent: *\nDisallow: /\n'
   const sitemap =
@@ -289,7 +283,7 @@ function seoPlugin(mode) {
     '</urlset>\n'
 
   const meta = (attrs) => ({ tag: 'meta', attrs, injectTo: 'head' })
-  const hostedTags = [
+  const seoTags = [
     meta({ name: 'description', content: description }),
     { tag: 'link', attrs: { rel: 'canonical', href: `${siteUrl}/` }, injectTo: 'head' },
     meta({ property: 'og:type', content: 'website' }),
@@ -332,9 +326,9 @@ function seoPlugin(mode) {
     transformIndexHtml: {
       order: 'pre',
       handler(html) {
-        const tags = isHosted ? hostedTags : [meta({ name: 'robots', content: 'noindex, nofollow' })]
+        const tags = isPublic ? seoTags : [meta({ name: 'robots', content: 'noindex, nofollow' })]
         return {
-          html: html.replace(/<title>[^<]*<\/title>/, `<title>${isHosted ? title : 'AppBlips'}</title>`),
+          html: html.replace(/<title>[^<]*<\/title>/, `<title>${isPublic ? title : 'AppBlips'}</title>`),
           tags,
         }
       },
@@ -345,7 +339,7 @@ function seoPlugin(mode) {
         if (path === '/robots.txt') {
           res.setHeader('Content-Type', 'text/plain; charset=utf-8')
           res.end(robots)
-        } else if (path === '/sitemap.xml' && isHosted) {
+        } else if (path === '/sitemap.xml' && isPublic) {
           res.setHeader('Content-Type', 'application/xml; charset=utf-8')
           res.end(sitemap)
         } else {
@@ -355,7 +349,7 @@ function seoPlugin(mode) {
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robots })
-      if (isHosted) this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap })
+      if (isPublic) this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap })
     },
   }
 }
@@ -367,11 +361,11 @@ export default defineConfig(({ mode }) => ({
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
   plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
-  // SELF_HOSTED_MODE has no VITE_ prefix (like the other flags it sits next to
-  // in .env), but it's the one flag both the client bundle (src/supabase.js)
-  // and the server-side proxy (functions/_lib/chatProxy.js) need to agree on,
-  // so it's allow-listed here to reach import.meta.env too.
-  envPrefix: ['VITE_', 'SELF_HOSTED_MODE', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL'],
+  // SELF_HOSTED_MODE is gone: multi-user features turn on when the operator
+  // configures Supabase (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY in
+  // src/supabase.js). APPBLIPS_GENERATED_AI_MODE / APPBLIPS_APP_AI_RELAY_URL
+  // have no VITE_ prefix but still need to reach import.meta.env.
+  envPrefix: ['VITE_', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL'],
   server: {
     host: true,
     port: 5175,

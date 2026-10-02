@@ -1,4 +1,4 @@
-// Per-account API usage counters (hosted mode only) -- observability, not a
+// Per-account API usage counters (multi-user only) -- observability, not a
 // billing boundary. One doc per account per UTC day in Supabase's `usage`
 // collection: { user_id, date, builderRequests, deployedRequests, updatedAt }.
 //
@@ -7,16 +7,16 @@
 // aiRelay.js has no user identity at all (the caller is an anonymous visitor
 // of a deployed app). Supabase RLS constrains what can be written
 // (known fields only, each counter increments by at most 1 per call).
-import { supabaseUrl, supabaseHeaders, supabaseServiceKey } from './supabaseServer.js';
+import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
 
 const todayUtc = () => new Date().toISOString().slice(0, 10);
 
 // Best-effort: a Supabase hiccup here must never break app generation or a
 // deployed app's AI feature, so every failure is caught and logged, never
-// thrown. Self-hosted mode has no Supabase project to write to.
+// thrown. A single-user instance has no Supabase project to write to.
 export async function recordApiUsage(env, { uid, kind, tokens }) {
   if (!uid || !['builder', 'deployed'].includes(kind)) return;
-  if (env?.SELF_HOSTED_MODE !== 'false') return;
+  if (!supabaseConfigured(env)) return;
 
   const date = todayUtc();
   try {

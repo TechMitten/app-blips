@@ -36,7 +36,7 @@ const originHeaders = (request, env) => {
 };
 
 export async function handleSelfHostedAiChat(request, env) {
-  if (env.SELF_HOSTED_MODE === 'false' || String(env.APPBLIPS_GENERATED_AI_MODE || 'relay').toLowerCase() === 'byok') {
+  if (String(env.APPBLIPS_GENERATED_AI_MODE || 'relay').toLowerCase() === 'byok') {
     return failure('unauthorized', 403, 'Self-hosted app AI relay is disabled.');
   }
   const cors = originHeaders(request, env);

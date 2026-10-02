@@ -1,15 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # ---- Build stage -----------------------------------------------------------
-# Local self-hosted image: builds the static client in self-hosted mode (SELF_HOSTED_MODE=true is the
-# default already, set explicitly here for clarity). No Supabase env vars are
-# needed: self-hosted mode never touches src/supabase.js's Supabase init.
+# Local self-hosted image: builds the static client as a single-user install.
+# No Supabase env vars are set here, so src/supabase.js never initializes a
+# client and the multi-user features (sign-in, cloud projects, deploys) stay off.
 FROM node:22-alpine AS builder
 WORKDIR /app
 
 ARG APPBLIPS_GENERATED_AI_MODE=relay
 ARG APPBLIPS_APP_AI_RELAY_URL=
-ENV SELF_HOSTED_MODE=true
 ENV APPBLIPS_GENERATED_AI_MODE=$APPBLIPS_GENERATED_AI_MODE
 ENV APPBLIPS_APP_AI_RELAY_URL=$APPBLIPS_APP_AI_RELAY_URL
 
@@ -26,7 +25,6 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV SELF_HOSTED_MODE=true
 ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist

@@ -28,7 +28,9 @@ import { LANDING_PAGE, getLanding, mapPages, pageNames } from './pages';
 export const DEPLOY_BUCKET = 'orion-deploys';
 // Gallery thumbnails and remix sources: `<uid>/<postId>/{thumb.*,source.json}`.
 export const GALLERY_BUCKET = 'gallery';
-export const APPS_ORIGIN = 'https://my.appblips.com';
+// The origin that serves deployed apps (functions/[[path]].js). Configured by
+// the operator at build time; empty until a deploy host is set up.
+export const APPS_ORIGIN = String(import.meta.env.VITE_APPS_ORIGIN || '').replace(/\/+$/, '');
 
 export const randomToken = (length) => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

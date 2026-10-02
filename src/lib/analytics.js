@@ -1,9 +1,6 @@
-import { supabaseEnabled } from '../supabase';
-
-// Umami analytics for every deployed app and the hosted platform.
-//
-// Enabled ONLY in the hosted version (supabaseEnabled / SELF_HOSTED_MODE=false).
-// Disabled in the self-hosted version (SELF_HOSTED_MODE=true or unset).
+// Optional Umami analytics for every deployed app and the platform, configured
+// by the operator at build time. Disabled unless both the script URL and the
+// website ID are set (VITE_UMAMI_SCRIPT_URL / VITE_UMAMI_WEBSITE_ID).
 //
 // The script tag is spliced in at deploy time only -- never into
 // `generatedCode` itself -- so it stays out of the preview srcDoc, the code
@@ -15,31 +12,24 @@ import { supabaseEnabled } from '../supabase';
 //     itself is tracked.
 // functions/[[path]].js also injects it at serve time (deduped) so
 // deployments uploaded before this existed are tracked as well.
-export const UMAMI_SCRIPT_SRC = 'https://umami.techmitten.com/script.js';
-export const UMAMI_WEBSITE_ID = 'ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3';
+export const UMAMI_SCRIPT_SRC = String(import.meta.env.VITE_UMAMI_SCRIPT_URL || '');
+export const UMAMI_WEBSITE_ID = String(import.meta.env.VITE_UMAMI_WEBSITE_ID || '');
+export const UMAMI_RECORDER_SRC = String(import.meta.env.VITE_UMAMI_RECORDER_URL || '');
 
-export const UMAMI_SCRIPT_TAG = supabaseEnabled
+const umamiEnabled = Boolean(UMAMI_SCRIPT_SRC && UMAMI_WEBSITE_ID);
+
+export const UMAMI_SCRIPT_TAG = umamiEnabled
   ? `<script defer src="${UMAMI_SCRIPT_SRC}" data-website-id="${UMAMI_WEBSITE_ID}"></script>`
   : '';
-
-// Session recorder: main AppBlips app only, never deployed apps.
-//
-// Intentionally NOT wired into injectAnalyticsSnippet/uploadDeploy/crypto.js's
-// unlock wrapper -- those are the deployed-app path, and a recorder tag was
-// previously removed from there (see functions/[[path]].js's oldRecorderRegex
-// stripping, kept in place as a guard against it reappearing in old or
-// re-uploaded deploys). It's only ever injected via umamiAnalyticsPlugin
-// (vite.config.js) and initAnalytics below, both scoped to the SPA itself.
-export const UMAMI_RECORDER_SRC = 'https://umami.techmitten.com/recorder.js';
 
 // Splice the tag into the earliest sensible point in <head>/<html>/<body>,
 // mirroring the insertion strategy in pwa.js's injectPwaSnippet (index-based,
 // single insertion point, rest of the document untouched).
 export const injectAnalyticsSnippet = (html) => {
-  if (!supabaseEnabled || typeof html !== 'string' || !html) return html;
+  if (!umamiEnabled || typeof html !== 'string' || !html) return html;
   // A user prompt can legitimately ask the model for umami tracking with this
   // same endpoint -- don't load it twice and double-count every event.
-  if (html.includes('umami.techmitten.com/script.js')) return html;
+  if (html.includes(UMAMI_SCRIPT_SRC)) return html;
 
   const insertAt = (index) => html.slice(0, index) + UMAMI_SCRIPT_TAG + html.slice(index);
 
@@ -61,11 +51,11 @@ export const injectAnalyticsSnippet = (html) => {
   return UMAMI_SCRIPT_TAG + html;
 };
 
-// Initializes Umami analytics (+ session recorder) in the main AppBlips web
-// app for hosted mode. Dedupes if either script was already injected by
+// Initializes Umami analytics (+ session recorder, when configured) in the
+// main AppBlips web app. Dedupes if either script was already injected by
 // Vite's HTML transform.
 export const initAnalytics = () => {
-  if (!supabaseEnabled || typeof document === 'undefined') return;
+  if (!umamiEnabled || typeof document === 'undefined') return;
 
   if (!document.querySelector(`script[src="${UMAMI_SCRIPT_SRC}"]`)) {
     const script = document.createElement('script');
@@ -75,7 +65,7 @@ export const initAnalytics = () => {
     document.head.appendChild(script);
   }
 
-  if (!document.querySelector(`script[src="${UMAMI_RECORDER_SRC}"]`)) {
+  if (UMAMI_RECORDER_SRC && !document.querySelector(`script[src="${UMAMI_RECORDER_SRC}"]`)) {
     const recorder = document.createElement('script');
     recorder.defer = true;
     recorder.src = UMAMI_RECORDER_SRC;

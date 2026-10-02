@@ -19,7 +19,7 @@ AppBlips runs LLM-generated code, and appblips.com hosts it at public URLs, so t
 
 ## Self-hosting
 
-In the default self-hosted mode, `/api/chat` performs no authentication, so anyone who can reach it can spend your configured LLM budget. That is by design: self-hosted AppBlips is meant to run on your own computer. If other devices on your network can reach it, put your own access control in front of it. See the Security notes in the README.
+In the default single-user configuration, `/api/chat` performs no authentication, so anyone who can reach it can spend your configured LLM budget. That is by design: a single-user AppBlips is meant to run on your own computer. If other devices on your network can reach it, put your own access control in front of it. See the Security notes in the README.
 
 ## Keys in this repository
 

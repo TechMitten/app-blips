@@ -1,7 +1,7 @@
 // Shared shape both providers (supabaseAuthProvider, mockAuthProvider)
 // implement, so useAuth/AuthModal/AccountSettingsModal/llm.js can stay
 // unaware of which one is active. Selection happens in ./index.js, based on
-// supabaseEnabled (s../supabase.js, driven by SELF_HOSTED_MODE).
+// supabaseEnabled (see ../supabase.js, driven by Supabase config).
 //
 // User shape: { id, email, displayName, username, user_metadata: { username } } | null
 //

@@ -5,6 +5,7 @@ import { describeConfig, formatConfigSummary } from '../functions/_lib/configSum
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
 const builderEnv = { APPBLIPS_OPENROUTER_API_KEY: 'or-key', APPBLIPS_LLM_MODEL: 'anthropic/claude-sonnet-5' };
+const multiUserEnv = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' };
 const quiet = { quiet: true };
 
 // --- Generated-app AI reuses the builder's provider -------------------------
@@ -52,7 +53,7 @@ const summary = (env) => formatConfigSummary(describeConfig(env));
 test('summary never contains secret values', () => {
   const text = summary({
     ...builderEnv,
-    SELF_HOSTED_MODE: 'false',
+    ...multiUserEnv,
     FIREBASE_API_KEY: 'firebase-secret',
     APPBLIPS_APP_LLM_API_KEY: 'app-secret',
     APPBLIPS_APP_LLM_PROVIDER: 'openai',
@@ -63,7 +64,7 @@ test('summary never contains secret values', () => {
 
 test('summary shows app AI using the builder provider by default', () => {
   const text = summary(builderEnv);
-  assert.match(text, /self-hosted/);
+  assert.match(text, /single-user/);
   assert.match(text, /OpenRouter · anthropic\/claude-sonnet-5/);
   assert.match(text, /relay, sharing the builder's provider · anthropic\/claude-sonnet-5/);
   assert.doesNotMatch(text, /BYOK/);
@@ -73,8 +74,8 @@ test('summary shows BYOK only when it is chosen explicitly', () => {
   assert.match(summary({ ...builderEnv, APPBLIPS_GENERATED_AI_MODE: 'byok' }), /BYOK/);
 });
 
-test('hosted summary explains an empty configuration', () => {
-  const lines = describeConfig({ SELF_HOSTED_MODE: 'false' });
+test('multi-user summary explains an empty configuration', () => {
+  const lines = describeConfig(multiUserEnv);
   assert.ok(lines.some((l) => l.level === 'error' && /APPBLIPS_OPENROUTER_API_KEY/.test(l.text)));
 });
 
@@ -90,10 +91,9 @@ test('summary reports relay mode sharing the builder provider and model', () => 
   assert.match(text, /relay, sharing the builder's provider · anthropic\/claude-sonnet-5/);
 });
 
-test('hosted summary shows deployed apps sharing the builder and lists missing Firebase settings', () => {
-  const lines = describeConfig({ ...builderEnv, SELF_HOSTED_MODE: 'false' });
+test('multi-user summary shows deployed apps sharing the builder', () => {
+  const lines = describeConfig({ ...builderEnv, ...multiUserEnv });
   assert.ok(lines.some((l) => /deployed apps, sharing the builder's provider/.test(l.text)));
-  assert.ok(lines.some((l) => l.level === 'error' && /VITE_FIREBASE_API_KEY/.test(l.text) && /\.env\.hosted\.example/.test(l.text)));
 });
 
 test('summary warns about leftover APPBLIPS_APP_* provider settings', () => {
@@ -138,8 +138,8 @@ const chat = (env, headers = {}) => handleChatProxy(new Request('https://app.exa
   body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
 }), { APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000', ...env });
 
-test('self-hosted config error tells the operator what to fix', async () => {
-  const response = await chat({ SELF_HOSTED_MODE: 'true' });
+test('single-user config error tells the operator what to fix', async () => {
+  const response = await chat({});
   assert.equal(response.status, 500);
   const { error } = await response.json();
   assert.match(error, /isn't set up yet/);
@@ -147,11 +147,11 @@ test('self-hosted config error tells the operator what to fix', async () => {
   assert.match(error, /Settings → AI/);
 });
 
-test('self-hosted summary only warns when no provider is in .env', () => {
+test('single-user summary only warns when no provider is in .env', () => {
   const line = describeConfig({}).find((l) => l.label === 'Builder AI');
   assert.equal(line.level, 'warn');
   assert.match(line.text, /Settings → AI/);
-  assert.equal(describeConfig({ SELF_HOSTED_MODE: 'false' }).find((l) => l.label === 'Builder AI').level, 'error');
+  assert.equal(describeConfig(multiUserEnv).find((l) => l.label === 'Builder AI').level, 'error');
   // A real mistake (unknown provider) is still an error.
   assert.equal(describeConfig({ APPBLIPS_LLM_PROVIDER: 'nope' }).find((l) => l.label === 'Builder AI').level, 'error');
 });
@@ -184,12 +184,12 @@ test('resolveUserProvider rejects bad input', () => {
 });
 
 
-test('hosted config error is generic to the client and logged server-side', async (t) => {
+test('multi-user config error is generic to the client and logged server-side', async (t) => {
   const logged = [];
   t.mock.method(console, 'error', (...args) => logged.push(args.join(' ')));
   // Sign-in is checked first: a user with their own provider needs no env key.
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ id: 'user-1' })));
-  const response = await chat({ SELF_HOSTED_MODE: 'false' }, { authorization: 'Bearer t' });
+  const response = await chat(multiUserEnv, { authorization: 'Bearer t' });
   assert.equal(response.status, 500);
   const { error } = await response.json();
   assert.doesNotMatch(error, /APPBLIPS_|\.env/);

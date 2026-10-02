@@ -9,14 +9,14 @@ import authProvider from './auth';
 // The script src here is client-safe (no secret): the admin API URL and
 // credentials used to create/query Umami websites stay server-side only, see
 // functions/_lib/umamiProxy.js.
-export const APP_UMAMI_SCRIPT_SRC = 'https://analytics.appblips.com/script.js';
+export const APP_UMAMI_SCRIPT_SRC = String(import.meta.env.VITE_APP_UMAMI_SCRIPT_URL || '');
 
 // Splice the per-app tracking tag into <head>/<html>/<body>, mirroring the
 // insertion strategy already used by injectAnalyticsSnippet/injectNoindexSnippet.
 // Dedup only on this script's own src -- the shared-tracker tag has a
 // different src, so both can coexist in the same document.
 export const injectAppAnalyticsSnippet = (html, websiteId) => {
-  if (typeof html !== 'string' || !html || !websiteId) return html;
+  if (!APP_UMAMI_SCRIPT_SRC || typeof html !== 'string' || !html || !websiteId) return html;
   if (html.includes(APP_UMAMI_SCRIPT_SRC)) return html;
 
   const tag = `<script defer src="${APP_UMAMI_SCRIPT_SRC}" data-website-id="${websiteId}"></script>`;

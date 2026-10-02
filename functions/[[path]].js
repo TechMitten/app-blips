@@ -17,7 +17,14 @@
 // shows source. Cloudflare does not, so the serving origin has to live here.
 // Storage remains the source of truth; this only ever reads.
 
-const APPS_HOSTNAME = 'my.appblips.com';
+// The hostname that serves deployed apps. Configured by the operator; without
+// it this Function falls through to the SPA static handler and deploy serving
+// is effectively off.
+const appsHostname = (env) => {
+  const origin = env?.APPBLIPS_APPS_ORIGIN || env?.VITE_APPS_ORIGIN || '';
+  if (!origin) return '';
+  try { return new URL(origin).hostname; } catch { return ''; }
+};
 
 import { supabaseUrl, supabaseHeaders } from './_lib/supabaseServer.js';
 import { injectSeoDefaults } from './_lib/seoDefaults.js';
@@ -87,42 +94,38 @@ const CSP = [
 // Umami analytics, injected at serve time so deployments uploaded before it
 // existed are tracked too. New uploads already carry the tag (spliced in by
 // src/lib/analytics.js via uploadDeploy) -- the includes() check keeps the
-// script single-load so events are never double-counted.
-const UMAMI_SCRIPT_TAG =
-  '<script defer src="https://umami.techmitten.com/script.js" data-website-id="ca809bf2-efae-4cf0-9b0a-e4ba06ea52a3"></script>';
+// script single-load so events are never double-counted. Configured by the
+// operator; disabled unless a script URL and website ID are set.
+const umamiScriptTag = (env) => {
+  const src = env?.UMAMI_SCRIPT_URL || env?.VITE_UMAMI_SCRIPT_URL || '';
+  const websiteId = env?.UMAMI_WEBSITE_ID || env?.VITE_UMAMI_WEBSITE_ID || '';
+  return src && websiteId
+    ? `<script defer src="${src}" data-website-id="${websiteId}"></script>`
+    : '';
+};
 
 const injectAnalytics = (html, env) => {
-  if (env?.SELF_HOSTED_MODE && env.SELF_HOSTED_MODE !== 'false') return html;
+  const tag = umamiScriptTag(env);
+  if (!tag) return html;
 
-  let modifiedHtml = html;
-
-  // Remove the old recorder.js tag if it exists in the deployed HTML
-  const oldRecorderRegex = /<script[^>]*src=["']https:\/\/umami\.techmitten\.com\/recorder\.js["'][^>]*><\/script>\s*/gi;
-  modifiedHtml = modifiedHtml.replace(oldRecorderRegex, '');
-
-  // Also strip it from previously encrypted apps by intercepting document.write
-  modifiedHtml = modifiedHtml.replace(
-    'document.write(html);',
-    'document.write(html.replace(/<script[^>]*src=["\']https:\\/\\/umami\\.techmitten\\.com\\/recorder\\.js["\'][^>]*><\\/script>\\s*/gi, ""));'
-  );
-
-  if (modifiedHtml.includes('umami.techmitten.com/script.js')) {
-    return modifiedHtml;
+  const src = env?.UMAMI_SCRIPT_URL || env?.VITE_UMAMI_SCRIPT_URL || '';
+  if (html.includes(src)) {
+    return html;
   }
 
-  const headMatch = /<head\b[^>]*>/i.exec(modifiedHtml);
+  const headMatch = /<head\b[^>]*>/i.exec(html);
   if (headMatch) {
     const at = headMatch.index + headMatch[0].length;
-    return modifiedHtml.slice(0, at) + UMAMI_SCRIPT_TAG + modifiedHtml.slice(at);
+    return html.slice(0, at) + tag + html.slice(at);
   }
 
-  const htmlMatch = /<html\b[^>]*>/i.exec(modifiedHtml);
+  const htmlMatch = /<html\b[^>]*>/i.exec(html);
   if (htmlMatch) {
     const at = htmlMatch.index + htmlMatch[0].length;
-    return modifiedHtml.slice(0, at) + UMAMI_SCRIPT_TAG + modifiedHtml.slice(at);
+    return html.slice(0, at) + tag + html.slice(at);
   }
 
-  return modifiedHtml;
+  return html;
 };
 
 const injectFavicon = (html) => {
@@ -147,8 +150,9 @@ const injectFavicon = (html) => {
 // "Remix Blip!" CTA badge -- see src/lib/remixBadge.js for the source of
 // truth on the markup/rationale; duplicated here (like the favicon/analytics
 // tags above) so deployments uploaded before this existed get it too.
+// Disabled unless the operator configures a remix URL.
 const REMIX_BADGE_ID = 'appblips-remix-badge';
-const REMIX_BADGE_SNIPPET = `<style>
+const remixBadgeSnippet = (href) => `<style>
 #${REMIX_BADGE_ID}{position:fixed;bottom:16px;right:16px;z-index:2147483000;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 #${REMIX_BADGE_ID} .ablips-remix-link{all:unset;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:9999px;background:linear-gradient(135deg,#7c3aed,#4f46e5);box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;transition:transform .15s ease}
 #${REMIX_BADGE_ID} .ablips-remix-link:hover,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible{transform:scale(1.08)}
@@ -156,7 +160,7 @@ const REMIX_BADGE_SNIPPET = `<style>
 #${REMIX_BADGE_ID} .ablips-remix-link:hover + .ablips-remix-tip,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible + .ablips-remix-tip{opacity:1;transform:translateX(0)}
 </style>
 <div id="${REMIX_BADGE_ID}">
-  <a class="ablips-remix-link" href="https://appblips.com" target="_blank" rel="noopener noreferrer" aria-label="Remix Blip!" title="Remix Blip!">
+  <a class="ablips-remix-link" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="Remix Blip!" title="Remix Blip!">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <polyline points="16 3 21 3 21 8"></polyline>
       <line x1="4" y1="20" x2="21" y2="3"></line>
@@ -168,20 +172,23 @@ const REMIX_BADGE_SNIPPET = `<style>
   <span class="ablips-remix-tip" aria-hidden="true">Remix Blip!</span>
 </div>`;
 
-const injectRemixBadge = (html) => {
+const injectRemixBadge = (html, env) => {
+  const href = env?.REMIX_URL || env?.VITE_REMIX_URL || '';
+  if (!href) return html;
   if (html.includes(`id="${REMIX_BADGE_ID}"`)) return html;
 
+  const snippet = remixBadgeSnippet(href);
   const bodyCloseAt = html.lastIndexOf('</body>');
   if (bodyCloseAt !== -1) {
-    return html.slice(0, bodyCloseAt) + REMIX_BADGE_SNIPPET + html.slice(bodyCloseAt);
+    return html.slice(0, bodyCloseAt) + snippet + html.slice(bodyCloseAt);
   }
 
   const htmlCloseAt = html.lastIndexOf('</html>');
   if (htmlCloseAt !== -1) {
-    return html.slice(0, htmlCloseAt) + REMIX_BADGE_SNIPPET + html.slice(htmlCloseAt);
+    return html.slice(0, htmlCloseAt) + snippet + html.slice(htmlCloseAt);
   }
 
-  return html + REMIX_BADGE_SNIPPET;
+  return html + snippet;
 };
 
 const LOCK_PROTECTION_SCRIPT = `<script>
@@ -320,7 +327,8 @@ export async function onRequest(context) {
 
   // Anything that isn't the apps hostname is the SPA. Fall straight through to
   // the static asset handler so this function stays invisible to the main site.
-  if (url.hostname !== APPS_HOSTNAME) return next();
+  const hostname = appsHostname(env);
+  if (!hostname || url.hostname !== hostname) return next();
 
   try {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -467,7 +475,7 @@ export async function onRequest(context) {
       return notice(404, 'Not found', 'This app is no longer deployed.');
     }
 
-    const pageUrl = `https://${APPS_HOSTNAME}/${slug}${page ? `/${page}` : ''}`;
+    const pageUrl = `https://${hostname}/${slug}${page ? `/${page}` : ''}`;
     let body = await object.text();
     if (!isBundle && row.page_names.length) body = rewritePageLinks(body, slug, row.page_names);
 
@@ -478,6 +486,7 @@ export async function onRequest(context) {
             injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
             env,
           ),
+          env,
         ),
       ),
       slug,
