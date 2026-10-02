@@ -17,6 +17,11 @@ export default function useAuth() {
   // Permanent per-user handle, stored in the Supabase profiles table.
   const [username, setUsername] = useState('');
   const [usernameLoading, setUsernameLoading] = useState(false);
+  // Set after a password-reset link signs the user in, so the app can ask
+  // for a new password; and when a confirm/reset email link fails.
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [emailLinkError, setEmailLinkError] = useState(null);
+  const signedInRef = useRef(false);
 
   const isSignedIn = authStatus === 'signedIn';
   const user = session?.user ?? null;
@@ -26,11 +31,22 @@ export default function useAuth() {
     let active = true;
     let unsubscribe = null;
     
-    unsubscribe = authProvider.onAuthStateChanged((user) => {
+    unsubscribe = authProvider.onAuthStateChanged((user, event) => {
       if (!active) return;
+      signedInRef.current = Boolean(user);
       setSession(user ? { user } : null);
       setAuthStatus(user ? 'signedIn' : 'signedOut');
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
     });
+
+    authProvider.consumeEmailLink()
+      .then((type) => { if (active && type === 'recovery') setIsPasswordRecovery(true); })
+      .catch((err) => {
+        console.error('Email link verification failed:', err);
+        if (!active) return;
+        setEmailLinkError('That email link has expired or was already used. Sign in, or request a new link.');
+        if (!signedInRef.current) setIsAuthModalOpen(true);
+      });
 
     return () => {
       active = false;
@@ -106,6 +122,10 @@ export default function useAuth() {
     dismissAuthToast: () => setAuthToast(null),
     isAuthModalOpen,
     setIsAuthModalOpen,
+    isPasswordRecovery,
+    endPasswordRecovery: () => setIsPasswordRecovery(false),
+    emailLinkError,
+    clearEmailLinkError: () => setEmailLinkError(null),
     handleSignOut,
   };
 }

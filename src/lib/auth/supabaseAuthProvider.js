@@ -15,8 +15,34 @@ const onAuthStateChanged = (callback) => {
     if (error) console.error('Failed to restore auth session:', error);
     callback(toUser(data?.session?.user));
   });
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(toUser(session?.user)));
+  const { data } = supabase.auth.onAuthStateChange((event, session) => callback(toUser(session?.user), event));
   return () => data.subscription.unsubscribe();
+};
+
+// The confirm-signup and reset-password email templates link to our own
+// domain (`/?token_hash=...&type=...`) instead of Supabase's /auth/v1/verify,
+// because spam filters distrust mail whose links point at a different domain
+// than its sender. Verified once per page load; resolves to the link type,
+// or null when the URL carries no link.
+let emailLinkResult = null;
+const consumeEmailLink = () => {
+  if (emailLinkResult) return emailLinkResult;
+  const params = new URLSearchParams(window.location.search);
+  const tokenHash = params.get('token_hash');
+  const type = params.get('type');
+  if (!tokenHash || !type) {
+    emailLinkResult = Promise.resolve(null);
+    return emailLinkResult;
+  }
+  params.delete('token_hash');
+  params.delete('type');
+  const query = params.toString();
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  emailLinkResult = supabase.auth.verifyOtp({ token_hash: tokenHash, type }).then(({ error }) => {
+    if (error) throw error;
+    return type;
+  });
+  return emailLinkResult;
 };
 
 const signIn = async (email, password, captchaToken) => throwIfError(await supabase.auth.signInWithPassword({
@@ -52,7 +78,7 @@ const getIdToken = async () => {
 };
 
 export default {
-  onAuthStateChanged, signIn, signUp, sendPasswordReset, signOut,
+  onAuthStateChanged, consumeEmailLink, signIn, signUp, sendPasswordReset, signOut,
   updatePassword, updateProfile, deleteAccount, reauthenticate, getIdToken,
   getPrimaryProviderId: () => 'password',
 };

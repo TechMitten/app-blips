@@ -41,6 +41,7 @@ const updateProfile = async (profile) => {
 
 export default {
   onAuthStateChanged,
+  consumeEmailLink: async () => null,
   signIn: noop,
   signUp: noop,
   sendPasswordReset: noop,

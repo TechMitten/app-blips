@@ -124,6 +124,8 @@ export default function App() {
     username, usernameLoading, claimUsername,
     authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
+    isPasswordRecovery, endPasswordRecovery,
+    emailLinkError, clearEmailLinkError,
     handleSignOut,
   } = useAuth();
 
@@ -1831,6 +1833,7 @@ export default function App() {
 
   const handleCloseAuthModal = () => {
     setIsAuthModalOpen(false);
+    clearEmailLinkError();
     setPendingStudio(null);
     if (pickerSetStartFreshRef.current) {
       pickerSetStartFreshRef.current = false;
@@ -2043,7 +2046,7 @@ export default function App() {
         {isDesktop && <DesktopStorageNotice />}
         {!supabaseEnabled && <UpdateNotice />}
         {isAuthModalOpen && supabaseEnabled && (
-          <AuthModal onClose={handleCloseAuthModal} />
+          <AuthModal onClose={handleCloseAuthModal} linkError={emailLinkError} />
         )}
         {signOutConfirmModal}
         {isProjectsListOpen && (
@@ -2228,12 +2231,13 @@ export default function App() {
         />
       )}
 
-      {isAccountSettingsOpen && isSignedIn && supabaseEnabled && (
+      {(isAccountSettingsOpen || isPasswordRecovery) && isSignedIn && supabaseEnabled && (
         <AccountSettingsModal
           user={user}
           username={username}
           usernameLoading={usernameLoading}
-          onClose={() => setIsAccountSettingsOpen(false)}
+          passwordRecovery={isPasswordRecovery}
+          onClose={() => { setIsAccountSettingsOpen(false); endPasswordRecovery(); }}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
         />
       )}
@@ -2245,7 +2249,7 @@ export default function App() {
       {galleryOverlay}
 
       {isAuthModalOpen && supabaseEnabled && (
-        <AuthModal onClose={handleCloseAuthModal} />
+        <AuthModal onClose={handleCloseAuthModal} linkError={emailLinkError} />
       )}
 
       {showHero ? (

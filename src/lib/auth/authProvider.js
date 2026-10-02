@@ -5,7 +5,9 @@
 //
 // User shape: { id, email, displayName, username, user_metadata: { username } } | null
 //
-// authProvider.onAuthStateChanged(callback) -> unsubscribe
+// authProvider.onAuthStateChanged(callback(user, event)) -> unsubscribe
+//   event is the provider's auth event ('PASSWORD_RECOVERY' after a reset link), when it has one
+// authProvider.consumeEmailLink() -> Promise<'email' | 'recovery' | ... | null> (rejects on a bad/expired link)
 // authProvider.signIn(email, password, captchaToken) -> Promise<void>
 // authProvider.signUp(email, password, captchaToken) -> Promise<void>
 // authProvider.sendPasswordReset(email, captchaToken) -> Promise<void>

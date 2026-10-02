@@ -4,6 +4,7 @@ import authProvider from '../lib/auth';
 import { LogIn, UserPlus, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
 import { TURNSTILE_SITE_KEY } from '../lib/constants';
+import { isPlausibleEmail, suggestEmailFix } from '../lib/emailCheck';
 
 const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
@@ -13,16 +14,22 @@ const LINK_CLASS = 'font-semibold text-brand hover:underline underline-offset-2 
 // AccountSettingsModal): owns its form state and talks to the auth adapter
 // directly (only ever mounted when supabaseEnabled -- see App.jsx). The
 // auth-state listener in useAuth closes the modal the moment a session lands.
-export default function AuthModal({ onClose = () => {}, dismissible = true }) {
-  const [authMode, setAuthMode] = useState('signup'); // 'signin' | 'signup' | 'reset'
+export default function AuthModal({ onClose = () => {}, dismissible = true, linkError = null }) {
+  // A failed confirm/reset email link opens on sign-in with its error.
+  const [authMode, setAuthMode] = useState(linkError ? 'signin' : 'signup'); // 'signin' | 'signup' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState(null);
+  const [authError, setAuthError] = useState(linkError);
   const [authInfo, setAuthInfo] = useState(null);
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
+  // Mail to a mistyped address bounces, and enough bounces get the project's
+  // auth mail throttled: hold sends until a suspected typo is resolved, and
+  // don't re-send a confirmation to an address this modal already mailed.
+  const [typoKeptFor, setTypoKeptFor] = useState('');
+  const [confirmationSentTo, setConfirmationSentTo] = useState('');
   const captchaRef = useRef(null);
 
   const resetCaptcha = () => {
@@ -51,6 +58,22 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
       setAuthError('Passwords do not match.');
       return;
     }
+    if (authMode !== 'signin') {
+      if (!isPlausibleEmail(email)) {
+        setAuthError('Enter a valid email address.');
+        return;
+      }
+      const fix = typoKeptFor === email ? null : suggestEmailFix(email);
+      if (fix) {
+        setAuthError(`Check your email address. Did you mean ${fix}?`);
+        return;
+      }
+    }
+    if (authMode === 'signup' && confirmationSentTo === email.toLowerCase()) {
+      setAuthError(null);
+      setAuthInfo(`We already sent a confirmation link to ${email}. Check your spam folder. If the address is wrong, correct it and sign up again.`);
+      return;
+    }
     if (!captchaToken) {
       setAuthError('Complete the browser verification to continue.');
       return;
@@ -66,7 +89,8 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
         setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
       } else if (authMode === 'signup') {
         await authProvider.signUp(email, authPassword, captchaToken);
-        setAuthInfo('We sent a confirmation link to your email. Confirm your account, then sign in.');
+        setConfirmationSentTo(email.toLowerCase());
+        setAuthInfo(`We sent a confirmation link to ${email}. Confirm your account, then sign in.`);
       } else {
         await authProvider.signIn(email, authPassword, captchaToken);
         // onAuthStateChange closes the modal on success.
@@ -75,6 +99,21 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
       // Don't reveal whether an account exists for the address on reset.
       if (authMode === 'reset' && err?.code === 'auth/user-not-found') {
         setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
+        return;
+      }
+      // Supabase's per-address interval shares the rate-limit code with the
+      // project-wide hourly limit, but names its wait ("after 51 seconds").
+      const waitSeconds = err?.code === 'over_email_send_rate_limit' && /after (\d+) seconds?/i.exec(err?.message || '')?.[1];
+      if (waitSeconds) {
+        setAuthError(`We just sent an email to this address. Please wait ${waitSeconds} seconds before requesting another.`);
+        setAuthInfo(null);
+        return;
+      }
+      // Supabase's hourly email limit, or the SMTP provider refusing once its
+      // daily quota is spent (surfaces as "Error sending ... email").
+      if (err?.code === 'over_email_send_rate_limit' || /error sending .*email/i.test(err?.message || '')) {
+        setAuthError("We're getting an unusually high number of sign-ups right now, so we couldn't send your email. Please try again in a few minutes.");
+        setAuthInfo(null);
         return;
       }
       setAuthError(err?.message || 'Authentication failed.');
@@ -88,6 +127,16 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const isSignup = authMode === 'signup';
   const isReset = authMode === 'reset';
   const busy = authLoading;
+  const trimmedEmail = authEmail.trim();
+  const emailFix = authMode !== 'signin' && typoKeptFor !== trimmedEmail ? suggestEmailFix(trimmedEmail) : null;
+  const applyEmailFix = () => {
+    setAuthEmail(emailFix);
+    setAuthError(null);
+  };
+  const keepTypedEmail = () => {
+    setTypoKeptFor(trimmedEmail);
+    setAuthError(null);
+  };
 
   const title = isSignup ? 'Create your account' : isReset ? 'Reset your password' : 'Welcome back';
   const subtitle = isSignup
@@ -174,6 +223,13 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
                 className={INPUT_CLASS}
               />
             </div>
+            {emailFix && (
+              <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                Did you mean{' '}
+                <button type="button" onClick={applyEmailFix} className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300">{emailFix}</button>?{' '}
+                <button type="button" onClick={keepTypedEmail} className="text-slate-500 hover:text-slate-800 hover:underline underline-offset-2">Keep as typed</button>
+              </p>
+            )}
           </div>
           {!isReset && (
             <div>

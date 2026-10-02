@@ -2,12 +2,13 @@ import { useState } from 'react';
 import authProvider from '../lib/auth';
 import { User, Mail, KeyRound, X, LogOut } from 'lucide-react';
 
-export default function AccountSettingsModal({ user, username, usernameLoading, onClose, onSignOut }) {
-  const [activeTab, setActiveTab] = useState('profile'); // profile, security
+export default function AccountSettingsModal({ user, username, usernameLoading, passwordRecovery = false, onClose, onSignOut }) {
+  // A password-reset link lands here, signed in, to choose the new password.
+  const [activeTab, setActiveTab] = useState(passwordRecovery ? 'security' : 'profile'); // profile, security
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(passwordRecovery ? 'Choose a new password for your account.' : '');
   const [error, setError] = useState('');
 
   const handleUpdatePassword = async (e) => {
