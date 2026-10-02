@@ -21,7 +21,8 @@
     "usage": "node scripts/usage-dashboard.js",
     "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
-    "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never"
+    "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",
+    "deploy:worker": "wrangler deploy"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
@@ -48,6 +49,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wrangler": "^4.147.0"
   }
 }
