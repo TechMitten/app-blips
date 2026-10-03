@@ -8,6 +8,7 @@ import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
 import { handleDebugUnlock } from './functions/_lib/debugUnlock.js'
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
+import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './functions/_lib/billing.js'
 
 // Dev-middleware plumbing. Vite's connect server does not catch rejections from
 // async middleware, and an 'error' event on an unhandled stream is an uncaught
@@ -223,6 +224,43 @@ function analyticsProxyDevMiddleware(mode) {
   }
 }
 
+// Stripe billing endpoints (functions/_lib/billing.js), same handlers as the
+// Worker. The Request keeps the real Host so Checkout returns to this dev
+// server. The webhook needs the raw body and Stripe-Signature untouched: the
+// signature covers the exact bytes Stripe sent. Locally, forward events with
+// `stripe listen --forward-to localhost:5175/api/billing/webhook`.
+function billingDevMiddleware(mode) {
+  return {
+    name: 'appblips-billing-dev-middleware',
+    configureServer(server) {
+      const env = loadEnv(mode, process.cwd(), '')
+      const routes = {
+        '/api/billing/status': ['GET', handleBillingStatus],
+        '/api/billing/checkout': ['POST', handleBillingCheckout],
+        '/api/billing/portal': ['POST', handleBillingPortal],
+        '/api/billing/webhook': ['POST', handleStripeWebhook],
+      }
+      for (const [path, [method, handler]] of Object.entries(routes)) {
+        server.middlewares.use(path, guarded(async (req, res) => {
+          if (req.method !== method) { res.statusCode = 405; res.end('Method not allowed'); return }
+          const chunks = []
+          if (method === 'POST') for await (const chunk of req) chunks.push(chunk)
+          const request = new Request('http://' + (req.headers.host || 'localhost') + path, {
+            method,
+            headers: {
+              ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+              ...(req.headers['stripe-signature'] ? { 'stripe-signature': req.headers['stripe-signature'] } : {}),
+              ...(method === 'POST' ? { 'content-type': req.headers['content-type'] || 'application/json' } : {}),
+            },
+            ...(method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
+          })
+          sendWebResponse(res, await handler(request, env))
+        }))
+      }
+    },
+  }
+}
+
 // Injects the optional Umami analytics + session recorder scripts into <head>.
 // Only when the operator configures a Umami script URL and website ID
 // (VITE_UMAMI_SCRIPT_URL / VITE_UMAMI_WEBSITE_ID, plus the optional
@@ -372,7 +410,7 @@ export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
+  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE is gone: multi-user features turn on when the operator
   // configures Supabase (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY in
   // src/supabase.js). APPBLIPS_GENERATED_AI_MODE / APPBLIPS_APP_AI_RELAY_URL
@@ -399,6 +437,9 @@ export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Loaded with import() only after a payment; keep it out of the
+            // eagerly loaded vendor chunk.
+            if (id.includes('canvas-confetti')) return undefined;
             if (id.includes('lucide-react')) return 'vendor_icons';
             if (id.includes('react')) return 'vendor_react';
             return 'vendor';

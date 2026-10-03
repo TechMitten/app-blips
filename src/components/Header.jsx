@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid
+  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid, Sparkles
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -38,6 +38,10 @@ export default function Header({
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
+  // 'free' | 'plus' | 'pro' when this instance bills and the user is signed
+  // in; null hides the plan button.
+  billingPlan = null,
+  onOpenPlans,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -89,6 +93,7 @@ export default function Header({
   // Local part only: the strip has to hold four ranks, and the domain is the
   // half of an address that never disambiguates anything.
   const accountLabel = userEmail ? userEmail.split('@')[0] : 'Account';
+  const planLabel = billingPlan === 'free' ? 'Upgrade' : billingPlan === 'plus' ? 'Plus' : billingPlan === 'pro' ? 'Pro' : null;
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -275,6 +280,18 @@ export default function Header({
         {/* Rank 4: Account + theme */}
         <span className="chrome-divider" aria-hidden="true" />
         <div className="nav-rank">
+          {planLabel && onOpenPlans && (
+            <button
+              type="button"
+              onClick={onOpenPlans}
+              className="nav-btn nav-ghost nav-btn-icon"
+              data-tip={billingPlan === 'free' ? 'See plans and usage' : 'Your plan and usage'}
+              aria-label={billingPlan === 'free' ? 'Upgrade: see plans and usage' : `${planLabel} plan: usage and billing`}
+            >
+              <Sparkles size={16} />
+              <span className="hidden xl:inline">{planLabel}</span>
+            </button>
+          )}
           {!supabaseEnabled ? null : isSignedIn ? (
             <button
               onClick={onOpenAccountSettings}
@@ -444,6 +461,16 @@ export default function Header({
                 <Compass size={16} />
                 <span>Take the tour</span>
               </button>
+              {planLabel && onOpenPlans && (
+                <button
+                  type="button"
+                  onClick={() => runMobileAction(onOpenPlans)}
+                  className="mobile-menu-item"
+                >
+                  <Sparkles size={16} />
+                  <span>{billingPlan === 'free' ? 'Upgrade' : `${planLabel} plan`}</span>
+                </button>
+              )}
               {supabaseEnabled && isSignedIn && (
                 <>
                   <button

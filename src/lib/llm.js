@@ -207,6 +207,12 @@ const assistantTurn = (message) => {
   return turn;
 };
 
+// The build in progress, if any. A build is many requests (writing, edits,
+// repairs, the summary); the proxy holds only the first to the plan's
+// allowance and lets `continuing` ones through, so a build that crosses the
+// limit finishes instead of stopping halfway (functions/_lib/plans.js).
+let activeBuild = null;
+
 // --- API Helper with Exponential Backoff ---
 export const requestModelText = async ({
   messages,
@@ -251,6 +257,10 @@ export const requestModelText = async ({
     if (forceTemperatureZero) bodyObj.auto_fix = true;
     // Ask-mode replies use a dedicated, smaller server-side output cap.
     if (askMode) bodyObj.ask = true;
+    if (activeBuild) {
+      if (activeBuild.started) bodyObj.continuing = true;
+      activeBuild.started = true;
+    }
 
     rawEntry = beginRawEntry({
       kind: 'request',
@@ -291,9 +301,10 @@ export const requestModelText = async ({
     }
     if (!response.ok) {
       let message = `API Error: ${response.status}`;
+      let errData = null;
       rawEntry?.update({ status: response.status });
       try {
-        const errData = await response.json();
+        errData = await response.json();
         rawEntry?.update({ errorBody: errData });
         if (errData?.error) {
           message = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
@@ -306,6 +317,9 @@ export const requestModelText = async ({
       // not found, ...): re-sending the identical request only burns the backoff
       // delays. 408 (timeout) is the one 4xx that can be transient.
       err.isNonRetryable = response.status >= 400 && response.status < 500 && response.status !== 408;
+      // 'limit_reached' / 'upgrade_required' from the plan check (chatProxy.js),
+      // so the UI can offer an upgrade instead of only showing the message.
+      if (typeof errData?.code === 'string') err.billingCode = errData.code;
       throw err;
     }
 
@@ -473,7 +487,9 @@ export const requestModelText = async ({
         messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, label, userProvider
       });
     }
-    throw new Error(err.message || 'Failed to generate app.');
+    const failure = new Error(err.message || 'Failed to generate app.');
+    if (err.billingCode) failure.billingCode = err.billingCode;
+    throw failure;
   }
 };
 
@@ -1046,6 +1062,16 @@ const generateCompletionReply = async ({ prompt, editMode, studioMode, signal })
 };
 
 export const generateAppCode = async (...args) => {
+  const build = { started: false };
+  activeBuild = build;
+  try {
+    return await generateAppCodeWithSummary(...args);
+  } finally {
+    if (activeBuild === build) activeBuild = null;
+  }
+};
+
+const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
   const [prompt, , , onChunk, , signal, , , , , , isAutoFix, , studioMode] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';

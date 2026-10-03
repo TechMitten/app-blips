@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
   ArrowRight, CircleHelp, Gamepad2, LibraryBig, LogIn, LogOut, MonitorSmartphone,
-  Play, Settings, Smartphone, X, Zap,
+  Play, Settings, Smartphone, Sparkles, X, Zap,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -47,7 +47,7 @@ const STUDIOS = [
 
 const NAV_LINK = 'text-sm font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-md px-1';
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase, billingPlan = null, onOpenPlans }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -124,6 +124,18 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
+                {/* Only when this instance bills (billingPlan is null otherwise). */}
+                {billingPlan && onOpenPlans && (
+                  <button
+                    type="button"
+                    onClick={onOpenPlans}
+                    title={billingPlan === 'free' ? 'See plans and usage' : 'Your plan and usage'}
+                    className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                  >
+                    <Sparkles size={15} aria-hidden="true" />
+                    <span>{billingPlan === 'free' ? 'Upgrade' : billingPlan === 'plus' ? 'Plus' : 'Pro'}</span>
+                  </button>
+                )}
                 {onOpenSettings && (
                   <button
                     type="button"

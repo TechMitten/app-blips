@@ -28,6 +28,8 @@
 import { wrapWithTokenTracking } from './trackTokens.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
+import { billingEnabled, fetchBillingStatus } from './billing.js';
+import { planById, checkAllowance, limitMessage } from './plans.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -47,7 +49,7 @@ export const authorize = async (request, env) => {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data?.id ? { id: data.id } : null;
+    return data?.id ? { id: data.id, email: data.email || null } : null;
   } catch {
     return null;
   }
@@ -264,6 +266,59 @@ const upstreamErrorMessage = async (upstream) => {
 // which it reads as an expired AppBlips session.
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
 
+const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
+  (m) => Array.isArray(m?.content) && m.content.some((part) => part?.type === 'image_url'),
+);
+
+// Plan enforcement when this instance bills (billing.js). Requests on the
+// user's own key (Settings → AI) spend nothing of ours, so they skip it.
+// Returns { response } to refuse, or { plan } (null when billing is off).
+// If the usage read itself fails the request goes through: auth already
+// reached Supabase, and a hiccup there shouldn't stop people building.
+const checkPlan = async (env, user, payload) => {
+  if (!billingEnabled(env) || payload?.user_provider != null) return { plan: null };
+  const status = await fetchBillingStatus(env, user.id);
+  if (!status) return { plan: null };
+  const plan = planById(status.plan);
+
+  if (!plan.images && hasImageContent(payload.messages)) {
+    return {
+      response: new Response(JSON.stringify({
+        error: 'Image attachments are part of Plus and Pro. Upgrade to attach images.',
+        code: 'upgrade_required',
+        plan: plan.id,
+      }), { status: 403, headers: { 'content-type': 'application/json' } }),
+    };
+  }
+
+  // Only a build's first request is held to the allowance; the client marks
+  // the rest `continuing` so a started build can finish (see plans.js).
+  const check = checkAllowance(status, { continuing: payload.continuing === true });
+  if (!check.allowed) {
+    return {
+      response: new Response(JSON.stringify({
+        error: limitMessage(plan.id, check),
+        code: 'limit_reached',
+        plan: plan.id,
+        scope: check.scope,
+        resetsAt: check.resetsAt.toISOString(),
+      }), { status: 402, headers: { 'content-type': 'application/json' } }),
+    };
+  }
+  return { plan };
+};
+
+// The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
+// requests carrying an image, OPENAI_LLM_ASK_MODEL for Ask-mode chat (paid
+// plans only when billing is on). Never applied to the user's own provider,
+// whose model is theirs to choose.
+const routeModel = (env, provider, payload, plan) => {
+  if (provider.userSupplied) return provider.model;
+  if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;
+  if (payload.ask === true && (!plan || plan.premiumChat)) return llmEnv(env, 'ASK_MODEL') || provider.model;
+  return provider.model;
+};
+
 export async function handleChatProxy(request, env, waitUntil) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -321,12 +376,15 @@ export async function handleChatProxy(request, env, waitUntil) {
     }
   }
 
+  const gate = await checkPlan(env, user, payload);
+  if (gate.response) return gate.response;
+
   const picked = pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
-  const model = provider.model;
+  const model = routeModel(env, provider, payload, gate.plan);
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix, ask } = payload;
 

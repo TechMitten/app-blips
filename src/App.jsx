@@ -58,6 +58,9 @@ import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
+import useBilling from './hooks/useBilling';
+import PlansModal from './components/PlansModal';
+import { PLANS } from '../functions/_lib/plans.js';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import useShowcaseRoute from './hooks/useShowcaseRoute';
@@ -75,6 +78,8 @@ import { injectLoopProtection } from './lib/loopProtection';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
+// Shown on the plans screen when someone on Free tries to attach an image.
+const IMAGES_LOCKED_REASON = 'Image attachments are part of Plus and Pro.';
 
 export default function App() {
   useVisualViewport();
@@ -131,6 +136,13 @@ export default function App() {
     emailLinkError, clearEmailLinkError,
     handleSignOut,
   } = useAuth();
+
+  // --- Billing (only on instances that bill; see functions/_lib/billing.js) ---
+  const billing = useBilling({ isSignedIn });
+  // { reason } when the plans screen is open; reason says why it opened. It
+  // also opens on its own when Stripe Checkout sends the user back.
+  const [plansModal, setPlansModal] = useState(null);
+  const imagesLocked = billing.billingOn && !PLANS[billing.plan]?.images;
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
@@ -927,6 +939,10 @@ export default function App() {
 
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
+    if (imagesLocked) {
+      setPlansModal({ reason: IMAGES_LOCKED_REASON });
+      return;
+    }
     setIsCapturingScreenshot(true);
     try {
       const { dataUrl } = await requestScreenshot();
@@ -937,11 +953,15 @@ export default function App() {
     } finally {
       setIsCapturingScreenshot(false);
     }
-  }, [requestScreenshot]);
+  }, [requestScreenshot, imagesLocked]);
 
   const handleAttachFile = useCallback(async (file) => {
     if (!file) return;
     setAttachmentError(null);
+    if (imagesLocked) {
+      setPlansModal({ reason: IMAGES_LOCKED_REASON });
+      return;
+    }
     if (!file.type?.startsWith('image/')) {
       setAttachmentError('Please choose an image file.');
       return;
@@ -962,7 +982,7 @@ export default function App() {
     } catch (err) {
       setAttachmentError(err?.message || 'Failed to attach the image.');
     }
-  }, []);
+  }, [imagesLocked]);
 
   const handleRemoveAttachment = useCallback(() => {
     setAttachment(null);
@@ -1425,6 +1445,8 @@ export default function App() {
         return;
       }
       setError(err.message);
+      // Over the plan's allowance, or an image on Free: offer the upgrade.
+      if (err.billingCode) setPlansModal({ reason: err.message });
       setPrompt(currentPrompt); // Restore prompt text on error
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
@@ -1442,6 +1464,7 @@ export default function App() {
       setPendingAttachment(null);
       setGenerationStatus(null);
       clearStreamingState();
+      if (billing.billingOn) billing.refresh();
 
       if (pendingRuntimeErrorRef.current && chatMode === 'build') {
         const pendingError = pendingRuntimeErrorRef.current;
@@ -2024,6 +2047,17 @@ export default function App() {
   // still opens the (empty) page.
   const onOpenShowcase = showcaseProjects.length > 0 ? openShowcase : undefined;
 
+  // Shared by the studio picker and the workspace: Checkout's return lands on
+  // whichever one a fresh page load shows.
+  const plansOverlay = (plansModal || billing.checkoutResult) && billing.billingOn && (
+    <PlansModal
+      status={billing.status}
+      reason={plansModal?.reason}
+      checkoutResult={billing.checkoutResult}
+      onClose={() => { setPlansModal(null); billing.clearCheckoutResult(); }}
+    />
+  );
+
   const signOutConfirmModal = isSignOutConfirmOpen && (
     <ConfirmModal
       title="Sign out?"
@@ -2060,9 +2094,12 @@ export default function App() {
           onSignOut={() => setIsSignOutConfirmOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenShowcase={onOpenShowcase}
+          billingPlan={billing.plan}
+          onOpenPlans={() => setPlansModal({})}
         />
         {showcaseOverlay}
         {settingsModal}
+        {plansOverlay}
         <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
         {isDesktop && <DesktopStorageNotice />}
         {!supabaseEnabled && <UpdateNotice />}
@@ -2108,6 +2145,8 @@ export default function App() {
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={() => setIsSignOutConfirmOpen(true)}
+        billingPlan={billing.plan}
+        onOpenPlans={() => setPlansModal({})}
         supabaseEnabled={supabaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
@@ -2255,6 +2294,8 @@ export default function App() {
           onSignOut={() => setIsSignOutConfirmOpen(true)}
         />
       )}
+
+      {plansOverlay}
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
       {isDesktop && <DesktopStorageNotice />}

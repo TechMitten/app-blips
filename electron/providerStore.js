@@ -111,6 +111,8 @@ export function providerEnv(baseEnv, active) {
   const env = { ...baseEnv };
   for (const name of [
     LLM_ENV.BASE_URL, LLM_ENV.REASONING_PARAM, 'APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_REASONING_PARAM',
+    // Per-role models name the operator's provider's models, not this one's.
+    LLM_ENV.VISION_MODEL, LLM_ENV.ASK_MODEL, 'APPBLIPS_LLM_VISION_MODEL', 'APPBLIPS_LLM_ASK_MODEL',
     `${scope}_MODEL`, `${scope}_BASE_URL`,
   ]) {
     delete env[name];

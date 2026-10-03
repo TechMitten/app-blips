@@ -7,6 +7,7 @@ import { handleSelfHostedAiChat } from '../functions/_lib/selfHostedAiRelay.js';
 import { handleAiChat, handleAiSession } from '../functions/_lib/aiRelay.js';
 import { handleDebugUnlock } from '../functions/_lib/debugUnlock.js';
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from '../functions/_lib/umamiProxy.js';
+import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from '../functions/_lib/billing.js';
 
 const methodNotAllowed = () => new Response('Method not allowed', { status: 405 });
 const notFound = () => new Response('Not found', { status: 404 });
@@ -31,6 +32,14 @@ export default {
         return request.method === 'POST' ? handleAnalyticsWebsiteCreate(request, env) : methodNotAllowed();
       case '/api/analytics/stats':
         return request.method === 'GET' ? handleAnalyticsStats(request, env) : methodNotAllowed();
+      case '/api/billing/status':
+        return request.method === 'GET' ? handleBillingStatus(request, env) : methodNotAllowed();
+      case '/api/billing/checkout':
+        return request.method === 'POST' ? handleBillingCheckout(request, env) : methodNotAllowed();
+      case '/api/billing/portal':
+        return request.method === 'POST' ? handleBillingPortal(request, env) : methodNotAllowed();
+      case '/api/billing/webhook':
+        return request.method === 'POST' ? handleStripeWebhook(request, env) : methodNotAllowed();
       default:
         return notFound();
     }

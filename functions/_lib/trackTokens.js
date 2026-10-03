@@ -19,8 +19,14 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
     });
   }
 
+  // A response the provider ended with an error isn't charged to the user's
+  // allowance: OpenRouter reports a failure after streaming began as a 200
+  // with an error chunk and finish_reason "error". It still counts as a
+  // request, and the provider may still bill us -- that's the price of not
+  // leaving the user out of pocket for our side's failure.
   if (bodyObj.stream) {
     let tokens = 0;
+    let failed = false;
     const { readable, writable } = new TransformStream({
       start() { this.buffer = ''; },
       transform(chunk, controller) {
@@ -36,6 +42,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
               if (data.usage && data.usage.total_tokens) {
                 tokens = data.usage.total_tokens;
               }
+              if (data.error || data.choices?.[0]?.finish_reason === 'error') failed = true;
             } catch {
               // ignore parse errors for partial chunks
             }
@@ -43,7 +50,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
         }
       },
       flush() {
-        trackApiUsage(env, { uid, kind, tokens: tokens || undefined }, waitUntil);
+        trackApiUsage(env, { uid, kind, tokens: failed ? 0 : tokens || undefined }, waitUntil);
       }
     });
     
@@ -65,6 +72,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
         if (data.usage && data.usage.total_tokens) {
           tokens = data.usage.total_tokens;
         }
+        if (data.error || data.choices?.[0]?.finish_reason === 'error') tokens = 0;
       } catch {
         // ignore
       }
