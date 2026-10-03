@@ -107,7 +107,7 @@ export default function useAuth() {
   // Auto-dismiss the toast after a few seconds.
   useEffect(() => {
     if (!authToast) return;
-    const timer = setTimeout(() => setAuthToast(null), 4000);
+    const timer = setTimeout(() => setAuthToast(null), 3000);
     return () => clearTimeout(timer);
   }, [authToast]);
 

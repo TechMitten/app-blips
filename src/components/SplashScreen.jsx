@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { markSplashShown } from '../lib/config';
 const splashVid = '/newsplash.webm';
 
 const Starfield = () => {
@@ -83,6 +84,13 @@ export default function SplashScreen({ skip = false }) {
 
   useEffect(() => {
     if (skip) return;
+    // Stamped on show rather than on finish, so reloading mid-intro doesn't
+    // replay it either.
+    markSplashShown();
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleVideoEnd();
+    };
+    document.addEventListener('keydown', handleKeyDown);
     // Switching tabs pauses the (control-less) video in most browsers and
     // doesn't reliably resume it on return, so just skip the splash instead
     // of leaving it stuck.
@@ -90,7 +98,10 @@ export default function SplashScreen({ skip = false }) {
       if (document.hidden) handleVideoEnd();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [skip]);
 
   if (!isVisible) return null;
@@ -119,6 +130,17 @@ export default function SplashScreen({ skip = false }) {
           WebkitMaskImage: 'radial-gradient(ellipse, black 35%, transparent 80%)'
         }}
       />
+      <button
+        type="button"
+        onClick={handleVideoEnd}
+        className="absolute z-20 text-sm text-white/60 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline-none"
+        style={{
+          right: 'max(1.5rem, env(safe-area-inset-right))',
+          bottom: 'max(1.5rem, env(safe-area-inset-bottom))'
+        }}
+      >
+        Skip video
+      </button>
     </div>
   );
 }
