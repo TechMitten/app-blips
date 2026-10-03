@@ -8,13 +8,6 @@
 </p>
 
 <p align="center">
-  <a href="https://appblips.com">Website</a> ·
-  <a href="https://docs.appblips.com/">Documentation</a> ·
-  <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
-  <a href="#license">License</a>
-</p>
-
-<p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <a href="https://docs.appblips.com/"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.appblips.com-080808"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
@@ -24,6 +17,13 @@
 </p>
 
 https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
+
+<p align="center">
+  <a href="https://appblips.com">Website</a> ·
+  <a href="https://docs.appblips.com/">Documentation</a> ·
+  <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
+  <a href="#license">License</a>
+</p>
 
 ## Why AppBlips?
 
