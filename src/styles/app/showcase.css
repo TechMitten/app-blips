@@ -4,7 +4,7 @@
    (lib/remixBadge.js) so the showcase and the apps read as one. */
 
 .showcase-view {
-  --showcase-accent: linear-gradient(135deg, #7c3aed, #4f46e5);
+  --showcase-accent: linear-gradient(135deg, #3987d0, #1e598f);
   --showcase-accent-solid: #6d4aed;
   --showcase-radius: 16px;
   background:

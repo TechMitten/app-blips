@@ -94,7 +94,7 @@ const BRIDGE_SOURCE = `(function () {
       var save = document.createElement('button');
       save.type = 'submit';
       save.textContent = 'Connect AI';
-      save.style.cssText = 'border:0;border-radius:10px;background:#4f46e5;padding:10px 15px;font:700 14px system-ui;color:#fff;cursor:pointer';
+      save.style.cssText = 'border:0;border-radius:10px;background:#1e598f;padding:10px 15px;font:700 14px system-ui;color:#fff;cursor:pointer';
       actions.appendChild(cancel);
       actions.appendChild(save);
       form.appendChild(title);

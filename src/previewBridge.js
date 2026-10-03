@@ -286,8 +286,8 @@ const BRIDGE_SOURCE = `(function () {
   var inlineEditSequence = 0;
   var pendingCommits = [];
 
-  var EDIT_HOVER_OUTLINE = '2px dashed rgba(99, 102, 241, 0.85)';
-  var EDIT_SELECT_OUTLINE = '3px solid rgba(99, 102, 241, 1)';
+  var EDIT_HOVER_OUTLINE = '2px dashed rgba(57, 135, 208, 0.85)';
+  var EDIT_SELECT_OUTLINE = '3px solid rgba(57, 135, 208, 1)';
   var EDIT_CURSOR_CSS = '* { cursor: crosshair !important; }';
   var DRAG_MODE_CURSOR_CSS = '* { cursor: grab !important; }';
   // Drag mode (the parent's secondary toggle): pressing and dragging moves
@@ -950,7 +950,7 @@ const BRIDGE_SOURCE = `(function () {
         return null;
       }
       var bg = effectiveBackground(el);
-      if (!bg) return '#6366f1';
+      if (!bg) return '#3987d0';
       return relLuminance(bg) > 0.4 ? '#000000' : '#ffffff';
     } catch (caretErr) { return null; }
   }
@@ -1486,8 +1486,8 @@ const BRIDGE_SOURCE = `(function () {
     } catch (selErr) { /* nothing selected */ }
     try { document.documentElement.setPointerCapture(drag.pointerId); } catch (capErr) { /* events still arrive while pressed */ }
     if (editStyleEl) editStyleEl.textContent = editCursorCss() + DRAG_CSS;
-    drag.ghost = dragChrome('z-index:2147483646;background:rgba(99,102,241,0.12);border:2px dashed rgba(99,102,241,0.9);border-radius:4px;');
-    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(99,102,241);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);');
+    drag.ghost = dragChrome('z-index:2147483646;background:rgba(57,135,208,0.12);border:2px dashed rgba(57,135,208,0.9);border-radius:4px;');
+    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);');
     drag.raf = requestAnimationFrame(dragAutoScroll);
   }
 

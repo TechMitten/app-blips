@@ -43,6 +43,18 @@
   --color-indigo-800: #123450;
   --color-indigo-900: #0d263c;
   --color-indigo-950: #071726;
+  /* Violet follows the same ramp: no purple anywhere in the UI. */
+  --color-violet-50: var(--color-indigo-50);
+  --color-violet-100: var(--color-indigo-100);
+  --color-violet-200: var(--color-indigo-200);
+  --color-violet-300: var(--color-indigo-300);
+  --color-violet-400: var(--color-indigo-400);
+  --color-violet-500: var(--color-indigo-500);
+  --color-violet-600: var(--color-indigo-600);
+  --color-violet-700: var(--color-indigo-700);
+  --color-violet-800: var(--color-indigo-800);
+  --color-violet-900: var(--color-indigo-900);
+  --color-violet-950: var(--color-indigo-950);
 }
 
 /* ---------------------------------------------------------------------------
@@ -131,18 +143,18 @@
     --color-slate-900: #f0f0f0;   /* primary text */
     --color-slate-950: #ffffff;
 
-    /* indigo */
-    --color-indigo-50: oklch(22.5% 0.0405 281.288);
-    --color-indigo-100: oklch(28% 0.0792 278.697);
-    --color-indigo-200: oklch(36% 0.1462 277.366);
-    --color-indigo-300: oklch(48% 0.216 277.023);
-    --color-indigo-400: oklch(51.1% 0.262 276.966);
-    --color-indigo-500: oklch(58.5% 0.233 277.117);
-    --color-indigo-600: oklch(67.3% 0.182 276.935);
-    --color-indigo-700: oklch(78.5% 0.115 274.713);
-    --color-indigo-800: oklch(87% 0.065 274.039);
-    --color-indigo-900: oklch(93% 0.034 272.788);
-    --color-indigo-950: oklch(96.2% 0.018 272.314);
+    /* indigo: the blue ramp, so accents stay on-brand blue (no purple) */
+    --color-indigo-50: var(--color-blue-50);
+    --color-indigo-100: var(--color-blue-100);
+    --color-indigo-200: var(--color-blue-200);
+    --color-indigo-300: var(--color-blue-300);
+    --color-indigo-400: var(--color-blue-400);
+    --color-indigo-500: var(--color-blue-500);
+    --color-indigo-600: var(--color-blue-600);
+    --color-indigo-700: var(--color-blue-700);
+    --color-indigo-800: var(--color-blue-800);
+    --color-indigo-900: var(--color-blue-900);
+    --color-indigo-950: var(--color-blue-950);
     /* blue */
     --color-blue-50: oklch(22.5% 0.041 267.935);
     --color-blue-100: oklch(28% 0.0803 265.522);
@@ -239,18 +251,18 @@
     --color-teal-800: oklch(91% 0.096 180.426);
     --color-teal-900: oklch(95.3% 0.051 180.801);
     --color-teal-950: oklch(98.4% 0.014 180.72);
-    /* violet */
-    --color-violet-50: oklch(22.5% 0.0634 291.089);
-    --color-violet-100: oklch(28% 0.104 293.745);
-    --color-violet-200: oklch(36% 0.174 292.759);
-    --color-violet-300: oklch(48% 0.243 292.581);
-    --color-violet-400: oklch(54.1% 0.281 293.009);
-    --color-violet-500: oklch(60.6% 0.25 292.717);
-    --color-violet-600: oklch(70.2% 0.183 293.541);
-    --color-violet-700: oklch(81.1% 0.111 293.571);
-    --color-violet-800: oklch(89.4% 0.057 293.283);
-    --color-violet-900: oklch(94.3% 0.029 294.588);
-    --color-violet-950: oklch(96.9% 0.016 293.756);
+    /* violet: follows indigo (blue), no purple in the UI */
+    --color-violet-50: var(--color-indigo-50);
+    --color-violet-100: var(--color-indigo-100);
+    --color-violet-200: var(--color-indigo-200);
+    --color-violet-300: var(--color-indigo-300);
+    --color-violet-400: var(--color-indigo-400);
+    --color-violet-500: var(--color-indigo-500);
+    --color-violet-600: var(--color-indigo-600);
+    --color-violet-700: var(--color-indigo-700);
+    --color-violet-800: var(--color-indigo-800);
+    --color-violet-900: var(--color-indigo-900);
+    --color-violet-950: var(--color-indigo-950);
     /* Semantic tokens. Brand keeps a saturated fill so white text still
        clears AA on it (5.21); the lifted indigo used for accent TEXT is
        --color-accent / the indigo ramp, which is a different job. */

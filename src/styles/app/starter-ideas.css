@@ -20,7 +20,7 @@
 }
 
 .starter-card:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-indigo-500);
   outline-offset: 2px;
 }
 
@@ -43,15 +43,15 @@
 .starter-card-tile[data-hue='amber'] { color: #b45309; background: #fef3c7; }
 .starter-card-tile[data-hue='emerald'] { color: #047857; background: #d1fae5; }
 .starter-card-tile[data-hue='sky'] { color: #0369a1; background: #e0f2fe; }
-.starter-card-tile[data-hue='indigo'] { color: #4338ca; background: #e0e7ff; }
-.starter-card-tile[data-hue='fuchsia'] { color: #a21caf; background: #fae8ff; }
+.starter-card-tile[data-hue='indigo'] { color: #1e598f; background: #dbe9f4; }
+.starter-card-tile[data-hue='fuchsia'] { color: #be185d; background: #fce7f3; }
 
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='rose'] { color: #fda4af; background: rgba(244, 63, 94, 0.18); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='amber'] { color: #fcd34d; background: rgba(245, 158, 11, 0.18); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='emerald'] { color: #34d399; background: rgba(16, 185, 129, 0.18); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='sky'] { color: #38bdf8; background: rgba(14, 165, 233, 0.18); }
-:is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #a5b4fc; background: rgba(99, 102, 241, 0.2); }
-:is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f0abfc; background: rgba(217, 70, 239, 0.18); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #81afda; background: rgba(57, 135, 208, 0.2); }
+:is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f9a8d4; background: rgba(236, 72, 153, 0.18); }
 
 /* Chip variant (first-build hero). A frosted pill on the hero gradient; its
    colours come from the hero's theme variables (hero-landing.css). */
@@ -74,6 +74,6 @@
 }
 
 .starter-chip:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-indigo-500);
   outline-offset: 2px;
 }

@@ -150,7 +150,7 @@
 .hero-rail-toggle:focus-visible,
 .hero-rail-item:focus-visible,
 .hero-rail-recent:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-indigo-500);
   outline-offset: 1px;
 }
 

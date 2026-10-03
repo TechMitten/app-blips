@@ -19,7 +19,7 @@ const DEFAULT_REMIX_URL = String(import.meta.env.VITE_REMIX_URL || '');
 
 export const buildRemixBadgeSnippet = (href) => `<style>
 #${REMIX_BADGE_ID}{position:fixed;bottom:16px;right:16px;z-index:2147483000;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-#${REMIX_BADGE_ID} .ablips-remix-link{all:unset;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:9999px;background:linear-gradient(135deg,#7c3aed,#4f46e5);box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;transition:transform .15s ease}
+#${REMIX_BADGE_ID} .ablips-remix-link{all:unset;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:9999px;background:linear-gradient(135deg,#3987d0,#1e598f);box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;transition:transform .15s ease}
 #${REMIX_BADGE_ID} .ablips-remix-link:hover,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible{transform:scale(1.08)}
 #${REMIX_BADGE_ID} .ablips-remix-tip{position:absolute;right:52px;bottom:11px;white-space:nowrap;background:#111827;color:#fff;font-size:12px;line-height:1;padding:6px 10px;border-radius:6px;opacity:0;transform:translateX(4px);transition:opacity .15s ease,transform .15s ease;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 #${REMIX_BADGE_ID} .ablips-remix-link:hover + .ablips-remix-tip,#${REMIX_BADGE_ID} .ablips-remix-link:focus-visible + .ablips-remix-tip{opacity:1;transform:translateX(0)}

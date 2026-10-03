@@ -160,7 +160,7 @@
 /* Studio rows. Each sets --accent; the icon tile, title tint and hover state
    all derive from it. */
 .studio-row--app      { --accent: #22d3ee; }
-.studio-row--website  { --accent: #a78bfa; }
+.studio-row--website  { --accent: #60a5fa; }
 .studio-row--game     { --accent: #fb923c; }
 .studio-row--projects { --accent: #34d399; }
 
