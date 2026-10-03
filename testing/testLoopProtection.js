@@ -6,6 +6,7 @@
 // frame/tick (game and animation loops, timers) -- those yield between runs and
 // are perfectly valid.
 import assert from 'node:assert/strict';
+import * as acorn from 'acorn';
 import { injectLoopProtection } from '../src/lib/loopProtection.js';
 import { injectPreviewBridge } from '../src/previewBridge.js';
 
@@ -69,5 +70,31 @@ withFakeClock((clock) => {
 // 3. The preview path applies loop protection too.
 const preview = injectPreviewBridge(src, {});
 assert.ok(preview.srcDoc.includes('window.__orion_loop_check'), 'preview gets loop protection');
+
+// 4. Nested braceless loops stay valid. Instrumenting them one at a time used
+// to shift the code under the outer loop's stale offsets, putting its closing
+// brace mid-statement ("Unexpected token '}'" on code the model wrote fine).
+const nestedApp = [
+  '<script>',
+  'const g = [];',
+  'for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) {',
+  '  g.push(r + c);',
+  '}',
+  'for (let i = 0; i < 2; i++) for (const x of g) if (x) g.length;',
+  'let n = 0; while (n < 3) n++;',
+  'do n--; while (n > 0);',
+  'for (const k in { a: 1 }) for (;;) break;',
+  '</script>',
+].join('\n');
+const nestedSrc = page(nestedApp);
+const nestedOut = injectLoopProtection(nestedSrc);
+const scriptBodies = [...nestedOut.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+assert.equal(scriptBodies.length, 2, 'helper + app script');
+for (const body of scriptBodies) acorn.parse(body, { ecmaVersion: 'latest' });
+assert.equal((nestedOut.match(/__orion_loop_check\(\d+\)/g) || []).length, 8, 'every loop is instrumented');
+
+// 5. No lines are added, so runtime error line numbers keep matching the
+// app's source (the preview subtracts only the bridge's own lines).
+assert.equal(nestedOut.split('\n').length, nestedSrc.split('\n').length, 'loop protection adds no lines');
 
 console.log('testLoopProtection: ok');

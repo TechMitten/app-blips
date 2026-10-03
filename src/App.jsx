@@ -555,7 +555,11 @@ export default function App() {
     runtimeErrorRetriesRef.current += 1;
     const errorDetails = payload?.message || 'Runtime error detected';
     const errorPage = activePageRef.current;
-    const promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${payload?.line ? ` at line ${payload.line}` : ''}`;
+    // The frame reports lines of the preview document, which has the bridge
+    // and shims spliced in above the app's own code; translate back to the
+    // source the model edits, or it hunts for line 2483 in a 400-line file.
+    const sourceLine = payload?.line ? payload.line - previewLineOffsetRef.current : 0;
+    const promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${sourceLine > 0 ? ` at line ${sourceLine}` : ''}`;
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
@@ -626,6 +630,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeCode, previewReloadCount, projectStorageVersion]
   );
+  // Every injection (AI shim, loop-check helper, bridge) lands right after
+  // <head> and loop protection adds no newlines, so the app's lines are
+  // shifted by exactly the difference in line count.
+  const previewLineOffsetRef = useRef(0);
+  useEffect(() => {
+    previewLineOffsetRef.current = previewSrcDoc && activeCode
+      ? previewSrcDoc.split('\n').length - activeCode.split('\n').length
+      : 0;
+  }, [previewSrcDoc, activeCode]);
 
   // Website studio: the picker is armed only while editing is toggled on in a
   // website workspace. Selections/deselections arrive from the frame; the

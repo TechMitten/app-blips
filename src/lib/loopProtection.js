@@ -17,6 +17,14 @@ window.__orion_loop_check = function(id) {
 };
 `;
 
+// Comments stripped and lines joined (the function has no statement that
+// relies on a newline), so the injected tag adds no lines.
+const INJECTED_FUNCTION_ONE_LINE = INJECTED_FUNCTION
+  .split('\n')
+  .map((line) => line.replace(/^\s*\/\/.*$/, '').trim())
+  .filter(Boolean)
+  .join(' ');
+
 const walk = (node, visitor) => {
   if (!node || typeof node !== 'object') return;
   visitor(node);
@@ -71,19 +79,27 @@ export const injectLoopProtection = (html) => {
     if (loops.length === 0) continue;
     hasInjectedFunction = true;
 
-    // Sort loops in this block descending by start to safely slice strings
-    loops.sort((a, b) => b.start - a.start);
+    // Every insertion is recorded against the ORIGINAL offsets and applied in
+    // one pass, last first. Slicing loop by loop broke nested braceless loops
+    // (`for(..)for(..){..}`): wrapping the inner one shifted the code, so the
+    // outer one's stale body.end put its closing brace mid-statement and the
+    // preview threw "Unexpected token '}'" on valid code. No newlines are
+    // inserted, so runtime error line numbers still match the app's source.
+    const inserts = [];
+    for (const node of loops) {
+      const checkStr = `window.__orion_loop_check(${loopCounter++});`;
+      if (node.body.type === 'BlockStatement') {
+        inserts.push({ at: node.body.start + 1, text: checkStr });
+      } else {
+        inserts.push({ at: node.body.start, text: '{' + checkStr });
+        inserts.push({ at: node.body.end, text: '}' });
+      }
+    }
+    inserts.sort((a, b) => b.at - a.at);
 
     let transformedCode = block.code;
-    for (const node of loops) {
-      const loopId = loopCounter++;
-      const checkStr = `window.__orion_loop_check(${loopId});\n`;
-      
-      if (node.body.type === 'BlockStatement') {
-        transformedCode = transformedCode.slice(0, node.body.start + 1) + checkStr + transformedCode.slice(node.body.start + 1);
-      } else {
-        transformedCode = transformedCode.slice(0, node.body.start) + '{' + checkStr + transformedCode.slice(node.body.start, node.body.end) + '}' + transformedCode.slice(node.body.end);
-      }
+    for (const { at, text } of inserts) {
+      transformedCode = transformedCode.slice(0, at) + text + transformedCode.slice(at);
     }
 
     transformedHtml = transformedHtml.slice(0, block.startIdx) + transformedCode + transformedHtml.slice(block.endIdx);
@@ -92,7 +108,8 @@ export const injectLoopProtection = (html) => {
   if (hasInjectedFunction) {
     // Inject the helper function into the head or before the first script
     const headMatch = /<head\b[^>]*>/i.exec(transformedHtml);
-    const tag = `<script>${INJECTED_FUNCTION}</script>\n`;
+    // One line, no trailing newline: the app's own lines keep their numbers.
+    const tag = `<script>${INJECTED_FUNCTION_ONE_LINE}</script>`;
     if (headMatch) {
       transformedHtml = transformedHtml.slice(0, headMatch.index + headMatch[0].length) + tag + transformedHtml.slice(headMatch.index + headMatch[0].length);
     } else {
