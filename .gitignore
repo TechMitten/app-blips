@@ -55,5 +55,6 @@ CLOUDFLARE_ENV_GUIDE.md
 # Local Wrangler/Miniflare state
 .wrangler/
 
-# Local agent instructions, kept out of the repo
+# Local-only docs, kept out of the repo
 CLAUDE.md
+RELEASING.md
