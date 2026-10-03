@@ -324,7 +324,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
             <button type="button" onClick={() => setShowEmailForm(false)} disabled={busy} className={LINK_CLASS}>Other options</button>
           </>
         ) : (
-          'New here? Continuing with Google or GitHub creates your account.'
+          'New here? Continue with Google or GitHub.'
         )}
       </div>
     </Modal>
