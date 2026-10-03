@@ -5,9 +5,9 @@ import { clearRateLimitsForTesting } from '../functions/_lib/rateLimit.js';
 const secret = 'server-only-test-key';
 const baseEnv = {
   FIREBASE_PROJECT_ID: 'test-project',
-  APPBLIPS_LLM_BASE_URL: 'https://provider.invalid/v1',
-  APPBLIPS_LLM_API_KEY: secret,
-  APPBLIPS_LLM_MODEL: 'forced-model',
+  OPENAI_BASE_URL: 'https://provider.invalid/v1',
+  OPENAI_API_KEY: secret,
+  OPENAI_LLM_MODEL: 'forced-model',
   APPBLIPS_APP_AI_MAX_TOKENS: '100',
   APPBLIPS_AI_RATE_LIMIT_MAX: '20',
   APPBLIPS_AI_RATE_LIMIT_WINDOW_SECONDS: '60',

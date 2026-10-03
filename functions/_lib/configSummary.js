@@ -4,7 +4,7 @@
 //
 // Never includes secret values: only provider names, models, endpoints and the
 // names of variables that still need filling in.
-import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits } from './providers.js';
+import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits, renamedLlmVars, LLM_ENV } from './providers.js';
 import { supabaseConfigured } from './supabaseServer.js';
 
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
@@ -37,7 +37,7 @@ export const describeConfig = (env) => {
   if (!builder.error && builder.alsoConfigured?.length) {
     lines.push({
       level: 'warn',
-      text: `Several provider keys are set (${[builder.id, ...builder.alsoConfigured].join(', ')}); using ${builder.id}. Set APPBLIPS_LLM_PROVIDER to choose.`,
+      text: `Several provider keys are set (${[builder.id, ...builder.alsoConfigured].join(', ')}); using ${builder.id}. Set ${LLM_ENV.PROVIDER} to choose.`,
     });
   }
 
@@ -48,7 +48,7 @@ export const describeConfig = (env) => {
     const where = multiUser ? 'deployed apps' : 'relay';
     lines.push({ level: 'info', label: 'App AI', text: `${where}, sharing the builder's provider · ${builder.model}` });
   }
-  const renamed = renamedAppAiLimits(env);
+  const renamed = [...renamedLlmVars(env), ...renamedAppAiLimits(env)];
   if (renamed.length) {
     lines.push({
       level: 'warn',

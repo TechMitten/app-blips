@@ -168,19 +168,19 @@ test('provider store encrypts the key and never describes it', async () => {
 });
 
 test('providerEnv points both relays at the saved provider', () => {
-  const base = { APPBLIPS_LLM_BASE_URL: 'http://operator', APPBLIPS_ZAI_MODEL: 'old', KEEP: '1' };
+  const base = { OPENAI_BASE_URL: 'http://operator', APPBLIPS_ZAI_MODEL: 'old', KEEP: '1' };
   assert.equal(providerEnv(base, null), base);
   const env = providerEnv(base, { id: 'zai', model: 'glm', apiKey: 'k' });
-  assert.equal(env.APPBLIPS_LLM_PROVIDER, 'zai');
+  assert.equal(env.OPENAI_LLM_PROVIDER, 'zai');
   assert.equal(env.APPBLIPS_ZAI_API_KEY, 'k');
-  assert.equal(env.APPBLIPS_LLM_MODEL, 'glm');
-  assert.equal(env.APPBLIPS_LLM_BASE_URL, undefined);
+  assert.equal(env.OPENAI_LLM_MODEL, 'glm');
+  assert.equal(env.OPENAI_BASE_URL, undefined);
   assert.equal(env.APPBLIPS_ZAI_MODEL, undefined);
   assert.equal(env.KEEP, '1');
 });
 
 test('providerEnv maps hyphenated provider ids to valid variable names', () => {
   const env = providerEnv({}, { id: 'zai-coding', model: 'glm-5.3', apiKey: 'k' });
-  assert.equal(env.APPBLIPS_LLM_PROVIDER, 'zai-coding');
+  assert.equal(env.OPENAI_LLM_PROVIDER, 'zai-coding');
   assert.equal(env.APPBLIPS_ZAI_CODING_API_KEY, 'k');
 });

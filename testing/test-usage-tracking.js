@@ -73,9 +73,9 @@ test('trackApiUsage hands the write to waitUntil when one exists', async (t) => 
 
 const proxyEnv = {
   ...multiUserEnv,
-  APPBLIPS_LLM_BASE_URL: 'https://llm.example/v1',
-  APPBLIPS_LLM_API_KEY: 'llm-key',
-  APPBLIPS_LLM_MODEL: 'test-model',
+  OPENAI_BASE_URL: 'https://llm.example/v1',
+  OPENAI_API_KEY: 'llm-key',
+  OPENAI_LLM_MODEL: 'test-model',
   APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
 };
 

@@ -247,7 +247,7 @@ export const requestModelText = async ({
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
     // Signals an error-repair request to the proxy, which pins temperature to
-    // 0.0 for deterministic fixes regardless of APPBLIPS_LLM_TEMPERATURE.
+    // 0.0 for deterministic fixes regardless of OPENAI_LLM_TEMPERATURE.
     if (forceTemperatureZero) bodyObj.auto_fix = true;
     // Ask-mode replies use a dedicated, smaller server-side output cap.
     if (askMode) bodyObj.ask = true;

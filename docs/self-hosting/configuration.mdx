@@ -10,6 +10,10 @@ description: "Every .env variable for a self-hosted AppBlips: AI provider and mo
 
 When you [run from source](/quickstart-self-hosted) or with [Docker](/self-hosting/docker), all configuration lives in one `.env` file in the project folder. Copy `.env.example` to `.env`, fill in an API key and a model, and leave everything else blank to use the defaults. When AppBlips starts, it prints which provider it found and what is still missing. It never prints key values.
 
+<Note>
+  The general AI variables used to be named `APPBLIPS_LLM_*` (for example `APPBLIPS_LLM_MODEL`, now `OPENAI_LLM_MODEL`). The old names still work, and AppBlips lists any you still use at startup so you can rename them.
+</Note>
+
 ## Required: AI Provider
 
 Fill in the API key for **one** provider, plus the model. The provider whose key is filled in becomes active.
@@ -34,7 +38,7 @@ Fill in the API key for **one** provider, plus the model. The provider whose key
   Z.ai GLM Coding Plan key. The plan has its own endpoint, and its quota doesn't work with `APPBLIPS_ZAI_API_KEY`, so use this one for a plan key.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_MODEL" type="string" required>
+<ParamField body="OPENAI_LLM_MODEL" type="string" required>
   The model to use, written exactly as your provider names it. For example `gpt-5.1` (OpenAI), `anthropic/claude-sonnet-5` or `google/gemini-3-pro` (OpenRouter), `deepseek-chat` (DeepSeek), or `glm-5.3-flash` (Z.ai).
 </ParamField>
 
@@ -50,33 +54,33 @@ The in-app setting covers building, editing, chat, and AI in the preview. Apps y
 
 Any other service that speaks the OpenAI chat-completions API works too: Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.
 
-<ParamField body="APPBLIPS_LLM_BASE_URL" type="string">
+<ParamField body="OPENAI_BASE_URL" type="string">
   The service's base URL, for example `http://localhost:11434/v1` for Ollama. If you use one of the named providers above, this instead overrides that provider's default endpoint.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_API_KEY" type="string">
-  The service's API key. Ollama needs none, so put any text.
+<ParamField body="OPENAI_API_KEY" type="string">
+  The service's API key. Ollama needs none, so put any text. This is also the fallback key for whichever provider is active, so `OPENAI_LLM_PROVIDER=zai` with the key here works. It is not the same as `APPBLIPS_OPENAI_API_KEY`, which is the key for OpenAI itself.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_PROVIDER" type="string">
+<ParamField body="OPENAI_LLM_PROVIDER" type="string">
   Chooses the provider explicitly when more than one key is filled in: `openai`, `openrouter`, `deepseek`, `zai`, or `openai-compatible`. Blank means the first key found, in that order.
 </ParamField>
 
 ## Optional: Limits and Tuning
 
-<ParamField body="APPBLIPS_LLM_MAX_TOKENS" type="number">
+<ParamField body="OPENAI_LLM_MAX_TOKENS" type="number">
   Maximum length of one builder response, in tokens. Blank means the provider default.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_TEMPERATURE" type="number">
+<ParamField body="OPENAI_LLM_TEMPERATURE" type="number">
   Sampling temperature for the builder. Defaults to `0.2`.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_ASK_MAX_TOKENS" type="number">
-  Token cap for Ask-mode chat replies only, independent of `APPBLIPS_LLM_MAX_TOKENS`. Defaults to `8192`.
+<ParamField body="OPENAI_LLM_ASK_MAX_TOKENS" type="number">
+  Token cap for Ask-mode chat replies only, independent of `OPENAI_LLM_MAX_TOKENS`. Defaults to `8192`.
 </ParamField>
 
-<ParamField body="APPBLIPS_LLM_REASONING_PARAM" type="string">
+<ParamField body="OPENAI_LLM_REASONING_PARAM" type="string">
   How your provider expects the reasoning setting: `reasoning_effort`, `reasoning`, `thinking`, or `omit` (send nothing). Blank uses the provider's usual format. You only need this for an unusual OpenAI-compatible service. How much reasoning is used when building is chosen per user in [Settings](/reference/settings#ai); edits and chat replies always use low reasoning.
 </ParamField>
 
@@ -149,23 +153,23 @@ To turn on sign-in, cloud project sync, and public deploys, configure a Supabase
 ```bash Minimal
 # The only two lines you need
 APPBLIPS_OPENAI_API_KEY=sk-...
-APPBLIPS_LLM_MODEL=gpt-5.1
+OPENAI_LLM_MODEL=gpt-5.1
 ```
 
 ```bash OpenRouter
 APPBLIPS_OPENROUTER_API_KEY=sk-or-...
-APPBLIPS_LLM_MODEL=anthropic/claude-sonnet-5
+OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
 ```
 
 ```bash Ollama (local model)
-APPBLIPS_LLM_BASE_URL=http://localhost:11434/v1
-APPBLIPS_LLM_API_KEY=ollama
-APPBLIPS_LLM_MODEL=llama3.1
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=ollama
+OPENAI_LLM_MODEL=llama3.1
 ```
 
 ```bash BYOK for app AI
 APPBLIPS_OPENAI_API_KEY=sk-...
-APPBLIPS_LLM_MODEL=gpt-5.1
+OPENAI_LLM_MODEL=gpt-5.1
 
 # People using your finished apps bring their own key
 APPBLIPS_GENERATED_AI_MODE=byok

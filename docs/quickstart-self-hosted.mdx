@@ -43,7 +43,7 @@ Running from source is for macOS users (there is no installer yet), people who w
 
     ```bash
     APPBLIPS_OPENAI_API_KEY=your-api-key
-    APPBLIPS_LLM_MODEL=gpt-5.1
+    OPENAI_LLM_MODEL=gpt-5.1
     ```
 
     Write the model name exactly as your provider does. Apps you build with AI turned on use this same provider and model, so there is nothing else to set up.
@@ -91,7 +91,7 @@ With Docker, run `docker compose up --build` after `git pull`.
 | Z.ai | `APPBLIPS_ZAI_API_KEY` | `glm-5.3-flash` |
 | Z.ai Coding Plan | `APPBLIPS_ZAI_CODING_API_KEY` | `glm-5.3` |
 
-Any other OpenAI-chat-completions-compatible service works too, including local models through Ollama, vLLM, or LM Studio. Fill in `APPBLIPS_LLM_BASE_URL` (for example `http://localhost:11434/v1`), `APPBLIPS_LLM_API_KEY` (Ollama needs none, so put any text), and `APPBLIPS_LLM_MODEL`. See [Configuration](/self-hosting/configuration#other-openai-compatible-services).
+Any other OpenAI-chat-completions-compatible service works too, including local models through Ollama, vLLM, or LM Studio. Fill in `OPENAI_BASE_URL` (for example `http://localhost:11434/v1`), `OPENAI_API_KEY` (Ollama needs none, so put any text), and `OPENAI_LLM_MODEL`. See [Configuration](/self-hosting/configuration#other-openai-compatible-services).
 
 Your provider key is used only by the AppBlips server and is never sent to the browser.
 

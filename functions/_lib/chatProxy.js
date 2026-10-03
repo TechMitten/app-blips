@@ -5,7 +5,7 @@
 // between dev and prod behavior.
 //
 // The point of this proxy: the real base URL / API key / model / tuning
-// knobs live only in server-side env vars (APPBLIPS_LLM_*, no VITE_ prefix), so
+// knobs live only in server-side env vars (OPENAI_*, no VITE_ prefix), so
 // they never reach the client bundle. The browser only ever talks to this
 // app's own origin at POST /api/chat.
 //
@@ -26,7 +26,7 @@
 // auth layer, etc.) in front of this endpoint if they expose it beyond localhost.
 
 import { wrapWithTokenTracking } from './trackTokens.js';
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
@@ -105,8 +105,8 @@ const DEFAULT_MAX_MESSAGES = 100;
 const DEFAULT_MULTIUSER_MAX_TOKENS = 32768;
 
 // Ask-mode answers are prose, not app code, so they get their own output cap
-// (APPBLIPS_LLM_ASK_MAX_TOKENS) that never falls back to the builder's
-// APPBLIPS_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
+// (OPENAI_LLM_ASK_MAX_TOKENS) that never falls back to the builder's
+// OPENAI_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
 // count toward the limit on thinking models.
 const DEFAULT_ASK_MAX_TOKENS = 8192;
 
@@ -333,10 +333,10 @@ export async function handleChatProxy(request, env, waitUntil) {
   let temperature = 0.2;
   if (auto_fix === true) {
     // Error auto-fix requests (runtime or syntax) must be deterministic, so
-    // pin temperature to 0.0 regardless of APPBLIPS_LLM_TEMPERATURE.
+    // pin temperature to 0.0 regardless of OPENAI_LLM_TEMPERATURE.
     temperature = 0;
-  } else if (env.APPBLIPS_LLM_TEMPERATURE !== undefined && env.APPBLIPS_LLM_TEMPERATURE !== '') {
-    const parsedTemperature = parseFloat(env.APPBLIPS_LLM_TEMPERATURE);
+  } else if (llmEnv(env, 'TEMPERATURE') !== '') {
+    const parsedTemperature = parseFloat(llmEnv(env, 'TEMPERATURE'));
     if (!isNaN(parsedTemperature)) temperature = parsedTemperature;
   }
 
@@ -352,11 +352,11 @@ export async function handleChatProxy(request, env, waitUntil) {
   }
 
   if (ask === true) {
-    const parsedAskMax = parseInt(env.APPBLIPS_LLM_ASK_MAX_TOKENS, 10);
+    const parsedAskMax = parseInt(llmEnv(env, 'ASK_MAX_TOKENS'), 10);
     bodyObj.max_tokens = parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
   } else {
-    if (env.APPBLIPS_LLM_MAX_TOKENS) {
-      const parsedMax = parseInt(env.APPBLIPS_LLM_MAX_TOKENS, 10);
+    if (llmEnv(env, 'MAX_TOKENS')) {
+      const parsedMax = parseInt(llmEnv(env, 'MAX_TOKENS'), 10);
       if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
     }
     // Multi-user mode always bounds output so an unset env var can't mean "unlimited".

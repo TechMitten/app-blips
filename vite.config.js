@@ -62,7 +62,7 @@ function configSummaryPlugin(mode) {
 
 // Runs the same LLM proxy handler used by the production Cloudflare Pages
 // Function (functions/api/chat.js) as dev-server middleware, so `npm run dev`
-// works without needing wrangler. Reads APPBLIPS_LLM_* from a local .env with no
+// works without needing wrangler. Reads the OPENAI_* LLM variables from a local .env with no
 // prefix filter -- these never reach the client bundle since they aren't
 // VITE_-prefixed and are only read here, in Node config code.
 function llmProxyDevMiddleware(mode) {

@@ -7,7 +7,7 @@
 // encryptString, decryptString, getSelectedStorageBackend? }), so it can be
 // tested without Electron.
 import { readFileSync } from 'node:fs';
-import { USER_PROVIDER_OPTIONS, providerVarScope } from '../functions/_lib/providers.js';
+import { USER_PROVIDER_OPTIONS, providerVarScope, LLM_ENV } from '../functions/_lib/providers.js';
 import { writeFileAtomic } from './projectStore.js';
 
 const PROVIDER_IDS = new Set(USER_PROVIDER_OPTIONS.map((p) => p.id));
@@ -109,11 +109,14 @@ export function providerEnv(baseEnv, active) {
   if (!active) return baseEnv;
   const scope = providerVarScope(active.id);
   const env = { ...baseEnv };
-  for (const name of ['APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_REASONING_PARAM', `${scope}_MODEL`, `${scope}_BASE_URL`]) {
+  for (const name of [
+    LLM_ENV.BASE_URL, LLM_ENV.REASONING_PARAM, 'APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_REASONING_PARAM',
+    `${scope}_MODEL`, `${scope}_BASE_URL`,
+  ]) {
     delete env[name];
   }
-  env.APPBLIPS_LLM_PROVIDER = active.id;
+  env[LLM_ENV.PROVIDER] = active.id;
   env[`${scope}_API_KEY`] = active.apiKey;
-  env.APPBLIPS_LLM_MODEL = active.model;
+  env[LLM_ENV.MODEL] = active.model;
   return env;
 }

@@ -4,7 +4,7 @@ import { resolveAppProvider, resolveUserProvider, USER_PROVIDER_IDS, USER_PROVID
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
-const builderEnv = { APPBLIPS_OPENROUTER_API_KEY: 'or-key', APPBLIPS_LLM_MODEL: 'anthropic/claude-sonnet-5' };
+const builderEnv = { APPBLIPS_OPENROUTER_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5' };
 const multiUserEnv = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' };
 const quiet = { quiet: true };
 
@@ -43,7 +43,42 @@ test('a builder configuration error propagates to app AI', () => {
 
 test('app AI reports the shared model variable when no model is set anywhere', () => {
   const app = resolveAppProvider({ APPBLIPS_OPENAI_API_KEY: 'k' }, quiet);
-  assert.deepEqual(app.missing, ['APPBLIPS_LLM_MODEL']);
+  assert.deepEqual(app.missing, ['OPENAI_LLM_MODEL']);
+});
+
+// --- Pre-rename APPBLIPS_LLM_* names ----------------------------------------
+
+test('the old APPBLIPS_LLM_* names still configure the builder', () => {
+  const app = resolveAppProvider({
+    APPBLIPS_LLM_PROVIDER: 'zai', APPBLIPS_LLM_API_KEY: 'old-key',
+    APPBLIPS_LLM_BASE_URL: 'https://api.z.ai/api/paas/v4', APPBLIPS_LLM_MODEL: 'glm-5.3-flash',
+  }, quiet);
+  assert.equal(app.id, 'zai');
+  assert.equal(app.apiKey, 'old-key');
+  assert.equal(app.model, 'glm-5.3-flash');
+  assert.deepEqual(app.missing, []);
+});
+
+test('a new OPENAI_* name wins over its old APPBLIPS_LLM_* name', () => {
+  const app = resolveAppProvider({
+    OPENAI_LLM_PROVIDER: 'zai', APPBLIPS_LLM_PROVIDER: 'deepseek',
+    OPENAI_API_KEY: 'new', APPBLIPS_LLM_API_KEY: 'old',
+    OPENAI_LLM_MODEL: 'new-model', APPBLIPS_LLM_MODEL: 'old-model',
+  }, quiet);
+  assert.equal(app.id, 'zai');
+  assert.equal(app.apiKey, 'new');
+  assert.equal(app.model, 'new-model');
+});
+
+test('OPENAI_API_KEY is the fallback key for a named provider', () => {
+  const app = resolveAppProvider({ OPENAI_LLM_PROVIDER: 'zai', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' }, quiet);
+  assert.equal(app.apiKey, 'k');
+  assert.equal(app.baseUrl, 'https://api.z.ai/api/paas/v4');
+});
+
+test('summary lists old APPBLIPS_LLM_* names to rename', () => {
+  const lines = describeConfig({ ...builderEnv, APPBLIPS_LLM_TEMPERATURE: '0.2' });
+  assert.ok(lines.some((l) => l.level === 'warn' && /APPBLIPS_LLM_TEMPERATURE -> OPENAI_LLM_TEMPERATURE/.test(l.text)));
 });
 
 // --- Startup summary --------------------------------------------------------
@@ -83,7 +118,7 @@ test('summary warns when several provider keys are set', () => {
   const lines = describeConfig({ ...builderEnv, APPBLIPS_OPENAI_API_KEY: 'x' });
   const warning = lines.find((l) => l.level === 'warn');
   assert.match(warning.text, /using openai/);
-  assert.match(warning.text, /APPBLIPS_LLM_PROVIDER/);
+  assert.match(warning.text, /OPENAI_LLM_PROVIDER/);
 });
 
 test('summary reports relay mode sharing the builder provider and model', () => {
@@ -153,7 +188,7 @@ test('single-user summary only warns when no provider is in .env', () => {
   assert.match(line.text, /Settings → AI/);
   assert.equal(describeConfig(multiUserEnv).find((l) => l.label === 'Builder AI').level, 'error');
   // A real mistake (unknown provider) is still an error.
-  assert.equal(describeConfig({ APPBLIPS_LLM_PROVIDER: 'nope' }).find((l) => l.label === 'Builder AI').level, 'error');
+  assert.equal(describeConfig({ OPENAI_LLM_PROVIDER: 'nope' }).find((l) => l.label === 'Builder AI').level, 'error');
 });
 
 // --- User-supplied provider (Settings → AI) --------------------------------

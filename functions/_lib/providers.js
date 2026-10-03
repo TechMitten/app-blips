@@ -4,10 +4,11 @@
 // _MODEL and optionally _BASE_URL). A provider is active when its API key is
 // filled in -- nothing is inferred from a model name or URL. If several keys
 // are set the first in PROVIDER_IDS order wins (with a warning), or
-// APPBLIPS_LLM_PROVIDER picks one explicitly.
-// The `openai-compatible` block is the plain APPBLIPS_LLM_* variables, and those also act as a fallback for a named provider's own
-// values (APPBLIPS_LLM_MODEL / _BASE_URL apply to whichever provider is
-// active), so a single shared model line is enough.
+// OPENAI_LLM_PROVIDER picks one explicitly.
+// The `openai-compatible` block is the generic variables (LLM_ENV below), and
+// those also act as a fallback for a named provider's own values
+// (OPENAI_LLM_MODEL / OPENAI_BASE_URL / OPENAI_API_KEY apply to whichever
+// provider is active), so a single shared block is enough.
 //
 // AI inside generated apps (the APPBLIPS_APP_* relays) always uses the
 // builder's provider -- see resolveAppProvider.
@@ -85,6 +86,26 @@ const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 const read = (env, name) => String(env?.[name] ?? '').trim();
 const warned = new Set();
 
+// The generic LLM variables. Every provider here speaks the OpenAI-compatible
+// API, so they follow the OpenAI SDK's own names (OPENAI_API_KEY,
+// OPENAI_BASE_URL). The pre-rename APPBLIPS_LLM_<NAME> is still read when the
+// new one is unset, so existing deployments keep working until their env is
+// updated (renamedLlmVars flags them at startup).
+export const LLM_ENV = {
+  PROVIDER: 'OPENAI_LLM_PROVIDER',
+  API_KEY: 'OPENAI_API_KEY',
+  BASE_URL: 'OPENAI_BASE_URL',
+  MODEL: 'OPENAI_LLM_MODEL',
+  MAX_TOKENS: 'OPENAI_LLM_MAX_TOKENS',
+  ASK_MAX_TOKENS: 'OPENAI_LLM_ASK_MAX_TOKENS',
+  TEMPERATURE: 'OPENAI_LLM_TEMPERATURE',
+  REASONING_PARAM: 'OPENAI_LLM_REASONING_PARAM',
+};
+export const llmEnv = (env, name) => read(env, LLM_ENV[name]) || read(env, `APPBLIPS_LLM_${name}`);
+export const renamedLlmVars = (env) => Object.keys(LLM_ENV)
+  .filter((name) => read(env, `APPBLIPS_LLM_${name}`))
+  .map((name) => ({ from: `APPBLIPS_LLM_${name}`, to: LLM_ENV[name] }));
+
 // Variable-name scope for a provider id: APPBLIPS_ZAI, APPBLIPS_ZAI_CODING.
 // Hyphens in ids become underscores, since they aren't valid in env names.
 export const providerVarScope = (id, prefix = 'APPBLIPS_LLM') =>
@@ -93,11 +114,9 @@ export const providerVarScope = (id, prefix = 'APPBLIPS_LLM') =>
 // Variable names for one provider's block. prefix: 'APPBLIPS_LLM' (also used
 // to list the retired APPBLIPS_APP_LLM names).
 const varNames = (id, prefix) => {
-  const generic = {
-    apiKey: `${prefix}_API_KEY`,
-    model: `${prefix}_MODEL`,
-    baseUrl: `${prefix}_BASE_URL`,
-  };
+  const generic = prefix === 'APPBLIPS_LLM'
+    ? { apiKey: LLM_ENV.API_KEY, model: LLM_ENV.MODEL, baseUrl: LLM_ENV.BASE_URL }
+    : { apiKey: `${prefix}_API_KEY`, model: `${prefix}_MODEL`, baseUrl: `${prefix}_BASE_URL` };
   if (id === DEFAULT_PROVIDER) return { own: generic, fallback: generic };
   const scope = providerVarScope(id, prefix);
   return {
@@ -115,30 +134,40 @@ const varNames = (id, prefix) => {
 // over. The ambiguity is logged once per prefix; `quiet` means the caller
 // reports it itself (the startup summary), so the log is skipped.
 export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
-  const requested = read(env, `${prefix}_PROVIDER`).toLowerCase();
+  // The builder's generic variables go through llmEnv (new name, then the
+  // pre-rename one); any other prefix is read as-is.
+  const builder = prefix === 'APPBLIPS_LLM';
+  const generic = (field) => builder ? llmEnv(env, field) : read(env, `${prefix}_${field}`);
+  const fieldKey = { apiKey: 'API_KEY', model: 'MODEL', baseUrl: 'BASE_URL' };
+  const providerVar = builder ? LLM_ENV.PROVIDER : `${prefix}_PROVIDER`;
+  const requested = generic('PROVIDER').toLowerCase();
   let id = requested;
   let alsoConfigured = [];
   if (requested && !PROVIDERS[requested]) {
-    return { error: `Unknown ${prefix}_PROVIDER "${requested}". Use one of: ${PROVIDER_IDS.join(', ')}.` };
+    return { error: `Unknown ${providerVar} "${requested}". Use one of: ${PROVIDER_IDS.join(', ')}.` };
   }
   if (!id) {
-    const configured = PROVIDER_IDS.filter((candidate) => read(env, varNames(candidate, prefix).own.apiKey));
+    const configured = PROVIDER_IDS.filter((candidate) => (candidate === DEFAULT_PROVIDER
+      ? generic('API_KEY')
+      : read(env, varNames(candidate, prefix).own.apiKey)));
     if (!configured.length) {
       const example = varNames('openrouter', prefix).own.apiKey;
-      return { unconfigured: true, error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${prefix}_MODEL, then restart.` };
+      return { unconfigured: true, error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${varNames(DEFAULT_PROVIDER, prefix).own.model}, then restart.` };
     }
     id = configured[0];
     alsoConfigured = configured.slice(1);
     if (alsoConfigured.length && !warned.has(prefix)) {
       warned.add(prefix);
-      if (!quiet) console.warn(`[llm] Several providers have an API key set (${configured.join(', ')}); using ${id}. Set ${prefix}_PROVIDER to choose.`);
+      if (!quiet) console.warn(`[llm] Several providers have an API key set (${configured.join(', ')}); using ${id}. Set ${providerVar} to choose.`);
     }
   }
 
   const names = varNames(id, prefix);
-  const pick = (field) => read(env, names.own[field]) || read(env, names.fallback[field]);
+  // The openai-compatible block's "own" names are the generic ones, so its
+  // own read is skipped and the generic (with the legacy fallback) answers.
+  const pick = (field) => (id === DEFAULT_PROVIDER ? '' : read(env, names.own[field])) || generic(fieldKey[field]);
   const preset = PROVIDERS[id];
-  const override = read(env, `${prefix}_REASONING_PARAM`).toLowerCase();
+  const override = generic('REASONING_PARAM').toLowerCase();
   const provider = {
     id,
     ...PRESET_DEFAULTS,
