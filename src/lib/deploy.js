@@ -26,8 +26,6 @@ import { LANDING_PAGE, getLanding, mapPages, pageNames } from './pages';
 //    render time and must stay out of anything that leaves the app -- a public
 //    URL most of all.
 export const DEPLOY_BUCKET = 'orion-deploys';
-// Gallery thumbnails and remix sources: `<uid>/<postId>/{thumb.*,source.json}`.
-export const GALLERY_BUCKET = 'gallery';
 // The origin that serves deployed apps (functions/[[path]].js). Configured by
 // the operator at build time; empty until a deploy host is set up.
 export const APPS_ORIGIN = String(import.meta.env.VITE_APPS_ORIGIN || '').replace(/\/+$/, '');
@@ -116,8 +114,6 @@ export const registerDeployment = async ({
           // inside the landing object and no page objects exist.
           page_names: extraPageNames,
           bundle: Boolean(bundle),
-          // Encrypted apps can't be listed in the gallery; a DB trigger also
-          // drops any existing gallery post when this flips on.
           password_protected: Boolean(passwordProtected),
           name: name || null,
           analytics_enabled: Boolean(analyticsEnabled),
@@ -152,28 +148,12 @@ export const unregisterDeployment = async (slug) => {
   }
 };
 
-// A gallery post dies with its deployment row (FK cascade), but its Storage
-// objects don't: remove them first, while the post can still be looked up.
-export const removeGalleryFiles = async (slug) => {
-  const { data: post, error } = await supabase.from('gallery_posts')
-    .select('thumbnail_path, remix_path').eq('slug', slug).maybeSingle();
-  if (error) throw error;
-  const paths = [post?.thumbnail_path, post?.remix_path].filter(Boolean);
-  if (!paths.length) return;
-  const { error: removeError } = await supabase.storage.from(GALLERY_BUCKET).remove(paths);
-  if (removeError && removeError.statusCode !== '404') throw removeError;
-};
-
 // Takes a project's public deployment fully offline: the slug doc (so the link
 // stops resolving) and the stored HTML object. Used when a project is deleted,
 // so no orphaned public app outlives it. A missing object counts as removed.
 export const removeDeployment = async (deployment) => {
   if (!deployment) return;
-  if (deployment.slug) {
-    // Best effort: a leftover thumbnail must never block taking an app offline.
-    try { await removeGalleryFiles(deployment.slug); } catch (error) { console.warn('Gallery cleanup failed:', error); }
-    await unregisterDeployment(deployment.slug);
-  }
+  if (deployment.slug) await unregisterDeployment(deployment.slug);
   if (deployment.path) {
     await removeStalePages(deployment.path, deployment.pageObjects);
     await deleteObjectIfPresent(deployment.path);
@@ -210,7 +190,6 @@ export const sweepUserDeployments = async (uid) => {
     for (const folder of (data || []).filter((item) => !item.id)) await removeFolder(bucket, `${prefix}/${folder.name}`);
   };
   await attempt(() => removeFolder(DEPLOY_BUCKET, uid));
-  await attempt(() => removeFolder(GALLERY_BUCKET, uid));
 
   if (failures.length) throw new Error(failures[0].message || 'Failed to remove published apps.');
 };

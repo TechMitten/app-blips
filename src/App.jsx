@@ -23,7 +23,7 @@ import ConfirmModal from './components/ConfirmModal';
 import AccountSettingsModal from './components/AccountSettingsModal';
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
-import GalleryView from './components/gallery/GalleryView';
+import ShowcaseView from './components/showcase/ShowcaseView';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
@@ -60,8 +60,8 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
-import useGalleryRoute from './hooks/useGalleryRoute';
-import { fetchRemixSource } from './lib/gallery';
+import useShowcaseRoute from './hooks/useShowcaseRoute';
+import { fetchRemixSource, showcaseProjects } from './lib/showcase';
 import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
@@ -346,19 +346,18 @@ export default function App() {
     isDeployModalOpen, setIsDeployModalOpen, isDeploying, deployError, setDeployError,
     deployCopied, confirmUndeploy, setConfirmUndeploy, isDeployStale, deploymentUrl,
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
-    galleryPost, galleryPostLoading, galleryError,
   } = useDeployment({
     files, isSignedIn, user, username, projectName, currentProjectId,
-    currentVersionId, deployment, setDeployment, saveProject, aiEnabled, studioMode,
+    currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
   });
 
-  // --- Gallery (hosted mode only; `?gallery` / `?app=<id>` deep links) ---
+  // --- Showcase (curated projects; `?showcase` / `?showcase=<id>` deep links) ---
   const {
-    isGalleryOpen, activePostId: activeGalleryPostId,
-    openGallery, openPost: openGalleryPost, closePost: closeGalleryPost, closeGallery,
-  } = useGalleryRoute(supabaseEnabled);
+    isShowcaseOpen, activeProjectId: activeShowcaseProjectId,
+    openShowcase, openProject: openShowcaseProject, closeProject: closeShowcaseProject, closeShowcase,
+  } = useShowcaseRoute();
   // Id of a just-remixed project awaiting its first save (see the effect
-  // below handleRemixFromGallery).
+  // below handleRemixFromShowcase).
   const remixSaveRef = useRef(null);
 
   // --- Analytics dashboard ---
@@ -1904,22 +1903,28 @@ export default function App() {
     setIsSettingsOpen(false);
   };
 
-  // Copies a gallery post's published source into a brand-new project of the
+  // Copies a showcase project's source into a brand-new project of the
   // caller's own. The current project is already auto-saved, so switching away
   // loses nothing -- except a build still streaming, which must finish first.
-  const handleRemixFromGallery = async (post) => {
+  // Hosted mode needs an account to own the copy, so signed-out visitors are
+  // sent to sign in first.
+  const handleRemixFromShowcase = async (project) => {
+    if (supabaseEnabled && !isSignedIn) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (isGenerating) throw new Error('Wait for the current build to finish before remixing.');
-    const source = await fetchRemixSource(post);
+    const source = await fetchRemixSource(project);
     const sessionId = newChatSessionId();
-    const name = `${post.title} (remix)`.slice(0, 80);
+    const name = `${project.title} (remix)`.slice(0, 80);
     const version = {
       id: Date.now(),
-      prompt: `Remix “${post.title}” by @${post.author_username}`,
+      prompt: `Remix “${project.title}”`,
       files: source.files,
       timestamp: new Date().toLocaleTimeString(),
       editMode: 'remix',
       editSummary: null,
-      reply: `Here's your copy of @${post.author_username}'s “${post.title}”. Tell me what you'd like to change.`,
+      reply: `Here's your copy of “${project.title}”. Tell me what you'd like to change.`,
       chatMode: 'build',
       sessionId,
     };
@@ -1938,7 +1943,7 @@ export default function App() {
     });
     remixSaveRef.current = projectId;
     setIsStudioChoiceOpen(false);
-    closeGallery();
+    closeShowcase();
   };
 
   const handleRequireSignInFromDeploy = () => {
@@ -2006,19 +2011,18 @@ export default function App() {
         />
   );
 
-  const galleryOverlay = supabaseEnabled && isGalleryOpen && (
-    <GalleryView
-      userId={user?.id || null}
-      isSignedIn={Boolean(isSignedIn && user?.id)}
-      activePostId={activeGalleryPostId}
-      onOpenPost={openGalleryPost}
-      onClosePost={closeGalleryPost}
-      onClose={closeGallery}
-      onRequireSignIn={() => setIsAuthModalOpen(true)}
-      onRemix={handleRemixFromGallery}
+  const showcaseOverlay = isShowcaseOpen && (
+    <ShowcaseView
+      activeProjectId={activeShowcaseProjectId}
+      onOpenProject={openShowcaseProject}
+      onCloseProject={closeShowcaseProject}
+      onClose={closeShowcase}
+      onRemix={handleRemixFromShowcase}
     />
   );
-  const onOpenGallery = supabaseEnabled ? openGallery : undefined;
+  // Entry points stay hidden until there is something to show; `?showcase`
+  // still opens the (empty) page.
+  const onOpenShowcase = showcaseProjects.length > 0 ? openShowcase : undefined;
 
   const signOutConfirmModal = isSignOutConfirmOpen && (
     <ConfirmModal
@@ -2055,9 +2059,9 @@ export default function App() {
           onSignIn={openPickerSignIn}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenGallery={onOpenGallery}
+          onOpenShowcase={onOpenShowcase}
         />
-        {galleryOverlay}
+        {showcaseOverlay}
         {settingsModal}
         <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
         {isDesktop && <DesktopStorageNotice />}
@@ -2091,7 +2095,7 @@ export default function App() {
         savedAppsCount={myProjects.length}
         versionsCount={versions.length}
         onOpenApps={() => setIsProjectsListOpen(true)}
-        onOpenGallery={onOpenGallery}
+        onOpenShowcase={onOpenShowcase}
         isHistoryOpen={isHistoryOpen}
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
         resolvedTheme={resolvedTheme}
@@ -2211,13 +2215,6 @@ export default function App() {
           onUndeploy={handleUndeploy}
           onCopyUrl={handleCopyDeployUrl}
           onRequireSignIn={handleRequireSignInFromDeploy}
-          projectName={projectName}
-          previewMode={previewMode}
-          galleryPost={galleryPost}
-          galleryPostLoading={galleryPostLoading}
-          galleryError={galleryError}
-          onCaptureThumbnail={async () => (await requestScreenshot()).dataUrl}
-          onViewInGallery={(postId) => { closeDeployModal(); openGalleryPost(postId); }}
         />
       )}
 
@@ -2263,7 +2260,7 @@ export default function App() {
       {isDesktop && <DesktopStorageNotice />}
       {!supabaseEnabled && <UpdateNotice />}
 
-      {galleryOverlay}
+      {showcaseOverlay}
 
       {isAuthModalOpen && supabaseEnabled && (
         <AuthModal onClose={handleCloseAuthModal} linkError={emailLinkError} />
@@ -2304,7 +2301,7 @@ export default function App() {
           onDismissInterruptedJob={handleDismissInterruptedJob}
           onNewApp={handleNewApp}
           onOpenApps={() => setIsProjectsListOpen(true)}
-          onOpenGallery={onOpenGallery}
+          onOpenShowcase={onOpenShowcase}
           savedAppsCount={myProjects.length}
           recents={myProjects}
           onLoadProject={loadProject}

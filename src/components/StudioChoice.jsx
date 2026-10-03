@@ -47,7 +47,7 @@ const STUDIOS = [
 
 const NAV_LINK = 'text-sm font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-md px-1';
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenGallery }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -106,8 +106,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               </div>
 
               <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
-                {onOpenGallery && (
-                  <button type="button" onClick={onOpenGallery} className={NAV_LINK}>Gallery</button>
+                {onOpenShowcase && (
+                  <button type="button" onClick={onOpenShowcase} className={NAV_LINK}>Showcase</button>
                 )}
                 <button type="button" onClick={handleOpenProjects} className={NAV_LINK}>My projects</button>
                 <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Docs</a>
@@ -173,12 +173,12 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   website or game you can preview, refine and publish.
                 </p>
 
-                {onOpenGallery && (
+                {onOpenShowcase && (
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                     <span className="text-sm font-medium text-white/60">Not sure where to start?</span>
                     <button
                       type="button"
-                      onClick={onOpenGallery}
+                      onClick={onOpenShowcase}
                       className="studio-chip inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                     >
                       <Play size={14} aria-hidden="true" />

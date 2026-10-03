@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Rocket, TriangleAlert, Trash2, Copy, CopyCheck, Check, SquareArrowOutUpRight,
-  LogIn, LoaderCircle, X, Share2, Camera, ImageUp, ArrowRight, Globe, LockKeyhole, LayoutGrid,
-  Smartphone, Tablet, Monitor
+  LogIn, LoaderCircle, X, Share2, ImageUp, Globe, LockKeyhole
 } from 'lucide-react';
 import Modal from './Modal';
 import {
@@ -11,9 +10,6 @@ import {
 import { formatModifiedTime } from '../lib/helpers';
 import { supabaseEnabled } from '../supabase';
 import { APPS_ORIGIN } from '../lib/deploy';
-import { galleryFileUrl } from '../lib/gallery';
-import { compressImageDataUrl } from '../lib/attachments';
-import { TITLE_MAX, DESCRIPTION_MAX } from '../lib/galleryFormat';
 
 const APPS_HOST = APPS_ORIGIN.replace(/^https?:\/\//, '');
 
@@ -105,13 +101,6 @@ export default function DeployModal({
   onUndeploy,
   onCopyUrl,
   onRequireSignIn,
-  projectName = '',
-  previewMode = 'desktop',
-  galleryPost = null,
-  galleryPostLoading = false,
-  galleryError = null,
-  onCaptureThumbnail,
-  onViewInGallery,
 }) {
   const noun = studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app';
   const Noun = noun === 'website' ? 'Website' : noun === 'game' ? 'Game' : 'App';
@@ -138,32 +127,6 @@ export default function DeployModal({
   // live" view. Dismissing it reveals the full redeploy options rather than
   // closing the modal.
   const [showSuccess, setShowSuccess] = useState(false);
-
-  // Gallery listing. The existing post (if any) arrives after the modal opens,
-  // so the form is seeded from it once, during render, when it first shows up.
-  // A first deploy is listed by default; a redeploy starts off and is switched
-  // on only if the app is already listed, so an unlisted app stays unlisted.
-  const [galleryEnabled, setGalleryEnabled] = useState(() => !deployment);
-  const [galleryTitle, setGalleryTitle] = useState(projectName);
-  const [galleryDescription, setGalleryDescription] = useState('');
-  const [galleryDevice, setGalleryDevice] = useState(() => (
-    ['mobile', 'tablet', 'desktop'].includes(previewMode) ? previewMode : 'desktop'
-  ));
-  const [allowRemix, setAllowRemix] = useState(true);
-  const [seededPostId, setSeededPostId] = useState(null);
-  if (galleryPost && galleryPost.id !== seededPostId) {
-    setSeededPostId(galleryPost.id);
-    setGalleryEnabled(true);
-    setGalleryTitle(galleryPost.title);
-    setGalleryDescription(galleryPost.description || '');
-    setGalleryDevice(['mobile', 'tablet', 'desktop'].includes(galleryPost.device_type) ? galleryPost.device_type : 'desktop');
-    setAllowRemix(galleryPost.allow_remix);
-  }
-  // A new thumbnail, { dataUrl } -- only uploaded when set.
-  const [thumbnail, setThumbnail] = useState(null);
-  const [thumbnailBusy, setThumbnailBusy] = useState(false);
-  const [thumbnailError, setThumbnailError] = useState('');
-  const existingThumbnailUrl = galleryFileUrl(galleryPost?.thumbnail_path);
 
   const passwordsMatch = password.length === 0 || (password === confirmPassword && password.length > 0);
 
@@ -198,71 +161,9 @@ export default function DeployModal({
     reader.readAsDataURL(file);
   };
 
-  const toThumbnail = async (dataUrl) => {
-    const compressed = await compressImageDataUrl(dataUrl, { maxDimension: 960, quality: 0.8 });
-    setThumbnail({ dataUrl: compressed });
-  };
-
-  const captureThumbnail = async () => {
-    if (!onCaptureThumbnail || thumbnailBusy) return;
-    setThumbnailBusy(true);
-    setThumbnailError('');
-    try {
-      await toThumbnail(await onCaptureThumbnail());
-    } catch (err) {
-      setThumbnailError(err?.message || "Couldn't capture the preview. Upload an image instead.");
-    } finally {
-      setThumbnailBusy(false);
-    }
-  };
-
-  const handleThumbnailUpload = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > 8 * 1024 * 1024) {
-      setThumbnailError('Choose an image smaller than 8MB.');
-      return;
-    }
-    setThumbnailError('');
-    const reader = new FileReader();
-    reader.onload = () => toThumbnail(reader.result).catch(() => setThumbnailError('Failed to read the image.'));
-    reader.onerror = () => setThumbnailError('Failed to read the image.');
-    reader.readAsDataURL(file);
-  };
-
-  // Listed by default, so grab the live preview once on open. The ref keeps
-  // StrictMode's double effect run from capturing twice.
-  const initialCaptureRef = useRef(false);
-  useEffect(() => {
-    if (initialCaptureRef.current || !galleryEnabled || !hasCode) return;
-    initialCaptureRef.current = true;
-    captureThumbnail();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // First switch-on with nothing to show yet grabs the live preview.
-  const toggleGallery = () => {
-    const next = !galleryEnabled;
-    setGalleryEnabled(next);
-    if (next && !thumbnail && !existingThumbnailUrl) captureThumbnail();
-  };
-
-  const galleryActive = galleryEnabled && !passwordEnabled;
-  const galleryValid = !galleryActive || (galleryTitle.trim().length > 0 && !thumbnailBusy);
-
   const handleDeployClick = async () => {
-    if (canSubmitPassword && galleryValid && (deployment || username)) {
-      let thumbnailBlob = null;
-      if (galleryActive && thumbnail) thumbnailBlob = await (await fetch(thumbnail.dataUrl)).blob();
-      const gallery = {
-        enabled: galleryActive,
-        title: galleryTitle,
-        description: galleryDescription,
-        deviceType: galleryDevice,
-        allowRemix,
-        thumbnailBlob,
-      };
-      const ok = await onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled, gallery);
+    if (canSubmitPassword && (deployment || username)) {
+      const ok = await onDeploy(password, customSlug, preventIndexing, favicon, analyticsEnabled);
       if (ok) setShowSuccess(true);
     }
   };
@@ -352,7 +253,6 @@ export default function DeployModal({
       <Modal zIndex={70} cardClass={CARD_CLASS} cardProps={cardProps}>
         <ModalHeader title={`Your ${noun} is live`} onClose={dismissSuccess} />
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
-          {galleryError && <Notice>{galleryError}</Notice>}
           <div className="divide-y divide-slate-200">
             <SettingRow
               id="deploy-link"
@@ -368,18 +268,6 @@ export default function DeployModal({
                 </div>
               }
             />
-            {!galleryError && galleryPost && onViewInGallery && (
-              <SettingRow
-                id="deploy-listed"
-                title="Listed in the Gallery"
-                description="See how it looks to the community."
-              >
-                <button type="button" onClick={() => onViewInGallery(galleryPost.id)} className={SECONDARY_BUTTON}>
-                  View
-                  <ArrowRight size={14} aria-hidden="true" />
-                </button>
-              </SettingRow>
-            )}
           </div>
         </div>
         <ModalFooter>
@@ -415,7 +303,7 @@ export default function DeployModal({
         <button
           type="button"
           onClick={handleDeployClick}
-          disabled={isDeploying || !canSubmitPassword || !galleryValid}
+          disabled={isDeploying || !canSubmitPassword}
           className={PRIMARY_BUTTON}
         >
           <Rocket size={16} aria-hidden="true" />
@@ -445,7 +333,7 @@ export default function DeployModal({
           <button
             type="button"
             onClick={handleDeployClick}
-            disabled={isDeploying || !hasCode || !canSubmitPassword || !galleryValid}
+            disabled={isDeploying || !hasCode || !canSubmitPassword}
             className={PRIMARY_BUTTON}
           >
             <Rocket size={16} aria-hidden="true" />
@@ -537,7 +425,6 @@ export default function DeployModal({
   const tabs = [
     { id: 'general', label: 'General', Icon: Globe },
     { id: 'privacy', label: 'Privacy', Icon: LockKeyhole, attention: passwordEnabled && !canSubmitPassword },
-    { id: 'gallery', label: 'Gallery', Icon: LayoutGrid, attention: galleryActive && !galleryTitle.trim() },
   ];
 
   const linkRow = deployment ? (
@@ -647,102 +534,6 @@ export default function DeployModal({
     </>
   );
 
-  const galleryRows = (
-    <SettingRow
-      id="deploy-gallery"
-      title="Show in Gallery"
-      description={passwordEnabled
-        ? `Password-protected ${noun}s can't be listed in the gallery.`
-        : `${galleryPost ? 'Currently listed. ' : ''}Share your ${noun} with the AppBlips community. Anyone can view it; signed-in users can like, comment and remix.`}
-      details={galleryActive && (
-        <div className="space-y-2.5">
-          <div>
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">Showcase device</span>
-            <p className="mb-2 text-xs text-slate-500">Choose the mockup visitors will see in the Gallery.</p>
-            <div className="gallery-device-picker" role="group" aria-label="Gallery showcase device">
-              {[
-                ['mobile', 'Smartphone', Smartphone],
-                ['tablet', 'Tablet', Tablet],
-                ['desktop', 'Desktop', Monitor],
-              ].map(([value, label, Icon]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGalleryDevice(value)}
-                  className={galleryDevice === value ? 'is-active' : ''}
-                  aria-pressed={galleryDevice === value}
-                  aria-label={label}
-                >
-                  <Icon size={16} aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="gallery-thumb-picker relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-            {(thumbnail?.dataUrl || existingThumbnailUrl) ? (
-              <img
-                src={thumbnail?.dataUrl || existingThumbnailUrl}
-                alt="Gallery thumbnail"
-                className="h-full w-full object-cover object-top"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-                {thumbnailBusy ? 'Capturing preview...' : 'No thumbnail yet'}
-              </div>
-            )}
-            {thumbnailBusy && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <LoaderCircle size={22} className="animate-spin text-white" />
-              </div>
-            )}
-            <div className="absolute bottom-2 right-2 flex gap-1.5">
-              {onCaptureThumbnail && (
-                <button type="button" onClick={captureThumbnail} disabled={thumbnailBusy} className="gallery-thumb-btn">
-                  <Camera size={13} /> Capture preview
-                </button>
-              )}
-              <label className="gallery-thumb-btn cursor-pointer">
-                <ImageUp size={13} /> Upload
-                <input type="file" accept="image/*" className="sr-only" onChange={handleThumbnailUpload} />
-              </label>
-            </div>
-          </div>
-          {thumbnailError && <p className="text-xs text-red-600">{thumbnailError}</p>}
-          <input
-            type="text"
-            value={galleryTitle}
-            maxLength={TITLE_MAX}
-            onChange={(e) => setGalleryTitle(e.target.value)}
-            placeholder="Title"
-            aria-label="Gallery title"
-            className={FIELD_CLASS}
-          />
-          <textarea
-            value={galleryDescription}
-            maxLength={DESCRIPTION_MAX}
-            onChange={(e) => setGalleryDescription(e.target.value)}
-            placeholder={`What does your ${noun} do? (optional)`}
-            aria-label="Gallery description"
-            rows={2}
-            className={`${FIELD_CLASS} resize-none`}
-          />
-          <div className="flex items-center justify-between gap-4 pt-1">
-            <span id="deploy-remix" className="text-sm text-slate-600">
-              Allow remixing
-              <span className="block text-xs text-slate-500">Others can copy your {noun}&rsquo;s source into their own project.</span>
-            </span>
-            <Switch checked={allowRemix} onChange={setAllowRemix} labelledBy="deploy-remix" />
-          </div>
-        </div>
-      )}
-    >
-      {galleryPostLoading
-        ? <LoaderCircle size={18} className="animate-spin text-slate-400" aria-label="Loading gallery listing" />
-        : <Switch checked={galleryActive} onChange={toggleGallery} labelledBy="deploy-gallery" disabled={passwordEnabled} />}
-    </SettingRow>
-  );
-
   return (
     <Modal zIndex={70} cardClass={TABBED_CARD_CLASS} cardProps={cardProps}>
       <ModalHeader title={title} onClose={onClose} disabled={isDeploying} />
@@ -768,7 +559,6 @@ export default function DeployModal({
               <div className="divide-y divide-slate-200">
                 {tab === 'general' && generalRows}
                 {tab === 'privacy' && privacyRows}
-                {tab === 'gallery' && galleryRows}
               </div>
             </>
           )}

@@ -19,7 +19,7 @@ export default function Header({
   savedAppsCount,
   versionsCount,
   onOpenApps,
-  onOpenGallery,
+  onOpenShowcase,
   isHistoryOpen,
   onToggleHistory,
   resolvedTheme,
@@ -187,15 +187,15 @@ export default function Header({
             {savedAppsCount > 0 && <span className="nav-count">{savedAppsCount}</span>}
           </button>
 
-          {onOpenGallery && (
+          {onOpenShowcase && (
             <button
-              onClick={onOpenGallery}
+              onClick={onOpenShowcase}
               className="nav-btn nav-ghost nav-btn-icon"
-              data-tip="Community gallery"
-              aria-label="Community gallery"
+              data-tip="Made with AppBlips"
+              aria-label="Showcase"
             >
               <LayoutGrid size={16} />
-              <span className="hidden xl:inline">Gallery</span>
+              <span className="hidden xl:inline">Showcase</span>
             </button>
           )}
 
@@ -395,14 +395,14 @@ export default function Header({
                 <span>Apps</span>
                 {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
               </button>
-              {onOpenGallery && (
+              {onOpenShowcase && (
                 <button
                   type="button"
-                  onClick={() => runMobileAction(onOpenGallery)}
+                  onClick={() => runMobileAction(onOpenShowcase)}
                   className="mobile-menu-item"
                 >
                   <LayoutGrid size={16} />
-                  <span>Gallery</span>
+                  <span>Showcase</span>
                 </button>
               )}
               <button

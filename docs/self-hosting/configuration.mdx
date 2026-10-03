@@ -145,7 +145,7 @@ Generated apps always share the builder's provider, key, endpoint, and model; th
 
 ## Multi-user via Supabase
 
-To turn on sign-in, cloud project sync, public deploys, and the gallery, configure a Supabase project. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (baked into the client at build time) and `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` (read by the server at runtime) to the same project, apply the migrations in `supabase/migrations/`, and set `VITE_APPS_ORIGIN` to the hostname that serves deployed apps. Leave these unset for a single-user install.
+To turn on sign-in, cloud project sync, and public deploys, configure a Supabase project. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (baked into the client at build time) and `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` (read by the server at runtime) to the same project, apply the migrations in `supabase/migrations/`, and set `VITE_APPS_ORIGIN` to the hostname that serves deployed apps. Leave these unset for a single-user install.
 
 ## Example `.env` Files
 
