@@ -21,6 +21,21 @@ const stripeKey = (env) => String(env?.STRIPE_SECRET_KEY || '').trim();
 
 export const billingEnabled = (env) => Boolean(supabaseConfigured(env) && supabaseServiceKey(env) && stripeKey(env));
 
+// APPBLIPS_BILLING_TESTERS: comma-separated emails or account ids. When set,
+// billing (limits, plans, checkout) applies only to those accounts and
+// everyone else carries on as if billing were off -- so the live site can
+// run sandbox keys for testing without anyone getting Plus with a test card.
+const billingTesters = (env) => String(env?.APPBLIPS_BILLING_TESTERS || '')
+  .split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+
+export const billingAppliesTo = (env, user) => {
+  if (!billingEnabled(env)) return false;
+  const testers = billingTesters(env);
+  if (!testers.length) return true;
+  return testers.includes(String(user?.id || '').toLowerCase())
+    || Boolean(user?.email && testers.includes(String(user.email).toLowerCase()));
+};
+
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json' },
@@ -194,6 +209,7 @@ export async function handleBillingStatus(request, env) {
   if (!billingEnabled(env)) return json({ enabled: false });
   const user = await authorize(request, env);
   if (!user) return json({ error: 'Sign in required.' }, 401);
+  if (!billingAppliesTo(env, user)) return json({ enabled: false });
   const status = await fetchBillingStatus(env, user.id);
   if (!status) return json({ error: 'Billing is temporarily unavailable.' }, 503);
   const plan = planById(status.plan);
@@ -218,6 +234,7 @@ export async function handleBillingCheckout(request, env) {
   if (!billingEnabled(env)) return json({ error: 'Billing is not enabled.' }, 404);
   const user = await authorize(request, env);
   if (!user) return json({ error: 'Sign in required.' }, 401);
+  if (!billingAppliesTo(env, user)) return json({ error: 'Billing is not enabled.' }, 404);
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
   const planId = typeof body?.plan === 'string' ? body.plan : '';
@@ -256,6 +273,7 @@ export async function handleBillingPortal(request, env) {
   if (!billingEnabled(env)) return json({ error: 'Billing is not enabled.' }, 404);
   const user = await authorize(request, env);
   if (!user) return json({ error: 'Sign in required.' }, 401);
+  if (!billingAppliesTo(env, user)) return json({ error: 'Billing is not enabled.' }, 404);
   try {
     const row = await subscriptionRow(env, user.id);
     if (!row?.stripe_customer_id) return json({ error: 'There is no subscription to manage yet.' }, 400);

@@ -241,3 +241,25 @@ test('status reports billing off when there is no Stripe key', async () => {
   const response = await handleBillingStatus(new Request('https://app.example/api/billing/status'), { ...env, STRIPE_SECRET_KEY: '' });
   assert.deepEqual(await response.json(), { enabled: false });
 });
+
+test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t) => {
+  // user-1 (a@example.com, see mockServices) is not on the list: no limits.
+  let seen = mockServices(t, { plan: 'free', status: 'none', today_tokens: FREE.dailyTokens * 10, period_tokens: 0 });
+  let response = await chat({}, { APPBLIPS_BILLING_TESTERS: 'someone@else.com' });
+  assert.equal(response.status, 200);
+  await response.text();
+  assert.equal(seen.statusCalls, 0);
+
+  // Listed by email (any case): the plan applies.
+  t.mock.restoreAll();
+  seen = mockServices(t, { plan: 'free', status: 'none', today_tokens: FREE.dailyTokens * 10, period_tokens: 0 });
+  response = await chat({}, { APPBLIPS_BILLING_TESTERS: 'someone@else.com, A@Example.com' });
+  assert.equal(response.status, 402);
+  assert.equal(seen.statusCalls, 1);
+
+  // Off the list, the status endpoint reports billing off.
+  t.mock.restoreAll();
+  mockServices(t, { plan: 'free', status: 'none', today_tokens: 0, period_tokens: 0 });
+  response = await handleBillingStatus(new Request('https://app.example/api/billing/status', { headers: { authorization: 'Bearer token' } }), { ...env, APPBLIPS_BILLING_TESTERS: 'user-2' });
+  assert.deepEqual(await response.json(), { enabled: false });
+});

@@ -28,7 +28,7 @@
 import { wrapWithTokenTracking } from './trackTokens.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
-import { billingEnabled, fetchBillingStatus } from './billing.js';
+import { billingAppliesTo, fetchBillingStatus } from './billing.js';
 import { planById, checkAllowance, limitMessage } from './plans.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
@@ -276,7 +276,7 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // If the usage read itself fails the request goes through: auth already
 // reached Supabase, and a hiccup there shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
-  if (!billingEnabled(env) || payload?.user_provider != null) return { plan: null };
+  if (!billingAppliesTo(env, user) || payload?.user_provider != null) return { plan: null };
   const status = await fetchBillingStatus(env, user.id);
   if (!status) return { plan: null };
   const plan = planById(status.plan);
