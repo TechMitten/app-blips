@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into three tabs: **Appearance**, **Workspace**, and **AI**. Every setting is saved to your browser's local storage and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Data** (only in your own copy of AppBlips), and **Danger Zone**. Every setting is saved to your browser's local storage and persists across sessions automatically.
 
 ## Appearance
 
@@ -12,7 +12,7 @@ These settings control the visual presentation of the AppBlips interface.
 
 ### Theme
 
-<ParamField body="Theme" type="Light | Dark | System" default="Light">
+<ParamField body="Theme" type="Light | Dark | System" default="Dark">
   Sets the color scheme for the AppBlips interface. **Light** keeps the interface in a light palette at all times. **Dark** keeps it dark at all times. **System** follows your operating system's current color scheme preference and switches automatically when your OS switches.
 </ParamField>
 
@@ -55,7 +55,9 @@ These settings control how the preview and build experience behaves during and a
 ### Skip splash screen
 
 <ParamField body="Skip splash screen" type="toggle" default="Off">
-  When enabled, AppBlips skips the intro animation that plays on launch and takes you straight to the workspace. This setting takes effect on the next page load — the current session is not affected.
+  When enabled, AppBlips never plays the intro animation and takes you straight to the workspace. This setting takes effect on the next page load — the current session is not affected.
+
+  With it off, the intro plays at most once a day, so reloading or opening another tab doesn't replay it. Click **Skip video** in the bottom-right corner, or press <kbd>Esc</kbd>, to skip it.
 </ParamField>
 
 ### Check for updates
@@ -113,3 +115,28 @@ Click **Test connection** to check the settings, then **Save**. Your provider is
 <Note>
   Your key is stored in this browser only, never in your projects. It is sent to the AppBlips server with each request, which passes it on to your provider and does not keep it.
 </Note>
+
+In the [desktop app](/quickstart-desktop#set-up-your-ai-provider), this section is where you set up your provider, and the key is encrypted with your system keychain instead.
+
+---
+
+## Data
+
+This tab appears only in your own copy of AppBlips (the desktop app, or run from source or Docker), where projects are stored on your device instead of in an account.
+
+- **Export all apps:** downloads every saved app, its version history and its saved app data as one backup file.
+- **Import apps:** adds apps from a backup file. An app you already have is replaced only if the backup's copy is newer.
+- **Projects folder** (desktop app only): shows where projects are saved. Click **Change…** to pick another folder.
+
+See [Move projects from the browser version](/quickstart-desktop#move-projects-from-the-browser-version) for moving apps between copies.
+
+---
+
+## Danger Zone
+
+<Warning>
+  Both actions are permanent and cannot be undone.
+</Warning>
+
+- **Delete all saved apps:** removes every saved app, including any published links and cloud copies.
+- **Delete account:** shown when you're signed in. Deletes your account, all saved apps, published links and your profile.

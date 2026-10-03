@@ -24,10 +24,10 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     </Tip>
   </Accordion>
 
-  <Accordion title="The preview goes blank when I click a link">
-    This is expected behavior, not a bug. Links inside the preview that would navigate the frame away from the generated app are blocked to keep the preview alive. External links open in a new tab instead.
+  <Accordion title="A link in the preview doesn't go anywhere">
+    The preview keeps links from navigating the frame away from your app. A link to another page of your website opens that page in the preview, and external links open in a new tab. A link to a page that doesn't exist does nothing.
 
-    If your app needs internal navigation between views, ask AppBlips to implement it using JavaScript state (showing and hiding sections) rather than traditional `<a href>` page links.
+    If a link should lead somewhere, ask AppBlips to fix it, for example `The "Pricing" link should open the pricing page`. In the App and Game studios, ask for in-app navigation (showing and hiding views) instead of links to other pages.
   </Accordion>
 </AccordionGroup>
 
@@ -108,7 +108,7 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     docker compose up --build
     ```
 
-    All other variables in `.env` are read at runtime and only require a container restart.
+    All other variables in `.env` are read at runtime. Run `docker compose up` to recreate the container with the new values.
   </Accordion>
 </AccordionGroup>
 
@@ -123,14 +123,14 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     **To fix:**
 
     - Stop the process currently occupying port 3000, then run `docker compose up` again.
-    - Alternatively, set a different port by adding a `PORT` environment variable to your `.env` file (e.g. `PORT=3001`) and update the port mapping in `docker-compose.yml` to match.
+    - Alternatively, publish AppBlips on another host port: in `docker-compose.yml`, change the first number of the port mapping (for example `"127.0.0.1:8080:3000"`) and open `http://localhost:8080`. See [Ports](/self-hosting/docker#ports).
   </Accordion>
 
   <Accordion title="Changes to .env don't take effect">
-    Most environment variables are read at runtime, so a container restart is all you need:
+    Docker passes `.env` to the container when it is created, so `docker compose restart` keeps the old values. Recreate the container instead:
 
     ```bash
-    docker compose restart
+    docker compose up
     ```
 
     However, `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are embedded in the client bundle at build time. If you changed either of these, you must rebuild the image:
@@ -139,7 +139,7 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     docker compose up --build
     ```
 
-    A plain restart will not pick up changes to build-time variables.
+    Recreating the container is not enough for build-time variables; the image itself must be rebuilt.
   </Accordion>
 </AccordionGroup>
 

@@ -80,7 +80,7 @@ ports:
 
 ## Rebuilding After Config Changes
 
-Most configuration variables are read at runtime when the server starts, so you can update them in `.env` and restart the container with `docker compose restart` to apply the change.
+Most configuration variables are read at runtime when the server starts. After changing them in `.env`, run `docker compose up` again: Compose sees the new values and recreates the container. A plain `docker compose restart` keeps the old values.
 
 <Warning>
   **Two variables are baked into the client at build time:** `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL`. A plain restart does **not** pick up new values for these — you must rebuild the image by running `docker compose up --build` again after changing either one.
@@ -93,9 +93,9 @@ Understanding which variables take effect when helps you avoid surprising behavi
 | Type | Variables | How to apply a change |
 |---|---|---|
 | **Build-time** | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | `docker compose up --build` |
-| **Runtime** | All other `APPBLIPS_*` variables | `docker compose restart` |
+| **Runtime** | All other variables (`OPENAI_*`, `APPBLIPS_*`) | `docker compose up` |
 
-Build-time variables are embedded into the compiled client bundle during the `npm run build` step inside Docker. Runtime variables are read by the Node server process on startup from the `.env` file.
+Build-time variables are embedded into the compiled client bundle during the `npm run build` step inside Docker. Runtime variables are passed to the container from the `.env` file when it is created, and read by the Node server on startup.
 
 ## Stopping and Updating
 
