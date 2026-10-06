@@ -14,20 +14,25 @@ const todayUtc = () => new Date().toISOString().slice(0, 10);
 // Best-effort: a Supabase hiccup here must never break app generation or a
 // deployed app's AI feature, so every failure is caught and logged, never
 // thrown. A single-user instance has no Supabase project to write to.
-export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens }) {
+//
+// `reservation` ({ date, tokens }, from billing.js reserveTokens) means the
+// request already reserved an estimate against the allowance; it's settled
+// to `tokens` on the day it was reserved instead of being counted again.
+export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens, reservation }) {
   if (!uid || !['builder', 'deployed'].includes(kind)) return;
   if (!supabaseConfigured(env)) return;
 
   const date = todayUtc();
   try {
     if (!supabaseServiceKey(env)) return;
-    const response = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/record_usage`, {
+    const spend = { token_count: tokens || 0, cost: costMicros || 0, cached: cachedTokens || 0 };
+    const [rpc, args] = reservation
+      ? ['settle_usage', { target_user_id: uid, usage_date: reservation.date, reserved: reservation.tokens, usage_kind: kind, ...spend }]
+      : ['record_usage', { target_user_id: uid, usage_date: date, usage_kind: kind, ...spend }];
+    const response = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/${rpc}`, {
       method: 'POST',
       headers: supabaseHeaders(env, { service: true }),
-      body: JSON.stringify({
-        target_user_id: uid, usage_date: date, usage_kind: kind, token_count: tokens || 0,
-        cost: costMicros || 0, cached: cachedTokens || 0,
-      }),
+      body: JSON.stringify(args),
     });
     if (!response.ok) {
       const detail = await response.text().catch(() => '');

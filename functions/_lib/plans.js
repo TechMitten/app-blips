@@ -60,10 +60,22 @@ export const planByLookupKey = (key) => Object.values(PLANS).find((plan) => plan
 
 // A build is many requests (writing, surgical edits, repairs). Only its first
 // request is held to the allowance; the rest may run this far past it so a
-// build never stops halfway because the limit was reached mid-way. The client
-// marks the follow-up requests, so this is also the most a dishonest client
-// can take beyond its allowance.
+// build never stops halfway because the limit was reached mid-way. It's a
+// ceiling on the total, not a budget per build, and a follow-up only gets it
+// with the signed pass from its build's earlier requests (promptPass.js).
 export const BUILD_OVERDRAFT_TOKENS = 500_000;
+
+// The token totals a request is refused at: { daily, period }, null where
+// the plan has no such limit. Shared by checkAllowance and the atomic
+// reservation in Supabase (reserve_tokens), so both draw the line in one place.
+export const allowanceLimits = (planOrId, { continuing = false } = {}) => {
+  const plan = typeof planOrId === 'string' ? planById(planOrId) : planOrId;
+  const extra = continuing ? BUILD_OVERDRAFT_TOKENS : 0;
+  return {
+    daily: plan.dailyTokens ? plan.dailyTokens + extra : null,
+    period: plan.periodTokens ? plan.periodTokens + extra : null,
+  };
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -82,14 +94,14 @@ const nextUtcMonth = (now) => {
 // `continuing` = a follow-up request inside a build that already started.
 export const checkAllowance = (status, { continuing = false, now = Date.now() } = {}) => {
   const plan = planById(status?.plan);
-  const extra = continuing ? BUILD_OVERDRAFT_TOKENS : 0;
+  const limits = allowanceLimits(plan, { continuing });
   const today = Number(status?.today_tokens) || 0;
   const period = Number(status?.period_tokens) || 0;
 
-  if (plan.dailyTokens && today >= plan.dailyTokens + extra) {
+  if (limits.daily && today >= limits.daily) {
     return { allowed: false, scope: 'day', resetsAt: nextUtcMidnight(now) };
   }
-  if (plan.periodTokens && period >= plan.periodTokens + extra) {
+  if (limits.period && period >= limits.period) {
     const end = status?.period_end ? new Date(status.period_end) : null;
     return {
       allowed: false,

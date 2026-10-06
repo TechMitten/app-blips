@@ -9,7 +9,7 @@
 // nobody has limits, which keeps self-hosted and single-user installs as they
 // were.
 import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
-import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts } from './plans.js';
+import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts, allowanceLimits } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
 import { authorize } from './chatProxy.js';
@@ -34,6 +34,25 @@ export const billingAppliesTo = (env, user) => {
   if (!testers.length) return true;
   return testers.includes(String(user?.id || '').toLowerCase())
     || Boolean(user?.email && testers.includes(String(user.email).toLowerCase()));
+};
+
+// billingAppliesTo for an account known only by id (the deployed-app AI
+// relay knows the app's owner, not their session). A tester list naming
+// emails needs the owner's email, read with the service key.
+export const billingAppliesToAccount = async (env, uid) => {
+  if (!billingEnabled(env) || !uid) return false;
+  const testers = billingTesters(env);
+  if (!testers.length || testers.includes(String(uid).toLowerCase())) return true;
+  if (!testers.some((entry) => entry.includes('@'))) return false;
+  try {
+    const res = await fetch(`${supabaseUrl(env)}/auth/v1/admin/users/${encodeURIComponent(uid)}`, {
+      headers: supabaseHeaders(env, { service: true }),
+    });
+    if (!res.ok) return false;
+    return billingAppliesTo(env, { id: uid, email: (await res.json())?.email });
+  } catch {
+    return false;
+  }
 };
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -86,6 +105,47 @@ export const claimPrompt = async (env, uid, limit) => {
     console.error('[billing] prompt claim failed:', err?.message || err);
     return null;
   }
+};
+
+// Reserves `amount` tokens against the allowance before a request goes out
+// (public.reserve_tokens: checks and adds in one locked step, so requests
+// sent at the same moment can't all slip under the limit). Returns
+// { reserved, today_tokens, period_tokens, date }, or null when the call
+// failed. The reservation is settled to the real count by usageTracking.js.
+export const reserveTokens = async (env, uid, { periodStart, limits, amount, kind }) => {
+  const date = todayUtc();
+  try {
+    const rows = await usageRpc(env, 'reserve_tokens', {
+      target_user_id: uid, usage_date: date, period_start: periodStart,
+      daily_limit: limits.daily, period_limit: limits.period, amount, usage_kind: kind,
+    });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return row ? { ...row, date } : null;
+  } catch (err) {
+    console.error('[billing] token reservation failed:', err?.message || err);
+    return null;
+  }
+};
+
+// Checks `status` (from fetchBillingStatus) against the plan and holds
+// `amount` tokens for a request of `kind` ('builder' | 'deployed'). Returns
+// { refused: check } when the allowance is used up, otherwise { reservation }
+// to hand to wrapWithTokenTracking -- null when the reservation call failed,
+// which lets the request through like a failed status read does.
+export const holdAllowance = async (env, uid, status, { continuing = false, input, amount, kind }) => {
+  const check = checkAllowance(status, { continuing });
+  if (!check.allowed) return { refused: check };
+  const held = await reserveTokens(env, uid, {
+    periodStart: status.period_start,
+    limits: allowanceLimits(status.plan, { continuing }),
+    amount,
+    kind,
+  });
+  if (held && !held.reserved) {
+    const over = checkAllowance({ ...status, ...held }, { continuing });
+    if (!over.allowed) return { refused: over };
+  }
+  return { reservation: held?.reserved ? { date: held.date, tokens: amount, input } : null };
 };
 
 // Hands a prompt back when it never got going; best effort.

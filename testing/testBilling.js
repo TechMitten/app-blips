@@ -82,10 +82,12 @@ test('Stripe signatures are checked, including timestamp replay', async () => {
 const sse = 'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\n';
 
 // Mocks Supabase auth, billing_status and the LLM. Returns what was seen.
-// `prompts` simulates the claim_prompt counter; `upstreamStatus` lets a test
-// make the provider fail.
-const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200 } = {}) => {
-  const seen = { statusCalls: 0, upstream: null, claims: 0, releases: 0, promptsLeft };
+// `prompts` simulates the claim_prompt counter; reserve_tokens and
+// settle_usage keep the row's token totals like the SQL does; `upstreamStatus`
+// lets a test make the provider fail and `upstreamBody` replaces the stream.
+const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200, upstreamBody = sse } = {}) => {
+  const seen = { statusCalls: 0, upstream: null, upstreamCalls: 0, claims: 0, releases: 0, promptsLeft, reservations: [], settles: [] };
+  const totals = { today: Number(billingRow.today_tokens) || 0, period: Number(billingRow.period_tokens) || 0 };
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
     const href = String(url);
     if (href.endsWith('/auth/v1/user')) return Response.json({ id: 'user-1', email: 'a@example.com' });
@@ -94,6 +96,24 @@ const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200 } 
       return Response.json([billingRow]);
     }
     if (href.endsWith('/rpc/record_usage')) return new Response(null, { status: 204 });
+    if (href.endsWith('/rpc/reserve_tokens')) {
+      const args = JSON.parse(options.body);
+      const over = (args.daily_limit != null && totals.today >= args.daily_limit)
+        || (args.period_limit != null && totals.period >= args.period_limit);
+      if (!over) {
+        totals.today += args.amount;
+        totals.period += args.amount;
+      }
+      seen.reservations.push({ ...args, reserved: !over });
+      return Response.json([{ reserved: !over, today_tokens: totals.today, period_tokens: totals.period }]);
+    }
+    if (href.endsWith('/rpc/settle_usage')) {
+      const args = JSON.parse(options.body);
+      totals.today += args.token_count - args.reserved;
+      totals.period += args.token_count - args.reserved;
+      seen.settles.push(args);
+      return new Response(null, { status: 204 });
+    }
     if (href.endsWith('/rpc/claim_prompt')) {
       seen.claims += 1;
       if (seen.promptsLeft <= 0) return Response.json(false);
@@ -107,8 +127,9 @@ const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200 } 
     }
     if (href === 'https://llm.example/v1/chat/completions') {
       seen.upstream = JSON.parse(options.body);
+      seen.upstreamCalls += 1;
       if (upstreamStatus !== 200) return Response.json({ error: { message: 'boom' } }, { status: upstreamStatus });
-      return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
+      return new Response(upstreamBody, { headers: { 'content-type': 'text/event-stream' } });
     }
     throw new Error(`unexpected fetch ${href}`);
   });
@@ -365,4 +386,144 @@ test('paid plans have no prompt limit', async (t) => {
   assert.equal(response.status, 200);
   await response.text();
   assert.equal(seen.claims, 0);
+});
+
+// --- token reservations -------------------------------------------------------
+
+// Lets the waitUntil'd usage writes land before a test reads them.
+const settleWrites = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+test('requests sent at the same moment cannot all slip under the limit', async (t) => {
+  const seen = mockServices(t, { ...freeRow, today_tokens: FREE.dailyTokens - 10_000, period_tokens: FREE.dailyTokens - 10_000 });
+  const responses = await Promise.all(Array.from({ length: 10 }, () => chat({ auto_fix: true }, withSecret)));
+  const statuses = responses.map((r) => r.status);
+  await Promise.all(responses.map((r) => r.text()));
+  assert.equal(statuses.filter((s) => s === 200).length, 1, `one request reserves, the rest are refused: ${statuses}`);
+  assert.equal(seen.upstreamCalls, 1);
+});
+
+test('a reservation is settled to the reported usage on the day it was made', async (t) => {
+  const usage = 'data: {"choices":[{"delta":{"content":"Done"},"finish_reason":"stop"}],"usage":{"total_tokens":1234}}\n\ndata: [DONE]\n\n';
+  const seen = mockServices(t, freeRow, { upstreamBody: usage });
+  await (await chat({}, withSecret)).text();
+  await settleWrites();
+  assert.equal(seen.reservations.length, 1);
+  const [held] = seen.reservations;
+  assert.equal(held.daily_limit, FREE.dailyTokens, 'a new request gets no overdraft');
+  assert.equal(seen.settles.length, 1);
+  assert.equal(seen.settles[0].reserved, held.amount);
+  assert.equal(seen.settles[0].usage_date, held.usage_date);
+  assert.equal(seen.settles[0].token_count, 1234);
+});
+
+test('a stream cut off before its usage arrives is charged an estimate, not nothing', async (t) => {
+  // The provider sends some output and is still going when the client stops
+  // reading, so its usage block never arrives.
+  const encoder = new TextEncoder();
+  const upstreamBody = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: {"choices":[{"delta":{"content":"${'x'.repeat(3000)}"}}]}\n\n`));
+    },
+  });
+  const seen = mockServices(t, freeRow, { upstreamBody });
+  const reader = (await chat({}, withSecret)).body.getReader();
+  await reader.read();
+  await reader.cancel();
+  await settleWrites();
+  assert.equal(seen.settles.length, 1);
+  assert.ok(seen.settles[0].token_count >= 1000, `charged ${seen.settles[0].token_count}`);
+  assert.ok(seen.settles[0].token_count < seen.settles[0].reserved);
+});
+
+test('a provider failure hands the reservation back', async (t) => {
+  const seen = mockServices(t, freeRow, { upstreamStatus: 500 });
+  await (await chat({}, withSecret)).text();
+  await settleWrites();
+  assert.equal(seen.settles.length, 1);
+  assert.equal(seen.settles[0].token_count, 0);
+});
+
+test('the build overdraft needs a valid pass from the build', async (t) => {
+  const atCap = { ...freeRow, plan: 'plus', status: 'active', today_tokens: 0, period_tokens: PLANS.plus.periodTokens };
+  let seen = mockServices(t, atCap);
+  // Claiming to be mid-build without a pass is refused like a new request.
+  let response = await chat({ continuing: true }, withSecret);
+  assert.equal(response.status, 402);
+  response = await chat({ continuing: true, prompt_pass: 'forged.pass' }, withSecret);
+  assert.equal(response.status, 402);
+  assert.equal(seen.upstreamCalls, 0);
+
+  // A build that started under the limit carries on into the overdraft.
+  t.mock.restoreAll();
+  seen = mockServices(t, { ...atCap, period_tokens: PLANS.plus.periodTokens - 1 });
+  response = await chat({}, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  const pass = response.headers.get('x-appblips-prompt-pass');
+  assert.ok(pass, 'paid plans get a pass too');
+  response = await chat({ continuing: true, prompt_pass: pass }, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  assert.equal(seen.reservations[1].period_limit, PLANS.plus.periodTokens + BUILD_OVERDRAFT_TOKENS);
+});
+
+// --- deployed-app AI draws on the owner's allowance -----------------------------
+
+const appAi = async (slug, settings = {}) => {
+  const { handleAiChat } = await import('../functions/_lib/aiRelay.js');
+  const { signSessionToken } = await import('../functions/_lib/aiSession.js');
+  const relayEnv = { ...env, ...withSecret, ...settings };
+  const { token } = await signSessionToken({ slug, gen: 1 }, relayEnv);
+  const pending = [];
+  const response = await handleAiChat(new Request('https://my.app.example/ai/chat', {
+    method: 'POST',
+    headers: { origin: 'https://my.app.example' },
+    body: JSON.stringify({ token, messages: [{ role: 'user', content: 'Hello' }], stream: true }),
+  }), relayEnv, (p) => pending.push(p));
+  await response.text();
+  await Promise.all(pending);
+  return response;
+};
+
+// The deployment lookup on top of mockServices; the owner is user-1.
+const mockDeployment = (t, billingRow, options) => {
+  const seen = mockServices(t, billingRow, options);
+  const services = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (String(url).includes('/rest/v1/deployments?')) return Response.json([{ ai_enabled: true, ai_token_generation: 1, user_id: 'user-1' }]);
+    if (String(url).includes('/auth/v1/admin/users/')) return Response.json({ id: 'user-1', email: 'a@example.com' });
+    return services(url, init);
+  });
+  return seen;
+};
+
+test("a deployed app's AI stops when its owner's allowance is used up", async (t) => {
+  const seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
+  const response = await appAi('owner-over-limit');
+  assert.equal(response.status, 429);
+  assert.equal(seen.upstreamCalls, 0);
+});
+
+test("a deployed app's AI reserves and settles against its owner's allowance as deployed usage", async (t) => {
+  const usage = 'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}],"usage":{"total_tokens":321}}\n\ndata: [DONE]\n\n';
+  const seen = mockDeployment(t, freeRow, { upstreamBody: usage });
+  const response = await appAi('owner-under-limit');
+  assert.equal(response.status, 200);
+  await settleWrites();
+  assert.equal(seen.reservations.length, 1);
+  assert.equal(seen.reservations[0].usage_kind, 'deployed');
+  assert.equal(seen.reservations[0].target_user_id, 'user-1');
+  assert.equal(seen.reservations[0].daily_limit, FREE.dailyTokens, 'no build overdraft for app visitors');
+  assert.equal(seen.settles.length, 1);
+  assert.equal(seen.settles[0].usage_kind, 'deployed');
+  assert.equal(seen.settles[0].token_count, 321);
+});
+
+test('the billing tester list applies to deployed apps by the owner\'s email', async (t) => {
+  let seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
+  assert.equal((await appAi('tester-listed', { APPBLIPS_BILLING_TESTERS: 'A@example.com' })).status, 429);
+  t.mock.restoreAll();
+  seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
+  assert.equal((await appAi('tester-unlisted', { APPBLIPS_BILLING_TESTERS: 'someone@else.com' })).status, 200);
+  assert.equal(seen.statusCalls, 0);
 });

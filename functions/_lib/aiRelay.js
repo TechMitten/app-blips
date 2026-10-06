@@ -2,7 +2,9 @@ import { consumeToken } from './rateLimit.js';
 import { supabaseUrl, supabaseHeaders } from './supabaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
-import { wrapWithTokenTracking } from './trackTokens.js';
+import { wrapWithTokenTracking, estimateInputTokens } from './trackTokens.js';
+import { trackApiUsage } from './usageTracking.js';
+import { billingAppliesToAccount, fetchBillingStatus, holdAllowance } from './billing.js';
 import { resolveAppProvider, applyProviderSettings, appAiLimit, appAiDisabled } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
@@ -294,6 +296,24 @@ export async function handleAiChat(request, env, waitUntil) {
   // Operator-set effort and provider request format (see providers.js).
   applyProviderSettings(bodyObj, provider, { effort: appAiLimit(env, 'REASONING_EFFORT') || 'none' });
 
+  // A deployed app's AI draws on its owner's plan, so it stops when the
+  // owner's allowance is used up, and holds an estimate first like the
+  // builder does (billing.js). Visitors aren't told about the owner's plan.
+  // If a usage read fails the request goes through, as in chatProxy.js.
+  let reservation = null;
+  if (ownerUid && await billingAppliesToAccount(env, ownerUid)) {
+    const status = await fetchBillingStatus(env, ownerUid);
+    if (status) {
+      const input = estimateInputTokens(safeMessages);
+      const held = await holdAllowance(env, ownerUid, status, { input, amount: input + bodyObj.max_tokens, kind: 'deployed' });
+      if (held.refused) return errorResponse('limit_reached', 429, "This app's AI has reached its usage limit for now. Please try again later.");
+      reservation = held.reservation;
+    }
+  }
+  const giveBack = () => {
+    if (reservation) trackApiUsage(env, { uid: ownerUid, kind: 'deployed', tokens: 0, reservation }, waitUntil);
+  };
+
   let upstream;
   try {
     upstream = await fetch(chatUrl(provider.baseUrl), {
@@ -302,17 +322,19 @@ export async function handleAiChat(request, env, waitUntil) {
       body: JSON.stringify(bodyObj),
     });
   } catch (err) {
+    giveBack();
     console.error('[ai-relay] upstream fetch failed:', err?.message || err);
     return errorResponse('upstream_error', 502, 'AI service request failed.');
   }
   if (!upstream.ok) {
+    giveBack();
     const detail = await upstream.text().catch(() => '');
     console.error('[ai-relay] upstream', upstream.status, detail.slice(0, 300));
     return errorResponse('upstream_error', 502, 'AI service request failed.');
   }
 
   if (ownerUid) {
-    return wrapWithTokenTracking(env, upstream, bodyObj, { uid: ownerUid, kind: 'deployed' }, waitUntil);
+    return wrapWithTokenTracking(env, upstream, bodyObj, { uid: ownerUid, kind: 'deployed', reservation }, waitUntil);
   } else {
     return new Response(upstream.body, {
       status: 200,

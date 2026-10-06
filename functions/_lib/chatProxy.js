@@ -25,10 +25,11 @@
 // operators put their own access control (network restrictions, a reverse-proxy
 // auth layer, etc.) in front of this endpoint if they expose it beyond localhost.
 
-import { wrapWithTokenTracking } from './trackTokens.js';
+import { wrapWithTokenTracking, estimateInputTokens } from './trackTokens.js';
+import { trackApiUsage } from './usageTracking.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
-import { billingAppliesTo, fetchBillingStatus, claimPrompt, releasePrompt } from './billing.js';
+import { billingAppliesTo, fetchBillingStatus, claimPrompt, releasePrompt, holdAllowance } from './billing.js';
 import { promptPassesEnabled, signPromptPass, verifyPromptPass } from './promptPass.js';
 import { planById, checkAllowance, checkPrompts, limitMessage } from './plans.js';
 
@@ -112,6 +113,19 @@ const DEFAULT_MULTIUSER_MAX_TOKENS = 32768;
 // OPENAI_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
 // count toward the limit on thinking models.
 const DEFAULT_ASK_MAX_TOKENS = 8192;
+
+// The output cap a request is sent with (see handleChatProxy). null = none,
+// which only a single-user instance allows.
+const outputCap = (env, payload, multiUser) => {
+  if (payload.ask === true) {
+    const parsedAskMax = parseInt(llmEnv(env, 'ASK_MAX_TOKENS'), 10);
+    return parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
+  }
+  const parsedMax = parseInt(llmEnv(env, 'MAX_TOKENS'), 10);
+  if (parsedMax > 0) return parsedMax;
+  // Multi-user mode always bounds output so an unset env var can't mean "unlimited".
+  return multiUser ? DEFAULT_MULTIUSER_MAX_TOKENS : null;
+};
 
 // Multi-user mode: the operator configured a Supabase project, so every request
 // must carry a valid Supabase access token and the hardening/rate-limit below
@@ -274,15 +288,25 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // Plan enforcement when this instance bills (billing.js). Requests on the
 // user's own key (Settings → AI) spend nothing of ours, so they skip it.
 // Returns { response } to refuse, or { plan } (null when billing is off),
-// plus for plans with a daily prompt limit `pass` (send back as the
-// x-appblips-prompt-pass header) and `claimed` (a prompt was taken).
-// If the usage read itself fails the request goes through: auth already
+// plus `pass` (send back as the x-appblips-prompt-pass header), `claimed` (a
+// daily prompt was taken) and `reservation` (tokens held against the
+// allowance, settled when the response ends; see trackTokens.js).
+// If a usage read itself fails the request goes through: auth already
 // reached Supabase, and a hiccup there shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
   if (!billingAppliesTo(env, user) || payload?.user_provider != null) return { plan: null };
   const status = await fetchBillingStatus(env, user.id);
   if (!status) return { plan: null };
   const plan = planById(status.plan);
+  const refuse = (check) => ({
+    response: new Response(JSON.stringify({
+      error: limitMessage(plan.id, check),
+      code: 'limit_reached',
+      plan: plan.id,
+      scope: check.scope,
+      resetsAt: check.resetsAt.toISOString(),
+    }), { status: 402, headers: { 'content-type': 'application/json' } }),
+  });
 
   if (!plan.images && hasImageContent(payload.messages)) {
     return {
@@ -294,45 +318,37 @@ const checkPlan = async (env, user, payload) => {
     };
   }
 
-  // Only a build's first request is held to the allowance; the client marks
-  // the rest `continuing` so a started build can finish (see plans.js).
-  const check = checkAllowance(status, { continuing: payload.continuing === true });
-  if (!check.allowed) {
-    return {
-      response: new Response(JSON.stringify({
-        error: limitMessage(plan.id, check),
-        code: 'limit_reached',
-        plan: plan.id,
-        scope: check.scope,
-        resetsAt: check.resetsAt.toISOString(),
-      }), { status: 402, headers: { 'content-type': 'application/json' } }),
-    };
-  }
-  if (!plan.dailyPrompts) return { plan };
-
-  // Daily prompt limit: a Build or Ask message is claimed on its first
-  // request, and the response carries a signed pass that the rest of that
-  // prompt's requests send back (promptPass.js). A follow-up without a valid
-  // pass counts as a new prompt. Automatic repairs (auto_fix) never cost one.
-  // With no signing secret configured, the client's `continuing` mark is
-  // trusted as before.
+  // A build is many requests: the first is held to the allowance and gets a
+  // signed pass, and the rest send it back to be treated as follow-ups -- one
+  // prompt, and allowed into the build overdraft (plans.js). Without a valid
+  // pass, a request marked `continuing` is a new one. With no signing secret
+  // configured, the client's `continuing` mark is trusted as before.
   const followUp = payload.continuing === true
     && (!promptPassesEnabled(env) || await verifyPromptPass(payload.prompt_pass, user.id, env));
-  if (followUp || payload.auto_fix === true) return { plan, pass: await signPromptPass(user.id, env) };
-  const claimed = await claimPrompt(env, user.id, plan.dailyPrompts);
-  if (claimed === false) {
-    const limit = checkPrompts({ plan: plan.id, today_prompts: plan.dailyPrompts });
-    return {
-      response: new Response(JSON.stringify({
-        error: limitMessage(plan.id, limit),
-        code: 'limit_reached',
-        plan: plan.id,
-        scope: limit.scope,
-        resetsAt: limit.resetsAt.toISOString(),
-      }), { status: 402, headers: { 'content-type': 'application/json' } }),
-    };
+  const check = checkAllowance(status, { continuing: followUp });
+  if (!check.allowed) return refuse(check);
+
+  // Daily prompt limit: a Build or Ask message is claimed on its first
+  // request. Automatic repairs (auto_fix) never cost one.
+  let claimed = false;
+  if (plan.dailyPrompts && !followUp && payload.auto_fix !== true) {
+    const result = await claimPrompt(env, user.id, plan.dailyPrompts);
+    if (result === false) return refuse(checkPrompts({ plan: plan.id, today_prompts: plan.dailyPrompts }));
+    claimed = result === true;
   }
-  return { plan, pass: await signPromptPass(user.id, env), claimed: claimed === true };
+
+  // Hold an estimate against the allowance before spending anything; the
+  // check above alone lets a burst of simultaneous requests all through.
+  const input = estimateInputTokens(payload.messages, payload.tools);
+  const held = await holdAllowance(env, user.id, status, {
+    continuing: followUp, input, amount: input + (outputCap(env, payload, true) || 0), kind: 'builder',
+  });
+  if (held.refused) {
+    if (claimed) await releasePrompt(env, user.id);
+    return refuse(held.refused);
+  }
+
+  return { plan, pass: await signPromptPass(user.id, env), claimed, reservation: held.reservation };
 };
 
 // The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
@@ -406,14 +422,28 @@ export async function handleChatProxy(request, env, waitUntil) {
   const gate = await checkPlan(env, user, payload);
   if (gate.response) return gate.response;
 
+  // A request that never got going (no provider, or it refused or failed on
+  // the first response) hands back its prompt and its token reservation, so
+  // a failure on our side costs nothing.
+  const giveBack = () => {
+    if (gate.claimed) {
+      const pending = releasePrompt(env, user.id);
+      if (typeof waitUntil === 'function') waitUntil(pending);
+    }
+    if (gate.reservation) trackApiUsage(env, { uid: user.id, kind: 'builder', tokens: 0, reservation: gate.reservation }, waitUntil);
+  };
+
   const picked = pickProvider(env, payload);
-  if (picked.response) return picked.response;
+  if (picked.response) {
+    giveBack();
+    return picked.response;
+  }
   const { provider } = picked;
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
   const model = routeModel(env, provider, payload, gate.plan);
 
-  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix, ask } = payload;
+  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
 
   let temperature = 0.2;
   if (auto_fix === true) {
@@ -436,17 +466,8 @@ export async function handleChatProxy(request, env, waitUntil) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  if (ask === true) {
-    const parsedAskMax = parseInt(llmEnv(env, 'ASK_MAX_TOKENS'), 10);
-    bodyObj.max_tokens = parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
-  } else {
-    if (llmEnv(env, 'MAX_TOKENS')) {
-      const parsedMax = parseInt(llmEnv(env, 'MAX_TOKENS'), 10);
-      if (!isNaN(parsedMax)) bodyObj.max_tokens = parsedMax;
-    }
-    // Multi-user mode always bounds output so an unset env var can't mean "unlimited".
-    if (multiUser && !bodyObj.max_tokens) bodyObj.max_tokens = DEFAULT_MULTIUSER_MAX_TOKENS;
-  }
+  const maxTokens = outputCap(env, payload, multiUser);
+  if (maxTokens) bodyObj.max_tokens = maxTokens;
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) bodyObj.tool_choice = tool_choice;
@@ -457,14 +478,6 @@ export async function handleChatProxy(request, env, waitUntil) {
   // tool choices the provider would reject -- the refinement loop already
   // nudges the model if 'auto' returns no tool call.
   applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
-
-  // A prompt that never got going (the provider refused or failed on its
-  // first request) is handed back, so a failure on our side doesn't cost one.
-  const giveBackPrompt = () => {
-    if (!gate.claimed) return;
-    const pending = releasePrompt(env, user.id);
-    if (typeof waitUntil === 'function') waitUntil(pending);
-  };
 
   let upstream;
   try {
@@ -477,7 +490,7 @@ export async function handleChatProxy(request, env, waitUntil) {
       body: JSON.stringify(bodyObj),
     });
   } catch (err) {
-    giveBackPrompt();
+    giveBack();
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
@@ -494,7 +507,7 @@ export async function handleChatProxy(request, env, waitUntil) {
   // the client. Single-user gets the provider's reason, marked as such;
   // multi-user keeps it out of public view (logged instead).
   if (upstream.status === 429) {
-    giveBackPrompt();
+    giveBack();
     const detail = await upstreamErrorMessage(upstream);
     const retryAfter = upstream.headers.get('retry-after');
     if (isMultiUser(env)) console.error(`[chat] provider 429: ${detail}`);
@@ -509,8 +522,8 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  if (!upstream.ok) giveBackPrompt();
-  const response = await wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);
+  if (!upstream.ok) giveBack();
+  const response = await wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder', reservation: gate.reservation }, waitUntil);
   if (gate.pass && upstream.ok) response.headers.set('x-appblips-prompt-pass', gate.pass);
   return response;
 }
