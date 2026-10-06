@@ -26,16 +26,21 @@ export const billingEnabled = (env) => Boolean(serviceAccountConfigured(env) && 
 // billing (limits, plans, checkout) applies only to those accounts and
 // everyone else carries on as if billing were off -- so the live site can
 // run sandbox keys for testing without anyone getting Plus with a test card.
-const billingTesters = (env) => String(env?.APPBLIPS_BILLING_TESTERS || '')
+const accountList = (value) => String(value || '')
   .split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+const listIncludes = (list, user) => list.includes(String(user?.id || '').toLowerCase())
+  || Boolean(user?.email && list.includes(String(user.email).toLowerCase()));
 
 export const billingAppliesTo = (env, user) => {
   if (!billingEnabled(env)) return false;
-  const testers = billingTesters(env);
-  if (!testers.length) return true;
-  return testers.includes(String(user?.id || '').toLowerCase())
-    || Boolean(user?.email && testers.includes(String(user.email).toLowerCase()));
+  const testers = accountList(env?.APPBLIPS_BILLING_TESTERS);
+  return !testers.length || listIncludes(testers, user);
 };
+
+// APPBLIPS_UNLIMITED_TRIALS: comma-separated emails or account ids that may
+// start the free trial again and again (the operator's own accounts), exempt
+// from the one-trial-per-account and per-card limits.
+const unlimitedTrials = (env, user) => listIncludes(accountList(env?.APPBLIPS_UNLIMITED_TRIALS), user);
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -342,7 +347,7 @@ const syncSubscription = async (env, subscriptionId) => {
   // to an account that hasn't had one, but two Checkouts opened side by side
   // or a second account with the same card would otherwise get another.
   let repeatTrial = false;
-  if (sub.status === 'trialing') {
+  if (sub.status === 'trialing' && sub.metadata?.unlimited_trials !== 'true') {
     const row = await subscriptionRow(env, uid);
     repeatTrial = Boolean(row?.trial_subscription_id && row.trial_subscription_id !== sub.id)
       || await cardHadTrial(env, uid, sub.id, typeof sub.default_payment_method === 'object' ? sub.default_payment_method : null);
@@ -386,7 +391,7 @@ export async function handleBillingStatus(request, env) {
     status: status.status,
     trialing: status.trialing,
     trialEnd: status.trial_end,
-    trialEligible: status.trial_eligible,
+    trialEligible: status.trial_eligible || unlimitedTrials(env, user),
     periodEnd: status.period_end,
     cancelAtPeriodEnd: Boolean(status.cancel_at_period_end),
     periodTokens: Number(status.period_tokens) || 0,
@@ -426,7 +431,8 @@ export async function handleBillingCheckout(request, env) {
     // Older clients that don't send requestTrial will default to false, meaning they won't get a trial
     // unless they update, but since we are changing the default to not offer a trial unconditionally,
     // this correctly fixes the bug where paid plan buttons were triggering trials.
-    const trial = requestTrial && planId === TRIAL.plan && !row?.trial_used;
+    const unlimited = unlimitedTrials(env, user);
+    const trial = requestTrial && planId === TRIAL.plan && (!row?.trial_used || unlimited);
     const session = await stripe(env, 'POST', '/checkout/sessions', {
       mode: 'subscription',
       line_items: [{ price: await priceIdFor(env, PLANS[planId].lookupKey), quantity: 1 }],
@@ -434,7 +440,9 @@ export async function handleBillingCheckout(request, env) {
       // Carried on every subscription event, so the webhook always knows the
       // account without depending on event order.
       subscription_data: {
-        metadata: { user_id: user.id },
+        // unlimited_trials tells the webhook (which has no email to check)
+        // not to end this trial as a repeat. Only the server sets metadata.
+        metadata: { user_id: user.id, ...(unlimited ? { unlimited_trials: 'true' } : {}) },
         ...(trial ? {
           trial_period_days: TRIAL.days,
           // Belt and braces: Checkout always collects a card here, but a
