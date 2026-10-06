@@ -11,6 +11,15 @@ const relayHeaders = (headers) => {
   return out;
 };
 
+// What a usage block says the request cost us: OpenRouter reports `cost` in
+// dollars; cached input is `prompt_tokens_details.cached_tokens` (OpenAI and
+// OpenRouter) or `prompt_cache_hit_tokens` (DeepSeek's own API). Recorded for
+// the operator's margin numbers only, never charged to the user.
+const costOf = (usage) => ({
+  costMicros: Math.round((Number(usage.cost) || 0) * 1e6),
+  cachedTokens: Number(usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens) || 0,
+});
+
 export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kind }, waitUntil) {
   if (!upstreamResponse.ok) {
     return new Response(upstreamResponse.body, {
@@ -27,6 +36,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
   if (bodyObj.stream) {
     let tokens = 0;
     let failed = false;
+    let spend = { costMicros: 0, cachedTokens: 0 };
     const { readable, writable } = new TransformStream({
       start() { this.buffer = ''; },
       transform(chunk, controller) {
@@ -41,6 +51,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
               const data = JSON.parse(line.slice(6).trim());
               if (data.usage && data.usage.total_tokens) {
                 tokens = data.usage.total_tokens;
+                spend = costOf(data.usage);
               }
               if (data.error || data.choices?.[0]?.finish_reason === 'error') failed = true;
             } catch {
@@ -50,7 +61,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
         }
       },
       flush() {
-        trackApiUsage(env, { uid, kind, tokens: failed ? 0 : tokens || undefined }, waitUntil);
+        trackApiUsage(env, { uid, kind, tokens: failed ? 0 : tokens || undefined, ...spend }, waitUntil);
       }
     });
     
@@ -67,17 +78,19 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
     const processNonStreamed = async () => {
       const text = await upstreamResponse.text();
       let tokens = 0;
+      let spend = { costMicros: 0, cachedTokens: 0 };
       try {
         const data = JSON.parse(text);
         if (data.usage && data.usage.total_tokens) {
           tokens = data.usage.total_tokens;
+          spend = costOf(data.usage);
         }
         if (data.error || data.choices?.[0]?.finish_reason === 'error') tokens = 0;
       } catch {
         // ignore
       }
       
-      trackApiUsage(env, { uid, kind, tokens: tokens || undefined }, waitUntil);
+      trackApiUsage(env, { uid, kind, tokens: tokens || undefined, ...spend }, waitUntil);
       
       return new Response(text, {
         status: upstreamResponse.status,

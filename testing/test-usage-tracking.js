@@ -1,5 +1,5 @@
 // Tests for functions/_lib/usageTracking.js:
-//   1. recordApiUsage posts one increment to the Supabase `increment_usage` RPC
+//   1. recordApiUsage posts one increment to the Supabase `record_usage` RPC
 //   2. it no-ops in single-user mode / without a uid / for unknown kinds / without a service key
 //   3. failures are swallowed -- a Supabase hiccup must never throw
 //   4. handleChatProxy records exactly one 'builder' increment per successful
@@ -17,7 +17,7 @@ const multiUserEnv = {
   SUPABASE_SERVICE_ROLE_KEY: 'service-key',
 };
 
-const isIncrementCall = (url) => String(url).includes('/rest/v1/rpc/increment_usage');
+const isIncrementCall = (url) => String(url).includes('/rest/v1/rpc/record_usage');
 
 test('recordApiUsage posts an increment to the Supabase RPC', async (t) => {
   let called;
@@ -25,8 +25,8 @@ test('recordApiUsage posts an increment to the Supabase RPC', async (t) => {
     called = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
     return Response.json({});
   });
-  await recordApiUsage(multiUserEnv, { uid: 'user-1', kind: 'builder', tokens: 42 });
-  assert.ok(called.url.includes('/rest/v1/rpc/increment_usage'), 'targets the increment_usage RPC');
+  await recordApiUsage(multiUserEnv, { uid: 'user-1', kind: 'builder', tokens: 42, costMicros: 1500, cachedTokens: 30 });
+  assert.ok(called.url.includes('/rest/v1/rpc/record_usage'), 'targets the record_usage RPC');
   assert.equal(called.headers.authorization, 'Bearer service-key');
   assert.equal(called.headers.apikey, 'service-key');
   assert.deepEqual(called.body, {
@@ -34,6 +34,8 @@ test('recordApiUsage posts an increment to the Supabase RPC', async (t) => {
     usage_date: today(),
     usage_kind: 'builder',
     token_count: 42,
+    cost: 1500,
+    cached: 30,
   });
 });
 
@@ -118,6 +120,8 @@ test('a successful multi-user builder call records exactly one increment', async
     usage_date: today(),
     usage_kind: 'builder',
     token_count: 7,
+    cost: 0,
+    cached: 0,
   });
 });
 

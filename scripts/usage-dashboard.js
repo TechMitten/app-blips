@@ -8,6 +8,11 @@
 // dashboard binds to loopback and never exposes that key to the served page.
 import http from 'node:http';
 import { supabaseUrl, supabaseHeaders, supabaseServiceKey } from '../functions/_lib/supabaseServer.js';
+import { PLANS, PAID_PLAN_IDS } from '../functions/_lib/plans.js';
+
+// Stripe's cut of each monthly charge (card 2.9% + 30c, Billing 0.7%), for
+// the margin estimate. A rough figure: international cards cost more.
+const stripeFee = (price) => price * 0.036 + 0.3;
 
 async function fetchUsageDocs() {
   if (!supabaseServiceKey(process.env)) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required.');
@@ -25,25 +30,36 @@ async function fetchUsageDocs() {
       deployed: Number(row.deployed_requests) || 0,
       builderTokens: Number(row.builder_tokens) || 0,
       deployedTokens: Number(row.deployed_tokens) || 0,
+      costMicros: Number(row.cost_micros) || 0,
+      cachedTokens: Number(row.cached_tokens) || 0,
     }))
     .filter((doc) => doc.date);
+}
+
+// uid -> paid plan id, for accounts whose subscription currently grants one
+// (same rule as billing_status: past_due keeps the plan while Stripe retries).
+async function fetchPaidPlans() {
+  const res = await fetch(`${supabaseUrl(process.env)}/rest/v1/subscriptions?select=user_id,plan,status`, {
+    headers: supabaseHeaders(process.env, { service: true }),
+  });
+  if (!res.ok) return new Map(); // billing not migrated on this project
+  return new Map((await res.json())
+    .filter((row) => PAID_PLAN_IDS.includes(row.plan) && ['active', 'trialing', 'past_due'].includes(row.status))
+    .map((row) => [row.user_id, row.plan]));
 }
 
 const utcOffsetDay = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
 const lastNDates = (n) => Array.from({ length: n }, (_, i) => utcOffsetDay(n - 1 - i));
 
-function aggregate(docs) {
+function aggregate(docs, paidPlans = new Map()) {
   const today = utcOffsetDay(0);
   const days30 = lastNDates(30);
   const week = new Set(days30.slice(-7));
   const month = new Set(days30);
 
   const users = new Map();
-  const totals = {
-    today: { builder: 0, deployed: 0, total: 0, builderTokens: 0, deployedTokens: 0, totalTokens: 0 },
-    week: { builder: 0, deployed: 0, total: 0, builderTokens: 0, deployedTokens: 0, totalTokens: 0 },
-    allTime: { builder: 0, deployed: 0, total: 0, builderTokens: 0, deployedTokens: 0, totalTokens: 0 },
-  };
+  const blank = () => ({ builder: 0, deployed: 0, total: 0, builderTokens: 0, deployedTokens: 0, totalTokens: 0, costMicros: 0, cachedTokens: 0 });
+  const totals = { today: blank(), week: blank(), month: blank(), allTime: blank() };
   const active = { today: new Set(), week: new Set(), allTime: new Set() };
 
   for (const doc of docs) {
@@ -51,13 +67,15 @@ function aggregate(docs) {
     const rowTokens = doc.builderTokens + doc.deployedTokens;
     let user = users.get(doc.uid);
     if (!user) {
-      user = { uid: doc.uid, builder: 0, deployed: 0, builderTokens: 0, deployedTokens: 0, daily: {}, dailyTokens: {}, todayBuilder: 0, todayDeployed: 0, todayBuilderTokens: 0, todayDeployedTokens: 0 };
+      user = { uid: doc.uid, builder: 0, deployed: 0, builderTokens: 0, deployedTokens: 0, costMicros: 0, last30CostMicros: 0, daily: {}, dailyTokens: {}, todayBuilder: 0, todayDeployed: 0, todayBuilderTokens: 0, todayDeployedTokens: 0 };
       users.set(doc.uid, user);
     }
     user.builder += doc.builder;
     user.deployed += doc.deployed;
     user.builderTokens += doc.builderTokens;
     user.deployedTokens += doc.deployedTokens;
+    user.costMicros += doc.costMicros;
+    if (month.has(doc.date)) user.last30CostMicros += doc.costMicros;
     user.daily[doc.date] = (user.daily[doc.date] || 0) + row;
     user.dailyTokens[doc.date] = (user.dailyTokens[doc.date] || 0) + rowTokens;
     if (doc.date === today) {
@@ -67,29 +85,25 @@ function aggregate(docs) {
       user.todayDeployedTokens += doc.deployedTokens;
     }
 
-    totals.allTime.builder += doc.builder;
-    totals.allTime.deployed += doc.deployed;
-    totals.allTime.total += row;
-    totals.allTime.builderTokens += doc.builderTokens;
-    totals.allTime.deployedTokens += doc.deployedTokens;
-    totals.allTime.totalTokens += rowTokens;
+    const add = (t) => {
+      t.builder += doc.builder;
+      t.deployed += doc.deployed;
+      t.total += row;
+      t.builderTokens += doc.builderTokens;
+      t.deployedTokens += doc.deployedTokens;
+      t.totalTokens += rowTokens;
+      t.costMicros += doc.costMicros;
+      t.cachedTokens += doc.cachedTokens;
+    };
+    add(totals.allTime);
     active.allTime.add(doc.uid);
+    if (month.has(doc.date)) add(totals.month);
     if (week.has(doc.date)) {
-      totals.week.builder += doc.builder;
-      totals.week.deployed += doc.deployed;
-      totals.week.total += row;
-      totals.week.builderTokens += doc.builderTokens;
-      totals.week.deployedTokens += doc.deployedTokens;
-      totals.week.totalTokens += rowTokens;
+      add(totals.week);
       active.week.add(doc.uid);
     }
     if (doc.date === today) {
-      totals.today.builder += doc.builder;
-      totals.today.deployed += doc.deployed;
-      totals.today.total += row;
-      totals.today.builderTokens += doc.builderTokens;
-      totals.today.deployedTokens += doc.deployedTokens;
-      totals.today.totalTokens += rowTokens;
+      add(totals.today);
       active.today.add(doc.uid);
     }
   }
@@ -104,6 +118,9 @@ function aggregate(docs) {
       builderTokens: user.builderTokens,
       deployedTokens: user.deployedTokens,
       totalTokens: user.builderTokens + user.deployedTokens,
+      costMicros: user.costMicros,
+      last30CostMicros: user.last30CostMicros,
+      plan: paidPlans.get(user.uid) || 'free',
       last7: inWindow(user.daily, week),
       last30: inWindow(user.daily, month),
       last7Tokens: inWindow(user.dailyTokens, week),
@@ -119,12 +136,27 @@ function aggregate(docs) {
     }))
     .sort((a, b) => b.last7 - a.last7 || b.total - a.total);
 
+  // Last 30 days, by plan: what each group cost us against what it paid.
+  // Paid accounts count even with no usage (they still pay); free accounts
+  // only once they've used something, since sign-ups who never build cost nothing.
+  const economics = ['free', ...PAID_PLAN_IDS].map((planId) => {
+    const plan = PLANS[planId];
+    const accounts = planId === 'free'
+      ? userList.filter((u) => u.plan === 'free' && u.last30 > 0).length
+      : [...paidPlans.values()].filter((id) => id === planId).length;
+    const cost = userList.filter((u) => u.plan === planId).reduce((sum, u) => sum + u.last30CostMicros, 0) / 1e6;
+    const revenue = accounts * plan.price;
+    const fees = plan.price ? accounts * stripeFee(plan.price) : 0;
+    return { plan: planId, label: plan.label, price: plan.price, accounts, cost, revenue, fees, margin: revenue - fees - cost };
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     project: new URL(supabaseUrl(process.env)).hostname.split('.')[0],
     today,
     days: days30,
     totals,
+    economics,
     active: { today: active.today.size, week: active.week.size, allTime: active.allTime.size },
     users: userList,
   };
@@ -162,9 +194,9 @@ async function lookupEmails(uids) {
 }
 
 async function usagePayload() {
-  const docs = await fetchUsageDocs();
+  const [docs, paidPlans] = await Promise.all([fetchUsageDocs(), fetchPaidPlans()]);
   const emails = await lookupEmails([...new Set(docs.map((doc) => doc.uid))]);
-  return { ...aggregate(docs), emails: Object.fromEntries(emails) };
+  return { ...aggregate(docs, paidPlans), emails: Object.fromEntries(emails) };
 }
 
 // --- Dashboard page -------------------------------------------------------
@@ -241,6 +273,11 @@ const page = `<!doctype html>
   <div id="history"></div>
 </section>
 <section>
+  <h2>Costs · last 30 days</h2>
+  <div class="cards" id="costCards"></div>
+  <div id="economics" style="margin-top:12px"></div>
+</section>
+<section>
   <h2>Overall</h2>
   <div class="cards" id="cards"></div>
 </section>
@@ -266,6 +303,7 @@ function barCell(value, max, cls) {
   return '<td class="' + (cls || '') + '"><span class="bar" style="--w:' + pct + '%"><i>' + value + '</i></span></td>';
 }
 
+const money = (n) => (n < 0 ? '−$' : '$') + Math.abs(n).toFixed(Math.abs(n) < 10 ? 2 : 0);
 const formatTokens = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n;
 
 function render(data) {
@@ -286,6 +324,31 @@ function render(data) {
   ' <span style="font-size:13px;color:var(--muted)">today</span></div>' +
   '<div class="split">' + data.active.week + ' this week · ' + data.active.allTime + ' all time</div></div>';
   document.getElementById('cards').innerHTML = cards;
+
+  const spend = (t) => t.costMicros / 1e6;
+  const cacheShare = (t) => t.totalTokens ? Math.round((t.cachedTokens / t.totalTokens) * 100) + '% cached' : 'no tokens';
+  const perMillion = (t) => t.totalTokens ? money(spend(t) / (t.totalTokens / 1e6)) + ' per 1M tok' : '';
+  document.getElementById('costCards').innerHTML = [
+    ['Spend today', data.totals.today],
+    ['Spend · 7 days', data.totals.week],
+    ['Spend · 30 days', data.totals.month],
+  ].map(([label, t]) =>
+    '<div class="card"><div class="label">' + label + '</div><div class="num">' + money(spend(t)) + '</div>' +
+    '<div class="split">' + perMillion(t) + '</div><div class="split">' + cacheShare(t) + '</div></div>'
+  ).join('');
+
+  const econ = data.economics || [];
+  const net = econ.reduce((sum, row) => sum + row.margin, 0);
+  document.getElementById('economics').innerHTML =
+    '<table><tr><th>Plan</th><th>Accounts</th><th>Revenue</th><th>Stripe fees</th><th>Model cost</th><th>Cost / account</th><th>Margin</th></tr>' +
+    econ.map((row) =>
+      '<tr><td>' + esc(row.label) + (row.price ? ' ($' + row.price + ')' : ' (active)') + '</td>' +
+      '<td>' + row.accounts + '</td><td>' + money(row.revenue) + '</td><td>' + money(row.fees) + '</td>' +
+      '<td>' + money(row.cost) + '</td><td>' + (row.accounts ? money(row.cost / row.accounts) : '–') + '</td>' +
+      '<td><strong>' + money(row.margin) + '</strong></td></tr>').join('') +
+    '<tr><td><strong>Net before fixed costs</strong></td><td colspan="5"></td><td><strong>' + money(net) + '</strong></td></tr></table>' +
+    '<div class="meta" style="margin-top:6px">Model cost is what the provider reported (OpenRouter usage.cost); ' +
+    'days before cost tracking show $0. Revenue assumes every paid account pays the current monthly price.</div>';
 
   const leaders = data.users.filter((u) => u.today > 0).sort((a, b) => b.today - a.today);
   const leaderMax = leaders.length ? leaders[0].today : 1;
@@ -362,8 +425,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/usage') {
+      // Built before writeHead so a failed query still gets the 502 below.
+      const body = JSON.stringify(await usagePayload());
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(await usagePayload()));
+      res.end(body);
       return;
     }
     res.writeHead(404, { 'content-type': 'text/plain' });

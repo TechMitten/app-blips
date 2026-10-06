@@ -14,17 +14,20 @@ const todayUtc = () => new Date().toISOString().slice(0, 10);
 // Best-effort: a Supabase hiccup here must never break app generation or a
 // deployed app's AI feature, so every failure is caught and logged, never
 // thrown. A single-user instance has no Supabase project to write to.
-export async function recordApiUsage(env, { uid, kind, tokens }) {
+export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens }) {
   if (!uid || !['builder', 'deployed'].includes(kind)) return;
   if (!supabaseConfigured(env)) return;
 
   const date = todayUtc();
   try {
     if (!supabaseServiceKey(env)) return;
-    const response = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/increment_usage`, {
+    const response = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/record_usage`, {
       method: 'POST',
       headers: supabaseHeaders(env, { service: true }),
-      body: JSON.stringify({ target_user_id: uid, usage_date: date, usage_kind: kind, token_count: tokens || 0 }),
+      body: JSON.stringify({
+        target_user_id: uid, usage_date: date, usage_kind: kind, token_count: tokens || 0,
+        cost: costMicros || 0, cached: cachedTokens || 0,
+      }),
     });
     if (!response.ok) {
       const detail = await response.text().catch(() => '');

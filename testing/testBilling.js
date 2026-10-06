@@ -93,7 +93,7 @@ const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200 } 
       seen.statusCalls += 1;
       return Response.json([billingRow]);
     }
-    if (href.endsWith('/rpc/increment_usage')) return new Response(null, { status: 204 });
+    if (href.endsWith('/rpc/record_usage')) return new Response(null, { status: 204 });
     if (href.endsWith('/rpc/claim_prompt')) {
       seen.claims += 1;
       if (seen.promptsLeft <= 0) return Response.json(false);
@@ -180,7 +180,7 @@ test('billing is skipped without a Stripe key and for the user\'s own provider k
     const href = String(url);
     if (href.endsWith('/auth/v1/user')) return Response.json({ id: 'user-1' });
     if (href.endsWith('/rpc/billing_status')) throw new Error('billing must not be read for the user\'s own key');
-    if (href.endsWith('/rpc/increment_usage')) return new Response(null, { status: 204 });
+    if (href.endsWith('/rpc/record_usage')) return new Response(null, { status: 204 });
     upstreamUrl = href;
     return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
   });
