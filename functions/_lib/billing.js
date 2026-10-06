@@ -9,7 +9,7 @@
 // nobody has limits, which keeps self-hosted and single-user installs as they
 // were.
 import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
-import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance } from './plans.js';
+import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
 import { authorize } from './chatProxy.js';
@@ -61,6 +61,39 @@ export const fetchBillingStatus = async (env, uid) => {
   } catch (err) {
     console.error('[billing] status read failed:', err?.message || err);
     return null;
+  }
+};
+
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+const usageRpc = async (env, name, args) => {
+  const res = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: supabaseHeaders(env, { service: true }),
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new Error(`${name} failed: ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  return res.status === 204 ? null : res.json();
+};
+
+// Takes one of today's prompts (public.claim_prompt, atomic). true = claimed,
+// false = the daily limit is reached, null = the read failed (callers let the
+// request through, as with fetchBillingStatus).
+export const claimPrompt = async (env, uid, limit) => {
+  try {
+    return (await usageRpc(env, 'claim_prompt', { target_user_id: uid, usage_date: todayUtc(), prompt_limit: limit })) === true;
+  } catch (err) {
+    console.error('[billing] prompt claim failed:', err?.message || err);
+    return null;
+  }
+};
+
+// Hands a prompt back when it never got going; best effort.
+export const releasePrompt = async (env, uid) => {
+  try {
+    await usageRpc(env, 'release_prompt', { target_user_id: uid, usage_date: todayUtc() });
+  } catch (err) {
+    console.error('[billing] prompt release failed:', err?.message || err);
   }
 };
 
@@ -213,7 +246,8 @@ export async function handleBillingStatus(request, env) {
   const status = await fetchBillingStatus(env, user.id);
   if (!status) return json({ error: 'Billing is temporarily unavailable.' }, 503);
   const plan = planById(status.plan);
-  const check = checkAllowance(status);
+  const prompts = checkPrompts(status);
+  const check = prompts.allowed ? checkAllowance(status) : prompts;
   return json({
     enabled: true,
     plan: plan.id,
@@ -222,7 +256,8 @@ export async function handleBillingStatus(request, env) {
     cancelAtPeriodEnd: Boolean(status.cancel_at_period_end),
     todayTokens: Number(status.today_tokens) || 0,
     periodTokens: Number(status.period_tokens) || 0,
-    limits: { dailyTokens: plan.dailyTokens, periodTokens: plan.periodTokens },
+    todayPrompts: Number(status.today_prompts) || 0,
+    limits: { dailyPrompts: plan.dailyPrompts, dailyTokens: plan.dailyTokens, periodTokens: plan.periodTokens },
     blocked: check.allowed ? null : { scope: check.scope, resetsAt: check.resetsAt.toISOString() },
   });
 }

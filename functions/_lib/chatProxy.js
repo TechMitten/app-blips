@@ -28,8 +28,9 @@
 import { wrapWithTokenTracking } from './trackTokens.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
-import { billingAppliesTo, fetchBillingStatus } from './billing.js';
-import { planById, checkAllowance, limitMessage } from './plans.js';
+import { billingAppliesTo, fetchBillingStatus, claimPrompt, releasePrompt } from './billing.js';
+import { promptPassesEnabled, signPromptPass, verifyPromptPass } from './promptPass.js';
+import { planById, checkAllowance, checkPrompts, limitMessage } from './plans.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -272,7 +273,9 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 
 // Plan enforcement when this instance bills (billing.js). Requests on the
 // user's own key (Settings → AI) spend nothing of ours, so they skip it.
-// Returns { response } to refuse, or { plan } (null when billing is off).
+// Returns { response } to refuse, or { plan } (null when billing is off),
+// plus for plans with a daily prompt limit `pass` (send back as the
+// x-appblips-prompt-pass header) and `claimed` (a prompt was taken).
 // If the usage read itself fails the request goes through: auth already
 // reached Supabase, and a hiccup there shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
@@ -305,7 +308,31 @@ const checkPlan = async (env, user, payload) => {
       }), { status: 402, headers: { 'content-type': 'application/json' } }),
     };
   }
-  return { plan };
+  if (!plan.dailyPrompts) return { plan };
+
+  // Daily prompt limit: a Build or Ask message is claimed on its first
+  // request, and the response carries a signed pass that the rest of that
+  // prompt's requests send back (promptPass.js). A follow-up without a valid
+  // pass counts as a new prompt. Automatic repairs (auto_fix) never cost one.
+  // With no signing secret configured, the client's `continuing` mark is
+  // trusted as before.
+  const followUp = payload.continuing === true
+    && (!promptPassesEnabled(env) || await verifyPromptPass(payload.prompt_pass, user.id, env));
+  if (followUp || payload.auto_fix === true) return { plan, pass: await signPromptPass(user.id, env) };
+  const claimed = await claimPrompt(env, user.id, plan.dailyPrompts);
+  if (claimed === false) {
+    const limit = checkPrompts({ plan: plan.id, today_prompts: plan.dailyPrompts });
+    return {
+      response: new Response(JSON.stringify({
+        error: limitMessage(plan.id, limit),
+        code: 'limit_reached',
+        plan: plan.id,
+        scope: limit.scope,
+        resetsAt: limit.resetsAt.toISOString(),
+      }), { status: 402, headers: { 'content-type': 'application/json' } }),
+    };
+  }
+  return { plan, pass: await signPromptPass(user.id, env), claimed: claimed === true };
 };
 
 // The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
@@ -431,6 +458,14 @@ export async function handleChatProxy(request, env, waitUntil) {
   // nudges the model if 'auto' returns no tool call.
   applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
 
+  // A prompt that never got going (the provider refused or failed on its
+  // first request) is handed back, so a failure on our side doesn't cost one.
+  const giveBackPrompt = () => {
+    if (!gate.claimed) return;
+    const pending = releasePrompt(env, user.id);
+    if (typeof waitUntil === 'function') waitUntil(pending);
+  };
+
   let upstream;
   try {
     upstream = await fetch(url, {
@@ -442,6 +477,7 @@ export async function handleChatProxy(request, env, waitUntil) {
       body: JSON.stringify(bodyObj),
     });
   } catch (err) {
+    giveBackPrompt();
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
@@ -458,6 +494,7 @@ export async function handleChatProxy(request, env, waitUntil) {
   // the client. Single-user gets the provider's reason, marked as such;
   // multi-user keeps it out of public view (logged instead).
   if (upstream.status === 429) {
+    giveBackPrompt();
     const detail = await upstreamErrorMessage(upstream);
     const retryAfter = upstream.headers.get('retry-after');
     if (isMultiUser(env)) console.error(`[chat] provider 429: ${detail}`);
@@ -472,5 +509,8 @@ export async function handleChatProxy(request, env, waitUntil) {
     });
   }
 
-  return wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);
+  if (!upstream.ok) giveBackPrompt();
+  const response = await wrapWithTokenTracking(env, upstream, bodyObj, { uid: user.id, kind: 'builder' }, waitUntil);
+  if (gate.pass && upstream.ok) response.headers.set('x-appblips-prompt-pass', gate.pass);
+  return response;
 }

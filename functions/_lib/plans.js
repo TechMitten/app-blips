@@ -6,15 +6,19 @@
 // Prices here are display copy; the amount actually charged is the Stripe
 // price found by `lookupKey`, so change both together.
 //
-// Allowances count total tokens (input + output) as reported by the provider,
-// across the builder and the account's deployed apps. Free has a daily cap
-// (so one heavy day can't use the month) plus a monthly ceiling; paid plans
-// have one pool per Stripe billing period, usable on any day.
+// Free is limited to `dailyPrompts` prompts a day: a Build or Ask message
+// counts once however many model requests it takes (claimed atomically in the
+// usage table; see chatProxy.js and promptPass.js). Every plan also has a
+// token allowance, counting total tokens (input + output) as reported by the
+// provider across the builder and the account's deployed apps. For Free it's
+// a hidden backstop behind the prompt limit (daily cap plus monthly ceiling);
+// paid plans have one pool per Stripe billing period, usable on any day.
 export const PLANS = {
   free: {
     id: 'free',
     label: 'Free',
     price: 0,
+    dailyPrompts: 5,
     dailyTokens: 1_000_000,
     periodTokens: 15_000_000,
     images: false,
@@ -25,6 +29,7 @@ export const PLANS = {
     label: 'Plus',
     price: 7,
     lookupKey: 'appblips_plus_monthly',
+    dailyPrompts: null,
     dailyTokens: null,
     periodTokens: 35_000_000,
     images: true,
@@ -35,6 +40,7 @@ export const PLANS = {
     label: 'Pro',
     price: 16,
     lookupKey: 'appblips_pro_monthly',
+    dailyPrompts: null,
     dailyTokens: null,
     periodTokens: 85_000_000,
     images: true,
@@ -89,6 +95,17 @@ export const checkAllowance = (status, { continuing = false, now = Date.now() } 
   return { allowed: true };
 };
 
+// Whether today's prompts are used up (for the status endpoint and meter).
+// Not part of checkAllowance: once the last prompt is claimed, the rest of
+// that prompt's requests must still go through.
+export const checkPrompts = (status, { now = Date.now() } = {}) => {
+  const plan = planById(status?.plan);
+  if (!plan.dailyPrompts) return { allowed: true };
+  return (Number(status?.today_prompts) || 0) >= plan.dailyPrompts
+    ? { allowed: false, scope: 'prompts', resetsAt: nextUtcMidnight(now) }
+    : { allowed: true };
+};
+
 // "6h", "45m", "3 days" -- how long until `date`, for limit messages.
 export const formatWait = (date, now = Date.now()) => {
   const ms = Math.max(0, new Date(date).getTime() - now);
@@ -103,6 +120,9 @@ export const formatWait = (date, now = Date.now()) => {
 export const limitMessage = (planId, check, now = Date.now()) => {
   const plan = planById(planId);
   const wait = formatWait(check.resetsAt, now);
+  if (check.scope === 'prompts') {
+    return `You've used today's ${plan.dailyPrompts} free prompts. They reset in ${wait}. Upgrade to Plus for more.`;
+  }
   const when = check.scope === 'day' ? `today's ${plan.label} allowance` : `this ${plan.id === 'free' ? 'month' : 'billing period'}'s ${plan.label} allowance`;
   const upgrade = plan.id === 'free' ? ' Upgrade to Plus for more.' : plan.id === 'plus' ? ' Upgrade to Pro for more.' : '';
   return `You've used ${when}. It resets in ${wait}.${upgrade}`;

@@ -4,24 +4,24 @@ import Modal, { ModalCloseButton } from './Modal';
 import { PLANS } from '../../functions/_lib/plans.js';
 import { startCheckout, openBillingPortal, usagePercent } from '../lib/billing';
 
-// What each plan card lists. No token counts or model names: people compare
-// plans by how much more they can build and what they can attach. The
-// multiples are rounded down from the monthly allowances in plans.js (Plus
-// ~2.3x and Pro ~5.7x Free's monthly ceiling) so they never overpromise.
+// What each plan card lists. No token counts or model names: Free is sold in
+// prompts, paid plans by having no daily prompt limit, and Pro against Plus
+// (2x is rounded down from the monthly allowances in plans.js, ~2.4x, so it
+// never overpromises).
 const PLAN_FEATURES = {
   free: [
-    'A daily usage allowance',
+    `${PLANS.free.dailyPrompts} prompts a day (Build or Ask)`,
     'Apps, websites and games',
     'Resets every day',
   ],
   plus: [
-    '2x the usage of Free, any day you like',
+    'No daily prompt limit',
     'Image attachments',
     'Smarter chat in Ask mode',
   ],
   pro: [
-    '5x the usage of Free, any day you like',
     'Everything in Plus',
+    '2x the monthly usage of Plus',
     'For heavy building',
   ],
 };
@@ -41,13 +41,14 @@ const celebrate = async () => {
   }, 250);
 };
 
-function Meter({ label, used, limit }) {
+// `detail` replaces the "N% used" readout (e.g. "3 of 5 prompts used").
+function Meter({ label, used, limit, detail = null }) {
   const percent = usagePercent(used, limit);
   return (
     <div>
       <div className="flex items-baseline justify-between text-xs font-medium text-slate-600">
         <span>{label}</span>
-        <span className="tabular-nums">{percent}% used</span>
+        <span className="tabular-nums">{detail || `${percent}% used`}</span>
       </div>
       <div className="mt-1.5 h-2 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
         <div className={`h-full rounded-full ${percent >= 90 ? 'bg-rose-500' : 'bg-brand'}`} style={{ width: `${percent}%` }} />
@@ -122,8 +123,17 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
                 <p className="text-xs text-slate-500">{status.cancelAtPeriodEnd ? `Ends ${renewal}` : `Renews ${renewal}`}</p>
               )}
             </div>
-            {current.dailyTokens && <Meter label="Today" used={status.todayTokens} limit={current.dailyTokens} />}
-            <Meter label={isPaid ? 'This billing period' : 'This month'} used={status.periodTokens} limit={current.periodTokens} />
+            {/* Free shows its prompt count; the token allowance behind it is a
+                hidden backstop. Paid plans show their monthly allowance. */}
+            {current.dailyPrompts ? (
+              <Meter
+                label="Today"
+                used={status.todayPrompts}
+                limit={current.dailyPrompts}
+                detail={`${Math.min(status.todayPrompts || 0, current.dailyPrompts)} of ${current.dailyPrompts} prompts used`}
+              />
+            ) : null}
+            {isPaid && <Meter label="This billing period" used={status.periodTokens} limit={current.periodTokens} />}
           </div>
         )}
 

@@ -82,8 +82,10 @@ test('Stripe signatures are checked, including timestamp replay', async () => {
 const sse = 'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\n';
 
 // Mocks Supabase auth, billing_status and the LLM. Returns what was seen.
-const mockServices = (t, billingRow) => {
-  const seen = { statusCalls: 0, upstream: null };
+// `prompts` simulates the claim_prompt counter; `upstreamStatus` lets a test
+// make the provider fail.
+const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200 } = {}) => {
+  const seen = { statusCalls: 0, upstream: null, claims: 0, releases: 0, promptsLeft };
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
     const href = String(url);
     if (href.endsWith('/auth/v1/user')) return Response.json({ id: 'user-1', email: 'a@example.com' });
@@ -92,8 +94,20 @@ const mockServices = (t, billingRow) => {
       return Response.json([billingRow]);
     }
     if (href.endsWith('/rpc/increment_usage')) return new Response(null, { status: 204 });
+    if (href.endsWith('/rpc/claim_prompt')) {
+      seen.claims += 1;
+      if (seen.promptsLeft <= 0) return Response.json(false);
+      seen.promptsLeft -= 1;
+      return Response.json(true);
+    }
+    if (href.endsWith('/rpc/release_prompt')) {
+      seen.releases += 1;
+      seen.promptsLeft += 1;
+      return new Response(null, { status: 204 });
+    }
     if (href === 'https://llm.example/v1/chat/completions') {
       seen.upstream = JSON.parse(options.body);
+      if (upstreamStatus !== 200) return Response.json({ error: { message: 'boom' } }, { status: upstreamStatus });
       return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
     }
     throw new Error(`unexpected fetch ${href}`);
@@ -277,4 +291,78 @@ test('APPBLIPS_GENERATED_AI_MODE=off makes the app-AI relays refuse', async () =
     assert.equal(response.status, 403, name);
     assert.equal((await response.json()).error.code, 'ai_disabled', name);
   }
+});
+
+// --- Free daily prompt limit --------------------------------------------------
+
+const withSecret = { APPBLIPS_SESSION_SECRET: 'test-secret' };
+const freeRow = { plan: 'free', status: 'none', today_tokens: 0, period_tokens: 0, today_prompts: 0 };
+
+test('a Free prompt is claimed once and its follow-ups ride on the signed pass', async (t) => {
+  const seen = mockServices(t, freeRow);
+  let response = await chat({}, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  const pass = response.headers.get('x-appblips-prompt-pass');
+  assert.ok(pass, 'first request returns a pass');
+  assert.equal(seen.claims, 1);
+
+  response = await chat({ continuing: true, prompt_pass: pass }, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  assert.equal(seen.claims, 1, 'a follow-up with a valid pass is not a new prompt');
+  assert.ok(response.headers.get('x-appblips-prompt-pass'), 'the pass is renewed');
+
+  // Marking a request as a follow-up without a valid pass doesn't dodge the count.
+  await (await chat({ continuing: true }, withSecret)).text();
+  await (await chat({ continuing: true, prompt_pass: `${pass}x` }, withSecret)).text();
+  assert.equal(seen.claims, 3);
+});
+
+test('a pass is bound to its user and expires', async () => {
+  const { signPromptPass, verifyPromptPass } = await import('../functions/_lib/promptPass.js');
+  const env2 = { APPBLIPS_SESSION_SECRET: 's' };
+  const pass = await signPromptPass('user-1', env2, NOW);
+  assert.equal(await verifyPromptPass(pass, 'user-1', env2, NOW), true);
+  assert.equal(await verifyPromptPass(pass, 'user-2', env2, NOW), false);
+  assert.equal(await verifyPromptPass(pass, 'user-1', env2, NOW + 31 * 60 * 1000), false);
+  assert.equal(await verifyPromptPass(pass, 'user-1', { APPBLIPS_SESSION_SECRET: 'other' }, NOW), false);
+  // Not interchangeable with deployed-app AI session tokens.
+  const { verifySessionToken } = await import('../functions/_lib/aiSession.js');
+  assert.equal(await verifySessionToken(pass, env2), null);
+});
+
+test('the 6th Free prompt of the day is refused with an upgrade message', async (t) => {
+  const seen = mockServices(t, freeRow, { promptsLeft: 0 });
+  const response = await chat({}, withSecret);
+  assert.equal(response.status, 402);
+  const body = await response.json();
+  assert.equal(body.code, 'limit_reached');
+  assert.equal(body.scope, 'prompts');
+  assert.match(body.error, /today's 5 free prompts/);
+  assert.equal(seen.upstream, null);
+});
+
+test('automatic repairs and provider failures do not cost a prompt', async (t) => {
+  let seen = mockServices(t, freeRow);
+  await (await chat({ auto_fix: true }, withSecret)).text();
+  assert.equal(seen.claims, 0);
+
+  t.mock.restoreAll();
+  seen = mockServices(t, freeRow, { upstreamStatus: 500 });
+  const response = await chat({}, withSecret);
+  assert.equal(response.status, 500);
+  await response.text();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(seen.claims, 1);
+  assert.equal(seen.releases, 1);
+  assert.equal(response.headers.get('x-appblips-prompt-pass'), null);
+});
+
+test('paid plans have no prompt limit', async (t) => {
+  const seen = mockServices(t, { ...freeRow, plan: 'plus', status: 'active', today_prompts: 500 });
+  const response = await chat({}, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  assert.equal(seen.claims, 0);
 });

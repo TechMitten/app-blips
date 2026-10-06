@@ -210,7 +210,10 @@ const assistantTurn = (message) => {
 // The build in progress, if any. A build is many requests (writing, edits,
 // repairs, the summary); the proxy holds only the first to the plan's
 // allowance and lets `continuing` ones through, so a build that crosses the
-// limit finishes instead of stopping halfway (functions/_lib/plans.js).
+// limit finishes instead of stopping halfway (functions/_lib/plans.js). On a
+// plan with a daily prompt limit, the first response also carries a signed
+// pass that the rest of the build sends back, so it counts as one prompt
+// (functions/_lib/promptPass.js).
 let activeBuild = null;
 
 // --- API Helper with Exponential Backoff ---
@@ -258,7 +261,10 @@ export const requestModelText = async ({
     // Ask-mode replies use a dedicated, smaller server-side output cap.
     if (askMode) bodyObj.ask = true;
     if (activeBuild) {
-      if (activeBuild.started) bodyObj.continuing = true;
+      if (activeBuild.started) {
+        bodyObj.continuing = true;
+        if (activeBuild.pass) bodyObj.prompt_pass = activeBuild.pass;
+      }
       activeBuild.started = true;
     }
 
@@ -282,6 +288,8 @@ export const requestModelText = async ({
     if (response.status === 401) {
       throw new Error('Your session has expired. Please sign in again.');
     }
+    const promptPass = response.headers.get('x-appblips-prompt-pass');
+    if (promptPass && activeBuild) activeBuild.pass = promptPass;
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
