@@ -40,10 +40,10 @@ const claim = (db, uid, username) => {
   return batch.commit();
 };
 
-const saveProject = (db, uid, id, { chunks = 1, rev = 'r1', owner = uid } = {}) => {
+const saveProject = (db, uid, id, { chunks = 1, rev = 'r1', owner = uid, summary = {} } = {}) => {
   const batch = writeBatch(db);
   batch.set(doc(db, 'projects', id), {
-    user_id: owner, name: 'App', updated_at: serverTimestamp(), rev, chunk_count: chunks, size: 3, encoding: 'gzip',
+    user_id: owner, name: 'App', updated_at: serverTimestamp(), rev, chunk_count: chunks, size: 3, encoding: 'gzip', ...summary,
   });
   for (let n = 0; n < chunks; n += 1) {
     batch.set(doc(db, 'projects', id, 'chunks', String(n)), { user_id: owner, rev, data: Bytes.fromUint8Array(new Uint8Array([1, 2, 3])) });
@@ -120,6 +120,13 @@ test('project writes are shape-checked', async () => {
   const batch = writeBatch(alice);
   batch.set(doc(alice, 'projects', PROJECT_A), { user_id: 'alice', name: 'App', updated_at: serverTimestamp(), rev: 'r1', chunk_count: 1, size: 3, encoding: 'gzip', admin: true });
   await assertFails(batch.commit());
+
+  // The Apps-list summary fields are optional but typed.
+  await assertSucceeds(saveProject(alice, 'alice', PROJECT_B, { summary: { version_count: 12, studio_mode: 'website', deployment: { slug: 'my-app' } } }));
+  await assertSucceeds(saveProject(alice, 'alice', PROJECT_B, { summary: { version_count: 0, studio_mode: 'app', deployment: null } }));
+  await assertFails(saveProject(alice, 'alice', PROJECT_B, { summary: { version_count: '12' } }));
+  await assertFails(saveProject(alice, 'alice', PROJECT_B, { summary: { studio_mode: 'admin' } }));
+  await assertFails(saveProject(alice, 'alice', PROJECT_B, { summary: { deployment: 'x' } }));
 
   // A chunk must carry the rev of the save it belongs to.
   await assertSucceeds(saveProject(alice, 'alice', PROJECT_A));

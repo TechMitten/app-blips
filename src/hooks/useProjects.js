@@ -11,6 +11,7 @@ import { removeDeployment } from '../lib/deploy';
 import { clearPendingJob } from '../lib/pendingJob';
 import { migrateChatSessions } from '../lib/chatSessions';
 import { LANDING_PAGE, versionFiles } from '../lib/pages';
+import { archiveVersions, deleteProjectHistory, ensureVersionFiles, isArchivedVersion } from '../lib/historyStore';
 
 // Project persistence: the saved-apps list (localStorage rows when
 // self-hosted, Firestore docs when signed in with hosted mode enabled),
@@ -94,22 +95,26 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         }
       }
 
-      clearStreamingState();
-      setProjectName(row.name || 'Untitled App');
       const projectData = row.data || {};
       // Upgrade legacy rows (no per-version session ids) to the grouped
       // chat-session model using the old single cutoff.
       const migrated = migrateChatSessions(
         projectData.versions, projectData.chatContextStartIndex, projectData.currentChatSessionId
       );
+      // Fetched before any state changes, so a failure leaves the workspace as it was.
+      const currentVersion = migrated.versions[projectData.currentVersionIndex];
+      const currentFiles = currentVersion ? await ensureVersionFiles(projectId, currentVersion) : null;
+
+      clearStreamingState();
+      setProjectName(row.name || 'Untitled App');
       setVersions(migrated.versions);
       setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
       setChatContextStartIndex(Math.min(projectData.chatContextStartIndex ?? 0, migrated.versions.length));
       setCurrentChatSessionId(migrated.currentChatSessionId);
       setDeployment(projectData.deployment || null);
       setStudioMode(projectData.studioMode === 'website' ? 'website' : projectData.studioMode === 'game' ? 'game' : 'app');
-      if (migrated.versions[projectData.currentVersionIndex]) {
-        setFiles(versionFiles(migrated.versions[projectData.currentVersionIndex]));
+      if (currentFiles) {
+        setFiles(currentFiles);
         setActivePage(LANDING_PAGE);
       }
       setCurrentProjectId(projectId);
@@ -157,6 +162,10 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
           projectId = cloudId;
         }
 
+        // Old versions' pages move to R2 so the Firestore project stays small;
+        // the open version stays inline. Only the saved copy is slimmed: the
+        // workspace keeps its full versions.
+        projectData.versions = await archiveVersions(cloudId, versionsToSave, indexToSave);
         await saveCloudProject(user.id, cloudId, nameToSave, projectData);
       } else {
         const rows = readProjectRows();
@@ -181,7 +190,22 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         setCurrentProjectId(projectId);
         rememberProjectId(projectId);
       }
-      loadUserProjects();
+      if (useCloud) {
+        // Patch the list locally: re-listing after every save would re-read
+        // every project from Firestore.
+        const row = {
+          id: projectId,
+          name: nameToSave,
+          isSummary: true,
+          versionCount: versionsToSave.length,
+          deployment: projectData.deployment,
+          studioMode: projectData.studioMode,
+          lastModified: new Date().toISOString(),
+        };
+        setMyProjects(prev => [row, ...prev.filter(p => p.id !== projectId)]);
+      } else {
+        loadUserProjects();
+      }
     } catch (err) {
       console.error("Error saving project:", err);
     }
@@ -261,8 +285,15 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authStatus]);
 
-  // Loading a project straight from the saved-apps list.
+  // Loading a project straight from the saved-apps list. Cloud rows there are
+  // summaries (no versions), and an archived open version needs its pages
+  // fetched, so both go through loadProjectById.
   const loadProject = (project) => {
+    if (project.isSummary || isArchivedVersion(project.versions?.[project.currentVersionIndex])) {
+      setIsProjectsListOpen(false);
+      loadProjectById(project.id);
+      return;
+    }
     clearStreamingState();
     setCurrentProjectId(project.id);
     setProjectName(project.name);
@@ -325,6 +356,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         // user can retry instead of leaving a live app nothing points to.
         await removeDeployment(project.deployment);
         await deleteCloudProject(projectId);
+        await deleteProjectHistory(projectId);
       } else {
         writeProjectRows(readProjectRows().filter(r => r.id !== projectId));
       }
@@ -351,6 +383,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
           if (useCloud) {
             await removeDeployment(project.deployment);
             await deleteCloudProject(project.id);
+            await deleteProjectHistory(project.id);
           }
           clearPreviewStorage(project.id);
         } catch (err) {

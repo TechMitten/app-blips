@@ -61,7 +61,14 @@ service cloud.firestore {
     // projects/{id}: one saved app's metadata; its data lives in the chunks
     // below (src/lib/cloudProjects.js). Owner-only, ids are random UUIDs.
     function validProject(data) {
-      return data.keys().hasOnly(['user_id', 'name', 'updated_at', 'rev', 'chunk_count', 'size', 'encoding'])
+      // version_count / studio_mode / deployment summarise the chunks for the
+      // Apps list, so listing needn't download them. Optional: older clients
+      // saved without them.
+      return data.keys().hasOnly(['user_id', 'name', 'updated_at', 'rev', 'chunk_count', 'size', 'encoding',
+          'version_count', 'studio_mode', 'deployment'])
+        && (!('version_count' in data) || (data.version_count is int && data.version_count >= 0 && data.version_count <= 100000))
+        && (!('studio_mode' in data) || data.studio_mode in ['app', 'website', 'game'])
+        && (!('deployment' in data) || data.deployment == null || (data.deployment is map && data.deployment.size() <= 20))
         && data.user_id == request.auth.uid
         && data.name is string && data.name.size() <= 200
         && data.updated_at == request.time

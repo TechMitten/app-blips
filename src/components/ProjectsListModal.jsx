@@ -5,7 +5,7 @@ import {
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { formatModifiedTime } from '../lib/helpers';
-import { isProjectNameTaken } from '../lib/projectsStorage';
+import { isProjectNameTaken, projectVersionCount } from '../lib/projectsStorage';
 
 // One identifying icon per studio. Tints come from the indigo/sky ramps, which
 // the dark theme remaps (dark fill, light glyph), so both themes stay legible.
@@ -277,7 +277,7 @@ export default function ProjectsListModal({
               {visibleProjects.map((project) => {
                 const isCurrent = currentProjectId === project.id;
                 const studio = STUDIO_ICONS[studioOf(project)];
-                const versionCount = project.versions?.length || 1;
+                const versionCount = projectVersionCount(project) || 1;
                 const isEditing = editingProjectId === project.id;
                 const isRenaming = renamingProjectId === project.id;
                 const name = project.name || 'Untitled App';

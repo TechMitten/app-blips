@@ -11,6 +11,7 @@
 import { authorize } from './chatProxy.js';
 import { serviceAccountConfigured, runQuery, deleteWrite, commitAll, deleteAuthUser } from './firebaseServer.js';
 import { removeAllDeploymentsFor } from './deploys.js';
+import { removeAllHistoryFor } from './history.js';
 import { cancelSubscriptionFor } from './billing.js';
 
 const RECENT_SIGN_IN_SECONDS = 5 * 60;
@@ -40,6 +41,8 @@ export async function handleAccountDelete(request, env) {
     await cancelSubscriptionFor(env, uid);
     step = 'remove deployments';
     await removeAllDeploymentsFor(env, uid);
+    step = 'remove version history';
+    await removeAllHistoryFor(env, uid);
 
     step = 'list projects';
     const projects = await ownedDocs(env, 'projects', uid);

@@ -31,7 +31,18 @@ export const localRowsToProjects = (rows) => rows
     lastModified: row.updatedAt
   }));
 
-export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
+// A summary row (listCloudProjects reads only meta docs) has no versions: it
+// carries `versionCount` for the list and is `isSummary`, so opening it loads
+// the full project (useProjects.loadProject).
+export const cloudRowsToProjects = (rows) => (rows || []).map(row => (row.summary ? {
+  id: row.id,
+  name: row.name,
+  isSummary: true,
+  versionCount: row.summary.versionCount,
+  deployment: row.summary.deployment || null,
+  studioMode: row.summary.studioMode,
+  lastModified: row.updated_at
+} : {
   id: row.id,
   name: row.name,
   versions: row.data?.versions || [],
@@ -45,6 +56,9 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   studioMode: row.data?.studioMode === 'website' ? 'website' : row.data?.studioMode === 'game' ? 'game' : 'app',
   lastModified: row.updated_at
 }));
+
+// Versions shown for a project in the Apps list (full or summary row).
+export const projectVersionCount = (project) => project.versionCount ?? project.versions?.length ?? 0;
 
 // Names identify projects in the Apps list, so two projects can't share one
 // (compared trimmed and case-insensitively). `exceptId` skips the project being

@@ -7,9 +7,13 @@ import { db } from '../firebase';
 // all its pages, which easily outgrows Firestore's 1 MiB document limit, so
 // it's stored as:
 //
-//   projects/{id}               { user_id, name, updated_at, rev, chunk_count, size, encoding }
+//   projects/{id}               { user_id, name, updated_at, rev, chunk_count, size, encoding,
+//                                 version_count, studio_mode, deployment }
 //   projects/{id}/chunks/{n}    { user_id, rev, data: Bytes }   n = 0..chunk_count-1
 //
+// The meta doc carries what the Apps list shows (and what deleting needs), so
+// listing reads only meta docs; the chunks are downloaded when a project is
+// opened. Old versions' pages live in R2, not here (lib/historyStore.js).
 // The JSON is gzipped (HTML compresses ~5-10x) and split into byte chunks.
 // Every save rewrites the meta doc and all chunks in one atomic batch under a
 // fresh `rev`, so a reader that sees chunks from two different saves (another
@@ -82,19 +86,34 @@ const assemble = async (uid, id, meta) => {
   }
 };
 
-// Every project of `uid`, newest first, as rows for cloudRowsToProjects. One
-// unreadable project is logged and skipped rather than hiding all the others.
+const studioModeOf = (mode) => (mode === 'website' || mode === 'game' ? mode : 'app');
+
+// A list row from the meta doc alone: { id, name, summary, updated_at }.
+const summaryRow = (id, meta) => ({
+  id,
+  name: meta.name,
+  summary: { versionCount: meta.version_count, studioMode: studioModeOf(meta.studio_mode), deployment: meta.deployment || null },
+  updated_at: isoTime(meta.updated_at),
+});
+
+// Every project of `uid`, newest first, as rows for cloudRowsToProjects. Only
+// meta docs are read; a project saved before they carried a summary is read
+// in full once (its next save adds the summary). One unreadable project is
+// logged and skipped rather than hiding all the others.
 export const listCloudProjects = async (uid) => {
   const snapshot = await getDocs(query(
     collection(db, 'projects'),
     where('user_id', '==', uid),
     orderBy('updated_at', 'desc'),
   ));
-  const rows = await Promise.all(snapshot.docs.map((meta) =>
-    assemble(uid, meta.id, meta.data()).catch((err) => {
+  const rows = await Promise.all(snapshot.docs.map((meta) => {
+    const data = meta.data();
+    if (Number.isInteger(data.version_count)) return summaryRow(meta.id, data);
+    return assemble(uid, meta.id, data).catch((err) => {
       console.error('Could not read project', meta.id, err);
       return null;
-    })));
+    });
+  }));
   return rows.filter(Boolean);
 };
 
@@ -123,6 +142,9 @@ export const saveCloudProject = async (uid, id, name, data) => {
     chunk_count: count,
     size: bytes.length,
     encoding,
+    version_count: Array.isArray(data.versions) ? data.versions.length : 0,
+    studio_mode: studioModeOf(data.studioMode),
+    deployment: data.deployment || null,
   });
   for (let n = 0; n < count; n += 1) {
     batch.set(chunkRef(id, n), {

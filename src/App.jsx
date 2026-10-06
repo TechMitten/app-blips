@@ -42,6 +42,7 @@ import {
 import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
 import { LANDING_PAGE, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
+import { ensureVersionFiles, isArchivedVersion } from './lib/historyStore';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
 import { checkSyntaxFiles } from './lib/pageTools';
 import {
@@ -225,6 +226,13 @@ export default function App() {
   const [, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
+  // switchVersion awaits an archived version's pages; these let it drop the
+  // switch if another switch, a build or an edit happened meanwhile.
+  const versionsRef = useRef(versions);
+  const versionSwitchRef = useRef(0);
+  useEffect(() => {
+    versionsRef.current = versions;
+  });
   // Index into `versions` where the current chat begins. Turns before it are
   // excluded from the LLM's chat history and hidden from the transcript after
   // "New chat", but stay in version history; restoring a version from another
@@ -1681,8 +1689,34 @@ export default function App() {
     handleGenerateRef.current?.();
   }, [shouldGenerateAfterNaming, isNamingModalOpen, projectName, prompt]);
 
-  const switchVersion = (index) => {
+  const switchVersion = async (index) => {
     if (index >= 0 && index < versions.length) {
+      // Ask-mode turns never changed the app, so restoring one rewinds only
+      // the conversation: the preview keeps showing the current code and the
+      // user can continue chatting where they left off. (An ask version's
+      // stored `code` is just a snapshot from when it was asked -- empty if
+      // nothing was built yet -- so restoring it would roll back or blank
+      // the mockup for no reason.)
+      const keepsFiles = versions[index].editMode === 'ask';
+      const token = ++versionSwitchRef.current;
+      let restored = null;
+      if (!keepsFiles) {
+        if (isArchivedVersion(versions[index])) {
+          // Older versions' pages live in R2 (lib/historyStore.js). Nothing
+          // changes until they arrive, so a failed load leaves the workspace
+          // as it was.
+          try {
+            restored = await ensureVersionFiles(currentProjectId, versions[index]);
+          } catch (err) {
+            console.error('Could not load version:', err);
+            if (versionSwitchRef.current === token) setError(`Could not load version ${index + 1}. Check your connection and try again.`);
+            return;
+          }
+          if (versionSwitchRef.current !== token || versionsRef.current !== versions) return;
+        } else {
+          restored = versionFiles(versions[index]);
+        }
+      }
       cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
       pendingRuntimeErrorRef.current = null;
@@ -1700,16 +1734,9 @@ export default function App() {
       setCurrentChatSessionId(targetSessionId);
       setChatContextStartIndex(sessionStart);
       setCurrentVersionIndex(index);
-      // Ask-mode turns never changed the app, so restoring one rewinds only
-      // the conversation: the preview keeps showing the current code and the
-      // user can continue chatting where they left off. (An ask version's
-      // stored `code` is just a snapshot from when it was asked -- empty if
-      // nothing was built yet -- so restoring it would roll back or blank
-      // the mockup for no reason.)
-      if (versions[index].editMode !== 'ask') {
-        const restored = versionFiles(versions[index]);
+      if (restored) {
         setFiles(restored);
-        if (!(activePage in restored)) setActivePage(LANDING_PAGE);
+        if (!(activePageRef.current in restored)) setActivePage(LANDING_PAGE);
       }
       if (currentProjectId) {
         saveProject({

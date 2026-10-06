@@ -197,16 +197,16 @@ export const createFirestore = () => {
 
 // --- R2 ------------------------------------------------------------------
 
-export const createR2 = () => {
+export const createR2 = (bucket = R2_ENV.R2_BUCKET) => {
   const objects = new Map();
-  const prefix = `https://${R2_ENV.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_ENV.R2_BUCKET}`;
+  const prefix = `https://${R2_ENV.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${bucket}`;
   const handle = async (url, init = {}) => {
     const method = init.method || 'GET';
     if (!String(init.headers?.authorization || '').startsWith('AWS4-HMAC-SHA256 Credential=r2-key/')) {
       return new Response('unsigned', { status: 403 });
     }
     const parsed = new URL(url);
-    const key = decodeURIComponent(parsed.pathname.slice(`/${R2_ENV.R2_BUCKET}/`.length));
+    const key = decodeURIComponent(parsed.pathname.slice(`/${bucket}/`.length));
     if (method === 'PUT') {
       objects.set(key, Buffer.from(init.body).toString('utf8'));
       return new Response(null, { status: 200 });

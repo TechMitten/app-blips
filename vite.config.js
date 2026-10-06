@@ -8,6 +8,7 @@ import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleBillingEndTrial, handleStripeWebhook } from './functions/_lib/billing.js'
 import { handleDeployUpload, handleDeployDelete } from './functions/_lib/deploys.js'
 import { handleAccountDelete } from './functions/_lib/account.js'
+import { handleHistoryPages, handleHistoryFetch, handleHistoryDelete } from './functions/_lib/history.js'
 
 // Dev-middleware plumbing. Vite's connect server does not catch rejections from
 // async middleware, and an 'error' event on an unhandled stream is an uncaught
@@ -189,9 +190,10 @@ function billingDevMiddleware(mode) {
   }
 }
 
-// Deploy publishing and account deletion (functions/_lib/deploys.js,
-// account.js), same handlers as Pages and the Worker. Only work when the
-// .env has FIREBASE_SERVICE_ACCOUNT and the R2_* credentials.
+// Deploy publishing, version history and account deletion
+// (functions/_lib/deploys.js, history.js, account.js), same handlers as Pages
+// and the Worker. Only work when the .env has FIREBASE_SERVICE_ACCOUNT and the
+// R2_* credentials (history also needs R2_HISTORY_BUCKET).
 function accountDevMiddleware(mode) {
   return {
     name: 'appblips-account-dev-middleware',
@@ -199,6 +201,9 @@ function accountDevMiddleware(mode) {
       const env = loadEnv(mode, process.cwd(), '')
       const routes = {
         '/api/deploys': { POST: handleDeployUpload, DELETE: handleDeployDelete },
+        '/api/history/pages': { POST: handleHistoryPages },
+        '/api/history/fetch': { POST: handleHistoryFetch },
+        '/api/history': { DELETE: handleHistoryDelete },
         '/api/account/delete': { POST: handleAccountDelete },
       }
       for (const [path, methods] of Object.entries(routes)) {

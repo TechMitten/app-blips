@@ -7,6 +7,7 @@ import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from '../functions
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleBillingEndTrial, handleStripeWebhook } from '../functions/_lib/billing.js';
 import { handleDeployUpload, handleDeployDelete } from '../functions/_lib/deploys.js';
 import { handleAccountDelete } from '../functions/_lib/account.js';
+import { handleHistoryPages, handleHistoryFetch, handleHistoryDelete } from '../functions/_lib/history.js';
 
 const methodNotAllowed = () => new Response('Method not allowed', { status: 405 });
 const notFound = () => new Response('Not found', { status: 404 });
@@ -36,6 +37,12 @@ export default {
       case '/api/deploys':
         if (request.method === 'POST') return handleDeployUpload(request, env);
         return request.method === 'DELETE' ? handleDeployDelete(request, env) : methodNotAllowed();
+      case '/api/history':
+        return request.method === 'DELETE' ? handleHistoryDelete(request, env) : methodNotAllowed();
+      case '/api/history/pages':
+        return request.method === 'POST' ? handleHistoryPages(request, env) : methodNotAllowed();
+      case '/api/history/fetch':
+        return request.method === 'POST' ? handleHistoryFetch(request, env) : methodNotAllowed();
       case '/api/account/delete':
         return request.method === 'POST' ? handleAccountDelete(request, env) : methodNotAllowed();
       default:
