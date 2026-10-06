@@ -39,6 +39,12 @@
             ]
           },
           {
+            "group": "Plans and Billing",
+            "pages": [
+              "pricing"
+            ]
+          },
+          {
             "group": "Reference",
             "pages": [
               "reference/settings",
