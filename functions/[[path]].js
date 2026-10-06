@@ -237,7 +237,7 @@ const notice = (status, title, body) =>
       `body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;display:flex;align-items:center;` +
       `justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#334155}` +
       `div{text-align:center;padding:2rem}h1{font-size:1.125rem;margin:0 0 .25rem}` +
-      `p{margin:0;color:#94a3b8;font-size:.875rem}</style></head>` +
+      `p{margin:0;color:#94a3b8;font-size:.875rem}a{color:#334155}</style></head>` +
       `<body><div><h1>${title}</h1><p>${body}</p></div></body></html>`,
     {
       status,
@@ -248,6 +248,35 @@ const notice = (status, title, body) =>
       },
     },
   );
+
+// The studio is one page at `/` (state lives in the query string, e.g. the
+// Stripe `?billing=` return), so every other path Pages can't match to a file
+// is a miss. Without this, Pages' SPA fallback answered all of them with the
+// studio's index.html and a 200: a mistyped /api/ call got HTML instead of a
+// JSON error, and a stale tab asking for an old hashed /assets/ file got HTML
+// as its script (a MIME error, cached for hours).
+const serveStudio = async (request, url, next) => {
+  const path = url.pathname;
+  if (path === '/' || path === '/index.html') return next();
+  const response = await next();
+  const isFallback = response.ok && (response.headers.get('content-type') || '').startsWith('text/html');
+  if (!isFallback) return response;
+
+  if (path.startsWith('/api/')) {
+    return new Response(JSON.stringify({ error: 'Not found.' }), {
+      status: 404,
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    });
+  }
+  // A file request (asset, image, script) never wants a page back.
+  if (path.startsWith('/assets/') || /\.[a-z0-9]+$/i.test(path)) {
+    return new Response('Not found', {
+      status: 404,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
+    });
+  }
+  return notice(404, 'Page not found', 'There is nothing at this address. <a href="/">Open the AppBlips studio</a>.');
+};
 
 // Every way a request path can name a deployment, most specific first:
 // [{ slug, page }] where page is null for the landing page.
@@ -336,10 +365,10 @@ export async function onRequest(context) {
     return next();
   }
 
-  // Anything that isn't the apps hostname is the SPA. Fall straight through to
-  // the static asset handler so this function stays invisible to the main site.
+  // Anything that isn't the apps hostname is the SPA: the static asset
+  // handler serves it, apart from turning its fallback into real 404s.
   const hostname = appsHostname(env);
-  if (!hostname || url.hostname !== hostname) return next();
+  if (!hostname || url.hostname !== hostname) return serveStudio(request, url, next);
 
   try {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
