@@ -49,7 +49,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider, markPlansPrompted, wasPlansPrompted } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider, markPlansPrompted, wasPlansPrompted } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -85,6 +85,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
+  const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   // Read once per page load: SplashScreen stamps the time as soon as it shows,
   // so re-reading would hide it mid-play.
@@ -1053,6 +1054,10 @@ export default function App() {
   }, [askClarifyingQuestions]);
 
   useEffect(() => {
+    localStorage.setItem(GAME_ENGINE_ROUTER_KEY, gameEngineRouter);
+  }, [gameEngineRouter]);
+
+  useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
   }, [autoFollowCode]);
 
@@ -1380,7 +1385,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -2017,6 +2022,8 @@ export default function App() {
           onShowCodeViewChange={handleShowCodeViewChange}
           askClarifyingQuestions={askClarifyingQuestions}
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
+          gameEngineRouter={gameEngineRouter}
+          onGameEngineRouterChange={setGameEngineRouter}
           skipSplash={skipSplash}
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}

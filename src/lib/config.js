@@ -140,6 +140,18 @@ export const loadAskClarifyingQuestions = () => {
   }
 };
 
+export const GAME_ENGINE_ROUTER_KEY = 'orion-game-engine-router';
+
+// Boolean: whether new games get an engine (Phaser, Three.js or none) picked
+// from their genre. On by default; only an explicit 'false' turns it off.
+export const loadGameEngineRouter = () => {
+  try {
+    return safeStorage('local')?.getItem(GAME_ENGINE_ROUTER_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 export const SKIP_SPLASH_KEY = 'orion-skip-splash';
 
 // Boolean: when true the splash screen is skipped entirely on load. Off by

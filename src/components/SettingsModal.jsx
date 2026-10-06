@@ -304,6 +304,8 @@ export default function SettingsModal({
   onShowCodeViewChange,
   askClarifyingQuestions,
   onAskClarifyingQuestionsChange,
+  gameEngineRouter,
+  onGameEngineRouterChange,
   skipSplash,
   onSkipSplashChange,
   autoFollowCode,
@@ -648,6 +650,9 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
+              </SettingRow>
+              <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">
+                <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />
               </SettingRow>
               {isDesktop && <DesktopProviderSettings guardRef={providerGuardRef} />}
               {!isDesktop && !firebaseEnabled && <UserProviderSettings guardRef={providerGuardRef} />}

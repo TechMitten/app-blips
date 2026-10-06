@@ -234,7 +234,10 @@ export default function PlansModal({ status, reason = null, welcome = false, che
             </div>
           )}
           {PAID_PLAN_IDS.map((id) => PLANS[id]).map((plan) => {
-            const isCurrent = plan.id === current.id;
+            // A trial is a Plus subscription under the hood, but the user isn't on
+            // Plus yet, so don't badge it as current alongside the trial banner.
+            const isCurrent = plan.id === current.id && !trialing;
+            const isTrialTarget = plan.id === current.id && trialing;
             return (
               <div key={plan.id} className={`plans-panel plans-panel--plan rounded-xl p-4 flex flex-col ${isCurrent ? 'plans-panel--current' : ''}`}>
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">{plan.label}</p>
@@ -250,9 +253,9 @@ export default function PlansModal({ status, reason = null, welcome = false, che
                   ))}
                 </ul>
                 <div className="mt-4 flex flex-col justify-end">
-                  {isCurrent ? (
+                  {isCurrent || isTrialTarget ? (
                     <button type="button" disabled className="w-full rounded-lg border border-slate-200 dark:border-white/10 px-3 py-2 text-sm font-semibold text-slate-500 dark:text-white/50">
-                      Current plan
+                      {isCurrent ? 'Current plan' : status?.cancelAtPeriodEnd ? 'Trial cancelled' : `Starts after trial${trialEnd ? ` (${trialEnd})` : ''}`}
                     </button>
                   ) : (
                     <button

@@ -70,6 +70,34 @@ Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowl
 export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new website or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The website itself is generated separately after your reply, so never include or describe code.`;
 
+// Smart engine router for the Games Studio. Left to itself the build model
+// picks an engine per build, so similar requests drift between a ~1 MB Phaser
+// download and a tiny canvas game. A small reasoning-free call reads the
+// request and answers with one word; the matching directive is appended to the
+// user's prompt as an explicit ENGINE line.
+export const GAME_ENGINE_ROUTER_SYSTEM_PROMPT = `You choose the engine for a browser game that will be built as one self-contained HTML file. Read the user's request (and any follow-up answers) and reply with exactly one word:
+- phaser: 2D games with many sprites, animations, tilemaps, scrolling levels, arcade physics or lots of moving actors -- platformers, side-scrollers, top-down RPGs and adventures, dungeon crawlers, shoot-em-ups, bullet hell, tower defense, beat-em-ups, survivor-likes, physics launchers.
+- three: anything that should be 3D -- 3D racing, first- or third-person games, flight, voxel or Minecraft-like worlds, 3D mazes, open worlds.
+- canvas: simple 2D games that need no engine -- single-screen arcade classics (snake, pong, breakout, flappy), slicing, tapping and reaction games, puzzles (2048, tetris, match-3, sudoku, minesweeper), card, board, word, quiz, clicker and idle games. When in doubt, choose canvas: it has nothing extra to download.
+- user: the user already named an engine or library (Phaser, Three.js, Pixi, Babylon, Kaboom, p5, ...) or asked for none (plain canvas, vanilla JS, no engine). Their choice stands.
+Reply with that single word only: no punctuation, no explanation.`;
+
+const GAME_ENGINE_DIRECTIVES = {
+  phaser: 'ENGINE (chosen for this genre): build it on Phaser 3, loaded once from its CDN exactly as the PHASER GUIDELINES say. Do not load Three.js or Matter.js.',
+  three: 'ENGINE (chosen for this genre): build it in 3D with Three.js, loaded through the import map. Do not load Phaser or Matter.js.',
+  canvas: 'ENGINE (chosen for this genre): no game engine. Use raw Canvas 2D with your own requestAnimationFrame loop (plain DOM elements are fine for board, card and word games). Do not load Phaser, Three.js, Matter.js or any other game library from a CDN.',
+};
+
+// 'phaser' | 'three' | 'canvas' from the router's reply, or null when the user
+// chose the engine themselves or the reply is unusable (the build model then
+// decides, as it does with the router off).
+export const parseGameEngineChoice = (reply) => {
+  const word = String(reply || '').toLowerCase().match(/\b(phaser|three|canvas|user)\b/)?.[1];
+  return word && word !== 'user' ? word : null;
+};
+
+export const buildGameEngineDirective = (engine) => GAME_ENGINE_DIRECTIVES[engine] || '';
+
 export const GAME_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a game-building chat. The user has just asked to build a new game or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The game itself is generated separately after your reply, so never include or describe code.`;
 
@@ -349,7 +377,7 @@ CRITICAL RULES:
 1. Your response must be the HTML document itself, beginning at <!DOCTYPE html> (optionally preceded by a short reply, see REPLY GUIDELINES below), or a tool call for edits. This is a rule about the response envelope only. Never emit a bare .js/.jsx file, a description of the file, or a diff.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
 3. A REAL GAME LOOP IS MANDATORY. Something must advance the simulation and redraw continuously: Phaser's scene update loop if you use Phaser (see PHASER GUIDELINES), or your own requestAnimationFrame loop driven by delta time (clamped so a background tab cannot teleport the world). Never build a game whose main action is a static screen, a CSS transition, or a setTimeout that only re-renders once.
-4. ENGINE CHOICE -- pick the lightest tool that truly fits the genre:
+4. ENGINE CHOICE -- if the request carries an ENGINE line, follow it exactly. Otherwise pick the lightest tool that truly fits the genre:
    - Simple arcade, puzzle, or single-screen games: raw Canvas 2D (<canvas> + getContext('2d')). Set the canvas backing store to its CSS size times devicePixelRatio and scale the context, so it is crisp on retina screens, and re-run that sizing on resize. Keep a fixed logical play area (e.g. a virtual width/height) and letterbox/scale it to fit so the game plays identically on phones and desktops.
    - Sprite-, tilemap-, animation-, or entity-heavy games (platformers, top-down RPGs, shoot-em-ups, games with many animated actors or multiple levels): use Phaser 3 (see PHASER GUIDELINES). Let Phaser own the canvas and its update loop.
    - True 3D: Three.js. Standalone realistic 2D physics without a framework: Matter.js.
@@ -372,6 +400,13 @@ CRITICAL RULES:
 14. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create games that depict or promote real-world violence against real people, hateful content, gambling for real money, or sexual content, and any request intended to deceive or defraud. If a request violates this, do NOT generate the requested game. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
 15. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. "make a game" without specifying the kind). Do NOT ask questions if the request is specific enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
 16. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the game, and a <meta name="description"> of one sentence, so the page is understandable when shared.
+17. RESPONSIVE LAYOUT -- DESKTOP AND PHONE ARE BOTH FIRST-CLASS. Players open the game on 1440px-wide monitors as often as on phones; check every screen at both 375x667 portrait and 1440x900 landscape.
+   - The game owns the whole viewport: html, body and the game root fill 100% width and 100dvh with overflow hidden and no page scroll. NEVER confine the game to a phone-width column (max-w-sm/md, a fixed 400-500px wrapper, a phone-shaped frame) that leaves most of a desktop screen empty.
+   - Open-field games (slicers, shooters, runners, breakout, snake, physics toys) size the playfield to the real viewport -- landscape on desktop, portrait on phones -- and recompute on resize. Scale spawn positions, speeds and spacing with the play area so the difficulty feels the same at every size.
+   - Fixed-board games (puzzles, card and board games, tetris, 2048, match-3) scale the board to the largest size that fits and center it. On wide screens put the side panels (score, next piece, stats, controls help) in columns beside the board; on narrow screens stack them above or below it. Use a real layout (flex/grid), not absolutely positioned panels that can drift over the board.
+   - HUD elements must never overlap one another, the board's playable area, or each other's text. Keep the in-play HUD compact and pinned to the edges of the playfield.
+   - Menu, pause and game-over overlays cover the whole viewport with a dimmed backdrop, sit above every HUD element (highest z-index; hide or dim the HUD while they show), are centered, and use a max-width so they look right on a phone and on a monitor.
+   - Show on-screen touch controls only on touch devices (matchMedia('(pointer: coarse)') or a @media (pointer: coarse) rule); on desktop show keyboard/mouse hints instead and let the playfield use that space.
 
 PHASER GUIDELINES (use these only when the game is built on Phaser 3):
 - Load Phaser 3 exactly once, as a classic script in the <head>, before any module script:
@@ -382,7 +417,7 @@ PHASER GUIDELINES (use these only when the game is built on Phaser 3):
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 480, height: 800 },
     physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
     scene: [BootScene, MenuScene, PlayScene] })
-  Use Phaser.Scale.FIT with a fixed logical width/height so the game is responsive on phones and desktops; choose portrait dimensions for mobile-first games and landscape for desktop-first ones.
+  Use Phaser.Scale.FIT with a fixed logical width/height so the game is responsive on phones and desktops. Do not hard-code portrait dimensions: pick them at boot from the viewport's shape (landscape, e.g. 1280x720, when window.innerWidth > window.innerHeight; portrait, e.g. 720x1280, otherwise) and lay out scenes from this.scale.width/height, so a desktop player gets a full landscape game rather than a narrow column (rule 17). For open-field games Phaser.Scale.RESIZE is also fine if scenes re-layout on the 'resize' event.
 - Structure the game as Phaser scenes with preload/create/update methods (class X extends Phaser.Scene, or scene objects). Use one scene per state (boot, menu, play, game-over) so the start/pause/game-over flow (rule 8) becomes scene transitions.
 - Generate ALL textures in code: this.add.graphics() + generateTexture(), this.textures.generate(), this.add.rectangle()/circle()/triangle(), this.add.text(), and the Graphics API. For tilemaps, define the map data as a plain array in code and build the level from it -- no tileset images.
 - Input: this.input.keyboard.createCursorKeys() and this.input.keyboard.addKeys('W,A,S,D,SPACE'), plus pointer events (this.input.on('pointerdown', ...)). For touch, add large Tailwind-styled DOM buttons around the canvas that set input flags the active scene reads; do not rely on hidden keyboard input being available on phones.
@@ -478,17 +513,18 @@ Structure it like a professional website: a top navigation bar with the site nam
 // apps, but the brief leads with gameplay: a playable loop, both control
 // schemes, and a start/play/game-over flow -- the parts a generic "build an
 // app" brief tends to omit, yielding pretty but dead screens.
-export const buildGameInitialGenerationPrompt = (prompt, projectName) => {
+export const buildGameInitialGenerationPrompt = (prompt, projectName, engineDirective = '') => {
   const trimmedPrompt = prompt.trim();
   const nameInstruction = buildProjectNameInstruction(projectName, 'game');
+  const engineLine = engineDirective ? `\n\n${engineDirective}` : '';
 
-  return `Create a complete, playable browser game based on this request: ${trimmedPrompt}.
+  return `Create a complete, playable browser game based on this request: ${trimmedPrompt}.${engineLine}
 
 Build it like a real game, not a mockup:
-- Pick the right engine: raw Canvas 2D with a requestAnimationFrame loop for a simple arcade or puzzle game, or Phaser 3 (loaded from its CDN per the PHASER GUIDELINES) for a sprite-, tilemap-, animation- or physics-heavy game such as a platformer, top-down RPG or shoot-em-up. Either way it must run a real update loop and scale to fit both phone and desktop.
+- Pick the right engine (unless an ENGINE line above already chose it): raw Canvas 2D with a requestAnimationFrame loop for a simple arcade or puzzle game, or Phaser 3 (loaded from its CDN per the PHASER GUIDELINES) for a sprite-, tilemap-, animation- or physics-heavy game such as a platformer, top-down RPG or shoot-em-up. Either way it must run a real update loop and scale to fit both phone and desktop.
 - Support BOTH keyboard and touch/pointer input. Render large on-screen touch controls when the game needs directional or action input.
 - Include a start screen with controls, active play with a visible score/HUD, a pause state, and a game-over or win screen with restart. Add escalating difficulty, particle/juice effects, and a high-score saved to localStorage.
 - Add procedural Web Audio sound effects with a visible mute toggle (sound starts on the first user interaction).
 - Make it self-contained -- no external image or audio assets, no runtime data fetches, and never use alert(), confirm() or prompt().
-- Size the play area so it feels like a real game on a phone in portrait as well as on a desktop.${nameInstruction}`;
+- Make it look and play great on BOTH a desktop monitor and a phone (rule 17): fill the whole screen, use landscape space on desktop instead of a narrow phone-width column, keep HUD panels from overlapping the playfield or the menus, and show touch controls only on touch devices.${nameInstruction}`;
 };

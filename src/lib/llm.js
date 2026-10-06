@@ -17,6 +17,9 @@ import {
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
+  GAME_ENGINE_ROUTER_SYSTEM_PROMPT,
+  parseGameEngineChoice,
+  buildGameEngineDirective,
   CHAT_REPLY_SYSTEM_PROMPT,
   WEBSITE_CHAT_REPLY_SYSTEM_PROMPT,
   GAME_CHAT_REPLY_SYSTEM_PROMPT,
@@ -108,6 +111,22 @@ export const generateClarifyingQuestion = async ({
     return q;
   }
   return null;
+};
+
+// Asks the model which engine a new game should use (see
+// GAME_ENGINE_ROUTER_SYSTEM_PROMPT). Returns the ENGINE directive to append to
+// the prompt, or '' when the user picked an engine themselves. It runs inside
+// the build, so it's a follow-up request, not another prompt.
+export const routeGameEngine = async ({ requestText, signal = null }) => {
+  const message = await requestModelText({
+    messages: [
+      { role: 'system', content: GAME_ENGINE_ROUTER_SYSTEM_PROMPT },
+      { role: 'user', content: `Request: ${requestText}` }
+    ],
+    reasoningEffort: CHAT_REASONING_EFFORT,
+    signal
+  });
+  return buildGameEngineDirective(parseGameEngineChoice(message?.content ?? message));
 };
 
 // Streams the one-sentence conversational acknowledgement for a build/edit turn
@@ -569,7 +588,8 @@ const generateAppCodeCore = async (
   reasoningEffort = { build: 'none' },
   studioMode = 'app',
   currentFiles = null,
-  projectName = ''
+  projectName = '',
+  gameEngineRouter = true
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -579,10 +599,12 @@ const generateAppCodeCore = async (
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = studioNoun(studioMode);
+  // Set by the engine router before the first game build (see below).
+  let engineDirective = '';
   const buildInitialPrompt = isWebsite
     ? (p) => buildWebsiteInitialGenerationPrompt(p, projectName)
     : isGame
-      ? (p) => buildGameInitialGenerationPrompt(p, projectName)
+      ? (p) => buildGameInitialGenerationPrompt(p, projectName, engineDirective)
       : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
   if (isAskMode) {
     const messages = [
@@ -649,6 +671,24 @@ const generateAppCodeCore = async (
       if (err?.name === 'AbortError') throw err;
       console.warn('[Orion] Intro reply failed, continuing with generation:', err);
       introReply = '';
+    }
+  }
+
+  // Route only the first build, over every user turn so far (a clarifying
+  // answer often carries the genre). Once code exists the engine is in it, and
+  // re-routing a later edit could contradict the engine the game already uses.
+  // Runs after the intro reply, never alongside it: requests that start
+  // together can't share the build's prompt pass, so each would count as a
+  // new prompt. A failure just leaves the choice to the build model.
+  if (isGame && gameEngineRouter && !currentCode) {
+    try {
+      engineDirective = await routeGameEngine({
+        requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
+        signal
+      });
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+      console.warn('[Orion] Engine routing failed, letting the model choose:', err);
     }
   }
 
