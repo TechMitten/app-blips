@@ -29,9 +29,9 @@ import { wrapWithTokenTracking, estimateInputTokens } from './trackTokens.js';
 import { trackApiUsage } from './usageTracking.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { firebaseConfigured, verifyIdToken, bearerToken } from './firebaseServer.js';
-import { billingAppliesTo, fetchBillingStatus, claimPrompt, releasePrompt, holdAllowance } from './billing.js';
+import { billingAppliesTo, fetchBillingStatus, holdAllowance } from './billing.js';
 import { promptPassesEnabled, signPromptPass, verifyPromptPass } from './promptPass.js';
-import { planById, checkAllowance, checkPrompts, limitMessage } from './plans.js';
+import { planById, checkAllowance, limitMessage } from './plans.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -284,9 +284,10 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // Plan enforcement when this instance bills (billing.js). Requests on the
 // user's own key (Settings → AI) spend nothing of ours, so they skip it.
 // Returns { response } to refuse, or { plan } (null when billing is off),
-// plus `pass` (send back as the x-appblips-prompt-pass header), `claimed` (a
-// daily prompt was taken) and `reservation` (tokens held against the
-// allowance, settled when the response ends; see trackTokens.js).
+// plus `pass` (send back as the x-appblips-prompt-pass header) and
+// `reservation` (tokens held against the allowance, settled when the
+// response ends; see trackTokens.js). An account with no plan (no trial or
+// subscription) is refused everything, automatic repairs included.
 // If a usage read itself fails the request goes through: auth already
 // succeeded, and a Firestore hiccup shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
@@ -296,13 +297,14 @@ const checkPlan = async (env, user, payload) => {
   const plan = planById(status.plan);
   const refuse = (check) => ({
     response: new Response(JSON.stringify({
-      error: limitMessage(plan.id, check),
-      code: 'limit_reached',
+      error: limitMessage(plan.id, check, Date.now(), { trialEligible: status.trial_eligible }),
+      code: check.scope === 'none' ? 'subscription_required' : 'limit_reached',
       plan: plan.id,
       scope: check.scope,
-      resetsAt: check.resetsAt.toISOString(),
+      resetsAt: check.resetsAt ? check.resetsAt.toISOString() : null,
     }), { status: 402, headers: { 'content-type': 'application/json' } }),
   });
+  if (plan.id === 'none') return refuse(checkAllowance(status));
 
   if (!plan.images && hasImageContent(payload.messages)) {
     return {
@@ -324,27 +326,15 @@ const checkPlan = async (env, user, payload) => {
   const check = checkAllowance(status, { continuing: followUp });
   if (!check.allowed) return refuse(check);
 
-  // Daily prompt limit: a Build or Ask message is claimed on its first
-  // request. Automatic repairs (auto_fix) never cost one.
-  let claimed = false;
-  if (plan.dailyPrompts && !followUp && payload.auto_fix !== true) {
-    const result = await claimPrompt(env, user.id, plan.dailyPrompts);
-    if (result === false) return refuse(checkPrompts({ plan: plan.id, today_prompts: plan.dailyPrompts }));
-    claimed = result === true;
-  }
-
   // Hold an estimate against the allowance before spending anything; the
   // check above alone lets a burst of simultaneous requests all through.
   const input = estimateInputTokens(payload.messages, payload.tools);
   const held = await holdAllowance(env, user.id, status, {
     continuing: followUp, input, amount: input + (outputCap(env, payload, true) || 0), kind: 'builder',
   });
-  if (held.refused) {
-    if (claimed) await releasePrompt(env, user.id);
-    return refuse(held.refused);
-  }
+  if (held.refused) return refuse(held.refused);
 
-  return { plan, pass: await signPromptPass(user.id, env), claimed, reservation: held.reservation };
+  return { plan, pass: await signPromptPass(user.id, env), reservation: held.reservation };
 };
 
 // The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
@@ -421,13 +411,9 @@ export async function handleChatProxy(request, env, waitUntil) {
   if (gate.response) return gate.response;
 
   // A request that never got going (no provider, or it refused or failed on
-  // the first response) hands back its prompt and its token reservation, so
-  // a failure on our side costs nothing.
+  // the first response) hands back its token reservation, so a failure on
+  // our side costs nothing.
   const giveBack = () => {
-    if (gate.claimed) {
-      const pending = releasePrompt(env, user.id);
-      if (typeof waitUntil === 'function') waitUntil(pending);
-    }
     if (gate.reservation) trackApiUsage(env, { uid: user.id, kind: 'builder', tokens: 0, reservation: gate.reservation }, waitUntil);
   };
 

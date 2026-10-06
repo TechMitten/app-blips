@@ -49,7 +49,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -57,7 +57,7 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useBilling from './hooks/useBilling';
 import PlansModal from './components/PlansModal';
-import { PLANS } from '../functions/_lib/plans.js';
+import { PLANS, limitMessage } from '../functions/_lib/plans.js';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import useShowcaseRoute from './hooks/useShowcaseRoute';
@@ -78,6 +78,8 @@ import { maintenanceMode, MAINTENANCE_MESSAGE } from './lib/maintenance';
 
 // Shown on the plans screen when someone on Free tries to attach an image.
 const IMAGES_LOCKED_REASON = 'Image attachments are part of Plus and Pro.';
+// Why the plans screen opens for an account with no trial or subscription.
+const noPlanReason = (status) => limitMessage('none', { scope: 'none' }, Date.now(), { trialEligible: status?.trialEligible !== false });
 
 export default function App() {
   useVisualViewport();
@@ -138,6 +140,9 @@ export default function App() {
   // { reason } when the plans screen is open; reason says why it opened. It
   // also opens on its own when Stripe Checkout sends the user back.
   const [plansModal, setPlansModal] = useState(null);
+  // No trial or subscription: the hosted AI is off until one starts. The
+  // user's own provider key (Settings → AI) isn't billed, so it still works.
+  const needsPlan = billing.billingOn && billing.plan === 'none' && !activeUserProvider();
   const imagesLocked = billing.billingOn && !PLANS[billing.plan]?.images;
 
   // --- Workspace state (the generation flow owns these) ---
@@ -916,7 +921,7 @@ export default function App() {
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
     if (imagesLocked) {
-      setPlansModal({ reason: IMAGES_LOCKED_REASON });
+      setPlansModal({ reason: needsPlan ? noPlanReason(billing.status) : IMAGES_LOCKED_REASON });
       return;
     }
     setIsCapturingScreenshot(true);
@@ -929,13 +934,13 @@ export default function App() {
     } finally {
       setIsCapturingScreenshot(false);
     }
-  }, [requestScreenshot, imagesLocked]);
+  }, [requestScreenshot, imagesLocked, needsPlan, billing.status]);
 
   const handleAttachFile = useCallback(async (file) => {
     if (!file) return;
     setAttachmentError(null);
     if (imagesLocked) {
-      setPlansModal({ reason: IMAGES_LOCKED_REASON });
+      setPlansModal({ reason: needsPlan ? noPlanReason(billing.status) : IMAGES_LOCKED_REASON });
       return;
     }
     if (!file.type?.startsWith('image/')) {
@@ -958,7 +963,7 @@ export default function App() {
     } catch (err) {
       setAttachmentError(err?.message || 'Failed to attach the image.');
     }
-  }, [imagesLocked]);
+  }, [imagesLocked, needsPlan, billing.status]);
 
   const handleRemoveAttachment = useCallback(() => {
     setAttachment(null);
@@ -1133,6 +1138,20 @@ export default function App() {
         setGenerationStatus(null);
       }
       setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Nothing to send without a trial or subscription: offer the trial
+    // instead (the server refuses these requests anyway).
+    if (needsPlan) {
+      if (isAutoFix) {
+        setIsAutoFixing(false);
+        isAutoFixingRef.current = false;
+        setAutoFixMessage(null);
+        setGenerationStatus(null);
+      } else {
+        setPlansModal({ reason: noPlanReason(billing.status) });
+      }
       return;
     }
 
@@ -2018,6 +2037,7 @@ export default function App() {
       status={billing.status}
       reason={plansModal?.reason}
       checkoutResult={billing.checkoutResult}
+      onRefresh={billing.refresh}
       onClose={() => { setPlansModal(null); billing.clearCheckoutResult(); }}
     />
   );
@@ -2059,6 +2079,7 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenShowcase={onOpenShowcase}
           billingPlan={billing.plan}
+          billingTrialing={billing.trialing}
           onOpenPlans={() => setPlansModal({})}
         />
         {showcaseOverlay}
@@ -2110,6 +2131,7 @@ export default function App() {
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={() => setIsSignOutConfirmOpen(true)}
         billingPlan={billing.plan}
+        billingTrialing={billing.trialing}
         onOpenPlans={() => setPlansModal({})}
         firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}

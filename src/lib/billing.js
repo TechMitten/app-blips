@@ -36,6 +36,9 @@ export const startCheckout = async (plan) => {
   window.location.assign(url);
 };
 
+// Ends the free trial now: Plus starts (and is charged) straight away.
+export const endTrial = () => call('/api/billing/end-trial', { method: 'POST' });
+
 export const openBillingPortal = async () => {
   const { url } = await call('/api/billing/portal', { method: 'POST' });
   window.location.assign(url);

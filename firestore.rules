@@ -2,9 +2,9 @@ rules_version = '2';
 
 // AppBlips Firestore rules. Clients only ever touch their own profile,
 // username claim and projects. Everything that grants or counts something
-// (usage, subscriptions, deployments, analytics sites) is written by the
-// server as the service account, which these rules don't apply to; clients
-// can at most read their own deployments.
+// (usage, subscriptions, trial cards, deployments, analytics sites) is
+// written by the server as the service account, which these rules don't
+// apply to; clients can at most read their own deployments.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {

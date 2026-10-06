@@ -150,14 +150,15 @@ test('deployments are server-written; owners can only read their own', async () 
   await assertFails(deleteDoc(doc(alice, 'deployments', 'alice~cafe')));
 });
 
-test('usage, subscriptions and analytics sites are closed to clients', async () => {
+test('usage, subscriptions, trial cards and analytics sites are closed to clients', async () => {
   await seed((db) => Promise.all([
     setDoc(doc(db, 'usage', 'alice_2026-10-01'), { user_id: 'alice', builder_tokens: 5 }),
     setDoc(doc(db, 'subscriptions', 'alice'), { user_id: 'alice', plan: 'plus', status: 'active' }),
     setDoc(doc(db, 'analytics_sites', 'site-1'), { user_id: 'alice' }),
+    setDoc(doc(db, 'trial_cards', 'fp_1'), { user_id: 'alice', subscription_id: 'sub_1' }),
   ]));
   const alice = as('alice');
-  for (const path of ['usage/alice_2026-10-01', 'subscriptions/alice', 'analytics_sites/site-1']) {
+  for (const path of ['usage/alice_2026-10-01', 'subscriptions/alice', 'analytics_sites/site-1', 'trial_cards/fp_1']) {
     await assertFails(getDoc(doc(alice, path)), `read ${path}`);
     await assertFails(setDoc(doc(alice, path), { user_id: 'alice', plan: 'pro', status: 'active', builder_tokens: 0 }), `write ${path}`);
     await assertFails(deleteDoc(doc(alice, path)), `delete ${path}`);

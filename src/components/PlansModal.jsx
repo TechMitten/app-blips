@@ -1,31 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Sparkles } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
-import { PLANS, usageMultiple } from '../../functions/_lib/plans.js';
-import { startCheckout, openBillingPortal, usagePercent } from '../lib/billing';
+import { PLANS, PAID_PLAN_IDS, TRIAL, usageMultiple } from '../../functions/_lib/plans.js';
+import { startCheckout, openBillingPortal, endTrial, usagePercent } from '../lib/billing';
 import { maintenanceMode } from '../lib/maintenance';
 
-// What each plan card lists. No token counts, model names or Free's daily
-// prompt number: Free is sold as daily prompts, paid plans as a multiple of
-// Free's monthly usage (usageMultiple, rounded down). The landing page
-// (AppBlips-Landing PricingPage.tsx) repeats these words; keep them in step.
+// What each plan card lists. No token counts or model names: Pro is sold as
+// a multiple of Plus's monthly usage (usageMultiple, rounded down). The
+// landing page (AppBlips-Landing PricingPage.tsx) repeats these words; keep
+// them in step.
 const PLAN_FEATURES = {
-  free: [
-    'Daily prompts to Build or Ask',
-    'Apps, websites and games',
-    'Resets every day',
-  ],
   plus: [
-    `${usageMultiple('plus')}x Free's monthly usage`,
+    'Monthly usage allowance',
     'Image attachments',
     'Smarter chat in Ask mode',
   ],
   pro: [
-    `${usageMultiple('pro')}x Free's monthly usage`,
+    `${usageMultiple('pro')}x Plus's monthly usage`,
     'Everything in Plus',
     'For heavy building',
   ],
 };
+
+const shortDate = (value) => (value ? new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null);
 
 // Brand blues, cyan and white: the celebration stays on-palette.
 const CONFETTI_COLORS = ['#1e598f', '#3987d0', '#81afda', '#22d3ee', '#ffffff'];
@@ -58,14 +55,16 @@ function Meter({ label, used, limit, detail = null }) {
   );
 }
 
-// Plans + usage. `reason` explains why it opened (a limit was reached, an
-// image was attached on Free); `checkoutResult` is set when Stripe Checkout
-// just sent the user back.
-export default function PlansModal({ status, reason = null, checkoutResult = null, onClose }) {
+// Plans + usage. `reason` explains why it opened (no plan yet, a limit was
+// reached); `checkoutResult` is set when Stripe Checkout just sent the user
+// back; `onRefresh` reloads the status after a change made from here.
+export default function PlansModal({ status, reason = null, checkoutResult = null, onRefresh, onClose }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
-  const current = PLANS[status?.plan] || PLANS.free;
-  const isPaid = current.id !== 'free';
+  const current = PLANS[status?.plan] || PLANS.none;
+  const isPaid = current.id !== 'none';
+  const trialing = Boolean(status?.trialing);
+  const trialOffered = status?.trialEligible !== false;
 
   // Fire once, when the return from Checkout shows the new paid plan (the
   // webhook can land a moment after the redirect, so this waits for it).
@@ -87,7 +86,15 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
     }
   };
 
-  const renewal = status?.periodEnd ? new Date(status.periodEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null;
+  const renewal = shortDate(status?.periodEnd);
+  const trialEnd = shortDate(status?.trialEnd);
+
+  // Ends the trial so Plus (and its full allowance) starts now, charged today.
+  const startPlusNow = () => run('end-trial', async () => {
+    await endTrial();
+    await onRefresh?.();
+    setBusy(null);
+  });
 
   return (
     <Modal zIndex={80} cardClass="plans-modal w-full max-w-3xl bg-surface rounded-2xl border border-slate-200 overflow-hidden animate-scale-in max-h-[90vh] flex flex-col">
@@ -104,7 +111,9 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
       <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
         {checkoutResult === 'success' && (
           <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
-            {isPaid ? `You're on ${current.label}. Thanks for subscribing!` : 'Payment received. Your plan will update in a moment.'}
+            {trialing
+              ? `Your ${TRIAL.days}-day Plus trial has started. Cancel before ${trialEnd || 'it ends'} and you won't be charged.`
+              : isPaid ? `You're on ${current.label}. Thanks for subscribing!` : 'All set. Your plan will update in a moment.'}
           </div>
         )}
         {checkoutResult === 'cancelled' && (
@@ -123,28 +132,67 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
 
         {status?.enabled && (
           <div className="plans-panel rounded-xl p-4 space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-900">You're on {current.label}</p>
-              {isPaid && renewal && (
-                <p className="text-xs text-slate-500">{status.cancelAtPeriodEnd ? `Ends ${renewal}` : `Renews ${renewal}`}</p>
-              )}
-            </div>
-            {/* Only paid plans get a meter, for their monthly allowance. Free
-                shows none: its daily prompt number isn't advertised, and the
-                limit message says when it runs out. */}
-            {isPaid && <Meter label="This billing period" used={status.periodTokens} limit={current.periodTokens} />}
+            {!isPaid ? (
+              <p className="text-sm font-semibold text-slate-900">
+                {trialOffered ? `Start with a free ${TRIAL.days}-day Plus trial` : "You don't have a plan"}
+              </p>
+            ) : trialing ? (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">You're on the Plus trial</p>
+                  {trialEnd && (
+                    <p className="text-xs text-slate-500">
+                      {status.cancelAtPeriodEnd ? `Ends ${trialEnd}, no charge` : `Ends ${trialEnd}, then $${current.price}/month`}
+                    </p>
+                  )}
+                </div>
+                <Meter label="Trial allowance" used={status.periodTokens} limit={status.limits?.periodTokens} />
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {!status.cancelAtPeriodEnd && (
+                    <button
+                      type="button"
+                      onClick={startPlusNow}
+                      disabled={Boolean(busy) || maintenanceMode}
+                      className="text-sm font-semibold text-brand hover:underline disabled:opacity-60"
+                    >
+                      {busy === 'end-trial' ? <Loader2 size={16} className="animate-spin" /> : 'Start Plus now'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => run('portal', openBillingPortal)}
+                    disabled={Boolean(busy)}
+                    className="text-sm font-semibold text-slate-600 hover:underline disabled:opacity-60"
+                  >
+                    {busy === 'portal' ? <Loader2 size={16} className="animate-spin" /> : status.cancelAtPeriodEnd ? 'Keep Plus' : 'Cancel trial'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">You're on {current.label}</p>
+                  {renewal && (
+                    <p className="text-xs text-slate-500">{status.cancelAtPeriodEnd ? `Ends ${renewal}` : `Renews ${renewal}`}</p>
+                  )}
+                </div>
+                <Meter label="This billing period" used={status.periodTokens} limit={current.periodTokens} />
+              </>
+            )}
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          {Object.values(PLANS).map((plan) => {
+        <div className="grid gap-3 sm:grid-cols-2">
+          {PAID_PLAN_IDS.map((id) => PLANS[id]).map((plan) => {
             const isCurrent = plan.id === current.id;
+            const withTrial = !isPaid && trialOffered && plan.id === TRIAL.plan;
             return (
               <div key={plan.id} className={`plans-panel plans-panel--plan rounded-xl p-4 flex flex-col ${isCurrent ? 'plans-panel--current' : ''}`}>
                 <p className="text-sm font-semibold text-slate-900">{plan.label}</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">
-                  ${plan.price}<span className="text-sm font-medium text-slate-500">{plan.price ? '/month' : ''}</span>
+                  ${plan.price}<span className="text-sm font-medium text-slate-500">/month</span>
                 </p>
+                {withTrial && <p className="mt-1 text-xs font-semibold text-brand">{TRIAL.days}-day free trial</p>}
                 <ul className="mt-3 space-y-1.5 text-sm text-slate-600 flex-1">
                   {PLAN_FEATURES[plan.id].map((feature) => (
                     <li key={feature} className="flex gap-2">
@@ -158,16 +206,6 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
                     <button type="button" disabled className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500">
                       Current plan
                     </button>
-                  ) : plan.id === 'free' ? (
-                    // Moving down to Free is cancelling, which Stripe's portal handles.
-                    <button
-                      type="button"
-                      onClick={() => run('portal', openBillingPortal)}
-                      disabled={Boolean(busy)}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                    >
-                      {busy === 'portal' ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Cancel plan'}
-                    </button>
                   ) : (
                     <button
                       type="button"
@@ -175,8 +213,13 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
                       disabled={Boolean(busy) || !status?.enabled || maintenanceMode}
                       className="brand-fill-text w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
                     >
-                      {busy === plan.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : isPaid ? `Switch to ${plan.label}` : `Upgrade to ${plan.label}`}
+                      {busy === plan.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : isPaid ? `Switch to ${plan.label}` : withTrial ? 'Start free trial' : `Subscribe to ${plan.label}`}
                     </button>
+                  )}
+                  {withTrial && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Card required. ${plan.price}/month after {TRIAL.days} days unless you cancel before the trial ends.
+                    </p>
                   )}
                 </div>
               </div>
@@ -190,10 +233,10 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
           {/* Matches the Stripe portal setting: cancelling takes effect at the
               end of the period already paid for. */}
           <p className="text-xs text-slate-500">
-            Every plan has a monthly usage allowance, and Free also has a daily prompt limit. When you run out, new prompts wait until it resets; a build that has started always finishes.
-            {' '}Cancel anytime. You keep your plan until the end of the month you've paid for.
+            Every plan has a monthly usage allowance, and the trial has a smaller one. When you run out, new prompts wait until it resets; a build that has started always finishes.
+            {' '}Cancel anytime. Cancel during the trial and you won't be charged; after that, you keep your plan until the end of the month you've paid for.
           </p>
-          {isPaid && (
+          {isPaid && !trialing && (
             <button
               type="button"
               onClick={() => run('portal', openBillingPortal)}

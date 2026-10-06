@@ -47,7 +47,7 @@ const STUDIOS = [
 
 const NAV_LINK = 'text-sm font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-md px-1';
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase, billingPlan = null, onOpenPlans }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase, billingPlan = null, billingTrialing = false, onOpenPlans }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -129,11 +129,11 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   <button
                     type="button"
                     onClick={onOpenPlans}
-                    title={billingPlan === 'free' ? 'See plans' : 'Your plan and usage'}
+                    title={billingPlan === 'none' ? 'See plans' : 'Your plan and usage'}
                     className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   >
                     <Sparkles size={15} aria-hidden="true" />
-                    <span>{billingPlan === 'free' ? 'Upgrade' : billingPlan === 'plus' ? 'Plus' : 'Pro'}</span>
+                    <span>{billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Plus trial' : 'Plus') : 'Pro'}</span>
                   </button>
                 )}
                 {onOpenSettings && (

@@ -4,7 +4,7 @@
 // so they run unchanged on Workers.
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from '../functions/_lib/umamiProxy.js';
-import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from '../functions/_lib/billing.js';
+import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleBillingEndTrial, handleStripeWebhook } from '../functions/_lib/billing.js';
 import { handleDeployUpload, handleDeployDelete } from '../functions/_lib/deploys.js';
 import { handleAccountDelete } from '../functions/_lib/account.js';
 
@@ -29,6 +29,8 @@ export default {
         return request.method === 'POST' ? handleBillingCheckout(request, env) : methodNotAllowed();
       case '/api/billing/portal':
         return request.method === 'POST' ? handleBillingPortal(request, env) : methodNotAllowed();
+      case '/api/billing/end-trial':
+        return request.method === 'POST' ? handleBillingEndTrial(request, env) : methodNotAllowed();
       case '/api/billing/webhook':
         return request.method === 'POST' ? handleStripeWebhook(request, env) : methodNotAllowed();
       case '/api/deploys':

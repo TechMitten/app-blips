@@ -6,21 +6,20 @@
 // Prices here are display copy; the amount actually charged is the Stripe
 // price found by `lookupKey`, so change both together.
 //
-// Free is limited to `dailyPrompts` prompts a day: a Build or Ask message
-// counts once however many model requests it takes (claimed atomically in the
-// usage table; see chatProxy.js and promptPass.js). Every plan also has a
-// token allowance, counting total tokens (input + output) as reported by the
-// provider across the builder and the account's deployed apps. For Free it's
-// a hidden backstop behind the prompt limit (daily cap plus monthly ceiling);
-// paid plans have one pool per Stripe billing period, usable on any day.
+// There is no free plan. A new account gets a TRIAL of Plus by subscribing
+// through Stripe Checkout with a card; Stripe charges for Plus when the
+// trial ends unless it was cancelled first. An account with no live
+// subscription is on `none`, which can't use the hosted AI at all (see
+// chatProxy.js). Every plan has a token allowance, counting total tokens
+// (input + output) as reported by the provider across the builder and the
+// account's deployed apps: one pool per Stripe billing period, usable on any
+// day. During the trial the pool is TRIAL.periodTokens instead.
 export const PLANS = {
-  free: {
-    id: 'free',
-    label: 'Free',
+  none: {
+    id: 'none',
+    label: 'No plan',
     price: 0,
-    dailyPrompts: 5,
-    dailyTokens: 600_000,
-    periodTokens: 6_000_000,
+    periodTokens: 0,
     images: false,
     premiumChat: false,
   },
@@ -29,8 +28,6 @@ export const PLANS = {
     label: 'Plus',
     price: 12,
     lookupKey: 'appblips_plus_monthly',
-    dailyPrompts: null,
-    dailyTokens: null,
     periodTokens: 35_000_000,
     images: true,
     premiumChat: true,
@@ -40,22 +37,29 @@ export const PLANS = {
     label: 'Pro',
     price: 29,
     lookupKey: 'appblips_pro_monthly',
-    dailyPrompts: null,
-    dailyTokens: null,
     periodTokens: 85_000_000,
     images: true,
     premiumChat: true,
   },
 };
 
+// The free Plus trial. Its allowance is smaller than a paid month so a trial
+// that's cancelled can't cost a month of AI; the full allowance starts with
+// the first payment. One trial per account and per card (billing.js).
+export const TRIAL = {
+  plan: 'plus',
+  days: 3,
+  periodTokens: 6_000_000,
+};
+
 export const PAID_PLAN_IDS = ['plus', 'pro'];
 
-// How many times Free's monthly usage a plan includes ("5x"), for plan copy.
-// Rounded down so it never overpromises. Marketing describes paid plans this
-// way instead of token counts, and never states Free's daily prompt number.
-export const usageMultiple = (id) => Math.floor(PLANS[id].periodTokens / PLANS.free.periodTokens);
+// How many times Plus's monthly usage a plan includes ("2x"), for plan copy.
+// Rounded down so it never overpromises. Plan copy describes usage this way,
+// never in token counts.
+export const usageMultiple = (id) => Math.floor(PLANS[id].periodTokens / PLANS.plus.periodTokens);
 
-export const planById = (id) => PLANS[id] || PLANS.free;
+export const planById = (id) => PLANS[id] || PLANS.none;
 export const planByLookupKey = (key) => Object.values(PLANS).find((plan) => plan.lookupKey && plan.lookupKey === key) || null;
 
 // A build is many requests (writing, surgical edits, repairs). Only its first
@@ -65,62 +69,39 @@ export const planByLookupKey = (key) => Object.values(PLANS).find((plan) => plan
 // with the signed pass from its build's earlier requests (promptPass.js).
 export const BUILD_OVERDRAFT_TOKENS = 500_000;
 
-// The token totals a request is refused at: { daily, period }, null where
-// the plan has no such limit. Shared by checkAllowance and the atomic
+// The token total a request is refused at: { period }, using the trial's
+// allowance while `trialing`. Shared by checkAllowance and the atomic
 // reservation in billing.js (reserveTokens), so both draw the line in one place.
-export const allowanceLimits = (planOrId, { continuing = false } = {}) => {
+export const allowanceLimits = (planOrId, { continuing = false, trialing = false } = {}) => {
   const plan = typeof planOrId === 'string' ? planById(planOrId) : planOrId;
   const extra = continuing ? BUILD_OVERDRAFT_TOKENS : 0;
-  return {
-    daily: plan.dailyTokens ? plan.dailyTokens + extra : null,
-    period: plan.periodTokens ? plan.periodTokens + extra : null,
-  };
+  return { period: (trialing ? TRIAL.periodTokens : plan.periodTokens) + extra };
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const nextUtcMidnight = (now) => {
-  const d = new Date(now);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + DAY_MS);
+const validDate = (value) => {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
 };
 
-const nextUtcMonth = (now) => {
-  const d = new Date(now);
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
-};
-
-// Compares a billing_status row (see the billing migration) with its plan.
-// Returns { allowed: true } or { allowed: false, scope: 'day' | 'period', resetsAt }.
-// `continuing` = a follow-up request inside a build that already started.
+// Compares a billing status (fetchBillingStatus in billing.js) with its plan.
+// Returns { allowed: true } or { allowed: false, scope, resetsAt }, where
+// scope is 'none' (no plan: nothing is allowed), 'trial' (the trial's
+// allowance is used; resetsAt = when the trial ends and Plus starts) or
+// 'period'. `continuing` = a follow-up request inside a build that already
+// started.
 export const checkAllowance = (status, { continuing = false, now = Date.now() } = {}) => {
   const plan = planById(status?.plan);
-  const limits = allowanceLimits(plan, { continuing });
-  const today = Number(status?.today_tokens) || 0;
+  if (plan.id === 'none') return { allowed: false, scope: 'none', resetsAt: null };
+  const trialing = Boolean(status?.trialing);
+  const limits = allowanceLimits(plan, { continuing, trialing });
   const period = Number(status?.period_tokens) || 0;
-
-  if (limits.daily && today >= limits.daily) {
-    return { allowed: false, scope: 'day', resetsAt: nextUtcMidnight(now) };
-  }
-  if (limits.period && period >= limits.period) {
-    const end = status?.period_end ? new Date(status.period_end) : null;
-    return {
-      allowed: false,
-      scope: 'period',
-      resetsAt: plan.id === 'free' || !end || Number.isNaN(end.getTime()) ? nextUtcMonth(now) : end,
-    };
+  if (period >= limits.period) {
+    const end = validDate(trialing ? status?.trial_end : status?.period_end)
+      // No end stored (shouldn't happen for a live subscription): a month on.
+      || new Date(now + 30 * 24 * 60 * 60 * 1000);
+    return { allowed: false, scope: trialing ? 'trial' : 'period', resetsAt: end };
   }
   return { allowed: true };
-};
-
-// Whether today's prompts are used up (for the status endpoint and meter).
-// Not part of checkAllowance: once the last prompt is claimed, the rest of
-// that prompt's requests must still go through.
-export const checkPrompts = (status, { now = Date.now() } = {}) => {
-  const plan = planById(status?.plan);
-  if (!plan.dailyPrompts) return { allowed: true };
-  return (Number(status?.today_prompts) || 0) >= plan.dailyPrompts
-    ? { allowed: false, scope: 'prompts', resetsAt: nextUtcMidnight(now) }
-    : { allowed: true };
 };
 
 // "6h", "45m", "3 days" -- how long until `date`, for limit messages.
@@ -133,14 +114,19 @@ export const formatWait = (date, now = Date.now()) => {
   return `${Math.round(hours / 24)} days`;
 };
 
-// The message shown when a build is refused for being over the allowance.
-export const limitMessage = (planId, check, now = Date.now()) => {
+// The message shown when a request is refused by checkAllowance.
+// `trialEligible` = the account has never had a trial.
+export const limitMessage = (planId, check, now = Date.now(), { trialEligible = true } = {}) => {
   const plan = planById(planId);
-  const wait = formatWait(check.resetsAt, now);
-  if (check.scope === 'prompts') {
-    return `You've used today's free prompts. They reset in ${wait}. Upgrade to Plus for ${usageMultiple('plus')}x the usage.`;
+  if (check.scope === 'none') {
+    return trialEligible
+      ? `Start your free ${TRIAL.days}-day Plus trial to build. You won't be charged until it ends, and you can cancel anytime before then.`
+      : 'Subscribe to Plus or Pro to build.';
   }
-  const when = check.scope === 'day' ? `today's ${plan.label} allowance` : `this ${plan.id === 'free' ? 'month' : 'billing period'}'s ${plan.label} allowance`;
-  const upgrade = plan.id === 'free' ? ' Upgrade to Plus for more.' : plan.id === 'plus' ? ' Upgrade to Pro for more.' : '';
-  return `You've used ${when}. It resets in ${wait}.${upgrade}`;
+  const wait = formatWait(check.resetsAt, now);
+  if (check.scope === 'trial') {
+    return `You've used your trial's allowance. Plus starts in ${wait} with its full monthly allowance, or start it now to keep building.`;
+  }
+  const upgrade = plan.id === 'plus' ? ` Upgrade to Pro for ${usageMultiple('pro')}x the usage.` : '';
+  return `You've used this billing period's ${plan.label} allowance. It resets in ${wait}.${upgrade}`;
 };

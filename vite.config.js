@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
-import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './functions/_lib/billing.js'
+import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleBillingEndTrial, handleStripeWebhook } from './functions/_lib/billing.js'
 import { handleDeployUpload, handleDeployDelete } from './functions/_lib/deploys.js'
 import { handleAccountDelete } from './functions/_lib/account.js'
 
@@ -165,6 +165,7 @@ function billingDevMiddleware(mode) {
         '/api/billing/status': ['GET', handleBillingStatus],
         '/api/billing/checkout': ['POST', handleBillingCheckout],
         '/api/billing/portal': ['POST', handleBillingPortal],
+        '/api/billing/end-trial': ['POST', handleBillingEndTrial],
         '/api/billing/webhook': ['POST', handleStripeWebhook],
       }
       for (const [path, [method, handler]] of Object.entries(routes)) {

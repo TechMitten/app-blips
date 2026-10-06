@@ -10,7 +10,7 @@
 // were.
 import { serviceAccountConfigured, getDoc, runQuery, runTransaction, setWrite } from './firebaseServer.js';
 import { usageDocPath, emptyUsage, sumPeriodTokens, todayUtc } from './usageTracking.js';
-import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts, allowanceLimits } from './plans.js';
+import { PLANS, PAID_PLAN_IDS, TRIAL, planById, planByLookupKey, checkAllowance, allowanceLimits } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
 import { authorize, maintenanceOn } from './chatProxy.js';
@@ -45,15 +45,18 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 // --- Firestore (service account) -----------------------------------------
 //
 // usage/{uid}_{date} holds one account's counters for one UTC day;
-// subscriptions/{uid} mirrors their Stripe subscription. Clients can't read
-// or write either (firestore.rules); everything goes through here.
+// subscriptions/{uid} mirrors their Stripe subscription; trial_cards/{fp}
+// records which subscription each card (by Stripe fingerprint) had its free
+// trial on. Clients can't read or write any of them (firestore.rules);
+// everything goes through here.
 
 const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
-// The plan in effect and tokens used, shaped like the old billing_status row:
-// { plan, status, period_start, period_end, cancel_at_period_end,
-//   today_tokens, period_tokens, today_prompts }. null when the read fails,
-// so callers can decide how to degrade.
+// The plan in effect and tokens used:
+// { plan, status, trialing, trial_end, trial_eligible, period_start,
+//   period_end, cancel_at_period_end, today_tokens, period_tokens }.
+// plan is 'none' without a live subscription. null when the read fails, so
+// callers can decide how to degrade.
 export const fetchBillingStatus = async (env, uid) => {
   try {
     const today = todayUtc();
@@ -63,8 +66,8 @@ export const fetchBillingStatus = async (env, uid) => {
     ]);
     const sub = subDoc?.data || null;
     // past_due keeps the plan while Stripe retries the card; anything else
-    // (canceled, unpaid, incomplete) falls back to free.
-    const paid = Boolean(sub && ACTIVE_STATUSES.includes(sub.status) && sub.plan !== 'free');
+    // (canceled, unpaid, incomplete) means no plan.
+    const paid = Boolean(sub && ACTIVE_STATUSES.includes(sub.status) && PAID_PLAN_IDS.includes(sub.plan));
     const periodStart = paid && sub.current_period_start
       ? String(sub.current_period_start).slice(0, 10)
       : `${today.slice(0, 7)}-01`;
@@ -72,14 +75,16 @@ export const fetchBillingStatus = async (env, uid) => {
     const todayTokens = usage.builder_tokens + usage.deployed_tokens;
     const earlier = await sumPeriodTokens(env, uid, periodStart, today);
     return {
-      plan: paid ? sub.plan : 'free',
+      plan: paid ? sub.plan : 'none',
       status: sub?.status || 'none',
+      trialing: paid && sub.status === 'trialing',
+      trial_end: paid && sub.status === 'trialing' ? sub.trial_end || sub.current_period_end || null : null,
+      trial_eligible: !sub?.trial_used,
       period_start: periodStart,
       period_end: paid ? sub.current_period_end || null : null,
       cancel_at_period_end: Boolean(sub?.cancel_at_period_end),
       today_tokens: todayTokens,
       period_tokens: earlier + todayTokens,
-      today_prompts: usage.builder_prompts,
     };
   } catch (err) {
     console.error('[billing] status read failed:', err?.message || err);
@@ -101,20 +106,6 @@ const withUsageDoc = (env, uid, date, change) => runTransaction(env, async (tx) 
   };
 });
 
-// Takes one of today's prompts, atomically. true = claimed, false = the daily
-// limit is reached, null = the call failed (callers let the request through,
-// as with fetchBillingStatus).
-export const claimPrompt = async (env, uid, limit) => {
-  try {
-    return await withUsageDoc(env, uid, todayUtc(), (usage) => (usage.builder_prompts < limit
-      ? { fields: { builder_prompts: usage.builder_prompts + 1 }, result: true }
-      : { fields: null, result: false }));
-  } catch (err) {
-    console.error('[billing] prompt claim failed:', err?.message || err);
-    return null;
-  }
-};
-
 // Reserves `amount` tokens against the allowance before a request goes out:
 // checks and adds in one transaction on today's doc, so requests sent at the
 // same moment can't all slip under the limit. Earlier days of the period are
@@ -131,7 +122,7 @@ export const reserveTokens = async (env, uid, { periodStart, limits, amount, kin
     const result = await withUsageDoc(env, uid, date, (usage) => {
       const todayUsed = usage.builder_tokens + usage.deployed_tokens;
       const periodUsed = earlier + todayUsed;
-      if ((limits.daily != null && todayUsed >= limits.daily) || (limits.period != null && periodUsed >= limits.period)) {
+      if (periodUsed >= limits.period) {
         return { fields: null, result: { reserved: false, today_tokens: todayUsed, period_tokens: periodUsed } };
       }
       return {
@@ -156,7 +147,7 @@ export const holdAllowance = async (env, uid, status, { continuing = false, inpu
   if (!check.allowed) return { refused: check };
   const held = await reserveTokens(env, uid, {
     periodStart: status.period_start,
-    limits: allowanceLimits(status.plan, { continuing }),
+    limits: allowanceLimits(status.plan, { continuing, trialing: Boolean(status.trialing) }),
     amount,
     kind,
   });
@@ -165,17 +156,6 @@ export const holdAllowance = async (env, uid, status, { continuing = false, inpu
     if (!over.allowed) return { refused: over };
   }
   return { reservation: held?.reserved ? { date: held.date, tokens: amount, input } : null };
-};
-
-// Hands a prompt back when it never got going; best effort.
-export const releasePrompt = async (env, uid) => {
-  try {
-    await withUsageDoc(env, uid, todayUtc(), (usage) => ({
-      fields: usage.builder_prompts > 0 ? { builder_prompts: usage.builder_prompts - 1 } : null,
-    }));
-  } catch (err) {
-    console.error('[billing] prompt release failed:', err?.message || err);
-  }
 };
 
 const subscriptionRow = async (env, uid) => (await getDoc(env, `subscriptions/${uid}`))?.data || null;
@@ -189,7 +169,8 @@ const userIdForCustomer = async (env, customerId) => {
 // cancelled subscription after a new one is active (resubscribing,
 // out-of-order retries), so the stored one is only replaced by the same
 // subscription, by an active one, or when it isn't active anyway. The
-// customer id is kept when Stripe sends none.
+// customer id is kept when Stripe sends none, and so is the record of the
+// account's one free trial (trial_subscription_id), once it has had one.
 const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
   const path = `subscriptions/${fields.target_user_id}`;
   const current = (await getDoc(env, path, { transaction: tx }))?.data || null;
@@ -198,6 +179,7 @@ const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
     || ACTIVE_STATUSES.includes(fields.new_status)
     || !ACTIVE_STATUSES.includes(current.status);
   if (!replace) return { writes: [] };
+  const trialSubscription = current?.trial_subscription_id || fields.trial_subscription_id || null;
   return {
     writes: [setWrite(env, path, {
       user_id: fields.target_user_id,
@@ -208,6 +190,9 @@ const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
       current_period_start: fields.period_start,
       current_period_end: fields.period_end,
       cancel_at_period_end: Boolean(fields.cancels_at_period_end),
+      trial_end: fields.trial_end || null,
+      trial_used: Boolean(current?.trial_used || trialSubscription),
+      trial_subscription_id: trialSubscription,
       updated_at: new Date(),
     })],
   };
@@ -306,11 +291,34 @@ export const verifyStripeSignature = async (payload, header, secret, now = Date.
 
 const isoFromUnix = (seconds) => (Number.isFinite(seconds) ? new Date(seconds * 1000).toISOString() : null);
 
+// Whether `subscriptionId`'s trial is a repeat: this card (by fingerprint,
+// which is the same for one card across Stripe customers) already had a
+// trial on another subscription. Claims the card for this subscription when
+// it hasn't. A payment method without a card fingerprint can't be checked;
+// trial Checkout only offers cards (handleBillingCheckout).
+const cardHadTrial = async (env, uid, subscriptionId, paymentMethod) => {
+  const fingerprint = paymentMethod?.card?.fingerprint;
+  if (!fingerprint) return false;
+  return runTransaction(env, async (tx) => {
+    const path = `trial_cards/${fingerprint}`;
+    const doc = await getDoc(env, path, { transaction: tx });
+    if (doc?.data) return { writes: [], result: doc.data.subscription_id !== subscriptionId };
+    return {
+      writes: [setWrite(env, path, { user_id: uid, subscription_id: subscriptionId, created_at: new Date() })],
+      result: false,
+    };
+  });
+};
+
+// Ends a trial now, so Stripe charges for the plan straight away. Stripe
+// sends a subscription event for the change, which syncs it.
+const endTrialNow = (env, subscriptionId) => stripe(env, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { trial_end: 'now' });
+
 // Re-reads the subscription from Stripe and stores its current state. Events
 // can arrive out of order or be retried, so the event's own copy is never
 // trusted as the latest.
 const syncSubscription = async (env, subscriptionId) => {
-  const sub = await stripe(env, 'GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
+  const sub = await stripe(env, 'GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { expand: ['default_payment_method'] });
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
   const uid = sub.metadata?.user_id || (customerId ? await userIdForCustomer(env, customerId) : null);
   if (!uid) {
@@ -321,20 +329,38 @@ const syncSubscription = async (env, subscriptionId) => {
   }
   const item = sub.items?.data?.[0];
   const plan = planByLookupKey(item?.price?.lookup_key);
-  if (!plan) console.warn(`[billing] subscription ${sub.id} uses an unknown price (${item?.price?.lookup_key || item?.price?.id}); treated as free.`);
+  if (!plan) console.warn(`[billing] subscription ${sub.id} uses an unknown price (${item?.price?.lookup_key || item?.price?.id}); treated as no plan.`);
   // Newer Stripe API versions moved the period onto the subscription item.
   const periodStart = sub.current_period_start ?? item?.current_period_start;
   const periodEnd = sub.current_period_end ?? item?.current_period_end;
+
+  // One free trial per account and per card. Checkout only offers a trial
+  // to an account that hasn't had one, but two Checkouts opened side by side
+  // or a second account with the same card would otherwise get another.
+  let repeatTrial = false;
+  if (sub.status === 'trialing') {
+    const row = await subscriptionRow(env, uid);
+    repeatTrial = Boolean(row?.trial_subscription_id && row.trial_subscription_id !== sub.id)
+      || await cardHadTrial(env, uid, sub.id, typeof sub.default_payment_method === 'object' ? sub.default_payment_method : null);
+  }
+
   await upsertSubscription(env, {
     target_user_id: uid,
-    new_plan: plan?.id || 'free',
+    new_plan: plan?.id || 'none',
     new_status: sub.status,
     customer_id: customerId || null,
     subscription_id: sub.id,
     period_start: isoFromUnix(periodStart),
     period_end: isoFromUnix(periodEnd),
     cancels_at_period_end: Boolean(sub.cancel_at_period_end),
+    trial_end: sub.status === 'trialing' ? isoFromUnix(sub.trial_end) : null,
+    trial_subscription_id: sub.trial_start && !repeatTrial ? sub.id : null,
   });
+
+  if (repeatTrial) {
+    console.warn(`[billing] subscription ${sub.id} is a repeat trial; ending the trial.`);
+    await endTrialNow(env, sub.id);
+  }
 };
 
 // --- Handlers ------------------------------------------------------------
@@ -349,25 +375,28 @@ export async function handleBillingStatus(request, env) {
   const status = await fetchBillingStatus(env, user.id);
   if (!status) return json({ error: 'Billing is temporarily unavailable.' }, 503);
   const plan = planById(status.plan);
-  const prompts = checkPrompts(status);
-  const check = prompts.allowed ? checkAllowance(status) : prompts;
+  const check = checkAllowance(status);
   return json({
     enabled: true,
     plan: plan.id,
     status: status.status,
+    trialing: status.trialing,
+    trialEnd: status.trial_end,
+    trialEligible: status.trial_eligible,
     periodEnd: status.period_end,
     cancelAtPeriodEnd: Boolean(status.cancel_at_period_end),
-    todayTokens: Number(status.today_tokens) || 0,
     periodTokens: Number(status.period_tokens) || 0,
-    todayPrompts: Number(status.today_prompts) || 0,
-    limits: { dailyPrompts: plan.dailyPrompts, dailyTokens: plan.dailyTokens, periodTokens: plan.periodTokens },
-    blocked: check.allowed ? null : { scope: check.scope, resetsAt: check.resetsAt.toISOString() },
+    limits: { periodTokens: allowanceLimits(plan, { trialing: status.trialing }).period },
+    blocked: check.allowed ? null : { scope: check.scope, resetsAt: check.resetsAt ? check.resetsAt.toISOString() : null },
   });
 }
 
 // POST /api/billing/checkout { plan: 'plus' | 'pro' } -> { url } of a Stripe
 // Checkout page. Someone who already subscribes gets the Customer Portal
 // instead (where Stripe handles switching plans), so nobody pays twice.
+// Plus starts with the free trial for an account that hasn't had one: the
+// card is collected and checked now, and charged when the trial ends unless
+// it's cancelled first.
 export async function handleBillingCheckout(request, env) {
   if (!billingEnabled(env)) return json({ error: 'Billing is not enabled.' }, 404);
   // No new subscriptions while building is paused: nobody should pay for a
@@ -388,13 +417,33 @@ export async function handleBillingCheckout(request, env) {
       const portal = await stripe(env, 'POST', '/billing_portal/sessions', { customer: row.stripe_customer_id, return_url: `${base}/` });
       return json({ url: portal.url, portal: true });
     }
+    const trial = planId === TRIAL.plan && !row?.trial_used;
     const session = await stripe(env, 'POST', '/checkout/sessions', {
       mode: 'subscription',
       line_items: [{ price: await priceIdFor(env, PLANS[planId].lookupKey), quantity: 1 }],
       client_reference_id: user.id,
       // Carried on every subscription event, so the webhook always knows the
       // account without depending on event order.
-      subscription_data: { metadata: { user_id: user.id } },
+      subscription_data: {
+        metadata: { user_id: user.id },
+        ...(trial ? {
+          trial_period_days: TRIAL.days,
+          // Belt and braces: Checkout always collects a card here, but a
+          // trial that somehow has none ends instead of running on unpaid.
+          trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
+        } : {}),
+      },
+      ...(trial ? {
+        payment_method_collection: 'always',
+        // Cards only, so every trial has a card fingerprint to check for
+        // repeat trials (cardHadTrial).
+        payment_method_types: ['card'],
+        custom_text: {
+          submit: {
+            message: `You won't be charged today. After your ${TRIAL.days}-day free trial, Plus is $${PLANS[planId].price}/month until you cancel. Cancel before the trial ends and you won't be charged.`,
+          },
+        },
+      } : {}),
       metadata: { user_id: user.id },
       ...(row?.stripe_customer_id ? { customer: row.stripe_customer_id } : user.email ? { customer_email: user.email } : {}),
       allow_promotion_codes: 'true',
@@ -423,6 +472,28 @@ export async function handleBillingPortal(request, env) {
   } catch (err) {
     console.error('[billing] portal failed:', err?.message || err);
     return json({ error: 'Could not open billing. Please try again.' }, 502);
+  }
+}
+
+// POST /api/billing/end-trial -> ends the caller's free trial now, so Plus
+// (and its full allowance) starts straight away and is charged today.
+export async function handleBillingEndTrial(request, env) {
+  if (!billingEnabled(env)) return json({ error: 'Billing is not enabled.' }, 404);
+  if (maintenanceOn(env)) return json({ error: 'Billing changes are paused during maintenance.', code: 'maintenance' }, 503);
+  const user = await authorize(request, env);
+  if (!user) return json({ error: 'Sign in required.' }, 401);
+  if (!billingAppliesTo(env, user)) return json({ error: 'Billing is not enabled.' }, 404);
+  try {
+    const row = await subscriptionRow(env, user.id);
+    if (!row?.stripe_subscription_id || row.status !== 'trialing') return json({ error: 'There is no trial to end.' }, 400);
+    await endTrialNow(env, row.stripe_subscription_id);
+    // Store the result now rather than waiting for the webhook, so the
+    // status the client reloads next already shows it.
+    await syncSubscription(env, row.stripe_subscription_id);
+    return json({ ok: true });
+  } catch (err) {
+    console.error('[billing] ending trial failed:', err?.message || err);
+    return json({ error: 'Could not start Plus. Please try again.' }, 502);
   }
 }
 

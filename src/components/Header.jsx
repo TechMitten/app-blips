@@ -39,9 +39,10 @@ export default function Header({
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
-  // 'free' | 'plus' | 'pro' when this instance bills and the user is signed
-  // in; null hides the plan button.
+  // 'none' | 'plus' | 'pro' when this instance bills and the user is signed
+  // in; null hides the plan button. `billingTrialing` = on the free trial.
   billingPlan = null,
+  billingTrialing = false,
   onOpenPlans,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -94,7 +95,7 @@ export default function Header({
   // Local part only: the strip has to hold four ranks, and the domain is the
   // half of an address that never disambiguates anything.
   const accountLabel = userEmail ? userEmail.split('@')[0] : 'Account';
-  const planLabel = billingPlan === 'free' ? 'Upgrade' : billingPlan === 'plus' ? 'Plus' : billingPlan === 'pro' ? 'Pro' : null;
+  const planLabel = billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Plus trial' : 'Plus') : billingPlan === 'pro' ? 'Pro' : null;
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -286,8 +287,8 @@ export default function Header({
               type="button"
               onClick={onOpenPlans}
               className="nav-btn nav-ghost nav-btn-icon"
-              data-tip={billingPlan === 'free' ? 'See plans' : 'Your plan and usage'}
-              aria-label={billingPlan === 'free' ? 'Upgrade: see plans' : `${planLabel} plan: usage and billing`}
+              data-tip={billingPlan === 'none' ? 'See plans' : 'Your plan and usage'}
+              aria-label={billingPlan === 'none' ? 'Start free trial: see plans' : `${planLabel} plan: usage and billing`}
             >
               <Sparkles size={16} />
               <span className="hidden xl:inline">{planLabel}</span>
@@ -480,7 +481,7 @@ export default function Header({
                   className="mobile-menu-item"
                 >
                   <Sparkles size={16} />
-                  <span>{billingPlan === 'free' ? 'Upgrade' : `${planLabel} plan`}</span>
+                  <span>{billingPlan === 'none' ? planLabel : `${planLabel} plan`}</span>
                 </button>
               )}
               {firebaseEnabled && isSignedIn && (
