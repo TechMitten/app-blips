@@ -4,7 +4,19 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Data** (only in your own copy of AppBlips), and **Danger Zone**. Every setting is saved to your browser's local storage and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Account** (only when you're signed in at appblips.com), **Appearance**, **Workspace**, **AI**, **Data** (only in your own copy of AppBlips), **Legal**, and **Danger Zone**. Every setting is saved to your browser's local storage and persists across sessions automatically.
+
+## Account
+
+Shown on appblips.com, where you sign in with Google or GitHub.
+
+- **Email address:** the address of the account you sign in with.
+- **Username:** used in your published apps' links. You choose it the first time you publish an app, and it can't be changed afterwards.
+- **Plan:** your current plan, or the free trial. Click **Manage** (or **See plans** without a plan) to see your usage and change plans. See [Pricing](/pricing).
+- **Billing and invoices:** click **Open billing** to view invoices, update your card, or cancel in Stripe.
+- **Sign out:** signs you out on this device.
+
+---
 
 ## Appearance
 
@@ -76,8 +88,8 @@ These settings influence how the AI model reasons and communicates before and du
 
 Reasoning applies when generating a new app from scratch. Editing an existing app always uses low reasoning, so small changes stay fast.
 
-<ParamField body="Reasoning: building" type="Low | High" default="Low">
-  Lets the AI reason before generating a new app from scratch. **Low** is faster and cheaper; **High** thinks harder for complex apps.
+<ParamField body="Reasoning: building" type="Off | Low | High" default="Off">
+  Lets the AI reason before generating a new app from scratch. **Off** is fastest. **Low** thinks a little first. **High** thinks harder for complex apps but takes longer.
 </ParamField>
 
 <Tip>
@@ -90,16 +102,22 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
   When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
 </ParamField>
 
+### Smart game engine
+
+<ParamField body="Smart game engine" type="toggle" default="On">
+  Applies in the Game studio. Before building a new game, the AI picks the engine that suits it: **Phaser** for platformers, shooters and RPGs, **Three.js** for 3D games, and no engine for simple arcade, puzzle and card games, which then load faster. If you name an engine in your prompt, your choice always wins. Turn it off to let the builder choose as it writes.
+</ParamField>
+
 ### Your own AI provider
 
-By default AppBlips uses the AI provider it was set up with. Switch on **Use my own AI provider** to use your own account instead.
+Shown only in a copy of AppBlips you run from source or Docker. By default it uses the AI provider set in `.env`. Switch on **Use my own AI provider** to use your own account instead.
 
-<ParamField body="Provider" type="OpenAI | OpenRouter | DeepSeek | Z.ai | Z.ai Coding Plan">
-  Which service to call. Each option uses that service's standard endpoint. OpenRouter is the way to reach Claude, Gemini, and most other models.
+<ParamField body="Provider" type="DeepSeek">
+  Which service to call. DeepSeek is the only option, using its standard endpoint.
 </ParamField>
 
 <ParamField body="Model" type="string">
-  The model to use, written exactly as your provider names it, for example `gpt-5.1` or `anthropic/claude-sonnet-5`.
+  The model to use, written exactly as your provider names it, for example `deepseek-v4-pro`.
 </ParamField>
 
 <ParamField body="API key" type="string">
@@ -129,6 +147,12 @@ This tab appears only in your own copy of AppBlips (the desktop app, or run from
 - **Projects folder** (desktop app only): shows where projects are saved. Click **Change…** to pick another folder.
 
 See [Move projects from the browser version](/quickstart-desktop#move-projects-from-the-browser-version) for moving apps between copies.
+
+---
+
+## Legal
+
+Links to the **Privacy Policy** and the **Terms of Service**.
 
 ---
 

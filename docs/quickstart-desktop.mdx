@@ -26,7 +26,7 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 ## Set up your AI provider
 
-The first time you open the app, **Settings → AI** asks for a provider, a model and your API key. Click **Test connection**, then **Save**.
+The first time you open the app, **Settings → AI** asks for a provider, a model and your API key. DeepSeek is the provider. Type a model such as `deepseek-v4-pro` and paste your key from the [DeepSeek platform](https://platform.deepseek.com/). Click **Test connection**, then **Save**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 
@@ -78,4 +78,4 @@ npm run desktop:dist   # build installers for this OS into dist-desktop/
 
 Electron downloads its runtime the first time it runs. Build each installer on its own OS: Windows installers on Windows and Linux packages on Linux. The repository's **Desktop** GitHub Actions workflow builds both.
 
-If you launch the app from a terminal, the `APPBLIPS_*` variables from [Configuration](/self-hosting/configuration) still apply. A provider saved in Settings → AI takes priority over them.
+If you launch the app from a terminal, the `OPENAI_*` variables from [Configuration](/self-hosting/configuration) still apply. A provider saved in Settings → AI takes priority over them.

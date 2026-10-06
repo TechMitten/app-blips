@@ -41,10 +41,10 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
 
     **Check the following in your `.env` file:**
 
-    - Exactly one provider key is filled in (for example `APPBLIPS_OPENAI_API_KEY`), or `OPENAI_LLM_PROVIDER` picks one if several are
-    - The key is valid and active for that provider
+    - `OPENAI_API_KEY` is filled in
+    - The key is valid and active for your provider
     - `OPENAI_LLM_MODEL` is a model name your provider recognizes and your key has access to
-    - For another OpenAI-compatible service, `OPENAI_BASE_URL` is the full base URL (for example `http://localhost:11434/v1`)
+    - For another OpenAI-compatible service, `OPENAI_BASE_URL` is the full base URL (for example `http://localhost:11434/v1`). If that service rejects requests, set **Reasoning: building** to **Off** in Settings → AI.
 
     When AppBlips starts, it prints which provider it found and which values are still missing. Check that output first.
 
@@ -58,16 +58,15 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
 
     1. Dismiss the current build and try again.
     2. Check your AI provider's status page for any ongoing outages or elevated latency.
-    3. If **Reasoning: building** is set to High in Settings, try switching it to Low — reasoning takes longer and is more likely to hit timeouts on slower providers.
+    3. If **Reasoning: building** is set to Low or High in Settings, try switching it to Off. Reasoning takes longer and is more likely to hit timeouts on slower providers.
   </Accordion>
 
   <Accordion title="Rate limit or &quot;turned the request down&quot; error">
-    **On appblips.com:** "You're sending requests too quickly" means you hit the per-account request limit. Wait a few minutes and try again.
+    **On appblips.com:** "You're sending requests too quickly" means you hit the per-account request limit. Wait a few minutes and try again. "The AI service is busy" means the AI service is overloaded for a moment. Try again shortly.
 
-    **In the desktop app or a copy you run yourself:** AppBlips sets no request limit of its own. An error such as "Z.ai turned the request down: …" comes from your AI provider, and the text after the colon is the provider's reason. Common causes:
+    **In the desktop app or a copy you run yourself:** AppBlips sets no request limit of its own. An error such as "DeepSeek turned the request down: …" comes from your AI provider, and the text after the colon is the provider's reason. Common causes:
 
     - **No credit left** on your provider account. Many providers report this as a rate limit (HTTP 429).
-    - **A plan key on the wrong endpoint.** A Z.ai GLM Coding Plan key needs the **Z.ai Coding Plan** provider, not **Z.ai**.
     - **The provider's own rate or concurrency limits.** Wait and try again, or check your plan's limits.
   </Accordion>
 </AccordionGroup>

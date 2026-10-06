@@ -24,20 +24,20 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="Which AI models can I use?">
-    AppBlips has built-in support for OpenAI, OpenRouter (Claude, Gemini, and most other models), DeepSeek, and Z.ai (pay-as-you-go or a GLM Coding Plan), plus any other service compatible with the OpenAI chat completions API, such as Ollama or Groq.
+    On appblips.com, the AI is included with your plan and there's nothing to set up.
 
-    Fill in one provider's key and the model in your `.env` file (or set them in Settings → AI in the Desktop App):
+    In the desktop app or a copy you run yourself, you bring your own key. DeepSeek is built in, and any other service compatible with the OpenAI chat completions API can work too, such as OpenRouter, Ollama, or Groq. Fill in the key and the model in your `.env` file (or set them in Settings → AI in the desktop app):
 
     ```bash
     OPENAI_API_KEY=your-api-key
-    OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
+    OPENAI_LLM_MODEL=deepseek-v4-pro
     ```
 
-    See [Configuration](/self-hosting/configuration) for other services.
+    See [Configuration](/self-hosting/configuration#other-openai-compatible-services) for other services.
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    Your API key lives only in the `.env` file on your computer (or in your OS keychain for the Desktop app). The key is used exclusively by the AppBlips server when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+    In a copy you run yourself, your API key lives only in the `.env` file on your computer (or in your OS keychain for the desktop app). On appblips.com you don't need a key. The key is used exclusively by the AppBlips server when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="Can I export the generated project?">

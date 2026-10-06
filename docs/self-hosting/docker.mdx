@@ -15,7 +15,7 @@ Docker is an alternative to `npm run dev` for running AppBlips on your own compu
 Before you begin, make sure you have:
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed and running
-- A `.env` file with one provider API key and `OPENAI_LLM_MODEL` filled in — see [Configuration](/self-hosting/configuration) for the full reference
+- A `.env` file with `OPENAI_API_KEY` and `OPENAI_LLM_MODEL` filled in — see [Configuration](/self-hosting/configuration) for the full reference
 
 ## Starting AppBlips
 
@@ -36,11 +36,11 @@ Before you begin, make sure you have:
     cp .env.example .env
     ```
 
-    Fill in the API key for one provider and the model:
+    Fill in your DeepSeek API key and the model:
 
     ```bash
-    APPBLIPS_OPENAI_API_KEY=your-api-key
-    OPENAI_LLM_MODEL=gpt-5.1
+    OPENAI_API_KEY=your-deepseek-api-key
+    OPENAI_LLM_MODEL=deepseek-v4-pro
     ```
   </Step>
 

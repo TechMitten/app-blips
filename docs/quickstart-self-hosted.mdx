@@ -39,14 +39,14 @@ Running from source is for macOS users (there is no installer yet), people who w
     ```
   </Step>
   <Step title="Add your API key and model">
-    Open `.env` in any text editor and fill in **two lines**: the API key for one provider, and the model. The file lists OpenAI, OpenRouter, DeepSeek, Z.ai, and Z.ai Coding Plan. The provider whose key is filled in becomes active, so leave the others blank.
+    Open `.env` in any text editor and fill in **two lines**: your DeepSeek API key and the model. You can get a key from the [DeepSeek platform](https://platform.deepseek.com/).
 
     ```bash
-    APPBLIPS_OPENAI_API_KEY=your-api-key
-    OPENAI_LLM_MODEL=gpt-5.1
+    OPENAI_API_KEY=your-deepseek-api-key
+    OPENAI_LLM_MODEL=deepseek-v4-pro
     ```
 
-    Write the model name exactly as your provider does. Apps you build with AI turned on use this same provider and model, so there is nothing else to set up.
+    Write the model name exactly as DeepSeek does. To use a different service instead, see [Other AI services](#other-ai-services).
 
     <Tip>
       You can also skip this step and choose a provider, model, and key in the app under **Settings → AI**. See [Your own AI provider](/reference/settings#your-own-ai-provider).
@@ -81,17 +81,17 @@ npm install
 
 With Docker, run `docker compose up --build` after `git pull`.
 
-## Supported AI Providers
+## Other AI services
 
-| Provider | `.env` key | Example model |
-|---|---|---|
-| OpenAI | `APPBLIPS_OPENAI_API_KEY` | `gpt-5.1` |
-| OpenRouter (Claude, Gemini, and most other models) | `OPENAI_API_KEY` | `anthropic/claude-sonnet-5` |
-| DeepSeek | `APPBLIPS_DEEPSEEK_API_KEY` | `deepseek-chat` |
-| Z.ai | `APPBLIPS_ZAI_API_KEY` | `glm-5.3-flash` |
-| Z.ai Coding Plan | `APPBLIPS_ZAI_CODING_API_KEY` | `glm-5.3` |
+DeepSeek is the built-in provider. Any other service that speaks the OpenAI chat-completions API can work too, including OpenRouter and local models through Ollama, vLLM, or LM Studio. Fill in three lines:
 
-Any other OpenAI-chat-completions-compatible service works too, including local models through Ollama, vLLM, or LM Studio. Fill in `OPENAI_BASE_URL` (for example `http://localhost:11434/v1`), `OPENAI_API_KEY` (Ollama needs none, so put any text), and `OPENAI_LLM_MODEL`. See [Configuration](/self-hosting/configuration#other-openai-compatible-services).
+```bash
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=ollama
+OPENAI_LLM_MODEL=llama3.1
+```
+
+`OPENAI_BASE_URL` is the service's address, `OPENAI_API_KEY` is its key (Ollama needs none, so put any text), and `OPENAI_LLM_MODEL` is the model name. AppBlips sends requests in DeepSeek's format, so some services may reject the reasoning setting. If builds fail, set **Reasoning: building** to **Off** in Settings → AI. See [Configuration](/self-hosting/configuration#other-openai-compatible-services).
 
 Your provider key is used only by the AppBlips server and is never sent to the browser.
 

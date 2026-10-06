@@ -1,45 +1,25 @@
 ---
 title: "Configuration Reference for Source and Docker Installs"
 sidebarTitle: "Configuration"
-description: "Every .env variable for a self-hosted AppBlips: AI provider and model, limits and tuning, and the debug panel."
+description: "Every .env variable for a self-hosted AppBlips: AI provider and model, and limits and tuning."
 ---
 
 <Note>
   Using the [desktop app](/quickstart-desktop)? You don't need any of this: set your AI provider in the app under **Settings → AI**.
 </Note>
 
-When you [run from source](/quickstart-self-hosted) or with [Docker](/self-hosting/docker), all configuration lives in one `.env` file in the project folder. Copy `.env.example` to `.env`, fill in an API key and a model, and leave everything else blank to use the defaults. When AppBlips starts, it prints which provider it found and what is still missing. It never prints key values.
-
-<Note>
-  The general AI variables used to be named `APPBLIPS_LLM_*` (for example `APPBLIPS_LLM_MODEL`, now `OPENAI_LLM_MODEL`). The old names still work, and AppBlips lists any you still use at startup so you can rename them.
-</Note>
+When you [run from source](/quickstart-self-hosted) or with [Docker](/self-hosting/docker), all configuration lives in one `.env` file in the project folder. Copy `.env.example` to `.env`, fill in your API key and a model, and leave everything else blank to use the defaults. When AppBlips starts, it prints which provider it found and what is still missing. It never prints key values.
 
 ## Required: AI Provider
 
-Fill in the API key for **one** provider, plus the model. The provider whose key is filled in becomes active.
+DeepSeek is the built-in provider. Fill in your key and the model.
 
-<ParamField body="APPBLIPS_OPENAI_API_KEY" type="string">
-  OpenAI API key.
-</ParamField>
-
-<ParamField body="OPENAI_API_KEY" type="string">
-  OpenRouter API key. OpenRouter is the recommended way to reach Claude, Gemini, and most other models with a single key.
-</ParamField>
-
-<ParamField body="APPBLIPS_DEEPSEEK_API_KEY" type="string">
-  DeepSeek API key.
-</ParamField>
-
-<ParamField body="APPBLIPS_ZAI_API_KEY" type="string">
-  Z.ai API key (pay-as-you-go).
-</ParamField>
-
-<ParamField body="APPBLIPS_ZAI_CODING_API_KEY" type="string">
-  Z.ai GLM Coding Plan key. The plan has its own endpoint, and its quota doesn't work with `APPBLIPS_ZAI_API_KEY`, so use this one for a plan key.
+<ParamField body="OPENAI_API_KEY" type="string" required>
+  Your DeepSeek API key, from the [DeepSeek platform](https://platform.deepseek.com/). With `OPENAI_BASE_URL` set, it is the key for that service instead.
 </ParamField>
 
 <ParamField body="OPENAI_LLM_MODEL" type="string" required>
-  The model to use, written exactly as your provider names it. For example `gpt-5.1` (OpenAI), `anthropic/claude-sonnet-5` or `google/gemini-3-pro` (OpenRouter), `deepseek-chat` (DeepSeek), or `glm-5.3-flash` (Z.ai).
+  The model to use, written exactly as your provider names it. For example `deepseek-v4-pro`.
 </ParamField>
 
 Keys are read only by the AppBlips server and are never sent to the browser.
@@ -50,18 +30,18 @@ You can leave these lines blank and choose a provider, model, and API key in the
 
 ### Other OpenAI-compatible services
 
-Any other service that speaks the OpenAI chat-completions API works too: Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.
+Any other service that speaks the OpenAI chat-completions API can work too: OpenRouter, Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.
 
 <ParamField body="OPENAI_BASE_URL" type="string">
-  The service's base URL, for example `http://localhost:11434/v1` for Ollama. If you use one of the named providers above, this instead overrides that provider's default endpoint.
+  The service's base URL, for example `http://localhost:11434/v1` for Ollama. Blank uses DeepSeek's endpoint. Put the service's key in `OPENAI_API_KEY` (Ollama needs none, so put any text).
 </ParamField>
 
-<ParamField body="OPENAI_API_KEY" type="string">
-  The service's API key. Ollama needs none, so put any text. This is also the fallback key for whichever provider is active, so `OPENAI_LLM_PROVIDER=zai` with the key here works. It is not the same as `APPBLIPS_OPENAI_API_KEY`, which is the key for OpenAI itself.
-</ParamField>
+<Note>
+  AppBlips sends requests in DeepSeek's format, including its reasoning setting. If another service rejects builds, set **Reasoning: building** to **Off** in [Settings → AI](/reference/settings#reasoning).
+</Note>
 
-<ParamField body="OPENAI_LLM_PROVIDER" type="string">
-  Chooses the provider explicitly when more than one key is filled in: `openai`, `openrouter`, `deepseek`, `zai`, or `openai-compatible`. Blank means the first key found, in that order.
+<ParamField body="OPENAI_LLM_VISION_MODEL" type="string">
+  A model for requests that include an attached image, on the same service and key. Use it when your main model can't read images. Blank uses `OPENAI_LLM_MODEL`.
 </ParamField>
 
 ## Optional: Limits and Tuning
@@ -78,10 +58,6 @@ Any other service that speaks the OpenAI chat-completions API works too: Ollama,
   Token cap for Ask-mode chat replies only, independent of `OPENAI_LLM_MAX_TOKENS`. Defaults to `8192`.
 </ParamField>
 
-<ParamField body="OPENAI_LLM_REASONING_PARAM" type="string">
-  How your provider expects the reasoning setting: `reasoning_effort`, `reasoning`, `thinking`, or `omit` (send nothing). Blank uses the provider's usual format. You only need this for an unusual OpenAI-compatible service. How much reasoning is used when building is chosen per user in [Settings](/reference/settings#ai); edits and chat replies always use low reasoning.
-</ParamField>
-
 <Note>
   Your own copy of AppBlips doesn't limit how many AI requests you make: you pay your provider directly, so only your provider's limits apply. Set a spend limit with your provider to cap costs.
 </Note>
@@ -90,31 +66,17 @@ Any other service that speaks the OpenAI chat-completions API works too: Ollama,
   `/api/chat` refuses browser requests that come from any page other than AppBlips itself, so other websites and the apps you build can't spend your key through it. If you reach AppBlips through a reverse proxy that changes the `Host` header, requests may be refused with "Requests from other sites are not allowed." List the address you open AppBlips at here (comma-separated, exact, for example `https://appblips.mydomain.example`).
 </ParamField>
 
-## Debug Panel (optional)
-
-<ParamField body="APPBLIPS_DEBUG_PIN" type="string">
-  PIN that unlocks a hidden panel showing the raw AI traffic (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>). Blank disables the feature.
-</ParamField>
-
-<ParamField body="APPBLIPS_DEBUG_PIN_RATE_LIMIT_MAX" type="number">
-  Wrong PIN guesses allowed per IP per window. Defaults to `5`.
-</ParamField>
-
-<ParamField body="APPBLIPS_DEBUG_PIN_RATE_LIMIT_WINDOW_SECONDS" type="number">
-  Window for PIN guesses in seconds. Defaults to `300`.
-</ParamField>
-
-
 ## Example `.env` Files
 
 <CodeGroup>
 ```bash Minimal
-# The only two lines you need
-APPBLIPS_OPENAI_API_KEY=sk-...
-OPENAI_LLM_MODEL=gpt-5.1
+# The only two lines you need (DeepSeek)
+OPENAI_API_KEY=sk-...
+OPENAI_LLM_MODEL=deepseek-v4-pro
 ```
 
 ```bash OpenRouter
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_API_KEY=sk-or-...
 OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
 ```
