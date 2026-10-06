@@ -45,3 +45,12 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   studioMode: row.data?.studioMode === 'website' ? 'website' : row.data?.studioMode === 'game' ? 'game' : 'app',
   lastModified: row.updated_at
 }));
+
+// Names identify projects in the Apps list, so two projects can't share one
+// (compared trimmed and case-insensitively). `exceptId` skips the project being
+// renamed so keeping its own name isn't a clash.
+export const isProjectNameTaken = (projects, name, exceptId = null) => {
+  const wanted = String(name || '').trim().toLowerCase();
+  if (!wanted) return false;
+  return (projects || []).some((p) => p.id !== exceptId && String(p.name || '').trim().toLowerCase() === wanted);
+};

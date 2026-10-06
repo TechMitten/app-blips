@@ -15,6 +15,7 @@ import ProjectsListModal from './components/ProjectsListModal';
 import DeployModal from './components/DeployModal';
 import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
 import NamingModal from './components/NamingModal';
+import { isProjectNameTaken } from './lib/projectsStorage';
 import AuthModal from './components/AuthModal';
 import AuthToast from './components/AuthToast';
 import ConfirmModal from './components/ConfirmModal';
@@ -1629,14 +1630,18 @@ export default function App() {
     setIsNamingModalOpen(false);
   };
 
+  // Naming an untitled project that already exists renames it, so its own
+  // saved row mustn't count as a clash.
+  const isRenamingUntitledProject = shouldGenerateAfterNaming && Boolean(currentProjectId);
+  const namingNameTaken = isProjectNameTaken(myProjects, tempProjectName, isRenamingUntitledProject ? currentProjectId : null);
+
   const handleConfirmNaming = (e) => {
     e?.preventDefault();
     const trimmedName = tempProjectName.trim();
-    if (!trimmedName) return;
+    if (!trimmedName || namingNameTaken) return;
 
     // Naming an untitled project that already exists (created by earlier Ask
     // turns) renames it in place: keep its conversation and id.
-    const isRenamingUntitledProject = shouldGenerateAfterNaming && Boolean(currentProjectId);
     if (isRenamingUntitledProject) {
       setProjectName(trimmedName);
       setTempProjectName('');
@@ -2294,6 +2299,7 @@ export default function App() {
         <NamingModal
           name={tempProjectName}
           onNameChange={setTempProjectName}
+          nameTaken={namingNameTaken}
           onConfirm={handleConfirmNaming}
           onCancel={handleCancelNaming}
           studioMode={studioMode}

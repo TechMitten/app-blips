@@ -4,10 +4,11 @@ import Modal from './Modal';
 // Asks for a name before the first generation (or before starting a new app
 // or website). The name state itself stays in App because the
 // generate-after-naming flow reads it.
-export default function NamingModal({ name, onNameChange, onConfirm, onCancel, studioMode = 'app' }) {
+export default function NamingModal({ name, onNameChange, onConfirm, onCancel, studioMode = 'app', nameTaken = false }) {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
   const noun = isWebsite ? 'Website' : isGame ? 'Game' : 'App';
+  const canCreate = Boolean(name.trim()) && !nameTaken;
   return (
     <Modal zIndex={65}>
       <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
@@ -37,7 +38,11 @@ export default function NamingModal({ name, onNameChange, onConfirm, onCancel, s
               placeholder={isWebsite ? 'e.g. Sunrise Bakery, Studio Nova...' : isGame ? 'e.g. Nebula Blaster, Pixel Putt...' : 'e.g. Recipe Assistant, Task Manager...'}
             />
           </div>
-          <p className="text-xs text-slate-400">Helps you find this {noun.toLowerCase()} later.</p>
+          {nameTaken ? (
+            <p className="text-xs text-red-600" role="alert">You already have a project with this name. Pick a different one.</p>
+          ) : (
+            <p className="text-xs text-slate-400">Helps you find this {noun.toLowerCase()} later.</p>
+          )}
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button
@@ -49,9 +54,9 @@ export default function NamingModal({ name, onNameChange, onConfirm, onCancel, s
           </button>
           <button
             type="submit"
-            disabled={!name.trim()}
+            disabled={!canCreate}
             className={`rounded-lg px-5 py-2 font-semibold transition-colors active:scale-[0.98] ${
-              !name.trim()
+              !canCreate
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm'
             }`}

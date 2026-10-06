@@ -5,6 +5,7 @@ import {
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { formatModifiedTime } from '../lib/helpers';
+import { isProjectNameTaken } from '../lib/projectsStorage';
 
 // One identifying icon per studio. Tints come from the indigo/sky ramps, which
 // the dark theme remaps (dark fill, light glyph), so both themes stay legible.
@@ -81,6 +82,7 @@ export default function ProjectsListModal({
     && (!trimmedQuery || (p.name || '').toLowerCase().includes(trimmedQuery))
   );
   const isFiltered = Boolean(trimmedQuery) || filter !== 'all';
+  const renameNameTaken = Boolean(editingProjectId) && isProjectNameTaken(projects, editingProjectName, editingProjectId);
 
   const cancelProjectRename = () => {
     setEditingProjectId(null);
@@ -108,7 +110,7 @@ export default function ProjectsListModal({
 
   const submitProjectRename = async (project) => {
     const trimmedName = editingProjectName.trim();
-    if (!trimmedName) return;
+    if (!trimmedName || renameNameTaken) return;
 
     if (trimmedName === (project.name || 'Untitled App')) {
       cancelProjectRename();
@@ -299,22 +301,28 @@ export default function ProjectsListModal({
                     {isEditing ? (
                       /* In-place rename */
                       <form
-                        className="flex min-w-0 flex-1 items-center gap-2"
+                        className="flex min-w-0 flex-1 items-start gap-2"
                         onSubmit={(e) => { e.preventDefault(); submitProjectRename(project); }}
                       >
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editingProjectName}
-                          onChange={(e) => setEditingProjectName(e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          aria-label="Project name"
-                          disabled={isRenaming}
-                          className="h-9 min-w-0 flex-1 rounded-lg border border-indigo-500 bg-surface px-3 text-sm font-medium text-slate-900 outline-none ring-2 ring-indigo-500/20 dark:bg-black/40"
-                        />
+                        <div className="min-w-0 flex-1">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingProjectName}
+                            onChange={(e) => setEditingProjectName(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            aria-label="Project name"
+                            aria-invalid={renameNameTaken}
+                            disabled={isRenaming}
+                            className={`h-9 w-full rounded-lg border bg-surface px-3 text-sm font-medium text-slate-900 outline-none ring-2 dark:bg-black/40 ${renameNameTaken ? 'border-red-500 ring-red-500/20' : 'border-indigo-500 ring-indigo-500/20'}`}
+                          />
+                          {renameNameTaken && (
+                            <p className="mt-1 text-xs text-red-600" role="alert">Another project already has this name.</p>
+                          )}
+                        </div>
                         <button
                           type="submit"
-                          disabled={!editingProjectName.trim() || isRenaming}
+                          disabled={!editingProjectName.trim() || renameNameTaken || isRenaming}
                           aria-label="Save name"
                           title="Save (Enter)"
                           className="brand-fill-text inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
