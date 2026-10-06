@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import { Readable, pipeline } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
-import { handleDebugUnlock } from './functions/_lib/debugUnlock.js'
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './functions/_lib/billing.js'
@@ -93,29 +92,6 @@ function llmProxyDevMiddleware(mode) {
         })
         const response = await handleChatProxy(request, env)
         sendWebResponse(res, response)
-      }))
-    },
-  }
-}
-
-// PIN gate for the hidden raw-LLM-log panel (functions/_lib/debugUnlock.js).
-function debugUnlockDevMiddleware(mode) {
-  return {
-    name: 'appblips-debug-unlock-dev-middleware',
-    configureServer(server) {
-      const env = loadEnv(mode, process.cwd(), '')
-      server.middlewares.use('/api/debug-unlock', guarded(async (req, res) => {
-        const chunks = []
-        if (req.method === 'POST') for await (const chunk of req) chunks.push(chunk)
-        const request = new Request('http://' + (req.headers.host || 'localhost') + '/api/debug-unlock', {
-          method: req.method,
-          headers: {
-            ...(req.headers['x-forwarded-for'] ? { 'x-forwarded-for': req.headers['x-forwarded-for'] } : {}),
-            ...(req.method === 'POST' ? { 'content-type': 'application/json' } : {}),
-          },
-          ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
-        })
-        sendWebResponse(res, await handleDebugUnlock(request, env))
       }))
     },
   }
@@ -404,7 +380,7 @@ export default defineConfig(({ mode }) => (checkFirebaseConfig(mode), {
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), accountDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
+  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), accountDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // Multi-user features turn on when the operator configures Firebase (the
   // VITE_FIREBASE_* web config, see src/firebase.js). APPBLIPS_MAINTENANCE has no VITE_ prefix but still
   // needs to reach import.meta.env (the server reads the same variable).

@@ -92,7 +92,6 @@ export default function DesktopProviderSettings({ guardRef }) {
         // (e.g. Z.ai glm-5.3-flash) reject, failing a working setup.
         reasoningEffort: CHAT_REASONING_EFFORT,
         userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
-        label: 'provider test',
         retry: false,
       });
       setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });

@@ -2,7 +2,6 @@ import authProvider from './auth';
 import { firebaseEnabled } from '../firebase';
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { checkSyntax } from './syntaxCheck';
-import { beginRawEntry, recordRaw } from './rawLog';
 import { activeUserProvider } from './config';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
@@ -100,8 +99,7 @@ export const generateClarifyingQuestion = async ({
     tools: [ASK_CLARIFYING_QUESTIONS_TOOL],
     tool_choice: 'auto',
     reasoningEffort: CHAT_REASONING_EFFORT,
-    signal,
-    label: 'clarifying question'
+    signal
   });
 
   const toolCall = message.tool_calls?.find(t => t.function?.name === 'ask_clarifying_questions');
@@ -146,7 +144,6 @@ export const generateChatReply = async ({
     messages,
     reasoningEffort: CHAT_REASONING_EFFORT,
     signal,
-    label: 'chat reply',
     onChunk: (delta, kind) => {
       if (kind !== 'content') return;
       streamed += delta;
@@ -157,20 +154,6 @@ export const generateChatReply = async ({
   const text = (streamed || message.content || '').trim();
   return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
 };
-
-// Best-effort purpose for the raw debug log when a caller passes no `label`.
-const inferRawLabel = ({ tools, askMode, forceTemperatureZero }) => {
-  if (askMode) return 'ask';
-  if (forceTemperatureZero) return 'auto-fix';
-  const names = (tools || []).map((t) => t?.function?.name).filter(Boolean);
-  return names.length ? `tools: ${names.join(', ')}` : 'completion';
-};
-
-// Raw debug-log entries for the parts of the loop that never reach the model
-// call itself: tool execution results and the corrective re-prompts.
-const logToolResult = (toolCall, result) =>
-  recordRaw({ kind: 'tool_result', label: toolCall?.function?.name || 'tool', toolCall, result });
-const logNote = (label, text) => recordRaw({ kind: 'note', label, text });
 
 // Reasoning a provider returns alongside a reply. Providers name it
 // differently (reasoning_content, reasoning, reasoning_details) and several
@@ -227,7 +210,6 @@ export const requestModelText = async ({
   signal = null,
   forceTemperatureZero = false,
   askMode = false,
-  label = null,
   // { id, model, apiKey } to use instead of the saved Settings → AI provider
   // (the settings "Test connection" button); undefined = read the saved one.
   userProvider = undefined,
@@ -235,10 +217,6 @@ export const requestModelText = async ({
   retry = true
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
-  // Raw debug-log handle; stays null until the request body exists, and inert
-  // unless the PIN-gated panel has been unlocked.
-  let rawEntry = null;
-
   try {
     const token = await authProvider.getIdToken();
 
@@ -268,16 +246,8 @@ export const requestModelText = async ({
       activeBuild.started = true;
     }
 
-    rawEntry = beginRawEntry({
-      kind: 'request',
-      label: label || inferRawLabel({ tools, askMode, forceTemperatureZero }),
-      attempt: retryCount + 1,
-      request: bodyObj,
-    });
-
-    // The user's own provider rides along with the request but is added only
-    // to the wire copy: bodyObj is what the raw debug log records, and the key
-    // must never show up there.
+    // The user's own provider rides along with the request, added only to the
+    // wire copy so the key never lands in bodyObj.
     const provider = userProvider === undefined ? activeUserProvider() : userProvider;
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -297,7 +267,6 @@ export const requestModelText = async ({
       // balance, busy model, ...) and passes its reason along; only this
       // app's own limiter is "you're sending requests too quickly".
       const errData = await response.json().catch(() => null);
-      rawEntry?.update({ status: 429, errorBody: errData });
       const fromProvider = errData?.source === 'provider' && typeof errData.error === 'string';
       const err = new Error(fromProvider
         ? errData.error
@@ -310,10 +279,8 @@ export const requestModelText = async ({
     if (!response.ok) {
       let message = `API Error: ${response.status}`;
       let errData = null;
-      rawEntry?.update({ status: response.status });
       try {
         errData = await response.json();
-        rawEntry?.update({ errorBody: errData });
         if (errData?.error) {
           message = typeof errData.error === 'string' ? errData.error : JSON.stringify(errData.error);
         }
@@ -334,7 +301,6 @@ export const requestModelText = async ({
 
     if (!onChunk) {
       const data = await response.json();
-      rawEntry?.finish({ status: response.status, response: data });
       return data.choices[0].message;
     }
 
@@ -342,12 +308,9 @@ export const requestModelText = async ({
     const STREAM_READ_TIMEOUT_MS = 180000;
 
     let text = '';
-    let reasoning = '';
     // Provider reasoning fields to echo back, keyed by field name.
     const echoed = {};
     let toolCallsBuffer = [];
-    let finishReason;
-    let usage;
 
     // With reasoning on, the model thinks silently (or streams hidden
     // reasoning_content) before any output. Bracket that window so the UI can
@@ -390,22 +353,17 @@ export const requestModelText = async ({
         const trimmedLine = line.trim();
         if (trimmedLine.startsWith('data: ')) {
           const data = trimmedLine.slice(6);
-          rawEntry?.stream(data);
           if (data === '[DONE]') {
             isDone = true;
             break;
           }
           try {
             const json = JSON.parse(data);
-            // Read before `choices[0]` below, which throws on usage-only chunks.
-            if (json.usage) usage = json.usage;
-            if (json.choices?.[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
             const delta = json.choices[0]?.delta;
             
             if (delta?.content) {
               endThinking();
               text += delta.content;
-              rawEntry?.progress({ text });
               onChunk(delta.content, 'content');
             }
 
@@ -424,8 +382,6 @@ export const requestModelText = async ({
               mergeReasoningDetails(echoed.reasoning_details ??= [], delta.reasoning_details);
             }
             if (reasoningDelta) {
-              reasoning += reasoningDelta;
-              rawEntry?.progress({ reasoning });
               onChunk(reasoningDelta, 'reasoning');
             }
 
@@ -474,26 +430,15 @@ export const requestModelText = async ({
 
     endThinking();
     if (onChunk) onChunk('', 'edit_stream_done');
-    rawEntry?.finish({
-      status: response.status,
-      text,
-      reasoning: reasoning || undefined,
-      reasoningDetails: echoed.reasoning_details,
-      toolCalls: toolCallsBuffer.filter(Boolean),
-      finishReason,
-      usage,
-    });
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean) };
   } catch (err) {
     if (onChunk) onChunk('', 'thinking_end');
-    const aborted = signal?.aborted || err.name === 'AbortError';
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
-    rawEntry?.finish({ error: aborted ? 'Aborted' : (err.message || String(err)), willRetry });
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     if (willRetry) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, label, userProvider
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, userProvider
       });
     }
     const failure = new Error(err.message || 'Failed to generate app.');
@@ -591,8 +536,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
           ],
           onChunk: forwardLive,
           signal,
-          reasoningEffort,
-          label: `create page: ${pageName}`
+          reasoningEffort
         });
         html = sanitizeHtmlResponse(message.content || message || '');
       }
@@ -746,8 +690,7 @@ const generateAppCodeCore = async (
         onChunk,
         signal,
         forceTemperatureZero: isAutoFix,
-        reasoningEffort: buildEffort,
-        label: isAutoFix ? 'auto-fix build' : 'initial build'
+        reasoningEffort: buildEffort
       });
 
       rawText = message.content || message;
@@ -782,13 +725,11 @@ const generateAppCodeCore = async (
           tool_choice: 'required',
           signal,
           forceTemperatureZero: true,
-          reasoningEffort: EDIT_REASONING_EFFORT,
-          label: 'syntax repair'
+          reasoningEffort: EDIT_REASONING_EFFORT
         });
         repairMessages.push(assistantTurn(repairMessage));
 
         if (!repairMessage.tool_calls || repairMessage.tool_calls.length === 0) {
-          logNote('re-prompt: no tool called', 'You must call the apply_surgical_edits tool to fix the syntax errors.');
           repairMessages.push({ role: 'user', content: 'You must call the apply_surgical_edits tool to fix the syntax errors.' });
           continue;
         }
@@ -801,7 +742,6 @@ const generateAppCodeCore = async (
           const result = executeRefinementTool(nextCode, toolCall);
           nextCode = result.code;
           if (result.applied) editsApplied = true;
-          logToolResult(toolCall, result.result);
           repairMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result.result) });
         }
 
@@ -809,11 +749,9 @@ const generateAppCodeCore = async (
           code = nextCode;
           check = checkSyntax(code);
           if (check.errors.length) {
-            logNote('re-prompt: syntax errors remain', buildSyntaxRepairInstruction(check.errors));
             repairMessages.push({ role: 'user', content: buildSyntaxRepairInstruction(check.errors) });
           }
         } else {
-          logNote('re-prompt: no edits applied', 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.');
           repairMessages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
         }
       }
@@ -866,7 +804,6 @@ const generateAppCodeCore = async (
   const nudgeSyntaxRepair = () => {
     syntaxRepairCycles++;
     if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
-    logNote('re-prompt: syntax errors', buildSyntaxRepairInstruction(syntaxErrors));
     messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
   };
 
@@ -897,8 +834,7 @@ const generateAppCodeCore = async (
       tool_choice: turn === 1 ? 'required' : 'auto',
       signal,
       forceTemperatureZero: true,
-      reasoningEffort: EDIT_REASONING_EFFORT,
-      label: `refine turn ${turn}`
+      reasoningEffort: EDIT_REASONING_EFFORT
     });
 
     if (message.content && message.content.trim()) {
@@ -918,7 +854,6 @@ const generateAppCodeCore = async (
         if (brokenLinks.length && linkRepairCycles < MAX_LINK_REPAIR_ATTEMPTS) {
           linkRepairCycles++;
           if (onChunk) onChunk('Fixing links between pages…', 'status');
-          logNote('re-prompt: broken links', buildBrokenLinkInstruction(brokenLinks));
           messages.push({ role: 'user', content: buildBrokenLinkInstruction(brokenLinks) });
           continue;
         }
@@ -934,7 +869,6 @@ const generateAppCodeCore = async (
       }
       if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
       nudged = true;
-      logNote('re-prompt: no tool called', 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.');
       messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
       continue;
     }
@@ -956,7 +890,6 @@ const generateAppCodeCore = async (
       const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);
       workingFiles = nextFiles;
       if (applied) editsApplied = true;
-      logToolResult(toolCall, result);
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
 
@@ -976,7 +909,6 @@ const generateAppCodeCore = async (
             parsed.syntaxErrors = syntaxErrors;
             parsed.instruction = buildSyntaxRepairInstruction(syntaxErrors);
             lastMsg.content = JSON.stringify(parsed);
-            logNote('syntax errors appended to tool result', parsed.instruction);
           } catch {
             messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
           }
@@ -1022,8 +954,7 @@ const generateCompletionReply = async ({ prompt, editMode, studioMode, signal })
         { role: 'user', content: `Request: ${prompt}` }
       ],
       reasoningEffort: CHAT_REASONING_EFFORT,
-      signal,
-      label: 'completion reply'
+      signal
     });
     const text = String(message?.content || '').trim().replace(/^["'“”]+|["'“”]+$/g, '').trim();
     return text || fallback;

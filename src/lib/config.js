@@ -15,10 +15,6 @@ export const safeStorage = (kind) => {
   }
 };
 
-// sessionStorage flag remembering that the raw-log panel was unlocked in this
-// tab. UI convenience only -- the PIN itself is checked server-side.
-export const DEBUG_UNLOCKED_KEY = 'orion-debug-unlocked';
-
 export const THEME_KEY = 'orion-theme';
 // Mirrored by the pre-paint script in index.html -- keep both in sync.
 // Light matches the canvas token (--color-slate-50 in index.css).

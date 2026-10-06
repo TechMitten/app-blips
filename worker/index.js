@@ -3,7 +3,6 @@
 // without a Pages site. The handlers are written with Fetch primitives only,
 // so they run unchanged on Workers.
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
-import { handleDebugUnlock } from '../functions/_lib/debugUnlock.js';
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from '../functions/_lib/umamiProxy.js';
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from '../functions/_lib/billing.js';
 import { handleDeployUpload, handleDeployDelete } from '../functions/_lib/deploys.js';
@@ -20,8 +19,6 @@ export default {
     switch (url.pathname) {
       case '/api/chat':
         return request.method === 'POST' ? handleChatProxy(request, env, waitUntil) : methodNotAllowed();
-      case '/api/debug-unlock':
-        return request.method === 'POST' ? handleDebugUnlock(request, env) : methodNotAllowed();
       case '/api/analytics/website':
         return request.method === 'POST' ? handleAnalyticsWebsiteCreate(request, env) : methodNotAllowed();
       case '/api/analytics/stats':

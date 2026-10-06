@@ -16,7 +16,6 @@ import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
-import { handleDebugUnlock } from '../functions/_lib/debugUnlock.js';
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { resolveProvider } from '../functions/_lib/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
@@ -175,8 +174,6 @@ async function handleAppRequest(request) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
         return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request), handlerEnv()));
-      case '/api/debug-unlock':
-        return withSecurityHeaders(await handleDebugUnlock(request, handlerEnv()));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });
