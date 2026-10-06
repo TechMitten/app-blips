@@ -29,10 +29,15 @@ export const emptyUsage = () => ({
 // YYYY-MM-DD. Needs the (user_id, date) index in firestore.indexes.json.
 export const sumPeriodTokens = async (env, uid, fromDate, beforeDate) => {
   if (fromDate >= beforeDate) return 0;
-  const sums = await sumQuery(env, 'usage', ['builder_tokens', 'deployed_tokens'], {
-    where: [['user_id', '==', uid], ['date', '>=', fromDate], ['date', '<', beforeDate]],
-  });
-  return sums.builder_tokens + sums.deployed_tokens;
+  try {
+    const sums = await sumQuery(env, 'usage', ['builder_tokens', 'deployed_tokens'], {
+      where: [['user_id', '==', uid], ['date', '>=', fromDate], ['date', '<', beforeDate]],
+    });
+    return sums.builder_tokens + sums.deployed_tokens;
+  } catch (err) {
+    console.error('[usage] sumPeriodTokens failed:', err?.message || err);
+    return 0;
+  }
 };
 
 const nonNegative = (value) => Math.max(Number(value) || 0, 0);

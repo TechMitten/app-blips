@@ -2121,7 +2121,7 @@ export default function App() {
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen skip={skipSplash || !splashDue} />
-      {!showHero && (
+      {!showHero && !isResumingProject && (
       <Header
         projectName={projectName}
         onNewApp={handleNewApp}
@@ -2155,7 +2155,7 @@ export default function App() {
       />
       )}
 
-      {!showHero && <TourInvitation onStart={startTour} />}
+      {!showHero && !isResumingProject && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
         <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
@@ -2302,7 +2302,7 @@ export default function App() {
         <AuthModal onClose={handleCloseAuthModal} />
       )}
 
-      {showHero ? (
+      {isResumingProject ? null : showHero ? (
         <HeroLanding
           studioMode={studioMode}
           chatMode={chatMode}

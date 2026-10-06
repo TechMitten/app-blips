@@ -204,7 +204,11 @@ export const cancelSubscriptionFor = async (env, uid) => {
   if (!stripeKey(env)) return;
   const row = await subscriptionRow(env, uid);
   if (!row?.stripe_subscription_id || !ACTIVE_STATUSES.includes(row.status)) return;
-  await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(row.stripe_subscription_id)}`);
+  try {
+    await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(row.stripe_subscription_id)}`);
+  } catch (err) {
+    console.warn(`[billing] could not cancel Stripe subscription for ${uid}:`, err?.message || err);
+  }
 };
 
 // --- Stripe REST ---------------------------------------------------------
