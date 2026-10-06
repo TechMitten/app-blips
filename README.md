@@ -64,9 +64,13 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [int
 
 ## Quick start
 
+### Use AppBlips online (recommended)
+
+The quickest way to start: open **[start.appblips.com](https://start.appblips.com)**, sign in with Google or GitHub, and type what you want to build. There's nothing to install and no AI key to set up, your projects sync to your account, and you can publish apps with a shareable link. The Plus plan starts with a free trial; see [Pricing](https://docs.appblips.com/pricing).
+
 ### Desktop app (Windows and Linux)
 
-Want your own copy on your computer? Download the installer for your system from **[Releases](https://github.com/TechMitten/app-blips/releases)**:
+Want your own copy on your computer instead? Download the installer for your system from **[Releases](https://github.com/TechMitten/app-blips/releases)**:
 
 - **Windows:** `AppBlips-Setup-<version>.exe`
 - **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
@@ -75,7 +79,7 @@ The first time you open it, AppBlips asks for a model and your API key. DeepSeek
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
-On macOS there is no installer yet. Use AppBlips on the web at [appblips.com](https://appblips.com) for now.
+On macOS there is no installer yet. Use [AppBlips online](#use-appblips-online-recommended) instead.
 
 ## Project structure
 
