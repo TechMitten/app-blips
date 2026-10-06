@@ -4,6 +4,7 @@ import { isDesktop } from '../lib/desktop';
 import { LogIn, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, CircleAlert, MailCheck } from 'lucide-react';
 import Modal from './Modal';
 import { isPlausibleEmail, suggestEmailFix } from '../lib/emailCheck';
+import { maintenanceMode } from '../lib/maintenance';
 
 const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
@@ -164,7 +165,9 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
   const title = isReset ? 'Reset your password' : 'Welcome to AppBlips';
   const subtitle = isReset
     ? "Enter your email and we'll send you a link to choose a new password."
-    : 'Sign in or create an account to build, save and share your apps.';
+    : maintenanceMode
+      ? 'Sign in to your account. New sign-ups are paused during maintenance.'
+      : 'Sign in or create an account to build, save and share your apps.';
   const submitLabel = isReset ? 'Send reset link' : 'Sign in';
   const loadingLabel = isReset ? 'Sending…' : 'Signing in…';
   const HeaderIcon = isReset ? KeyRound : LogIn;
@@ -323,6 +326,10 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
           <>Email sign-in is for existing accounts.{' '}
             <button type="button" onClick={() => setShowEmailForm(false)} disabled={busy} className={LINK_CLASS}>Other options</button>
           </>
+        ) : maintenanceMode ? (
+          // The block itself is Supabase's "Allow new users to sign up"
+          // switch; this only tells people before they try.
+          'New sign-ups are paused while AppBlips is down for maintenance.'
         ) : (
           'New here? Continue with Google or GitHub.'
         )}

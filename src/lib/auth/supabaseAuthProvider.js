@@ -60,16 +60,23 @@ const consumeEmailLink = () => {
 // the studio picker for no reason; consume it so the auth modal can say why.
 // Returns a message, or null when the URL carries no OAuth error.
 const OAUTH_ERROR_PARAMS = ['error', 'error_code', 'error_description'];
+// Sign-ups switched off in Supabase (Authentication -> Sign In / Providers),
+// as during maintenance: a new Google/GitHub user is refused, existing
+// accounts still sign in.
+const SIGNUPS_CLOSED_MESSAGE = 'New sign-ups are paused right now. If you already have an account, sign in with the same Google or GitHub account you used before.';
+const isSignupsClosed = (text) => /signup_disabled|signups not allowed/i.test(String(text || ''));
 const consumeOAuthError = () => {
   const search = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const source = search.has('error') ? search : hash.has('error') ? hash : null;
   if (!source) return null;
   const description = source.get('error_description') || source.get('error');
+  const signupsClosed = isSignupsClosed(source.get('error_code')) || isSignupsClosed(description);
   OAUTH_ERROR_PARAMS.forEach((key) => { search.delete(key); hash.delete(key); });
   const query = search.toString();
   const fragment = hash.toString();
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${fragment ? `#${fragment}` : ''}`);
+  if (signupsClosed) return SIGNUPS_CLOSED_MESSAGE;
   // The provider handed back verified emails that belong to more than one
   // existing account, so Supabase can't pick one to link the identity to.
   if (/multiple accounts with the same email/i.test(description)) {
@@ -105,6 +112,7 @@ const signInWithOAuth = async (provider) => {
     throwIfError(await supabase.auth.exchangeCodeForSession(code));
   } catch (err) {
     desktopBridge.auth.cancel().catch(() => {});
+    if (isSignupsClosed(err?.code) || isSignupsClosed(err?.message)) throw new Error(SIGNUPS_CLOSED_MESSAGE);
     throw err;
   }
 };
