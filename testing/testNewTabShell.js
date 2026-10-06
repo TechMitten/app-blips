@@ -103,52 +103,11 @@ test('ignores other windows, stale tokens, other channels and non-page links', (
   assert.equal(loads.length, 1);
 });
 
-test('AI is refused when the switch was off', async () => {
-  const { posted, message, fetches } = boot({ aiMode: 'off' }, { fetchImpl: () => assert.fail('no fetch') });
+test('AI requests from the page are ignored and never fetched', async () => {
+  const { posted, message, fetches } = boot({}, { fetchImpl: () => assert.fail('no fetch') });
+  const before = posted.length;
   message('ai-chat-request', { requestId: 'r1', messages: [{ role: 'user', content: 'hi' }] });
   await flush();
   assert.equal(fetches.length, 0);
-  assert.equal(posted.at(-1).msg.type, 'ai-chat-error');
-  assert.equal(posted.at(-1).msg.payload.code, 'unauthorized');
-});
-
-test('relay mode forwards AI to the relay and streams the reply back', async () => {
-  const sse = 'data: {"choices":[{"delta":{"content":"Hel"}}]}\n\ndata: {"choices":[{"delta":{"content":"lo"}}]}\n\ndata: [DONE]\n\n';
-  const { posted, message, fetches, loads } = boot(
-    { aiMode: 'relay', relayUrl: 'http://localhost:5175/api/app-ai/chat' },
-    { fetchImpl: async () => new Response(sse, { status: 200 }) },
-  );
-  assert.ok(/var AI_ENABLED = true;/.test(loads[0]));
-  message('ai-chat-request', { requestId: 'r1', messages: [{ role: 'tool', content: 5 }, { role: 'user', content: 'hi' }], temperature: 0.3, maxTokens: 50 });
-  await flush();
-  assert.equal(fetches.length, 1);
-  assert.equal(fetches[0].url, 'http://localhost:5175/api/app-ai/chat');
-  assert.deepEqual(JSON.parse(fetches[0].init.body), {
-    messages: [{ role: 'user', content: '5' }, { role: 'user', content: 'hi' }],
-    stream: true,
-    temperature: 0.3,
-    max_tokens: 50,
-  });
-  const ai = posted.filter((p) => p.msg.type.startsWith('ai-chat'));
-  assert.deepEqual(ai.map((p) => [p.msg.type, p.msg.payload.text]), [
-    ['ai-chat-chunk', 'Hel'], ['ai-chat-chunk', 'lo'], ['ai-chat-response', 'Hello'],
-  ]);
-});
-
-test('relay errors come back as bridge error codes', async () => {
-  const { posted, message } = boot(
-    { aiMode: 'relay', relayUrl: 'http://x/api/app-ai/chat' },
-    { fetchImpl: async () => new Response('{}', { status: 429 }) },
-  );
-  message('ai-chat-request', { requestId: 'r1', messages: [] });
-  await flush();
-  assert.equal(posted.at(-1).msg.type, 'ai-chat-error');
-  assert.equal(posted.at(-1).msg.payload.code, 'rate_limited');
-});
-
-test('BYOK pages get the BYOK bridge and no shell AI', () => {
-  const { loads, data } = boot({ aiMode: 'byok', relayUrl: 'http://ignored' });
-  assert.ok(/var AI_ENABLED = false;/.test(loads[0]));
-  assert.ok(loads[0].includes('"byok"'));
-  assert.equal(data.relayUrl, '');
+  assert.equal(posted.length, before);
 });

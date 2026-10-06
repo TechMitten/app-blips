@@ -1,9 +1,5 @@
 // LLM providers the proxies can talk to.
 // We only use OpenRouter. The variables follow OPENAI_LLM_* standard names.
-//
-// AI inside generated apps (the APPBLIPS_APP_* relays) always uses the
-// builder's provider -- see resolveAppProvider.
-
 
 const PROVIDERS = {
   openrouter: {
@@ -60,8 +56,7 @@ export const renamedLlmVars = (env) => Object.keys(LLM_ENV)
 export const providerVarScope = (id, prefix = 'APPBLIPS_LLM') =>
   `${prefix.replace(/_LLM$/, '')}_${id.toUpperCase().replace(/-/g, '_')}`;
 
-// Variable names for one provider's block. prefix: 'APPBLIPS_LLM' (also used
-// to list the retired APPBLIPS_APP_LLM names).
+// Variable names for one provider's block. prefix: 'APPBLIPS_LLM'.
 const varNames = (id, prefix) => {
   const generic = prefix === 'APPBLIPS_LLM'
     ? { apiKey: LLM_ENV.API_KEY, model: LLM_ENV.MODEL, baseUrl: LLM_ENV.BASE_URL }
@@ -181,43 +176,6 @@ const missingVars = (provider) => [
   !provider.model && provider.vars.model,
   !provider.baseUrl && provider.vars.baseUrl,
 ].filter(Boolean);
-
-// Provider-selection variables that generated-app AI used to accept for a
-// separate key. They are no longer read: generated apps always share the
-// builder's provider. Listed so the startup summary can flag leftovers.
-export const IGNORED_APP_PROVIDER_VARS = [
-  'APPBLIPS_APP_LLM_PROVIDER',
-  'APPBLIPS_APP_LLM_API_KEY',
-  'APPBLIPS_APP_LLM_MODEL',
-  'APPBLIPS_APP_LLM_BASE_URL',
-  ...PROVIDER_IDS.filter((id) => id !== DEFAULT_PROVIDER).flatMap((id) => {
-    const own = varNames(id, 'APPBLIPS_APP_LLM').own;
-    return [own.apiKey, own.model, own.baseUrl];
-  }),
-];
-
-export const ignoredAppProviderVars = (env) => IGNORED_APP_PROVIDER_VARS.filter((name) => read(env, name));
-
-// Limits for AI calls made by generated apps (the only generated-app AI
-// settings; the provider is always the builder's). Read as
-// APPBLIPS_APP_AI_<NAME>, falling back to the pre-rename APPBLIPS_APP_LLM_<NAME>
-// so existing deployments keep working until their env is updated.
-export const APP_AI_LIMITS = ['MAX_TOKENS', 'TEMPERATURE', 'REASONING_EFFORT'];
-
-// APPBLIPS_GENERATED_AI_MODE=off switches AI inside generated apps off. The
-// client hides it (src/lib/generatedAiMode.js), and the relays refuse so apps
-// deployed while it was on stop spending the operator's key too.
-export const appAiDisabled = (env) => String(env?.APPBLIPS_GENERATED_AI_MODE || '').trim().toLowerCase() === 'off';
-export const appAiLimit = (env, name) => read(env, `APPBLIPS_APP_AI_${name}`) || read(env, `APPBLIPS_APP_LLM_${name}`);
-export const renamedAppAiLimits = (env) => APP_AI_LIMITS
-  .filter((name) => read(env, `APPBLIPS_APP_LLM_${name}`))
-  .map((name) => ({ from: `APPBLIPS_APP_LLM_${name}`, to: `APPBLIPS_APP_AI_${name}` }));
-
-// Provider for AI inside generated apps (the hosted /ai/chat relay and the
-// self-hosted /api/app-ai/chat relay): always exactly the builder's provider,
-// key, endpoint, model and request format. Token cap, temperature and
-// reasoning effort are separate (appAiLimit) and never inherited.
-export const resolveAppProvider = (env, options) => resolveProvider(env, 'APPBLIPS_LLM', options);
 
 // Adapts an OpenAI-style request body in place to what `provider` accepts:
 // writes the reasoning setting, drops stream_options where unsupported, and

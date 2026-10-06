@@ -7,7 +7,7 @@
 // encryptString, decryptString, getSelectedStorageBackend? }), so it can be
 // tested without Electron.
 import { readFileSync } from 'node:fs';
-import { USER_PROVIDER_OPTIONS, providerVarScope, LLM_ENV } from '../functions/_lib/providers.js';
+import { USER_PROVIDER_OPTIONS } from '../functions/_lib/providers.js';
 import { writeFileAtomic } from './projectStore.js';
 
 const PROVIDER_IDS = new Set(USER_PROVIDER_OPTIONS.map((p) => p.id));
@@ -99,29 +99,4 @@ export function createProviderStore({ file, crypto }) {
       return id && id === state.id ? decryptKey() : '';
     },
   };
-}
-
-// Env for the server handlers with the desktop provider applied, so the
-// generated-app relay (which only reads env) uses the same provider as the
-// builder. The operator-style overrides are dropped, matching how
-// resolveUserProvider ignores them for a user's own key.
-export function providerEnv(baseEnv, active) {
-  if (!active) return baseEnv;
-  const scope = providerVarScope(active.id);
-  const env = { ...baseEnv };
-  for (const name of [
-    LLM_ENV.BASE_URL, 'APPBLIPS_LLM_BASE_URL',
-    // The generic key is read before the provider's own one, so a leftover
-    // OPENAI_API_KEY would replace the user's saved key.
-    LLM_ENV.API_KEY, 'APPBLIPS_LLM_API_KEY',
-    // Per-role models name the operator's provider's models, not this one's.
-    LLM_ENV.VISION_MODEL, LLM_ENV.ASK_MODEL, 'APPBLIPS_LLM_VISION_MODEL', 'APPBLIPS_LLM_ASK_MODEL',
-    `${scope}_MODEL`, `${scope}_BASE_URL`,
-  ]) {
-    delete env[name];
-  }
-  env[LLM_ENV.PROVIDER] = active.id;
-  env[`${scope}_API_KEY`] = active.apiKey;
-  env[LLM_ENV.MODEL] = active.model;
-  return env;
 }

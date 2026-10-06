@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
-import { requestModelText } from '../lib/llm';
 
 // --- Preview bridge ---
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -23,7 +22,6 @@ export default function usePreviewBridge({
   onRuntimeError,
   onReady,
   onStorageChange,
-  aiEnabled = false,
   editingEnabled = false,
   // Drag mode: a sub-mode of editing in which dragging moves elements and a
   // click selects without starting in-place text editing.
@@ -72,9 +70,6 @@ export default function usePreviewBridge({
   // toggle must not re-run the whole handshake effect.
   const editingEnabledRef = useRef(editingEnabled);
   const dragEnabledRef = useRef(dragEnabled);
-  // Read live so toggling AI never re-runs the handshake effect (or reloads).
-  const aiEnabledRef = useRef(aiEnabled);
-  useEffect(() => { aiEnabledRef.current = aiEnabled; }, [aiEnabled]);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
   const pendingCapturesRef = useRef(new Map());
@@ -197,32 +192,6 @@ export default function usePreviewBridge({
         push();
         forceRepaint();
         if (onReadyRef.current) onReadyRef.current({ token: data.token });
-      }
-      else if (data.type === "ai-chat-request") {
-        const requestId = data.payload?.requestId;
-        if (!aiEnabledRef.current || !requestId || !Array.isArray(data.payload?.messages)) {
-          send("ai-chat-error", { requestId, code: "unauthorized", message: "AI capabilities are disabled." }, data.token);
-          return;
-        }
-        const messages = data.payload.messages.slice(0, 64).map((message) => ({
-          role: ["system", "user", "assistant"].includes(message?.role) ? message.role : "user",
-          content: typeof message?.content === "string" ? message.content : String(message?.content ?? ""),
-        }));
-        requestModelText({
-          messages,
-          label: 'generated-app AI',
-          onChunk: (chunk, kind) => {
-            if (kind === "content") send("ai-chat-chunk", { requestId, text: chunk }, data.token);
-          },
-        }).then((message) => {
-          send("ai-chat-response", { requestId, text: String(message?.content || "") }, data.token);
-        }).catch((error) => {
-          send("ai-chat-error", {
-            requestId,
-            code: error?.isRateLimit ? "rate_limited" : (/session|sign in/i.test(error?.message || "") ? "unauthorized" : "upstream_error"),
-            message: "AI request failed.",
-          }, data.token);
-        });
       }
       else if (data.type === 'navigate-page') {
         // Untrusted href from the frame: the handler only acts on it if it

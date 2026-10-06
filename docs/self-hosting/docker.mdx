@@ -8,7 +8,7 @@ description: "Run your own copy of AppBlips on your computer with Docker Compose
   This is an advanced option. Most people should install the [desktop app](/quickstart-desktop) instead.
 </Note>
 
-Docker is an alternative to `npm run dev` for running AppBlips on your own computer. A single `docker compose up --build` command builds the client, packages it with a small Node server, and starts everything together — no Node.js installation needed on your machine. The server handles the builder API and the AI relay for your generated apps, and serves the built client directly.
+Docker is an alternative to `npm run dev` for running AppBlips on your own computer. A single `docker compose up --build` command builds the client, packages it with a small Node server, and starts everything together — no Node.js installation needed on your machine. The server handles the builder API and serves the built client directly.
 
 ## Prerequisites
 
@@ -78,24 +78,9 @@ ports:
   Removing the `127.0.0.1:` prefix makes AppBlips reachable from other devices on your network. It has no sign-in, so anyone who can reach it can spend your API key.
 </Warning>
 
-## Rebuilding After Config Changes
+## Applying Config Changes
 
-Most configuration variables are read at runtime when the server starts. After changing them in `.env`, run `docker compose up` again: Compose sees the new values and recreates the container. A plain `docker compose restart` keeps the old values.
-
-<Warning>
-  **Two variables are baked into the client at build time:** `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL`. A plain restart does **not** pick up new values for these — you must rebuild the image by running `docker compose up --build` again after changing either one.
-</Warning>
-
-## Runtime vs Build-Time Variables
-
-Understanding which variables take effect when helps you avoid surprising behaviour:
-
-| Type | Variables | How to apply a change |
-|---|---|---|
-| **Build-time** | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | `docker compose up --build` |
-| **Runtime** | All other variables (`OPENAI_*`, `APPBLIPS_*`) | `docker compose up` |
-
-Build-time variables are embedded into the compiled client bundle during the `npm run build` step inside Docker. Runtime variables are passed to the container from the `.env` file when it is created, and read by the Node server on startup.
+Configuration is read when the server starts. After changing `.env`, run `docker compose up` again: Compose sees the new values and recreates the container. A plain `docker compose restart` keeps the old values.
 
 ## Stopping and Updating
 

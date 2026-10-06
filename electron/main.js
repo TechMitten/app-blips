@@ -16,12 +16,11 @@ import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
-import { handleSelfHostedAiChat } from '../functions/_lib/selfHostedAiRelay.js';
 import { handleDebugUnlock } from '../functions/_lib/debugUnlock.js';
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { resolveProvider } from '../functions/_lib/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
-import { createProviderStore, providerEnv } from './providerStore.js';
+import { createProviderStore } from './providerStore.js';
 import { createUpdater } from './updater.js';
 import { createOAuthLoopback, isSupabaseAuthorizeUrl } from './oauthLoopback.js';
 
@@ -96,20 +95,15 @@ async function writeSettings(patch) {
 const BAKED_SUPABASE_URL = __APPBLIPS_SUPABASE_URL__;
 const BAKED_SUPABASE_PUBLISHABLE_KEY = __APPBLIPS_SUPABASE_PUBLISHABLE_KEY__;
 
-// Env for the handlers: the provider saved in Settings → AI plus any baked
-// Supabase config. Node's URL gives a custom scheme the origin "null", so the
-// relay cannot recognise appblips://app as its own origin; it is allow-listed
-// instead. The Open in new tab shell (a blob: window opened from the app)
-// shares that origin and calls the relay for its sandboxed app.
+// Env for the handlers: process env plus any baked Supabase config. The
+// provider saved in Settings → AI travels with each request instead (see
+// withSavedProvider).
 function handlerEnv() {
-  const base = {
+  return {
     ...process.env,
     SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || BAKED_SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || BAKED_SUPABASE_PUBLISHABLE_KEY,
-    APPBLIPS_GENERATED_AI_MODE: 'relay',
-    APPBLIPS_APP_AI_ALLOWED_ORIGINS: [process.env.APPBLIPS_APP_AI_ALLOWED_ORIGINS, APP_ORIGIN].filter(Boolean).join(','),
   };
-  return providerEnv(base, providerStore.active());
 }
 
 // The builder sends no key: the saved one is attached here, as the same
@@ -190,8 +184,6 @@ async function handleAppRequest(request) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
         return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request), handlerEnv()));
-      case '/api/app-ai/chat':
-        return withSecurityHeaders(await handleSelfHostedAiChat(request, handlerEnv()));
       case '/api/debug-unlock':
         return withSecurityHeaders(await handleDebugUnlock(request, handlerEnv()));
       default:

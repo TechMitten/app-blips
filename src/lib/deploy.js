@@ -5,7 +5,6 @@ import { injectAnalyticsSnippet } from './analytics';
 import { injectAppAnalyticsSnippet } from './appAnalytics';
 import { injectNoindexSnippet, injectFaviconSnippet, DEFAULT_FAVICON_URL } from './seo';
 import { injectRemixBadgeSnippet } from './remixBadge';
-import { injectAiBridge, AI_SESSION_ENABLED } from './aiBridge';
 import { LANDING_PAGE, getLanding, mapPages, pageNames } from './pages';
 
 // --- Deployment ---
@@ -39,12 +38,6 @@ export const randomToken = (length) => {
 
 // Storage object names stay opaque; only the public slug is human-readable.
 export const makeStorageToken = () => randomToken(10);
-
-export const makeAiToken = () => {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-};
 
 export const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
 
@@ -94,7 +87,7 @@ export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 // the primary key, so a collision with someone else's app is refused by RLS
 // rather than silently stealing their link; retry with a longer tail.
 export const registerDeployment = async ({
-  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId, aiEnabled, aiToken,
+  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId,
   pageNames: extraPageNames = [], bundle = false, passwordProtected = false
 }) => {
   let candidate = slug;
@@ -102,7 +95,7 @@ export const registerDeployment = async ({
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const { data: existing, error: readError } = await supabase.from('deployments')
-        .select('user_id, ai_token_generation').eq('slug', candidate).maybeSingle();
+        .select('user_id').eq('slug', candidate).maybeSingle();
       if (readError) throw readError;
       if (existing && existing.user_id !== userId) throw new Error('taken');
       const { error } = await supabase.from('deployments').upsert({
@@ -118,12 +111,6 @@ export const registerDeployment = async ({
           name: name || null,
           analytics_enabled: Boolean(analyticsEnabled),
           analytics_website_id: analyticsWebsiteId || null,
-          ai_enabled: Boolean(aiEnabled),
-          // Public by design: this binds/rate-limits a real deployment; it is not a provider secret.
-          ai_token: aiEnabled ? aiToken : null,
-          // Bumping this invalidates every outstanding short-lived AI session
-          // token for the deployment. Redeploying (or toggling AI) rotates it.
-          ai_token_generation: aiEnabled ? (Number(existing?.ai_token_generation || 0) || 0) + 1 : null,
           updated_at: new Date().toISOString()
         });
       if (error) throw error;
@@ -197,15 +184,12 @@ export const sweepUserDeployments = async (uid) => {
 // Uploads every page of the site and reports how it was stored: `pageObjects`
 // are the extra pages uploaded as their own objects; `bundled` means a password
 // deploy put all pages inside the single encrypted landing object.
-export const uploadDeploy = async ({ path, files, password, preventIndexing, favicon, analyticsWebsiteId, aiEnabled, aiToken }) => {
+export const uploadDeploy = async ({ path, files, password, preventIndexing, favicon, analyticsWebsiteId }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   const withExtras = (html) => {
     let out = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
-    // Session mode stops embedding the durable deployment token in the shipped
-    // HTML entirely; the page mints short-lived tokens at runtime instead.
-    if (aiEnabled) out = injectAiBridge(out, { token: AI_SESSION_ENABLED ? null : aiToken });
     if (analyticsWebsiteId) out = injectAppAnalyticsSnippet(out, analyticsWebsiteId);
     if (preventIndexing) out = injectNoindexSnippet(out);
     return injectFaviconSnippet(out, deployFavicon);

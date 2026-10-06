@@ -326,19 +326,6 @@ test('self-hosted builder requests are not rate limited', async (t) => {
   for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `self-hosted request ${i + 1}`);
 });
 
-test('self-hosted app AI relay is not rate limited', async (t) => {
-  const { handleSelfHostedAiChat } = await import('../functions/_lib/selfHostedAiRelay.js');
-  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { headers: { 'content-type': 'application/json' } }));
-  const relayEnv = { ...env, APPBLIPS_APP_AI_RATE_LIMIT_MAX: '1' };
-  for (let i = 0; i < 5; i++) {
-    const response = await handleSelfHostedAiChat(new Request('http://localhost:5175/api/app-ai/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: [{ role: 'user', content: `call ${i}` }] }),
-    }), relayEnv);
-    assert.equal(response.status, 200, `relay request ${i + 1}`);
-  }
-});
-
 test('maintenance mode refuses every request before calling the provider', async (t) => {
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
     throw new Error('provider must not be called');

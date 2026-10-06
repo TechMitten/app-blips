@@ -284,8 +284,7 @@ const HIGH_EFFORTS = ['medium', 'high'];
 // 'build' | 'ask'; anything unrecognised falls back to 'build'.
 export const CHAT_MODE_KEY = 'orion-chat-mode';
 
-// 'build' | 'ask'. The AI stop of the mode reel is Build + aiEnabled, which is
-// saved per project, so only the build/ask half needs remembering here.
+// 'build' | 'ask'.
 export const loadChatMode = () => {
   try {
     return safeStorage('local')?.getItem(CHAT_MODE_KEY) === 'ask' ? 'ask' : 'build';

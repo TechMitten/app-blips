@@ -54,7 +54,7 @@ const FIXTURE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-const { srcDoc, token } = injectPreviewBridge(FIXTURE, { touchEnabled: false, aiEnabled: false });
+const { srcDoc, token } = injectPreviewBridge(FIXTURE, { touchEnabled: false });
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
@@ -106,7 +106,7 @@ const select = async (selector, position = { x: 3, y: 3 }) => {
 
 // Render an edited source and read something back from it.
 const renderAndRead = async (html, fn) => {
-  const injected = injectPreviewBridge(html, { touchEnabled: false, aiEnabled: false });
+  const injected = injectPreviewBridge(html, { touchEnabled: false });
   await load(injected.srcDoc, injected.token);
   return frame.evaluate(fn);
 };

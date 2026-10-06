@@ -1,7 +1,7 @@
 ---
 title: "Configuration Reference for Source and Docker Installs"
 sidebarTitle: "Configuration"
-description: "Every .env variable for a self-hosted AppBlips: AI provider and model, limits and tuning, AI inside your generated apps (which shares the builder's provider), and the debug panel."
+description: "Every .env variable for a self-hosted AppBlips: AI provider and model, limits and tuning, and the debug panel."
 ---
 
 <Note>
@@ -48,8 +48,6 @@ Keys are read only by the AppBlips server and are never sent to the browser.
 
 You can leave these lines blank and choose a provider, model, and API key in the app instead, under [Settings → AI](/reference/settings#your-own-ai-provider). That setting is stored in your browser only, and it takes priority over `.env` while it's switched on. AppBlips then starts with a warning instead of an error.
 
-The in-app setting covers building, editing, chat, and AI in the preview. Apps you export or open in a new tab still call your AppBlips relay, which uses the `.env` provider. Fill it in too if those apps use AI.
-
 ### Other OpenAI-compatible services
 
 Any other service that speaks the OpenAI chat-completions API works too: Ollama, vLLM, LM Studio, LiteLLM, Groq, and so on.
@@ -92,43 +90,6 @@ Any other service that speaks the OpenAI chat-completions API works too: Ollama,
   `/api/chat` refuses browser requests that come from any page other than AppBlips itself, so other websites and the apps you build can't spend your key through it. If you reach AppBlips through a reverse proxy that changes the `Host` header, requests may be refused with "Requests from other sites are not allowed." List the address you open AppBlips at here (comma-separated, exact, for example `https://appblips.mydomain.example`).
 </ParamField>
 
-## AI Inside Your Apps
-
-Apps you build with the **AI** switch on call `blip.ai.text(...)`. They always use the **same provider, key, and model** as the builder, through your own AppBlips (unless you switch to BYOK). There is nothing to configure. See [Relay Mode](/ai/relay-mode) and [BYOK Mode](/ai/byok-mode).
-
-<ParamField body="APPBLIPS_GENERATED_AI_MODE" type="string">
-  - `relay` *(default, or blank)* — apps call your AppBlips at `/api/app-ai/chat`, which uses your provider.
-  - `byok` — each person using a finished app enters their own endpoint, model, and key inside that app.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_AI_RELAY_URL" type="string">
-  URL that generated apps call for AI. Defaults to `/api/app-ai/chat` on your AppBlips; exported apps get it as a full address automatically. Change it only if your relay lives at a different address.
-</ParamField>
-
-<Warning>
-  `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time. After changing either one, restart `npm run dev`, or run `docker compose up --build` with Docker.
-</Warning>
-
-### App AI limits
-
-Generated apps always share the builder's provider, key, endpoint, and model; there is no separate key to configure. Only these limits are separate, and they are never inherited from the builder.
-
-<ParamField body="APPBLIPS_APP_AI_MAX_TOKENS" type="number">
-  Maximum tokens per response. Defaults to `4096`.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_AI_TEMPERATURE" type="number">
-  Sampling temperature. Defaults to `0.2`.
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_AI_REASONING_EFFORT" type="string">
-  Reasoning effort for generated-app AI, for example `none` or `low`. Defaults to `none` (off).
-</ParamField>
-
-<ParamField body="APPBLIPS_APP_AI_ALLOWED_ORIGINS" type="string">
-  Other origins allowed to call the relay, comma-separated and exact. Same-origin callers are always allowed. Add `null` only if you knowingly want local `file://` pages to use your key.
-</ParamField>
-
 ## Debug Panel (optional)
 
 <ParamField body="APPBLIPS_DEBUG_PIN" type="string">
@@ -162,13 +123,5 @@ OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
 OPENAI_BASE_URL=http://localhost:11434/v1
 OPENAI_API_KEY=ollama
 OPENAI_LLM_MODEL=llama3.1
-```
-
-```bash BYOK for app AI
-APPBLIPS_OPENAI_API_KEY=sk-...
-OPENAI_LLM_MODEL=gpt-5.1
-
-# People using your finished apps bring their own key
-APPBLIPS_GENERATED_AI_MODE=byok
 ```
 </CodeGroup>

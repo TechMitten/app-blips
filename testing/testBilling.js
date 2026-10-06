@@ -299,21 +299,6 @@ test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t)
   assert.deepEqual(await response.json(), { enabled: false });
 });
 
-test('APPBLIPS_GENERATED_AI_MODE=off makes the app-AI relays refuse', async () => {
-  const { handleAiChat, handleAiSession } = await import('../functions/_lib/aiRelay.js');
-  const { handleSelfHostedAiChat } = await import('../functions/_lib/selfHostedAiRelay.js');
-  const off = { ...env, APPBLIPS_GENERATED_AI_MODE: 'off', APPBLIPS_SESSION_SECRET: 'x' };
-  const post = (path) => new Request(`https://app.example${path}`, { method: 'POST', headers: { origin: 'https://app.example' }, body: '{}' });
-  for (const [name, response] of [
-    ['/ai/session', await handleAiSession(post('/ai/session'), off)],
-    ['/ai/chat', await handleAiChat(post('/ai/chat'), off)],
-    ['/api/app-ai/chat', await handleSelfHostedAiChat(post('/api/app-ai/chat'), off)],
-  ]) {
-    assert.equal(response.status, 403, name);
-    assert.equal((await response.json()).error.code, 'ai_disabled', name);
-  }
-});
-
 // --- Free daily prompt limit --------------------------------------------------
 
 const withSecret = { APPBLIPS_SESSION_SECRET: 'test-secret' };
@@ -348,9 +333,6 @@ test('a pass is bound to its user and expires', async () => {
   assert.equal(await verifyPromptPass(pass, 'user-2', env2, NOW), false);
   assert.equal(await verifyPromptPass(pass, 'user-1', env2, NOW + 31 * 60 * 1000), false);
   assert.equal(await verifyPromptPass(pass, 'user-1', { APPBLIPS_SESSION_SECRET: 'other' }, NOW), false);
-  // Not interchangeable with deployed-app AI session tokens.
-  const { verifySessionToken } = await import('../functions/_lib/aiSession.js');
-  assert.equal(await verifySessionToken(pass, env2), null);
 });
 
 test('the 6th Free prompt of the day is refused with an upgrade message', async (t) => {
@@ -465,65 +447,4 @@ test('the build overdraft needs a valid pass from the build', async (t) => {
   assert.equal(response.status, 200);
   await response.text();
   assert.equal(seen.reservations[1].period_limit, PLANS.plus.periodTokens + BUILD_OVERDRAFT_TOKENS);
-});
-
-// --- deployed-app AI draws on the owner's allowance -----------------------------
-
-const appAi = async (slug, settings = {}) => {
-  const { handleAiChat } = await import('../functions/_lib/aiRelay.js');
-  const { signSessionToken } = await import('../functions/_lib/aiSession.js');
-  const relayEnv = { ...env, ...withSecret, ...settings };
-  const { token } = await signSessionToken({ slug, gen: 1 }, relayEnv);
-  const pending = [];
-  const response = await handleAiChat(new Request('https://my.app.example/ai/chat', {
-    method: 'POST',
-    headers: { origin: 'https://my.app.example' },
-    body: JSON.stringify({ token, messages: [{ role: 'user', content: 'Hello' }], stream: true }),
-  }), relayEnv, (p) => pending.push(p));
-  await response.text();
-  await Promise.all(pending);
-  return response;
-};
-
-// The deployment lookup on top of mockServices; the owner is user-1.
-const mockDeployment = (t, billingRow, options) => {
-  const seen = mockServices(t, billingRow, options);
-  const services = globalThis.fetch;
-  t.mock.method(globalThis, 'fetch', async (url, init) => {
-    if (String(url).includes('/rest/v1/deployments?')) return Response.json([{ ai_enabled: true, ai_token_generation: 1, user_id: 'user-1' }]);
-    if (String(url).includes('/auth/v1/admin/users/')) return Response.json({ id: 'user-1', email: 'a@example.com' });
-    return services(url, init);
-  });
-  return seen;
-};
-
-test("a deployed app's AI stops when its owner's allowance is used up", async (t) => {
-  const seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
-  const response = await appAi('owner-over-limit');
-  assert.equal(response.status, 429);
-  assert.equal(seen.upstreamCalls, 0);
-});
-
-test("a deployed app's AI reserves and settles against its owner's allowance as deployed usage", async (t) => {
-  const usage = 'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}],"usage":{"total_tokens":321}}\n\ndata: [DONE]\n\n';
-  const seen = mockDeployment(t, freeRow, { upstreamBody: usage });
-  const response = await appAi('owner-under-limit');
-  assert.equal(response.status, 200);
-  await settleWrites();
-  assert.equal(seen.reservations.length, 1);
-  assert.equal(seen.reservations[0].usage_kind, 'deployed');
-  assert.equal(seen.reservations[0].target_user_id, 'user-1');
-  assert.equal(seen.reservations[0].daily_limit, FREE.dailyTokens, 'no build overdraft for app visitors');
-  assert.equal(seen.settles.length, 1);
-  assert.equal(seen.settles[0].usage_kind, 'deployed');
-  assert.equal(seen.settles[0].token_count, 321);
-});
-
-test('the billing tester list applies to deployed apps by the owner\'s email', async (t) => {
-  let seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
-  assert.equal((await appAi('tester-listed', { APPBLIPS_BILLING_TESTERS: 'A@example.com' })).status, 429);
-  t.mock.restoreAll();
-  seen = mockDeployment(t, { ...freeRow, period_tokens: FREE.periodTokens });
-  assert.equal((await appAi('tester-unlisted', { APPBLIPS_BILLING_TESTERS: 'someone@else.com' })).status, 200);
-  assert.equal(seen.statusCalls, 0);
 });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { supabaseEnabled } from '../supabase';
 import {
   registerDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
-  deployUrlForSlug, deployObjectPath, makeAiToken, removeStalePages, removeDeployment
+  deployUrlForSlug, deployObjectPath, removeStalePages, removeDeployment
 } from '../lib/deploy';
 import { getLanding } from '../lib/pages';
 import { createAnalyticsWebsite } from '../lib/appAnalytics';
@@ -14,7 +14,7 @@ import { createAnalyticsWebsite } from '../lib/appAnalytics';
 // supabaseEnabled -- DeployModal shows a "not available" state in that case.
 export default function useDeployment({
   files, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
-  deployment, setDeployment, saveProject, aiEnabled
+  deployment, setDeployment, saveProject
 }) {
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -23,7 +23,7 @@ export default function useDeployment({
   const [confirmUndeploy, setConfirmUndeploy] = useState(false);
 
   // The live deployment is one version behind the workspace.
-  const isDeployStale = Boolean(deployment) && (deployment.versionId !== currentVersionId || Boolean(deployment.aiEnabled) !== Boolean(aiEnabled));
+  const isDeployStale = Boolean(deployment) && deployment.versionId !== currentVersionId;
   const deploymentUrl = deployment
     ? (deployment.slug ? deployUrlForSlug(deployment.slug) : deployment.url)
     : '';
@@ -64,11 +64,6 @@ export default function useDeployment({
 
       // Reuse the existing Umami website on redeploy/re-enable rather than
       // creating a second one and orphaning prior stats.
-      // Every redeploy rotates the public deployment binding token and bumps the
-      // token generation. Old copied HTML therefore loses AI access after the
-      // relay cache expires (legacy token) or immediately (short-lived session
-      // tokens), by design.
-      const aiToken = aiEnabled ? makeAiToken() : null;
 
       let websiteId = null;
       if (analyticsEnabled) {
@@ -76,7 +71,7 @@ export default function useDeployment({
       }
 
       // The site's own `files` only -- never the bridge-injected preview srcDoc.
-      const uploaded = await uploadDeploy({ path, files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId, aiEnabled, aiToken });
+      const uploaded = await uploadDeploy({ path, files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
 
       const slug = await registerDeployment({
         slug: desiredSlug,
@@ -86,8 +81,6 @@ export default function useDeployment({
         name: projectName,
         analyticsEnabled,
         analyticsWebsiteId: websiteId,
-        aiEnabled,
-        aiToken,
         pageNames: uploaded.pageNames,
         bundle: uploaded.bundled,
         passwordProtected: Boolean(password)
@@ -105,8 +98,7 @@ export default function useDeployment({
         deployedAt: new Date().toISOString(),
         versionId: currentVersionId,
         analyticsEnabled,
-        analyticsWebsiteId: websiteId,
-        aiEnabled
+        analyticsWebsiteId: websiteId
       };
       setDeployment(next);
       saveProject({ deploymentToSave: next, force: true });

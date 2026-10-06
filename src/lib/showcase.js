@@ -24,7 +24,7 @@
 // `source` lets visitors copy the project into their own workspace. It is
 // either the project's single HTML file (download it from the code view) or,
 // for a multi-page website, a JSON file shaped like
-// `{ "files": { "index.html": "...", "about.html": "..." }, "studioMode": "website", "aiEnabled": false }`.
+// `{ "files": { "index.html": "...", "about.html": "..." }, "studioMode": "website" }`.
 // Keep it clean generated code: no deploy-time snippets, no preview bridge.
 import { LANDING_PAGE, validatePageName, checkFilesLimits } from './pages.js';
 
@@ -132,7 +132,7 @@ export const parseRemixSource = (project, body, isHtml) => {
     const files = { [LANDING_PAGE]: body };
     const limitError = checkFilesLimits(files);
     if (limitError) throw new Error(limitError);
-    return { files, studioMode: project.kind, aiEnabled: false };
+    return { files, studioMode: project.kind };
   }
   const files = body?.files;
   if (!files || typeof files !== 'object' || Array.isArray(files)) throw new Error('This project source is invalid.');
@@ -147,7 +147,6 @@ export const parseRemixSource = (project, body, isHtml) => {
   return {
     files: clean,
     studioMode: SHOWCASE_KINDS.includes(body.studioMode) ? body.studioMode : project.kind,
-    aiEnabled: Boolean(body.aiEnabled),
   };
 };
 

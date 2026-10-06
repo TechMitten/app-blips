@@ -39,7 +39,6 @@ export const cloudRowsToProjects = (rows) => (rows || []).map(row => ({
   chatContextStartIndex: Math.min(row.data?.chatContextStartIndex ?? 0, (row.data?.versions || []).length),
   currentChatSessionId: row.data?.currentChatSessionId ?? null,
   deployment: row.data?.deployment || null,
-  aiEnabled: Boolean(row.data?.aiEnabled),
   // Enumerated explicitly (local rows spread ...row.data instead): a field
   // missing here silently vanishes for hosted users on load. Legacy rows
   // predate the studio split and default to 'app'.

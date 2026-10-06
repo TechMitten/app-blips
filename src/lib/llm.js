@@ -562,7 +562,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
 // than through create_page: some providers deliver tool-call arguments as a
 // single event once the whole call is finished, which left the live views blank
 // for the entire page and looked like a hang.
-const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, onChunk, projectName, reasoningEffort }) => {
+const createMissingPages = async ({ files, request, signal, onChunk, projectName, reasoningEffort }) => {
   let result = files;
   const targets = [...new Set(findBrokenLinks(files).map((b) => b.target))].slice(0, MAX_PAGES - 1);
   if (onChunk && targets.length) {
@@ -586,7 +586,7 @@ const createMissingPages = async ({ files, request, aiEnabled, aiMode, signal, o
         if (attempt > 0 && onChunk) onChunk('', 'page_stream_reset');
         const message = await requestModelText({
           messages: [
-            { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, 'website') },
+            { role: 'system', content: buildHtmlSystemPrompt('website') },
             { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files), projectName }) }
           ],
           onChunk: forwardLive,
@@ -621,8 +621,6 @@ const generateAppCodeCore = async (
   isAskMode = false,
   askClarifyingQuestions = true,
   attachment = null,
-  aiEnabled = false,
-  aiMode = 'relay',
   isAutoFix = false,
   reasoningEffort = { build: 'none' },
   studioMode = 'app',
@@ -719,7 +717,7 @@ const generateAppCodeCore = async (
     });
 
     const messages = [
-      { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
+      { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
       ...formattedChatHistory,
       {
         role: 'user',
@@ -770,7 +768,7 @@ const generateAppCodeCore = async (
     const syntaxAutoFixAttempted = check.errors.length > 0;
     if (check.errors.length) {
       let repairMessages = [
-        { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
+        { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
         { role: 'user', content: `Current ${noun} Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
       ];
 
@@ -823,7 +821,7 @@ const generateAppCodeCore = async (
 
     let files = makeFiles(code);
     if (isWebsite) {
-      files = await createMissingPages({ files, request: prompt, aiEnabled, aiMode, signal, onChunk, projectName, reasoningEffort: buildEffort });
+      files = await createMissingPages({ files, request: prompt, signal, onChunk, projectName, reasoningEffort: buildEffort });
     }
 
     return {
@@ -843,7 +841,7 @@ const generateAppCodeCore = async (
   // turns in one conversation, self-correcting from real tool-result errors instead of
   // blindly restarting from scratch each attempt.
   const messages = [
-    { role: 'system', content: buildHtmlSystemPrompt(aiEnabled, aiMode, studioMode) },
+    { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
     ...chatHistory,
     {
       role: 'user',
@@ -1047,7 +1045,7 @@ export const generateAppCode = async (...args) => {
 
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
-  const [prompt, , , onChunk, , signal, , , , , , isAutoFix, , studioMode] = args;
+  const [prompt, , , onChunk, , signal, , , , isAutoFix, , studioMode] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.

@@ -14,7 +14,7 @@ AppBlips runs LLM-generated code, and appblips.com hosts it at public URLs, so t
 
 - **Preview isolation.** Escaping the sandboxed preview iframe, or a generated app reaching the parent page (see `src/previewBridge.js`).
 - **Deployed apps.** Anything that lets a deployed app read another user's data, or run on the main app's origin.
-- **The `/api/chat` proxy and the generated-app AI relays.** Auth bypass, rate-limit bypass, or leaking provider keys.
+- **The `/api/chat` proxy.** Auth bypass, rate-limit bypass, or leaking provider keys.
 - **Supabase and Storage rules.** Reading or writing another user's projects or deployments.
 
 ## Self-hosting

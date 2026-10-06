@@ -3,8 +3,6 @@ import react from '@vitejs/plugin-react'
 import { Readable, pipeline } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './functions/_lib/chatProxy.js'
-import { handleAiChat, handleAiSession } from './functions/_lib/aiRelay.js'
-import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js'
 import { handleDebugUnlock } from './functions/_lib/debugUnlock.js'
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
@@ -92,55 +90,6 @@ function llmProxyDevMiddleware(mode) {
           body: Buffer.concat(chunks),
         })
         const response = await handleChatProxy(request, env)
-        sendWebResponse(res, response)
-      }))
-    },
-  }
-}
-
-function aiRelayDevMiddleware(mode) {
-  return {
-    name: 'appblips-ai-relay-dev-middleware',
-    configureServer(server) {
-      const env = loadEnv(mode, process.cwd(), '')
-      const handle = (path, handler) => {
-        server.middlewares.use(path, guarded(async (req, res) => {
-          if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return }
-          const chunks = []
-          for await (const chunk of req) chunks.push(chunk)
-          const request = new Request('http://' + (req.headers.host || 'localhost') + path, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', ...(req.headers.origin ? { origin: req.headers.origin } : {}) },
-            body: Buffer.concat(chunks),
-          })
-          const response = await handler(request, env)
-          sendWebResponse(res, response)
-        }))
-      }
-      handle('/ai/chat', handleAiChat)
-      handle('/ai/session', handleAiSession)
-    },
-  }
-}
-
-function selfHostedAppAiDevMiddleware(mode) {
-  return {
-    name: "appblips-self-hosted-app-ai-dev-middleware",
-    configureServer(server) {
-      const env = loadEnv(mode, process.cwd(), "")
-      server.middlewares.use("/api/app-ai/chat", guarded(async (req, res) => {
-        const chunks = []
-        if (req.method === "POST") for await (const chunk of req) chunks.push(chunk)
-        const request = new Request("http://" + (req.headers.host || "localhost") + "/api/app-ai/chat", {
-          method: req.method,
-          headers: {
-            ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-            ...(req.headers["x-forwarded-for"] ? { "x-forwarded-for": req.headers["x-forwarded-for"] } : {}),
-            ...(req.method === "POST" ? { "content-type": "application/json" } : {}),
-          },
-          ...(req.method === "POST" ? { body: Buffer.concat(chunks) } : {}),
-        })
-        const response = await handleSelfHostedAiChat(request, env)
         sendWebResponse(res, response)
       }))
     },
@@ -410,13 +359,12 @@ export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
+  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE is gone: multi-user features turn on when the operator
   // configures Supabase (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY in
-  // src/supabase.js). APPBLIPS_GENERATED_AI_MODE / APPBLIPS_APP_AI_RELAY_URL /
-  // APPBLIPS_MAINTENANCE have no VITE_ prefix but still need to reach
-  // import.meta.env (the server reads the same variables).
-  envPrefix: ['VITE_', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL', 'APPBLIPS_MAINTENANCE'],
+  // src/supabase.js). APPBLIPS_MAINTENANCE has no VITE_ prefix but still
+  // needs to reach import.meta.env (the server reads the same variable).
+  envPrefix: ['VITE_', 'APPBLIPS_MAINTENANCE'],
   server: {
     host: true,
     port: 5175,

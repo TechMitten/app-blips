@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { injectSelfHostedAiBridge } from './lib/selfHostedAiBridge';
-import { generatedAiMode, generatedAiRelayUrl, previewAiViaParent, absoluteRelayUrl } from './lib/generatedAiMode';
 import { supabaseEnabled } from './supabase';
 import { isDesktop, desktopBridge } from './lib/desktop';
 
@@ -234,10 +232,6 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [aiSetting, setAiEnabled] = useState(false);
-  // With AI inside apps switched off for this instance, every consumer
-  // (generation, preview, export, deploy, the composer) sees it as off.
-  const aiEnabled = generatedAiMode !== 'off' && aiSetting;
 
   // --- Interrupted build job (persisted across page reloads) ---
   const [interruptedJob, setInterruptedJob] = useState(null);
@@ -342,8 +336,8 @@ export default function App() {
     isSignedIn,
     user,
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, studioMode,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setStudioMode,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
       // Sign-out (hosted): back to the studio-choice gate with nothing loaded.
@@ -351,12 +345,6 @@ export default function App() {
       resetWorkspace: () => resetCurrentWorkspace(null),
     },
   });
-
-  // Toggling generated-app AI from the prompt footer.
-  const handleAiEnabledChange = useCallback((enabled) => {
-    setAiEnabled(enabled);
-    saveProject({ aiEnabledToSave: enabled, force: true });
-  }, [saveProject]);
 
   // --- Deployment ---
   const currentVersionId = versions[currentVersionIndex]?.id ?? null;
@@ -366,7 +354,7 @@ export default function App() {
     openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
   } = useDeployment({
     files, isSignedIn, user, username, projectName, currentProjectId,
-    currentVersionId, deployment, setDeployment, saveProject, aiEnabled,
+    currentVersionId, deployment, setDeployment, saveProject,
   });
 
   // --- Showcase (curated projects; `?showcase` / `?showcase=<id>` deep links) ---
@@ -615,18 +603,7 @@ export default function App() {
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
       activeCode
-        ? injectPreviewBridge(
-            // The AI shim is always present in the preview so flipping the AI
-            // reel stop never recomputes srcDoc (which would reload the frame
-            // and lose app state). Hosted and self-hosted relay requests go to
-            // the parent over the bridge channel and are gated live in
-            // usePreviewBridge (the sandboxed frame's Origin is "null", which
-            // the relay rejects). Only BYOK talks to its provider directly.
-            // Export/deploy paths still honor aiEnabled.
-            !previewAiViaParent
-              ? injectSelfHostedAiBridge(activeCode, { mode: generatedAiMode, relayUrl: generatedAiRelayUrl })
-              : activeCode,
-          {
+        ? injectPreviewBridge(activeCode, {
             initialStorage: loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
@@ -636,7 +613,6 @@ export default function App() {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
-            aiEnabled: previewAiViaParent,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -646,7 +622,6 @@ export default function App() {
     // matters when a new document is produced, and every recompute picks up
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
-    // aiEnabled is likewise intentionally not a dependency (see above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeCode, previewReloadCount, projectStorageVersion]
   );
@@ -725,7 +700,6 @@ export default function App() {
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
-    aiEnabled: previewAiViaParent && aiEnabled,
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing && isDragMode,
     onElementSelected: handleElementSelected,
@@ -1375,7 +1349,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, aiEnabled, generatedAiMode, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1544,33 +1518,20 @@ export default function App() {
     }
   };
 
-  // Pages as they leave the app in an export: the self-hosted AI bridge is
-  // added per page here, never stored in `files`. The relay URL is made
-  // absolute against this origin, since the file is opened elsewhere. A
-  // desktop export gets the BYOK bridge instead: the relay lives at
-  // appblips://app, which a browser opening the file can't reach.
-  const buildExportFiles = () => {
-    const protectedFiles = mapPages(files, (html) => injectLoopProtection(html));
-    const mode = isDesktop ? 'byok' : generatedAiMode;
-    return aiEnabled
-      ? mapPages(protectedFiles, (html) => injectSelfHostedAiBridge(html, { mode, relayUrl: absoluteRelayUrl() }))
-      : protectedFiles;
-  };
+  // Pages as they leave the app in an export: loop protection is added per
+  // page here, never stored in `files`.
+  const buildExportFiles = () => mapPages(files, (html) => injectLoopProtection(html));
 
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
   // (sign-in session, saved provider key) and /api/chat. The tab gets a
   // trusted shell instead, with the app in a sandboxed iframe like the preview
-  // (lib/newTabShell.js). AI goes through the shell to the relay, and only
-  // when the AI switch is on.
+  // (lib/newTabShell.js).
   const handleOpenInNewTab = () => {
     if (!generatedCode) return;
-    const aiMode = !aiEnabled ? 'off' : (generatedAiMode === 'byok' ? 'byok' : 'relay');
     const shellHtml = buildNewTabShell({
       files,
       title: projectName || 'Preview',
-      aiMode,
-      relayUrl: absoluteRelayUrl(),
       initialStorage: { ...previewStorageRef.current },
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
@@ -1658,7 +1619,6 @@ export default function App() {
       setChatContextStartIndex(0);
       setCurrentChatSessionId(newChatSessionId());
       setDeployment(null);
-      setAiEnabled(false);
     }
 
     setProjectName(trimmedName);
@@ -1810,7 +1770,6 @@ export default function App() {
     setCurrentChatSessionId(newChatSessionId());
     setCurrentProjectId(null);
     setDeployment(null);
-    setAiEnabled(false);
     setDeployError(null);
     setConfirmUndeploy(false);
     setIsDeployModalOpen(false);
@@ -1975,7 +1934,6 @@ export default function App() {
       chatContextStartIndex: 0,
       currentChatSessionId: sessionId,
       deployment: null,
-      aiEnabled: source.aiEnabled,
       studioMode: source.studioMode,
     });
     remixSaveRef.current = projectId;
@@ -2253,8 +2211,6 @@ export default function App() {
           onClaimUsername={claimUsername}
           deployment={deployment}
           studioMode={studioMode}
-          aiEnabled={aiEnabled}
-          onAiEnabledChange={(enabled) => { setAiEnabled(enabled); saveProject({ aiEnabledToSave: enabled, force: true }); }}
           deploymentUrl={deploymentUrl}
           isDeployStale={isDeployStale}
           isDeploying={isDeploying}
@@ -2326,8 +2282,6 @@ export default function App() {
           studioMode={studioMode}
           chatMode={chatMode}
           onChatModeChange={setChatMode}
-          aiEnabled={aiEnabled}
-          onAiEnabledChange={handleAiEnabledChange}
           prompt={prompt}
           onPromptChange={setPrompt}
           onSubmit={handleGenerate}
@@ -2392,8 +2346,6 @@ export default function App() {
               isResumingProject={isResumingProject}
               chatMode={chatMode}
               studioMode={studioMode}
-              aiEnabled={aiEnabled}
-              onAiEnabledChange={handleAiEnabledChange}
               onChatModeChange={setChatMode}
               onRewind={setRewindTargetIndex}
               generatedCode={generatedCode}

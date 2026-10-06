@@ -34,8 +34,6 @@ export default function HeroLanding({
   studioMode = 'app',
   chatMode,
   onChatModeChange,
-  aiEnabled,
-  onAiEnabledChange,
   prompt,
   onPromptChange,
   onSubmit,
@@ -104,8 +102,6 @@ export default function HeroLanding({
                 onAttachScreenshot={onAttachScreenshot}
                 onAttachFile={onAttachFile}
                 onRemoveAttachment={onRemoveAttachment}
-                aiEnabled={aiEnabled}
-                onAiEnabledChange={onAiEnabledChange}
                 voiceInput
               />
             </div>

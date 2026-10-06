@@ -58,7 +58,6 @@ See [Quick start](#quick-start) below to pick one.
 - **Instant live preview** — see exactly what you built, right next to the prompt, with no extra deploy step
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
-- **AI-powered generated apps** — turn on AI before building and ask for features that call `blip.ai.text(...)`
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
@@ -82,20 +81,6 @@ The first time you open it, AppBlips asks for an AI provider, a model and your A
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
 On macOS, or want to change AppBlips itself? See [Running from source](#running-from-source) below.
-
-### AI inside the apps you build
-
-Turn on the **AI** switch before generating or refining an app, then describe the feature in ordinary language. For example:
-
-> Build a joke-writing app. When someone chooses a topic and presses Generate, call `blip.ai.text` to write one short, family-friendly joke, show a loading state, and display a friendly retry message if the request fails.
-
-AppBlips teaches the generated code the `blip.ai.text(messages, options)` API. References such as `BLIP.AI.TEXT` in a build prompt are accepted too; generated JavaScript uses the canonical lowercase version under the hood.
-
-By default, AI in your apps uses the same provider and model as the builder, so there is nothing extra to set up. When running from source, you can instead have each person bring their own key: set `APPBLIPS_GENERATED_AI_MODE=byok` and configure that profile in the finished app.
-
-The generated app can also expose a settings action that calls `blip.ai.configure()`. It can check `blip.ai.isConfigured()` and disconnect with `blip.ai.clearConfiguration()`. App authors do not need to teach the generated app about your provider settings unless they want custom behavior.
-
-In the desktop app and when running from source, generated apps reach your provider through your own AppBlips at `/api/app-ai/chat`. They always share the builder's provider, key and model. The app only ever receives the result, not your secret key.
 
 ---
 
@@ -134,7 +119,7 @@ To build the desktop app from source instead, run `npm run desktop` (or `npm run
 
 ### Running with Docker
 
-If you'd rather not run the dev server, you can use Docker instead of `npm run dev`. The image builds the static client and serves it — along with the builder `/api/chat` endpoint and optional app AI relay endpoints.
+If you'd rather not run the dev server, you can use Docker instead of `npm run dev`. The image builds the static client and serves it, along with the builder `/api/chat` endpoint.
 
 ```bash
 docker compose up --build
@@ -142,20 +127,15 @@ docker compose up --build
 
 This reads environment variables from the same `.env` file as above and serves the app on `http://localhost:3000`. The port is bound to `127.0.0.1`, so only your own computer can reach it.
 
-`APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client at build time, so after changing either one, rerun `docker compose up --build` (a plain restart won't pick it up).
-
 ### Configuration
 
-Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, each person using a finished AI-enabled app supplies their own provider settings in that app instead. See [`.env.example`](.env.example) for a complete list.
+Your settings live in the `.env` file. See [`.env.example`](.env.example) for a complete list.
 
 | Group | Variables | Notes |
 | --- | --- | --- |
 | LLM (required, one provider) | `APPBLIPS_OPENAI_API_KEY`, `OPENAI_API_KEY`, `APPBLIPS_DEEPSEEK_API_KEY`, `APPBLIPS_ZAI_API_KEY` or `APPBLIPS_ZAI_CODING_API_KEY`, plus `OPENAI_LLM_MODEL` | A provider is active once its key is populated. |
 | LLM tuning (optional) | `OPENAI_LLM_MAX_TOKENS`, `OPENAI_LLM_ASK_MAX_TOKENS`, `OPENAI_LLM_TEMPERATURE` | `OPENAI_LLM_ASK_MAX_TOKENS` caps Ask-mode replies only (default `8192`, independent of the main max). |
 | Builder access (optional) | `APPBLIPS_CHAT_ALLOWED_ORIGINS` | `/api/chat` refuses browser requests from other sites. Only needed behind a reverse proxy that rewrites the `Host` header: list the address you open AppBlips at. |
-| Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | The default `relay` sends app AI through your builder provider; `byok` makes each person use their own keys. |
-| Generated-app AI limits (optional) | `APPBLIPS_APP_AI_MAX_TOKENS`, `APPBLIPS_APP_AI_TEMPERATURE`, `APPBLIPS_APP_AI_REASONING_EFFORT` | AI in generated apps always uses the builder's provider, key and model unless BYOK is enabled. |
-| Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS` | Exact cross-origin allowlist for app AI requests. |
 
 
 > **Note:** AppBlips run from source is meant for your own computer. `/api/chat` performs no authentication — every request is treated as the same local user — so keep it on localhost. It refuses browser requests from other websites, but if you expose it on a network, anyone who can reach it can spend your configured AI budget. The desktop app opens no network port at all.
@@ -172,7 +152,7 @@ Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, e
 | `npm run desktop:dist` | Build desktop installers into `dist-desktop/` for the current OS (Windows: NSIS `.exe`; Linux: AppImage and `.deb`) |
 
 
-There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (for example `node testing/testChatProxy.js`, `node testing/test-ai-relay.js`, and `node testing/test-preview.js`).
+There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (for example `node testing/testChatProxy.js` and `node testing/testPages.js`).
 
 ## Project structure
 
@@ -183,10 +163,10 @@ src/
   lib/               # Framework-free logic: LLM calls, surgical edits, prompts, crypto...
   hooks/             # Stateful concerns: auth, projects, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
-functions/           # /api/chat proxy and AI relays
+functions/           # /api/chat proxy, billing and deployed-app serving
 server.js            # Standalone Node server used by the Docker setup
 electron/            # Desktop app: main process, preload, on-disk project store, encrypted provider settings
-testing/            # Standalone Node scripts for exercising the proxy, AI relay and preview
+testing/            # Standalone Node scripts for exercising the proxy and preview
 ```
 
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
@@ -194,8 +174,6 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 ## Security notes
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
-- Self-hosted BYOK credentials are entered explicitly by the finished-app user and live in browser storage only. Session storage is the default; persistent storage is opt-in. They are never bundled into the source or server code.
-- The self-hosted generated-app relay (`/api/app-ai/chat`) spends your provider key. It only accepts same-origin calls unless you list other origins in `APPBLIPS_APP_AI_ALLOWED_ORIGINS`. Your own copy sets no request limits, so set a spend limit with your provider.
 - In a single-user install, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Keep it on localhost or behind a trusted network boundary.
 
 ## License

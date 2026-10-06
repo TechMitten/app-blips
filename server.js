@@ -1,8 +1,7 @@
 // Minimal production server for self-hosted Docker deployments.
 //
 // Serves the built static client (dist/) and implements the builder's
-// POST /api/chat plus the optional generated-app POST /api/app-ai/chat relay.
-// Both call the same handlers used by the development server.
+// POST /api/chat with the same handler used by the development server.
 //
 // Deliberately dependency-free (only Node built-ins) so the runtime Docker
 // image needs nothing beyond `node server.js`.
@@ -13,7 +12,6 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { handleChatProxy } from './functions/_lib/chatProxy.js';
-import { handleSelfHostedAiChat } from './functions/_lib/selfHostedAiRelay.js';
 import { handleDebugUnlock } from './functions/_lib/debugUnlock.js';
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js';
 
@@ -70,35 +68,6 @@ async function handleChatRequest(req, res) {
   } else {
     res.end();
   }
-}
-
-async function handleAppAiRequest(req, res) {
-  const chunks = [];
-  if (req.method === 'POST') {
-    for await (const chunk of req) chunks.push(chunk);
-  }
-  const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
-  const request = new Request(protocol + '://' + (req.headers.host || 'localhost') + req.url, {
-    method: req.method,
-    headers: {
-      ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-      ...(req.headers['cf-connecting-ip']
-        ? { 'cf-connecting-ip': req.headers['cf-connecting-ip'] }
-        : {}),
-      ...(req.headers['x-forwarded-for']
-        ? { 'x-forwarded-for': req.headers['x-forwarded-for'] }
-        : {}),
-      ...(req.method === 'POST' ? { 'content-type': 'application/json' } : {}),
-    },
-    ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
-  });
-
-  const response = await handleSelfHostedAiChat(request, process.env);
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => res.setHeader(key, value));
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
-  if (response.body) Readable.fromWeb(response.body).pipe(res);
-  else res.end();
 }
 
 async function handleDebugUnlockRequest(req, res) {
@@ -183,14 +152,6 @@ const server = createServer((req, res) => {
     handleChatRequest(req, res).catch((err) => {
       res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: `Internal server error: ${err.message}` }));
-    });
-    return;
-  }
-
-  if (req.url === '/api/app-ai/chat' && (req.method === 'POST' || req.method === 'OPTIONS')) {
-    handleAppAiRequest(req, res).catch(() => {
-      res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { code: 'upstream_error', message: 'Internal server error.' } }));
     });
     return;
   }

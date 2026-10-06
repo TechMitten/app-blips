@@ -10,8 +10,6 @@ export default function BuildPanel({
   isChatActive,
   chatMode,
   studioMode = 'app',
-  aiEnabled = false,
-  onAiEnabledChange,
   generatedCode,
   showStarterIdeas,
   starterIdeas,
@@ -218,8 +216,6 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
-          aiEnabled={aiEnabled}
-          onAiEnabledChange={onAiEnabledChange}
         />
       </div>
     </div>

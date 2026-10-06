@@ -89,7 +89,7 @@ const setModes = async (enabled, drag) => {
   await page.waitForTimeout(50);
 };
 const load = async (html, { drag = true } = {}) => {
-  const injected = injectPreviewBridge(html, { touchEnabled: false, aiEnabled: false });
+  const injected = injectPreviewBridge(html, { touchEnabled: false });
   await page.evaluate((t) => { window.__token = t; window.__selections = []; window.__drops = []; }, injected.token);
   await page.evaluate((h) => window.__setSrc(h), injected.srcDoc);
   await page.waitForTimeout(50);

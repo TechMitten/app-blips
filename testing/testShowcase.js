@@ -59,11 +59,11 @@ test('showcaseShareUrl builds a deep link on the SPA origin', () => {
 test('parseRemixSource accepts a single HTML file or a files map', () => {
   const project = normalizeProject({ ...base, kind: 'game' }).project;
   assert.deepEqual(parseRemixSource(project, '<!doctype html><p>hi</p>', true), {
-    files: { 'index.html': '<!doctype html><p>hi</p>' }, studioMode: 'game', aiEnabled: false,
+    files: { 'index.html': '<!doctype html><p>hi</p>' }, studioMode: 'game',
   });
   assert.deepEqual(
     parseRemixSource(project, { files: { 'index.html': 'a', 'about.html': 'b' }, studioMode: 'website', aiEnabled: 1 }, false),
-    { files: { 'index.html': 'a', 'about.html': 'b' }, studioMode: 'website', aiEnabled: true },
+    { files: { 'index.html': 'a', 'about.html': 'b' }, studioMode: 'website' },
   );
   assert.throws(() => parseRemixSource(project, '  ', true), /empty/);
   assert.throws(() => parseRemixSource(project, { files: { 'about.html': 'b' } }, false), /landing page/);

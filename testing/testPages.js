@@ -71,8 +71,8 @@ for (const t of siteTools) {
   assert.deepEqual([...Object.keys(properties)].sort(), [...required].sort(), `${t.function.name}: strict schema`);
 }
 assert.equal(getRefinementTools('app').some((t) => t.function.name === 'create_page'), false);
-assert.ok(buildHtmlSystemPrompt(false, 'hosted', 'website').includes('MULTIPLE PAGES'));
-assert.ok(!buildHtmlSystemPrompt(false, 'hosted', 'app').includes('MULTIPLE PAGES'));
+assert.ok(buildHtmlSystemPrompt('website').includes('MULTIPLE PAGES'));
+assert.ok(!buildHtmlSystemPrompt('app').includes('MULTIPLE PAGES'));
 
 assert.equal(formatFilesForPrompt({ 'index.html': '<p/>' }, 'app'), 'Current app Code:\n```html\n<p/>\n```');
 const big = { 'index.html': 'a'.repeat(50), 'x.html': 'b'.repeat(50), 'y.html': 'c'.repeat(50) };

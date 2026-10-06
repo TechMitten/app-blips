@@ -4,10 +4,8 @@
 // back a pass, and the rest of that prompt carry it. Without a signature the
 // client could mark every request as a follow-up and never be counted.
 //
-// Same token shape as aiSession.js (base64url(payload).base64url(HMAC)) and
-// the same APPBLIPS_SESSION_SECRET, but a separately derived key and a typed
-// payload, so a pass can never be replayed as a deployed-app AI session
-// token or the other way round.
+// Token shape: base64url(payload).base64url(HMAC), keyed from
+// APPBLIPS_SESSION_SECRET with a typed payload.
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 

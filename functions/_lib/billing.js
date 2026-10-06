@@ -36,25 +36,6 @@ export const billingAppliesTo = (env, user) => {
     || Boolean(user?.email && testers.includes(String(user.email).toLowerCase()));
 };
 
-// billingAppliesTo for an account known only by id (the deployed-app AI
-// relay knows the app's owner, not their session). A tester list naming
-// emails needs the owner's email, read with the service key.
-export const billingAppliesToAccount = async (env, uid) => {
-  if (!billingEnabled(env) || !uid) return false;
-  const testers = billingTesters(env);
-  if (!testers.length || testers.includes(String(uid).toLowerCase())) return true;
-  if (!testers.some((entry) => entry.includes('@'))) return false;
-  try {
-    const res = await fetch(`${supabaseUrl(env)}/auth/v1/admin/users/${encodeURIComponent(uid)}`, {
-      headers: supabaseHeaders(env, { service: true }),
-    });
-    if (!res.ok) return false;
-    return billingAppliesTo(env, { id: uid, email: (await res.json())?.email });
-  } catch {
-    return false;
-  }
-};
-
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json' },
@@ -128,7 +109,7 @@ export const reserveTokens = async (env, uid, { periodStart, limits, amount, kin
 };
 
 // Checks `status` (from fetchBillingStatus) against the plan and holds
-// `amount` tokens for a request of `kind` ('builder' | 'deployed'). Returns
+// `amount` tokens for a request of `kind` ('builder'). Returns
 // { refused: check } when the allowance is used up, otherwise { reservation }
 // to hand to wrapWithTokenTracking -- null when the reservation call failed,
 // which lets the request through like a failed status read does.

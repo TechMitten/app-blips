@@ -1,10 +1,10 @@
 ---
 title: "Troubleshooting: Fixes for Common Problems"
 sidebarTitle: "Troubleshooting"
-description: "Solutions for common AppBlips problems: blank previews, API errors, CORS issues, Docker startup failures, and AI connection problems."
+description: "Solutions for common AppBlips problems: blank previews, API errors, and Docker startup failures."
 ---
 
-Most AppBlips issues fall into a handful of categories — preview rendering, API connectivity, AI inside generated apps, and Docker setup. Work through the section that matches your symptom to find a fix.
+Most AppBlips issues fall into a handful of categories — preview rendering, API connectivity, and Docker setup. Work through the section that matches your symptom to find a fix.
 
 ## Preview Shows a Blank Screen
 
@@ -74,46 +74,6 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
 
 ---
 
-## AI Inside Generated Apps
-
-<AccordionGroup>
-  <Accordion title="The blip.ai.text() dialog never appears">
-    The **Connect your AI provider** dialog only appears in apps that were generated with the **AI** toggle enabled. If the dialog never shows, the app was most likely built without AI support.
-
-    Re-generate the app with the AI toggle turned on before submitting your prompt. The toggle is in the build panel, next to the prompt input.
-  </Accordion>
-
-  <Accordion title='blip.ai.text() throws "AI capabilities are disabled"'>
-    This error means the app was generated without AI enabled. The `blip.ai.text()` API is only injected when the AI toggle is on at generation time.
-
-    Turn on the AI toggle and re-generate the app. Existing apps built without AI cannot have it added retroactively — a new generation is required.
-  </Accordion>
-
-  <Accordion title="CORS error when using BYOK">
-    In BYOK mode, the generated app calls your AI provider directly from the browser. This means the provider must allow cross-origin requests (CORS) from browser clients.
-
-    **To fix:**
-
-    - Verify that your chosen AI provider supports browser CORS requests. OpenAI's API allows CORS by default.
-    - If you are using a self-hosted or proxy endpoint (such as a local Ollama instance), check its CORS configuration and ensure it permits requests from the origin where your app is running.
-    - If the provider does not support CORS, switch to a different provider or consider using relay mode in your self-hosted setup.
-  </Accordion>
-
-  <Accordion title="Relay mode not working after changing APPBLIPS_GENERATED_AI_MODE">
-    `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are baked into the client bundle at build time. Simply restarting the container after changing these variables is not enough — you must rebuild the image.
-
-    Run the following command to rebuild and restart:
-
-    ```bash
-    docker compose up --build
-    ```
-
-    All other variables in `.env` are read at runtime. Run `docker compose up` to recreate the container with the new values.
-  </Accordion>
-</AccordionGroup>
-
----
-
 ## Docker Issues
 
 <AccordionGroup>
@@ -132,14 +92,6 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
     ```bash
     docker compose up
     ```
-
-    However, `APPBLIPS_GENERATED_AI_MODE` and `APPBLIPS_APP_AI_RELAY_URL` are embedded in the client bundle at build time. If you changed either of these, you must rebuild the image:
-
-    ```bash
-    docker compose up --build
-    ```
-
-    Recreating the container is not enough for build-time variables; the image itself must be rebuilt.
   </Accordion>
 </AccordionGroup>
 

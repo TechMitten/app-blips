@@ -2,22 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, X, Paperclip, Camera, Send, Mic, Wrench } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
-import { generatedAiMode } from '../lib/generatedAiMode';
 import { maintenanceMode, MAINTENANCE_MESSAGE } from '../lib/maintenance';
 
-// The mode control is one slot-machine reel with three stops. "AI" means Build
-// with AI text generation enabled, so the three are mutually exclusive and
-// clicking the reel advances: Build -> Ask -> AI -> Build.
-// With AI inside apps switched off (APPBLIPS_GENERATED_AI_MODE=off) the AI
-// stop is dropped and the reel turns between Build and Ask.
-const MODE_SEQUENCE = generatedAiMode === 'off' ? ['build', 'ask'] : ['build', 'ask', 'ai'];
+// The mode control is one slot-machine reel with two stops; clicking it
+// advances Build -> Ask -> Build.
+const MODE_SEQUENCE = ['build', 'ask'];
 const STOPS = MODE_SEQUENCE.length;
-const MODE_LABELS = { build: 'Build', ask: 'Ask', ai: 'AI' };
+const MODE_LABELS = { build: 'Build', ask: 'Ask' };
 const MODE_INDEX = Object.fromEntries(MODE_SEQUENCE.map((mode, index) => [mode, index]));
 // Extra items added to every spin: a whole number of turns, so it lands back
 // on the same stop.
 const REEL_EXTRA_ITEMS = Math.ceil(3 / STOPS) * STOPS;
-const REEL_NORMALIZE_AT = 30;  // a multiple of every stop count (2 and 3); rewind here to keep it finite
+const REEL_NORMALIZE_AT = 30;  // a multiple of the stop count; rewind here to keep it finite
 const REEL_ITEM_COUNT = 40;
 const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % STOPS]);
 
@@ -42,8 +38,6 @@ export default function PromptInput({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
-  aiEnabled,
-  onAiEnabledChange,
   voiceInput = false,
 }) {
   const textareaRef = useRef(null);
@@ -77,9 +71,7 @@ export default function PromptInput({
     onSubmit();
   };
 
-  // AI is the third reel stop and means "Build + AI", so the exposed mode is
-  // derived from both chatMode and aiEnabled; the reel animates to that stop.
-  const selectedMode = chatMode === 'ask' ? 'ask' : aiEnabled ? 'ai' : 'build';
+  const selectedMode = chatMode === 'ask' ? 'ask' : 'build';
 
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   const [reelIndex, setReelIndex] = useState(MODE_INDEX[selectedMode]);
@@ -100,10 +92,7 @@ export default function PromptInput({
   };
   const cycleMode = () => {
     const next = MODE_SEQUENCE[(MODE_INDEX[selectedMode] + 1) % STOPS];
-    const wantsMode = next === 'ask' ? 'ask' : 'build';
-    const wantsAi = next === 'ai';
-    if (wantsMode !== chatMode) onChatModeChange(wantsMode);
-    if (wantsAi !== aiEnabled) onAiEnabledChange?.(wantsAi);
+    if (next !== chatMode) onChatModeChange(next);
   };
 
   useEffect(() => {
@@ -201,7 +190,7 @@ export default function PromptInput({
         <p role="alert" className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{voiceError}</p>
       )}
       {maintenanceMode && (
-        <div role="status" className="mx-3 sm:mx-3.5 mt-3 flex gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+        <div role="status" className="mx-3 sm:mx-3.5 mt-3 flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
           <Wrench size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
           <p className="leading-relaxed">{MAINTENANCE_MESSAGE}</p>
         </div>

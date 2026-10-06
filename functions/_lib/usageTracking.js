@@ -2,24 +2,26 @@
 // billing boundary. One doc per account per UTC day in Supabase's `usage`
 // collection: { user_id, date, builderRequests, deployedRequests, updatedAt }.
 //
+// `deployedRequests` holds usage from the retired AI-inside-apps feature; only
+// 'builder' usage is recorded now.
+//
 // The write is not authenticated as the caller: chatProxy.js has a verified
-// end-user ID token but that's irrelevant to authorizing *this* write, and
-// aiRelay.js has no user identity at all (the caller is an anonymous visitor
-// of a deployed app). Supabase RLS constrains what can be written
+// end-user ID token but that's irrelevant to authorizing *this* write.
+// Supabase RLS constrains what can be written
 // (known fields only, each counter increments by at most 1 per call).
 import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
 
 const todayUtc = () => new Date().toISOString().slice(0, 10);
 
-// Best-effort: a Supabase hiccup here must never break app generation or a
-// deployed app's AI feature, so every failure is caught and logged, never
+// Best-effort: a Supabase hiccup here must never break app generation, so
+// every failure is caught and logged, never
 // thrown. A single-user instance has no Supabase project to write to.
 //
 // `reservation` ({ date, tokens }, from billing.js reserveTokens) means the
 // request already reserved an estimate against the allowance; it's settled
 // to `tokens` on the day it was reserved instead of being counted again.
 export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens, reservation }) {
-  if (!uid || !['builder', 'deployed'].includes(kind)) return;
+  if (!uid || kind !== 'builder') return;
   if (!supabaseConfigured(env)) return;
 
   const date = todayUtc();

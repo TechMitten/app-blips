@@ -9,24 +9,19 @@
 // opaque origin that reaches the shell only through postMessage.
 //
 // The generated page carries the normal preview bridge (previewBridge.js),
-// which shims storage and reports link clicks and AI requests. The shell
+// which shims storage and reports link clicks. The shell
 // answers the part of that protocol a standalone tab needs:
 //   - storage_set / storage_remove / storage_clear: kept in memory for the
 //     tab's lifetime, seeded from the project's preview storage. Changes are
 //     not written back to the project.
 //   - navigate-page: swaps in another page of a multi-page site (the frame
 //     never navigates itself), then scrolls to the link's #hash.
-//   - ai-chat-request: forwarded to the self-hosted relay only when the
-//     project's AI switch was on when the tab opened (aiMode 'relay');
-//     otherwise refused. BYOK pages talk to their provider from inside the
-//     sandbox instead, as in the preview.
 // Everything else the bridge posts (editing, nav-state, screenshots) is
 // ignored here.
 //
-// Nothing secret is embedded: the data block holds only the pages, the
-// project's preview storage and the public relay URL.
+// Nothing secret is embedded: the data block holds only the pages and the
+// project's preview storage.
 import { injectPreviewBridge, BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge.js';
-import { injectSelfHostedAiBridge } from './selfHostedAiBridge.js';
 import { LANDING_PAGE, pageTitle } from './pages.js';
 
 const SCRIPT_CLOSE = '</' + 'script>';
@@ -99,73 +94,6 @@ const SHELL_SOURCE = `(function () {
     return Object.prototype.hasOwnProperty.call(DATA.pages, path) ? path : null;
   }
 
-  function errorCode(status, body) {
-    if (body && body.error && body.error.code) return String(body.error.code);
-    if (status === 401 || status === 403) return 'unauthorized';
-    if (status === 413) return 'payload_too_large';
-    if (status === 429) return 'rate_limited';
-    return status >= 500 ? 'upstream_error' : 'network';
-  }
-
-  function relayAi(token, p) {
-    var requestId = p && p.requestId;
-    if (DATA.aiMode !== 'relay' || !requestId || !Array.isArray(p.messages)) {
-      send(token, 'ai-chat-error', { requestId: requestId, code: 'unauthorized', message: 'AI capabilities are disabled.' });
-      return;
-    }
-    var roles = { system: 1, user: 1, assistant: 1 };
-    var messages = p.messages.slice(0, 64).map(function (m) {
-      return {
-        role: m && roles[m.role] ? m.role : 'user',
-        content: m && typeof m.content === 'string' ? m.content : String(m && m.content != null ? m.content : '')
-      };
-    });
-    var body = { messages: messages, stream: true };
-    if (typeof p.temperature === 'number') body.temperature = p.temperature;
-    if (typeof p.maxTokens === 'number') body.max_tokens = p.maxTokens;
-    var text = '';
-    function fail(code) {
-      send(token, 'ai-chat-error', { requestId: requestId, code: code, message: 'AI request failed.' });
-    }
-    fetch(DATA.relayUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (response) {
-        if (!response.ok) {
-          return response.json().catch(function () { return {}; }).then(function (b) { fail(errorCode(response.status, b)); });
-        }
-        if (!response.body) return fail('network');
-        var reader = response.body.getReader();
-        var decoder = new TextDecoder();
-        var buffer = '';
-        function pump() {
-          return reader.read().then(function (result) {
-            buffer += decoder.decode(result.value || new Uint8Array(), { stream: !result.done });
-            var lines = buffer.split('\\n');
-            buffer = result.done ? '' : lines.pop();
-            for (var i = 0; i < lines.length; i++) {
-              var line = lines[i].trim();
-              if (line.indexOf('data:') !== 0) continue;
-              var raw = line.slice(5).trim();
-              if (!raw || raw === '[DONE]') continue;
-              try {
-                var delta = JSON.parse(raw).choices[0].delta.content;
-                if (delta) {
-                  text += delta;
-                  send(token, 'ai-chat-chunk', { requestId: requestId, text: delta });
-                }
-              } catch (e) {}
-            }
-            if (result.done) {
-              send(token, 'ai-chat-response', { requestId: requestId, text: text });
-              return null;
-            }
-            return pump();
-          });
-        }
-        return pump();
-      })
-      .catch(function () { fail('network'); });
-  }
-
   window.addEventListener('message', function (event) {
     // The frame's origin is opaque ("null"), so its WindowProxy is the check.
     if (event.source !== frame.contentWindow) return;
@@ -185,8 +113,6 @@ const SHELL_SOURCE = `(function () {
       var href = typeof p.href === 'string' && p.href.length < 500 ? p.href : '';
       var target = resolvePage(href);
       if (target) load(target, href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '');
-    } else if (d.type === 'ai-chat-request') {
-      relayAi(d.token, p);
     }
   });
 
@@ -203,13 +129,11 @@ if (SHELL_SOURCE.indexOf('</') !== -1 || SHELL_SOURCE.indexOf('${') !== -1) {
  * @param {{
  *   files: Record<string, string>,   // page filename -> HTML, as stored in versions
  *   title?: string,
- *   aiMode?: 'off' | 'relay' | 'byok',
- *   relayUrl?: string,               // absolute relay URL, used for 'relay'
  *   initialStorage?: Record<string, string>,
  * }} options
  * @returns {string}
  */
-export function buildNewTabShell({ files, title = 'Preview', aiMode = 'off', relayUrl = '', initialStorage = {} }) {
+export function buildNewTabShell({ files, title = 'Preview', initialStorage = {} }) {
   // The storage seed is substituted when each page loads, so a page opened
   // later sees what earlier pages saved. A random marker stands in for it;
   // generated code cannot know it in advance, so it cannot collide.
@@ -217,10 +141,8 @@ export function buildNewTabShell({ files, title = 'Preview', aiMode = 'off', rel
   const pages = {};
   for (const [name, html] of Object.entries(files || {})) {
     if (typeof html !== 'string' || !html) continue;
-    const source = aiMode === 'byok' ? injectSelfHostedAiBridge(html, { mode: 'byok' }) : html;
-    const { srcDoc, token } = injectPreviewBridge(source, {
+    const { srcDoc, token } = injectPreviewBridge(html, {
       initialStorage: { [marker]: '' },
-      aiEnabled: aiMode === 'relay',
     });
     // injectPreviewBridge serialized the seed as {"<marker>":""}; turn that
     // whole object into the marker the shell replaces.
@@ -236,8 +158,6 @@ export function buildNewTabShell({ files, title = 'Preview', aiMode = 'off', rel
     pages,
     landing,
     title: String(title),
-    aiMode: aiMode === 'relay' || aiMode === 'byok' ? aiMode : 'off',
-    relayUrl: aiMode === 'relay' ? String(relayUrl) : '',
     storage: initialStorage && typeof initialStorage === 'object' ? initialStorage : {},
   };
   // "<" is escaped so no page can end the data block (or any script) early.

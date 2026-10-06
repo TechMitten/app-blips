@@ -4,7 +4,7 @@
 //
 // Never includes secret values: only provider names, models, endpoints and the
 // names of variables that still need filling in.
-import { resolveProvider, ignoredAppProviderVars, renamedAppAiLimits, renamedLlmVars, LLM_ENV } from './providers.js';
+import { resolveProvider, renamedLlmVars, LLM_ENV } from './providers.js';
 import { supabaseConfigured } from './supabaseServer.js';
 
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
@@ -41,27 +41,11 @@ export const describeConfig = (env) => {
     });
   }
 
-  const configuredMode = String(env?.APPBLIPS_GENERATED_AI_MODE || 'relay').trim().toLowerCase();
-  if (configuredMode === 'off') {
-    lines.push({ level: 'info', label: 'App AI', text: 'off, as configured (no AI inside generated apps)' });
-  } else if (!multiUser && configuredMode === 'byok') {
-    lines.push({ level: 'info', label: 'App AI', text: 'BYOK, as configured (people using a finished app enter their own key)' });
-  } else if (!builder.error && !builder.missing.length) {
-    const where = multiUser ? 'deployed apps' : 'relay';
-    lines.push({ level: 'info', label: 'App AI', text: `${where}, sharing the builder's provider · ${builder.model}` });
-  }
-  const renamed = [...renamedLlmVars(env), ...renamedAppAiLimits(env)];
+  const renamed = renamedLlmVars(env);
   if (renamed.length) {
     lines.push({
       level: 'warn',
       text: `Renamed (old names still work for now): ${renamed.map(({ from, to }) => `${from} -> ${to}`).join(', ')}.`,
-    });
-  }
-  const ignored = ignoredAppProviderVars(env);
-  if (ignored.length) {
-    lines.push({
-      level: 'warn',
-      text: `${ignored.join(', ')} ${ignored.length > 1 ? 'are' : 'is'} no longer used: AI in generated apps always shares the builder's provider and key. Remove ${ignored.length > 1 ? 'them' : 'it'}.`,
     });
   }
 

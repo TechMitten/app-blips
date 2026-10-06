@@ -31,15 +31,6 @@
             ]
           },
           {
-            "group": "AI in Your Apps",
-            "pages": [
-              "ai/overview",
-              "ai/blip-api",
-              "ai/byok-mode",
-              "ai/relay-mode"
-            ]
-          },
-          {
             "group": "Advanced",
             "pages": [
               "self-hosting/configuration",

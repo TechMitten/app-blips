@@ -32,8 +32,8 @@ import { LANDING_PAGE, versionFiles } from '../lib/pages';
 // all stable React state setters.
 export default function useProjects({ authStatus, isSignedIn, user, workspace }) {
   const {
-    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, aiEnabled, studioMode,
-    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, studioMode,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setStudioMode,
     setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState, resetWorkspace
   } = workspace;
@@ -110,7 +110,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       setChatContextStartIndex(Math.min(projectData.chatContextStartIndex ?? 0, migrated.versions.length));
       setCurrentChatSessionId(migrated.currentChatSessionId);
       setDeployment(projectData.deployment || null);
-      setAiEnabled(Boolean(projectData.aiEnabled));
       setStudioMode(projectData.studioMode === 'website' ? 'website' : projectData.studioMode === 'game' ? 'game' : 'app');
       if (migrated.versions[projectData.currentVersionIndex]) {
         setFiles(versionFiles(migrated.versions[projectData.currentVersionIndex]));
@@ -122,7 +121,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setAiEnabled, setStudioMode, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [useCloud, clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setStudioMode, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -133,7 +132,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
       deploymentToSave = deployment,
       chatContextStartToSave = chatContextStartIndex,
       sessionIdToSave = currentChatSessionId,
-      aiEnabledToSave = aiEnabled,
       studioModeToSave = studioMode
     } = params;
 
@@ -150,7 +148,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
         deployment: deploymentToSave || null,
         chatContextStartIndex: Math.min(chatContextStartToSave ?? 0, versionsToSave.length),
         currentChatSessionId: sessionIdToSave ?? null,
-        aiEnabled: Boolean(aiEnabledToSave),
         studioMode: studioModeToSave === 'website' ? 'website' : studioModeToSave === 'game' ? 'game' : 'app',
       };
 
@@ -198,7 +195,7 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, aiEnabled, studioMode, chatContextStartIndex, currentChatSessionId, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, deployment, studioMode, chatContextStartIndex, currentChatSessionId, useCloud, user?.id, loadUserProjects, setCurrentProjectId]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -287,7 +284,6 @@ export default function useProjects({ authStatus, isSignedIn, user, workspace })
     setChatContextStartIndex(Math.min(project.chatContextStartIndex ?? 0, migrated.versions.length));
     setCurrentChatSessionId(migrated.currentChatSessionId);
     setDeployment(project.deployment || null);
-    setAiEnabled(Boolean(project.aiEnabled));
     setStudioMode(project.studioMode === 'website' ? 'website' : project.studioMode === 'game' ? 'game' : 'app');
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));

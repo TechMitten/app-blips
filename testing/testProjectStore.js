@@ -7,8 +7,7 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProjectStore, folderNameFor, validateRow } from '../electron/projectStore.js';
-import { createProviderStore, providerEnv } from '../electron/providerStore.js';
-import { resolveProvider } from '../functions/_lib/providers.js';
+import { createProviderStore } from '../electron/providerStore.js';
 
 const row = (id, name, extra = {}) => ({
   id,
@@ -165,24 +164,4 @@ test('provider store encrypts the key and never describes it', async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
-});
-
-test('providerEnv points both relays at the saved provider', () => {
-  const base = { OPENAI_BASE_URL: 'http://operator', OPENAI_API_KEY: 'operator-key', APPBLIPS_OPENROUTER_MODEL: 'old', KEEP: '1' };
-  assert.equal(providerEnv(base, null), base);
-  const env = providerEnv(base, { id: 'openrouter', model: 'deepseek/deepseek-v4-flash', apiKey: 'k' });
-  assert.equal(env.OPENAI_LLM_PROVIDER, 'openrouter');
-  assert.equal(env.APPBLIPS_OPENROUTER_API_KEY, 'k');
-  assert.equal(env.OPENAI_LLM_MODEL, 'deepseek/deepseek-v4-flash');
-  assert.equal(env.OPENAI_BASE_URL, undefined);
-  assert.equal(env.OPENAI_API_KEY, undefined);
-  assert.equal(env.APPBLIPS_OPENROUTER_MODEL, undefined);
-  assert.equal(env.KEEP, '1');
-});
-
-test('a saved key wins over a leftover operator key', () => {
-  const env = providerEnv({ OPENAI_API_KEY: 'leftover', APPBLIPS_LLM_API_KEY: 'old' }, { id: 'openrouter', model: 'm', apiKey: 'user-k' });
-  const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
-  assert.equal(provider.apiKey, 'user-k');
-  assert.equal(provider.baseUrl, 'https://openrouter.ai/api/v1');
 });

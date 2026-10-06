@@ -1,7 +1,7 @@
 ---
 title: "Security Guide for Self-Hosted Copies"
 sidebarTitle: "Security"
-description: "Key security boundaries for a self-hosted AppBlips: keeping it on your own computer, sandboxed previews, how your API key is protected, and BYOK key handling."
+description: "Key security boundaries for a self-hosted AppBlips: keeping it on your own computer, sandboxed previews, and how your API key is protected."
 ---
 
 A self-hosted copy of AppBlips is designed to run on your own computer, for a single user. This page explains the security boundaries that matter in that setup, and what to do if other devices can reach it.
@@ -9,7 +9,7 @@ A self-hosted copy of AppBlips is designed to run on your own computer, for a si
 ## Keep It on Your Own Computer
 
 <Warning>
-  A self-hosted copy has **no sign-in**. The builder endpoint (`/api/chat`) and the AI relay for your generated apps (`/api/app-ai/chat`) accept every request as the same local user. **Anyone who can reach them can spend your API key.**
+  A self-hosted copy has **no sign-in**. The builder endpoint (`/api/chat`) accepts every request as the same local user. **Anyone who can reach it can spend your API key.**
 </Warning>
 
 - The [desktop app](/quickstart-desktop) opens no network port, so other devices can't reach it.
@@ -20,7 +20,7 @@ A self-hosted copy of AppBlips is designed to run on your own computer, for a si
 
 ## Your API Key
 
-Your provider key lives only in `.env` and is used only by the AppBlips server. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML. In relay mode, exported apps contain only the relay URL.
+Your provider key lives only in `.env` and is used only by the AppBlips server. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML.
 
 ## Sandboxed Preview
 
@@ -30,25 +30,9 @@ Generated apps never run directly inside the main AppBlips page. Every generated
 - The parent page cannot reach into the generated app's DOM
 - The generated app cannot make credentialed requests that carry your AppBlips session
 
-**Open in new tab** uses the same isolation: the tab shows a small AppBlips page with your app inside an isolated frame. The app's AI calls are passed on only when the app's AI switch is on, and whatever the app saves while open in that tab is kept for that tab only.
+**Open in new tab** uses the same isolation: the tab shows a small AppBlips page with your app inside an isolated frame. Whatever the app saves while open in that tab is kept for that tab only.
 
 This isolation is the main protection against malicious or buggy generated code affecting AppBlips itself.
-
-## Relay Origins
-
-The AI relay accepts calls only from AppBlips' own origin unless you list others in `APPBLIPS_APP_AI_ALLOWED_ORIGINS`. List only exact origins you control, and add `null` (the origin of `file://` pages) only if you knowingly want any locally opened HTML file to use your key.
-
-## BYOK Key Storage
-
-If you switch to `byok` mode, each person using a generated AI-enabled app enters their own provider endpoint, model, and API key the first time AI is needed:
-
-- The key is stored in the **browser only** — in `sessionStorage` by default, or `localStorage` if the user checks **Remember on this device**
-- The key is **never sent to AppBlips**
-- The key is **never embedded in the generated HTML** when an app is exported
-
-<Note>
-  While a generated app is connected to AI, JavaScript running inside that app can read the key in order to make AI calls. Only enter keys with spend limits or scoped permissions, never shared or high-privilege keys.
-</Note>
 
 ## Opening Exported Apps
 
