@@ -33,7 +33,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.js', 'server.js', 'functions/**/*.js', 'testing/**/*.js', 'scripts/**/*.js', 'electron/**/*.js'],
+    files: ['vite.config.js', 'functions/**/*.js', 'testing/**/*.js', 'scripts/**/*.js', 'electron/**/*.js'],
     languageOptions: {
       globals: {
         ...globals.node,

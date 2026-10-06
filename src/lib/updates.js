@@ -1,4 +1,4 @@
-// Self-hosted update check (desktop app, source and Docker installs; hosted
+// Self-hosted update check (desktop app and source installs; hosted
 // appblips.com is always current and never checks). Asks GitHub for the latest
 // published release of this repo and compares it with the version baked into
 // the build (__APPBLIPS_VERSION__, from package.json via vite.config.js).
@@ -11,7 +11,7 @@
 
 export const UPDATE_REPO = 'TechMitten/app-blips';
 export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
-export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-self-hosted#updating';
+export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-desktop#updates';
 export const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 export const CHECK_CACHE_KEY = 'orion-update-check';
 

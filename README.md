@@ -43,12 +43,7 @@ The studios share the same workflow: prompt, live preview, versions, and export.
 
 Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a server-side proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
 
-AppBlips is self-hosted. You can run it:
-
-- **Desktop app** (Windows and Linux) — your own copy, installed on your computer and powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move.
-- **From source or Docker** — for macOS, servers, or to change AppBlips itself. It runs as a single-user install and saves projects locally.
-
-See [Quick start](#quick-start) below to pick one.
+To run your own copy, install the **desktop app** (Windows and Linux): it runs on your computer, powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move. See [Quick start](#quick-start) below.
 
 ## Features
 
@@ -65,7 +60,7 @@ See [Quick start](#quick-start) below to pick one.
 
 ## Documentation
 
-Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [desktop app](https://docs.appblips.com/quickstart-desktop) and [run-from-source](https://docs.appblips.com/quickstart-self-hosted) quickstarts, and the [app creator docs](https://docs.appblips.com/creator).
+Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [desktop app quickstart](https://docs.appblips.com/quickstart-desktop), and the [app creator docs](https://docs.appblips.com/creator).
 
 ## Quick start
 
@@ -76,83 +71,11 @@ Want your own copy on your computer? Download the installer for your system from
 - **Windows:** `AppBlips-Setup-<version>.exe`
 - **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
 
-The first time you open it, AppBlips asks for an AI provider, a model and your API key. OpenAI, OpenRouter (for Claude, Gemini and most other models), DeepSeek and Z.ai (pay-as-you-go or a GLM Coding Plan) are supported. Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
+The first time you open it, AppBlips asks for a model and your API key. DeepSeek is the built-in provider: get a key from the [DeepSeek platform](https://platform.deepseek.com/). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
-On macOS, or want to change AppBlips itself? See [Running from source](#running-from-source) below.
-
----
-
-*The sections below cover running AppBlips from source (on macOS, on a server, or to change AppBlips itself) and how the project is put together. If you use appblips.com or installed the desktop app, you're already set — open AppBlips and start typing.*
-
-## Running from source
-
-For macOS (no installer yet), contributing to AppBlips, or running it on a server. You need [Node.js](https://nodejs.org/) 20.19+ (or 22.12+) and npm, which comes with Node.js.
-
-```bash
-git clone https://github.com/techmitten/app-blips.git   # download the project
-cd app-blips                                            # move into the project folder
-npm install                                             # install dependencies
-cp .env.example .env                                    # create your local config file
-```
-
-Open the new `.env` file and fill in **two lines**: the API key for one AI provider, and the model. A provider is active once its key is filled in. You can also leave them blank and choose a provider in the app under Settings → AI.
-
-```bash
-APPBLIPS_OPENAI_API_KEY=your-api-key
-OPENAI_LLM_MODEL=gpt-5.1
-```
-
-Any other OpenAI-chat-completions-compatible endpoint works too, including local models through Ollama or LM Studio (see "Advanced" in `.env.example`). Then start AppBlips with `npm run dev` and open `http://localhost:5175`. It prints which AI provider it found when it starts.
-
-To update later, run `git pull && npm install` and restart (AppBlips shows a notice when a new version is out).
-
-To build the desktop app from source instead, run `npm run desktop` (or `npm run desktop:dist` for installers in `dist-desktop/`).
-
-### Releasing a new version
-
-1. Bump `version` in `package.json` (for example `0.2.0`) and commit.
-2. Push a matching tag: `git tag v0.2.0 && git push origin v0.2.0`.
-3. The **Desktop** workflow builds the Windows and Linux installers and collects them, with the `latest*.yml` update files, into a draft GitHub release.
-4. Write the release notes and publish the draft. That is what rolls the update out: desktop apps on Windows and AppImage download it, and every other self-hosted copy shows a notice linking to it.
-
-### Running with Docker
-
-If you'd rather not run the dev server, you can use Docker instead of `npm run dev`. The image builds the static client and serves it, along with the builder `/api/chat` endpoint.
-
-```bash
-docker compose up --build
-```
-
-This reads environment variables from the same `.env` file as above and serves the app on `http://localhost:3000`. The port is bound to `127.0.0.1`, so only your own computer can reach it.
-
-### Configuration
-
-Your settings live in the `.env` file. See [`.env.example`](.env.example) for a complete list.
-
-| Group | Variables | Notes |
-| --- | --- | --- |
-| LLM (required, one provider) | `APPBLIPS_OPENAI_API_KEY`, `OPENAI_API_KEY`, `APPBLIPS_DEEPSEEK_API_KEY`, `APPBLIPS_ZAI_API_KEY` or `APPBLIPS_ZAI_CODING_API_KEY`, plus `OPENAI_LLM_MODEL` | A provider is active once its key is populated. |
-| LLM tuning (optional) | `OPENAI_LLM_MAX_TOKENS`, `OPENAI_LLM_ASK_MAX_TOKENS`, `OPENAI_LLM_TEMPERATURE` | `OPENAI_LLM_ASK_MAX_TOKENS` caps Ask-mode replies only (default `8192`, independent of the main max). |
-| Builder access (optional) | `APPBLIPS_CHAT_ALLOWED_ORIGINS` | `/api/chat` refuses browser requests from other sites. Only needed behind a reverse proxy that rewrites the `Host` header: list the address you open AppBlips at. |
-
-
-> **Note:** AppBlips run from source is meant for your own computer. `/api/chat` performs no authentication — every request is treated as the same local user — so keep it on localhost. It refuses browser requests from other websites, but if you expose it on a network, anyone who can reach it can spend your configured AI budget. The desktop app opens no network port at all.
-
-## Available scripts
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Vite dev server on port 5175 |
-| `npm run build` | Production build to `dist/` |
-| `npm run lint` | Run ESLint |
-| `npm run preview` | Preview the production build locally |
-| `npm run desktop` | Build the client and open it in the desktop app (`npm run desktop:start` reopens without rebuilding) |
-| `npm run desktop:dist` | Build desktop installers into `dist-desktop/` for the current OS (Windows: NSIS `.exe`; Linux: AppImage and `.deb`) |
-
-
-There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (for example `node testing/testChatProxy.js` and `node testing/testPages.js`).
+On macOS there is no installer yet. Use AppBlips on the web at [appblips.com](https://appblips.com) for now.
 
 ## Project structure
 
@@ -164,7 +87,6 @@ src/
   hooks/             # Stateful concerns: auth, projects, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 functions/           # /api/chat proxy, billing and deployed-app serving
-server.js            # Standalone Node server used by the Docker setup
 electron/            # Desktop app: main process, preload, on-disk project store, encrypted provider settings
 testing/            # Standalone Node scripts for exercising the proxy and preview
 ```
@@ -174,7 +96,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 ## Security notes
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
-- In a single-user install, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Keep it on localhost or behind a trusted network boundary.
+- The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
 
 ## License
 

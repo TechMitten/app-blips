@@ -80,7 +80,7 @@ export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cache
 
 // Runs recordApiUsage off the response's critical path. Under Cloudflare
 // Pages/Workers, `waitUntil` keeps the isolate alive until the write lands;
-// elsewhere (Vite dev middleware, Docker's server.js) there's no such hook,
+// elsewhere (Vite dev middleware, Electron) there's no such hook,
 // so the promise just runs un-awaited -- recordApiUsage handles its own
 // errors, so nothing needs to observe how it settles.
 export function trackApiUsage(env, args, waitUntil) {

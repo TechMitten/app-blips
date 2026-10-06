@@ -10,9 +10,9 @@ import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage
 // appblips.com), behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
-//   - Every other self-hosted install (.deb, source, Docker) gets a notice
+//   - Every other self-hosted install (.deb, source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
-//     download the new installer, source/Docker to the update instructions.
+//     download the new installer, source to the update instructions.
 // Closing a release notice hides that version for good; "Later" on a
 // downloaded desktop update only hides it until next launch (it installs
 // when the app quits anyway).

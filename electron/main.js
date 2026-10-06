@@ -3,7 +3,7 @@
 // The renderer is the normal self-hosted build in dist/, served from the
 // privileged custom scheme appblips://app. That gives it a stable origin
 // (so UI preferences in localStorage persist) and lets the same request
-// handlers server.js uses answer /api/* in-process: they take a Fetch Request
+// handlers the other hosts use answer /api/* in-process: they take a Fetch Request
 // and return a Response, which is exactly what protocol.handle expects, so
 // streaming works unchanged and nothing listens on a network port.
 //
@@ -28,7 +28,7 @@ const APP_DIR = fileURLToPath(new URL('..', import.meta.url));
 const DIST_DIR = join(APP_DIR, 'dist');
 const DOCS_URL = 'https://docs.appblips.com';
 
-// Same headers server.js sends.
+// Security headers for every response from the app scheme.
 const SECURITY_HEADERS = {
   'Content-Security-Policy': "frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',

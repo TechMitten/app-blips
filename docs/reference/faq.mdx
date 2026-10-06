@@ -26,18 +26,11 @@ Here are quick answers to the most common questions about AppBlips — what it c
   <Accordion title="Which AI models can I use?">
     On appblips.com, the AI is included with your plan and there's nothing to set up.
 
-    In the desktop app or a copy you run yourself, you bring your own key. DeepSeek is built in, and any other service compatible with the OpenAI chat completions API can work too, such as OpenRouter, Ollama, or Groq. Fill in the key and the model in your `.env` file (or set them in Settings → AI in the desktop app):
-
-    ```bash
-    OPENAI_API_KEY=your-api-key
-    OPENAI_LLM_MODEL=deepseek-v4-pro
-    ```
-
-    See [Configuration](/self-hosting/configuration#other-openai-compatible-services) for other services.
+    In the desktop app, you bring your own key. DeepSeek is the built-in provider: open **Settings → AI**, type the name of a model from [DeepSeek's model list](https://api-docs.deepseek.com/quick_start/pricing) and paste your key. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    In a copy you run yourself, your API key lives only in the `.env` file on your computer (or in your OS keychain for the desktop app). On appblips.com you don't need a key. The key is used exclusively by the AppBlips server when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+    In the desktop app, your API key is encrypted with your system keychain and stays on your computer. On appblips.com you don't need a key. The key is used only by the app's background process when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="Can I export the generated project?">
@@ -49,7 +42,7 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="Is there a limit on how many apps I can build?">
-    In **self-hosted** mode, there is no limit imposed by AppBlips. You are only constrained by your AI provider's rate limits and your own usage budget.
+    In the **desktop app**, there is no limit imposed by AppBlips. You are only constrained by your AI provider's rate limits and your own usage budget.
 
     In the **cloud studio** at start.appblips.com, each plan has a monthly usage allowance rather than a limit on the number of apps. See [Pricing](/pricing) for the plans, the free trial, and what happens when you run out.
   </Accordion>

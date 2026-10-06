@@ -1,5 +1,5 @@
 // Human-readable summary of the server configuration, printed once at startup
-// (Vite dev server and the Docker server) so a misconfiguration shows up as an
+// (Vite dev server and the desktop app) so a misconfiguration shows up as an
 // actionable line in the terminal instead of a failed first request.
 //
 // Never includes secret values: only provider names, models, endpoints and the

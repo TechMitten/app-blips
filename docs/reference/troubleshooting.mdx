@@ -1,10 +1,10 @@
 ---
 title: "Troubleshooting: Fixes for Common Problems"
 sidebarTitle: "Troubleshooting"
-description: "Solutions for common AppBlips problems: blank previews, API errors, and Docker startup failures."
+description: "Solutions for common AppBlips problems: blank previews, broken links, and API errors."
 ---
 
-Most AppBlips issues fall into a handful of categories — preview rendering, API connectivity, and Docker setup. Work through the section that matches your symptom to find a fix.
+Most AppBlips issues fall into a handful of categories — preview rendering and API connectivity. Work through the section that matches your symptom to find a fix.
 
 ## Preview Shows a Blank Screen
 
@@ -39,14 +39,12 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
   <Accordion title="I get an API error when building">
     An API error during a build almost always points to a misconfigured or invalid AI provider connection.
 
-    **Check the following in your `.env` file:**
+    **In the desktop app, open Settings → AI and check that:**
 
-    - `OPENAI_API_KEY` is filled in
-    - The key is valid and active for your provider
-    - `OPENAI_LLM_MODEL` is a model name your provider recognizes and your key has access to
-    - For another OpenAI-compatible service, `OPENAI_BASE_URL` is the full base URL (for example `http://localhost:11434/v1`). If that service rejects requests, set **Reasoning: building** to **Off** in Settings → AI.
+    - An API key is filled in, and it is valid and active for your provider
+    - The model is a name your provider recognizes and your key has access to
 
-    When AppBlips starts, it prints which provider it found and which values are still missing. Check that output first.
+    Click **Test connection** to check the settings.
 
     Also confirm that your API key has remaining quota and has not been revoked in your provider's dashboard.
   </Accordion>
@@ -71,29 +69,6 @@ Most AppBlips issues fall into a handful of categories — preview rendering, AP
   </Accordion>
 </AccordionGroup>
 
----
-
-## Docker Issues
-
-<AccordionGroup>
-  <Accordion title="Port 3000 is already in use">
-    AppBlips listens on port 3000 by default. If another process is already using that port, the container will fail to start.
-
-    **To fix:**
-
-    - Stop the process currently occupying port 3000, then run `docker compose up` again.
-    - Alternatively, publish AppBlips on another host port: in `docker-compose.yml`, change the first number of the port mapping (for example `"127.0.0.1:8080:3000"`) and open `http://localhost:8080`. See [Ports](/self-hosting/docker#ports).
-  </Accordion>
-
-  <Accordion title="Changes to .env don't take effect">
-    Docker passes `.env` to the container when it is created, so `docker compose restart` keeps the old values. Recreate the container instead:
-
-    ```bash
-    docker compose up
-    ```
-  </Accordion>
-</AccordionGroup>
-
 <Note>
-  For questions about initial Docker setup and `.env` configuration, see the [self-hosting guide](/self-hosting/docker). For general questions about how AppBlips works, visit the [FAQ](/reference/faq).
+  For general questions about how AppBlips works, visit the [FAQ](/reference/faq).
 </Note>

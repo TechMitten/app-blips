@@ -1,26 +1,20 @@
 ---
 title: "Security Guide for Self-Hosted Copies"
 sidebarTitle: "Security"
-description: "Key security boundaries for a self-hosted AppBlips: keeping it on your own computer, sandboxed previews, and how your API key is protected."
+description: "Key security boundaries for your own copy of AppBlips: the desktop app, sandboxed previews, and how your API key is protected."
 ---
 
-A self-hosted copy of AppBlips is designed to run on your own computer, for a single user. This page explains the security boundaries that matter in that setup, and what to do if other devices can reach it.
+The [desktop app](/quickstart-desktop) is your own copy of AppBlips, running on your computer for a single user. This page explains the security boundaries that matter in that setup.
 
-## Keep It on Your Own Computer
+## It Stays on Your Computer
 
-<Warning>
-  A self-hosted copy has **no sign-in**. The builder endpoint (`/api/chat`) accepts every request as the same local user. **Anyone who can reach it can spend your API key.**
-</Warning>
-
-- The [desktop app](/quickstart-desktop) opens no network port, so other devices can't reach it.
-- `npm run dev` and the Docker setup are meant to be opened at `localhost`. The Docker Compose file binds to `127.0.0.1` for this reason.
-- Web pages from other sites, and the apps you build, can't use `/api/chat`: it refuses browser requests that don't come from AppBlips itself. Behind a reverse proxy, see `APPBLIPS_CHAT_ALLOWED_ORIGINS` in [Configuration](/self-hosting/configuration).
-- If you do make AppBlips reachable from other devices on your network, put your own access control in front of it, such as a firewall rule or a VPN.
+- The desktop app has no sign-in and opens no network port, so other devices can't reach it or use your API key.
+- The apps you build, and web pages from other sites, can't use AppBlips to call your AI provider.
 - Set a spend limit with your AI provider. Your own copy of AppBlips doesn't limit how many requests it sends, so a runaway app could otherwise run up costs.
 
 ## Your API Key
 
-Your provider key lives only in `.env` and is used only by the AppBlips server. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML.
+Your provider key is encrypted with your system keychain and used only by the app's background process. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML.
 
 ## Sandboxed Preview
 

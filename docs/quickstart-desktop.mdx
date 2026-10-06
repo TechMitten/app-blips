@@ -7,7 +7,7 @@ description: "Run AppBlips as an installed app on Windows or Linux, with project
 The desktop app is the easiest way to run your own copy of AppBlips. It installs like any other program: no account, no terminal, no configuration files. You bring an API key from an AI provider, and your projects are saved as folders on your computer.
 
 <Note>
-  On macOS there is no installer yet. [Run AppBlips from source](/quickstart-self-hosted) instead.
+  On macOS there is no installer yet. Use AppBlips on the web at [appblips.com](https://appblips.com) for now.
 </Note>
 
 ## Install
@@ -26,7 +26,7 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 ## Set up your AI provider
 
-The first time you open the app, **Settings → AI** asks for a provider, a model and your API key. DeepSeek is the provider. Type a model such as `deepseek-v4-pro` and paste your key from the [DeepSeek platform](https://platform.deepseek.com/). Click **Test connection**, then **Save**.
+The first time you open the app, **Settings → AI** asks for a provider, a model and your API key. DeepSeek is the provider. Type the name of a model from [DeepSeek's model list](https://api-docs.deepseek.com/quick_start/pricing) and paste your key from the [DeepSeek platform](https://platform.deepseek.com/). Click **Test connection**, then **Save**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 
@@ -65,17 +65,3 @@ AppBlips checks for new versions when it starts.
 - **.deb:** AppBlips tells you a new version is out and links to the download. Install it the same way as the first time (`sudo apt install ./AppBlips-*.deb`); your projects and settings stay as they are.
 
 To turn the check off, go to **Settings → Workspace → Check for updates**. The check asks GitHub, where releases are published, so GitHub sees your IP address.
-
-## Build the installers yourself
-
-From a clone of the repository (see [Run from Source](/quickstart-self-hosted) for the prerequisites):
-
-```bash
-npm install
-npm run desktop        # build the client and open the app
-npm run desktop:dist   # build installers for this OS into dist-desktop/
-```
-
-Electron downloads its runtime the first time it runs. Build each installer on its own OS: Windows installers on Windows and Linux packages on Linux. The repository's **Desktop** GitHub Actions workflow builds both.
-
-If you launch the app from a terminal, the `OPENAI_*` variables from [Configuration](/self-hosting/configuration) still apply. A provider saved in Settings → AI takes priority over them.

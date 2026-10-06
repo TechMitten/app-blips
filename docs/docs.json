@@ -17,8 +17,7 @@
             "group": "Get Started",
             "pages": [
               "introduction",
-              "quickstart-desktop",
-              "quickstart-self-hosted"
+              "quickstart-desktop"
             ]
           },
           {
@@ -33,8 +32,6 @@
           {
             "group": "Advanced",
             "pages": [
-              "self-hosting/configuration",
-              "self-hosting/docker",
               "self-hosting/security"
             ]
           },
@@ -73,5 +70,19 @@
   "logo": {
     "light": "/logo-light.png",
     "dark": "/logo-dark.png"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/quickstart-self-hosted",
+      "destination": "/quickstart-desktop"
+    },
+    {
+      "source": "/self-hosting/docker",
+      "destination": "/quickstart-desktop"
+    },
+    {
+      "source": "/self-hosting/configuration",
+      "destination": "/quickstart-desktop"
+    }
+  ]
 }
