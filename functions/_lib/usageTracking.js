@@ -1,45 +1,73 @@
-// Per-account API usage counters (multi-user only) -- observability, not a
-// billing boundary. One doc per account per UTC day in Supabase's `usage`
-// collection: { user_id, date, builderRequests, deployedRequests, updatedAt }.
+// Per-account API usage counters (multi-user only), in the Firestore `usage`
+// collection: one doc per account per UTC day, id `${uid}_${date}`, holding
+// { user_id, date, builder_requests, builder_tokens, builder_prompts,
+//   cost_micros, cached_tokens, deployed_requests, deployed_tokens, updated_at }.
+// billing.js reads the same docs to enforce plan limits.
 //
-// `deployedRequests` holds usage from the retired AI-inside-apps feature; only
-// 'builder' usage is recorded now.
+// `deployed_*` hold usage from the retired AI-inside-apps feature; only
+// 'builder' usage is recorded now. Kept so the totals stay one formula.
 //
-// The write is not authenticated as the caller: chatProxy.js has a verified
-// end-user ID token but that's irrelevant to authorizing *this* write.
-// Supabase RLS constrains what can be written
-// (known fields only, each counter increments by at most 1 per call).
-import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
+// Written as the service account; firestore.rules give clients no access at
+// all, so a signed-in user can neither read nor inflate or erase them.
+import { firebaseConfigured, serviceAccountConfigured, getDoc, runTransaction, setWrite, sumQuery } from './firebaseServer.js';
 
-const todayUtc = () => new Date().toISOString().slice(0, 10);
+export const todayUtc = () => new Date().toISOString().slice(0, 10);
 
-// Best-effort: a Supabase hiccup here must never break app generation, so
-// every failure is caught and logged, never
-// thrown. A single-user instance has no Supabase project to write to.
+export const usageDocPath = (uid, date) => `usage/${uid}_${date}`;
+
+export const emptyUsage = () => ({
+  builder_requests: 0,
+  builder_tokens: 0,
+  builder_prompts: 0,
+  deployed_requests: 0,
+  deployed_tokens: 0,
+  cost_micros: 0,
+  cached_tokens: 0,
+});
+
+// Tokens used from `fromDate` up to (not including) `beforeDate`, both
+// YYYY-MM-DD. Needs the (user_id, date) index in firestore.indexes.json.
+export const sumPeriodTokens = async (env, uid, fromDate, beforeDate) => {
+  if (fromDate >= beforeDate) return 0;
+  const sums = await sumQuery(env, 'usage', ['builder_tokens', 'deployed_tokens'], {
+    where: [['user_id', '==', uid], ['date', '>=', fromDate], ['date', '<', beforeDate]],
+  });
+  return sums.builder_tokens + sums.deployed_tokens;
+};
+
+const nonNegative = (value) => Math.max(Number(value) || 0, 0);
+
+// Best-effort: a Firestore hiccup here must never break app generation, so
+// every failure is caught and logged, never thrown. A single-user instance
+// has no Firebase project to write to.
 //
 // `reservation` ({ date, tokens }, from billing.js reserveTokens) means the
 // request already reserved an estimate against the allowance; it's settled
 // to `tokens` on the day it was reserved instead of being counted again.
 export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens, reservation }) {
   if (!uid || kind !== 'builder') return;
-  if (!supabaseConfigured(env)) return;
+  if (!firebaseConfigured(env) || !serviceAccountConfigured(env)) return;
 
-  const date = todayUtc();
+  const date = reservation?.date || todayUtc();
   try {
-    if (!supabaseServiceKey(env)) return;
-    const spend = { token_count: tokens || 0, cost: costMicros || 0, cached: cachedTokens || 0 };
-    const [rpc, args] = reservation
-      ? ['settle_usage', { target_user_id: uid, usage_date: reservation.date, reserved: reservation.tokens, usage_kind: kind, ...spend }]
-      : ['record_usage', { target_user_id: uid, usage_date: date, usage_kind: kind, ...spend }];
-    const response = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/${rpc}`, {
-      method: 'POST',
-      headers: supabaseHeaders(env, { service: true }),
-      body: JSON.stringify(args),
+    await runTransaction(env, async (tx) => {
+      const path = usageDocPath(uid, date);
+      const doc = await getDoc(env, path, { transaction: tx });
+      const usage = { ...emptyUsage(), ...(doc?.data || {}) };
+      const held = reservation ? nonNegative(reservation.tokens) : 0;
+      return {
+        writes: [setWrite(env, path, {
+          ...usage,
+          user_id: uid,
+          date,
+          builder_requests: usage.builder_requests + 1,
+          builder_tokens: Math.max(usage.builder_tokens - held + nonNegative(tokens), 0),
+          cost_micros: usage.cost_micros + nonNegative(costMicros),
+          cached_tokens: usage.cached_tokens + nonNegative(cachedTokens),
+          updated_at: new Date(),
+        })],
+      };
     });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      console.error('[usage-tracking] update failed:', response.status, detail.slice(0, 200));
-    }
   } catch (err) {
     console.error('[usage-tracking]', err?.message || err);
   }

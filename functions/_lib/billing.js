@@ -1,14 +1,15 @@
 // Stripe billing: Checkout to subscribe, the Customer Portal to manage or
-// cancel, a webhook that mirrors each subscription into Supabase's
-// `subscriptions` table, and a status endpoint for the usage meter. Fetch
+// cancel, a webhook that mirrors each subscription into the Firestore
+// `subscriptions` collection, and a status endpoint for the usage meter. Fetch
 // primitives only (no Stripe SDK), like every handler in functions/_lib.
 //
-// Stripe decides who pays; AppBlips counts usage itself (usage table) and the
+// Stripe decides who pays; AppBlips counts usage itself (usage collection) and the
 // LLM proxy compares the two before each build (see chatProxy.js). Billing is
 // on only in a multi-user instance with STRIPE_SECRET_KEY set -- without it
 // nobody has limits, which keeps self-hosted and single-user installs as they
 // were.
-import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } from './supabaseServer.js';
+import { serviceAccountConfigured, getDoc, runQuery, runTransaction, setWrite } from './firebaseServer.js';
+import { usageDocPath, emptyUsage, sumPeriodTokens, todayUtc } from './usageTracking.js';
 import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts, allowanceLimits } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
@@ -19,7 +20,7 @@ const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 const stripeKey = (env) => String(env?.STRIPE_SECRET_KEY || '').trim();
 
-export const billingEnabled = (env) => Boolean(supabaseConfigured(env) && supabaseServiceKey(env) && stripeKey(env));
+export const billingEnabled = (env) => Boolean(serviceAccountConfigured(env) && stripeKey(env));
 
 // APPBLIPS_BILLING_TESTERS: comma-separated emails or account ids. When set,
 // billing (limits, plans, checkout) applies only to those accounts and
@@ -41,67 +42,104 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
   headers: { 'content-type': 'application/json' },
 });
 
-// --- Supabase (service role) ---------------------------------------------
+// --- Firestore (service account) -----------------------------------------
+//
+// usage/{uid}_{date} holds one account's counters for one UTC day;
+// subscriptions/{uid} mirrors their Stripe subscription. Clients can't read
+// or write either (firestore.rules); everything goes through here.
 
-// The plan in effect and tokens used (public.billing_status). null when the
-// read fails, so callers can decide how to degrade.
+const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'];
+
+// The plan in effect and tokens used, shaped like the old billing_status row:
+// { plan, status, period_start, period_end, cancel_at_period_end,
+//   today_tokens, period_tokens, today_prompts }. null when the read fails,
+// so callers can decide how to degrade.
 export const fetchBillingStatus = async (env, uid) => {
   try {
-    const res = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/billing_status`, {
-      method: 'POST',
-      headers: supabaseHeaders(env, { service: true }),
-      body: JSON.stringify({ target_user_id: uid }),
-    });
-    if (!res.ok) {
-      console.error('[billing] status read failed:', res.status, (await res.text().catch(() => '')).slice(0, 200));
-      return null;
-    }
-    const rows = await res.json();
-    return Array.isArray(rows) ? rows[0] || null : rows;
+    const today = todayUtc();
+    const [subDoc, usageDoc] = await Promise.all([
+      getDoc(env, `subscriptions/${uid}`),
+      getDoc(env, usageDocPath(uid, today)),
+    ]);
+    const sub = subDoc?.data || null;
+    // past_due keeps the plan while Stripe retries the card; anything else
+    // (canceled, unpaid, incomplete) falls back to free.
+    const paid = Boolean(sub && ACTIVE_STATUSES.includes(sub.status) && sub.plan !== 'free');
+    const periodStart = paid && sub.current_period_start
+      ? String(sub.current_period_start).slice(0, 10)
+      : `${today.slice(0, 7)}-01`;
+    const usage = { ...emptyUsage(), ...(usageDoc?.data || {}) };
+    const todayTokens = usage.builder_tokens + usage.deployed_tokens;
+    const earlier = await sumPeriodTokens(env, uid, periodStart, today);
+    return {
+      plan: paid ? sub.plan : 'free',
+      status: sub?.status || 'none',
+      period_start: periodStart,
+      period_end: paid ? sub.current_period_end || null : null,
+      cancel_at_period_end: Boolean(sub?.cancel_at_period_end),
+      today_tokens: todayTokens,
+      period_tokens: earlier + todayTokens,
+      today_prompts: usage.builder_prompts,
+    };
   } catch (err) {
     console.error('[billing] status read failed:', err?.message || err);
     return null;
   }
 };
 
-const todayUtc = () => new Date().toISOString().slice(0, 10);
+// Runs `change(usage)` on today's usage doc in a transaction: it returns the
+// fields to write (or null to write nothing) and the result. The doc read
+// locks it until commit, so concurrent requests for one account serialize.
+const withUsageDoc = (env, uid, date, change) => runTransaction(env, async (tx) => {
+  const path = usageDocPath(uid, date);
+  const doc = await getDoc(env, path, { transaction: tx });
+  const current = { ...emptyUsage(), ...(doc?.data || {}), user_id: uid, date };
+  const { fields, result } = await change(current);
+  return {
+    writes: fields ? [setWrite(env, path, { ...current, ...fields, updated_at: new Date() })] : [],
+    result,
+  };
+});
 
-const usageRpc = async (env, name, args) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/${name}`, {
-    method: 'POST',
-    headers: supabaseHeaders(env, { service: true }),
-    body: JSON.stringify(args),
-  });
-  if (!res.ok) throw new Error(`${name} failed: ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`);
-  return res.status === 204 ? null : res.json();
-};
-
-// Takes one of today's prompts (public.claim_prompt, atomic). true = claimed,
-// false = the daily limit is reached, null = the read failed (callers let the
-// request through, as with fetchBillingStatus).
+// Takes one of today's prompts, atomically. true = claimed, false = the daily
+// limit is reached, null = the call failed (callers let the request through,
+// as with fetchBillingStatus).
 export const claimPrompt = async (env, uid, limit) => {
   try {
-    return (await usageRpc(env, 'claim_prompt', { target_user_id: uid, usage_date: todayUtc(), prompt_limit: limit })) === true;
+    return await withUsageDoc(env, uid, todayUtc(), (usage) => (usage.builder_prompts < limit
+      ? { fields: { builder_prompts: usage.builder_prompts + 1 }, result: true }
+      : { fields: null, result: false }));
   } catch (err) {
     console.error('[billing] prompt claim failed:', err?.message || err);
     return null;
   }
 };
 
-// Reserves `amount` tokens against the allowance before a request goes out
-// (public.reserve_tokens: checks and adds in one locked step, so requests
-// sent at the same moment can't all slip under the limit). Returns
-// { reserved, today_tokens, period_tokens, date }, or null when the call
-// failed. The reservation is settled to the real count by usageTracking.js.
+// Reserves `amount` tokens against the allowance before a request goes out:
+// checks and adds in one transaction on today's doc, so requests sent at the
+// same moment can't all slip under the limit. Earlier days of the period are
+// summed first, outside the transaction -- they no longer change, except for
+// a reservation from yesterday settling, which is no worse than before.
+// Returns { reserved, today_tokens, period_tokens, date }, or null when the
+// call failed. The reservation is settled to the real count by usageTracking.js.
 export const reserveTokens = async (env, uid, { periodStart, limits, amount, kind }) => {
   const date = todayUtc();
+  if (kind !== 'builder') return null;
   try {
-    const rows = await usageRpc(env, 'reserve_tokens', {
-      target_user_id: uid, usage_date: date, period_start: periodStart,
-      daily_limit: limits.daily, period_limit: limits.period, amount, usage_kind: kind,
+    const earlier = await sumPeriodTokens(env, uid, periodStart, date);
+    const hold = Math.max(Number(amount) || 0, 0);
+    const result = await withUsageDoc(env, uid, date, (usage) => {
+      const todayUsed = usage.builder_tokens + usage.deployed_tokens;
+      const periodUsed = earlier + todayUsed;
+      if ((limits.daily != null && todayUsed >= limits.daily) || (limits.period != null && periodUsed >= limits.period)) {
+        return { fields: null, result: { reserved: false, today_tokens: todayUsed, period_tokens: periodUsed } };
+      }
+      return {
+        fields: { builder_tokens: usage.builder_tokens + hold },
+        result: { reserved: true, today_tokens: todayUsed + hold, period_tokens: periodUsed + hold },
+      };
     });
-    const row = Array.isArray(rows) ? rows[0] : rows;
-    return row ? { ...row, date } : null;
+    return { ...result, date };
   } catch (err) {
     console.error('[billing] token reservation failed:', err?.message || err);
     return null;
@@ -132,32 +170,56 @@ export const holdAllowance = async (env, uid, status, { continuing = false, inpu
 // Hands a prompt back when it never got going; best effort.
 export const releasePrompt = async (env, uid) => {
   try {
-    await usageRpc(env, 'release_prompt', { target_user_id: uid, usage_date: todayUtc() });
+    await withUsageDoc(env, uid, todayUtc(), (usage) => ({
+      fields: usage.builder_prompts > 0 ? { builder_prompts: usage.builder_prompts - 1 } : null,
+    }));
   } catch (err) {
     console.error('[billing] prompt release failed:', err?.message || err);
   }
 };
 
-const selectSubscriptions = async (env, filter) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/subscriptions?${filter}&select=user_id,plan,status,stripe_customer_id,stripe_subscription_id`, {
-    headers: supabaseHeaders(env, { service: true }),
-  });
-  if (!res.ok) throw new Error(`subscriptions read failed: ${res.status}`);
-  return res.json();
+const subscriptionRow = async (env, uid) => (await getDoc(env, `subscriptions/${uid}`))?.data || null;
+
+const userIdForCustomer = async (env, customerId) => {
+  const [row] = await runQuery(env, 'subscriptions', { where: [['stripe_customer_id', '==', customerId]], limit: 1 });
+  return row?.id || null;
 };
 
-const subscriptionRow = async (env, uid) => (await selectSubscriptions(env, `user_id=eq.${encodeURIComponent(uid)}`))[0] || null;
+// Stores a subscription's current state. Stripe can send events for an old,
+// cancelled subscription after a new one is active (resubscribing,
+// out-of-order retries), so the stored one is only replaced by the same
+// subscription, by an active one, or when it isn't active anyway. The
+// customer id is kept when Stripe sends none.
+const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
+  const path = `subscriptions/${fields.target_user_id}`;
+  const current = (await getDoc(env, path, { transaction: tx }))?.data || null;
+  const replace = !current
+    || current.stripe_subscription_id === fields.subscription_id
+    || ACTIVE_STATUSES.includes(fields.new_status)
+    || !ACTIVE_STATUSES.includes(current.status);
+  if (!replace) return { writes: [] };
+  return {
+    writes: [setWrite(env, path, {
+      user_id: fields.target_user_id,
+      plan: fields.new_plan,
+      status: fields.new_status,
+      stripe_customer_id: fields.customer_id || current?.stripe_customer_id || null,
+      stripe_subscription_id: fields.subscription_id,
+      current_period_start: fields.period_start,
+      current_period_end: fields.period_end,
+      cancel_at_period_end: Boolean(fields.cancels_at_period_end),
+      updated_at: new Date(),
+    })],
+  };
+});
 
-const userIdForCustomer = async (env, customerId) =>
-  (await selectSubscriptions(env, `stripe_customer_id=eq.${encodeURIComponent(customerId)}`))[0]?.user_id || null;
-
-const upsertSubscription = async (env, fields) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/rpc/upsert_subscription`, {
-    method: 'POST',
-    headers: supabaseHeaders(env, { service: true }),
-    body: JSON.stringify(fields),
-  });
-  if (!res.ok) throw new Error(`upsert_subscription failed: ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`);
+// The account's live Stripe subscription, cancelled immediately. Used when
+// an account is deleted, so nobody keeps paying for an account that's gone.
+export const cancelSubscriptionFor = async (env, uid) => {
+  if (!stripeKey(env)) return;
+  const row = await subscriptionRow(env, uid);
+  if (!row?.stripe_subscription_id || !ACTIVE_STATUSES.includes(row.status)) return;
+  await stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(row.stripe_subscription_id)}`);
 };
 
 // --- Stripe REST ---------------------------------------------------------

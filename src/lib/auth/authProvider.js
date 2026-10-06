@@ -1,20 +1,15 @@
-// Shared shape both providers (supabaseAuthProvider, mockAuthProvider)
-// implement, so useAuth/AuthModal/AccountSettingsModal/llm.js can stay
-// unaware of which one is active. Selection happens in ./index.js, based on
-// supabaseEnabled (see ../supabase.js, driven by Supabase config).
+// Shared shape both providers (firebaseAuthProvider, mockAuthProvider)
+// implement, so useAuth/AuthModal/SettingsModal/llm.js can stay unaware of
+// which one is active. Selection happens in ./index.js, based on
+// firebaseEnabled (see ../../firebase.js, driven by the Firebase config).
 //
-// User shape: { id, email, displayName, username, user_metadata: { username } } | null
+// User shape: { id, uid, email, displayName, username } | null
 //
-// authProvider.onAuthStateChanged(callback(user, event)) -> unsubscribe
-//   event is the provider's auth event ('PASSWORD_RECOVERY' after a reset link), when it has one
-// authProvider.consumeEmailLink() -> Promise<'email' | 'recovery' | ... | null> (rejects on a bad/expired link)
-// authProvider.signIn(email, password) -> Promise<void>
+// authProvider.onAuthStateChanged(callback(user)) -> unsubscribe
 // authProvider.signInWithOAuth('google' | 'github') -> Promise<void>
-//   (web: redirects away and resolves never; desktop: resolves once signed in)
-// authProvider.cancelOAuth() -> void (stops a desktop browser sign-in that is waiting)
-// authProvider.sendPasswordReset(email) -> Promise<void>
+//   (resolves once signed in, or quietly if the user closes the popup)
 // authProvider.signOut() -> Promise<void>
-// authProvider.updatePassword(newPassword) -> Promise<void>
-// authProvider.updateProfile({ displayName }) -> Promise<void>
+// authProvider.reauthenticate() -> Promise<void> (fresh provider sign-in before deletion)
 // authProvider.deleteAccount() -> Promise<void>
+// authProvider.getPrimaryProviderId() -> 'google' | 'github' | null
 // authProvider.getIdToken() -> Promise<string>

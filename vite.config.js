@@ -7,6 +7,8 @@ import { handleDebugUnlock } from './functions/_lib/debugUnlock.js'
 import { describeConfig, formatConfigSummary } from './functions/_lib/configSummary.js'
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from './functions/_lib/umamiProxy.js'
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './functions/_lib/billing.js'
+import { handleDeployUpload, handleDeployDelete } from './functions/_lib/deploys.js'
+import { handleAccountDelete } from './functions/_lib/account.js'
 
 // Dev-middleware plumbing. Vite's connect server does not catch rejections from
 // async middleware, and an 'error' event on an unhandled stream is an uncaught
@@ -210,6 +212,41 @@ function billingDevMiddleware(mode) {
   }
 }
 
+// Deploy publishing and account deletion (functions/_lib/deploys.js,
+// account.js), same handlers as Pages and the Worker. Only work when the
+// .env has FIREBASE_SERVICE_ACCOUNT and the R2_* credentials.
+function accountDevMiddleware(mode) {
+  return {
+    name: 'appblips-account-dev-middleware',
+    configureServer(server) {
+      const env = loadEnv(mode, process.cwd(), '')
+      const routes = {
+        '/api/deploys': { POST: handleDeployUpload, DELETE: handleDeployDelete },
+        '/api/account/delete': { POST: handleAccountDelete },
+      }
+      for (const [path, methods] of Object.entries(routes)) {
+        server.middlewares.use(path, guarded(async (req, res) => {
+          const handler = methods[req.method]
+          if (!handler) { res.statusCode = 405; res.end('Method not allowed'); return }
+          const chunks = []
+          if (req.method === 'POST') for await (const chunk of req) chunks.push(chunk)
+          const queryIndex = req.url.indexOf('?')
+          const query = queryIndex === -1 ? '' : req.url.slice(queryIndex)
+          const request = new Request('http://' + (req.headers.host || 'localhost') + path + query, {
+            method: req.method,
+            headers: {
+              ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+              ...(req.method === 'POST' ? { 'content-type': 'application/json' } : {}),
+            },
+            ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
+          })
+          sendWebResponse(res, await handler(request, env))
+        }))
+      }
+    },
+  }
+}
+
 // Injects the optional Umami analytics + session recorder scripts into <head>.
 // Only when the operator configures a Umami script URL and website ID
 // (VITE_UMAMI_SCRIPT_URL / VITE_UMAMI_WEBSITE_ID, plus the optional
@@ -341,28 +378,35 @@ function seoPlugin(mode) {
   }
 }
 
-// VITE_* values are baked into the bundle at build time, so a mistyped key
-// ships to every user and only shows up as "Invalid API key" / sign-in loops
-// at runtime (a Pages build once baked in the literal text
-// "SUPABASE_PUBLISHABLE_KEY"). Fail the build instead. Accepts the new
-// sb_publishable_ keys and legacy anon JWTs; unset still means single-user.
-function checkSupabaseConfig(mode) {
-  const key = loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_PUBLISHABLE_KEY
-  if (key && !/^(sb_publishable_[\w-]+|eyJ[\w-]+\.[\w-]+\.[\w-]+)$/.test(key)) {
-    throw new Error(`VITE_SUPABASE_PUBLISHABLE_KEY doesn't look like a Supabase publishable key (got "${key.slice(0, 24)}..."). Set it to the sb_publishable_... value from the Supabase dashboard.`)
+// VITE_* values are baked into the bundle at build time, so a mistyped or
+// half-set Firebase config ships to every user and only shows up as sign-in
+// failures at runtime (a Pages build once baked in a literal variable name
+// instead of a key). Fail the build instead. All unset still means single-user.
+const FIREBASE_CLIENT_VARS = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN', 'VITE_FIREBASE_PROJECT_ID', 'VITE_FIREBASE_APP_ID']
+function checkFirebaseConfig(mode) {
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
+  const set = FIREBASE_CLIENT_VARS.filter((name) => env[name])
+  if (!set.length) return
+  if (set.length !== FIREBASE_CLIENT_VARS.length) {
+    throw new Error(`Firebase is half configured: set all of ${FIREBASE_CLIENT_VARS.join(', ')} or none (missing ${FIREBASE_CLIENT_VARS.filter((name) => !env[name]).join(', ')}).`)
+  }
+  if (!/^AIza[\w-]{35}$/.test(env.VITE_FIREBASE_API_KEY)) {
+    throw new Error(`VITE_FIREBASE_API_KEY doesn't look like a Firebase web API key (got "${env.VITE_FIREBASE_API_KEY.slice(0, 12)}..."). Copy it from the Firebase console's web app config.`)
+  }
+  if (!/^1:\d+:web:[0-9a-f]+$/.test(env.VITE_FIREBASE_APP_ID)) {
+    throw new Error(`VITE_FIREBASE_APP_ID doesn't look like a Firebase web app id (expected 1:<number>:web:<hex>).`)
   }
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
+export default defineConfig(({ mode }) => (checkFirebaseConfig(mode), {
   // The app's version, for the self-hosted update check (src/lib/updates.js).
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
-  // SELF_HOSTED_MODE is gone: multi-user features turn on when the operator
-  // configures Supabase (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY in
-  // src/supabase.js). APPBLIPS_MAINTENANCE has no VITE_ prefix but still
+  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), accountDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
+  // Multi-user features turn on when the operator configures Firebase (the
+  // VITE_FIREBASE_* web config, see src/firebase.js). APPBLIPS_MAINTENANCE has no VITE_ prefix but still
   // needs to reach import.meta.env (the server reads the same variable).
   envPrefix: ['VITE_', 'APPBLIPS_MAINTENANCE'],
   server: {

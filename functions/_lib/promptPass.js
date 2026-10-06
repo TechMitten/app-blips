@@ -13,13 +13,13 @@ const decoder = new TextDecoder();
 // the prompt, so this is idle time, not total time.
 const PASS_TTL_SECONDS = 30 * 60;
 
-const toBase64Url = (bytes) => {
+export const toBase64Url = (bytes) => {
   let binary = '';
   for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-const fromBase64Url = (value) => {
+export const fromBase64Url = (value) => {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4));
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));

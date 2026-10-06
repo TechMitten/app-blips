@@ -49,7 +49,7 @@ export default function PreviewPane({
   isDeployStale,
   isSignedIn,
   onOpenDeployModal,
-  supabaseEnabled,
+  firebaseEnabled,
   onExportHtml,
   containerRef,
   iframeRef,
@@ -352,9 +352,9 @@ export default function PreviewPane({
               self-hosted, where it also carries the tour anchor). */}
           {hasCode && (
             <button
-              {...(!supabaseEnabled && { 'data-tour': 'share' })}
+              {...(!firebaseEnabled && { 'data-tour': 'share' })}
               onClick={onExportHtml}
-              className={supabaseEnabled
+              className={firebaseEnabled
                 ? 'nav-btn nav-btn-secondary preview-key'
                 : 'nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs'}
               aria-label="Export app"
@@ -365,12 +365,12 @@ export default function PreviewPane({
               {/* Hosted mode already has a labelled filled key (Deploy), and a
                   rank with two of them has no primary. Export is the secondary
                   action there, so it keeps the icon and the tooltip only. */}
-              {!supabaseEnabled && <span className="preview-key-label">Export</span>}
+              {!firebaseEnabled && <span className="preview-key-label">Export</span>}
             </button>
           )}
 
           {/* Deploy to a public URL (hosted mode only) */}
-          {hasCode && supabaseEnabled && (
+          {hasCode && firebaseEnabled && (
             <button
               data-tour="share"
               aria-label="Manage deployment"

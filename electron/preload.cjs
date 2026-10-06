@@ -27,11 +27,6 @@ if (window.location.protocol === 'appblips:') {
       set: call('desktop:provider:set'),
       clear: call('desktop:provider:clear'),
     },
-    auth: {
-      begin: call('desktop:auth:begin'),
-      open: call('desktop:auth:open'),
-      cancel: call('desktop:auth:cancel'),
-    },
     updates: {
       check: call('desktop:update:check'),
       install: call('desktop:update:install'),

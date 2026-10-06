@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
-import { supabaseEnabled } from '../supabase';
+import { firebaseEnabled } from '../firebase';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
@@ -21,7 +21,7 @@ export default function UpdateNotice() {
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    if (supabaseEnabled || !loadCheckUpdates()) return undefined;
+    if (firebaseEnabled || !loadCheckUpdates()) return undefined;
     let cancelled = false;
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });

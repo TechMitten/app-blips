@@ -1,59 +1,57 @@
 // Tests for functions/_lib/usageTracking.js:
-//   1. recordApiUsage posts one increment to the Supabase `record_usage` RPC
-//   2. it no-ops in single-user mode / without a uid / for unknown kinds / without a service key
-//   3. failures are swallowed -- a Supabase hiccup must never throw
-//   4. handleChatProxy records exactly one 'builder' increment per successful
+//   1. recordApiUsage adds one request plus its tokens/cost to today's
+//      usage/{uid}_{date} doc, and settles a reservation instead of adding twice
+//   2. it no-ops in single-user mode / without a uid / for unknown kinds / without a service account
+//   3. failures are swallowed -- a Firestore hiccup must never throw
+//   4. handleChatProxy records exactly one 'builder' request per successful
 //      upstream call, and none on upstream failure or in single-user mode
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recordApiUsage, trackApiUsage } from '../functions/_lib/usageTracking.js';
+import { recordApiUsage, trackApiUsage, usageDocPath } from '../functions/_lib/usageTracking.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
+import { installFirebaseFake, firebaseEnv, signIdToken, PROJECT_ID } from './firebaseFake.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
+const multiUserEnv = firebaseEnv();
 
-const multiUserEnv = {
-  SUPABASE_URL: 'https://example.supabase.co',
-  SUPABASE_PUBLISHABLE_KEY: 'pk',
-  SUPABASE_SERVICE_ROLE_KEY: 'service-key',
-};
-
-const isIncrementCall = (url) => String(url).includes('/rest/v1/rpc/record_usage');
-
-test('recordApiUsage posts an increment to the Supabase RPC', async (t) => {
-  let called;
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    called = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
-    return Response.json({});
-  });
+test('recordApiUsage adds the request to today\'s usage doc', async (t) => {
+  const { firestore } = installFirebaseFake(t);
   await recordApiUsage(multiUserEnv, { uid: 'user-1', kind: 'builder', tokens: 42, costMicros: 1500, cachedTokens: 30 });
-  assert.ok(called.url.includes('/rest/v1/rpc/record_usage'), 'targets the record_usage RPC');
-  assert.equal(called.headers.authorization, 'Bearer service-key');
-  assert.equal(called.headers.apikey, 'service-key');
-  assert.deepEqual(called.body, {
-    target_user_id: 'user-1',
-    usage_date: today(),
-    usage_kind: 'builder',
-    token_count: 42,
-    cost: 1500,
-    cached: 30,
-  });
+  await recordApiUsage(multiUserEnv, { uid: 'user-1', kind: 'builder', tokens: 8 });
+  const usage = firestore.getData(usageDocPath('user-1', today()));
+  assert.equal(usage.user_id, 'user-1');
+  assert.equal(usage.date, today());
+  assert.equal(usage.builder_requests, 2);
+  assert.equal(usage.builder_tokens, 50);
+  assert.equal(usage.cost_micros, 1500);
+  assert.equal(usage.cached_tokens, 30);
 });
 
-test('recordApiUsage no-ops in single-user mode, without a uid, for an unknown kind, or without a service key', async (t) => {
-  const calls = [];
-  t.mock.method(globalThis, 'fetch', async (url) => { calls.push(String(url)); return Response.json({}); });
+test('recordApiUsage settles a reservation on the day it was made, floored at zero', async (t) => {
+  const { firestore } = installFirebaseFake(t);
+  firestore.set(usageDocPath('user-2', '2026-01-01'), { user_id: 'user-2', date: '2026-01-01', builder_tokens: 1000, builder_requests: 0 });
+  await recordApiUsage(multiUserEnv, { uid: 'user-2', kind: 'builder', tokens: 120, reservation: { date: '2026-01-01', tokens: 900 } });
+  const usage = firestore.getData(usageDocPath('user-2', '2026-01-01'));
+  assert.equal(usage.builder_tokens, 220, 'the 900 held is replaced by the 120 used');
+  assert.equal(usage.builder_requests, 1);
+  assert.equal(firestore.getData(usageDocPath('user-2', today())), null, 'nothing lands on today');
+
+  await recordApiUsage(multiUserEnv, { uid: 'user-2', kind: 'builder', tokens: 0, reservation: { date: '2026-01-01', tokens: 5000 } });
+  assert.equal(firestore.getData(usageDocPath('user-2', '2026-01-01')).builder_tokens, 0);
+});
+
+test('recordApiUsage no-ops in single-user mode, without a uid, for an unknown kind, or without a service account', async (t) => {
+  const { calls } = installFirebaseFake(t);
   await recordApiUsage({}, { uid: 'user-4', kind: 'builder' });
   await recordApiUsage(multiUserEnv, { kind: 'builder' });
   await recordApiUsage(multiUserEnv, { uid: 'user-4', kind: 'tokens' });
-  await recordApiUsage(
-    { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' },
-    { uid: 'user-4', kind: 'builder' },
-  );
+  await recordApiUsage({ FIREBASE_PROJECT_ID: PROJECT_ID }, { uid: 'user-4', kind: 'builder' });
   assert.equal(calls.length, 0);
 });
 
-test('recordApiUsage never throws on Supabase failures', async (t) => {
+test('recordApiUsage never throws on Firestore failures', async (t) => {
   t.mock.method(console, 'error', () => {});
+  installFirebaseFake(t, {});
   t.mock.method(globalThis, 'fetch', async () => new Response('boom', { status: 500 }));
   await assert.doesNotReject(() => recordApiUsage(multiUserEnv, { uid: 'user-5', kind: 'builder' }));
 
@@ -62,13 +60,12 @@ test('recordApiUsage never throws on Supabase failures', async (t) => {
 });
 
 test('trackApiUsage hands the write to waitUntil when one exists', async (t) => {
-  const calls = [];
-  t.mock.method(globalThis, 'fetch', async (url) => { calls.push(String(url)); return Response.json({}); });
+  const { firestore } = installFirebaseFake(t);
   const waited = [];
   trackApiUsage(multiUserEnv, { uid: 'user-6', kind: 'builder' }, (p) => waited.push(p));
   assert.equal(waited.length, 1, 'promise must be kept alive via waitUntil');
   await waited[0];
-  assert.equal(calls.length, 1);
+  assert.equal(firestore.getData(usageDocPath('user-6', today())).builder_requests, 1);
 });
 
 // --- Integration through handleChatProxy ---------------------------------
@@ -84,63 +81,44 @@ const proxyEnv = {
 const SSE_WITH_USAGE =
   'data: {"choices":[{"delta":{"content":"Done"}}],"usage":{"total_tokens":7}}\n\ndata: [DONE]\n\n';
 
-const captureProxyFetch = (t, { lookupUser = 'user-proxy', upstreamStatus = 200 } = {}) => {
-  const increments = [];
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    const target = String(url);
-    if (target.includes('/auth/v1/user')) {
-      return Response.json(lookupUser ? { id: lookupUser } : null);
-    }
-    if (isIncrementCall(target)) {
-      increments.push({ url: target, options });
-      return Response.json({});
-    }
-    if (upstreamStatus !== 200) return new Response('upstream down', { status: upstreamStatus });
-    return new Response(SSE_WITH_USAGE, { headers: { 'content-type': 'text/event-stream' } });
-  });
-  return increments;
-};
+const fakeUpstream = (status = 200) => async () => (status !== 200
+  ? new Response('upstream down', { status })
+  : new Response(SSE_WITH_USAGE, { headers: { 'content-type': 'text/event-stream' } }));
 
-const postChat = (env, waitUntil) => handleChatProxy(new Request('https://app.example/api/chat', {
+const postChat = async (env, waitUntil, uid = 'user-proxy') => handleChatProxy(new Request('https://app.example/api/chat', {
   method: 'POST',
-  headers: { authorization: 'Bearer test-id-token' },
+  headers: { authorization: `Bearer ${await signIdToken(uid)}` },
   body: JSON.stringify({ messages: [{ role: 'user', content: 'Build a todo app' }], stream: true }),
 }), env, waitUntil);
 
-test('a successful multi-user builder call records exactly one increment', async (t) => {
-  const increments = captureProxyFetch(t, { lookupUser: 'user-proxy' });
+test('a successful multi-user builder call records exactly one request', async (t) => {
+  const { firestore } = installFirebaseFake(t, { fallback: fakeUpstream() });
   const waited = [];
   const response = await postChat(proxyEnv, (p) => waited.push(p));
   assert.equal(response.status, 200);
   await response.text(); // drain the stream so the token-tracking flush runs
   await Promise.all(waited);
-  assert.equal(increments.length, 1);
-  assert.deepEqual(JSON.parse(increments[0].options.body), {
-    target_user_id: 'user-proxy',
-    usage_date: today(),
-    usage_kind: 'builder',
-    token_count: 7,
-    cost: 0,
-    cached: 0,
-  });
+  const usage = firestore.getData(usageDocPath('user-proxy', today()));
+  assert.equal(usage.builder_requests, 1);
+  assert.equal(usage.builder_tokens, 7);
 });
 
 test('a failed upstream call records nothing', async (t) => {
-  const increments = captureProxyFetch(t, { upstreamStatus: 502 });
+  const { firestore } = installFirebaseFake(t, { fallback: fakeUpstream(502) });
   const waited = [];
   const response = await postChat(proxyEnv, (p) => waited.push(p));
   assert.equal(response.status, 502);
   await Promise.all(waited);
-  assert.equal(increments.length, 0);
+  assert.equal(firestore.getData(usageDocPath('user-proxy', today())), null);
 });
 
 test('single-user builder calls record nothing', async (t) => {
-  const increments = captureProxyFetch(t);
+  const { calls } = installFirebaseFake(t, { fallback: fakeUpstream() });
   const waited = [];
-  const singleUser = { ...proxyEnv, SUPABASE_URL: undefined, SUPABASE_PUBLISHABLE_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: undefined };
+  const singleUser = { ...proxyEnv, FIREBASE_PROJECT_ID: undefined, FIREBASE_SERVICE_ACCOUNT: undefined };
   const response = await postChat(singleUser, (p) => waited.push(p));
   assert.equal(response.status, 200);
   await response.text();
   await Promise.all(waited);
-  assert.equal(increments.length, 0);
+  assert.ok(calls.every((call) => !call.url.includes('firestore')), 'no Firestore traffic');
 });

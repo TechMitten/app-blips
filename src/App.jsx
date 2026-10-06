@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { supabaseEnabled } from './supabase';
+import { firebaseEnabled } from './firebase';
 import { isDesktop, desktopBridge } from './lib/desktop';
 
 import Header from './components/Header';
@@ -28,9 +28,8 @@ import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
-import { slugifyName, sweepUserDeployments } from './lib/deploy';
+import { slugifyName } from './lib/deploy';
 import authProvider from './lib/auth';
-import { deleteUserProfile } from './lib/username';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure } from './lib/directEdits';
 import {
@@ -129,10 +128,8 @@ export default function App() {
   const {
     authStatus, isSignedIn, user,
     username, usernameLoading, claimUsername,
-    returningFromOAuth, authToast, dismissAuthToast,
+    authToast, dismissAuthToast,
     isAuthModalOpen, setIsAuthModalOpen,
-    isPasswordRecovery, endPasswordRecovery,
-    emailLinkError, clearEmailLinkError,
     handleSignOut,
   } = useAuth();
 
@@ -170,9 +167,8 @@ export default function App() {
   const [textSession, setTextSession] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
-  // and never written into `versions`/localStorage/Supabase (see
-  // CLAUDE.md-adjacent plan notes -- avoids Supabase's 1MiB per-project doc
-  // cap and keeps applySurgicalEdits/history untouched). { dataUrl, name, source }
+  // and never written into `versions`/localStorage/Firestore (keeps saved
+  // projects small and applySurgicalEdits/history untouched). { dataUrl, name, source }
   const [attachment, setAttachment] = useState(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [attachmentError, setAttachmentError] = useState(null);
@@ -226,7 +222,7 @@ export default function App() {
   // project's data lands. Cleared once the resume attempt (successful or not)
   // finishes.
   const [isResumingProject, setIsResumingProject] = useState(
-    () => (supabaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
+    () => (firebaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
   );
   const [projectName, setProjectName] = useState('Untitled App');
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -1077,7 +1073,7 @@ export default function App() {
     const job = loadPendingJob();
     if (!job) return;
     // The current project id is captured via closure; use the ref-based value.
-    const resumedId = supabaseEnabled
+    const resumedId = firebaseEnabled
       ? currentProjectId
       : localStorage.getItem('orion-current-project-id') || null;
     const jobBelongsHere =
@@ -1540,8 +1536,8 @@ export default function App() {
 
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
   // one file per page (links like about.html keep working when unzipped).
-  // Self-hosted mode's stand-in for Deploy (no public-URL hosting without
-  // Supabase Storage); in hosted mode it sits alongside Deploy.
+  // Self-hosted mode's stand-in for Deploy (no public-URL hosting without the
+  // hosted backend); in hosted mode it sits alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
     const outputFiles = buildExportFiles();
@@ -1816,7 +1812,7 @@ export default function App() {
     // Hosted mode: a studio can't be entered signed out. Remember the pick,
     // open the sign-in modal, and the effect below resumes it once a session
     // lands. (Self-hosted is always signed in, so this never triggers there.)
-    if (supabaseEnabled && !isSignedIn) {
+    if (firebaseEnabled && !isSignedIn) {
       setPendingStudio(mode);
       openPickerSignIn();
       return;
@@ -1844,7 +1840,6 @@ export default function App() {
 
   const handleCloseAuthModal = () => {
     setIsAuthModalOpen(false);
-    clearEmailLinkError();
     setPendingStudio(null);
     if (pickerSetStartFreshRef.current) {
       pickerSetStartFreshRef.current = false;
@@ -1884,17 +1879,14 @@ export default function App() {
     return ok;
   };
 
-  // Hosted only. Re-verify first (deleteUser rejects stale sign-ins, and by then
-  // the data would already be gone), then wipe projects + deployments, the
-  // profile doc, and finally the auth account itself. Throws with a
-  // user-facing message so the Settings dialog can show it.
-  const handleDeleteAccount = async ({ password } = {}) => {
-    if (!supabaseEnabled || !user?.id) return;
-    await authProvider.reauthenticate({ password });
-    const ok = await handleDeleteAllProjects();
-    if (!ok) throw new Error('Some of your apps could not be deleted, so your account was kept. Please try again.');
-    await sweepUserDeployments(user.id);
-    await deleteUserProfile(user.id);
+  // Hosted only. Re-verify first (the server only deletes for a fresh
+  // sign-in), then the server removes the account and everything it owns --
+  // projects, published apps, usage, any subscription -- and the sign-out
+  // that follows clears this browser's copy. Throws with a user-facing
+  // message so the Settings dialog can show it.
+  const handleDeleteAccount = async () => {
+    if (!firebaseEnabled || !user?.id) return;
+    await authProvider.reauthenticate();
     await authProvider.deleteAccount();
     setIsSettingsOpen(false);
   };
@@ -1905,7 +1897,7 @@ export default function App() {
   // Hosted mode needs an account to own the copy, so signed-out visitors are
   // sent to sign in first.
   const handleRemixFromShowcase = async (project) => {
-    if (supabaseEnabled && !isSignedIn) {
+    if (firebaseEnabled && !isSignedIn) {
       setIsAuthModalOpen(true);
       return;
     }
@@ -2002,7 +1994,7 @@ export default function App() {
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           projectCount={myProjects.length}
-          onDeleteAccount={supabaseEnabled && isSignedIn ? handleDeleteAccount : null}
+          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
         />
   );
 
@@ -2054,13 +2046,13 @@ export default function App() {
   if (showStudioChoice) {
     return (
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-        <SplashScreen skip={skipSplash || !splashDue || returningFromOAuth} />
+        <SplashScreen skip={skipSplash || !splashDue} />
         <StudioChoice
           onSelectStudio={handleChooseStudio}
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
-          requireSignIn={supabaseEnabled}
+          requireSignIn={firebaseEnabled}
           isSignedIn={isSignedIn}
           onSignIn={openPickerSignIn}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
@@ -2074,9 +2066,9 @@ export default function App() {
         {plansOverlay}
         <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
         {isDesktop && <DesktopStorageNotice />}
-        {!supabaseEnabled && <UpdateNotice />}
-        {isAuthModalOpen && supabaseEnabled && (
-          <AuthModal onClose={handleCloseAuthModal} linkError={emailLinkError} />
+        {!firebaseEnabled && <UpdateNotice />}
+        {isAuthModalOpen && firebaseEnabled && (
+          <AuthModal onClose={handleCloseAuthModal} />
         )}
         {signOutConfirmModal}
         {isProjectsListOpen && (
@@ -2095,7 +2087,7 @@ export default function App() {
 
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-      <SplashScreen skip={skipSplash || !splashDue || returningFromOAuth} />
+      <SplashScreen skip={skipSplash || !splashDue} />
       {!showHero && (
       <Header
         projectName={projectName}
@@ -2119,7 +2111,7 @@ export default function App() {
         onSignOut={() => setIsSignOutConfirmOpen(true)}
         billingPlan={billing.plan}
         onOpenPlans={() => setPlansModal({})}
-        supabaseEnabled={supabaseEnabled}
+        firebaseEnabled={firebaseEnabled}
         onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
         mobileView={mobileView}
@@ -2131,7 +2123,7 @@ export default function App() {
 
       {!showHero && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
-        <GuidedTour onClose={closeTour} onViewChange={setMobileView} supabaseEnabled={supabaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
 
       {settingsModal}
@@ -2228,7 +2220,7 @@ export default function App() {
       )}
 
 
-      {isAnalyticsOpen && supabaseEnabled && isSignedIn && (
+      {isAnalyticsOpen && firebaseEnabled && isSignedIn && (
         <AnalyticsDashboardModal
           apps={myAnalyticsApps}
           appsLoading={analyticsAppsLoading}
@@ -2254,13 +2246,12 @@ export default function App() {
         />
       )}
 
-      {(isAccountSettingsOpen || isPasswordRecovery) && isSignedIn && supabaseEnabled && (
+      {isAccountSettingsOpen && isSignedIn && firebaseEnabled && (
         <AccountSettingsModal
           user={user}
           username={username}
           usernameLoading={usernameLoading}
-          passwordRecovery={isPasswordRecovery}
-          onClose={() => { setIsAccountSettingsOpen(false); endPasswordRecovery(); }}
+          onClose={() => setIsAccountSettingsOpen(false)}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
         />
       )}
@@ -2269,12 +2260,12 @@ export default function App() {
 
       <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
       {isDesktop && <DesktopStorageNotice />}
-      {!supabaseEnabled && <UpdateNotice />}
+      {!firebaseEnabled && <UpdateNotice />}
 
       {showcaseOverlay}
 
-      {isAuthModalOpen && supabaseEnabled && (
-        <AuthModal onClose={handleCloseAuthModal} linkError={emailLinkError} />
+      {isAuthModalOpen && firebaseEnabled && (
+        <AuthModal onClose={handleCloseAuthModal} />
       )}
 
       {showHero ? (
@@ -2315,7 +2306,7 @@ export default function App() {
           recents={myProjects}
           onLoadProject={loadProject}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          supabaseEnabled={supabaseEnabled}
+          firebaseEnabled={firebaseEnabled}
           isSignedIn={isSignedIn}
           authStatus={authStatus}
           userEmail={user?.email}
@@ -2422,7 +2413,7 @@ export default function App() {
               isDeployStale={isDeployStale}
               isSignedIn={isSignedIn}
               onOpenDeployModal={openDeployModal}
-              supabaseEnabled={supabaseEnabled}
+              firebaseEnabled={firebaseEnabled}
               onExportHtml={handleExportHtml}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}

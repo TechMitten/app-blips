@@ -2,8 +2,8 @@
 
 # ---- Build stage -----------------------------------------------------------
 # Local self-hosted image: builds the static client as a single-user install.
-# No Supabase env vars are set here, so src/supabase.js never initializes a
-# client and the multi-user features (sign-in, cloud projects, deploys) stay off.
+# No Firebase env vars are set here, so src/firebase.js never initializes an
+# app and the multi-user features (sign-in, cloud projects, deploys) stay off.
 FROM node:22-alpine AS builder
 WORKDIR /app
 
@@ -24,7 +24,7 @@ ENV PORT=3000
 
 COPY --from=builder /app/dist ./dist
 # Copy the whole _lib dir: chatProxy.js pulls in trackTokens/usageTracking/
-# supabaseServer transitively, and a hand-kept file list goes stale.
+# firebaseServer transitively, and a hand-kept file list goes stale.
 COPY --from=builder /app/functions/_lib ./functions/_lib
 COPY server.js ./server.js
 

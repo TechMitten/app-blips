@@ -23,7 +23,7 @@ export function setTourState(state) {
   try { localStorage.setItem(TOUR_KEY, state); } catch { /* Optional preference. */ }
 }
 
-export function buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeView, studioMode }) {
+export function buildTourSteps({ wideScreen, firebaseEnabled, hasCode, showCodeView, studioMode }) {
   const site = studioMode === 'website';
   const game = studioMode === 'game';
   const noun = site ? 'site' : game ? 'game' : 'app';
@@ -114,8 +114,8 @@ export function buildTourSteps({ wideScreen, supabaseEnabled, hasCode, showCodeV
     target: ['share', 'preview'],
     view: 'preview',
     placement: 'bottom',
-    title: supabaseEnabled ? 'Publish it' : 'Take it with you',
-    body: supabaseEnabled
+    title: firebaseEnabled ? 'Publish it' : 'Take it with you',
+    body: firebaseEnabled
       ? `Deploy publishes your ${noun} to a public link, with optional password protection and home-screen install. Redeploy any time to push new changes.`
       : `Export downloads your ${noun}${site ? ' as a ZIP of pages' : ' as a single HTML file'}. Open launches it in a new browser tab.`,
   });

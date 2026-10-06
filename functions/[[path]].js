@@ -7,15 +7,15 @@
 //
 // Why a separate hostname: a deployed app is LLM-generated code running with
 // full script privileges. On the SPA's own origin it could read localStorage --
-// which holds the user's LLM API key (`orion-llm-config`) and their Supabase
+// which holds the user's LLM API key (`orion-llm-config`) and their Firebase
 // session. A sibling subdomain is a real origin boundary, so it can read
 // neither. Do not merge these onto one host.
 //
-// Why this function exists at all: Supabase rewrites every HTML GET on
-// *.supabase.co to `text/plain` with `CSP: default-src 'none'; sandbox`, for
-// Edge Functions exactly as for Storage, so a page served from there always
-// shows source. Cloudflare does not, so the serving origin has to live here.
-// Storage remains the source of truth; this only ever reads.
+// Why this function exists at all: the HTML lives in a private R2 bucket
+// (written by functions/_lib/deploys.js), and every page needs a real
+// text/html content type, this host's CSP, and a few injected snippets.
+// R2 and the Firestore `deployments` docs stay the source of truth; this
+// only ever reads.
 
 // The hostname that serves deployed apps. Configured by the operator; without
 // it this Function falls through to the SPA static handler and deploy serving
@@ -26,24 +26,16 @@ const appsHostname = (env) => {
   try { return new URL(origin).hostname; } catch { return ''; }
 };
 
-import { supabaseUrl, supabaseHeaders } from './_lib/supabaseServer.js';
 import { injectSeoDefaults } from './_lib/seoDefaults.js';
+import { readDeployment, SLUG_PATTERN, STORAGE_PATH_PATTERN, PAGE_SEGMENT_PATTERN, STORAGE_PAGE_PATH_PATTERN } from './_lib/deploys.js';
+import { getObjectText } from './_lib/r2.js';
 import { getHash, resolvePageLink } from '../src/lib/pages.js';
-
-const BUCKET = 'orion-deploys';
-
-const SLUG_PATTERN = /^[a-zA-Z0-9-]{1,39}\/[a-zA-Z0-9-]{1,63}$|^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/;
-const STORAGE_PATH_PATTERN =
-  /^[a-zA-Z0-9_-]{1,128}\/[a-zA-Z0-9]{1,32}\.html$/i;
 
 // Multi-page sites: the landing page keeps `storage_path` (`<uid>/<token>.html`)
 // and every other page is `<uid>/<token>/<page>.html`. A page URL is
 // `/<slug>/<page>` (`.html` optional), so `/a/b` is ambiguous between the
 // `a/b` username/slug form and slug `a` + page `b`; candidatesForPath() tries the
 // slug form first so existing links never change meaning.
-const PAGE_SEGMENT_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
-const STORAGE_PAGE_PATH_PATTERN =
-  /^[a-zA-Z0-9_-]{1,128}\/[a-zA-Z0-9]{1,32}\/[a-z0-9][a-z0-9-]{0,39}\.html$/;
 
 // Reserved path prefix for every deployed app's PWA assets. It can never
 // collide with a real slug -- SLUG_PATTERN requires a slug to start with an
@@ -288,7 +280,7 @@ const injectSlug = (html, slug) => {
   return tag + html;
 };
 
-// Turns a Supabase REST `deployments` document into the fields the server
+// Turns a Firestore `deployments` document into the fields the server
 // uses. The client stores extra pages as filenames ("about.html"); URLs and
 // storage paths here use the bare name ("about"), so the extension is stripped
 // before validating -- validating the raw value would reject every page.
@@ -306,12 +298,13 @@ export const parseDeploymentDoc = (doc) => ({
 });
 
 const fetchDeploymentRow = async (slug, env) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=name,storage_path,page_names,bundle,updated_at&limit=1`, {
-    headers: supabaseHeaders(env),
-  });
-  if (!res.ok) return { ok: false, row: null };
-  const rows = await res.json();
-  return { ok: true, row: rows?.[0] ? parseDeploymentDoc(rows[0]) : null };
+  try {
+    const doc = await readDeployment(env, slug);
+    return { ok: true, row: doc ? parseDeploymentDoc(doc) : null };
+  } catch (err) {
+    console.error('[apps] deployment lookup failed:', err?.message || err);
+    return { ok: false, row: null };
+  }
 };
 
 export async function onRequest(context) {
@@ -478,15 +471,18 @@ export async function onRequest(context) {
     if (cachedResponse) {
       html = await cachedResponse.text();
     } else {
-      // Append updated_at to the Supabase fetch to bust Supabase's own CDN cache on redeploys.
-      const storageUrl = `${supabaseUrl(env)}/storage/v1/object/public/${BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}?v=${encodeURIComponent(row.updated_at || '0')}`;
-      const object = await fetch(storageUrl);
-
-      if (!object.ok) {
+      let object;
+      try {
+        object = await getObjectText(env, storagePath);
+      } catch (err) {
+        console.error('[apps] object read failed:', err?.message || err);
+        return notice(502, 'Temporarily unavailable', 'Could not load this app. Try again shortly.');
+      }
+      if (object === null) {
         return notice(404, 'Not found', 'This app is no longer deployed.');
       }
 
-      let body = await object.text();
+      let body = object;
       if (!isBundle && row.page_names.length) body = rewritePageLinks(body, slug, row.page_names);
 
       html = injectSlug(
@@ -515,8 +511,8 @@ export async function onRequest(context) {
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,
       headers: {
-        // The point of the whole function: Supabase hands this back as
-        // text/plain, and we serve it as an actual page.
+        // Always served as a page under this host's CSP, whatever the
+        // object's stored content type.
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': CSP,
         'cache-control': 'public, max-age=60',

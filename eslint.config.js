@@ -37,9 +37,6 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.node,
-        // Substituted by Rolldown's `define` (scripts/build-electron.js).
-        __APPBLIPS_SUPABASE_URL__: 'readonly',
-        __APPBLIPS_SUPABASE_PUBLISHABLE_KEY__: 'readonly',
       },
     },
   },

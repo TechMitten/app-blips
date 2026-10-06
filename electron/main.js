@@ -22,7 +22,6 @@ import { resolveProvider } from '../functions/_lib/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { createProviderStore } from './providerStore.js';
 import { createUpdater } from './updater.js';
-import { createOAuthLoopback, isSupabaseAuthorizeUrl } from './oauthLoopback.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -71,8 +70,6 @@ let mainWindow = null;
 let projectStore;
 let providerStore;
 let updater;
-const oauthLoopback = createOAuthLoopback();
-let oauthResult = null;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
 
@@ -89,21 +86,16 @@ async function writeSettings(patch) {
 }
 
 // ---- Server handlers --------------------------------------------------------
-// Public Supabase URL/publishable key baked in at build time by
-// scripts/build-electron.js (Rolldown `define`). Empty for a single-user
-// build; the service role key is deliberately not baked (secret).
-const BAKED_SUPABASE_URL = __APPBLIPS_SUPABASE_URL__;
-const BAKED_SUPABASE_PUBLISHABLE_KEY = __APPBLIPS_SUPABASE_PUBLISHABLE_KEY__;
-
-// Env for the handlers: process env plus any baked Supabase config. The
-// provider saved in Settings → AI travels with each request instead (see
-// withSavedProvider).
+// Env for the handlers. The desktop app is always single-user (one local
+// user, no sign-in; src/firebase.js keeps Firebase off in the renderer), so
+// any Firebase project id in the developer's environment is dropped -- it
+// would make /api/chat demand ID tokens the app never has. The provider saved
+// in Settings → AI travels with each request instead (see withSavedProvider).
 function handlerEnv() {
-  return {
-    ...process.env,
-    SUPABASE_URL: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || BAKED_SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || BAKED_SUPABASE_PUBLISHABLE_KEY,
-  };
+  const env = { ...process.env };
+  delete env.FIREBASE_PROJECT_ID;
+  delete env.VITE_FIREBASE_PROJECT_ID;
+  return env;
 }
 
 // The builder sends no key: the saved one is attached here, as the same
@@ -129,8 +121,7 @@ async function withSavedProvider(request) {
   return new Request(request.url, {
     method: 'POST',
     // Origin is kept for chatProxy's other-site check: a sandboxed app's
-    // request arrives as Origin "null" and must still be refused. The Supabase
-    // bearer token is forwarded so a multi-user build verifies sign-in.
+    // request arrives as Origin "null" and must still be refused.
     headers: {
       'content-type': 'application/json',
       ...(origin ? { origin } : {}),
@@ -232,27 +223,6 @@ function registerIpc() {
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', () => providerStore.clear());
-
-  // Sign-in with Google/GitHub in the system browser. `begin` opens the
-  // loopback listener and returns the redirect URI to register with Supabase;
-  // `open` sends the browser to the authorize URL Supabase produced for it and
-  // resolves with the code from the redirect. The renderer exchanges the code
-  // (PKCE), so no token passes through here.
-  handle('desktop:auth:begin', async () => {
-    const { redirectUri, result } = await oauthLoopback.begin();
-    oauthResult = result;
-    return { redirectUri };
-  });
-  handle('desktop:auth:open', async (url) => {
-    const supabaseUrl = handlerEnv().SUPABASE_URL;
-    if (!oauthResult || !supabaseUrl || !isSupabaseAuthorizeUrl(url, supabaseUrl)) {
-      throw new Error('Sign-in could not be started.');
-    }
-    const result = oauthResult;
-    await shell.openExternal(url);
-    return result;
-  });
-  handle('desktop:auth:cancel', () => oauthLoopback.cancel());
 
   handle('desktop:update:check', () => updater.check());
   handle('desktop:update:install', () => updater.install());

@@ -1,17 +1,15 @@
 import { useState } from 'react';
-import { supabaseEnabled } from '../supabase';
-import {
-  registerDeployment, uploadDeploy, makeStorageToken, makePublicSlug,
-  deployUrlForSlug, deployObjectPath, removeStalePages, removeDeployment
-} from '../lib/deploy';
+import { firebaseEnabled } from '../firebase';
+import { buildDeployPages, publishDeployment, makePublicSlug, deployUrlForSlug, removeDeployment } from '../lib/deploy';
 import { getLanding } from '../lib/pages';
 import { createAnalyticsWebsite } from '../lib/appAnalytics';
 
 // Publish-to-public-URL state: the active deployment record (persisted inside
 // the project's data blob by `saveProject`) plus the modal/UI state around
-// deploy / redeploy / undeploy. Deploy is a Supabase Storage feature with no
-// self-hosted equivalent, so every action here is a no-op unless
-// supabaseEnabled -- DeployModal shows a "not available" state in that case.
+// deploy / redeploy / undeploy. Deploy is a hosted feature (Firebase sign-in
+// plus the server's R2 storage) with no self-hosted equivalent, so every
+// action here is a no-op unless firebaseEnabled -- DeployModal shows a "not
+// available" state in that case.
 export default function useDeployment({
   files, isSignedIn, user, username, projectName, currentProjectId, currentVersionId,
   deployment, setDeployment, saveProject
@@ -42,8 +40,8 @@ export default function useDeployment({
 
   const handleDeploy = async (password = '', customSlug = '', preventIndexing = false, favicon = null, analyticsEnabled = false) => {
     if (!getLanding(files) || isDeploying) return false;
-    if (!supabaseEnabled) {
-      setDeployError('Deploy is not available without a configured Supabase project.');
+    if (!firebaseEnabled) {
+      setDeployError('Deploy is not available on this installation.');
       return false;
     }
     if (!isSignedIn || !user?.id) return false;
@@ -53,9 +51,7 @@ export default function useDeployment({
     setConfirmUndeploy(false);
 
     try {
-      // Reuse the existing path and slug so the shared link stays stable.
-      const path = deployment?.path || deployObjectPath(user.id, makeStorageToken());
-
+      // Reuse the existing slug so the shared link stays stable.
       let desiredSlug = deployment?.slug;
       if (!desiredSlug) {
         const baseSlug = customSlug || makePublicSlug(projectName);
@@ -64,37 +60,30 @@ export default function useDeployment({
 
       // Reuse the existing Umami website on redeploy/re-enable rather than
       // creating a second one and orphaning prior stats.
-
       let websiteId = null;
       if (analyticsEnabled) {
         websiteId = deployment?.analyticsWebsiteId || await createAnalyticsWebsite(desiredSlug);
       }
 
       // The site's own `files` only -- never the bridge-injected preview srcDoc.
-      const uploaded = await uploadDeploy({ path, files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
+      const built = await buildDeployPages({ files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
 
-      const slug = await registerDeployment({
+      const published = await publishDeployment({
         slug: desiredSlug,
-        userId: user.id,
+        ...built,
+        passwordProtected: Boolean(password),
         projectId: currentProjectId,
-        storagePath: path,
         name: projectName,
         analyticsEnabled,
         analyticsWebsiteId: websiteId,
-        pageNames: uploaded.pageNames,
-        bundle: uploaded.bundled,
-        passwordProtected: Boolean(password)
       });
-
-      // Pages dropped since the last deploy (or folded into a password bundle)
-      // must stop being served from storage.
-      await removeStalePages(path, deployment?.pageObjects, uploaded.pageObjects);
+      const slug = published.slug;
 
       const next = {
         slug,
         url: deployUrlForSlug(slug),
-        path,
-        pageObjects: uploaded.pageObjects,
+        path: published.path,
+        pageObjects: published.pageObjects,
         deployedAt: new Date().toISOString(),
         versionId: currentVersionId,
         analyticsEnabled,
@@ -113,7 +102,7 @@ export default function useDeployment({
 
   const handleUndeploy = async () => {
     if (!deployment || isDeploying) return;
-    if (!supabaseEnabled) return;
+    if (!firebaseEnabled) return;
 
     setIsDeploying(true);
     setDeployError(null);

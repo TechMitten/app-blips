@@ -1,7 +1,7 @@
 // Showcase: a hand-picked list of projects built with AppBlips, shown in the
 // Showcase view (components/showcase/). It replaced the community gallery, so
 // there is no backend: the list below ships in the bundle and nothing here
-// talks to Supabase. Pure (no React, no import.meta.env), so node tests
+// talks to Firebase. Pure (no React, no import.meta.env), so node tests
 // (testing/testShowcase.js) can load it directly.
 //
 // To add a project, append an entry to SHOWCASE_PROJECTS:

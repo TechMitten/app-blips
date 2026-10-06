@@ -5,19 +5,26 @@
 // Never includes secret values: only provider names, models, endpoints and the
 // names of variables that still need filling in.
 import { resolveProvider, renamedLlmVars, LLM_ENV } from './providers.js';
-import { supabaseConfigured } from './supabaseServer.js';
+import { firebaseConfigured, serviceAccountConfigured } from './firebaseServer.js';
+import { r2Configured } from './r2.js';
 
 const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
 
 // Returns [{ level: 'info' | 'warn' | 'error', label?, text }].
 export const describeConfig = (env) => {
   const lines = [];
-  const multiUser = supabaseConfigured(env);
+  const multiUser = firebaseConfigured(env);
   lines.push({
     level: 'info',
     label: 'Mode',
-    text: multiUser ? 'multi-user (Supabase sign-in, deploys)' : 'single-user (local)',
+    text: multiUser ? 'multi-user (Firebase sign-in, deploys)' : 'single-user (local)',
   });
+  if (multiUser && !serviceAccountConfigured(env)) {
+    lines.push({ level: 'warn', label: 'Firebase', text: 'FIREBASE_SERVICE_ACCOUNT is not set: deploys, billing, usage and account deletion are off.' });
+  }
+  if (multiUser && !r2Configured(env)) {
+    lines.push({ level: 'warn', label: 'Deploys', text: 'R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY are not set: deploys are off.' });
+  }
 
   const builder = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
   if (builder.unconfigured && !multiUser) {

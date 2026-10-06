@@ -32,7 +32,7 @@ export default function Header({
   userEmail,
   onOpenAccountSettings,
   onSignIn,
-  supabaseEnabled,
+  firebaseEnabled,
   onOpenAnalytics,
   studioMode = 'app',
   mobileView,
@@ -265,7 +265,7 @@ export default function Header({
           </button>
 
           {/* Hosted mode + signed-in only, same gate as the account control */}
-          {supabaseEnabled && isSignedIn && (
+          {firebaseEnabled && isSignedIn && (
             <button
               onClick={onOpenAnalytics}
               className="nav-btn nav-ghost nav-btn-icon"
@@ -293,7 +293,7 @@ export default function Header({
               <span className="hidden xl:inline">{planLabel}</span>
             </button>
           )}
-          {!supabaseEnabled ? null : isSignedIn ? (
+          {!firebaseEnabled ? null : isSignedIn ? (
             <button
               onClick={onOpenAccountSettings}
               className="nav-btn nav-ghost nav-btn-icon"
@@ -483,7 +483,7 @@ export default function Header({
                   <span>{billingPlan === 'free' ? 'Upgrade' : `${planLabel} plan`}</span>
                 </button>
               )}
-              {supabaseEnabled && isSignedIn && (
+              {firebaseEnabled && isSignedIn && (
                 <>
                   <button
                     type="button"
@@ -506,7 +506,7 @@ export default function Header({
                   </button>
                 </>
               )}
-              {supabaseEnabled && !isSignedIn && authStatus !== 'loading' && (
+              {firebaseEnabled && !isSignedIn && authStatus !== 'loading' && (
                 <button
                   type="button"
                   onClick={() => runMobileAction(onSignIn)}

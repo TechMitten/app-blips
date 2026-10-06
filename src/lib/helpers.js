@@ -49,8 +49,7 @@ export const getEffectivePreviewBox = (mode, orientation) => {
   return { width: preset.width, height: preset.height, zoomPadding: preset.zoomPadding };
 };
 
-// Handles both the legacy SDK-style Date object and plain ISO strings that
-// come back from Supabase's `updated_at`.
+// Handles both Date objects and the plain ISO strings stored as `updated_at`.
 export const formatModifiedTime = (value) => {
   if (!value) return 'Just now';
   if (typeof value === 'string') {

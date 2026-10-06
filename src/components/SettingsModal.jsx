@@ -7,8 +7,7 @@ import DesktopProviderSettings from './DesktopProviderSettings';
 import {
   SettingRow, Switch, TabList, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
-import authProvider from '../lib/auth';
-import { supabaseEnabled } from '../supabase';
+import { firebaseEnabled } from '../firebase';
 import { isDesktop } from '../lib/desktop';
 import {
   CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
@@ -38,7 +37,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
-  ...(supabaseEnabled ? [] : [{ id: 'data', label: 'Data', Icon: HardDrive }]),
+  ...(firebaseEnabled ? [] : [{ id: 'data', label: 'Data', Icon: HardDrive }]),
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
@@ -350,15 +349,12 @@ export default function SettingsModal({
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [accountConfirmText, setAccountConfirmText] = useState('');
-  const [accountPassword, setAccountPassword] = useState('');
   const [deleteAccountError, setDeleteAccountError] = useState(null);
-  const needsPassword = authProvider.getPrimaryProviderId() === 'password';
 
   const closeAccountConfirm = () => {
     if (isDeletingAccount) return;
     setConfirmDeleteAccount(false);
     setAccountConfirmText('');
-    setAccountPassword('');
     setDeleteAccountError(null);
   };
 
@@ -366,12 +362,11 @@ export default function SettingsModal({
     setIsDeletingAccount(true);
     setDeleteAccountError(null);
     try {
-      await onDeleteAccount({ password: accountPassword });
+      await onDeleteAccount();
     } catch (err) {
       const code = err?.code || '';
       setDeleteAccountError(
-        /wrong-password|invalid-credential/.test(code) ? 'Incorrect password.'
-          : /popup-closed|cancelled-popup/.test(code) ? 'Verification was cancelled.'
+        /popup-closed|cancelled-popup/.test(code) ? 'Verification was cancelled.'
           : err?.message || 'Could not delete your account.'
       );
       setIsDeletingAccount(false);
@@ -492,7 +487,7 @@ export default function SettingsModal({
               <SettingRow id="set-splash" title="Skip splash screen" description="Skip the intro animation on launch. Takes effect on the next page load.">
                 <Switch checked={skipSplash} onChange={onSkipSplashChange} labelledBy="set-splash" />
               </SettingRow>
-              {!supabaseEnabled && (
+              {!firebaseEnabled && (
                 <SettingRow
                   id="set-updates"
                   title="Check for updates"
@@ -562,7 +557,7 @@ export default function SettingsModal({
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
               {isDesktop && <DesktopProviderSettings guardRef={providerGuardRef} />}
-              {!isDesktop && !supabaseEnabled && <UserProviderSettings guardRef={providerGuardRef} />}
+              {!isDesktop && !firebaseEnabled && <UserProviderSettings guardRef={providerGuardRef} />}
             </>
           )}
         </div>
@@ -608,7 +603,7 @@ export default function SettingsModal({
           confirmLabel="Delete account"
           busyLabel="Deleting…"
           busy={isDeletingAccount}
-          confirmDisabled={accountConfirmText !== 'DELETE' || (needsPassword && !accountPassword)}
+          confirmDisabled={accountConfirmText !== 'DELETE'}
           confirmClass="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
         >
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
@@ -627,21 +622,7 @@ export default function SettingsModal({
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm"
             />
           </label>
-          {needsPassword && (
-            <label className="block text-sm text-slate-600">
-              Password
-              <input
-                type="password"
-                value={accountPassword}
-                onChange={(e) => setAccountPassword(e.target.value)}
-                autoComplete="current-password"
-                className="mt-1.5 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm"
-              />
-            </label>
-          )}
-          {!needsPassword && (
-            <p className="text-xs text-slate-500">You&apos;ll be asked to sign in again with your provider to verify it&apos;s you.</p>
-          )}
+          <p className="text-xs text-slate-500">You&apos;ll be asked to sign in again with your provider to verify it&apos;s you.</p>
           {deleteAccountError && <p role="alert" className="text-sm text-red-600">{deleteAccountError}</p>}
         </ConfirmModal>
       )}

@@ -6,6 +6,8 @@ import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { handleDebugUnlock } from '../functions/_lib/debugUnlock.js';
 import { handleAnalyticsWebsiteCreate, handleAnalyticsStats } from '../functions/_lib/umamiProxy.js';
 import { handleBillingStatus, handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from '../functions/_lib/billing.js';
+import { handleDeployUpload, handleDeployDelete } from '../functions/_lib/deploys.js';
+import { handleAccountDelete } from '../functions/_lib/account.js';
 
 const methodNotAllowed = () => new Response('Method not allowed', { status: 405 });
 const notFound = () => new Response('Not found', { status: 404 });
@@ -32,6 +34,11 @@ export default {
         return request.method === 'POST' ? handleBillingPortal(request, env) : methodNotAllowed();
       case '/api/billing/webhook':
         return request.method === 'POST' ? handleStripeWebhook(request, env) : methodNotAllowed();
+      case '/api/deploys':
+        if (request.method === 'POST') return handleDeployUpload(request, env);
+        return request.method === 'DELETE' ? handleDeployDelete(request, env) : methodNotAllowed();
+      case '/api/account/delete':
+        return request.method === 'POST' ? handleAccountDelete(request, env) : methodNotAllowed();
       default:
         return notFound();
     }

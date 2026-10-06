@@ -22,18 +22,20 @@
     "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
     "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",
-    "deploy:worker": "wrangler deploy"
+    "deploy:worker": "wrangler deploy",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-appblips 'node testing/testFirestoreRules.js'"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.2",
     "acorn": "^8.18.0",
     "canvas-confetti": "^1.9.4",
+    "firebase": "^12.19.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.2.2",
     "@vitejs/plugin-react": "^6.0.1",

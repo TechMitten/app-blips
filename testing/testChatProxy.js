@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
+import { installFirebaseFake, signIdToken, PROJECT_ID } from './firebaseFake.js';
 
 const env = {
   OPENAI_BASE_URL: 'https://llm.example/v1',
@@ -237,7 +238,7 @@ test('a provider rejecting the user key is not reported as a 401', async (t) => 
 });
 
 test('multi-user mode still requires sign-in and validates user_provider', async (t) => {
-  const hostedEnv = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
+  const hostedEnv = { FIREBASE_PROJECT_ID: PROJECT_ID, APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
   const send = (payload, headers = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
     headers,
@@ -245,10 +246,13 @@ test('multi-user mode still requires sign-in and validates user_provider', async
   }), hostedEnv);
   assert.equal((await send({ user_provider: userProvider })).status, 401);
 
-  t.mock.method(globalThis, 'fetch', async (url) => (String(url).includes('/auth/v1/user')
-    ? new Response(JSON.stringify({ id: 'user-1' }))
-    : new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })));
-  const auth = { authorization: 'Bearer t' };
+  installFirebaseFake(t, {
+    fallback: async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }),
+  });
+  // A token that isn't a valid Firebase ID token is the same as none.
+  assert.equal((await send({ user_provider: userProvider }, { authorization: 'Bearer not-a-token' })).status, 401);
+  assert.equal((await send({ user_provider: userProvider }, { authorization: `Bearer ${await signIdToken('user-1', { key: 'other' })}` })).status, 401);
+  const auth = { authorization: `Bearer ${await signIdToken('user-1')}` };
   assert.equal((await send({ user_provider: 'openrouter' }, auth)).status, 400);
   assert.equal((await send({ user_provider: { ...userProvider, apiKey: 5 } }, auth)).status, 400);
   assert.equal((await send({ user_provider: userProvider }, auth)).status, 200);
@@ -293,7 +297,7 @@ test('multi-user mode leaves other-origin requests to the sign-in check', async 
     method: 'POST',
     headers: { origin: 'https://evil.example' },
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' });
+  }), { FIREBASE_PROJECT_ID: PROJECT_ID });
   assert.equal(response.status, 401);
 });
 

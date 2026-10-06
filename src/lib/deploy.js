@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import authProvider from './auth';
 import { encryptApp } from './crypto';
 import { injectPwaSnippet } from './pwa';
 import { injectAnalyticsSnippet } from './analytics';
@@ -9,22 +9,22 @@ import { LANDING_PAGE, getLanding, mapPages, pageNames } from './pages';
 
 // --- Deployment ---
 //
-// The HTML lives as a single .html object in the public `orion-deploys` bucket,
-// but it is NOT served from Supabase: every HTML GET on *.supabase.co comes back
-// as `text/plain` with `CSP: default-src 'none'; sandbox` (Edge Functions get
-// the same treatment as Storage), so such a link always shows source instead of
-// a page. A Cloudflare Pages Function on APPS_ORIGIN reads the object and
-// re-serves it with a real `text/html` content type -- see functions/[[path]].js.
+// The browser builds each page's final HTML (snippets, and encryption for a
+// password-protected app, so the password never leaves the browser) and sends
+// it to POST /api/deploys, which stores it in a private R2 bucket and points
+// the slug at it (functions/_lib/deploys.js). A Cloudflare Pages Function on
+// APPS_ORIGIN serves it from there -- see functions/[[path]].js.
 //
 // Two rules when touching this:
 //
 // 1. Deployed apps MUST stay on their own hostname. They are LLM-generated code
 //    with full script privileges; on the AppBlips SPA's origin they could read
-//    localStorage, which holds the user's LLM API key and Supabase session.
+//    localStorage and IndexedDB, which hold the user's LLM API key and
+//    Firebase session.
 // 2. Only ever upload `generatedCode`. The preview bridge is spliced in at
 //    render time and must stay out of anything that leaves the app -- a public
 //    URL most of all.
-export const DEPLOY_BUCKET = 'orion-deploys';
+//
 // The origin that serves deployed apps (functions/[[path]].js). Configured by
 // the operator at build time; empty until a deploy host is set up.
 export const APPS_ORIGIN = String(import.meta.env.VITE_APPS_ORIGIN || '').replace(/\/+$/, '');
@@ -34,35 +34,6 @@ export const randomToken = (length) => {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => chars[b % 62]).join('');
-};
-
-// Storage object names stay opaque; only the public slug is human-readable.
-export const makeStorageToken = () => randomToken(10);
-
-export const deployObjectPath = (userId, token) => `${userId}/${token}.html`;
-
-// Extra pages of a multi-page site live in a folder beside the landing object:
-// `<uid>/<token>.html` (landing) and `<uid>/<token>/<page>.html`. The serving
-// Function derives the same path from the deployment's `page_names`.
-export const pageObjectPath = (path, pageName) => `${path.replace(/[.]html$/, '')}/${pageName}`;
-
-const deleteObjectIfPresent = async (objectPath) => {
-  try {
-    const { error } = await supabase.storage.from(DEPLOY_BUCKET).remove([objectPath]);
-    if (error) throw error;
-  } catch (error) {
-    if (error?.statusCode !== '404') {
-      throw new Error(error.message || 'Failed to remove deployment.');
-    }
-  }
-};
-
-// Deletes the uploaded page objects of `previous` that `keep` no longer covers
-// (a redeploy that dropped pages, or switched to a password bundle).
-export const removeStalePages = async (path, previousPageObjects = [], keep = []) => {
-  for (const name of previousPageObjects) {
-    if (!keep.includes(name)) await deleteObjectIfPresent(pageObjectPath(path, name));
-  }
 };
 
 // `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal-a7f3`. The
@@ -83,108 +54,28 @@ export const makePublicSlug = (projectName) => `${slugifyName(projectName) || 'a
 
 export const deployUrlForSlug = (slug) => `${APPS_ORIGIN}/${slug}`;
 
-// Publishes the slug -> storage-object mapping the Pages Function reads. Slug is
-// the primary key, so a collision with someone else's app is refused by RLS
-// rather than silently stealing their link; retry with a longer tail.
-export const registerDeployment = async ({
-  slug, userId, projectId, storagePath, name, analyticsEnabled, analyticsWebsiteId,
-  pageNames: extraPageNames = [], bundle = false, passwordProtected = false
-}) => {
-  let candidate = slug;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const { data: existing, error: readError } = await supabase.from('deployments')
-        .select('user_id').eq('slug', candidate).maybeSingle();
-      if (readError) throw readError;
-      if (existing && existing.user_id !== userId) throw new Error('taken');
-      const { error } = await supabase.from('deployments').upsert({
-          slug: candidate,
-          user_id: userId,
-          project_id: String(projectId ?? ''),
-          storage_path: storagePath,
-          // Non-landing pages. With `bundle` (password protected) every page is
-          // inside the landing object and no page objects exist.
-          page_names: extraPageNames,
-          bundle: Boolean(bundle),
-          password_protected: Boolean(passwordProtected),
-          name: name || null,
-          analytics_enabled: Boolean(analyticsEnabled),
-          analytics_website_id: analyticsWebsiteId || null,
-          updated_at: new Date().toISOString()
-        });
-      if (error) throw error;
-      return candidate;
-    } catch (error) {
-      if (error.message !== 'taken' && attempt === 2) {
-        throw new Error(error.message || 'Failed to register the deploy link.');
-      }
-      candidate = `${slug}-${randomToken(3)}`;
-    }
+const deployRequest = async (method, path, body) => {
+  const res = await fetch(path, {
+    method,
+    headers: {
+      authorization: `Bearer ${await authProvider.getIdToken()}`,
+      ...(body ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(data.error || 'Failed to deploy.');
+    error.code = data.code || null;
+    throw error;
   }
-
-  throw new Error('Could not find a free deploy link. Try again.');
+  return data;
 };
 
-export const unregisterDeployment = async (slug) => {
-  try {
-    const { error } = await supabase.from('deployments').delete().eq('slug', slug);
-    if (error) throw error;
-  } catch (error) {
-    throw new Error(error.message || 'Failed to remove the deploy link.');
-  }
-};
-
-// Takes a project's public deployment fully offline: the slug doc (so the link
-// stops resolving) and the stored HTML object. Used when a project is deleted,
-// so no orphaned public app outlives it. A missing object counts as removed.
-export const removeDeployment = async (deployment) => {
-  if (!deployment) return;
-  if (deployment.slug) await unregisterDeployment(deployment.slug);
-  if (deployment.path) {
-    await removeStalePages(deployment.path, deployment.pageObjects);
-    await deleteObjectIfPresent(deployment.path);
-  }
-};
-
-// Account deletion backstop: removes every deployment the user owns, found by
-// ownership rather than via project rows, so orphans (project deleted earlier,
-// deployment never recorded on it) die too. Deletes all it can, then throws if
-// anything failed so the caller keeps the account and can retry.
-export const sweepUserDeployments = async (uid) => {
-  const failures = [];
-  const attempt = async (fn) => {
-    try { await fn(); } catch (error) {
-      if (error?.statusCode !== '404') failures.push(error);
-    }
-  };
-
-  const { data: deployments, error } = await supabase.from('deployments').select('slug, storage_path').eq('user_id', uid);
-  if (error) throw error;
-  for (const deployment of deployments || []) {
-    await attempt(() => unregisterDeployment(deployment.slug));
-    if (deployment.storage_path) await attempt(() => deleteObjectIfPresent(deployment.storage_path));
-  }
-
-  const removeFolder = async (bucket, prefix) => {
-    const { data, error: listError } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
-    if (listError) throw listError;
-    const paths = (data || []).filter((item) => item.id).map((item) => `${prefix}/${item.name}`);
-    if (paths.length) {
-      const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
-      if (removeError) throw removeError;
-    }
-    for (const folder of (data || []).filter((item) => !item.id)) await removeFolder(bucket, `${prefix}/${folder.name}`);
-  };
-  await attempt(() => removeFolder(DEPLOY_BUCKET, uid));
-
-  if (failures.length) throw new Error(failures[0].message || 'Failed to remove published apps.');
-};
-
-// Uploads every page of the site and reports how it was stored: `pageObjects`
-// are the extra pages uploaded as their own objects; `bundled` means a password
-// deploy put all pages inside the single encrypted landing object.
-export const uploadDeploy = async ({ path, files, password, preventIndexing, favicon, analyticsWebsiteId }) => {
+// Builds every page of the site as it will be published: `landing` is the
+// index page (with every page inside it, encrypted, for a password-protected
+// multi-page site -- `bundled`), `pages` the other pages by filename.
+export const buildDeployPages = async ({ files, password, preventIndexing, favicon, analyticsWebsiteId }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
@@ -194,32 +85,37 @@ export const uploadDeploy = async ({ path, files, password, preventIndexing, fav
     if (preventIndexing) out = injectNoindexSnippet(out);
     return injectFaviconSnippet(out, deployFavicon);
   };
-  const pages = mapPages(files, withExtras);
-  const extraNames = pageNames(pages).filter((n) => n !== LANDING_PAGE);
+  const built = mapPages(files, withExtras);
+  const extraNames = pageNames(built).filter((n) => n !== LANDING_PAGE);
   const bundled = Boolean(password) && extraNames.length > 0;
 
-  const put = async (objectPath, html) => {
+  let landing = getLanding(built);
+  if (password) landing = await encryptApp(bundled ? built : landing, password, deployFavicon);
+  const pages = bundled ? {} : Object.fromEntries(extraNames.map((name) => [name, built[name]]));
+  return { landing, pages, bundled };
+};
+
+// Publishes the built pages at `slug`. A slug already owned by someone else
+// is refused by the server, so retry with a longer random tail; a redeploy
+// keeps its own slug and never collides. Resolves to the server's
+// { slug, path, pageObjects, updatedAt }.
+export const publishDeployment = async ({ slug, ...fields }) => {
+  let candidate = slug;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const { error } = await supabase.storage.from(DEPLOY_BUCKET).upload(objectPath, new Blob([html], { type: 'text/html; charset=utf-8' }), {
-        contentType: 'text/html; charset=utf-8', cacheControl: '31536000', upsert: true
-      });
-      if (error) throw error;
+      return await deployRequest('POST', '/api/deploys', { slug: candidate, ...fields });
     } catch (error) {
-      const message = error.message || '';
-      if (/unauthorized/i.test(message)) {
-        throw new Error(`Deployment was rejected by storage permissions. ${message}`);
-      }
-      throw new Error(message || 'Failed to deploy.');
+      if (error.code !== 'taken') throw error;
+      candidate = `${slug}-${randomToken(3)}`;
     }
-  };
-
-  const landing = getLanding(pages);
-  let finalLanding = landing;
-  if (password) finalLanding = await encryptApp(bundled ? pages : landing, password, deployFavicon);
-  await put(path, finalLanding);
-
-  if (!bundled) {
-    for (const name of extraNames) await put(pageObjectPath(path, name), pages[name]);
   }
-  return { pageNames: extraNames, pageObjects: bundled ? [] : extraNames, bundled };
+  throw new Error('Could not find a free deploy link. Try again.');
+};
+
+// Takes a project's public deployment fully offline (the link and the stored
+// pages). Used on undeploy and when a project is deleted, so no orphaned
+// public app outlives it. Already-gone counts as removed.
+export const removeDeployment = async (deployment) => {
+  if (!deployment?.slug) return;
+  await deployRequest('DELETE', `/api/deploys?slug=${encodeURIComponent(deployment.slug)}`);
 };

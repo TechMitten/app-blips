@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import authProvider from '../lib/auth';
-import { isDesktop } from '../lib/desktop';
-import { LogIn, KeyRound, Mail, Lock, X, Loader2, Eye, EyeOff, CircleAlert, MailCheck } from 'lucide-react';
+import { LogIn, X, Loader2, CircleAlert } from 'lucide-react';
 import Modal from './Modal';
-import { isPlausibleEmail, suggestEmailFix } from '../lib/emailCheck';
 import { maintenanceMode } from '../lib/maintenance';
 
-const INPUT_CLASS = 'w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 hover:border-slate-300 focus:bg-surface focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none transition-all';
-const LABEL_CLASS = 'block text-sm font-medium text-slate-700 mb-1.5';
 const PROVIDER_BUTTON_CLASS = 'w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-surface text-sm font-semibold text-slate-800 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40';
-const LINK_CLASS = 'font-semibold text-brand hover:underline underline-offset-2 transition-colors';
 
 const OAUTH_PROVIDERS = [
   { id: 'google', label: 'Google', Icon: GoogleIcon },
@@ -36,52 +31,25 @@ function GithubIcon({ size = 18 }) {
 }
 
 // Self-contained sign-in / sign-up modal (same pattern as
-// AccountSettingsModal): owns its form state and talks to the auth adapter
-// directly (only ever mounted when supabaseEnabled -- see App.jsx). The
-// auth-state listener in useAuth closes the modal the moment a session lands.
-// New accounts are created with Google or GitHub; email + password remains for
-// signing in to (and resetting the password of) existing accounts.
-export default function AuthModal({ onClose = () => {}, dismissible = true, linkError = null }) {
-  // A failed confirm/reset email link shows its error above the sign-in options.
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'reset'
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  // The email fields stay hidden until the email option is picked.
-  const [showEmailForm, setShowEmailForm] = useState(Boolean(linkError));
-  const [authLoading, setAuthLoading] = useState(false);
+// AccountSettingsModal): owns its state and talks to the auth adapter
+// directly (only ever mounted when firebaseEnabled -- see App.jsx). Accounts
+// are Google or GitHub only, signed in through a popup; the auth-state
+// listener in useAuth closes the modal the moment a session lands.
+export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   const [oauthProvider, setOauthProvider] = useState(null);
-  const [authError, setAuthError] = useState(linkError);
-  const [authInfo, setAuthInfo] = useState(null);
-  const [showAuthPassword, setShowAuthPassword] = useState(false);
-  // Mail to a mistyped address bounces, and enough bounces get the project's
-  // auth mail throttled: hold sends until a suspected typo is resolved.
-  const [typoKeptFor, setTypoKeptFor] = useState('');
+  const [authError, setAuthError] = useState(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      // A desktop sign-in waiting on the browser stops with the modal.
-      authProvider.cancelOAuth?.();
-    };
+    return () => { mountedRef.current = false; };
   }, []);
-
-  const handleAuthModeSwitch = (mode) => {
-    setAuthMode(mode);
-    setAuthPassword('');
-    setAuthError(null);
-    setAuthInfo(null);
-  };
 
   const handleOAuth = async (provider) => {
     setAuthError(null);
-    setAuthInfo(null);
     setOauthProvider(provider);
     try {
       await authProvider.signInWithOAuth(provider);
-      // The web build redirects away; the desktop app signs in here and the
-      // auth-state listener closes the modal.
     } catch (err) {
       if (mountedRef.current) setAuthError(err?.message || 'Sign-in failed. Please try again.');
     } finally {
@@ -89,89 +57,9 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
     }
   };
 
-  const handleAuthSubmit = async (e) => {
-    e?.preventDefault();
-    const email = authEmail.trim();
-    const isReset = authMode === 'reset';
-    if (!email || (!isReset && !authPassword)) {
-      setAuthError(isReset ? 'Enter your email.' : 'Enter your email and password.');
-      return;
-    }
-    if (isReset) {
-      if (!isPlausibleEmail(email)) {
-        setAuthError('Enter a valid email address.');
-        return;
-      }
-      const fix = typoKeptFor === email ? null : suggestEmailFix(email);
-      if (fix) {
-        setAuthError(`Check your email address. Did you mean ${fix}?`);
-        return;
-      }
-    }
-
-    setAuthLoading(true);
-    setAuthError(null);
-    setAuthInfo(null);
-
-    try {
-      if (isReset) {
-        await authProvider.sendPasswordReset(email);
-        setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
-      } else {
-        await authProvider.signIn(email, authPassword);
-        // onAuthStateChange closes the modal on success.
-      }
-    } catch (err) {
-      // Don't reveal whether an account exists for the address on reset.
-      if (isReset && err?.code === 'auth/user-not-found') {
-        setAuthInfo('If an account exists for that email, we sent a password reset link. Check your inbox (and spam).');
-        return;
-      }
-      // Supabase's per-address interval shares the rate-limit code with the
-      // project-wide hourly limit, but names its wait ("after 51 seconds").
-      const waitSeconds = err?.code === 'over_email_send_rate_limit' && /after (\d+) seconds?/i.exec(err?.message || '')?.[1];
-      if (waitSeconds) {
-        setAuthError(`We just sent an email to this address. Please wait ${waitSeconds} seconds before requesting another.`);
-        setAuthInfo(null);
-        return;
-      }
-      // Supabase's hourly email limit, or the SMTP provider refusing once its
-      // daily quota is spent (surfaces as "Error sending ... email").
-      if (err?.code === 'over_email_send_rate_limit' || /error sending .*email/i.test(err?.message || '')) {
-        setAuthError("We're getting an unusually high number of requests right now, so we couldn't send your email. Please try again in a few minutes.");
-        setAuthInfo(null);
-        return;
-      }
-      setAuthError(err?.message || 'Authentication failed.');
-      setAuthInfo(null);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const isReset = authMode === 'reset';
-  const busy = authLoading || Boolean(oauthProvider);
-  const trimmedEmail = authEmail.trim();
-  const emailFix = isReset && typoKeptFor !== trimmedEmail ? suggestEmailFix(trimmedEmail) : null;
-  const applyEmailFix = () => {
-    setAuthEmail(emailFix);
-    setAuthError(null);
-  };
-  const keepTypedEmail = () => {
-    setTypoKeptFor(trimmedEmail);
-    setAuthError(null);
-  };
-
-  const title = isReset ? 'Reset your password' : 'Welcome to AppBlips';
-  const subtitle = isReset
-    ? "Enter your email and we'll send you a link to choose a new password."
-    : maintenanceMode
-      ? 'Sign in to your account. New sign-ups are paused during maintenance.'
-      : 'Sign in or create an account to build, save and share your apps.';
-  const submitLabel = isReset ? 'Send reset link' : 'Sign in';
-  const loadingLabel = isReset ? 'Sending…' : 'Signing in…';
-  const HeaderIcon = isReset ? KeyRound : LogIn;
-  const showForm = isReset || showEmailForm;
+  const subtitle = maintenanceMode
+    ? 'Sign in to your account. New sign-ups are paused during maintenance.'
+    : 'Sign in or create an account to build, save and share your apps.';
 
   return (
     <Modal
@@ -191,19 +79,13 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
           </button>
         )}
         <div className="mx-auto w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center">
-          <HeaderIcon size={24} />
+          <LogIn size={24} />
         </div>
-        <h2 id="auth-title" className="mt-4 text-xl font-bold tracking-tight text-slate-900">{title}</h2>
+        <h2 id="auth-title" className="mt-4 text-xl font-bold tracking-tight text-slate-900">Welcome to AppBlips</h2>
         <p className="mt-1.5 mx-auto max-w-xs text-sm text-slate-600 leading-snug">{subtitle}</p>
       </div>
 
-      <form onSubmit={handleAuthSubmit} className="px-6 py-6 space-y-4">
-        {authInfo && (
-          <div role="status" className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800 leading-relaxed flex items-start gap-3">
-            <MailCheck size={18} className="text-green-600 shrink-0 mt-0.5" />
-            <span>{authInfo}</span>
-          </div>
-        )}
+      <div className="px-6 py-6 space-y-4">
         {authError && (
           <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 leading-relaxed flex items-start gap-3">
             <CircleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
@@ -211,128 +93,28 @@ export default function AuthModal({ onClose = () => {}, dismissible = true, link
           </div>
         )}
 
-        {!isReset && (
-          <div className="space-y-2.5">
-            {OAUTH_PROVIDERS.map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleOAuth(id)}
-                disabled={busy}
-                className={PROVIDER_BUTTON_CLASS}
-              >
-                {oauthProvider === id ? <Loader2 className="animate-spin" size={18} /> : <Icon />}
-                {oauthProvider === id ? `Waiting for ${label}…` : `Continue with ${label}`}
-              </button>
-            ))}
-            {!showEmailForm && (
-              <button type="button" onClick={() => setShowEmailForm(true)} disabled={busy} className={PROVIDER_BUTTON_CLASS}>
-                <Mail size={18} />
-                Continue with Email
-              </button>
-            )}
-            {oauthProvider && isDesktop && (
-              <p className="text-xs text-slate-500 text-center">Finish signing in in your browser, then come back here.</p>
-            )}
-          </div>
-        )}
-
-        {!isReset && showEmailForm && (
-          <div className="flex items-center gap-3 pt-1 text-xs font-medium uppercase tracking-wide text-slate-500" role="separator">
-            <span className="h-px flex-1 bg-slate-200" />
-            or use your email
-            <span className="h-px flex-1 bg-slate-200" />
-          </div>
-        )}
-
-        {showForm && (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="auth-email" className={LABEL_CLASS}>Email</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  id="auth-email"
-                  autoFocus
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  className={INPUT_CLASS}
-                />
-              </div>
-              {emailFix && (
-                <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
-                  Did you mean{' '}
-                  <button type="button" onClick={applyEmailFix} className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300">{emailFix}</button>?{' '}
-                  <button type="button" onClick={keepTypedEmail} className="text-slate-500 hover:text-slate-800 hover:underline underline-offset-2">Keep as typed</button>
-                </p>
-              )}
-            </div>
-            {!isReset && (
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <label htmlFor="auth-password" className={LABEL_CLASS}>Password</label>
-                  <button
-                    type="button"
-                    onClick={() => handleAuthModeSwitch('reset')}
-                    className="text-xs font-semibold text-slate-500 hover:text-brand transition-colors mb-1.5"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    id="auth-password"
-                    type={showAuthPassword ? 'text' : 'password'}
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    className={`${INPUT_CLASS} pr-11`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAuthPassword((v) => !v)}
-                    className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 hover:text-slate-700 transition-colors"
-                    aria-label={showAuthPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showAuthPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </div>
-              </div>
-            )}
-
+        <div className="space-y-2.5">
+          {OAUTH_PROVIDERS.map(({ id, label, Icon }) => (
             <button
-              type="submit"
-              disabled={busy}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold brand-fill-text bg-brand text-white hover:bg-brand-hover shadow-sm active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              key={id}
+              type="button"
+              onClick={() => handleOAuth(id)}
+              disabled={Boolean(oauthProvider)}
+              className={PROVIDER_BUTTON_CLASS}
             >
-              {authLoading && <Loader2 className="animate-spin" size={16} />}
-              {authLoading ? loadingLabel : submitLabel}
+              {oauthProvider === id ? <Loader2 className="animate-spin" size={18} /> : <Icon />}
+              {oauthProvider === id ? `Waiting for ${label}…` : `Continue with ${label}`}
             </button>
-          </div>
-        )}
-      </form>
+          ))}
+        </div>
+      </div>
 
       <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 text-center text-xs text-slate-600 leading-relaxed">
-        {isReset ? (
-          <>Remembered it?{' '}
-            <button type="button" onClick={() => handleAuthModeSwitch('signin')} className={LINK_CLASS}>Back to sign in</button>
-          </>
-        ) : showEmailForm ? (
-          <>Email sign-in is for existing accounts.{' '}
-            <button type="button" onClick={() => setShowEmailForm(false)} disabled={busy} className={LINK_CLASS}>Other options</button>
-          </>
-        ) : maintenanceMode ? (
-          // The block itself is Supabase's "Allow new users to sign up"
-          // switch; this only tells people before they try.
-          'New sign-ups are paused while AppBlips is down for maintenance.'
-        ) : (
-          'New here? Continue with Google or GitHub.'
-        )}
+        {maintenanceMode
+          // The block itself is Firebase's "Enable create (sign-up)" switch;
+          // this only tells people before they try.
+          ? 'New sign-ups are paused while AppBlips is down for maintenance.'
+          : 'New here? Continue with Google or GitHub to create your account.'}
       </div>
     </Modal>
   );

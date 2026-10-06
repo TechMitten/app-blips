@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase, supabaseEnabled } from '../supabase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db, firebaseEnabled } from '../firebase';
 import { fetchAnalyticsStats } from '../lib/appAnalytics';
 
 // How often to re-poll Umami's /active endpoint for the selected app. Umami's
@@ -24,18 +25,27 @@ export default function useAnalytics({ isSignedIn, user }) {
   const [activeVisitors, setActiveVisitors] = useState(null);
 
   const loadMyAnalyticsApps = useCallback(async () => {
-    if (!supabaseEnabled || !isSignedIn || !user?.id) return [];
+    if (!firebaseEnabled || !isSignedIn || !user?.id) return [];
     setAppsLoading(true);
     setError(null);
     try {
-      const { data, error: queryError } = await supabase.from('deployments')
-        .select('slug, name, analytics_enabled, analytics_website_id, updated_at').eq('analytics_enabled', true).not('analytics_website_id', 'is', null);
-      if (queryError) throw queryError;
-      const apps = (data || []).map((row) => ({
-        ...row,
-        analyticsEnabled: row.analytics_enabled,
-        analyticsWebsiteId: row.analytics_website_id,
-      }));
+      // Deployment docs are written by the server; firestore.rules let each
+      // user read only their own, so the query must filter by user_id.
+      const snapshot = await getDocs(query(
+        collection(db, 'deployments'),
+        where('user_id', '==', user.id),
+        where('analytics_enabled', '==', true),
+      ));
+      const apps = snapshot.docs
+        .map((doc) => doc.data())
+        .filter((row) => row.analytics_website_id)
+        .map((row) => ({
+          slug: row.slug,
+          name: row.name,
+          updated_at: row.updated_at,
+          analyticsEnabled: row.analytics_enabled,
+          analyticsWebsiteId: row.analytics_website_id,
+        }));
       setMyAnalyticsApps(apps);
       return apps;
     } catch (err) {

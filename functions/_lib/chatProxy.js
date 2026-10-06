@@ -18,9 +18,9 @@
 // This endpoint is a public URL though -- without a check of its own, anyone
 // who finds it could call it directly (bypassing the app's sign-in gate,
 // which is UI-only) and spend the LLM budget behind the configured provider key. So,
-// in a multi-user instance (Supabase configured), every request must carry a
-// valid Supabase access token, verified against Supabase itself (not just "a
-// token was present"). Without Supabase, AppBlips is a single local user, so
+// in a multi-user instance (Firebase configured), every request must carry a
+// valid Firebase ID token, signature-checked against Google's keys (not just "a
+// token was present"). Without Firebase, AppBlips is a single local user, so
 // every request is treated as coming from that user, on the assumption that
 // operators put their own access control (network restrictions, a reverse-proxy
 // auth layer, etc.) in front of this endpoint if they expose it beyond localhost.
@@ -28,7 +28,7 @@
 import { wrapWithTokenTracking, estimateInputTokens } from './trackTokens.js';
 import { trackApiUsage } from './usageTracking.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
-import { supabaseUrl, supabaseHeaders, supabasePublishableKey, supabaseConfigured } from './supabaseServer.js';
+import { firebaseConfigured, verifyIdToken, bearerToken } from './firebaseServer.js';
 import { billingAppliesTo, fetchBillingStatus, claimPrompt, releasePrompt, holdAllowance } from './billing.js';
 import { promptPassesEnabled, signPromptPass, verifyPromptPass } from './promptPass.js';
 import { planById, checkAllowance, checkPrompts, limitMessage } from './plans.js';
@@ -39,22 +39,12 @@ const toChatCompletionsUrl = (baseUrl) => {
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 
+// The signed-in user behind a request ({ id, email, authTime }), or null.
+// Single-user instances have exactly one user and no tokens.
 export const authorize = async (request, env) => {
-  if (!supabaseConfigured(env)) return { id: 'local-user' };
-
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  try {
-    const res = await fetch(`${supabaseUrl(env)}/auth/v1/user`, {
-      headers: supabaseHeaders(env, { token }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.id ? { id: data.id, email: data.email || null } : null;
-  } catch {
-    return null;
-  }
+  if (!firebaseConfigured(env)) return { id: 'local-user' };
+  const token = bearerToken(request);
+  return token ? verifyIdToken(token, env) : null;
 };
 
 const rateLimitMap = new Map();
@@ -89,7 +79,7 @@ const checkRateLimit = async (userId, env) => {
 };
 
 // --- Multi-user request hardening ---------------------------------------
-// Only applied when Supabase is configured. Single-user instances keep the
+// Only applied when Firebase is configured. Single-user instances keep the
 // transparent relay behaviour. The client is authenticated but not trusted: it
 // must not be able to send arbitrary tools, oversized bodies, or an unbounded
 // output cap.
@@ -127,11 +117,11 @@ const outputCap = (env, payload, multiUser) => {
   return multiUser ? DEFAULT_MULTIUSER_MAX_TOKENS : null;
 };
 
-// Multi-user mode: the operator configured a Supabase project, so every request
-// must carry a valid Supabase access token and the hardening/rate-limit below
-// applies. Without Supabase, AppBlips is a single local user and stays a
+// Multi-user mode: the operator configured a Firebase project, so every request
+// must carry a valid Firebase ID token and the hardening/rate-limit below
+// applies. Without Firebase, AppBlips is a single local user and stays a
 // transparent relay.
-const isMultiUser = (env) => supabaseConfigured(env);
+const isMultiUser = (env) => firebaseConfigured(env);
 
 // Maintenance mode (APPBLIPS_MAINTENANCE=true) pauses building and Ask for
 // every plan. Checked before sign-in and billing so no request reaches the
@@ -298,7 +288,7 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // daily prompt was taken) and `reservation` (tokens held against the
 // allowance, settled when the response ends; see trackTokens.js).
 // If a usage read itself fails the request goes through: auth already
-// reached Supabase, and a hiccup there shouldn't stop people building.
+// succeeded, and a Firestore hiccup shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
   if (!billingAppliesTo(env, user) || payload?.user_provider != null) return { plan: null };
   const status = await fetchBillingStatus(env, user.id);
@@ -385,11 +375,6 @@ export async function handleChatProxy(request, env, waitUntil) {
       status: 403,
       headers: { 'content-type': 'application/json' },
     });
-  }
-
-  // A Supabase publishable key is needed to verify tokens in a multi-user instance.
-  if (isMultiUser(env) && !supabasePublishableKey(env)) {
-    return configError(env, 'Missing configuration: SUPABASE_PUBLISHABLE_KEY.');
   }
 
   const user = await authorize(request, env);

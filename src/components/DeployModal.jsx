@@ -8,7 +8,7 @@ import {
   SettingRow, Switch, TabList, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
 import { formatModifiedTime } from '../lib/helpers';
-import { supabaseEnabled } from '../supabase';
+import { firebaseEnabled } from '../firebase';
 import { APPS_ORIGIN } from '../lib/deploy';
 
 const APPS_HOST = APPS_ORIGIN.replace(/^https?:\/\//, '');
@@ -79,8 +79,8 @@ function Spinner({ label }) {
 // Publish-to-public-URL modal: deploy / redeploy / remove / copy link. All
 // state and handlers come from useDeployment via props; `onRequireSignIn`
 // swaps this modal for the auth modal. Deploy is a hosted-mode-only feature
-// (Supabase Storage), so this renders a simple unavailable state instead when
-// !supabaseEnabled -- self-hosted builds never reach the rest of this UI.
+// (Firebase sign-in plus server-side R2 storage), so this renders a simple unavailable state instead when
+// !firebaseEnabled -- self-hosted builds never reach the rest of this UI.
 export default function DeployModal({
   isSignedIn,
   username,
@@ -202,14 +202,14 @@ export default function DeployModal({
 
   const cardProps = { role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'deploy-title' };
 
-  if (!supabaseEnabled) {
+  if (!firebaseEnabled) {
     return (
       <Modal zIndex={70} cardClass={CARD_CLASS} cardProps={cardProps}>
         <ModalHeader title={`Deploy your ${noun}`} onClose={onClose} />
         <div className="px-6 py-5">
           <SettingRow
             title="Not available in single-user mode"
-            description="Deploying to a public URL needs a configured Supabase project."
+            description="Deploying to a public URL needs the hosted version of AppBlips."
           />
         </div>
         <ModalFooter>

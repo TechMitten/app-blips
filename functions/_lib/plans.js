@@ -67,7 +67,7 @@ export const BUILD_OVERDRAFT_TOKENS = 500_000;
 
 // The token totals a request is refused at: { daily, period }, null where
 // the plan has no such limit. Shared by checkAllowance and the atomic
-// reservation in Supabase (reserve_tokens), so both draw the line in one place.
+// reservation in billing.js (reserveTokens), so both draw the line in one place.
 export const allowanceLimits = (planOrId, { continuing = false } = {}) => {
   const plan = typeof planOrId === 'string' ? planById(planOrId) : planOrId;
   const extra = continuing ? BUILD_OVERDRAFT_TOKENS : 0;

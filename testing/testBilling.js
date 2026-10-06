@@ -4,6 +4,8 @@ import { checkAllowance, limitMessage, BUILD_OVERDRAFT_TOKENS, PLANS } from '../
 import { verifyStripeSignature, handleStripeWebhook, handleBillingStatus } from '../functions/_lib/billing.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { wrapWithTokenTracking } from '../functions/_lib/trackTokens.js';
+import { usageDocPath } from '../functions/_lib/usageTracking.js';
+import { installFirebaseFake, firebaseEnv, signIdToken } from './firebaseFake.js';
 
 const NOW = Date.UTC(2026, 9, 3, 18, 0, 0);
 const FREE = PLANS.free;
@@ -15,12 +17,13 @@ const env = {
   OPENAI_LLM_VISION_MODEL: 'vision-model',
   OPENAI_LLM_ASK_MODEL: 'ask-model',
   APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
-  SUPABASE_URL: 'https://db.example',
-  SUPABASE_PUBLISHABLE_KEY: 'pub',
-  SUPABASE_SERVICE_ROLE_KEY: 'service',
+  ...firebaseEnv(),
   STRIPE_SECRET_KEY: 'sk_test_x',
   STRIPE_WEBHOOK_SECRET: 'whsec_test',
 };
+
+const today = () => new Date().toISOString().slice(0, 10);
+const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 // --- plans.js ---------------------------------------------------------------
 
@@ -81,66 +84,58 @@ test('Stripe signatures are checked, including timestamp replay', async () => {
 
 const sse = 'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\n';
 
-// Mocks Supabase auth, billing_status and the LLM. Returns what was seen.
-// `prompts` simulates the claim_prompt counter; reserve_tokens and
-// settle_usage keep the row's token totals like the SQL does; `upstreamStatus`
-// lets a test make the provider fail and `upstreamBody` replaces the stream.
-const mockServices = (t, billingRow, { promptsLeft = 99, upstreamStatus = 200, upstreamBody = sse } = {}) => {
-  const seen = { statusCalls: 0, upstream: null, upstreamCalls: 0, claims: 0, releases: 0, promptsLeft, reservations: [], settles: [] };
-  const totals = { today: Number(billingRow.today_tokens) || 0, period: Number(billingRow.period_tokens) || 0 };
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    const href = String(url);
-    if (href.endsWith('/auth/v1/user')) return Response.json({ id: 'user-1', email: 'a@example.com' });
-    if (href.endsWith('/rpc/billing_status')) {
-      seen.statusCalls += 1;
-      return Response.json([billingRow]);
-    }
-    if (href.endsWith('/rpc/record_usage')) return new Response(null, { status: 204 });
-    if (href.endsWith('/rpc/reserve_tokens')) {
-      const args = JSON.parse(options.body);
-      const over = (args.daily_limit != null && totals.today >= args.daily_limit)
-        || (args.period_limit != null && totals.period >= args.period_limit);
-      if (!over) {
-        totals.today += args.amount;
-        totals.period += args.amount;
-      }
-      seen.reservations.push({ ...args, reserved: !over });
-      return Response.json([{ reserved: !over, today_tokens: totals.today, period_tokens: totals.period }]);
-    }
-    if (href.endsWith('/rpc/settle_usage')) {
-      const args = JSON.parse(options.body);
-      totals.today += args.token_count - args.reserved;
-      totals.period += args.token_count - args.reserved;
-      seen.settles.push(args);
-      return new Response(null, { status: 204 });
-    }
-    if (href.endsWith('/rpc/claim_prompt')) {
-      seen.claims += 1;
-      if (seen.promptsLeft <= 0) return Response.json(false);
-      seen.promptsLeft -= 1;
-      return Response.json(true);
-    }
-    if (href.endsWith('/rpc/release_prompt')) {
-      seen.releases += 1;
-      seen.promptsLeft += 1;
-      return new Response(null, { status: 204 });
-    }
-    if (href === 'https://llm.example/v1/chat/completions') {
+// Seeds Firestore for user-1 from a billing_status-shaped row, and fakes the
+// LLM. `promptsLeft` sets how many of the Free daily prompts remain;
+// `upstreamStatus` lets a test make the provider fail and `upstreamBody`
+// replaces the stream. Returns what was seen plus `usage()`, today's usage doc.
+const mockServices = (t, billingRow, { promptsLeft, upstreamStatus = 200, upstreamBody = sse } = {}) => {
+  const seen = { upstream: null, upstreamCalls: 0 };
+  t.after(settleWrites);
+  const { firestore, calls } = installFirebaseFake(t, {
+    fallback: async (href, options = {}) => {
+      if (href !== 'https://llm.example/v1/chat/completions') throw new Error(`unexpected fetch ${href}`);
       seen.upstream = JSON.parse(options.body);
       seen.upstreamCalls += 1;
       if (upstreamStatus !== 200) return Response.json({ error: { message: 'boom' } }, { status: upstreamStatus });
       return new Response(upstreamBody, { headers: { 'content-type': 'text/event-stream' } });
-    }
-    throw new Error(`unexpected fetch ${href}`);
+    },
   });
+  if (billingRow.plan !== 'free') {
+    firestore.set('subscriptions/user-1', {
+      user_id: 'user-1', plan: billingRow.plan, status: billingRow.status,
+      current_period_start: `${daysAgo(10)}T00:00:00.000Z`, current_period_end: `${daysAgo(-20)}T00:00:00.000Z`,
+    });
+  }
+  const todayTokens = Number(billingRow.today_tokens) || 0;
+  const prompts = promptsLeft === undefined ? Number(billingRow.today_prompts) || 0 : PLANS.free.dailyPrompts - promptsLeft;
+  firestore.set(usageDocPath('user-1', today()), {
+    user_id: 'user-1', date: today(), builder_tokens: todayTokens, builder_prompts: prompts, builder_requests: 0,
+  });
+  const earlier = (Number(billingRow.period_tokens) || 0) - todayTokens;
+  if (earlier > 0) {
+    firestore.set(usageDocPath('user-1', daysAgo(1)), { user_id: 'user-1', date: daysAgo(1), builder_tokens: earlier });
+  }
+  Object.defineProperty(seen, 'statusCalls', {
+    get: () => calls.filter((call) => call.method === 'GET' && /documents\/subscriptions\/user-1$/.test(call.url)).length,
+  });
+  seen.usage = () => firestore.getData(usageDocPath('user-1', today()));
   return seen;
 };
 
-const chat = (payload, settings = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
+// Background usage writes (waitUntil) are collected so tests can wait for
+// them -- and so none outlive the test's fetch mock and reach the network.
+const pendingWrites = [];
+const waitUntil = (promise) => pendingWrites.push(promise);
+const settleWrites = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  while (pendingWrites.length) await Promise.all(pendingWrites.splice(0));
+};
+
+const chat = async (payload, settings = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
   method: 'POST',
-  headers: { authorization: 'Bearer token' },
+  headers: { authorization: `Bearer ${await signIdToken('user-1', { claims: { email: 'a@example.com' } })}` },
   body: JSON.stringify({ messages: [{ role: 'user', content: 'Build a todo app' }], stream: true, ...payload }),
-}), { ...env, ...settings });
+}), { ...env, ...settings }, waitUntil);
 
 const imageMessage = { role: 'user', content: [{ type: 'text', text: 'Like this' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }] };
 
@@ -169,6 +164,7 @@ test('free users cannot send images; paid users get the vision model', async (t)
   assert.equal((await response.json()).code, 'upgrade_required');
   assert.equal(seen.upstream, null);
 
+  await settleWrites();
   t.mock.restoreAll();
   seen = mockServices(t, { plan: 'plus', status: 'active', today_tokens: 0, period_tokens: 0 });
   response = await chat({ messages: [imageMessage] });
@@ -182,6 +178,7 @@ test('Ask mode uses the chat model only on paid plans', async (t) => {
   await (await chat({ ask: true })).text();
   assert.equal(seen.upstream.model, 'build-model');
 
+  await settleWrites();
   t.mock.restoreAll();
   seen = mockServices(t, { plan: 'pro', status: 'active', today_tokens: 0, period_tokens: 0 });
   await (await chat({ ask: true })).text();
@@ -195,81 +192,106 @@ test('billing is skipped without a Stripe key and for the user\'s own provider k
   await response.text();
   assert.equal(seen.statusCalls, 0);
 
+  await settleWrites();
   t.mock.restoreAll();
   let upstreamUrl = null;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    const href = String(url);
-    if (href.endsWith('/auth/v1/user')) return Response.json({ id: 'user-1' });
-    if (href.endsWith('/rpc/billing_status')) throw new Error('billing must not be read for the user\'s own key');
-    if (href.endsWith('/rpc/record_usage')) return new Response(null, { status: 204 });
-    upstreamUrl = href;
-    return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
+  const { calls } = installFirebaseFake(t, {
+    fallback: async (href) => {
+      upstreamUrl = href;
+      return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
+    },
   });
   response = await chat({ user_provider: { id: 'openrouter', apiKey: 'sk-or-user', model: 'their/model' } });
   assert.equal(response.status, 200);
   await response.text();
   assert.equal(upstreamUrl, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.ok(!calls.some((call) => call.url.includes('/subscriptions/')), 'billing must not be read for the user\'s own key');
 });
 
 // --- usage refund on provider errors ----------------------------------------
 
 test('a response the provider ended with an error is not charged to the allowance', async (t) => {
-  const recorded = [];
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
-    recorded.push(JSON.parse(options.body));
-    return new Response(null, { status: 204 });
-  });
+  const { firestore } = installFirebaseFake(t);
   const pending = [];
   const stream = (body) => new Response(body, { headers: { 'content-type': 'text/event-stream' } });
   const failed = stream('data: {"choices":[{"delta":{"content":"<html>"},"finish_reason":"error"}],"error":{"message":"boom"},"usage":{"total_tokens":5000}}\n\ndata: [DONE]\n\n');
   await (await wrapWithTokenTracking(env, failed, { stream: true }, { uid: 'user-1', kind: 'builder' }, (p) => pending.push(p))).text();
+  await Promise.all(pending);
+  assert.equal(firestore.getData(usageDocPath('user-1', today())).builder_tokens, 0);
   const ok = stream('data: {"choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}],"usage":{"total_tokens":700}}\n\ndata: [DONE]\n\n');
   await (await wrapWithTokenTracking(env, ok, { stream: true }, { uid: 'user-1', kind: 'builder' }, (p) => pending.push(p))).text();
   await Promise.all(pending);
-  assert.deepEqual(recorded.map((r) => r.token_count), [0, 700]);
+  const usage = firestore.getData(usageDocPath('user-1', today()));
+  assert.equal(usage.builder_tokens, 700);
+  assert.equal(usage.builder_requests, 2);
 });
 
 // --- webhook -> subscriptions ------------------------------------------------
 
-test('a subscription event re-reads Stripe and stores the plan by lookup key', async (t) => {
-  const upserts = [];
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    const href = String(url);
-    if (href === 'https://api.stripe.com/v1/subscriptions/sub_1') {
-      assert.equal(options.headers.Authorization, 'Bearer sk_test_x');
-      return Response.json({
-        id: 'sub_1', status: 'active', customer: 'cus_1', cancel_at_period_end: false,
-        metadata: { user_id: 'user-1' },
-        items: { data: [{ price: { lookup_key: 'appblips_pro_monthly' }, current_period_start: 1790000000, current_period_end: 1792592000 }] },
-      });
-    }
-    if (href.endsWith('/rpc/upsert_subscription')) {
-      upserts.push(JSON.parse(options.body));
-      return new Response(null, { status: 204 });
-    }
-    throw new Error(`unexpected fetch ${href}`);
-  });
-  const payload = JSON.stringify({ type: 'customer.subscription.updated', data: { object: { id: 'sub_1', status: 'incomplete' } } });
+const stripeSubscription = (fields = {}) => ({
+  id: 'sub_1', status: 'active', customer: 'cus_1', cancel_at_period_end: false,
+  metadata: { user_id: 'user-1' },
+  items: { data: [{ price: { lookup_key: 'appblips_pro_monthly' }, current_period_start: 1790000000, current_period_end: 1792592000 }] },
+  ...fields,
+});
+
+const webhook = async (type, object) => {
+  const payload = JSON.stringify({ type, data: { object } });
   const timestamp = Math.floor(Date.now() / 1000);
-  const response = await handleStripeWebhook(new Request('https://app.example/api/billing/webhook', {
+  return handleStripeWebhook(new Request('https://app.example/api/billing/webhook', {
     method: 'POST',
     headers: { 'stripe-signature': `t=${timestamp},v1=${await sign(payload, 'whsec_test', timestamp)}` },
     body: payload,
   }), env);
-  assert.equal(response.status, 200);
-  assert.equal(upserts.length, 1);
-  assert.equal(upserts[0].target_user_id, 'user-1');
-  assert.equal(upserts[0].new_plan, 'pro');
-  assert.equal(upserts[0].new_status, 'active');
-  assert.equal(upserts[0].period_start, new Date(1790000000 * 1000).toISOString());
+};
 
+test('a subscription event re-reads Stripe and stores the plan by lookup key', async (t) => {
+  let live = stripeSubscription();
+  const { firestore } = installFirebaseFake(t, {
+    fallback: async (href, options = {}) => {
+      if (href === `https://api.stripe.com/v1/subscriptions/${live.id}`) {
+        assert.equal(options.headers.Authorization, 'Bearer sk_test_x');
+        return Response.json(live);
+      }
+      throw new Error(`unexpected fetch ${href}`);
+    },
+  });
+  const response = await webhook('customer.subscription.updated', { id: 'sub_1', status: 'incomplete' });
+  assert.equal(response.status, 200);
+  const stored = firestore.getData('subscriptions/user-1');
+  assert.equal(stored.plan, 'pro');
+  assert.equal(stored.status, 'active');
+  assert.equal(stored.stripe_customer_id, 'cus_1');
+  assert.equal(stored.current_period_start, new Date(1790000000 * 1000).toISOString());
+
+  // A late event for an old, cancelled subscription can't replace the live one.
+  live = stripeSubscription({ id: 'sub_old', status: 'canceled', customer: null });
+  await webhook('customer.subscription.deleted', { id: 'sub_old' });
+  assert.equal(firestore.getData('subscriptions/user-1').stripe_subscription_id, 'sub_1');
+  assert.equal(firestore.getData('subscriptions/user-1').status, 'active');
+
+  // Its own cancellation does land, and keeps the customer id.
+  live = stripeSubscription({ status: 'canceled', customer: null });
+  await webhook('customer.subscription.deleted', { id: 'sub_1' });
+  assert.equal(firestore.getData('subscriptions/user-1').status, 'canceled');
+  assert.equal(firestore.getData('subscriptions/user-1').stripe_customer_id, 'cus_1');
+
+  const payload = JSON.stringify({ type: 'customer.subscription.updated', data: { object: { id: 'sub_1' } } });
   const forged = await handleStripeWebhook(new Request('https://app.example/api/billing/webhook', {
     method: 'POST',
-    headers: { 'stripe-signature': `t=${timestamp},v1=00` },
+    headers: { 'stripe-signature': `t=${Math.floor(Date.now() / 1000)},v1=00` },
     body: payload,
   }), env);
   assert.equal(forged.status, 400);
-  assert.equal(upserts.length, 1);
+});
+
+test('a subscription without metadata is matched to its user by Stripe customer', async (t) => {
+  const { firestore } = installFirebaseFake(t, {
+    fallback: async () => Response.json(stripeSubscription({ metadata: {}, status: 'past_due' })),
+  });
+  firestore.set('subscriptions/user-7', { user_id: 'user-7', plan: 'plus', status: 'active', stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1' });
+  assert.equal((await webhook('customer.subscription.updated', { id: 'sub_1' })).status, 200);
+  assert.equal(firestore.getData('subscriptions/user-7').status, 'past_due');
 });
 
 test('status reports billing off when there is no Stripe key', async () => {
@@ -278,7 +300,7 @@ test('status reports billing off when there is no Stripe key', async () => {
 });
 
 test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t) => {
-  // user-1 (a@example.com, see mockServices) is not on the list: no limits.
+  // user-1 (a@example.com, see chat) is not on the list: no limits.
   let seen = mockServices(t, { plan: 'free', status: 'none', today_tokens: FREE.dailyTokens * 10, period_tokens: 0 });
   let response = await chat({}, { APPBLIPS_BILLING_TESTERS: 'someone@else.com' });
   assert.equal(response.status, 200);
@@ -286,6 +308,7 @@ test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t)
   assert.equal(seen.statusCalls, 0);
 
   // Listed by email (any case): the plan applies.
+  await settleWrites();
   t.mock.restoreAll();
   seen = mockServices(t, { plan: 'free', status: 'none', today_tokens: FREE.dailyTokens * 10, period_tokens: 0 });
   response = await chat({}, { APPBLIPS_BILLING_TESTERS: 'someone@else.com, A@Example.com' });
@@ -293,9 +316,10 @@ test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t)
   assert.equal(seen.statusCalls, 1);
 
   // Off the list, the status endpoint reports billing off.
+  await settleWrites();
   t.mock.restoreAll();
   mockServices(t, { plan: 'free', status: 'none', today_tokens: 0, period_tokens: 0 });
-  response = await handleBillingStatus(new Request('https://app.example/api/billing/status', { headers: { authorization: 'Bearer token' } }), { ...env, APPBLIPS_BILLING_TESTERS: 'user-2' });
+  response = await handleBillingStatus(new Request('https://app.example/api/billing/status', { headers: { authorization: `Bearer ${await signIdToken('user-1')}` } }), { ...env, APPBLIPS_BILLING_TESTERS: 'user-2' });
   assert.deepEqual(await response.json(), { enabled: false });
 });
 
@@ -311,18 +335,18 @@ test('a Free prompt is claimed once and its follow-ups ride on the signed pass',
   await response.text();
   const pass = response.headers.get('x-appblips-prompt-pass');
   assert.ok(pass, 'first request returns a pass');
-  assert.equal(seen.claims, 1);
+  assert.equal(seen.usage().builder_prompts, 1);
 
   response = await chat({ continuing: true, prompt_pass: pass }, withSecret);
   assert.equal(response.status, 200);
   await response.text();
-  assert.equal(seen.claims, 1, 'a follow-up with a valid pass is not a new prompt');
+  assert.equal(seen.usage().builder_prompts, 1, 'a follow-up with a valid pass is not a new prompt');
   assert.ok(response.headers.get('x-appblips-prompt-pass'), 'the pass is renewed');
 
   // Marking a request as a follow-up without a valid pass doesn't dodge the count.
   await (await chat({ continuing: true }, withSecret)).text();
   await (await chat({ continuing: true, prompt_pass: `${pass}x` }, withSecret)).text();
-  assert.equal(seen.claims, 3);
+  assert.equal(seen.usage().builder_prompts, 3);
 });
 
 test('a pass is bound to its user and expires', async () => {
@@ -349,16 +373,17 @@ test('the 6th Free prompt of the day is refused with an upgrade message', async 
 test('automatic repairs and provider failures do not cost a prompt', async (t) => {
   let seen = mockServices(t, freeRow);
   await (await chat({ auto_fix: true }, withSecret)).text();
-  assert.equal(seen.claims, 0);
+  assert.equal(seen.usage().builder_prompts, 0);
 
+  await settleWrites();
   t.mock.restoreAll();
   seen = mockServices(t, freeRow, { upstreamStatus: 500 });
   const response = await chat({}, withSecret);
   assert.equal(response.status, 500);
   await response.text();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(seen.claims, 1);
-  assert.equal(seen.releases, 1);
+  await settleWrites();
+  assert.equal(seen.upstreamCalls, 1);
+  assert.equal(seen.usage().builder_prompts, 0, 'the prompt was claimed, then handed back');
   assert.equal(response.headers.get('x-appblips-prompt-pass'), null);
 });
 
@@ -367,13 +392,11 @@ test('paid plans have no prompt limit', async (t) => {
   const response = await chat({}, withSecret);
   assert.equal(response.status, 200);
   await response.text();
-  assert.equal(seen.claims, 0);
+  assert.equal(seen.usage().builder_prompts, 500);
 });
 
 // --- token reservations -------------------------------------------------------
 
-// Lets the waitUntil'd usage writes land before a test reads them.
-const settleWrites = () => new Promise((resolve) => setTimeout(resolve, 10));
 
 test('requests sent at the same moment cannot all slip under the limit', async (t) => {
   const seen = mockServices(t, { ...freeRow, today_tokens: FREE.dailyTokens - 10_000, period_tokens: FREE.dailyTokens - 10_000 });
@@ -384,18 +407,13 @@ test('requests sent at the same moment cannot all slip under the limit', async (
   assert.equal(seen.upstreamCalls, 1);
 });
 
-test('a reservation is settled to the reported usage on the day it was made', async (t) => {
+test('a reservation is settled to the reported usage', async (t) => {
   const usage = 'data: {"choices":[{"delta":{"content":"Done"},"finish_reason":"stop"}],"usage":{"total_tokens":1234}}\n\ndata: [DONE]\n\n';
   const seen = mockServices(t, freeRow, { upstreamBody: usage });
   await (await chat({}, withSecret)).text();
   await settleWrites();
-  assert.equal(seen.reservations.length, 1);
-  const [held] = seen.reservations;
-  assert.equal(held.daily_limit, FREE.dailyTokens, 'a new request gets no overdraft');
-  assert.equal(seen.settles.length, 1);
-  assert.equal(seen.settles[0].reserved, held.amount);
-  assert.equal(seen.settles[0].usage_date, held.usage_date);
-  assert.equal(seen.settles[0].token_count, 1234);
+  assert.equal(seen.usage().builder_tokens, 1234, 'the estimate held up front is replaced by the real count');
+  assert.equal(seen.usage().builder_requests, 1);
 });
 
 test('a stream cut off before its usage arrives is charged an estimate, not nothing', async (t) => {
@@ -412,17 +430,17 @@ test('a stream cut off before its usage arrives is charged an estimate, not noth
   await reader.read();
   await reader.cancel();
   await settleWrites();
-  assert.equal(seen.settles.length, 1);
-  assert.ok(seen.settles[0].token_count >= 1000, `charged ${seen.settles[0].token_count}`);
-  assert.ok(seen.settles[0].token_count < seen.settles[0].reserved);
+  const charged = seen.usage().builder_tokens;
+  assert.ok(charged >= 1000, `charged ${charged}`);
+  assert.ok(charged < 32768, 'less than the full reservation');
+  assert.equal(seen.usage().builder_requests, 1);
 });
 
 test('a provider failure hands the reservation back', async (t) => {
   const seen = mockServices(t, freeRow, { upstreamStatus: 500 });
   await (await chat({}, withSecret)).text();
   await settleWrites();
-  assert.equal(seen.settles.length, 1);
-  assert.equal(seen.settles[0].token_count, 0);
+  assert.equal(seen.usage().builder_tokens, 0);
 });
 
 test('the build overdraft needs a valid pass from the build', async (t) => {
@@ -436,6 +454,7 @@ test('the build overdraft needs a valid pass from the build', async (t) => {
   assert.equal(seen.upstreamCalls, 0);
 
   // A build that started under the limit carries on into the overdraft.
+  await settleWrites();
   t.mock.restoreAll();
   seen = mockServices(t, { ...atCap, period_tokens: PLANS.plus.periodTokens - 1 });
   response = await chat({}, withSecret);
@@ -443,8 +462,11 @@ test('the build overdraft needs a valid pass from the build', async (t) => {
   await response.text();
   const pass = response.headers.get('x-appblips-prompt-pass');
   assert.ok(pass, 'paid plans get a pass too');
+  await settleWrites();
+  // The first request's reservation took the period past its allowance; only
+  // the overdraft lets the build's next request through.
   response = await chat({ continuing: true, prompt_pass: pass }, withSecret);
   assert.equal(response.status, 200);
   await response.text();
-  assert.equal(seen.reservations[1].period_limit, PLANS.plus.periodTokens + BUILD_OVERDRAFT_TOKENS);
+  assert.equal(seen.upstreamCalls, 2);
 });

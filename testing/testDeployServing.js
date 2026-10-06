@@ -1,11 +1,16 @@
 // Run: node --test testing/testDeployServing.js
-// Exercises the deployed-app Pages Function against a mocked Supabase REST API
-// and Storage, using the exact `deployments` row shape src/lib/deploy.js writes.
+// Exercises the deployed-app Pages Function against fake Firestore and R2,
+// using the `deployments` doc shape functions/_lib/deploys.js writes.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { onRequest, parseDeploymentDoc } from '../functions/[[path]].js';
+import { deploymentDocPath } from '../functions/_lib/deploys.js';
+import { installFirebaseFake, firebaseEnv, R2_ENV } from './firebaseFake.js';
 
-// registerDeployment() stores extra pages WITH the extension.
+// Cloudflare's edge cache, which the Function uses; always a miss here.
+globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
+
+// The upload handler stores extra pages WITH the extension.
 const multiDoc = (extra = {}) => ({
   name: 'Cafe',
   storage_path: 'uid123/tok0123456.html',
@@ -21,24 +26,14 @@ const OBJECTS = {
 };
 
 const serve = async (t, path, rows) => {
-  t.mock.method(globalThis, 'fetch', async (input) => {
-    const url = String(input);
-    const row = /\/rest\/v1\/deployments\?slug=eq\.([^&]+)/.exec(url);
-    if (row) {
-      const doc = rows[decodeURIComponent(row[1])];
-      return doc ? new Response(JSON.stringify([doc]), { status: 200 }) : new Response('[]', { status: 200 });
-    }
-    const obj = /\/storage\/v1\/object\/public\/orion-deploys\/([^?]+)/.exec(url);
-    if (obj) {
-      const body = OBJECTS[decodeURIComponent(obj[1])];
-      return body ? new Response(body) : new Response('nope', { status: 404 });
-    }
-    throw new Error('unexpected fetch ' + url);
-  });
+  const { firestore, r2 } = installFirebaseFake(t);
+  for (const [slug, doc] of Object.entries(rows)) firestore.set(deploymentDocPath(slug), { updated_at: '2026-10-01T00:00:00.000Z', ...doc });
+  for (const [key, body] of Object.entries(OBJECTS)) r2.objects.set(key, body);
   const res = await onRequest({
     request: new Request(`https://my.appblips.com${path}`),
-    env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk', VITE_APPS_ORIGIN: 'https://my.appblips.com' },
+    env: firebaseEnv({ ...R2_ENV, VITE_APPS_ORIGIN: 'https://my.appblips.com' }),
     next: () => new Response('SPA'),
+    waitUntil: () => {},
   });
   return { status: res.status, body: await res.text() };
 };

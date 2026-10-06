@@ -3,11 +3,11 @@
 //
 //   npm run usage            → http://127.0.0.1:5178  (Ctrl+C to stop)
 //
-// Reads usage and account data through Supabase's server-only service role.
-// Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before starting it. The
+// Reads usage and account data as the Firebase service account. Set
+// FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT before starting it. The
 // dashboard binds to loopback and never exposes that key to the served page.
 import http from 'node:http';
-import { supabaseUrl, supabaseHeaders, supabaseServiceKey } from '../functions/_lib/supabaseServer.js';
+import { serviceAccountConfigured, firebaseProjectId, runQuery, listAuthUsers } from '../functions/_lib/firebaseServer.js';
 import { PLANS, PAID_PLAN_IDS } from '../functions/_lib/plans.js';
 
 // Stripe's cut of each monthly charge (card 2.9% + 30c, Billing 0.7%), for
@@ -15,15 +15,8 @@ import { PLANS, PAID_PLAN_IDS } from '../functions/_lib/plans.js';
 const stripeFee = (price) => price * 0.036 + 0.3;
 
 async function fetchUsageDocs() {
-  if (!supabaseServiceKey(process.env)) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required.');
-  const res = await fetch(`${supabaseUrl(process.env)}/rest/v1/usage?select=*`, {
-    headers: supabaseHeaders(process.env, { service: true }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Supabase query failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
-  }
-  return (await res.json()).map((row) => ({
+  if (!serviceAccountConfigured(process.env)) throw new Error('FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT are required.');
+  return (await runQuery(process.env, 'usage')).map(({ data: row }) => ({
       uid: row.user_id || '(unknown)',
       date: row.date || '',
       builder: Number(row.builder_requests) || 0,
@@ -37,15 +30,12 @@ async function fetchUsageDocs() {
 }
 
 // uid -> paid plan id, for accounts whose subscription currently grants one
-// (same rule as billing_status: past_due keeps the plan while Stripe retries).
+// (same rule as billing.js: past_due keeps the plan while Stripe retries).
 async function fetchPaidPlans() {
-  const res = await fetch(`${supabaseUrl(process.env)}/rest/v1/subscriptions?select=user_id,plan,status`, {
-    headers: supabaseHeaders(process.env, { service: true }),
-  });
-  if (!res.ok) return new Map(); // billing not migrated on this project
-  return new Map((await res.json())
-    .filter((row) => PAID_PLAN_IDS.includes(row.plan) && ['active', 'trialing', 'past_due'].includes(row.status))
-    .map((row) => [row.user_id, row.plan]));
+  return new Map((await runQuery(process.env, 'subscriptions'))
+    .map(({ id, data }) => [id, data])
+    .filter(([, row]) => PAID_PLAN_IDS.includes(row.plan) && ['active', 'trialing', 'past_due'].includes(row.status))
+    .map(([uid, row]) => [uid, row.plan]));
 }
 
 const utcOffsetDay = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
@@ -152,7 +142,7 @@ function aggregate(docs, paidPlans = new Map()) {
 
   return {
     generatedAt: new Date().toISOString(),
-    project: new URL(supabaseUrl(process.env)).hostname.split('.')[0],
+    project: firebaseProjectId(process.env),
     today,
     days: days30,
     totals,
@@ -163,9 +153,9 @@ function aggregate(docs, paidPlans = new Map()) {
 }
 
 // The Account column shows emails instead of raw user ids, resolved via
-// the Supabase admin users endpoint. Resolved
-// uids are cached for the server's lifetime; lookup failures back off for a
-// few minutes rather than hammering the API on every auto-refresh.
+// Firebase Auth (accounts:batchGet). Resolved uids are cached for the
+// server's lifetime; lookup failures back off for a few minutes rather than
+// hammering the API on every auto-refresh.
 const emailCache = new Map();
 let emailLookupBackoffUntil = 0;
 
@@ -173,18 +163,11 @@ async function lookupEmails(uids) {
   const unknown = uids.filter((uid) => !emailCache.has(uid));
   if (unknown.length && Date.now() > emailLookupBackoffUntil) {
     try {
-      for (let i = 0; i < unknown.length; i += 50) {
-        const res = await fetch(`${supabaseUrl(process.env)}/auth/v1/admin/users?page=${Math.floor(i / 50) + 1}&per_page=50`, {
-          headers: supabaseHeaders(process.env, { service: true }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        for (const account of data.users || []) {
-          if (unknown.includes(account.id)) emailCache.set(account.id, { email: account.email || '', name: account.user_metadata?.display_name || '' });
-        }
-        for (const uid of unknown.slice(i, i + 50)) {
-          if (!emailCache.has(uid)) emailCache.set(uid, { email: '', name: '' }); // deleted/unknown account
-        }
+      for (const account of await listAuthUsers(process.env)) {
+        emailCache.set(account.localId, { email: account.email || '', name: account.displayName || '' });
+      }
+      for (const uid of unknown) {
+        if (!emailCache.has(uid)) emailCache.set(uid, { email: '', name: '' }); // deleted/unknown account
       }
     } catch {
       emailLookupBackoffUntil = Date.now() + 5 * 60 * 1000;

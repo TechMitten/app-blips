@@ -1,5 +1,5 @@
 // Tool execution and validation for multi-page websites. Kept separate from
-// llm.js (which pulls in Supabase) so it can be unit-tested with plain node.
+// llm.js (which pulls in Firebase) so it can be unit-tested with plain node.
 import { applySurgicalEdits, listSections, viewCode } from './edits.js';
 import { checkSyntax } from './syntaxCheck.js';
 import {

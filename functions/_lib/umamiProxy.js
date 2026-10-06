@@ -88,15 +88,13 @@ const validateEnv = (env) => {
   return missing;
 };
 
-import { supabaseUrl, supabaseHeaders } from './supabaseServer.js';
+import { setWrite, commit, serviceAccountConfigured } from './firebaseServer.js';
+import { readDeployment } from './deploys.js';
 
-// `deployments/{slug}` is publicly readable per Supabase RLS.
+// Read as the service account: deployments are server-written and only
+// their owner can read them from the client.
 const getDeploymentDoc = async (slug, env) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=user_id,analytics_enabled,analytics_website_id&limit=1`, {
-    headers: supabaseHeaders(env),
-  });
-  if (!res.ok) throw new Error(`Failed to look up deployment: ${res.status}`);
-  const [doc] = await res.json();
+  const doc = await readDeployment(env, slug);
   if (!doc) return null;
   return {
     user_id: doc.user_id || null,
@@ -104,6 +102,11 @@ const getDeploymentDoc = async (slug, env) => {
     analyticsWebsiteId: doc.analytics_website_id || null,
   };
 };
+
+// Which account created each Umami website. A deploy may only attach a
+// website id recorded here for the same account (deploys.js), so nobody can
+// point their app at someone else's website and read its stats.
+export const analyticsSiteDocPath = (websiteId) => `analytics_sites/${websiteId}`;
 
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -133,8 +136,11 @@ export async function handleAnalyticsWebsiteCreate(request, env) {
   }
 
   const slug = (payload?.slug || '').trim();
-  if (!slug) {
+  if (!slug || slug.length > 120 || !/^[a-zA-Z0-9/-]+$/.test(slug)) {
     return jsonResponse({ error: 'A deployment slug is required.' }, 400);
+  }
+  if (!serviceAccountConfigured(env)) {
+    return jsonResponse({ error: 'Server is missing required configuration: FIREBASE_SERVICE_ACCOUNT.' }, 500);
   }
 
   let deployment;
@@ -167,9 +173,10 @@ export async function handleAnalyticsWebsiteCreate(request, env) {
       throw new Error(`Umami website creation failed: ${res.status} ${text}`);
     }
     const data = await res.json();
-    if (!data.id) {
+    if (!data.id || !/^[a-zA-Z0-9-]{1,64}$/.test(String(data.id))) {
       throw new Error('Umami did not return a website id.');
     }
+    await commit(env, [setWrite(env, analyticsSiteDocPath(data.id), { user_id: user.id, slug, created_at: new Date() })]);
     return jsonResponse({ websiteId: data.id });
   } catch (err) {
     return jsonResponse({ error: err.message || 'Failed to create analytics website.' }, 502);

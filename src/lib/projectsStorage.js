@@ -1,4 +1,4 @@
-// localStorage <-> Supabase row plumbing for the projects list. Pure helpers --
+// localStorage <-> cloud (Firestore) row plumbing for the projects list. Pure helpers --
 // no React, no hooks -- so the auth hook (local -> cloud import) and the
 // projects hook can share them without an import cycle. In the desktop app the
 // same rows live on disk instead (lib/desktop.js).

@@ -1,7 +1,7 @@
 // Project backup files: "Export all projects" / "Import projects…" in
 // Settings → Data. Moves self-hosted projects between browsers and into the
 // desktop app (whose storage the browser cannot see), and doubles as a manual
-// backup. Pure helpers, no React or Supabase, so testing/testProjectBackup.js
+// backup. Pure helpers, no React or Firebase, so testing/testProjectBackup.js
 // can load them in node.
 //
 // File shape: { format: 'appblips-backup', version: 1, exportedAt,
