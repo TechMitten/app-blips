@@ -56,9 +56,10 @@ function Meter({ label, used, limit, detail = null }) {
 }
 
 // Plans + usage. `reason` explains why it opened (no plan yet, a limit was
-// reached); `checkoutResult` is set when Stripe Checkout just sent the user
-// back; `onRefresh` reloads the status after a change made from here.
-export default function PlansModal({ status, reason = null, checkoutResult = null, onRefresh, onClose }) {
+// reached); `welcome` = opened right after sign-up; `checkoutResult` is set
+// when Stripe Checkout just sent the user back; `onRefresh` reloads the
+// status after a change made from here.
+export default function PlansModal({ status, reason = null, welcome = false, checkoutResult = null, onRefresh, onClose }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const current = PLANS[status?.plan] || PLANS.none;
@@ -124,6 +125,11 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
         {maintenanceMode && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Upgrades are paused while AppBlips is down for maintenance. Nothing will be charged.
+          </div>
+        )}
+        {welcome && !isPaid && (
+          <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-slate-700">
+            Welcome to AppBlips! Pick a plan to start building.
           </div>
         )}
         {reason && (

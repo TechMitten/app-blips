@@ -7,12 +7,18 @@ import { auth } from '../../firebase';
 // Sign-in is Google or GitHub only, in a popup (works the same on every
 // browser without the cross-site storage that redirect sign-in needs when the
 // auth domain differs from the app's).
+// A sign-in this close to the account's creation is the sign-up itself.
+const NEW_ACCOUNT_WINDOW_MS = 60 * 1000;
+
 const toUser = (user) => user ? {
   id: user.uid,
   uid: user.uid,
   email: user.email || '',
   displayName: user.displayName || '',
   username: '',
+  // True while the session is the one that created the account: Firebase
+  // only moves lastSignInTime on a later sign-in, not on a restored session.
+  isNewAccount: Math.abs(Date.parse(user.metadata?.lastSignInTime) - Date.parse(user.metadata?.creationTime)) < NEW_ACCOUNT_WINDOW_MS,
 } : null;
 
 const makeProvider = (id) => {

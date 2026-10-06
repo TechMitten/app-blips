@@ -49,7 +49,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider, markPlansPrompted, wasPlansPrompted } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -144,6 +144,17 @@ export default function App() {
   // user's own provider key (Settings → AI) isn't billed, so it still works.
   const needsPlan = billing.billingOn && billing.plan === 'none' && !activeUserProvider();
   const imagesLocked = billing.billingOn && !PLANS[billing.plan]?.images;
+
+  // A new account starts with no plan: show the plans (and the free trial)
+  // right after sign-up, once per account in this browser. Not when coming
+  // back from Checkout, which opens the plans screen on its own.
+  const newAccountId = user?.isNewAccount ? user.id : null;
+  useEffect(() => {
+    if (!newAccountId || !billing.billingOn || billing.plan !== 'none' || billing.checkoutResult) return;
+    if (wasPlansPrompted(newAccountId)) return;
+    markPlansPrompted(newAccountId);
+    setPlansModal({ welcome: true });
+  }, [newAccountId, billing.billingOn, billing.plan, billing.checkoutResult]);
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
@@ -2036,6 +2047,7 @@ export default function App() {
     <PlansModal
       status={billing.status}
       reason={plansModal?.reason}
+      welcome={Boolean(plansModal?.welcome)}
       checkoutResult={billing.checkoutResult}
       onRefresh={billing.refresh}
       onClose={() => { setPlansModal(null); billing.clearCheckoutResult(); }}

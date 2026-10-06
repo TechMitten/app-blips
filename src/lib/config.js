@@ -53,6 +53,26 @@ export const hasSignedInBefore = () => {
   }
 };
 
+// Per account: the Plans screen was already shown after sign-up in this
+// browser, so a reload in the sign-up session doesn't show it again.
+const PLANS_PROMPTED_KEY = 'orion-plans-prompted';
+
+export const markPlansPrompted = (uid) => {
+  try {
+    safeStorage('local')?.setItem(`${PLANS_PROMPTED_KEY}:${uid}`, 'true');
+  } catch {
+    // ignore unavailable storage
+  }
+};
+
+export const wasPlansPrompted = (uid) => {
+  try {
+    return safeStorage('local')?.getItem(`${PLANS_PROMPTED_KEY}:${uid}`) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 // sessionStorage marker set just before the web OAuth flow navigates away to
 // Google/GitHub. The provider sends the tab back with a full page load, which
 // would otherwise look like a fresh visit (splash replays, the restored
