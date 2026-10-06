@@ -88,7 +88,7 @@ const validateEnv = (env) => {
   return missing;
 };
 
-import { setWrite, commit, serviceAccountConfigured } from './firebaseServer.js';
+import { setWrite, deleteWrite, commit, serviceAccountConfigured } from './firebaseServer.js';
 import { readDeployment } from './deploys.js';
 
 // Read as the service account: deployments are server-written and only
@@ -116,6 +116,23 @@ export const appUmamiScriptUrl = (env) => {
   const explicit = env?.APP_UMAMI_SCRIPT_URL || env?.VITE_APP_UMAMI_SCRIPT_URL || '';
   if (explicit) return explicit;
   return env?.UMAMI_API_URL ? `${env.UMAMI_API_URL.replace(/\/+$/, '')}/script.js` : '';
+};
+
+// Deletes a deployment's Umami website (and its stats) plus the ownership
+// record, when the deployment itself is removed. Best effort: the caller has
+// already taken the app offline, so a Umami outage must not fail that -- it
+// only logs. A website Umami no longer has (404) counts as removed.
+export const deleteAnalyticsWebsite = async (env, websiteId) => {
+  if (!websiteId || !/^[a-zA-Z0-9-]{1,64}$/.test(String(websiteId))) return;
+  try {
+    if (!validateEnv(env).length) {
+      const res = await umamiFetch(env, `/api/websites/${websiteId}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) throw new Error(`Umami website delete failed: ${res.status}`);
+    }
+    await commit(env, [deleteWrite(env, analyticsSiteDocPath(websiteId))]);
+  } catch (err) {
+    console.error(`[analytics] removing website ${websiteId} failed:`, err?.message || err);
+  }
 };
 
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), {

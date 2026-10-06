@@ -482,7 +482,9 @@ export default function DeployModal({
       <SettingRow
         id="deploy-analytics"
         title="Analytics"
-        description="Track visits and usage with built-in analytics."
+        description={deployment?.analyticsEnabled && !analyticsEnabled
+          ? `Deploying with analytics off permanently deletes this ${noun}'s visit history.`
+          : 'Track visits and usage with built-in analytics.'}
       >
         <Switch checked={analyticsEnabled} onChange={setAnalyticsEnabled} labelledBy="deploy-analytics" />
       </SettingRow>

@@ -16,7 +16,7 @@
 import { authorize } from './chatProxy.js';
 import { serviceAccountConfigured, getDoc, runQuery, runTransaction, setWrite, deleteWrite, commitAll } from './firebaseServer.js';
 import { r2Configured, putObject, deleteObjects, listKeys } from './r2.js';
-import { analyticsSiteDocPath } from './umamiProxy.js';
+import { analyticsSiteDocPath, deleteAnalyticsWebsite } from './umamiProxy.js';
 
 // `slug` or `username/slug`. Doc ids can't contain '/', so the separator is
 // stored as '~' (never valid in a slug).
@@ -218,6 +218,13 @@ export async function handleDeployUpload(request, env) {
       }
     }
 
+    // Analytics turned off (or swapped for another website): the old Umami
+    // website is no longer linked to anything, so remove it and its stats
+    // rather than orphaning it. Turning analytics back on creates a fresh one.
+    if (existing?.analytics_website_id && existing.analytics_website_id !== upload.analyticsWebsiteId) {
+      await deleteAnalyticsWebsite(env, existing.analytics_website_id);
+    }
+
     return json({ slug: upload.slug, path: storagePath, pageObjects: pageFiles, updatedAt });
   } catch (err) {
     if (err instanceof DeployError) return json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status);
@@ -241,6 +248,7 @@ export async function handleDeployDelete(request, env) {
     // The doc first, so the link stops resolving even if object cleanup fails.
     await commitAll(env, [deleteWrite(env, docPath)]);
     await deleteObjects(env, objectKeysFor(doc.data));
+    await deleteAnalyticsWebsite(env, doc.data.analytics_website_id);
     return json({ removed: true });
   } catch (err) {
     if (err instanceof DeployError) return json({ error: err.message }, err.status);
@@ -254,6 +262,7 @@ export const removeAllDeploymentsFor = async (env, uid) => {
   const docs = await runQuery(env, 'deployments', { where: [['user_id', '==', uid]] });
   // The docs first, so every link stops resolving even if object cleanup fails.
   await commitAll(env, docs.map((doc) => deleteWrite(env, `deployments/${doc.id}`)));
+  for (const doc of docs) await deleteAnalyticsWebsite(env, doc.data.analytics_website_id);
   if (!r2Configured(env)) return;
   await deleteObjects(env, docs.flatMap((doc) => objectKeysFor(doc.data)));
   // Sweep leftovers (pages dropped by redeploys) best-effort: listing can be

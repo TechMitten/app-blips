@@ -58,8 +58,9 @@ export default function useDeployment({
         desiredSlug = username ? `${username}/${baseSlug}` : baseSlug;
       }
 
-      // Reuse the existing Umami website on redeploy/re-enable rather than
-      // creating a second one and orphaning prior stats. Still ask the server
+      // Reuse the existing Umami website on redeploy rather than creating a
+      // second one (deploying with analytics off deletes it server-side, so a
+      // later re-enable starts a fresh one). Still ask the server
       // (it's idempotent per slug) because it also supplies the script URL.
       let websiteId = null;
       let analyticsScriptUrl = '';
