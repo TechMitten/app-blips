@@ -245,11 +245,18 @@ export async function handleDeployDelete(request, env) {
 
 // Every deployment and stored object of an account, for account deletion.
 export const removeAllDeploymentsFor = async (env, uid) => {
-  const docs = await runQuery(env, 'deployments', { where: [['user_id', '==', uid]], select: ['user_id'] });
+  const docs = await runQuery(env, 'deployments', { where: [['user_id', '==', uid]] });
+  // The docs first, so every link stops resolving even if object cleanup fails.
   await commitAll(env, docs.map((doc) => deleteWrite(env, `deployments/${doc.id}`)));
-  if (r2Configured(env)) {
-    const keys = await listKeys(env, `${uid}/`);
-    await deleteObjects(env, keys);
+  if (!r2Configured(env)) return;
+  await deleteObjects(env, docs.flatMap((doc) => objectKeysFor(doc.data)));
+  // Sweep leftovers (pages dropped by redeploys) best-effort: listing can be
+  // denied by the R2 token's scope, and the objects are private and no longer
+  // reachable without their docs, so it must not block deleting the account.
+  try {
+    await deleteObjects(env, await listKeys(env, `${uid}/`));
+  } catch (err) {
+    console.error(`[deploys] leftover sweep for ${uid} failed:`, err?.message || err);
   }
 };
 
