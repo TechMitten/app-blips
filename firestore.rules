@@ -7,8 +7,12 @@ rules_version = '2';
 // apply to; clients can at most read their own deployments.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The app only signs in with Google/GitHub. Anonymous accounts are
+    // refused too, so if that provider is ever switched on in the console,
+    // anyone can't mint throwaway accounts to squat usernames or store data.
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function isOwner(uid) {
@@ -37,7 +41,10 @@ service cloud.firestore {
     // (writing an existing doc is an update, which is never allowed), only in
     // the same batch as the claimer's first users/{uid} doc, and is never
     // released -- not even when the account is deleted -- so old links under
-    // a name can't be taken over.
+    // a name can't be taken over. Nor can it match someone else's bare deploy
+    // slug: `/<slug>/<page>` would then be shadowed by the claimer's own
+    // `<username>/<page>` deploy (the apps host tries that form first).
+    // functions/_lib/deploys.js checks the reverse direction.
     match /usernames/{username} {
       allow get: if signedIn() && resource.data.uid == request.auth.uid;
       allow create: if signedIn()
@@ -46,7 +53,9 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.created_at == request.time
         && !exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username
+        && (!exists(/databases/$(database)/documents/deployments/$(username))
+          || get(/databases/$(database)/documents/deployments/$(username)).data.user_id == request.auth.uid);
     }
 
     // projects/{id}: one saved app's metadata; its data lives in the chunks

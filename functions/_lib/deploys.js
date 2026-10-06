@@ -184,6 +184,12 @@ export async function handleDeployUpload(request, env) {
       await runTransaction(env, async (tx) => {
         const current = await getDoc(env, docPath, { transaction: tx });
         if (current && current.data.user_id !== user.id) throw new DeployError('That link is taken.', 409, 'taken');
+        // Re-checked inside the transaction so a username claimed since
+        // checkSlugNamespace can't end up shadowed by this bare slug.
+        if (!current && !upload.slug.includes('/') && USERNAME_PATTERN.test(upload.slug)
+          && await getDoc(env, `usernames/${upload.slug}`, { transaction: tx })) {
+          throw new DeployError('That link is taken.', 409, 'taken');
+        }
         return {
           writes: [setWrite(env, docPath, {
             slug: upload.slug,

@@ -79,6 +79,21 @@ test('a username is claimed once, in a pair, and can never be taken or changed',
   await assertSucceeds(claim(bob, 'bob', 'bob-2'));
 });
 
+test('a username can\'t take over someone else\'s bare deploy slug', async () => {
+  await seed((db) => Promise.all([
+    setDoc(doc(db, 'deployments', 'cafe'), { user_id: 'alice', slug: 'cafe' }),
+    setDoc(doc(db, 'deployments', 'shop'), { user_id: 'bob', slug: 'shop' }),
+  ]));
+  await assertFails(claim(as('bob'), 'bob', 'cafe'));
+  await assertSucceeds(claim(as('bob'), 'bob', 'shop'));
+});
+
+test('anonymous accounts are treated as signed out', async () => {
+  const ghost = testEnv.authenticatedContext('ghost', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+  await assertFails(claim(ghost, 'ghost', 'ghost'));
+  await assertFails(saveProject(ghost, 'ghost', PROJECT_A));
+});
+
 test('projects and their chunks are owner-only', async () => {
   const alice = as('alice');
   const bob = as('bob');
