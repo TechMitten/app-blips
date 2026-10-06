@@ -29,6 +29,7 @@ const appsHostname = (env) => {
 import { injectSeoDefaults } from './_lib/seoDefaults.js';
 import { readDeployment, SLUG_PATTERN, STORAGE_PATH_PATTERN, PAGE_SEGMENT_PATTERN, STORAGE_PAGE_PATH_PATTERN } from './_lib/deploys.js';
 import { getObjectText } from './_lib/r2.js';
+import { appUmamiScriptUrl } from './_lib/umamiProxy.js';
 import { getHash, resolvePageLink } from '../src/lib/pages.js';
 
 // Multi-page sites: the landing page keeps `storage_path` (`<uid>/<token>.html`)
@@ -116,6 +117,20 @@ const injectAnalytics = (html, env) => {
   }
 
   return html;
+};
+
+// Per-app analytics (the deploy's own Umami website), also injected at serve
+// time: deploys made while the hosted build lacked the client-side script URL
+// went out with analytics on but no tag. Deduped on the website id, since the
+// shared tracker above may load the very same script src.
+const injectAppAnalytics = (html, websiteId, env) => {
+  const src = appUmamiScriptUrl(env);
+  if (!src || !websiteId || html.includes(`data-website-id="${websiteId}"`)) return html;
+  const tag = `<script defer src="${src}" data-website-id="${websiteId}"></script>`;
+  const match = /<head\b[^>]*>/i.exec(html) || /<html\b[^>]*>/i.exec(html);
+  if (!match) return tag + html;
+  const at = match.index + match[0].length;
+  return html.slice(0, at) + tag + html.slice(at);
 };
 
 const injectFavicon = (html) => {
@@ -294,6 +309,10 @@ export const parseDeploymentDoc = (doc) => ({
       .filter((n) => n !== 'index' && PAGE_SEGMENT_PATTERN.test(n)),
   )],
   bundle: doc?.bundle === true,
+  // Only an id the deploy handler validated against analytics_sites ownership.
+  analytics_website_id: doc?.analytics_enabled && /^[a-zA-Z0-9-]{1,64}$/.test(String(doc?.analytics_website_id || ''))
+    ? String(doc.analytics_website_id)
+    : null,
   updated_at: doc?.updated_at || null,
 });
 
@@ -463,7 +482,10 @@ export async function onRequest(context) {
 
     const pageUrl = `https://${hostname}/${slug}${page ? `/${page}` : ''}`;
     const cache = caches.default;
-    const cacheKey = new Request(`${pageUrl}?v=${encodeURIComponent(row.updated_at || '0')}`);
+    // The analytics id is in the key so pages cached before the serve-time
+    // per-app tag existed are rebuilt with it.
+    const analyticsKey = row.analytics_website_id ? `&a=${row.analytics_website_id}` : '';
+    const cacheKey = new Request(`${pageUrl}?v=${encodeURIComponent(row.updated_at || '0')}${analyticsKey}`);
     
     let cachedResponse = await cache.match(cacheKey);
     let html;
@@ -488,8 +510,12 @@ export async function onRequest(context) {
       html = injectSlug(
         injectLockProtection(
           injectRemixBadge(
-            injectAnalytics(
-              injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
+            injectAppAnalytics(
+              injectAnalytics(
+                injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
+                env,
+              ),
+              row.analytics_website_id,
               env,
             ),
             env,

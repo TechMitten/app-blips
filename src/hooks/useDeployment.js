@@ -59,14 +59,20 @@ export default function useDeployment({
       }
 
       // Reuse the existing Umami website on redeploy/re-enable rather than
-      // creating a second one and orphaning prior stats.
+      // creating a second one and orphaning prior stats. Still ask the server
+      // (it's idempotent per slug) because it also supplies the script URL.
       let websiteId = null;
+      let analyticsScriptUrl = '';
       if (analyticsEnabled) {
-        websiteId = deployment?.analyticsWebsiteId || await createAnalyticsWebsite(desiredSlug);
+        const site = await createAnalyticsWebsite(desiredSlug);
+        websiteId = deployment?.analyticsWebsiteId || site.websiteId;
+        analyticsScriptUrl = site.scriptUrl;
       }
 
       // The site's own `files` only -- never the bridge-injected preview srcDoc.
-      const built = await buildDeployPages({ files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId });
+      const built = await buildDeployPages({
+        files, password, preventIndexing, favicon, analyticsWebsiteId: websiteId, analyticsScriptUrl,
+      });
 
       const published = await publishDeployment({
         slug: desiredSlug,

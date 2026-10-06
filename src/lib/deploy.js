@@ -75,13 +75,13 @@ const deployRequest = async (method, path, body) => {
 // Builds every page of the site as it will be published: `landing` is the
 // index page (with every page inside it, encrypted, for a password-protected
 // multi-page site -- `bundled`), `pages` the other pages by filename.
-export const buildDeployPages = async ({ files, password, preventIndexing, favicon, analyticsWebsiteId }) => {
+export const buildDeployPages = async ({ files, password, preventIndexing, favicon, analyticsWebsiteId, analyticsScriptUrl }) => {
   const deployFavicon = favicon || DEFAULT_FAVICON_URL;
   // Analytics goes in before encryption so a password-protected deploy still
   // carries it once decrypted and document.write'n in.
   const withExtras = (html) => {
     let out = injectRemixBadgeSnippet(injectAnalyticsSnippet(injectPwaSnippet(html)));
-    if (analyticsWebsiteId) out = injectAppAnalyticsSnippet(out, analyticsWebsiteId);
+    if (analyticsWebsiteId) out = injectAppAnalyticsSnippet(out, analyticsWebsiteId, analyticsScriptUrl || undefined);
     if (preventIndexing) out = injectNoindexSnippet(out);
     return injectFaviconSnippet(out, deployFavicon);
   };

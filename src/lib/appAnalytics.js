@@ -13,13 +13,15 @@ export const APP_UMAMI_SCRIPT_SRC = String(import.meta.env.VITE_APP_UMAMI_SCRIPT
 
 // Splice the per-app tracking tag into <head>/<html>/<body>, mirroring the
 // insertion strategy already used by injectAnalyticsSnippet/injectNoindexSnippet.
-// Dedup only on this script's own src -- the shared-tracker tag has a
-// different src, so both can coexist in the same document.
-export const injectAppAnalyticsSnippet = (html, websiteId) => {
-  if (!APP_UMAMI_SCRIPT_SRC || typeof html !== 'string' || !html || !websiteId) return html;
-  if (html.includes(APP_UMAMI_SCRIPT_SRC)) return html;
+// `scriptSrc` comes from the server (createAnalyticsWebsite), with the build-time
+// var only as a fallback: a build without it used to drop the tag silently.
+// Dedup on this website's id, not the src -- the per-app and shared trackers
+// can be the same Umami instance (same src), and both tags must coexist.
+export const injectAppAnalyticsSnippet = (html, websiteId, scriptSrc = APP_UMAMI_SCRIPT_SRC) => {
+  if (!scriptSrc || typeof html !== 'string' || !html || !websiteId) return html;
+  if (html.includes(`data-website-id="${websiteId}"`)) return html;
 
-  const tag = `<script defer src="${APP_UMAMI_SCRIPT_SRC}" data-website-id="${websiteId}"></script>`;
+  const tag = `<script defer src="${scriptSrc}" data-website-id="${websiteId}"></script>`;
   const insertAt = (index) => html.slice(0, index) + tag + html.slice(index);
 
   const headMatch = /<head\b[^>]*>/i.exec(html);
@@ -60,8 +62,9 @@ const readErrorMessage = async (response, fallback) => {
 };
 
 // Creates (or, if one already exists for this slug, reuses) a dedicated Umami
-// website for a deployment. Called once per deployment, right before its
-// first analytics-enabled upload.
+// website for a deployment. Called before every analytics-enabled upload,
+// since it also hands back the tracker script URL. Resolves to
+// { websiteId, scriptUrl }.
 export const createAnalyticsWebsite = async (slug) => {
   const headers = await withAuthHeaders();
   const response = await fetch('/api/analytics/website', {
@@ -73,7 +76,7 @@ export const createAnalyticsWebsite = async (slug) => {
     throw new Error(await readErrorMessage(response, 'Failed to enable analytics for this app.'));
   }
   const data = await response.json();
-  return data.websiteId;
+  return { websiteId: data.websiteId, scriptUrl: data.scriptUrl || APP_UMAMI_SCRIPT_SRC };
 };
 
 // type: 'summary' | 'pageviews' | 'urls' | 'referrers' | 'active' | 'countries' | 'entryPages'

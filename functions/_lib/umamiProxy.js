@@ -108,6 +108,16 @@ const getDeploymentDoc = async (slug, env) => {
 // point their app at someone else's website and read its stats.
 export const analyticsSiteDocPath = (websiteId) => `analytics_sites/${websiteId}`;
 
+// The per-app tracker script. Resolved server-side so it never depends on a
+// build-time VITE_ var: the hosted build once shipped without
+// VITE_APP_UMAMI_SCRIPT_URL, so deploys silently went out with no tag even
+// though analytics was on. Umami serves its tracker at /script.js by default.
+export const appUmamiScriptUrl = (env) => {
+  const explicit = env?.APP_UMAMI_SCRIPT_URL || env?.VITE_APP_UMAMI_SCRIPT_URL || '';
+  if (explicit) return explicit;
+  return env?.UMAMI_API_URL ? `${env.UMAMI_API_URL.replace(/\/+$/, '')}/script.js` : '';
+};
+
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json' },
@@ -157,7 +167,7 @@ export async function handleAnalyticsWebsiteCreate(request, env) {
     if (deployment.analyticsWebsiteId) {
       // Idempotent: reuse the existing website instead of creating a second
       // one, so redeploys and toggle-off/toggle-on cycles never orphan stats.
-      return jsonResponse({ websiteId: deployment.analyticsWebsiteId });
+      return jsonResponse({ websiteId: deployment.analyticsWebsiteId, scriptUrl: appUmamiScriptUrl(env) });
     }
   }
 
@@ -177,7 +187,7 @@ export async function handleAnalyticsWebsiteCreate(request, env) {
       throw new Error('Umami did not return a website id.');
     }
     await commit(env, [setWrite(env, analyticsSiteDocPath(data.id), { user_id: user.id, slug, created_at: new Date() })]);
-    return jsonResponse({ websiteId: data.id });
+    return jsonResponse({ websiteId: data.id, scriptUrl: appUmamiScriptUrl(env) });
   } catch (err) {
     return jsonResponse({ error: err.message || 'Failed to create analytics website.' }, 502);
   }
