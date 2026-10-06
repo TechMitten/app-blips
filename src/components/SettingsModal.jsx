@@ -17,6 +17,7 @@ import {
 import { CURRENT_VERSION } from '../lib/updates';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
+import { openBillingPortal } from '../lib/billing';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash)
@@ -323,8 +324,20 @@ export default function SettingsModal({
   onSignOut,
   billingPlan = null,
   billingTrialing = false,
+  billingHasAccount = false,
   onOpenPlans,
 }) {
+  const [portal, setPortal] = useState({ busy: false, error: '' });
+  // Leaves for Stripe's Customer Portal; on success the page navigates away,
+  // so busy only resets on failure.
+  const openPortal = async () => {
+    setPortal({ busy: true, error: '' });
+    try {
+      await openBillingPortal();
+    } catch (err) {
+      setPortal({ busy: false, error: err?.message || 'Could not open billing. Please try again.' });
+    }
+  };
   const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
   const onCheckUpdatesChange = (enabled) => {
@@ -457,6 +470,17 @@ export default function SettingsModal({
                         {billingPlan === 'none' ? 'See plans' : 'Manage'}
                       </button>
                     )}
+                  </div>
+                </SettingRow>
+              )}
+              {billingHasAccount && (
+                <SettingRow id="account-billing" title="Billing and invoices" description="View and download invoices, update your card, or cancel your plan in Stripe.">
+                  <div className="flex flex-col items-end gap-1.5">
+                    <button type="button" onClick={openPortal} disabled={portal.busy} className={SECONDARY_BUTTON}>
+                      {portal.busy ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                      Open billing
+                    </button>
+                    {portal.error && <p role="alert" className="text-xs text-red-600">{portal.error}</p>}
                   </div>
                 </SettingRow>
               )}

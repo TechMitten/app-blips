@@ -47,7 +47,7 @@ export default function useBilling({ isSignedIn }) {
       const next = await refresh();
       tries += 1;
       // Back from Checkout but no plan yet: the webhook hasn't landed.
-      if (!cancelled && checkoutResult === 'success' && next?.enabled && next.plan === 'none' && tries < CHECKOUT_POLL_TRIES) {
+      if (!cancelled && checkoutResult === 'success' && next?.enabled && next.plan === 'none' && !next.trialRefused && tries < CHECKOUT_POLL_TRIES) {
         timer = setTimeout(load, CHECKOUT_POLL_MS);
       }
     };
@@ -63,6 +63,7 @@ export default function useBilling({ isSignedIn }) {
     billingOn: Boolean(status?.enabled),
     plan: status?.enabled ? status.plan : null,
     trialing: Boolean(status?.enabled && status.trialing),
+    hasBillingAccount: Boolean(status?.enabled && status.hasBillingAccount),
     refresh,
     checkoutResult: isSignedIn ? checkoutResult : null,
     clearCheckoutResult: () => setCheckoutResult(null),

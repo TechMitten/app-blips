@@ -26,21 +26,16 @@ export const billingEnabled = (env) => Boolean(serviceAccountConfigured(env) && 
 // billing (limits, plans, checkout) applies only to those accounts and
 // everyone else carries on as if billing were off -- so the live site can
 // run sandbox keys for testing without anyone getting Plus with a test card.
-const accountList = (value) => String(value || '')
+const billingTesters = (env) => String(env?.APPBLIPS_BILLING_TESTERS || '')
   .split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
-const listIncludes = (list, user) => list.includes(String(user?.id || '').toLowerCase())
-  || Boolean(user?.email && list.includes(String(user.email).toLowerCase()));
 
 export const billingAppliesTo = (env, user) => {
   if (!billingEnabled(env)) return false;
-  const testers = accountList(env?.APPBLIPS_BILLING_TESTERS);
-  return !testers.length || listIncludes(testers, user);
+  const testers = billingTesters(env);
+  if (!testers.length) return true;
+  return testers.includes(String(user?.id || '').toLowerCase())
+    || Boolean(user?.email && testers.includes(String(user.email).toLowerCase()));
 };
-
-// APPBLIPS_UNLIMITED_TRIALS: comma-separated emails or account ids that may
-// start the free trial again and again (the operator's own accounts), exempt
-// from the one-trial-per-account and per-card limits.
-const unlimitedTrials = (env, user) => listIncludes(accountList(env?.APPBLIPS_UNLIMITED_TRIALS), user);
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -85,9 +80,15 @@ export const fetchBillingStatus = async (env, uid) => {
       trialing: paid && sub.status === 'trialing',
       trial_end: paid && sub.status === 'trialing' ? sub.trial_end || sub.current_period_end || null : null,
       trial_eligible: !sub?.trial_used,
+      // The last Checkout's trial was refused as a repeat and the
+      // subscription cancelled before any charge (syncSubscription).
+      trial_refused: Boolean(!paid && sub?.trial_refused_subscription_id && sub.trial_refused_subscription_id === sub.stripe_subscription_id),
       period_start: periodStart,
       period_end: paid ? sub.current_period_end || null : null,
       cancel_at_period_end: Boolean(sub?.cancel_at_period_end),
+      // A Stripe customer exists, so the Customer Portal (invoices, card)
+      // opens even after the plan has ended.
+      has_billing_account: Boolean(sub?.stripe_customer_id),
       today_tokens: todayTokens,
       period_tokens: earlier + todayTokens,
     };
@@ -185,6 +186,7 @@ const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
     || !ACTIVE_STATUSES.includes(current.status);
   if (!replace) return { writes: [] };
   const trialSubscription = current?.trial_subscription_id || fields.trial_subscription_id || null;
+  const trialRefused = fields.trial_refused_subscription_id || current?.trial_refused_subscription_id || null;
   return {
     writes: [setWrite(env, path, {
       user_id: fields.target_user_id,
@@ -196,8 +198,9 @@ const upsertSubscription = (env, fields) => runTransaction(env, async (tx) => {
       current_period_end: fields.period_end,
       cancel_at_period_end: Boolean(fields.cancels_at_period_end),
       trial_end: fields.trial_end || null,
-      trial_used: Boolean(current?.trial_used || trialSubscription),
+      trial_used: Boolean(current?.trial_used || trialSubscription || trialRefused),
       trial_subscription_id: trialSubscription,
+      trial_refused_subscription_id: trialRefused,
       updated_at: new Date(),
     })],
   };
@@ -319,9 +322,15 @@ const cardHadTrial = async (env, uid, subscriptionId, paymentMethod) => {
   });
 };
 
-// Ends a trial now, so Stripe charges for the plan straight away. Stripe
-// sends a subscription event for the change, which syncs it.
+// Ends a trial now, so Stripe charges for the plan straight away. Only on the
+// user's own request ("Start Plus now"). Stripe sends a subscription event
+// for the change, which syncs it.
 const endTrialNow = (env, subscriptionId) => stripe(env, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}`, { trial_end: 'now' });
+
+// Cancels a refused trial while it's still trialing, so nothing is charged.
+// Checkout told the user "You won't be charged today", so a repeat trial is
+// never turned into a charge; the app explains and offers Plus without one.
+const cancelRefusedTrial = (env, subscriptionId) => stripe(env, 'DELETE', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
 
 // Re-reads the subscription from Stripe and stores its current state. Events
 // can arrive out of order or be retried, so the event's own copy is never
@@ -346,29 +355,34 @@ const syncSubscription = async (env, subscriptionId) => {
   // One free trial per account and per card. Checkout only offers a trial
   // to an account that hasn't had one, but two Checkouts opened side by side
   // or a second account with the same card would otherwise get another.
-  let repeatTrial = false;
-  if (sub.status === 'trialing' && sub.metadata?.unlimited_trials !== 'true') {
-    const row = await subscriptionRow(env, uid);
+  const row = await subscriptionRow(env, uid);
+  // Already refused: later events for it (the cancellation) stay refused.
+  let repeatTrial = row?.trial_refused_subscription_id === sub.id;
+  if (!repeatTrial && sub.status === 'trialing') {
     repeatTrial = Boolean(row?.trial_subscription_id && row.trial_subscription_id !== sub.id)
       || await cardHadTrial(env, uid, sub.id, typeof sub.default_payment_method === 'object' ? sub.default_payment_method : null);
   }
+  const cancelNow = repeatTrial && sub.status === 'trialing';
 
+  // A refused trial is stored as cancelled straight away, so it never grants
+  // the plan, even for the moment before Stripe's cancellation event lands.
   await upsertSubscription(env, {
     target_user_id: uid,
-    new_plan: plan?.id || 'none',
-    new_status: sub.status,
+    new_plan: repeatTrial ? 'none' : plan?.id || 'none',
+    new_status: cancelNow ? 'canceled' : sub.status,
     customer_id: customerId || null,
     subscription_id: sub.id,
     period_start: isoFromUnix(periodStart),
     period_end: isoFromUnix(periodEnd),
     cancels_at_period_end: Boolean(sub.cancel_at_period_end),
-    trial_end: sub.status === 'trialing' ? isoFromUnix(sub.trial_end) : null,
+    trial_end: sub.status === 'trialing' && !repeatTrial ? isoFromUnix(sub.trial_end) : null,
     trial_subscription_id: sub.trial_start && !repeatTrial ? sub.id : null,
+    trial_refused_subscription_id: repeatTrial ? sub.id : null,
   });
 
-  if (repeatTrial) {
-    console.warn(`[billing] subscription ${sub.id} is a repeat trial; ending the trial.`);
-    await endTrialNow(env, sub.id);
+  if (cancelNow) {
+    console.warn(`[billing] subscription ${sub.id} is a repeat trial; cancelling it uncharged.`);
+    await cancelRefusedTrial(env, sub.id);
   }
 };
 
@@ -391,7 +405,9 @@ export async function handleBillingStatus(request, env) {
     status: status.status,
     trialing: status.trialing,
     trialEnd: status.trial_end,
-    trialEligible: status.trial_eligible || unlimitedTrials(env, user),
+    trialEligible: status.trial_eligible,
+    trialRefused: Boolean(status.trial_refused),
+    hasBillingAccount: Boolean(status.has_billing_account),
     periodEnd: status.period_end,
     cancelAtPeriodEnd: Boolean(status.cancel_at_period_end),
     periodTokens: Number(status.period_tokens) || 0,
@@ -431,8 +447,7 @@ export async function handleBillingCheckout(request, env) {
     // Older clients that don't send requestTrial will default to false, meaning they won't get a trial
     // unless they update, but since we are changing the default to not offer a trial unconditionally,
     // this correctly fixes the bug where paid plan buttons were triggering trials.
-    const unlimited = unlimitedTrials(env, user);
-    const trial = requestTrial && planId === TRIAL.plan && (!row?.trial_used || unlimited);
+    const trial = requestTrial && planId === TRIAL.plan && !row?.trial_used;
     const session = await stripe(env, 'POST', '/checkout/sessions', {
       mode: 'subscription',
       line_items: [{ price: await priceIdFor(env, PLANS[planId].lookupKey), quantity: 1 }],
@@ -440,9 +455,7 @@ export async function handleBillingCheckout(request, env) {
       // Carried on every subscription event, so the webhook always knows the
       // account without depending on event order.
       subscription_data: {
-        // unlimited_trials tells the webhook (which has no email to check)
-        // not to end this trial as a repeat. Only the server sets metadata.
-        metadata: { user_id: user.id, ...(unlimited ? { unlimited_trials: 'true' } : {}) },
+        metadata: { user_id: user.id },
         ...(trial ? {
           trial_period_days: TRIAL.days,
           // Belt and braces: Checkout always collects a card here, but a

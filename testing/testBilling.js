@@ -391,9 +391,10 @@ const trialSubscription = (fields = {}) => stripeSubscription({
 });
 
 // Fakes Stripe's subscription endpoints over `subs` (by id) and records
-// every trial ended early.
+// every trial ended early and every subscription cancelled.
 const mockStripeSubscriptions = (t, subs) => {
   const ended = [];
+  const cancelled = [];
   const { firestore } = installFirebaseFake(t, {
     fallback: async (href, options = {}) => {
       const match = href.match(/^https:\/\/api\.stripe\.com\/v1\/subscriptions\/([^?]+)/);
@@ -403,10 +404,14 @@ const mockStripeSubscriptions = (t, subs) => {
         ended.push(match[1]);
         subs[match[1]] = { ...subs[match[1]], status: 'active' };
       }
+      if (options.method === 'DELETE') {
+        cancelled.push(match[1]);
+        subs[match[1]] = { ...subs[match[1]], status: 'canceled' };
+      }
       return Response.json(subs[match[1]]);
     },
   });
-  return { firestore, ended };
+  return { firestore, ended, cancelled };
 };
 
 test('the webhook records the trial, and it survives later updates', async (t) => {
@@ -432,20 +437,36 @@ test('the webhook records the trial, and it survives later updates', async (t) =
   assert.deepEqual(ended, []);
 });
 
-test('a second trial on the same card, or the same account, is ended at once', async (t) => {
+// Checkout promised "You won't be charged today", so a repeat trial is
+// cancelled uncharged (never ended into a charge) and the account is told why.
+test('a second trial on the same card, or the same account, is cancelled uncharged', async (t) => {
   const subs = { sub_2: trialSubscription({ id: 'sub_2', metadata: { user_id: 'user-2' } }) };
-  let { firestore, ended } = mockStripeSubscriptions(t, subs);
+  let { firestore, ended, cancelled } = mockStripeSubscriptions(t, subs);
   firestore.set('trial_cards/fp_card', { user_id: 'user-1', subscription_id: 'sub_1' });
   await webhook('customer.subscription.created', { id: 'sub_2' });
-  assert.deepEqual(ended, ['sub_2']);
-  assert.notEqual(firestore.getData('subscriptions/user-2').trial_subscription_id, 'sub_2');
+  assert.deepEqual(ended, []);
+  assert.deepEqual(cancelled, ['sub_2']);
+  let stored = firestore.getData('subscriptions/user-2');
+  assert.equal(stored.plan, 'none');
+  assert.equal(stored.status, 'canceled');
+  assert.equal(stored.trial_used, true);
+  assert.equal(stored.trial_refused_subscription_id, 'sub_2');
+  assert.notEqual(stored.trial_subscription_id, 'sub_2');
+
+  // Stripe's cancellation event keeps it refused, never the account's trial.
+  await webhook('customer.subscription.deleted', { id: 'sub_2' });
+  stored = firestore.getData('subscriptions/user-2');
+  assert.equal(stored.trial_refused_subscription_id, 'sub_2');
+  assert.equal(stored.trial_subscription_id, null);
+  assert.deepEqual(cancelled, ['sub_2']);
 
   t.mock.restoreAll();
   const other = { sub_3: trialSubscription({ id: 'sub_3', default_payment_method: { id: 'pm_2', card: { fingerprint: 'fp_new' } } }) };
-  ({ firestore, ended } = mockStripeSubscriptions(t, other));
+  ({ firestore, ended, cancelled } = mockStripeSubscriptions(t, other));
   firestore.set('subscriptions/user-1', { user_id: 'user-1', plan: 'none', status: 'canceled', trial_used: true, trial_subscription_id: 'sub_1' });
   await webhook('customer.subscription.created', { id: 'sub_3' });
-  assert.deepEqual(ended, ['sub_3']);
+  assert.deepEqual(ended, []);
+  assert.deepEqual(cancelled, ['sub_3']);
   assert.equal(firestore.getData('subscriptions/user-1').trial_subscription_id, 'sub_1');
 });
 

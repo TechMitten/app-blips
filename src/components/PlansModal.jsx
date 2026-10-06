@@ -110,7 +110,12 @@ export default function PlansModal({ status, reason = null, welcome = false, che
       </div>
 
       <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
-        {checkoutResult === 'success' && (
+        {checkoutResult === 'success' && !isPaid && status?.trialRefused && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            This card has already been used for a free trial, so the trial wasn't started and nothing was charged. You can still subscribe to {PLANS[TRIAL.plan].label} below, without a trial.
+          </div>
+        )}
+        {checkoutResult === 'success' && !(!isPaid && status?.trialRefused) && (
           <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
             {trialing
               ? `Your ${TRIAL.days}-day free trial has started. Cancel before ${trialEnd || 'it ends'} and you won't be charged.`
