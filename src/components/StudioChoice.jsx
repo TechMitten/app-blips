@@ -133,7 +133,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   >
                     <Sparkles size={15} aria-hidden="true" />
-                    <span>{billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Plus trial' : 'Plus') : 'Pro'}</span>
+                    <span>{billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Free trial' : 'Plus') : 'Pro'}</span>
                   </button>
                 )}
                 {onOpenSettings && (

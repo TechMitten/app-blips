@@ -12,8 +12,8 @@ import { maintenanceMode } from '../lib/maintenance';
 const PLAN_FEATURES = {
   plus: [
     'Monthly usage allowance',
-    'Image attachments',
-    'Smarter chat in Ask mode',
+    'Build apps, websites, and games',
+    'Live preview and publishing',
   ],
   pro: [
     `${usageMultiple('pro')}x Plus's monthly usage`,
@@ -113,7 +113,7 @@ export default function PlansModal({ status, reason = null, welcome = false, che
         {checkoutResult === 'success' && (
           <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
             {trialing
-              ? `Your ${TRIAL.days}-day Plus trial has started. Cancel before ${trialEnd || 'it ends'} and you won't be charged.`
+              ? `Your ${TRIAL.days}-day free trial has started. Cancel before ${trialEnd || 'it ends'} and you won't be charged.`
               : isPaid ? `You're on ${current.label}. Thanks for subscribing!` : 'All set. Your plan will update in a moment.'}
           </div>
         )}
@@ -133,19 +133,26 @@ export default function PlansModal({ status, reason = null, welcome = false, che
           </div>
         )}
         {reason && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{reason}</div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{reason}</div>
         )}
 
         {status?.enabled && (
           <div className="plans-panel rounded-xl p-4 space-y-3">
             {!isPaid ? (
-              <p className="text-sm font-semibold text-slate-900">
-                {trialOffered ? `Start with a free ${TRIAL.days}-day Plus trial` : "You don't have a plan"}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-900">
+                  {trialOffered ? `Start your free ${TRIAL.days}-day trial to build` : "You don't have a plan"}
+                </p>
+                {trialOffered && (
+                  <p className="text-xs text-slate-500">
+                    You won't be charged until it ends, and you can cancel anytime before then.
+                  </p>
+                )}
+              </div>
             ) : trialing ? (
               <>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-900">You're on the Plus trial</p>
+                  <p className="text-sm font-semibold text-slate-900">You're on the free trial</p>
                   {trialEnd && (
                     <p className="text-xs text-slate-500">
                       {status.cancelAtPeriodEnd ? `Ends ${trialEnd}, no charge` : `Ends ${trialEnd}, then $${current.price}/month`}
@@ -188,18 +195,45 @@ export default function PlansModal({ status, reason = null, welcome = false, che
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className={`grid gap-3 ${(!isPaid && trialOffered) ? 'md:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          {!isPaid && trialOffered && (
+            <div className="plans-panel plans-panel--plan rounded-xl p-4 flex flex-col">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Free Trial</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                $0<span className="text-sm font-medium text-slate-500 dark:text-white/60">/first {TRIAL.days} days</span>
+              </p>
+              <ul className="mt-3 space-y-1.5 text-sm text-slate-600 dark:text-white/70 flex-1">
+                {['Trial usage allowance', 'Build apps, websites, and games', 'Live preview and publishing'].map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex flex-col justify-end">
+                <p className="mb-3 text-[11px] leading-tight text-slate-500 dark:text-white/50">
+                  Card required. ${PLANS[TRIAL.plan].price}/month after {TRIAL.days} days unless you cancel.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => run('trial', () => startCheckout(TRIAL.plan))}
+                  disabled={Boolean(busy) || !status?.enabled || maintenanceMode}
+                  className="brand-fill-text w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                >
+                  {busy === 'trial' ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Start free trial'}
+                </button>
+              </div>
+            </div>
+          )}
           {PAID_PLAN_IDS.map((id) => PLANS[id]).map((plan) => {
             const isCurrent = plan.id === current.id;
-            const withTrial = !isPaid && trialOffered && plan.id === TRIAL.plan;
             return (
               <div key={plan.id} className={`plans-panel plans-panel--plan rounded-xl p-4 flex flex-col ${isCurrent ? 'plans-panel--current' : ''}`}>
-                <p className="text-sm font-semibold text-slate-900">{plan.label}</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">
-                  ${plan.price}<span className="text-sm font-medium text-slate-500">/month</span>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{plan.label}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                  ${plan.price}<span className="text-sm font-medium text-slate-500 dark:text-white/60">/month</span>
                 </p>
-                {withTrial && <p className="mt-1 text-xs font-semibold text-brand">{TRIAL.days}-day free trial</p>}
-                <ul className="mt-3 space-y-1.5 text-sm text-slate-600 flex-1">
+                <ul className="mt-3 space-y-1.5 text-sm text-slate-600 dark:text-white/70 flex-1">
                   {PLAN_FEATURES[plan.id].map((feature) => (
                     <li key={feature} className="flex gap-2">
                       <Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
@@ -207,9 +241,9 @@ export default function PlansModal({ status, reason = null, welcome = false, che
                     </li>
                   ))}
                 </ul>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col justify-end">
                   {isCurrent ? (
-                    <button type="button" disabled className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500">
+                    <button type="button" disabled className="w-full rounded-lg border border-slate-200 dark:border-white/10 px-3 py-2 text-sm font-semibold text-slate-500 dark:text-white/50">
                       Current plan
                     </button>
                   ) : (
@@ -217,15 +251,10 @@ export default function PlansModal({ status, reason = null, welcome = false, che
                       type="button"
                       onClick={() => run(plan.id, () => startCheckout(plan.id))}
                       disabled={Boolean(busy) || !status?.enabled || maintenanceMode}
-                      className="brand-fill-text w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                      className="w-full rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-60"
                     >
-                      {busy === plan.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : isPaid ? `Switch to ${plan.label}` : withTrial ? 'Start free trial' : `Subscribe to ${plan.label}`}
+                      {busy === plan.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : isPaid ? `Switch to ${plan.label}` : `Subscribe to ${plan.label}`}
                     </button>
-                  )}
-                  {withTrial && (
-                    <p className="mt-2 text-xs text-slate-500">
-                      Card required. ${plan.price}/month after {TRIAL.days} days unless you cancel before the trial ends.
-                    </p>
                   )}
                 </div>
               </div>

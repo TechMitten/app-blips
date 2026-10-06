@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, HardDrive } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, HardDrive, User, Mail, LogOut } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DataSettings from './DataSettings';
@@ -34,6 +34,7 @@ const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'te
 const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', high: 'High' };
 
 const TABS = [
+  ...(firebaseEnabled ? [{ id: 'account', label: 'Account', Icon: User }] : []),
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
@@ -309,6 +310,10 @@ export default function SettingsModal({
   projectCount = 0,
   onDeleteAccount,
   initialTab = null,
+  user,
+  username,
+  usernameLoading,
+  onSignOut,
 }) {
   const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
@@ -416,6 +421,33 @@ export default function SettingsModal({
           tabIndex={0}
           className={`${TAB_PANEL_CLASS} divide-y divide-slate-200`}
         >
+          {tab === 'account' && (
+            <>
+              <SettingRow id="account-email" title="Email Address" description="From the Google or GitHub account you sign in with.">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm">
+                  <Mail size={16} />
+                  <span>{user?.email}</span>
+                </div>
+              </SettingRow>
+              <SettingRow id="account-username" title="Username" description={username ? "Your username is permanent and used in your app's public URLs." : "You'll choose a username the first time you deploy an app. It can't be changed once set."}>
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm">
+                  <User size={16} />
+                  <span>{usernameLoading ? 'Loading...' : (username || 'Not set yet')}</span>
+                </div>
+              </SettingRow>
+              <SettingRow id="account-signout" title="Sign out" description="Sign out of your account on this device.">
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onSignOut?.(); }}
+                  className={SECONDARY_BUTTON}
+                >
+                  <LogOut size={14} />
+                  Sign out
+                </button>
+              </SettingRow>
+            </>
+          )}
+
           {tab === 'appearance' && (
             <>
               <SettingRow

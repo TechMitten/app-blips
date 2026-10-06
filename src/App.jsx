@@ -18,7 +18,7 @@ import NamingModal from './components/NamingModal';
 import AuthModal from './components/AuthModal';
 import AuthToast from './components/AuthToast';
 import ConfirmModal from './components/ConfirmModal';
-import AccountSettingsModal from './components/AccountSettingsModal';
+
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import ShowcaseView from './components/showcase/ShowcaseView';
@@ -57,7 +57,7 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useBilling from './hooks/useBilling';
 import PlansModal from './components/PlansModal';
-import { PLANS, limitMessage } from '../functions/_lib/plans.js';
+import { PLANS } from '../functions/_lib/plans.js';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import useShowcaseRoute from './hooks/useShowcaseRoute';
@@ -78,8 +78,6 @@ import { maintenanceMode, MAINTENANCE_MESSAGE } from './lib/maintenance';
 
 // Shown on the plans screen when someone on Free tries to attach an image.
 const IMAGES_LOCKED_REASON = 'Image attachments are part of Plus and Pro.';
-// Why the plans screen opens for an account with no trial or subscription.
-const noPlanReason = (status) => limitMessage('none', { scope: 'none' }, Date.now(), { trialEligible: status?.trialEligible !== false });
 
 export default function App() {
   useVisualViewport();
@@ -117,7 +115,7 @@ export default function App() {
   }, []);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
-  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+
   const [copied, setCopied] = useState(false);
   const [rewindTargetIndex, setRewindTargetIndex] = useState(null);
 
@@ -932,7 +930,7 @@ export default function App() {
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
     if (imagesLocked) {
-      setPlansModal({ reason: needsPlan ? noPlanReason(billing.status) : IMAGES_LOCKED_REASON });
+      setPlansModal({ reason: needsPlan ? null : IMAGES_LOCKED_REASON });
       return;
     }
     setIsCapturingScreenshot(true);
@@ -945,13 +943,13 @@ export default function App() {
     } finally {
       setIsCapturingScreenshot(false);
     }
-  }, [requestScreenshot, imagesLocked, needsPlan, billing.status]);
+  }, [requestScreenshot, imagesLocked, needsPlan]);
 
   const handleAttachFile = useCallback(async (file) => {
     if (!file) return;
     setAttachmentError(null);
     if (imagesLocked) {
-      setPlansModal({ reason: needsPlan ? noPlanReason(billing.status) : IMAGES_LOCKED_REASON });
+      setPlansModal({ reason: needsPlan ? null : IMAGES_LOCKED_REASON });
       return;
     }
     if (!file.type?.startsWith('image/')) {
@@ -974,7 +972,7 @@ export default function App() {
     } catch (err) {
       setAttachmentError(err?.message || 'Failed to attach the image.');
     }
-  }, [imagesLocked, needsPlan, billing.status]);
+  }, [imagesLocked, needsPlan]);
 
   const handleRemoveAttachment = useCallback(() => {
     setAttachment(null);
@@ -1161,7 +1159,7 @@ export default function App() {
         setAutoFixMessage(null);
         setGenerationStatus(null);
       } else {
-        setPlansModal({ reason: noPlanReason(billing.status) });
+        setPlansModal({});
       }
       return;
     }
@@ -2025,6 +2023,10 @@ export default function App() {
           onDeleteAllProjects={handleDeleteAllProjects}
           projectCount={myProjects.length}
           onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
+          user={user}
+          username={username}
+          usernameLoading={usernameLoading}
+          onSignOut={() => setIsSignOutConfirmOpen(true)}
         />
   );
 
@@ -2139,7 +2141,7 @@ export default function App() {
         authStatus={authStatus}
         isSignedIn={isSignedIn}
         userEmail={user?.email}
-        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
+        onOpenAccountSettings={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
         onSignIn={() => setIsAuthModalOpen(true)}
         onSignOut={() => setIsSignOutConfirmOpen(true)}
         billingPlan={billing.plan}
@@ -2280,15 +2282,7 @@ export default function App() {
         />
       )}
 
-      {isAccountSettingsOpen && isSignedIn && firebaseEnabled && (
-        <AccountSettingsModal
-          user={user}
-          username={username}
-          usernameLoading={usernameLoading}
-          onClose={() => setIsAccountSettingsOpen(false)}
-          onSignOut={() => setIsSignOutConfirmOpen(true)}
-        />
-      )}
+
 
       {plansOverlay}
 
@@ -2345,7 +2339,7 @@ export default function App() {
           authStatus={authStatus}
           userEmail={user?.email}
           onOpenAnalytics={() => openAnalytics()}
-          onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
+          onOpenAccountSettings={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
           onSignIn={() => setIsAuthModalOpen(true)}
         />
       ) : (

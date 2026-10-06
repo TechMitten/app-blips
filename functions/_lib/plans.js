@@ -48,7 +48,7 @@ export const PLANS = {
 // the first payment. One trial per account and per card (billing.js).
 export const TRIAL = {
   plan: 'plus',
-  days: 3,
+  days: 7,
   periodTokens: 6_000_000,
 };
 
@@ -120,7 +120,7 @@ export const limitMessage = (planId, check, now = Date.now(), { trialEligible = 
   const plan = planById(planId);
   if (check.scope === 'none') {
     return trialEligible
-      ? `Start your free ${TRIAL.days}-day Plus trial to build. You won't be charged until it ends, and you can cancel anytime before then.`
+      ? `Start your free ${TRIAL.days}-day trial to build. You won't be charged until it ends, and you can cancel anytime before then.`
       : 'Subscribe to Plus or Pro to build.';
   }
   const wait = formatWait(check.resetsAt, now);

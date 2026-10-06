@@ -21,11 +21,35 @@ const call = async (path, { method = 'GET', body } = {}) => {
 // { enabled: false } when this instance doesn't bill (no Stripe key, or a
 // host without the billing routes, like the desktop app).
 export const getBillingStatus = async () => {
+  let status = { enabled: false };
   try {
-    return await call('/api/billing/status');
+    status = await call('/api/billing/status') || { enabled: false };
   } catch {
-    return { enabled: false };
+    // Ignore errors, we'll return disabled or the dev mock.
   }
+
+  if (import.meta.env.DEV && !status.enabled) {
+    const plan = import.meta.env.VITE_MOCK_PLAN || localStorage.getItem('mockPlan') || 'plus';
+    const trialing = import.meta.env.VITE_MOCK_TRIALING 
+      ? import.meta.env.VITE_MOCK_TRIALING === 'true' 
+      : (plan === 'plus' && localStorage.getItem('mockTrialing') !== 'false');
+    
+    return {
+      enabled: true,
+      plan,
+      status: 'active',
+      trialing,
+      trialEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEligible: true,
+      periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelAtPeriodEnd: false,
+      periodTokens: 500000,
+      limits: { periodTokens: 6000000 },
+      blocked: null,
+    };
+  }
+
+  return status;
 };
 
 // Sends the browser to Stripe Checkout for `plan` ('plus' | 'pro'). An

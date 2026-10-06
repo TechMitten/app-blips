@@ -21,18 +21,21 @@ export default function ConfirmModal({
   children,
 }) {
   return (
-    <Modal zIndex={70}>
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+    <Modal
+      zIndex={70}
+      cardClass="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]"
+    >
+      <div className="shrink-0 px-6 py-5 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">{title}</h2>
           {subtitle && <p className="text-sm text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
         <ModalCloseButton onClick={onClose} />
       </div>
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4 overflow-y-auto">
         {children}
       </div>
-      <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+      <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">
         <button
           type="button"
           onClick={onClose}

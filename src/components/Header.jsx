@@ -95,7 +95,7 @@ export default function Header({
   // Local part only: the strip has to hold four ranks, and the domain is the
   // half of an address that never disambiguates anything.
   const accountLabel = userEmail ? userEmail.split('@')[0] : 'Account';
-  const planLabel = billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Plus trial' : 'Plus') : billingPlan === 'pro' ? 'Pro' : null;
+  const planLabel = billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Free trial' : 'Plus') : billingPlan === 'pro' ? 'Pro' : null;
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
