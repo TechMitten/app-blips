@@ -53,7 +53,7 @@ test('paid plans reset at the period end', () => {
 });
 
 test('limit messages say when it resets and what to do next', () => {
-  assert.match(limitMessage('none', { scope: 'none' }, NOW), /^Start your free 3-day Plus trial/);
+  assert.match(limitMessage('none', { scope: 'none' }, NOW), /^Start your free 7-day trial to build/);
   assert.equal(limitMessage('none', { scope: 'none' }, NOW, { trialEligible: false }), 'Subscribe to Plus or Pro to build.');
   const trial = { allowed: false, scope: 'trial', resetsAt: new Date(NOW + 6 * 3600000) };
   assert.match(limitMessage('plus', trial, NOW), /Plus starts in 6h .* or start it now/);
@@ -150,7 +150,7 @@ test('an account with no plan is refused everything, repairs included', async (t
     assert.equal(response.status, 402);
     const body = await response.json();
     assert.equal(body.code, 'subscription_required');
-    assert.match(body.error, /free 3-day Plus trial/);
+    assert.match(body.error, /free 7-day trial/);
   }
   assert.equal(seen.upstream, null);
 });
@@ -365,7 +365,7 @@ const mockCheckout = (t) => {
 
 test('Checkout offers the card-required trial on Plus, once per account', async (t) => {
   const { firestore, sessions } = mockCheckout(t);
-  assert.equal((await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'plus' }), env)).status, 200);
+  assert.equal((await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'plus', requestTrial: true }), env)).status, 200);
   assert.equal(sessions[0].get('subscription_data[trial_period_days]'), String(TRIAL.days));
   assert.equal(sessions[0].get('subscription_data[trial_settings][end_behavior][missing_payment_method]'), 'cancel');
   assert.equal(sessions[0].get('payment_method_collection'), 'always');
@@ -373,12 +373,12 @@ test('Checkout offers the card-required trial on Plus, once per account', async 
   assert.match(sessions[0].get('custom_text[submit][message]'), /won't be charged today/);
 
   // Pro never has a trial.
-  await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'pro' }), env);
+  await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'pro', requestTrial: true }), env);
   assert.equal(sessions[1].get('subscription_data[trial_period_days]'), null);
 
   // An account that already had its trial pays from the start.
   firestore.set('subscriptions/user-1', { user_id: 'user-1', plan: 'plus', status: 'canceled', stripe_customer_id: 'cus_1', trial_used: true });
-  await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'plus' }), env);
+  await handleBillingCheckout(await authed('/api/billing/checkout', { plan: 'plus', requestTrial: true }), env);
   assert.equal(sessions[2].get('subscription_data[trial_period_days]'), null);
   assert.equal(sessions[2].get('customer'), 'cus_1');
 });

@@ -216,7 +216,7 @@ export default function PlansModal({ status, reason = null, welcome = false, che
                 </p>
                 <button
                   type="button"
-                  onClick={() => run('trial', () => startCheckout(TRIAL.plan))}
+                  onClick={() => run('trial', () => startCheckout(TRIAL.plan, true))}
                   disabled={Boolean(busy) || !status?.enabled || maintenanceMode}
                   className="brand-fill-text w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
                 >

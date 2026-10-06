@@ -74,7 +74,7 @@ function Segmented({ label, value, options, onChange, renderOption }) {
 
 // Example model ids, shown as placeholders only.
 const MODEL_PLACEHOLDERS = {
-  openrouter: 'e.g. anthropic/claude-3.5-sonnet',
+  deepseek: 'e.g. deepseek-v4-pro',
 };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;

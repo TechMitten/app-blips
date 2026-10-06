@@ -412,6 +412,7 @@ export async function handleBillingCheckout(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body.' }, 400); }
   const planId = typeof body?.plan === 'string' ? body.plan : '';
+  const requestTrial = Boolean(body?.requestTrial);
   if (!PAID_PLAN_IDS.includes(planId)) return json({ error: 'Choose a paid plan.' }, 400);
 
   try {
@@ -421,7 +422,11 @@ export async function handleBillingCheckout(request, env) {
       const portal = await stripe(env, 'POST', '/billing_portal/sessions', { customer: row.stripe_customer_id, return_url: `${base}/` });
       return json({ url: portal.url, portal: true });
     }
-    const trial = planId === TRIAL.plan && !row?.trial_used;
+    // Only offer the trial if the client requested it, it's the trial plan (Plus), and they haven't used it yet.
+    // Older clients that don't send requestTrial will default to false, meaning they won't get a trial
+    // unless they update, but since we are changing the default to not offer a trial unconditionally,
+    // this correctly fixes the bug where paid plan buttons were triggering trials.
+    const trial = requestTrial && planId === TRIAL.plan && !row?.trial_used;
     const session = await stripe(env, 'POST', '/checkout/sessions', {
       mode: 'subscription',
       line_items: [{ price: await priceIdFor(env, PLANS[planId].lookupKey), quantity: 1 }],

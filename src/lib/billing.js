@@ -55,8 +55,8 @@ export const getBillingStatus = async () => {
 // Sends the browser to Stripe Checkout for `plan` ('plus' | 'pro'). An
 // existing subscriber is sent to the Customer Portal instead, where Stripe
 // handles switching plans.
-export const startCheckout = async (plan) => {
-  const { url } = await call('/api/billing/checkout', { method: 'POST', body: { plan } });
+export const startCheckout = async (plan, requestTrial = false) => {
+  const { url } = await call('/api/billing/checkout', { method: 'POST', body: { plan, requestTrial } });
   window.location.assign(url);
 };
 

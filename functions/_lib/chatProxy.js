@@ -338,13 +338,11 @@ const checkPlan = async (env, user, payload) => {
 };
 
 // The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
-// requests carrying an image, OPENAI_LLM_ASK_MODEL for Ask-mode chat (paid
-// plans only when billing is on). Never applied to the user's own provider,
+// requests carrying an image. Never applied to the user's own provider,
 // whose model is theirs to choose.
-const routeModel = (env, provider, payload, plan) => {
+const routeModel = (env, provider, payload) => {
   if (provider.userSupplied) return provider.model;
   if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;
-  if (payload.ask === true && (!plan || plan.premiumChat)) return llmEnv(env, 'ASK_MODEL') || provider.model;
   return provider.model;
 };
 
@@ -425,7 +423,7 @@ export async function handleChatProxy(request, env, waitUntil) {
   const { provider } = picked;
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
-  const model = routeModel(env, provider, payload, gate.plan);
+  const model = routeModel(env, provider, payload);
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
 

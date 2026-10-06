@@ -778,9 +778,16 @@ const generateAppCodeCore = async (
   // (view_code / list_sections) and apply edits (apply_surgical_edits) across several
   // turns in one conversation, self-correcting from real tool-result errors instead of
   // blindly restarting from scratch each attempt.
+  const formattedChatHistory = chatHistory.map((msg, idx) => {
+    if (idx === 0 && msg.role === 'user') {
+      return { ...msg, content: buildInitialPrompt(msg.content) };
+    }
+    return msg;
+  });
+
   const messages = [
     { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
-    ...chatHistory,
+    ...formattedChatHistory,
     {
       role: 'user',
       content: buildUserContent(

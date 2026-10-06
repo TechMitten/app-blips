@@ -14,7 +14,7 @@ import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 // leaving with unsaved edits (see useProviderGuard there).
 
 const MODEL_PLACEHOLDERS = {
-  openrouter: 'e.g. anthropic/claude-3.5-sonnet',
+  deepseek: 'e.g. deepseek-v4-pro',
 };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
