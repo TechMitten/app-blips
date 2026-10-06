@@ -4,7 +4,7 @@
 //
 // Never includes secret values: only provider names, models, endpoints and the
 // names of variables that still need filling in.
-import { resolveProvider, renamedLlmVars, LLM_ENV } from './providers.js';
+import { resolveProvider, LLM_ENV } from './providers.js';
 import { firebaseConfigured, serviceAccountConfigured } from './firebaseServer.js';
 import { r2Configured } from './r2.js';
 
@@ -45,14 +45,6 @@ export const describeConfig = (env) => {
     lines.push({
       level: 'warn',
       text: `Several provider keys are set (${[builder.id, ...builder.alsoConfigured].join(', ')}); using ${builder.id}. Set ${LLM_ENV.PROVIDER} to choose.`,
-    });
-  }
-
-  const renamed = renamedLlmVars(env);
-  if (renamed.length) {
-    lines.push({
-      level: 'warn',
-      text: `Renamed (old names still work for now): ${renamed.map(({ from, to }) => `${from} -> ${to}`).join(', ')}.`,
     });
   }
 

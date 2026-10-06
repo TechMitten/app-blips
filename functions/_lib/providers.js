@@ -22,9 +22,7 @@ const warned = new Set();
 
 // The generic LLM variables. Every provider here speaks the OpenAI-compatible
 // API, so they follow the OpenAI SDK's own names (OPENAI_API_KEY,
-// OPENAI_BASE_URL). The pre-rename APPBLIPS_LLM_<NAME> is still read when the
-// new one is unset, so existing deployments keep working until their env is
-// updated (renamedLlmVars flags them at startup).
+// OPENAI_BASE_URL).
 export const LLM_ENV = {
   PROVIDER: 'OPENAI_LLM_PROVIDER',
   API_KEY: 'OPENAI_API_KEY',
@@ -39,7 +37,6 @@ export const LLM_ENV = {
 export const llmEnv = (env, name) => {
   return read(env, LLM_ENV[name]);
 };
-export const renamedLlmVars = (env) => [];
 
 // Variable-name scope for a provider id: APPBLIPS_ZAI, APPBLIPS_ZAI_CODING.
 // Hyphens in ids become underscores, since they aren't valid in env names.
