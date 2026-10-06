@@ -1,4 +1,4 @@
-import { resolveAppProvider, applyProviderSettings, appAiLimit } from './providers.js';
+import { resolveAppProvider, applyProviderSettings, appAiLimit, appAiDisabled } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -36,6 +36,7 @@ const originHeaders = (request, env) => {
 };
 
 export async function handleSelfHostedAiChat(request, env) {
+  if (appAiDisabled(env)) return failure('ai_disabled', 403, 'AI is turned off for apps built here.');
   if (String(env.APPBLIPS_GENERATED_AI_MODE || 'relay').toLowerCase() === 'byok') {
     return failure('unauthorized', 403, 'Self-hosted app AI relay is disabled.');
   }

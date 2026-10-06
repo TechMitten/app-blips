@@ -233,7 +233,10 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
   const [deployment, setDeployment] = useState(null);
-  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiSetting, setAiEnabled] = useState(false);
+  // With AI inside apps switched off for this instance, every consumer
+  // (generation, preview, export, deploy, the composer) sees it as off.
+  const aiEnabled = generatedAiMode !== 'off' && aiSetting;
 
   // --- Interrupted build job (persisted across page reloads) ---
   const [interruptedJob, setInterruptedJob] = useState(null);

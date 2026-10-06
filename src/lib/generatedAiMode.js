@@ -2,8 +2,10 @@ const configuredMode = String(import.meta.env.APPBLIPS_GENERATED_AI_MODE || 'rel
 
 // Apps use the same AI provider as the builder: they go through the server's
 // own relay by default. Operators can opt into BYOK instead, where each person
-// using a finished app enters their own key.
-export const generatedAiMode = configuredMode === 'byok' ? 'byok' : 'relay';
+// using a finished app enters their own key, or switch AI inside apps off
+// entirely ('off': no AI mode in the composer, no AI in previews, exports or
+// deploys, and the server relays refuse -- see appAiDisabled in providers.js).
+export const generatedAiMode = ['byok', 'off'].includes(configuredMode) ? configuredMode : 'relay';
 
 // This URL is intentionally public configuration. Provider credentials must
 // remain in server-side variables (the builder's APPBLIPS_* provider block).

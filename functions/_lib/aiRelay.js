@@ -3,7 +3,7 @@ import { supabaseUrl, supabaseHeaders } from './supabaseServer.js';
 import { signSessionToken, verifySessionToken } from './aiSession.js';
 import { verifyTurnstile } from './turnstile.js';
 import { wrapWithTokenTracking } from './trackTokens.js';
-import { resolveAppProvider, applyProviderSettings, appAiLimit } from './providers.js';
+import { resolveAppProvider, applyProviderSettings, appAiLimit, appAiDisabled } from './providers.js';
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_MESSAGES = 64;
@@ -125,6 +125,7 @@ const deploymentRateLimit = (env) => ({
 // valid browser token is required.
 export async function handleAiSession(request, env) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  if (appAiDisabled(env)) return errorResponse('ai_disabled', 403, 'AI is turned off for apps built here.');
   if (!originAllowed(request, env)) return errorResponse('unauthorized', 403, 'Request origin is not allowed.');
   if (!env.APPBLIPS_SESSION_SECRET) {
     return errorResponse('configuration_required', 503, 'AI session tokens are not configured.');
@@ -175,6 +176,7 @@ export async function handleAiSession(request, env) {
 
 export async function handleAiChat(request, env, waitUntil) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  if (appAiDisabled(env)) return errorResponse('ai_disabled', 403, 'AI is turned off for apps built here.');
   if (!originAllowed(request, env)) return errorResponse('unauthorized', 403, 'Request origin is not allowed.');
 
   // Ahead of the body read and of every Supabase lookup below. Token

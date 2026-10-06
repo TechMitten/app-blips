@@ -263,3 +263,18 @@ test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t)
   response = await handleBillingStatus(new Request('https://app.example/api/billing/status', { headers: { authorization: 'Bearer token' } }), { ...env, APPBLIPS_BILLING_TESTERS: 'user-2' });
   assert.deepEqual(await response.json(), { enabled: false });
 });
+
+test('APPBLIPS_GENERATED_AI_MODE=off makes the app-AI relays refuse', async () => {
+  const { handleAiChat, handleAiSession } = await import('../functions/_lib/aiRelay.js');
+  const { handleSelfHostedAiChat } = await import('../functions/_lib/selfHostedAiRelay.js');
+  const off = { ...env, APPBLIPS_GENERATED_AI_MODE: 'off', APPBLIPS_SESSION_SECRET: 'x' };
+  const post = (path) => new Request(`https://app.example${path}`, { method: 'POST', headers: { origin: 'https://app.example' }, body: '{}' });
+  for (const [name, response] of [
+    ['/ai/session', await handleAiSession(post('/ai/session'), off)],
+    ['/ai/chat', await handleAiChat(post('/ai/chat'), off)],
+    ['/api/app-ai/chat', await handleSelfHostedAiChat(post('/api/app-ai/chat'), off)],
+  ]) {
+    assert.equal(response.status, 403, name);
+    assert.equal((await response.json()).error.code, 'ai_disabled', name);
+  }
+});

@@ -2,17 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
+import { generatedAiMode } from '../lib/generatedAiMode';
 
 // The mode control is one slot-machine reel with three stops. "AI" means Build
 // with AI text generation enabled, so the three are mutually exclusive and
 // clicking the reel advances: Build -> Ask -> AI -> Build.
-const MODE_SEQUENCE = ['build', 'ask', 'ai'];
+// With AI inside apps switched off (APPBLIPS_GENERATED_AI_MODE=off) the AI
+// stop is dropped and the reel turns between Build and Ask.
+const MODE_SEQUENCE = generatedAiMode === 'off' ? ['build', 'ask'] : ['build', 'ask', 'ai'];
+const STOPS = MODE_SEQUENCE.length;
 const MODE_LABELS = { build: 'Build', ask: 'Ask', ai: 'AI' };
-const MODE_INDEX = { build: 0, ask: 1, ai: 2 };
-const REEL_EXTRA_CYCLES = 3;   // full extra turns added to every spin
-const REEL_NORMALIZE_AT = 30;  // multiple of 3; rewind here to keep it finite
+const MODE_INDEX = Object.fromEntries(MODE_SEQUENCE.map((mode, index) => [mode, index]));
+// Extra items added to every spin: a whole number of turns, so it lands back
+// on the same stop.
+const REEL_EXTRA_ITEMS = Math.ceil(3 / STOPS) * STOPS;
+const REEL_NORMALIZE_AT = 30;  // a multiple of every stop count (2 and 3); rewind here to keep it finite
 const REEL_ITEM_COUNT = 40;
-const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % 3]);
+const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % STOPS]);
 
 // Prompt textarea with the Build/Ask mode toggle and submit/cancel footer.
 // Desktop Enter sends; touch keyboards keep Enter for newlines. Cmd/Ctrl+Enter sends.
@@ -82,8 +88,8 @@ export default function PromptInput({
     setLastMode(selectedMode);
     setSpinning(true);
     setReelIndex((index) => {
-      const delta = ((MODE_INDEX[selectedMode] - (index % 3)) % 3 + 3) % 3;
-      return index + delta + REEL_EXTRA_CYCLES;
+      const delta = ((MODE_INDEX[selectedMode] - (index % STOPS)) % STOPS + STOPS) % STOPS;
+      return index + delta + REEL_EXTRA_ITEMS;
     });
   }
   const handleReelEnd = (event) => {
@@ -92,7 +98,7 @@ export default function PromptInput({
     setReelIndex((index) => (index >= REEL_NORMALIZE_AT ? index - REEL_NORMALIZE_AT : index));
   };
   const cycleMode = () => {
-    const next = MODE_SEQUENCE[(MODE_INDEX[selectedMode] + 1) % 3];
+    const next = MODE_SEQUENCE[(MODE_INDEX[selectedMode] + 1) % STOPS];
     const wantsMode = next === 'ask' ? 'ask' : 'build';
     const wantsAi = next === 'ai';
     if (wantsMode !== chatMode) onChatModeChange(wantsMode);

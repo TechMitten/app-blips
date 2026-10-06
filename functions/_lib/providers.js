@@ -259,6 +259,11 @@ export const ignoredAppProviderVars = (env) => IGNORED_APP_PROVIDER_VARS.filter(
 // APPBLIPS_APP_AI_<NAME>, falling back to the pre-rename APPBLIPS_APP_LLM_<NAME>
 // so existing deployments keep working until their env is updated.
 export const APP_AI_LIMITS = ['MAX_TOKENS', 'TEMPERATURE', 'REASONING_EFFORT'];
+
+// APPBLIPS_GENERATED_AI_MODE=off switches AI inside generated apps off. The
+// client hides it (src/lib/generatedAiMode.js), and the relays refuse so apps
+// deployed while it was on stop spending the operator's key too.
+export const appAiDisabled = (env) => String(env?.APPBLIPS_GENERATED_AI_MODE || '').trim().toLowerCase() === 'off';
 export const appAiLimit = (env, name) => read(env, `APPBLIPS_APP_AI_${name}`) || read(env, `APPBLIPS_APP_LLM_${name}`);
 export const renamedAppAiLimits = (env) => APP_AI_LIMITS
   .filter((name) => read(env, `APPBLIPS_APP_LLM_${name}`))

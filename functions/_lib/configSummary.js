@@ -42,7 +42,9 @@ export const describeConfig = (env) => {
   }
 
   const configuredMode = String(env?.APPBLIPS_GENERATED_AI_MODE || 'relay').trim().toLowerCase();
-  if (!multiUser && configuredMode === 'byok') {
+  if (configuredMode === 'off') {
+    lines.push({ level: 'info', label: 'App AI', text: 'off, as configured (no AI inside generated apps)' });
+  } else if (!multiUser && configuredMode === 'byok') {
     lines.push({ level: 'info', label: 'App AI', text: 'BYOK, as configured (people using a finished app enter their own key)' });
   } else if (!builder.error && !builder.missing.length) {
     const where = multiUser ? 'deployed apps' : 'relay';
