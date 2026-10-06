@@ -518,6 +518,7 @@ export async function onRequest(context) {
         'cache-control': 'public, max-age=60',
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
+        'cross-origin-opener-policy': 'same-origin-allow-popups',
       },
     });
   } catch {

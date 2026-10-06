@@ -398,7 +398,8 @@ export default defineConfig(({ mode }) => (checkFirebaseConfig(mode), {
       // header. Production hosting should send these too.
       'Content-Security-Policy': "frame-ancestors 'none'",
       'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'no-referrer'
+      'Referrer-Policy': 'no-referrer',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
     }
   },
   build: {

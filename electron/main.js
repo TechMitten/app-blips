@@ -33,6 +33,7 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
 };
 
 const MIME_TYPES = {
