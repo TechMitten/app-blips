@@ -32,7 +32,7 @@ import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
-const REASONING_EFFORT_LABELS = { low: 'Low', medium: 'High' };
+const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', high: 'High' };
 
 const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
@@ -74,11 +74,7 @@ function Segmented({ label, value, options, onChange, renderOption }) {
 
 // Example model ids, shown as placeholders only.
 const MODEL_PLACEHOLDERS = {
-  openai: 'e.g. gpt-5.1',
-  openrouter: 'e.g. anthropic/claude-sonnet-5',
-  deepseek: 'e.g. deepseek-chat',
-  zai: 'e.g. glm-5.3-flash',
-  'zai-coding': 'e.g. glm-5.3',
+  openrouter: 'e.g. anthropic/claude-3.5-sonnet',
 };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
@@ -565,9 +561,8 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              {isDesktop
-                ? <DesktopProviderSettings guardRef={providerGuardRef} />
-                : <UserProviderSettings guardRef={providerGuardRef} />}
+              {isDesktop && <DesktopProviderSettings guardRef={providerGuardRef} />}
+              {!isDesktop && !supabaseEnabled && <UserProviderSettings guardRef={providerGuardRef} />}
             </>
           )}
         </div>

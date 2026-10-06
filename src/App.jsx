@@ -289,6 +289,7 @@ export default function App() {
   const streamingGeneratedCodeRef = useRef('');
   const streamingReplyRef = useRef('');
   const streamingCodeStartedRef = useRef(false);
+  const thinkingEndedRef = useRef(false);
   const editStreamRef = useRef('');
   const replyFrozenRef = useRef(false);
   const abortControllerRef = useRef(null);
@@ -327,6 +328,7 @@ export default function App() {
     streamingGeneratedCodeRef.current = '';
     streamingReplyRef.current = '';
     streamingCodeStartedRef.current = false;
+    thinkingEndedRef.current = false;
     replyFrozenRef.current = false;
   }, []);
 
@@ -1237,14 +1239,16 @@ export default function App() {
           return;
         }
         if (kind === 'thinking_end') {
+          thinkingEndedRef.current = true;
           setThinkingSince(null);
+          setStreamingReasoning('');
           return;
         }
         if (kind === 'reasoning') {
           // Some providers put content and reasoning deltas in the same SSE
           // chunk. Content is handled first, so ignore a reasoning delta that
           // arrives after actual code has begun.
-          if (streamingCodeStartedRef.current) return;
+          if (streamingCodeStartedRef.current || thinkingEndedRef.current) return;
           setStreamingReasoning((previous) => `${previous}${chunk}`);
           return;
         }

@@ -14,11 +14,7 @@ import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 // leaving with unsaved edits (see useProviderGuard there).
 
 const MODEL_PLACEHOLDERS = {
-  openai: 'e.g. gpt-5.1',
-  openrouter: 'e.g. anthropic/claude-sonnet-5',
-  deepseek: 'e.g. deepseek-chat',
-  zai: 'e.g. glm-5.3-flash',
-  'zai-coding': 'e.g. glm-5.3',
+  openrouter: 'e.g. anthropic/claude-3.5-sonnet',
 };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;

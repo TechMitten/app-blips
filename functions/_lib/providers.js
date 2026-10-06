@@ -1,85 +1,23 @@
 // LLM providers the proxies can talk to.
-//
-// Each provider has its own block of variables (APPBLIPS_<PROVIDER>_API_KEY,
-// _MODEL and optionally _BASE_URL). A provider is active when its API key is
-// filled in -- nothing is inferred from a model name or URL. If several keys
-// are set the first in PROVIDER_IDS order wins (with a warning), or
-// OPENAI_LLM_PROVIDER picks one explicitly.
-// The `openai-compatible` block is the generic variables (LLM_ENV below), and
-// those also act as a fallback for a named provider's own values
-// (OPENAI_LLM_MODEL / OPENAI_BASE_URL / OPENAI_API_KEY apply to whichever
-// provider is active), so a single shared block is enough.
+// We only use OpenRouter. The variables follow OPENAI_LLM_* standard names.
 //
 // AI inside generated apps (the APPBLIPS_APP_* relays) always uses the
 // builder's provider -- see resolveAppProvider.
-//
-// Every provider here speaks the OpenAI chat-completions API. A preset only
-// records what differs between them: the default endpoint, how a reasoning
-// setting is expressed, and which optional request features the provider
-// accepts. Request code reads these properties and never checks a provider's
-// name, so supporting a new provider means adding one row below.
-//
-// Claude and Gemini are reached through OpenRouter: Anthropic's own
-// OpenAI-compatible endpoint is documented as not intended for production,
-// and Google's cannot switch reasoning off on Gemini 3 / 2.5 Pro models.
 
-// How the app's reasoning setting ('none' = off, or an effort such as 'low')
-// is written into the request:
-//   reasoning_effort  top-level reasoning_effort: 'none' | '<effort>'
-//   reasoning         reasoning: { effort: 'none' | '<effort>' }
-//   thinking          thinking: { type: 'disabled' | 'enabled' }, plus
-//                     reasoning_effort: '<effort>' when enabled
-//   omit              nothing is sent (models without reasoning controls)
-const REASONING_PARAMS = new Set(['reasoning_effort', 'reasoning', 'thinking', 'omit']);
 
 const PROVIDERS = {
-  'openai-compatible': {
-    label: 'Any OpenAI-compatible API (set the base URL)',
-    baseUrl: '',
-    reasoningParam: 'reasoning_effort',
-  },
-  openai: {
-    label: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
-    reasoningParam: 'reasoning_effort',
-  },
   openrouter: {
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
     reasoningParam: 'reasoning',
-  },
-  deepseek: {
-    label: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com',
-    reasoningParam: 'reasoning_effort',
-  },
-  zai: {
-    label: 'Z.ai',
-    baseUrl: 'https://api.z.ai/api/paas/v4',
-    reasoningParam: 'thinking',
-    // Only tool_choice 'auto' is accepted, and stream_options is not part of
-    // the request schema.
-    forcedToolChoice: false,
-    streamUsage: false,
-  },
-  // Z.ai's GLM Coding Plan: the same API on the plan's own endpoint. Plan
-  // quota doesn't cover the standard endpoint above, so a plan-only key is
-  // refused there.
-  'zai-coding': {
-    label: 'Z.ai Coding Plan',
-    baseUrl: 'https://api.z.ai/api/coding/paas/v4',
-    reasoningParam: 'thinking',
-    forcedToolChoice: false,
-    streamUsage: false,
   },
 };
 
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
 
 // The plain APPBLIPS_LLM_* variables: any OpenAI-compatible endpoint.
-export const DEFAULT_PROVIDER = 'openai-compatible';
-// Named providers first, in auto-selection order; the generic block last.
-export const PROVIDER_IDS = [...Object.keys(PROVIDERS).filter((id) => id !== DEFAULT_PROVIDER), DEFAULT_PROVIDER];
+export const DEFAULT_PROVIDER = 'openrouter';
+export const PROVIDER_IDS = ['openrouter'];
 
 const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 
@@ -102,9 +40,17 @@ export const LLM_ENV = {
   VISION_MODEL: 'OPENAI_LLM_VISION_MODEL',
   ASK_MODEL: 'OPENAI_LLM_ASK_MODEL',
   TEMPERATURE: 'OPENAI_LLM_TEMPERATURE',
-  REASONING_PARAM: 'OPENAI_LLM_REASONING_PARAM',
 };
-export const llmEnv = (env, name) => read(env, LLM_ENV[name]) || read(env, `APPBLIPS_LLM_${name}`);
+export const llmEnv = (env, name) => {
+  let val = read(env, LLM_ENV[name]) || read(env, `APPBLIPS_LLM_${name}`);
+  if (!val && name === 'API_KEY') {
+    val = read(env, 'APPBLIPS_OPENROUTER_API_KEY') ||
+          read(env, 'APPBLIPS_OPENAI_API_KEY') ||
+          read(env, 'APPBLIPS_DEEPSEEK_API_KEY') ||
+          read(env, 'APPBLIPS_ZAI_API_KEY');
+  }
+  return val;
+};
 export const renamedLlmVars = (env) => Object.keys(LLM_ENV)
   .filter((name) => read(env, `APPBLIPS_LLM_${name}`))
   .map((name) => ({ from: `APPBLIPS_LLM_${name}`, to: LLM_ENV[name] }));
@@ -170,7 +116,6 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   // own read is skipped and the generic (with the legacy fallback) answers.
   const pick = (field) => (id === DEFAULT_PROVIDER ? '' : read(env, names.own[field])) || generic(fieldKey[field]);
   const preset = PROVIDERS[id];
-  const override = generic('REASONING_PARAM').toLowerCase();
   const provider = {
     id,
     ...PRESET_DEFAULTS,
@@ -178,7 +123,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
     apiKey: pick('apiKey'),
     model: pick('model'),
     baseUrl: pick('baseUrl') || preset.baseUrl,
-    reasoningParam: REASONING_PARAMS.has(override) ? override : preset.reasoningParam,
+    reasoningParam: preset.reasoningParam,
     alsoConfigured,
     // Where to point the user: the provider's own key variable, but the shared
     // model / base URL lines.
@@ -192,7 +137,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 // Presets only: the endpoint and request format come from the preset, never
 // from the user, because OpenAI-compatible APIs still differ in what they
 // accept (see the capability flags above).
-export const USER_PROVIDER_IDS = PROVIDER_IDS.filter((id) => id !== DEFAULT_PROVIDER);
+export const USER_PROVIDER_IDS = ['openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({ id, label: PROVIDERS[id].label }));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 
@@ -201,7 +146,7 @@ const MAX_USER_MODEL_LENGTH = 200;
 
 // Builds a provider from a user-supplied { id, apiKey, model } (the request's
 // `user_provider` field). Same shape as resolveProvider, or { error }. The
-// operator's APPBLIPS_LLM_BASE_URL / _REASONING_PARAM belong to the env
+// operator's APPBLIPS_LLM_BASE_URL belong to the env
 // provider and are deliberately not applied here.
 export const resolveUserProvider = (input) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return { error: 'Invalid provider settings.' };
@@ -245,7 +190,6 @@ export const IGNORED_APP_PROVIDER_VARS = [
   'APPBLIPS_APP_LLM_API_KEY',
   'APPBLIPS_APP_LLM_MODEL',
   'APPBLIPS_APP_LLM_BASE_URL',
-  'APPBLIPS_APP_LLM_REASONING_PARAM',
   ...PROVIDER_IDS.filter((id) => id !== DEFAULT_PROVIDER).flatMap((id) => {
     const own = varNames(id, 'APPBLIPS_APP_LLM').own;
     return [own.apiKey, own.model, own.baseUrl];
@@ -283,27 +227,17 @@ export const resolveAppProvider = (env, options) => resolveProvider(env, 'APPBLI
 export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
-
-  switch (provider.reasoningParam) {
-    case 'omit':
-      break;
-    case 'reasoning':
-      bodyObj.reasoning = { effort: off ? 'none' : raw };
-      break;
-    case 'thinking':
-      bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
-      if (!off) bodyObj.reasoning_effort = raw;
-      break;
-    default:
-      bodyObj.reasoning_effort = off ? 'none' : raw;
+  
+  // OpenRouter specific reasoning structure
+  if (!off) {
+    bodyObj.reasoning = { effort: raw };
   }
-  const reasoningEnabled = !off && provider.reasoningParam !== 'omit';
+  
+  const reasoningEnabled = !off;
 
-  if (!provider.streamUsage) delete bodyObj.stream_options;
-
-  const choice = bodyObj.tool_choice;
-  const forced = choice === 'required' || choice?.type === 'function';
-  if (forced && (!provider.forcedToolChoice || reasoningEnabled)) bodyObj.tool_choice = 'auto';
+  // Thinking models (like DeepSeek R1) often get stuck in endless reasoning loops
+  // if temperature is forced to 0 (which the proxy does for syntax repairs).
+  if (reasoningEnabled) delete bodyObj.temperature;
 
   return { reasoningEnabled };
 };

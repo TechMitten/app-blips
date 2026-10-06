@@ -203,8 +203,8 @@ async function runWith(t, settings, payload = {}) {
 
 test('a provider becomes active once its API key is filled in', async (t) => {
   const { response, upstream } = await runWith(t, {
-    APPBLIPS_OPENROUTER_API_KEY: 'or-key',
-    APPBLIPS_OPENROUTER_MODEL: 'anthropic/claude-sonnet-5',
+    OPENAI_API_KEY: 'or-key',
+    OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5',
     APPBLIPS_OPENAI_API_KEY: '',
     APPBLIPS_OPENAI_MODEL: 'gpt-x',
   }, { reasoning_effort: 'low' });
@@ -279,7 +279,7 @@ test('no filled-in provider is a clear configuration error', async (t) => {
 });
 
 test('a provider with a key but no model names the missing variable', async (t) => {
-  const { response } = await runWith(t, { APPBLIPS_OPENROUTER_API_KEY: 'k' });
+  const { response } = await runWith(t, { OPENAI_API_KEY: 'k' });
   assert.equal(response.status, 500);
   assert.match((await response.json()).error, /OPENAI_LLM_MODEL/);
 });

@@ -65,12 +65,12 @@ function parseClarifyingQuestionArgs(rawArguments) {
 // Reasoning for calls that only produce chat text (clarifying question, intro
 // and completion replies, ask-mode answers). Only the initial build follows the
 // user's Build reasoning toggle, so these are hardcoded to LOW.
-export const CHAT_REASONING_EFFORT = 'low';
+export const CHAT_REASONING_EFFORT = 'none';
 
 // Reasoning for every code-writing/fixing call other than the initial build:
 // the surgical refinement loop and all syntax/broken-link/auto-fix repair
 // passes. Hardcoded to LOW so the user's toggle only governs building.
-const EDIT_REASONING_EFFORT = 'low';
+const EDIT_REASONING_EFFORT = 'none';
 
 export const generateClarifyingQuestion = async ({
   prompt,
@@ -623,7 +623,7 @@ const generateAppCodeCore = async (
   aiEnabled = false,
   aiMode = 'relay',
   isAutoFix = false,
-  reasoningEffort = { build: 'low' },
+  reasoningEffort = { build: 'none' },
   studioMode = 'app',
   currentFiles = null,
   projectName = ''
@@ -632,7 +632,7 @@ const generateAppCodeCore = async (
   const isGame = studioMode === 'game';
   // Only the initial build follows the user's reasoning toggle. Edits, error
   // repair and chat-only calls are hardcoded to LOW (see the constants above).
-  const buildEffort = reasoningEffort?.build ?? 'low';
+  const buildEffort = reasoningEffort?.build ?? 'none';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = studioNoun(studioMode);
@@ -777,29 +777,15 @@ const generateAppCodeCore = async (
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
         
-        let repairMessage;
-        try {
-          repairMessage = await requestModelText({
-            messages: repairMessages,
-            tools: REFINEMENT_TOOLS,
-            tool_choice: 'required',
-            signal,
-            forceTemperatureZero: true,
-            reasoningEffort: EDIT_REASONING_EFFORT,
-            label: 'syntax repair'
-          });
-        } catch {
-          repairMessage = await requestModelText({
-            messages: repairMessages,
-            tools: REFINEMENT_TOOLS,
-            tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
-            signal,
-            forceTemperatureZero: true,
-            reasoningEffort: EDIT_REASONING_EFFORT,
-            label: 'syntax repair (forced tool)'
-          });
-        }
-
+        let repairMessage = await requestModelText({
+          messages: repairMessages,
+          tools: REFINEMENT_TOOLS,
+          tool_choice: 'required',
+          signal,
+          forceTemperatureZero: true,
+          reasoningEffort: EDIT_REASONING_EFFORT,
+          label: 'syntax repair'
+        });
         repairMessages.push(assistantTurn(repairMessage));
 
         if (!repairMessage.tool_calls || repairMessage.tool_calls.length === 0) {
@@ -905,37 +891,16 @@ const generateAppCodeCore = async (
     else if (confirmingEdits) reportStatus('Edits applied — reviewing the result…');
     else reportStatus('Working out the next step…');
 
-    let message;
-    try {
-      message = await requestModelText({
-        messages,
-        onChunk,
-        tools: currentTools,
-        tool_choice: turn === 1 ? 'required' : 'auto',
-        signal,
-        // This loop only ever applies surgical edits, so keep temperature at
-        // zero and reasoning at LOW. The proxy downgrades forced tool choices
-        // to 'auto' for thinking backends.
-        forceTemperatureZero: true,
-        reasoningEffort: EDIT_REASONING_EFFORT,
-        label: `refine turn ${turn}`
-      });
-    } catch (e) {
-      if (turn !== 1 || signal?.aborted) throw e;
-      // Some OpenAI-compatible backends don't support tool_choice: 'required' — fall back
-      // to forcing the one edit tool by name, matching the old always-forced behavior.
-      message = await requestModelText({
-        messages,
-        onChunk,
-        tools: currentTools,
-        tool_choice: { type: 'function', function: { name: 'apply_surgical_edits' } },
-        signal,
-        // Same LOW reasoning as the 'required' attempt above.
-        forceTemperatureZero: true,
-        reasoningEffort: EDIT_REASONING_EFFORT,
-        label: `refine turn ${turn} (forced tool)`
-      });
-    }
+    const message = await requestModelText({
+      messages,
+      onChunk,
+      tools: currentTools,
+      tool_choice: turn === 1 ? 'required' : 'auto',
+      signal,
+      forceTemperatureZero: true,
+      reasoningEffort: EDIT_REASONING_EFFORT,
+      label: `refine turn ${turn}`
+    });
 
     if (message.content && message.content.trim()) {
       replyParts.push(message.content.trim());

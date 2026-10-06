@@ -4,7 +4,7 @@ import { resolveAppProvider, resolveUserProvider, USER_PROVIDER_IDS, USER_PROVID
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 
-const builderEnv = { APPBLIPS_OPENROUTER_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5' };
+const builderEnv = { OPENAI_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5' };
 const multiUserEnv = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'pk' };
 const quiet = { quiet: true };
 
@@ -111,7 +111,7 @@ test('summary shows BYOK only when it is chosen explicitly', () => {
 
 test('multi-user summary explains an empty configuration', () => {
   const lines = describeConfig(multiUserEnv);
-  assert.ok(lines.some((l) => l.level === 'error' && /APPBLIPS_OPENROUTER_API_KEY/.test(l.text)));
+  assert.ok(lines.some((l) => l.level === 'error' && /OPENAI_API_KEY/.test(l.text)));
 });
 
 test('summary warns when several provider keys are set', () => {
@@ -178,7 +178,7 @@ test('single-user config error tells the operator what to fix', async () => {
   assert.equal(response.status, 500);
   const { error } = await response.json();
   assert.match(error, /isn't set up yet/);
-  assert.match(error, /APPBLIPS_OPENROUTER_API_KEY/);
+  assert.match(error, /OPENAI_API_KEY/);
   assert.match(error, /Settings → AI/);
 });
 

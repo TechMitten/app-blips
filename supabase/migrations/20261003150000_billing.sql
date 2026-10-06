@@ -57,7 +57,11 @@ begin
     current_period_start = excluded.current_period_start,
     current_period_end = excluded.current_period_end,
     cancel_at_period_end = excluded.cancel_at_period_end,
-    updated_at = now();
+    updated_at = now()
+  where
+    s.stripe_subscription_id = excluded.stripe_subscription_id
+    or excluded.status in ('active', 'trialing', 'past_due')
+    or s.status not in ('active', 'trialing', 'past_due');
 end $$;
 
 revoke execute on function public.upsert_subscription(uuid, text, text, text, text, timestamptz, timestamptz, boolean) from public, anon, authenticated;

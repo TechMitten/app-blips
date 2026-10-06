@@ -150,7 +150,7 @@ Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, e
 
 | Group | Variables | Notes |
 | --- | --- | --- |
-| LLM (required, one provider) | `APPBLIPS_OPENAI_API_KEY`, `APPBLIPS_OPENROUTER_API_KEY`, `APPBLIPS_DEEPSEEK_API_KEY`, `APPBLIPS_ZAI_API_KEY` or `APPBLIPS_ZAI_CODING_API_KEY`, plus `OPENAI_LLM_MODEL` | A provider is active once its key is populated. |
+| LLM (required, one provider) | `APPBLIPS_OPENAI_API_KEY`, `OPENAI_API_KEY`, `APPBLIPS_DEEPSEEK_API_KEY`, `APPBLIPS_ZAI_API_KEY` or `APPBLIPS_ZAI_CODING_API_KEY`, plus `OPENAI_LLM_MODEL` | A provider is active once its key is populated. |
 | LLM tuning (optional) | `OPENAI_LLM_MAX_TOKENS`, `OPENAI_LLM_ASK_MAX_TOKENS`, `OPENAI_LLM_TEMPERATURE` | `OPENAI_LLM_ASK_MAX_TOKENS` caps Ask-mode replies only (default `8192`, independent of the main max). |
 | Builder access (optional) | `APPBLIPS_CHAT_ALLOWED_ORIGINS` | `/api/chat` refuses browser requests from other sites. Only needed behind a reverse proxy that rewrites the `Host` header: list the address you open AppBlips at. |
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | The default `relay` sends app AI through your builder provider; `byok` makes each person use their own keys. |

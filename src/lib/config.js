@@ -1,4 +1,5 @@
 import { isDesktop } from './desktop.js';
+import { USER_PROVIDER_IDS } from '../../functions/_lib/providers.js';
 
 // There is no way to hide a key from the machine that types it in a
 // backend-less SPA. What the sandboxed preview frame buys us is the part that
@@ -271,12 +272,11 @@ export const isStartFresh = () => {
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // The initial build (first generation of an app/site) is the only call whose
 // reasoning is user-configurable. Sent to /api/chat as `reasoning_effort`; a
-// Low/High choice where Low is sent as 'low' and High as 'medium', since higher
-// efforts made every call in a build pipeline think for minutes. Low is the
+// Low/High choice where Low is sent as 'low' and High as 'high'. Low is the
 // default (and the minimum). Edits, error repair and chat calls are hardcoded
 // to LOW in llm.js.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
-export const REASONING_EFFORT_OPTIONS = ['low', 'medium'];
+export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'high'];
 // Efforts saved before the Low/High choice (and the legacy combined key); the
 // top ones map to High, everything else falls back to Low.
 const HIGH_EFFORTS = ['medium', 'high'];
@@ -310,9 +310,11 @@ export const loadReasoningEffort = () => {
   try {
     const storage = safeStorage('local');
     const stored = storage?.getItem(BUILD_REASONING_EFFORT_KEY) ?? storage?.getItem(REASONING_EFFORT_KEY);
-    return HIGH_EFFORTS.includes(stored) ? 'medium' : 'low';
+    if (stored === 'none' || stored === 'low' || stored === 'high') return stored;
+    if (HIGH_EFFORTS.includes(stored)) return 'high';
+    return 'none';
   } catch {
-    return 'low';
+    return 'none';
   }
 };
 
@@ -400,5 +402,8 @@ export const activeUserProvider = () => {
   if (isDesktop) return null;
   const cfg = loadUserProvider();
   if (!cfg?.enabled || !cfg.id || !cfg.model.trim() || !cfg.apiKey.trim()) return null;
+  // A provider saved before it was dropped from the list would be refused by
+  // /api/chat on every request; ignore it so the env provider answers instead.
+  if (!USER_PROVIDER_IDS.includes(cfg.id)) return null;
   return { id: cfg.id, model: cfg.model.trim(), apiKey: cfg.apiKey.trim() };
 };
