@@ -57,7 +57,7 @@ import useChatFont from './hooks/useChatFont';
 import useAuth from './hooks/useAuth';
 import useBilling from './hooks/useBilling';
 import PlansModal from './components/PlansModal';
-import { PLANS } from '../functions/_lib/plans.js';
+import { PLANS, limitMessage } from '../functions/_lib/plans.js';
 import useProjects from './hooks/useProjects';
 import useDeployment from './hooks/useDeployment';
 import useShowcaseRoute from './hooks/useShowcaseRoute';
@@ -141,18 +141,21 @@ export default function App() {
   // No trial or subscription: the hosted AI is off until one starts. The
   // user's own provider key (Settings → AI) isn't billed, so it still works.
   const needsPlan = billing.billingOn && billing.plan === 'none' && !activeUserProvider();
+  // A new account's free prompts (Build or Ask) before it needs a plan.
+  const freeBuildsLeft = needsPlan ? billing.freeBuildsLeft : 0;
   const imagesLocked = billing.billingOn && !PLANS[billing.plan]?.images;
 
   // A new account starts with no plan: show the plans (and the free trial)
   // right after sign-up, once per account in this browser. Not when coming
-  // back from Checkout, which opens the plans screen on its own.
+  // back from Checkout, which opens the plans screen on its own, and not
+  // while it has free prompts left: those come first.
   const newAccountId = user?.isNewAccount ? user.id : null;
   useEffect(() => {
-    if (!newAccountId || !billing.billingOn || billing.plan !== 'none' || billing.checkoutResult) return;
+    if (!newAccountId || !billing.billingOn || billing.plan !== 'none' || billing.checkoutResult || billing.freeBuildsLeft > 0) return;
     if (wasPlansPrompted(newAccountId)) return;
     markPlansPrompted(newAccountId);
     setPlansModal({ welcome: true });
-  }, [newAccountId, billing.billingOn, billing.plan, billing.checkoutResult]);
+  }, [newAccountId, billing.billingOn, billing.plan, billing.checkoutResult, billing.freeBuildsLeft]);
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
@@ -1150,16 +1153,19 @@ export default function App() {
       return;
     }
 
-    // Nothing to send without a trial or subscription: offer the trial
-    // instead (the server refuses these requests anyway).
-    if (needsPlan) {
+    // Nothing to send without a trial or subscription once the free prompts
+    // are used: offer the trial instead (the server refuses these requests
+    // anyway). Automatic repairs never spend a free prompt.
+    if (needsPlan && (isAutoFix || freeBuildsLeft <= 0)) {
       if (isAutoFix) {
         setIsAutoFixing(false);
         isAutoFixingRef.current = false;
         setAutoFixMessage(null);
         setGenerationStatus(null);
       } else {
-        setPlansModal({});
+        setPlansModal(billing.freeBuildsUsed
+          ? { reason: limitMessage('none', { scope: 'none' }, Date.now(), { trialEligible: billing.status?.trialEligible !== false, freeBuildsUsed: true }) }
+          : {});
       }
       return;
     }
@@ -1209,7 +1215,8 @@ export default function App() {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+    // Not on a free prompt: a round of questions would use one up.
+    const shouldAskClarifyingQuestions = !isAutoFix && !needsPlan && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
 
     const isSyntaxAutoFix = isAutoFix && autoFixError?.toLowerCase().includes('syntax');
     setGenerationStatus(

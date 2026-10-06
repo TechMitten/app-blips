@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkAllowance, limitMessage, BUILD_OVERDRAFT_TOKENS, PLANS, TRIAL } from '../functions/_lib/plans.js';
+import { checkAllowance, limitMessage, BUILD_OVERDRAFT_TOKENS, PLANS, TRIAL, FREE_BUILDS } from '../functions/_lib/plans.js';
 import { verifyStripeSignature, handleStripeWebhook, handleBillingStatus, handleBillingCheckout, handleBillingEndTrial } from '../functions/_lib/billing.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { wrapWithTokenTracking } from '../functions/_lib/trackTokens.js';
@@ -30,6 +30,10 @@ test('no plan allows nothing; the trial has its own smaller allowance', () => {
   const none = checkAllowance({ plan: 'none', period_tokens: 0 }, { now: NOW });
   assert.equal(none.allowed, false);
   assert.equal(none.scope, 'none');
+  // A free prompt is held to the free cap (plus the overdraft for a follow-up).
+  assert.equal(checkAllowance({ plan: 'none', period_tokens: 0 }, { freeBuild: true, now: NOW }).allowed, true);
+  assert.equal(checkAllowance({ plan: 'none', period_tokens: FREE_BUILDS.periodTokens }, { freeBuild: true, now: NOW }).scope, 'none');
+  assert.equal(checkAllowance({ plan: 'none', period_tokens: FREE_BUILDS.periodTokens }, { freeBuild: true, continuing: true, now: NOW }).allowed, true);
   // An unknown plan is treated as no plan.
   assert.equal(checkAllowance({ plan: 'gold', period_tokens: 0 }, { now: NOW }).allowed, false);
 
@@ -55,6 +59,7 @@ test('paid plans reset at the period end', () => {
 test('limit messages say when it resets and what to do next', () => {
   assert.match(limitMessage('none', { scope: 'none' }, NOW), /^Start your free 7-day trial to build/);
   assert.equal(limitMessage('none', { scope: 'none' }, NOW, { trialEligible: false }), 'Subscribe to Plus or Pro to build.');
+  assert.match(limitMessage('none', { scope: 'none' }, NOW, { freeBuildsUsed: true }), /^You've used your free prompts\. Start your free 7-day trial/);
   const trial = { allowed: false, scope: 'trial', resetsAt: new Date(NOW + 6 * 3600000) };
   assert.match(limitMessage('plus', trial, NOW), /Plus starts in 6h .* or start it now/);
   const plus = { allowed: false, scope: 'period', resetsAt: new Date(NOW + 3 * 86400000) };
@@ -89,7 +94,7 @@ const sse = 'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\
 // Seeds Firestore for user-1 from a billing-status-shaped row, and fakes the
 // LLM. `upstreamStatus` lets a test make the provider fail and `upstreamBody`
 // replaces the stream. Returns what was seen plus `usage()`, today's usage doc.
-const mockServices = (t, billingRow, { upstreamStatus = 200, upstreamBody = sse } = {}) => {
+const mockServices = (t, billingRow, { upstreamStatus = 200, upstreamBody = sse, freeBuildsUsed = 0 } = {}) => {
   const seen = { upstream: null, upstreamCalls: 0 };
   t.after(settleWrites);
   const { firestore, calls } = installFirebaseFake(t, {
@@ -108,6 +113,7 @@ const mockServices = (t, billingRow, { upstreamStatus = 200, upstreamBody = sse 
       ...(billingRow.status === 'trialing' ? { trial_end: `${daysAgo(-2)}T00:00:00.000Z`, trial_used: true } : {}),
     });
   }
+  if (freeBuildsUsed) firestore.set('free_builds/user-1', { user_id: 'user-1', used: freeBuildsUsed });
   const todayTokens = Number(billingRow.today_tokens) || 0;
   firestore.set(usageDocPath('user-1', today()), {
     user_id: 'user-1', date: today(), builder_tokens: todayTokens, builder_requests: 0,
@@ -120,6 +126,7 @@ const mockServices = (t, billingRow, { upstreamStatus = 200, upstreamBody = sse 
     get: () => calls.filter((call) => call.method === 'GET' && /documents\/subscriptions\/user-1$/.test(call.url)).length,
   });
   seen.usage = () => firestore.getData(usageDocPath('user-1', today()));
+  seen.freeBuilds = () => firestore.getData('free_builds/user-1');
   return seen;
 };
 
@@ -143,8 +150,75 @@ const imageMessage = { role: 'user', content: [{ type: 'text', text: 'Like this'
 const noPlan = { plan: 'none', status: 'none', today_tokens: 0, period_tokens: 0 };
 const plusRow = { plan: 'plus', status: 'active', today_tokens: 0, period_tokens: 0 };
 
-test('an account with no plan is refused everything, repairs included', async (t) => {
+test('an account with no plan gets its free prompts, Build or Ask, then nothing', async (t) => {
+  const withSecret = { APPBLIPS_SESSION_SECRET: 'pass-secret' };
   const seen = mockServices(t, noPlan);
+  // A repair outside a build never spends a free prompt.
+  let response = await chat({ auto_fix: true }, withSecret);
+  assert.equal(response.status, 402);
+  await response.json();
+  assert.equal(seen.freeBuilds(), null);
+
+  response = await chat({}, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  const pass = response.headers.get('x-appblips-prompt-pass');
+  assert.ok(pass);
+  await settleWrites();
+  // The prompt's follow-ups don't use another.
+  response = await chat({ continuing: true, prompt_pass: pass }, withSecret);
+  assert.equal(response.status, 200);
+  await response.text();
+  await settleWrites();
+  assert.equal(seen.freeBuilds().used, 1);
+
+  for (const payload of [{ ask: true }, {}]) {
+    response = await chat(payload, withSecret);
+    assert.equal(response.status, 200);
+    await response.text();
+    await settleWrites();
+  }
+  assert.equal(seen.freeBuilds().used, FREE_BUILDS.prompts);
+  assert.equal(seen.upstreamCalls, 4);
+
+  for (const payload of [{}, { ask: true }]) {
+    response = await chat(payload, withSecret);
+    assert.equal(response.status, 402);
+    const body = await response.json();
+    assert.equal(body.code, 'subscription_required');
+    assert.match(body.error, /^You've used your free prompts/);
+  }
+  assert.equal(seen.upstreamCalls, 4);
+});
+
+test('free prompts follow the person, not the account: a re-created account gets none', async (t) => {
+  const withSecret = { APPBLIPS_SESSION_SECRET: 'pass-secret' };
+  const seen = mockServices(t, noPlan);
+  const chatAs = async (uid, claims) => handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await signIdToken(uid, { claims })}` },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'Build a todo app' }], stream: true }),
+  }), { ...env, ...withSecret }, waitUntil);
+  const google = { email: 'Person@Example.com', firebase: { identities: { 'google.com': ['g-1'] } } };
+  for (let i = 0; i < FREE_BUILDS.prompts; i += 1) {
+    const response = await chatAs('user-1', google);
+    assert.equal(response.status, 200);
+    await response.text();
+    await settleWrites();
+  }
+  // Deleted and signed in again: a new account id, the same Google account.
+  let response = await chatAs('user-9', google);
+  assert.equal(response.status, 402);
+  assert.match((await response.json()).error, /^You've used your free prompts/);
+  // Or a GitHub account with the same verified email.
+  response = await chatAs('user-8', { email: 'person@example.com', firebase: { identities: { 'github.com': ['h-1'] } } });
+  assert.equal(response.status, 402);
+  await response.json();
+  assert.equal(seen.upstreamCalls, FREE_BUILDS.prompts);
+});
+
+test('an account with no plan and no free prompts is refused everything, repairs included', async (t) => {
+  const seen = mockServices(t, noPlan, { freeBuildsUsed: FREE_BUILDS.prompts });
   for (const payload of [{}, { ask: true }, { auto_fix: true }, { continuing: true }]) {
     const response = await chat(payload);
     assert.equal(response.status, 402);
@@ -325,7 +399,7 @@ test('APPBLIPS_BILLING_TESTERS limits billing to the listed accounts', async (t)
   // Listed by email (any case): the plan applies.
   await settleWrites();
   t.mock.restoreAll();
-  seen = mockServices(t, noPlan);
+  seen = mockServices(t, noPlan, { freeBuildsUsed: FREE_BUILDS.prompts });
   response = await chat({}, { APPBLIPS_BILLING_TESTERS: 'someone@else.com, A@Example.com' });
   assert.equal(response.status, 402);
   assert.equal(seen.statusCalls, 1);

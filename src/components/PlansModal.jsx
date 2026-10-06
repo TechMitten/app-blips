@@ -42,14 +42,17 @@ const celebrate = async () => {
 // `detail` replaces the "N% used" readout.
 function Meter({ label, used, limit, detail = null }) {
   const percent = usagePercent(used, limit);
+  // A build is a small share of a monthly allowance (a game is well under 1%
+  // of Plus) and would round to 0%, reading as if nothing was counted.
+  const under1 = percent === 0 && Number(used) > 0 && Boolean(limit);
   return (
     <div>
       <div className="flex items-baseline justify-between text-xs font-medium text-slate-600">
         <span>{label}</span>
-        <span className="tabular-nums">{detail || `${percent}% used`}</span>
+        <span className="tabular-nums">{detail || `${under1 ? '<1' : percent}% used`}</span>
       </div>
       <div className="mt-1.5 h-2 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`h-full rounded-full ${percent >= 90 ? 'bg-rose-500' : 'bg-brand'}`} style={{ width: `${percent}%` }} />
+        <div className={`h-full rounded-full ${percent >= 90 ? 'bg-rose-500' : 'bg-brand'}`} style={{ width: under1 ? '4px' : `${percent}%` }} />
       </div>
     </div>
   );

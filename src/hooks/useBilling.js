@@ -63,6 +63,9 @@ export default function useBilling({ isSignedIn }) {
     billingOn: Boolean(status?.enabled),
     plan: status?.enabled ? status.plan : null,
     trialing: Boolean(status?.enabled && status.trialing),
+    // Free prompts left on an account with no plan (FREE_BUILDS in plans.js).
+    freeBuildsLeft: status?.enabled ? Number(status.freeBuildsLeft) || 0 : 0,
+    freeBuildsUsed: Boolean(status?.enabled && status.freeBuildsUsed),
     hasBillingAccount: Boolean(status?.enabled && status.hasBillingAccount),
     refresh,
     checkoutResult: isSignedIn ? checkoutResult : null,

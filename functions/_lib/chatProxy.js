@@ -29,7 +29,7 @@ import { wrapWithTokenTracking, estimateInputTokens } from './trackTokens.js';
 import { trackApiUsage } from './usageTracking.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { firebaseConfigured, verifyIdToken, bearerToken } from './firebaseServer.js';
-import { billingAppliesTo, fetchBillingStatus, holdAllowance } from './billing.js';
+import { billingAppliesTo, fetchBillingStatus, holdAllowance, claimFreeBuild } from './billing.js';
 import { promptPassesEnabled, signPromptPass, verifyPromptPass } from './promptPass.js';
 import { planById, checkAllowance, limitMessage } from './plans.js';
 
@@ -287,25 +287,24 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // plus `pass` (send back as the x-appblips-prompt-pass header) and
 // `reservation` (tokens held against the allowance, settled when the
 // response ends; see trackTokens.js). An account with no plan (no trial or
-// subscription) is refused everything, automatic repairs included.
+// subscription) gets its few free prompts (FREE_BUILDS in plans.js), Build
+// or Ask, and is refused everything after them, automatic repairs included.
 // If a usage read itself fails the request goes through: auth already
 // succeeded, and a Firestore hiccup shouldn't stop people building.
 const checkPlan = async (env, user, payload) => {
   if (!billingAppliesTo(env, user) || payload?.user_provider != null) return { plan: null };
-  const status = await fetchBillingStatus(env, user.id);
+  const status = await fetchBillingStatus(env, user);
   if (!status) return { plan: null };
   const plan = planById(status.plan);
   const refuse = (check) => ({
     response: new Response(JSON.stringify({
-      error: limitMessage(plan.id, check, Date.now(), { trialEligible: status.trial_eligible }),
+      error: limitMessage(plan.id, check, Date.now(), { trialEligible: status.trial_eligible, freeBuildsUsed: Boolean(status.free_builds_used) }),
       code: check.scope === 'none' ? 'subscription_required' : 'limit_reached',
       plan: plan.id,
       scope: check.scope,
       resetsAt: check.resetsAt ? check.resetsAt.toISOString() : null,
     }), { status: 402, headers: { 'content-type': 'application/json' } }),
   });
-  if (plan.id === 'none') return refuse(checkAllowance(status));
-
   if (!plan.images && hasImageContent(payload.messages)) {
     return {
       response: new Response(JSON.stringify({
@@ -323,14 +322,27 @@ const checkPlan = async (env, user, payload) => {
   // configured, the client's `continuing` mark is trusted as before.
   const followUp = payload.continuing === true
     && (!promptPassesEnabled(env) || await verifyPromptPass(payload.prompt_pass, user.id, env));
-  const check = checkAllowance(status, { continuing: followUp });
+
+  // No plan: a new prompt uses one of the free ones; a follow-up rides on the
+  // prompt that did, held to the free token cap either way. Only a signed
+  // pass makes a follow-up here -- the unsigned fallback would let every
+  // request skip the count. An automatic repair outside a build never
+  // spends one.
+  const freeBuild = plan.id === 'none';
+  if (freeBuild && !(followUp && promptPassesEnabled(env))) {
+    if (payload.auto_fix === true || !(status.free_builds_left > 0) || !await claimFreeBuild(env, user)) {
+      return refuse(checkAllowance(status));
+    }
+  }
+
+  const check = checkAllowance(status, { continuing: followUp, freeBuild });
   if (!check.allowed) return refuse(check);
 
   // Hold an estimate against the allowance before spending anything; the
   // check above alone lets a burst of simultaneous requests all through.
   const input = estimateInputTokens(payload.messages, payload.tools);
   const held = await holdAllowance(env, user.id, status, {
-    continuing: followUp, input, amount: input + (outputCap(env, payload, true) || 0), kind: 'builder',
+    continuing: followUp, freeBuild, input, amount: input + (outputCap(env, payload, true) || 0), kind: 'builder',
   });
   if (held.refused) return refuse(held.refused);
 

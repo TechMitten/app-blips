@@ -103,9 +103,20 @@ const signingKey = async (kid) => {
 
 // Verifies a Firebase Auth ID token the way the Admin SDK does: RS256 signed by
 // one of Google's current securetoken keys, issued for this project, unexpired,
-// and naming a user. Returns { id, email, authTime } or null. `email` is only
-// passed on when Firebase has verified it, because things key off it (billing
-// testers, Stripe's customer_email).
+// and naming a user. Returns { id, email, authTime, identities } or null.
+// `email` is only passed on when Firebase has verified it, because things key
+// off it (billing testers, Stripe's customer_email). `identities` are the
+// sign-in provider's own account ids ("google.com:123"), which outlive the
+// Firebase account: deleting it and signing in again gives a new `id` but the
+// same identities, so per-person limits (free prompts) key off them.
+const IDENTITY_PROVIDERS = ['google.com', 'github.com'];
+const tokenIdentities = (payload) => {
+  const found = payload.firebase?.identities || {};
+  return IDENTITY_PROVIDERS.flatMap((provider) => (Array.isArray(found[provider]) ? found[provider] : [])
+    .filter((id) => typeof id === 'string' && id)
+    .map((id) => `${provider}:${id}`));
+};
+
 export const verifyIdToken = async (token, env, now = Date.now()) => {
   const projectId = firebaseProjectId(env);
   if (!projectId || typeof token !== 'string') return null;
@@ -138,6 +149,7 @@ export const verifyIdToken = async (token, env, now = Date.now()) => {
       id: payload.sub,
       email: payload.email_verified === true && typeof payload.email === 'string' ? payload.email : null,
       authTime: payload.auth_time,
+      identities: tokenIdentities(payload),
     };
   } catch (err) {
     console.error('[firebase] token verification failed:', err?.message || err);

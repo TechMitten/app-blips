@@ -52,6 +52,17 @@ export const TRIAL = {
   periodTokens: 6_000_000,
 };
 
+// Free prompts for an account with no plan, so a new account can try
+// building (or Ask) before choosing the trial or a plan. Each new prompt,
+// Build or Ask, uses one; its follow-up requests (edits, repairs) ride on
+// the prompt pass and don't. The token cap bounds what all of them can cost,
+// including a client that keeps chaining passes. Counted per account in
+// free_builds/{uid} (billing.js); an account that has had a trial gets none.
+export const FREE_BUILDS = {
+  prompts: 3,
+  periodTokens: 3_000_000,
+};
+
 export const PAID_PLAN_IDS = ['plus', 'pro'];
 
 // How many times Plus's monthly usage a plan includes ("2x"), for plan copy.
@@ -72,10 +83,12 @@ export const BUILD_OVERDRAFT_TOKENS = 500_000;
 // The token total a request is refused at: { period }, using the trial's
 // allowance while `trialing`. Shared by checkAllowance and the atomic
 // reservation in billing.js (reserveTokens), so both draw the line in one place.
-export const allowanceLimits = (planOrId, { continuing = false, trialing = false } = {}) => {
+// `freeBuild` = a free prompt on an account with no plan (FREE_BUILDS).
+export const allowanceLimits = (planOrId, { continuing = false, trialing = false, freeBuild = false } = {}) => {
   const plan = typeof planOrId === 'string' ? planById(planOrId) : planOrId;
   const extra = continuing ? BUILD_OVERDRAFT_TOKENS : 0;
-  return { period: (trialing ? TRIAL.periodTokens : plan.periodTokens) + extra };
+  const base = freeBuild ? FREE_BUILDS.periodTokens : trialing ? TRIAL.periodTokens : plan.periodTokens;
+  return { period: base + extra };
 };
 
 const validDate = (value) => {
@@ -88,13 +101,17 @@ const validDate = (value) => {
 // scope is 'none' (no plan: nothing is allowed), 'trial' (the trial's
 // allowance is used; resetsAt = when the trial ends and Plus starts) or
 // 'period'. `continuing` = a follow-up request inside a build that already
-// started.
-export const checkAllowance = (status, { continuing = false, now = Date.now() } = {}) => {
+// started. `freeBuild` = a free prompt with no plan (FREE_BUILDS): held to
+// the free token cap instead of being refused outright.
+export const checkAllowance = (status, { continuing = false, freeBuild = false, now = Date.now() } = {}) => {
   const plan = planById(status?.plan);
-  if (plan.id === 'none') return { allowed: false, scope: 'none', resetsAt: null };
+  const period = Number(status?.period_tokens) || 0;
+  if (plan.id === 'none') {
+    const allowed = freeBuild && period < allowanceLimits(plan, { continuing, freeBuild }).period;
+    return allowed ? { allowed: true } : { allowed: false, scope: 'none', resetsAt: null };
+  }
   const trialing = Boolean(status?.trialing);
   const limits = allowanceLimits(plan, { continuing, trialing });
-  const period = Number(status?.period_tokens) || 0;
   if (period >= limits.period) {
     const end = validDate(trialing ? status?.trial_end : status?.period_end)
       // No end stored (shouldn't happen for a live subscription): a month on.
@@ -115,10 +132,16 @@ export const formatWait = (date, now = Date.now()) => {
 };
 
 // The message shown when a request is refused by checkAllowance.
-// `trialEligible` = the account has never had a trial.
-export const limitMessage = (planId, check, now = Date.now(), { trialEligible = true } = {}) => {
+// `trialEligible` = the account has never had a trial; `freeBuildsUsed` =
+// it has used its free prompts (FREE_BUILDS).
+export const limitMessage = (planId, check, now = Date.now(), { trialEligible = true, freeBuildsUsed = false } = {}) => {
   const plan = planById(planId);
   if (check.scope === 'none') {
+    if (freeBuildsUsed) {
+      return trialEligible
+        ? `You've used your free prompts. Start your free ${TRIAL.days}-day trial to keep building. You won't be charged until it ends, and you can cancel anytime before then.`
+        : "You've used your free prompts. Subscribe to Plus or Pro to keep building.";
+    }
     return trialEligible
       ? `Start your free ${TRIAL.days}-day trial to build. You won't be charged until it ends, and you can cancel anytime before then.`
       : 'Subscribe to Plus or Pro to build.';

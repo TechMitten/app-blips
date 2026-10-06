@@ -10,7 +10,7 @@
 // were.
 import { serviceAccountConfigured, getDoc, runQuery, runTransaction, setWrite } from './firebaseServer.js';
 import { usageDocPath, emptyUsage, sumPeriodTokens, todayUtc } from './usageTracking.js';
-import { PLANS, PAID_PLAN_IDS, TRIAL, planById, planByLookupKey, checkAllowance, allowanceLimits } from './plans.js';
+import { PLANS, PAID_PLAN_IDS, TRIAL, FREE_BUILDS, planById, planByLookupKey, checkAllowance, allowanceLimits } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
 import { authorize, maintenanceOn } from './chatProxy.js';
@@ -47,24 +47,36 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 // usage/{uid}_{date} holds one account's counters for one UTC day;
 // subscriptions/{uid} mirrors their Stripe subscription; trial_cards/{fp}
 // records which subscription each card (by Stripe fingerprint) had its free
-// trial on. Clients can't read or write any of them (firestore.rules);
+// trial on; free_builds/{key} counts the free prompts an account with no
+// plan has used (FREE_BUILDS in plans.js), under the account id and under a
+// hash of each sign-in identity and the verified email (freeBuildPaths), so a
+// deleted and re-created account carries its count over. Kept apart from
+// subscriptions so webhook upserts never reset it, and not deleted with the
+// account. Clients can't read or write any of them (firestore.rules);
 // everything goes through here.
 
 const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 // The plan in effect and tokens used:
 // { plan, status, trialing, trial_end, trial_eligible, period_start,
-//   period_end, cancel_at_period_end, today_tokens, period_tokens }.
+//   period_end, cancel_at_period_end, today_tokens, period_tokens,
+//   free_builds_left, free_builds_used }.
 // plan is 'none' without a live subscription. null when the read fails, so
 // callers can decide how to degrade.
-export const fetchBillingStatus = async (env, uid) => {
+// `user` is the caller from authorize() (or just an id), for the free prompt
+// count.
+export const fetchBillingStatus = async (env, user) => {
+  const uid = typeof user === 'string' ? user : user.id;
   try {
     const today = todayUtc();
-    const [subDoc, usageDoc] = await Promise.all([
+    const freePaths = await freeBuildPaths(user);
+    const [subDoc, usageDoc, ...freeDocs] = await Promise.all([
       getDoc(env, `subscriptions/${uid}`),
       getDoc(env, usageDocPath(uid, today)),
+      ...freePaths.map((path) => getDoc(env, path)),
     ]);
     const sub = subDoc?.data || null;
+    const freeUsed = freeBuildsUsedIn(freeDocs);
     // past_due keeps the plan while Stripe retries the card; anything else
     // (canceled, unpaid, incomplete) means no plan.
     const paid = Boolean(sub && ACTIVE_STATUSES.includes(sub.status) && PAID_PLAN_IDS.includes(sub.plan));
@@ -91,6 +103,9 @@ export const fetchBillingStatus = async (env, uid) => {
       has_billing_account: Boolean(sub?.stripe_customer_id),
       today_tokens: todayTokens,
       period_tokens: earlier + todayTokens,
+      // An account that has had a trial or plan gets no free prompts.
+      free_builds_left: paid || sub?.trial_used || sub?.stripe_subscription_id ? 0 : Math.max(0, FREE_BUILDS.prompts - freeUsed),
+      free_builds_used: freeUsed >= FREE_BUILDS.prompts,
     };
   } catch (err) {
     console.error('[billing] status read failed:', err?.message || err);
@@ -148,20 +163,57 @@ export const reserveTokens = async (env, uid, { periodStart, limits, amount, kin
 // { refused: check } when the allowance is used up, otherwise { reservation }
 // to hand to wrapWithTokenTracking -- null when the reservation call failed,
 // which lets the request through like a failed status read does.
-export const holdAllowance = async (env, uid, status, { continuing = false, input, amount, kind }) => {
-  const check = checkAllowance(status, { continuing });
+export const holdAllowance = async (env, uid, status, { continuing = false, freeBuild = false, input, amount, kind }) => {
+  const check = checkAllowance(status, { continuing, freeBuild });
   if (!check.allowed) return { refused: check };
   const held = await reserveTokens(env, uid, {
     periodStart: status.period_start,
-    limits: allowanceLimits(status.plan, { continuing, trialing: Boolean(status.trialing) }),
+    limits: allowanceLimits(status.plan, { continuing, trialing: Boolean(status.trialing), freeBuild }),
     amount,
     kind,
   });
   if (held && !held.reserved) {
-    const over = checkAllowance({ ...status, ...held }, { continuing });
+    const over = checkAllowance({ ...status, ...held }, { continuing, freeBuild });
     if (!over.allowed) return { refused: over };
   }
   return { reservation: held?.reserved ? { date: held.date, tokens: amount, input } : null };
+};
+
+// The free_builds docs that count `user`'s free prompts: the account id, and
+// a SHA-256 of each provider identity and the verified email. Hashed so the
+// docs left behind by a deleted account don't hold its email or provider ids.
+const sha256Hex = async (text) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(text)))]
+  .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+const freeBuildPaths = async (user) => {
+  if (typeof user === 'string') return [`free_builds/${user}`];
+  const keys = [...(user.identities || []), ...(user.email ? [`email:${user.email.toLowerCase()}`] : [])];
+  const hashes = await Promise.all(keys.map((key) => sha256Hex(`appblips-free-builds:${key}`)));
+  return [`free_builds/${user.id}`, ...[...new Set(hashes)].map((hash) => `free_builds/id-${hash}`)];
+};
+// The person's count is the highest of their docs: each one records every
+// prompt claimed while it was among the caller's keys.
+const freeBuildsUsedIn = (docs) => Math.max(0, ...docs.map((doc) => Number(doc?.data?.used) || 0));
+
+// Uses one of the caller's free prompts (FREE_BUILDS), counted across all of
+// their free_builds docs. In a transaction, so prompts sent at the same moment
+// can't share the last one. False when they're used up or the write failed.
+export const claimFreeBuild = async (env, user) => {
+  try {
+    const paths = await freeBuildPaths(user);
+    return await runTransaction(env, async (tx) => {
+      const docs = await Promise.all(paths.map((path) => getDoc(env, path, { transaction: tx })));
+      const used = freeBuildsUsedIn(docs);
+      if (used >= FREE_BUILDS.prompts) return { writes: [], result: false };
+      const updatedAt = new Date();
+      return {
+        writes: paths.map((path) => setWrite(env, path, { used: used + 1, updated_at: updatedAt })),
+        result: true,
+      };
+    });
+  } catch (err) {
+    console.error('[billing] free prompt claim failed:', err?.message || err);
+    return false;
+  }
 };
 
 const subscriptionRow = async (env, uid) => (await getDoc(env, `subscriptions/${uid}`))?.data || null;
@@ -395,7 +447,7 @@ export async function handleBillingStatus(request, env) {
   const user = await authorize(request, env);
   if (!user) return json({ error: 'Sign in required.' }, 401);
   if (!billingAppliesTo(env, user)) return json({ enabled: false });
-  const status = await fetchBillingStatus(env, user.id);
+  const status = await fetchBillingStatus(env, user);
   if (!status) return json({ error: 'Billing is temporarily unavailable.' }, 503);
   const plan = planById(status.plan);
   const check = checkAllowance(status);
@@ -407,6 +459,8 @@ export async function handleBillingStatus(request, env) {
     trialEnd: status.trial_end,
     trialEligible: status.trial_eligible,
     trialRefused: Boolean(status.trial_refused),
+    freeBuildsLeft: status.free_builds_left,
+    freeBuildsUsed: Boolean(status.free_builds_used),
     hasBillingAccount: Boolean(status.has_billing_account),
     periodEnd: status.period_end,
     cancelAtPeriodEnd: Boolean(status.cancel_at_period_end),
