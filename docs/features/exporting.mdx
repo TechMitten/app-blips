@@ -1,0 +1,32 @@
+---
+title: "Export: File Download"
+sidebarTitle: "Exporting"
+description: "Download any AppBlips app as a standalone HTML file or a website as a ZIP."
+---
+
+When your app or website is ready, you can download it as a file you keep and host yourself. This produces something you can share with anyone.
+
+## Export to HTML or ZIP
+
+Click the **Export** button in the toolbar to download your project. Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
+
+Open the downloaded file directly in a browser, drag it onto a hosting service, or drop it into any static file host — it's ready to go immediately. (For `.zip` files, extract them first).
+
+<Tip>
+  For a free and instant way to share your exported app, try [Netlify Drop](https://app.netlify.com/drop): drag your HTML file onto the page and Netlify gives it a public URL in seconds. [GitHub Pages](https://pages.github.com/) and [Cloudflare Pages](https://pages.cloudflare.com/) are also free options if you want the file in a repository.
+</Tip>
+
+
+
+## The Exported File
+
+The downloaded project is fully self-contained: all styles, logic, and structure are bundled into the document(s) with no external dependencies on AppBlips. Once you have the exported `.html` or `.zip` file, it works on its own — open it, host it, or email it, and it runs the same way every time.
+
+If your app uses the **AI features** (the `blip.ai` API), how AI works outside AppBlips depends on where you built it:
+
+- **Relay mode (default):** the exported file calls your own AppBlips at its relay URL. It works from **Open in new tab**; a downloaded file opened elsewhere needs the setup in [Relay Mode](/ai/relay-mode#using-exported-files).
+- **BYOK mode:** the first time someone uses an AI feature, a **Connect your AI provider** dialog asks for their own endpoint, model, and key, stored only in that browser.
+
+<Warning>
+  AppBlips never bakes an API key into exported HTML. In every mode, the file contains at most a relay URL, never a provider key.
+</Warning>

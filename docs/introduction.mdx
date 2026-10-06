@@ -43,42 +43,17 @@ When you start a new project, you choose a studio: **App** (interactive single-f
   <Step title="A live sandboxed preview appears instantly">
     The moment generation completes, your app is running in a safe sandboxed preview right next to the prompt. Interact with it immediately — no deploy step required.
   </Step>
-  <Step title="Refine with follow-up prompts or export and deploy">
-    Type another prompt to tweak any detail. Every change is saved as a version you can undo. When you are happy, export your project (as a single HTML file or a ZIP of pages) or deploy it to a public URL.
+  <Step title="Refine with follow-up prompts or export">
+    Type another prompt to tweak any detail. Every change is saved as a version you can undo. When you are happy, export your project as a single HTML file or a ZIP of pages.
   </Step>
 </Steps>
 
-## Hosted vs Desktop App
+## Running AppBlips
 
-<Tabs>
-  <Tab title="Hosted (appblips.com)">
-    The hosted service is the fastest way to start. Sign in at [appblips.com](https://appblips.com) and you are ready to build immediately — nothing to install, no API key to supply.
+You can run AppBlips in two ways:
 
-    **Key facts:**
-    - No installation or configuration required
-    - Projects are saved to your account and sync across devices
-    - Any app can be deployed to its own public URL and installed as a PWA
-    - Deployed apps can be password-protected
-    - AI-powered app features are powered by the platform — you don't need a separate API key
-
-    **Best for:** anyone who wants the simplest possible experience and access to full deploy features.
-  </Tab>
-  <Tab title="Desktop App">
-    The desktop app is your own copy of AppBlips, installed on your computer for your own use. There is no account and no cloud sync. You bring your own API key.
-
-    **Key facts:**
-    - Download and install on Windows or Linux; no terminal or configuration files
-    - No account or sign-in required
-    - Projects are saved as folders on your computer, which you can back up or move
-    - Works with OpenAI, OpenRouter (Claude, Gemini, and more), DeepSeek, or Z.ai (pay-as-you-go or Coding Plan); your key is encrypted with your system keychain
-    - No deploy-to-public-URL feature; export to HTML is always available
-    - Open source under the MIT License
-
-    **Best for:** people who want to use their own AI provider and keep everything on their own computer.
-
-    On macOS, or want to change AppBlips itself? [Run it from source](/quickstart-self-hosted) with Node.js, or use [Docker](/self-hosting/docker).
-  </Tab>
-</Tabs>
+1. **Desktop App:** The easiest way. Download and install on Windows or Linux. There is no account and no cloud sync. Projects are saved as folders on your computer, and you bring your own AI provider API key. 
+2. **From Source or Docker:** For macOS, servers, or to change AppBlips itself. It runs as a single-user install and saves projects locally.
 
 ## Key Features
 
@@ -97,9 +72,6 @@ When you start a new project, you choose a studio: **App** (interactive single-f
   </Card>
   <Card title="Export to HTML or ZIP" icon="file-code">
     Download any generated app as a single self-contained HTML file, or a multi-page website as a ZIP of pages. No build step and no server needed — host or share it anywhere.
-  </Card>
-  <Card title="Deploy as PWA" icon="rocket">
-    On the hosted service, publish any app to its own public URL. Visitors can install it as a Progressive Web App directly from their browser.
   </Card>
 </CardGroup>
 

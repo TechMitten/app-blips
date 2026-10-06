@@ -27,7 +27,7 @@
               "features/building-apps",
               "features/live-preview",
               "features/editing-apps",
-              "features/exporting-deploying"
+              "features/exporting"
             ]
           },
           {
@@ -72,7 +72,7 @@
       "href": "https://appblips.com"
     }
   },
-  "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export, deploy, or self-host.",
+  "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export or self-host.",
   "logo": {
     "light": "/logo-light.png",
     "dark": "/logo-dark.png"

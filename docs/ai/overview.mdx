@@ -39,9 +39,7 @@ Describe what the user does, when the AI should respond, and what the response s
 
 ## Where the AI Comes From
 
-On [appblips.com](https://appblips.com), AI in your apps is provided by the platform. There is nothing to set up and no key to enter, in the preview or in apps you deploy.
-
-In a self-hosted copy, you choose between two modes:
+You choose between two modes:
 
 <CardGroup cols={2}>
   <Card title="Relay mode (default)" icon="server" href="/ai/relay-mode">
@@ -54,15 +52,15 @@ In a self-hosted copy, you choose between two modes:
 
 ## Accessing AI in the Preview
 
-The live preview supports `blip.ai.text()` in real time — you can test your AI feature before exporting or sharing anything. On appblips.com and in self-hosted relay mode, AI calls just work: no dialog appears and no key is needed.
+The live preview supports `blip.ai.text()` in real time — you can test your AI feature before exporting or sharing anything. In relay mode, AI calls just work: no dialog appears and no key is needed.
 
 <Info>
-  In self-hosted BYOK mode, the first AI call opens a **Connect your AI provider** dialog right inside the preview. Enter your endpoint, model, and API key, and later calls in that session use those credentials automatically.
+  In BYOK mode, the first AI call opens a **Connect your AI provider** dialog right inside the preview. Enter your endpoint, model, and API key, and later calls in that session use those credentials automatically.
 </Info>
 
 ## Exporting AI-Enabled Apps
 
-On appblips.com, AI-enabled apps get their AI access when you [deploy](/features/exporting-deploying) them. In a self-hosted copy, the AI bridge is added to exported HTML automatically, and its behavior depends on the mode:
+The AI bridge is added to exported HTML automatically, and its behavior depends on the mode:
 
 - **Relay mode:** The exported HTML embeds your AppBlips relay URL (`/api/app-ai/chat` by default) but not the provider key, which stays in your `.env`. **Open in new tab** works as is. A downloaded file opened from somewhere else needs its origin allowed; see [Relay Mode](/ai/relay-mode#using-exported-files).
 - **BYOK mode:** The exported HTML contains no credentials. Anyone who opens the file sees the **Connect your AI provider** dialog on their first AI call and supplies their own key.
