@@ -5,19 +5,19 @@ import { describeConfig, formatConfigSummary } from '../functions/_lib/configSum
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { installFirebaseFake, signIdToken, PROJECT_ID } from './firebaseFake.js';
 
-const builderEnv = { OPENAI_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5' };
+const builderEnv = { OPENAI_API_KEY: 'ds-key', OPENAI_LLM_MODEL: 'deepseek-v4-pro' };
 const multiUserEnv = { FIREBASE_PROJECT_ID: PROJECT_ID };
 const quiet = { quiet: true };
 
 // --- Builder provider ---------------------------------------------------------
 
-test('the builder uses the OpenRouter key, endpoint and model', () => {
+test('the builder uses the DeepSeek key, endpoint and model', () => {
   const app = resolveProvider(builderEnv, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.id, 'openrouter');
-  assert.equal(app.apiKey, 'or-key');
-  assert.equal(app.baseUrl, 'https://openrouter.ai/api/v1');
-  assert.equal(app.model, 'anthropic/claude-sonnet-5');
-  assert.equal(app.reasoningParam, 'reasoning');
+  assert.equal(app.id, 'deepseek');
+  assert.equal(app.apiKey, 'ds-key');
+  assert.equal(app.baseUrl, 'https://api.deepseek.com');
+  assert.equal(app.model, 'deepseek-v4-pro');
+  assert.equal(app.reasoningParam, 'reasoning_effort');
   assert.deepEqual(app.missing, []);
 });
 
@@ -26,43 +26,10 @@ test('no provider key is a configuration error', () => {
 });
 
 test('a missing model names the model variable', () => {
-  const app = resolveProvider({ APPBLIPS_OPENAI_API_KEY: 'k' }, 'APPBLIPS_LLM', quiet);
+  const app = resolveProvider({ OPENAI_API_KEY: 'k' }, 'APPBLIPS_LLM', quiet);
   assert.deepEqual(app.missing, ['OPENAI_LLM_MODEL']);
 });
 
-// --- Pre-rename APPBLIPS_LLM_* names ----------------------------------------
-
-test('the old APPBLIPS_LLM_* names still configure the builder', () => {
-  const app = resolveProvider({
-    APPBLIPS_LLM_PROVIDER: 'openrouter', APPBLIPS_LLM_API_KEY: 'old-key', APPBLIPS_LLM_MODEL: 'old/model',
-  }, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.id, 'openrouter');
-  assert.equal(app.apiKey, 'old-key');
-  assert.equal(app.model, 'old/model');
-  assert.deepEqual(app.missing, []);
-});
-
-test('a new OPENAI_* name wins over its old APPBLIPS_LLM_* name', () => {
-  const app = resolveProvider({
-    OPENAI_LLM_PROVIDER: 'openrouter', APPBLIPS_LLM_PROVIDER: 'zai',
-    OPENAI_API_KEY: 'new', APPBLIPS_LLM_API_KEY: 'old',
-    OPENAI_LLM_MODEL: 'new-model', APPBLIPS_LLM_MODEL: 'old-model',
-  }, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.id, 'openrouter');
-  assert.equal(app.apiKey, 'new');
-  assert.equal(app.model, 'new-model');
-});
-
-test('OPENAI_API_KEY wins over APPBLIPS_OPENROUTER_API_KEY', () => {
-  const app = resolveProvider({ OPENAI_API_KEY: 'k', APPBLIPS_OPENROUTER_API_KEY: 'or', OPENAI_LLM_MODEL: 'm' }, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.apiKey, 'k');
-  assert.equal(app.baseUrl, 'https://openrouter.ai/api/v1');
-});
-
-test('summary lists old APPBLIPS_LLM_* names to rename', () => {
-  const lines = describeConfig({ ...builderEnv, APPBLIPS_LLM_TEMPERATURE: '0.2' });
-  assert.ok(lines.some((l) => l.level === 'warn' && /APPBLIPS_LLM_TEMPERATURE -> OPENAI_LLM_TEMPERATURE/.test(l.text)));
-});
 
 // --- Startup summary --------------------------------------------------------
 
@@ -75,7 +42,7 @@ test('summary never contains secret values', () => {
     FIREBASE_SERVICE_ACCOUNT: '{"client_email":"x@y","private_key":"service-secret"}',
     R2_SECRET_ACCESS_KEY: 'r2-secret',
   });
-  for (const secret of ['or-key', 'service-secret', 'r2-secret']) assert.ok(!text.includes(secret), secret);
+  for (const secret of ['ds-key', 'service-secret', 'r2-secret']) assert.ok(!text.includes(secret), secret);
 });
 
 test('multi-user summary explains an empty configuration', () => {

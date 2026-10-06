@@ -1,5 +1,6 @@
 import { isDesktop } from './desktop.js';
 import { USER_PROVIDER_IDS } from '../../functions/_lib/providers.js';
+import { firebaseEnabled } from '../firebase.js';
 
 // There is no way to hide a key from the machine that types it in a
 // backend-less SPA. What the sandboxed preview frame buys us is the part that
@@ -414,7 +415,7 @@ export const saveUserProvider = ({ enabled, id, model, apiKey, remember }) => {
 // The desktop app keeps the provider in the main process (Settings → AI writes
 // it there) and attaches it to /api/chat itself, so the renderer sends none.
 export const activeUserProvider = () => {
-  if (isDesktop) return null;
+  if (isDesktop || firebaseEnabled) return null;
   const cfg = loadUserProvider();
   if (!cfg?.enabled || !cfg.id || !cfg.model.trim() || !cfg.apiKey.trim()) return null;
   // A provider saved before it was dropped from the list would be refused by

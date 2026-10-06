@@ -38,15 +38,15 @@ async function captureRequest(t, payload, settings = {}) {
   return upstreamBody;
 }
 
-// OpenRouter is the only provider: reasoning always goes in its `reasoning`
+// DeepSeek is the only provider: reasoning always goes in its `reasoning`
 // object, and forced tool choices are passed through unchanged.
 for (const effort of ['low', 'medium', 'high']) {
   for (const choice of ['required', namedChoice]) {
     test(`reasoning ${effort} keeps ${JSON.stringify(choice)} and drops temperature`, async (t) => {
       const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true, reasoning_effort: effort, temperature: 0 });
       assert.deepEqual(body.tool_choice, choice);
-      assert.deepEqual(body.reasoning, { effort });
-      assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+      assert.deepEqual(body.thinking, { type: 'enabled' });
+      assert.equal(body.reasoning_effort, effort);
       assert.equal(Object.hasOwn(body, 'temperature'), false);
       assert.deepEqual(body.tools, [editTool]);
       assert.equal(body.stream, true);
@@ -58,7 +58,8 @@ for (const effort of [undefined, false, 'none', 'off', 'disabled']) {
   test(`disabled reasoning ${effort} sends effort none and keeps forced tools`, async (t) => {
     const body = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice, reasoning_effort: effort });
     assert.deepEqual(body.tool_choice, namedChoice);
-    assert.deepEqual(body.reasoning, { effort: 'none' });
+    assert.deepEqual(body.thinking, { type: 'disabled' });
+    assert.equal(body.reasoning_effort, undefined);
   });
 }
 
@@ -71,7 +72,8 @@ for (const choice of ['auto', 'none', undefined]) {
 
 test('initial generation keeps reasoning without adding tool choice', async (t) => {
   const body = await captureRequest(t, { stream: true, reasoning_effort: 'high' });
-  assert.deepEqual(body.reasoning, { effort: 'high' });
+  assert.deepEqual(body.thinking, { type: 'enabled' });
+  assert.equal(body.reasoning_effort, 'high');
   assert.equal(Object.hasOwn(body, 'tool_choice'), false);
   assert.equal(Object.hasOwn(body, 'tools'), false);
 });
@@ -83,7 +85,7 @@ test('streaming requests ask for usage', async (t) => {
   assert.deepEqual(body.stream_options, { include_usage: true });
 });
 
-test('OpenRouter is the default endpoint when no base URL is set', async (t) => {
+test('DeepSeek is the default endpoint when no base URL is set', async (t) => {
   let calledUrl;
   t.mock.method(globalThis, 'fetch', async (url) => {
     calledUrl = url;
@@ -92,9 +94,9 @@ test('OpenRouter is the default endpoint when no base URL is set', async (t) => 
   const response = await handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], stream: true }),
-  }), { ...env, OPENAI_BASE_URL: '', OPENAI_LLM_PROVIDER: 'openrouter' });
+  }), { ...env, OPENAI_BASE_URL: '', OPENAI_LLM_PROVIDER: 'deepseek' });
   assert.equal(response.status, 200);
-  assert.equal(calledUrl, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(calledUrl, 'https://api.deepseek.com/chat/completions');
 });
 
 for (const removed of ['nope', 'zai', 'openai']) {
@@ -131,24 +133,26 @@ test('a provider becomes active once its API key is filled in', async (t) => {
     OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5',
   }, { reasoning_effort: 'low' });
   assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(upstream.headers.Authorization, 'Bearer or-key');
   assert.equal(upstream.body.model, 'anthropic/claude-sonnet-5');
-  assert.deepEqual(upstream.body.reasoning, { effort: 'low' });
+  assert.deepEqual(upstream.body.thinking, { type: 'enabled' });
+  assert.equal(upstream.body.reasoning_effort, 'low');
 });
 
-// The production setup: the key lives in APPBLIPS_OPENROUTER_API_KEY.
-test('APPBLIPS_OPENROUTER_API_KEY configures OpenRouter', async (t) => {
+// The production setup: the key lives in OPENAI_API_KEY.
+test('OPENAI_API_KEY configures DeepSeek', async (t) => {
   const { response, upstream } = await runWith(t, {
-    OPENAI_LLM_PROVIDER: 'openrouter',
-    APPBLIPS_OPENROUTER_API_KEY: 'or-env-key',
-    OPENAI_LLM_MODEL: 'deepseek/deepseek-v4-flash',
+    OPENAI_LLM_PROVIDER: 'deepseek',
+    OPENAI_API_KEY: 'or-env-key',
+    OPENAI_LLM_MODEL: 'deepseek-v4-flash',
   });
   assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(upstream.headers.Authorization, 'Bearer or-env-key');
-  assert.equal(upstream.body.model, 'deepseek/deepseek-v4-flash');
-  assert.deepEqual(upstream.body.reasoning, { effort: 'none' });
+  assert.equal(upstream.body.model, 'deepseek-v4-flash');
+  assert.deepEqual(upstream.body.thinking, { type: 'disabled' });
+  assert.equal(upstream.body.reasoning_effort, undefined);
 });
 
 test('the plain OPENAI_* variables work as the generic provider', async (t) => {
@@ -161,30 +165,27 @@ test('the plain OPENAI_* variables work as the generic provider', async (t) => {
   assert.equal(upstream.body.model, 'm');
 });
 
-test('max tokens and temperature come from OPENAI_LLM_*, falling back to APPBLIPS_LLM_*', async (t) => {
+test('max tokens and temperature come from OPENAI_LLM_*', async (t) => {
   const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
   const fresh = await runWith(t, { ...base, OPENAI_LLM_MAX_TOKENS: '64000', OPENAI_LLM_TEMPERATURE: '0.5' });
   assert.equal(fresh.upstream.body.max_tokens, 64000);
   assert.equal(fresh.upstream.body.temperature, 0.5);
-  const legacy = await runWith(t, { ...base, APPBLIPS_LLM_MAX_TOKENS: '1000', APPBLIPS_LLM_TEMPERATURE: '0.7' });
-  assert.equal(legacy.upstream.body.max_tokens, 1000);
-  assert.equal(legacy.upstream.body.temperature, 0.7);
   const ask = await runWith(t, { ...base, OPENAI_LLM_ASK_MAX_TOKENS: '2000' }, { ask: true });
   assert.equal(ask.upstream.body.max_tokens, 2000);
 });
 
 test('the plain variables are a fallback for a named provider', async (t) => {
   const { upstream } = await runWith(t, {
-    OPENAI_LLM_PROVIDER: 'openrouter',
+    OPENAI_LLM_PROVIDER: 'deepseek',
     OPENAI_API_KEY: 'k',
     OPENAI_LLM_MODEL: 'm',
   });
-  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(upstream.headers.Authorization, 'Bearer k');
 });
 
 test('no filled-in provider is a clear configuration error', async (t) => {
-  const { response } = await runWith(t, { APPBLIPS_OPENROUTER_API_KEY: '', OPENAI_LLM_MODEL: 'gpt-x' });
+  const { response } = await runWith(t, { OPENAI_API_KEY: '', OPENAI_LLM_MODEL: 'gpt-x' });
   assert.equal(response.status, 500);
   assert.match((await response.json()).error, /No AI provider is configured/);
 });
@@ -197,22 +198,23 @@ test('a provider with a key but no model names the missing variable', async (t) 
 
 // --- User-supplied provider (Settings → AI) --------------------------------
 
-const userProvider = { id: 'openrouter', apiKey: 'user-key', model: 'user/model' };
+const userProvider = { id: 'deepseek', apiKey: 'user-key', model: 'user/model' };
 
 test('a user provider works with no provider in the env', async (t) => {
   const { response, upstream } = await runWith(t, {}, { user_provider: userProvider, reasoning_effort: 'low' });
   assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(upstream.headers.Authorization, 'Bearer user-key');
   assert.equal(upstream.body.model, 'user/model');
-  assert.deepEqual(upstream.body.reasoning, { effort: 'low' });
+  assert.deepEqual(upstream.body.thinking, { type: 'enabled' });
+  assert.equal(upstream.body.reasoning_effort, 'low');
   assert.equal(Object.hasOwn(upstream.body, 'user_provider'), false);
 });
 
 test('a user provider wins over the env provider; without one the env is used', async (t) => {
-  const envProvider = { APPBLIPS_OPENROUTER_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
+  const envProvider = { OPENAI_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
   const withUser = await runWith(t, envProvider, { user_provider: userProvider });
-  assert.equal(withUser.upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(withUser.upstream.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(withUser.upstream.headers.Authorization, 'Bearer user-key');
   t.mock.restoreAll();
   const withoutUser = await runWith(t, envProvider);
@@ -234,7 +236,7 @@ test('a provider rejecting the user key is not reported as a 401', async (t) => 
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: userProvider }),
   }), noLlmEnv);
   assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /OpenRouter rejected the API key/);
+  assert.match((await response.json()).error, /DeepSeek rejected the API key/);
 });
 
 test('multi-user mode still requires sign-in and validates user_provider', async (t) => {
@@ -253,7 +255,7 @@ test('multi-user mode still requires sign-in and validates user_provider', async
   assert.equal((await send({ user_provider: userProvider }, { authorization: 'Bearer not-a-token' })).status, 401);
   assert.equal((await send({ user_provider: userProvider }, { authorization: `Bearer ${await signIdToken('user-1', { key: 'other' })}` })).status, 401);
   const auth = { authorization: `Bearer ${await signIdToken('user-1')}` };
-  assert.equal((await send({ user_provider: 'openrouter' }, auth)).status, 400);
+  assert.equal((await send({ user_provider: 'deepseek' }, auth)).status, 400);
   assert.equal((await send({ user_provider: { ...userProvider, apiKey: 5 } }, auth)).status, 400);
   assert.equal((await send({ user_provider: userProvider }, auth)).status, 200);
 });
@@ -334,7 +336,7 @@ test('maintenance mode refuses every request before calling the provider', async
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
     throw new Error('provider must not be called');
   });
-  for (const payload of [{}, { ask: true }, { user_provider: { id: 'openrouter', apiKey: 'k', model: 'm' } }]) {
+  for (const payload of [{}, { ask: true }, { user_provider: { id: 'deepseek', apiKey: 'k', model: 'm' } }]) {
     const response = await handleChatProxy(new Request('https://app.example/api/chat', {
       method: 'POST',
       body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),

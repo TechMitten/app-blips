@@ -2,18 +2,18 @@
 // We only use OpenRouter. The variables follow OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
-  openrouter: {
-    label: 'OpenRouter',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    reasoningParam: 'reasoning',
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    reasoningParam: 'reasoning_effort',
   },
 };
 
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
 
 // The plain APPBLIPS_LLM_* variables: any OpenAI-compatible endpoint.
-export const DEFAULT_PROVIDER = 'openrouter';
-export const PROVIDER_IDS = ['openrouter'];
+export const DEFAULT_PROVIDER = 'deepseek';
+export const PROVIDER_IDS = ['deepseek'];
 
 const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 
@@ -34,22 +34,12 @@ export const LLM_ENV = {
   ASK_MAX_TOKENS: 'OPENAI_LLM_ASK_MAX_TOKENS',
   // Optional per-role models on the same provider (chatProxy.js routeModel).
   VISION_MODEL: 'OPENAI_LLM_VISION_MODEL',
-  ASK_MODEL: 'OPENAI_LLM_ASK_MODEL',
   TEMPERATURE: 'OPENAI_LLM_TEMPERATURE',
 };
 export const llmEnv = (env, name) => {
-  let val = read(env, LLM_ENV[name]) || read(env, `APPBLIPS_LLM_${name}`);
-  if (!val && name === 'API_KEY') {
-    val = read(env, 'APPBLIPS_OPENROUTER_API_KEY') ||
-          read(env, 'APPBLIPS_OPENAI_API_KEY') ||
-          read(env, 'APPBLIPS_DEEPSEEK_API_KEY') ||
-          read(env, 'APPBLIPS_ZAI_API_KEY');
-  }
-  return val;
+  return read(env, LLM_ENV[name]);
 };
-export const renamedLlmVars = (env) => Object.keys(LLM_ENV)
-  .filter((name) => read(env, `APPBLIPS_LLM_${name}`))
-  .map((name) => ({ from: `APPBLIPS_LLM_${name}`, to: LLM_ENV[name] }));
+export const renamedLlmVars = (env) => [];
 
 // Variable-name scope for a provider id: APPBLIPS_ZAI, APPBLIPS_ZAI_CODING.
 // Hyphens in ids become underscores, since they aren't valid in env names.
@@ -95,7 +85,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
       ? generic('API_KEY')
       : read(env, varNames(candidate, prefix).own.apiKey)));
     if (!configured.length) {
-      const example = varNames('openrouter', prefix).own.apiKey;
+      const example = varNames('deepseek', prefix).own.apiKey;
       return { unconfigured: true, error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${varNames(DEFAULT_PROVIDER, prefix).own.model}, then restart.` };
     }
     id = configured[0];
@@ -132,7 +122,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 // Presets only: the endpoint and request format come from the preset, never
 // from the user, because OpenAI-compatible APIs still differ in what they
 // accept (see the capability flags above).
-export const USER_PROVIDER_IDS = ['openrouter'];
+export const USER_PROVIDER_IDS = ['deepseek'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({ id, label: PROVIDERS[id].label }));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 
@@ -186,13 +176,13 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
   
-  // OpenRouter's reasoning object. 'none' is sent explicitly when off: models
-  // that reason by default (DeepSeek, GPT-5) keep thinking if it is left out.
-  bodyObj.reasoning = { effort: off ? 'none' : raw };
+  // DeepSeek reasoning parameters
+  bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
+  if (!off) bodyObj.reasoning_effort = raw;
 
   const reasoningEnabled = !off;
 
-  // Thinking models (like DeepSeek R1) often get stuck in endless reasoning loops
+  // Thinking models often get stuck in endless reasoning loops
   // if temperature is forced to 0 (which the proxy does for syntax repairs).
   if (reasoningEnabled) delete bodyObj.temperature;
 
