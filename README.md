@@ -46,7 +46,7 @@ Under the hood, AppBlips is a React app that sends your build prompt to an AI mo
 AppBlips is self-hosted. You can run it:
 
 - **Desktop app** (Windows and Linux) — your own copy, installed on your computer and powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move.
-- **From source or Docker** — for macOS, servers, or to change AppBlips itself. A single-user install by default; configure a Supabase project to add sign-in, cloud project sync and public deploys.
+- **From source or Docker** — for macOS, servers, or to change AppBlips itself. It runs as a single-user install and saves projects locally.
 
 See [Quick start](#quick-start) below to pick one.
 
@@ -62,7 +62,7 @@ See [Quick start](#quick-start) below to pick one.
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
-- **Deploy to a public URL** — publish an app or website to its own link (needs a configured Supabase project), installable as a PWA and optionally password-protected
+
 
 ## Documentation
 
@@ -156,8 +156,7 @@ Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, e
 | Generated-app AI mode | `APPBLIPS_GENERATED_AI_MODE`, `APPBLIPS_APP_AI_RELAY_URL` | The default `relay` sends app AI through your builder provider; `byok` makes each person use their own keys. |
 | Generated-app AI limits (optional) | `APPBLIPS_APP_AI_MAX_TOKENS`, `APPBLIPS_APP_AI_TEMPERATURE`, `APPBLIPS_APP_AI_REASONING_EFFORT` | AI in generated apps always uses the builder's provider, key and model unless BYOK is enabled. |
 | Generated-app relay controls | `APPBLIPS_APP_AI_ALLOWED_ORIGINS` | Exact cross-origin allowlist for app AI requests. |
-| Deployed-app AI sessions | `APPBLIPS_SESSION_SECRET`, `APPBLIPS_AI_SESSION_TTL_SECONDS`, `APPBLIPS_AI_REQUIRE_SESSION`, `APPBLIPS_AI_REQUIRE_ORIGIN`, `TURNSTILE_SECRET`, `VITE_AI_SESSION_ENABLED` | Security and session settings for AI-enabled deployed apps. |
-| Multi-user (Supabase) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_APPS_ORIGIN` | Optional. Configure a Supabase project to turn on sign-in, cloud projects and public deploys. Apply the migrations in `supabase/migrations/`. |
+
 
 > **Note:** AppBlips run from source is meant for your own computer. `/api/chat` performs no authentication — every request is treated as the same local user — so keep it on localhost. It refuses browser requests from other websites, but if you expose it on a network, anyone who can reach it can spend your configured AI budget. The desktop app opens no network port at all.
 
@@ -171,7 +170,7 @@ Your settings live in the `.env` file. With `APPBLIPS_GENERATED_AI_MODE=byok`, e
 | `npm run preview` | Preview the production build locally |
 | `npm run desktop` | Build the client and open it in the desktop app (`npm run desktop:start` reopens without rebuilding) |
 | `npm run desktop:dist` | Build desktop installers into `dist-desktop/` for the current OS (Windows: NSIS `.exe`; Linux: AppImage and `.deb`) |
-| `npm run usage` | Usage dashboard (multi-user only; needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set) |
+
 
 There's no automated test suite wired to `npm test`. The `testing/` directory holds standalone scripts run directly with Node (for example `node testing/testChatProxy.js`, `node testing/test-ai-relay.js`, and `node testing/test-preview.js`).
 
@@ -181,14 +180,12 @@ There's no automated test suite wired to `npm test`. The `testing/` directory ho
 src/
   App.jsx            # Workspace/generation state, undo-redo, composition root
   previewBridge.js   # Script injected into generated apps to bridge the sandboxed iframe
-  supabase.js        # Single Supabase client init point (no-op unless Supabase is configured)
   lib/               # Framework-free logic: LLM calls, surgical edits, prompts, deploy, crypto...
   hooks/             # Stateful concerns: auth, projects, deployment, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 functions/           # /api/chat proxy and AI relays, plus the Cloudflare Pages Functions that serve deployed apps
 server.js            # Standalone Node server used by the Docker setup
 electron/            # Desktop app: main process, preload, on-disk project store, encrypted provider settings
-scripts/             # Maintainer tooling for the multi-user deploy (usage dashboard)
 testing/            # Standalone Node scripts for exercising the proxy, AI relay and preview
 ```
 

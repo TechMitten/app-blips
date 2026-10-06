@@ -7,10 +7,7 @@ compatibility_date = "2024-11-01"
 
 # Public values (safe to commit). Fill in your real model name.
 [vars]
-SUPABASE_URL = "https://<your-project-id>.supabase.co"
-SUPABASE_PUBLISHABLE_KEY = "sb_publishable_<your-key>"
 OPENAI_LLM_MODEL = "deepseek/deepseek-v4-pro"
 
 # Secrets (run these once, they're stored encrypted by Cloudflare):
 #   npx wrangler secret put APPBLIPS_OPENROUTER_API_KEY
-#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
