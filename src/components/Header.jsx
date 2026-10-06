@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid, Sparkles
+  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid, Sparkles, Power
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
+import { isDesktop, desktopBridge } from '../lib/desktop';
 
 
 
@@ -342,6 +343,17 @@ export default function Header({
           >
             <DoorOpen size={16} />
           </button>
+          
+          {isDesktop && (
+            <button
+              onClick={() => desktopBridge.app.quit()}
+              className="nav-btn nav-ghost nav-btn-icon"
+              data-tip="Quit AppBlips"
+              aria-label="Quit AppBlips"
+            >
+              <Power size={16} />
+            </button>
+          )}
         </div>
       </nav>
 
@@ -521,6 +533,17 @@ export default function Header({
                 <DoorOpen size={16} />
                 <span>Exit</span>
               </button>
+              {isDesktop && (
+                <button
+                  type="button"
+                  aria-label="Quit AppBlips"
+                  onClick={() => desktopBridge.app.quit()}
+                  className="mobile-menu-item text-red-400 hover:text-red-300"
+                >
+                  <Power size={16} />
+                  <span>Quit App</span>
+                </button>
+              )}
           </div>
           </div>, document.body
         )}

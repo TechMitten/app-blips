@@ -16,6 +16,9 @@ if (window.location.protocol === 'appblips:') {
       save: call('desktop:projects:save'),
       delete: call('desktop:projects:delete'),
     },
+    app: {
+      quit: call('desktop:app:quit'),
+    },
     appData: {
       save: call('desktop:appData:save'),
     },

@@ -306,6 +306,8 @@ function registerIpc() {
     await writeSettings({ projectsRoot: projectStore.root });
     return { changed: true, root: projectStore.root, moved };
   });
+
+  handle('desktop:app:quit', () => app.quit());
 }
 
 // ---- Windows & navigation -------------------------------------------------------
