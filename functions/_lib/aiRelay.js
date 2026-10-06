@@ -45,7 +45,7 @@ const runDeploymentQuery = async (fieldPath, value, env) => {
   const column = columns[fieldPath];
   if (!column) throw new Error('invalid deployment lookup');
   const response = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?${column}=eq.${encodeURIComponent(value)}&limit=1`, {
-    headers: supabaseHeaders(env),
+    headers: supabaseHeaders(env, { service: true }),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');

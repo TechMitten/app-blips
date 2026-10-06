@@ -29,7 +29,7 @@ export default function useAnalytics({ isSignedIn, user }) {
     setError(null);
     try {
       const { data, error: queryError } = await supabase.from('deployments')
-        .select('*').eq('analytics_enabled', true).not('analytics_website_id', 'is', null);
+        .select('slug, name, analytics_enabled, analytics_website_id, updated_at').eq('analytics_enabled', true).not('analytics_website_id', 'is', null);
       if (queryError) throw queryError;
       const apps = (data || []).map((row) => ({
         ...row,
