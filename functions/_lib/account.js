@@ -65,6 +65,8 @@ export async function handleAccountDelete(request, env) {
     return json({ deleted: true });
   } catch (err) {
     console.error(`[account] delete failed at "${step}":`, err?.message || err);
-    return json({ error: `Could not delete the account (failed at: ${step}). Please try again.` }, 502);
+    // 500, not 502: Cloudflare swaps a 502 for its own HTML error page, which
+    // would hide this message.
+    return json({ error: `Could not delete the account (failed at: ${step}). Please try again.` }, 500);
   }
 }
