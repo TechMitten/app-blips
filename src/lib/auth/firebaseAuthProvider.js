@@ -119,8 +119,15 @@ const deleteAccount = async () => {
     method: 'POST',
     headers: { authorization: `Bearer ${await getIdToken(true)}` },
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Could not delete your account.');
+  const text = await res.text().catch(() => '');
+  let body = {};
+  try { body = JSON.parse(text); } catch { /* non-JSON, e.g. an HTML 5xx from the host */ }
+  if (!res.ok) {
+    // A non-JSON failure means the request never reached our handler's own
+    // error paths, so keep the status and body for diagnosis.
+    if (!body.error) console.error('[account] delete failed:', res.status, text.slice(0, 500));
+    throw new Error(body.error || `Could not delete your account (HTTP ${res.status}).`);
+  }
   await firebaseSignOut(auth).catch(() => {});
 };
 

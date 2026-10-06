@@ -33,16 +33,22 @@ export async function handleAccountDelete(request, env) {
     return json({ error: 'Please sign in again to delete your account.', code: 'reauth' }, 403);
   }
   const uid = user.id;
+  // Names the step that threw, so a failure is diagnosable from the response.
+  let step = 'start';
   try {
+    step = 'cancel subscription';
     await cancelSubscriptionFor(env, uid);
+    step = 'remove deployments';
     await removeAllDeploymentsFor(env, uid);
 
+    step = 'list projects';
     const projects = await ownedDocs(env, 'projects', uid);
     const chunkPaths = [];
     for (const project of projects) {
       const chunks = await runQuery(env, 'chunks', { parent: project, where: [['user_id', '==', uid]], select: ['user_id'] });
       chunkPaths.push(...chunks.map((chunk) => `${project}/chunks/${chunk.id}`));
     }
+    step = 'list usage and analytics';
     const docs = [
       ...chunkPaths,
       ...projects,
@@ -51,12 +57,14 @@ export async function handleAccountDelete(request, env) {
       `subscriptions/${uid}`,
       `users/${uid}`,
     ];
+    step = 'delete documents';
     await commitAll(env, docs.map((path) => deleteWrite(env, path)));
 
+    step = 'delete auth user';
     await deleteAuthUser(env, uid);
     return json({ deleted: true });
   } catch (err) {
-    console.error('[account] delete failed:', err?.message || err);
-    return json({ error: 'Could not delete the account. Please try again.' }, 502);
+    console.error(`[account] delete failed at "${step}":`, err?.message || err);
+    return json({ error: `Could not delete the account (failed at: ${step}). Please try again.` }, 502);
   }
 }

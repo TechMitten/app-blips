@@ -284,8 +284,6 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
   const shown = view.lines.length > capacity ? view.lines.slice(-capacity) : view.lines;
   const shownStart = view.start + view.lines.length - shown.length;
   const scrolledOff = shownStart > 0;
-  const progressLine = Math.min(19, Math.max(1, shownStart + shown.length));
-  const progressTotal = Math.max(19, view.start + view.lines.length);
   // Keep the visible panel anchored to the newest thought. Without this, the
   // intentionally compact preview shows the beginning of a long reasoning
   // stream and then appears to stop while the text continues arriving.
@@ -386,8 +384,6 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
           <i /><i /><i /><i /><i /><i /><i /><i />
         </span>
         <span className="live-code-peek-footer-label">Writing code...</span>
-        <span className="live-code-peek-progress-count">{progressLine} / {progressTotal}</span>
-        <span className="live-code-peek-progress" aria-hidden="true"><span /></span>
       </div>
     </div>
   );

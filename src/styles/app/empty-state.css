@@ -893,9 +893,6 @@
 .live-code-peek-activity i:nth-child(8) { transform: translate(-7px, -7px); opacity: .25; }
 
 .live-code-peek-footer-label { white-space: nowrap; }
-.live-code-peek-progress-count { margin-left: auto; white-space: nowrap; }
-.live-code-peek-progress { display: block; width: clamp(70px, 23%, 120px); height: 7px; border-radius: 999px; background: rgb(57 89 158 / 0.5); overflow: hidden; }
-.live-code-peek-progress span { display: block; width: 62%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5594ff, #6c9eff); box-shadow: 0 0 10px rgb(80 143 255 / 0.7); }
 
 @keyframes build-dot-pulse {
   0%, 100% { transform: scale(.78); opacity: .55; }
@@ -909,7 +906,6 @@
   .building-main { margin-top: 12px; }
   .live-code-peek { width: 100% !important; }
   .live-code-peek-footer { gap: 8px; padding-inline: 13px; }
-  .live-code-peek-progress { width: 64px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

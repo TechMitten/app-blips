@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, HardDrive, User, Mail, LogOut } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, HardDrive, User, Mail, LogOut, FileText, ExternalLink } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DataSettings from './DataSettings';
@@ -39,6 +39,7 @@ const TABS = [
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
   ...(firebaseEnabled ? [] : [{ id: 'data', label: 'Data', Icon: HardDrive }]),
+  { id: 'legal', label: 'Legal', Icon: FileText },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
@@ -285,6 +286,12 @@ function UserProviderSettings({ guardRef }) {
   );
 }
 
+const LEGAL_LINKS = [
+  { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', href: 'https://www.appblips.com/privacy' },
+  { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', href: 'https://www.appblips.com/terms' },
+];
+const PLAN_LABELS = { none: 'No plan', plus: 'Plus', pro: 'Pro' };
+
 export default function SettingsModal({
   onClose,
   themePreference,
@@ -314,6 +321,9 @@ export default function SettingsModal({
   username,
   usernameLoading,
   onSignOut,
+  billingPlan = null,
+  billingTrialing = false,
+  onOpenPlans,
 }) {
   const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
@@ -435,6 +445,21 @@ export default function SettingsModal({
                   <span>{usernameLoading ? 'Loading...' : (username || 'Not set yet')}</span>
                 </div>
               </SettingRow>
+              {billingPlan && (
+                <SettingRow id="account-plan" title="Plan" description={billingPlan === 'none' ? 'You are not on a plan yet. Start the free trial to begin building.' : billingTrialing ? 'You are on the free trial of Plus.' : 'The plan your account is enrolled in.'}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm">
+                      <Sparkles size={16} />
+                      <span>{PLAN_LABELS[billingPlan] || billingPlan}{billingTrialing && billingPlan === 'plus' ? ' (free trial)' : ''}</span>
+                    </div>
+                    {onOpenPlans && (
+                      <button type="button" onClick={() => { onClose(); onOpenPlans(); }} className={SECONDARY_BUTTON}>
+                        {billingPlan === 'none' ? 'See plans' : 'Manage'}
+                      </button>
+                    )}
+                  </div>
+                </SettingRow>
+              )}
               <SettingRow id="account-signout" title="Sign out" description="Sign out of your account on this device.">
                 <button
                   type="button"
@@ -531,6 +556,19 @@ export default function SettingsModal({
           )}
 
           {tab === 'data' && <DataSettings />}
+
+          {tab === 'legal' && (
+            <>
+              {LEGAL_LINKS.map(({ id, title, description, href }) => (
+                <SettingRow key={id} id={id} title={title} description={description}>
+                  <a href={href} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                    <ExternalLink size={14} />
+                    View
+                  </a>
+                </SettingRow>
+              ))}
+            </>
+          )}
 
           {tab === 'danger' && (
             <>

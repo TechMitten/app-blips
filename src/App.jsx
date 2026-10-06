@@ -2027,6 +2027,9 @@ export default function App() {
           username={username}
           usernameLoading={usernameLoading}
           onSignOut={() => setIsSignOutConfirmOpen(true)}
+          billingPlan={billing.plan}
+          billingTrialing={billing.trialing}
+          onOpenPlans={() => setPlansModal({})}
         />
   );
 
