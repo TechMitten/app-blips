@@ -129,7 +129,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   <button
                     type="button"
                     onClick={onOpenPlans}
-                    title={billingPlan === 'free' ? 'See plans and usage' : 'Your plan and usage'}
+                    title={billingPlan === 'free' ? 'See plans' : 'Your plan and usage'}
                     className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   >
                     <Sparkles size={15} aria-hidden="true" />

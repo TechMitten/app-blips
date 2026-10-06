@@ -285,8 +285,8 @@ export default function Header({
               type="button"
               onClick={onOpenPlans}
               className="nav-btn nav-ghost nav-btn-icon"
-              data-tip={billingPlan === 'free' ? 'See plans and usage' : 'Your plan and usage'}
-              aria-label={billingPlan === 'free' ? 'Upgrade: see plans and usage' : `${planLabel} plan: usage and billing`}
+              data-tip={billingPlan === 'free' ? 'See plans' : 'Your plan and usage'}
+              aria-label={billingPlan === 'free' ? 'Upgrade: see plans' : `${planLabel} plan: usage and billing`}
             >
               <Sparkles size={16} />
               <span className="hidden xl:inline">{planLabel}</span>

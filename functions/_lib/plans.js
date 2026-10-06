@@ -50,6 +50,11 @@ export const PLANS = {
 
 export const PAID_PLAN_IDS = ['plus', 'pro'];
 
+// How many times Free's monthly usage a plan includes ("5x"), for plan copy.
+// Rounded down so it never overpromises. Marketing describes paid plans this
+// way instead of token counts, and never states Free's daily prompt number.
+export const usageMultiple = (id) => Math.floor(PLANS[id].periodTokens / PLANS.free.periodTokens);
+
 export const planById = (id) => PLANS[id] || PLANS.free;
 export const planByLookupKey = (key) => Object.values(PLANS).find((plan) => plan.lookupKey && plan.lookupKey === key) || null;
 
@@ -121,7 +126,7 @@ export const limitMessage = (planId, check, now = Date.now()) => {
   const plan = planById(planId);
   const wait = formatWait(check.resetsAt, now);
   if (check.scope === 'prompts') {
-    return `You've used today's ${plan.dailyPrompts} free prompts. They reset in ${wait}. Upgrade to Plus for more.`;
+    return `You've used today's free prompts. They reset in ${wait}. Upgrade to Plus for ${usageMultiple('plus')}x the usage.`;
   }
   const when = check.scope === 'day' ? `today's ${plan.label} allowance` : `this ${plan.id === 'free' ? 'month' : 'billing period'}'s ${plan.label} allowance`;
   const upgrade = plan.id === 'free' ? ' Upgrade to Plus for more.' : plan.id === 'plus' ? ' Upgrade to Pro for more.' : '';

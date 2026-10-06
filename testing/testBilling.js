@@ -339,7 +339,7 @@ test('the 6th Free prompt of the day is refused with an upgrade message', async 
   const body = await response.json();
   assert.equal(body.code, 'limit_reached');
   assert.equal(body.scope, 'prompts');
-  assert.match(body.error, /today's 5 free prompts/);
+  assert.match(body.error, /today's free prompts/);
   assert.equal(seen.upstream, null);
 });
 

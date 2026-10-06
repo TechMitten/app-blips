@@ -1,27 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Sparkles } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
-import { PLANS } from '../../functions/_lib/plans.js';
+import { PLANS, usageMultiple } from '../../functions/_lib/plans.js';
 import { startCheckout, openBillingPortal, usagePercent } from '../lib/billing';
 
-// What each plan card lists. No token counts or model names: Free is sold in
-// prompts, paid plans by having no daily prompt limit, and Pro against Plus
-// (2x is rounded down from the monthly allowances in plans.js, ~2.4x, so it
-// never overpromises).
+// What each plan card lists. No token counts, model names or Free's daily
+// prompt number: Free is sold as daily prompts, paid plans as a multiple of
+// Free's monthly usage (usageMultiple, rounded down). The landing page
+// (AppBlips-Landing PricingPage.tsx) repeats these words; keep them in step.
 const PLAN_FEATURES = {
   free: [
-    `${PLANS.free.dailyPrompts} prompts a day (Build or Ask)`,
+    'Daily prompts to Build or Ask',
     'Apps, websites and games',
     'Resets every day',
   ],
   plus: [
-    'No daily prompt limit',
+    `${usageMultiple('plus')}x Free's monthly usage`,
     'Image attachments',
     'Smarter chat in Ask mode',
   ],
   pro: [
+    `${usageMultiple('pro')}x Free's monthly usage`,
     'Everything in Plus',
-    '2x the monthly usage of Plus',
     'For heavy building',
   ],
 };
@@ -41,7 +41,7 @@ const celebrate = async () => {
   }, 250);
 };
 
-// `detail` replaces the "N% used" readout (e.g. "3 of 5 prompts used").
+// `detail` replaces the "N% used" readout.
 function Meter({ label, used, limit, detail = null }) {
   const percent = usagePercent(used, limit);
   return (
@@ -123,16 +123,9 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
                 <p className="text-xs text-slate-500">{status.cancelAtPeriodEnd ? `Ends ${renewal}` : `Renews ${renewal}`}</p>
               )}
             </div>
-            {/* Free shows its prompt count; the token allowance behind it is a
-                hidden backstop. Paid plans show their monthly allowance. */}
-            {current.dailyPrompts ? (
-              <Meter
-                label="Today"
-                used={status.todayPrompts}
-                limit={current.dailyPrompts}
-                detail={`${Math.min(status.todayPrompts || 0, current.dailyPrompts)} of ${current.dailyPrompts} prompts used`}
-              />
-            ) : null}
+            {/* Only paid plans get a meter, for their monthly allowance. Free
+                shows none: its daily prompt number isn't advertised, and the
+                limit message says when it runs out. */}
             {isPaid && <Meter label="This billing period" used={status.periodTokens} limit={current.periodTokens} />}
           </div>
         )}
@@ -191,7 +184,8 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
           {/* Matches the Stripe portal setting: cancelling takes effect at the
               end of the period already paid for. */}
           <p className="text-xs text-slate-500">
-            Cancel anytime. You keep your plan until the end of the month you've paid for.
+            Every plan has a monthly usage allowance, and Free also has a daily prompt limit. When you run out, new prompts wait until it resets; a build that has started always finishes.
+            {' '}Cancel anytime. You keep your plan until the end of the month you've paid for.
           </p>
           {isPaid && (
             <button
