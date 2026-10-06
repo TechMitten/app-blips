@@ -1,268 +1,290 @@
-/* Studio choice gate (StudioChoice.jsx): the branded project-type picker shown
-   before a workspace exists. The screen is deliberately always-dark regardless
-   of the app theme: monochrome glassmorphism (frosted translucent surfaces over
-   soft drifting light), with a few hints of colour -- the logo's cyan on the
-   heading, and one accent per studio row. Only what Tailwind can't express
-   lives here. */
+/* Studio choice gate (StudioChoice.jsx): the project-type picker shown before
+   a workspace exists. It mirrors the appblips.com landing page so the jump
+   from marketing site to studio feels seamless: flat ground, a faint dot grid
+   under a soft glow, light glass cards and a solid primary button. Only what
+   Tailwind can't express lives here.
+
+   It follows the app theme. Every colour is a --sc-* variable: the dark
+   values are the landing page's, and :root:not(.dark) swaps in a light mirror
+   image (the inline theme script in index.html toggles html.dark). */
 
 .studio-choice {
-  background-color: #050505;
+  --sc-bg: #080808;
+  --sc-text-strong: #ffffff;
+  --sc-text-muted: rgb(255 255 255 / 0.7);
+  --sc-text-soft: rgb(255 255 255 / 0.65);
+  --sc-line: rgb(255 255 255 / 0.1);
+  --sc-line-strong: rgb(255 255 255 / 0.2);
+  --sc-fill: rgb(255 255 255 / 0.05);
+  --sc-fill-hover: rgb(255 255 255 / 0.1);
+  --sc-topbar-bg: rgb(8 8 8 / 0.85);
+  --sc-topbar-line: rgb(255 255 255 / 0.07);
+  --sc-glow: rgb(255 255 255 / 0.06);
+  --sc-dot: rgb(255 255 255 / 0.04);
+  --sc-primary-bg: #ffffff;
+  --sc-primary-bg-hover: #e4e4e7;
+  --sc-primary-fg: #000000;
+  --sc-ring: rgb(255 255 255 / 0.9);
+  --sc-badge-bg: #111111;
+  /* Cards: light glass. */
+  --sc-card-bg: rgb(255 255 255 / 0.03);
+  --sc-card-bg-hover: rgb(255 255 255 / 0.06);
+  --sc-card-sheen: rgb(255 255 255 / 0.05);
+  --sc-card-line: rgb(255 255 255 / 0.1);
+  --sc-card-line-hover: rgb(255 255 255 / 0.18);
+  --sc-card-top: rgb(255 255 255 / 0.16);
+  --sc-card-top-hover: rgb(255 255 255 / 0.26);
+  --sc-card-inset: rgb(255 255 255 / 0.06);
+  --sc-card-inset-hover: rgb(255 255 255 / 0.1);
+  --sc-card-shadow: 0 16px 36px -24px rgb(0 0 0 / 0.9);
+  --sc-card-shadow-hover: 0 22px 44px -26px rgb(0 0 0 / 0.95);
+  --sc-logo-filter: url(#studio-logo-key);
+
+  background-color: var(--sc-bg);
+  color: var(--sc-text-strong);
+  /* The landing page's typeface; falls back to the app font when offline
+     (e.g. the desktop app without a network). --font-sans is redefined too
+     because the global h1-h3 rule (index.css) reads it, not font-family. */
+  --font-sans: 'Plus Jakarta Sans', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
 }
 
-/* Glass needs something behind it to frost. The base is near-black; ::before
-   carries soft white/grey light orbs that drift slowly, and ::after a fine
-   grain so the large blurred areas don't band. */
-.studio-bg {
-  background: linear-gradient(180deg, #0c0c0d 0%, #050505 100%);
-  overflow: hidden;
+:root:not(.dark) .studio-choice {
+  --sc-bg: #f6f6f7;
+  --sc-text-strong: #0a0a0a;
+  --sc-text-muted: rgb(10 10 10 / 0.68);
+  --sc-text-soft: rgb(10 10 10 / 0.62);
+  --sc-line: rgb(0 0 0 / 0.1);
+  --sc-line-strong: rgb(0 0 0 / 0.2);
+  --sc-fill: rgb(255 255 255 / 0.7);
+  --sc-fill-hover: #ffffff;
+  --sc-topbar-bg: rgb(246 246 247 / 0.85);
+  --sc-topbar-line: rgb(0 0 0 / 0.07);
+  --sc-glow: rgb(255 255 255 / 0.9);
+  --sc-dot: rgb(0 0 0 / 0.07);
+  --sc-primary-bg: #0a0a0a;
+  --sc-primary-bg-hover: #27272a;
+  --sc-primary-fg: #ffffff;
+  --sc-ring: rgb(10 10 10 / 0.85);
+  --sc-badge-bg: #ffffff;
+  --sc-card-bg: rgb(255 255 255 / 0.6);
+  --sc-card-bg-hover: rgb(255 255 255 / 0.85);
+  --sc-card-sheen: rgb(255 255 255 / 0.7);
+  --sc-card-line: rgb(0 0 0 / 0.08);
+  --sc-card-line-hover: rgb(0 0 0 / 0.14);
+  --sc-card-top: rgb(255 255 255 / 0.9);
+  --sc-card-top-hover: #ffffff;
+  --sc-card-inset: rgb(255 255 255 / 0.9);
+  --sc-card-inset-hover: #ffffff;
+  --sc-card-shadow: 0 12px 30px -18px rgb(15 23 42 / 0.25);
+  --sc-card-shadow-hover: 0 18px 40px -20px rgb(15 23 42 / 0.32);
+  /* The logo is white and cyan lettering. Inverting turns the white black;
+     the half-turn of hue puts the cyan back (a darker cyan, readable on
+     light). */
+  --sc-logo-filter: url(#studio-logo-key) invert(1) hue-rotate(180deg);
 }
 
-.studio-bg::before {
-  content: '';
-  position: absolute;
-  inset: -20%;
-  background:
-    radial-gradient(28% 32% at 22% 28%, rgb(255 255 255 / 0.13), transparent 70%),
-    radial-gradient(32% 36% at 80% 22%, rgb(200 210 220 / 0.1), transparent 70%),
-    radial-gradient(36% 34% at 70% 82%, rgb(255 255 255 / 0.08), transparent 72%),
-    radial-gradient(30% 30% at 18% 86%, rgb(170 180 190 / 0.09), transparent 72%),
-    radial-gradient(50% 40% at 50% 0%, rgb(34 211 238 / 0.05), transparent 70%);
-  filter: blur(40px);
-  animation: studio-orb-drift 36s ease-in-out infinite alternate;
-  will-change: transform;
+.studio-choice h1 {
+  text-wrap: balance;
 }
 
-.studio-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+.studio-choice p {
+  text-wrap: pretty;
 }
 
-@keyframes studio-orb-drift {
-  from { transform: translate3d(-3%, -2%, 0) scale(1); }
-  to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
-}
+.studio-text-strong { color: var(--sc-text-strong); }
+.studio-text-muted { color: var(--sc-text-muted); }
+.studio-text-soft { color: var(--sc-text-soft); }
 
-/* Shared frosted surface: translucent white fill, backdrop blur, a hairline
-   border that's brighter on top (light catching the edge). */
-.studio-panel,
-.studio-row,
-.studio-icon-tile,
-.studio-close,
-.studio-icon-btn,
-.studio-outline-btn,
-.studio-badge,
-.studio-chip,
-.studio-row-arrow,
-.studio-divider-mark {
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
-}
-
-/* The outer frosted frame that holds the whole picker. */
-.studio-panel {
-  background: linear-gradient(160deg, rgb(255 255 255 / 0.07) 0%, rgb(255 255 255 / 0.025) 45%, rgb(255 255 255 / 0.04) 100%);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  border-top-color: rgb(255 255 255 / 0.18);
-  box-shadow:
-    0 50px 100px -40px rgb(0 0 0 / 0.85),
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    inset 0 0 80px rgb(255 255 255 / 0.015);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  backdrop-filter: blur(28px) saturate(140%);
+.studio-focus:focus-visible {
+  outline: 2px solid var(--sc-ring);
+  outline-offset: 3px;
 }
 
 .studio-topbar {
-  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  border-bottom: 1px solid var(--sc-topbar-line);
+  background-color: var(--sc-topbar-bg);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
 }
 
 /* newlog.webp is lettering on an opaque black field with generous empty
    margin. Key the black out (#studio-logo-key in StudioChoice.jsx turns
    brightness into alpha) and crop the margin away. */
-.studio-logo-badge {
-  padding: 0;
-  background: none;
-  box-shadow: none;
-}
-
 .studio-logo-img {
   display: block;
   width: 7.5rem;
   aspect-ratio: 3.2 / 1;
   object-fit: cover;
-  filter: url(#studio-logo-key);
+  filter: var(--sc-logo-filter);
 }
 
 @media (min-width: 640px) {
   .studio-logo-img { width: 9rem; }
 }
 
-.studio-close {
-  color: rgb(255 255 255 / 0.85);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  background-color: rgb(255 255 255 / 0.05);
-  transition: color 0.2s ease, background-color 0.2s ease;
+.studio-nav-link {
+  color: var(--sc-text-muted);
+  transition: color 0.2s ease;
 }
 
-.studio-close:hover {
-  color: #ffffff;
-  background-color: rgb(255 255 255 / 0.1);
+.studio-nav-link:hover {
+  color: var(--sc-text-strong);
 }
 
-.studio-icon-btn,
-.studio-outline-btn {
-  border: 1px solid rgb(255 255 255 / 0.16);
-  background-color: rgb(255 255 255 / 0.04);
-  color: rgb(255 255 255 / 0.8);
+/* Same ambient light as the landing hero. */
+.studio-glow {
+  background: radial-gradient(60% 50% at 75% 30%, var(--sc-glow), transparent 70%);
+}
+
+.studio-dots {
+  opacity: 0.6;
+  background-image: radial-gradient(var(--sc-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
+}
+
+/* Light theme: a modern SaaS backdrop instead of the dark glow. Soft pastel
+   colour blobs (sky, cyan, peach, mint -- no purple, per the brand) drift very
+   slowly behind a fine line grid that fades out towards the edges, plus a
+   white wash at the top so the hero text sits on the calmest part. */
+:root:not(.dark) .studio-glow {
+  overflow: hidden;
+  background: none;
+}
+
+/* The white wash sits above the blobs (::after paints over ::before), with a
+   fine grain so the large soft gradients don't show banding rings. */
+:root:not(.dark) .studio-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgb(255 255 255 / 0.7) 0%, transparent 40%);
+}
+
+:root:not(.dark) .studio-glow::before {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  background:
+    radial-gradient(32% 38% at 18% 22%, rgb(56 189 248 / 0.3), transparent 70%),
+    radial-gradient(30% 34% at 84% 18%, rgb(34 211 238 / 0.24), transparent 70%),
+    radial-gradient(34% 36% at 78% 78%, rgb(253 186 116 / 0.28), transparent 72%),
+    radial-gradient(32% 34% at 16% 82%, rgb(110 231 183 / 0.24), transparent 72%),
+    radial-gradient(40% 30% at 50% 55%, rgb(147 197 253 / 0.18), transparent 70%);
+  filter: blur(48px);
+  animation: studio-mesh-drift 40s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes studio-mesh-drift {
+  from { transform: translate3d(-2%, -1.5%, 0) scale(1); }
+  to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
+}
+
+:root:not(.dark) .studio-dots {
+  opacity: 1;
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
+}
+
+.studio-pill {
+  border: 1px solid var(--sc-line);
+  background-color: var(--sc-fill);
+  color: var(--sc-text-muted);
+}
+
+/* The landing page's one accent: a royal-blue dot in the eyebrow pill. */
+.studio-eyebrow-dot {
+  background-color: #4169e1;
+}
+
+.studio-ghost-btn {
+  border: 1px solid var(--sc-line);
+  background-color: var(--sc-fill);
+  color: var(--sc-text-muted);
   transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.studio-icon-btn:hover,
-.studio-outline-btn:hover {
-  color: #ffffff;
-  border-color: rgb(255 255 255 / 0.32);
-  background-color: rgb(255 255 255 / 0.06);
+.studio-ghost-btn.is-strong {
+  color: var(--sc-text-strong);
 }
 
-.studio-badge {
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background-color: rgb(255 255 255 / 0.05);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
-}
-
-.studio-badge-dot {
-  background-color: #22d3ee;
-  box-shadow: 0 0 8px rgb(34 211 238 / 0.8);
-}
-
-/* Same white-to-cyan sweep as the "Blips" half of the logo. */
-.studio-heading-accent {
-  background-image: linear-gradient(100deg, #67e8f9 0%, #22d3ee 45%, #0ea5e9 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.studio-chip {
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background-color: rgb(0 0 0 / 0.35);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-.studio-chip:hover {
-  border-color: rgb(255 255 255 / 0.25);
-  background-color: rgb(255 255 255 / 0.05);
-}
-
-/* Studio rows. Each sets --accent; the icon tile, title tint and hover state
-   all derive from it. */
-.studio-row--app      { --accent: #22d3ee; }
-.studio-row--website  { --accent: #60a5fa; }
-.studio-row--game     { --accent: #fb923c; }
-.studio-row--projects { --accent: #34d399; }
-
-.studio-row {
-  background: linear-gradient(135deg, rgb(255 255 255 / 0.06) 0%, rgb(255 255 255 / 0.02) 100%);
-  border: 1px solid rgb(255 255 255 / 0.09);
-  border-top-color: rgb(255 255 255 / 0.15);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 10px 30px -20px rgb(0 0 0 / 0.8);
-  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.studio-row:hover,
-.studio-row:focus-visible {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background-color: rgb(255 255 255 / 0.04);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 24px 48px -28px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-/* The "artwork": a frosted glass tile with a low accent glow and a large
-   hairline icon, standing in for the product screenshots. */
-.studio-icon-tile {
-  background:
-    radial-gradient(80% 90% at 50% 100%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
-    linear-gradient(160deg, rgb(255 255 255 / 0.1) 0%, rgb(255 255 255 / 0.02) 100%);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  border-top-color: rgb(255 255 255 / 0.2);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 12px 24px -14px rgb(0 0 0 / 0.9);
-}
-
-.studio-icon {
-  color: color-mix(in srgb, var(--accent) 55%, #ffffff);
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent));
-  transition: transform 0.25s ease;
-}
-
-.studio-row:hover .studio-icon,
-.studio-row:focus-visible .studio-icon {
-  transform: scale(1.08);
-}
-
-.studio-row-title {
-  color: color-mix(in srgb, var(--accent) 30%, #ffffff);
-}
-
-.studio-row-arrow {
-  border: 1px solid rgb(255 255 255 / 0.14);
-  background-color: rgb(255 255 255 / 0.04);
-  color: rgb(255 255 255 / 0.85);
-  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-}
-
-.studio-row:hover .studio-row-arrow,
-.studio-row:focus-visible .studio-row-arrow {
-  color: #000000;
-  border-color: var(--accent);
-  background-color: var(--accent);
-  transform: translateX(2px);
-}
-
-/* Signed-out footer: a hairline with a centred mark, then a white pill. */
-.studio-divider::before {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  top: 50%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12) 20%, rgb(255 255 255 / 0.12) 80%, transparent);
-}
-
-.studio-divider-mark {
-  position: relative;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background-color: rgb(20 20 22 / 0.7);
-  color: #22d3ee;
+.studio-ghost-btn:hover {
+  color: var(--sc-text-strong);
+  border-color: var(--sc-line-strong);
+  background-color: var(--sc-fill-hover);
 }
 
 .studio-primary-btn {
-  background-color: #ffffff;
-  color: #000000;
-  box-shadow: 0 16px 36px -16px rgb(34 211 238 / 0.55);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: var(--sc-primary-bg);
+  color: var(--sc-primary-fg);
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .studio-primary-btn:hover {
-  background-color: #e8fbff;
-  box-shadow: 0 18px 40px -14px rgb(34 211 238 / 0.7);
+  background-color: var(--sc-primary-bg-hover);
+}
+
+.studio-primary-btn:active {
+  transform: scale(0.98);
+}
+
+/* Light glass: a faint top-lit gradient over the glow and dot grid, a
+   backdrop blur to frost them, and a brighter top edge where light catches.
+   Kept subtle so the cards still read as the landing page's flat style. */
+.studio-card {
+  border: 1px solid var(--sc-card-line);
+  border-top-color: var(--sc-card-top);
+  background-color: var(--sc-card-bg);
+  background-image: linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
+  box-shadow: inset 0 1px 0 var(--sc-card-inset), var(--sc-card-shadow);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  backdrop-filter: blur(12px) saturate(130%);
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.studio-card:hover,
+.studio-card:focus-visible {
+  border-color: var(--sc-card-line-hover);
+  border-top-color: var(--sc-card-top-hover);
+  background-color: var(--sc-card-bg-hover);
+  box-shadow: inset 0 1px 0 var(--sc-card-inset-hover), var(--sc-card-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.studio-icon-tile {
+  border: 1px solid var(--sc-line);
+  background-color: var(--sc-fill);
+  color: var(--sc-text-strong);
+}
+
+.studio-saved-badge {
+  border: 1px solid var(--sc-line-strong);
+  background-color: var(--sc-badge-bg);
+  color: var(--sc-text-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studio-bg::before { animation: none; }
+  :root:not(.dark) .studio-glow::before { animation: none; }
   .studio-choice .animate-stagger-1,
   .studio-choice .animate-stagger-2,
   .studio-choice .animate-stagger-3 {
     animation: none;
   }
-  .studio-row,
-  .studio-row:hover,
-  .studio-row:focus-visible,
-  .studio-icon,
-  .studio-row-arrow {
+  .studio-card,
+  .studio-card:hover,
+  .studio-card:focus-visible,
+  .studio-primary-btn:active {
     transition: none;
-    transform: none !important;
+    transform: none;
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
   ArrowRight, CircleHelp, Gamepad2, LibraryBig, LogIn, LogOut, MonitorSmartphone,
-  Play, Settings, Smartphone, Sparkles, X, Zap,
+  Play, Settings, Smartphone, Sparkles, X,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -10,9 +10,11 @@ import { DOCS_URL } from '../lib/constants';
 //      studio before any workspace exists (no way back, nothing to go back to).
 //   2. Mid-session pick -- opened by "New" after the discard confirmation;
 //      `onCancel` is set then, so bailing returns to the untouched workspace.
-// A deliberately branded, always-dark stage (see studio-choice.css): a
-// near-black panel with one stacked list of studios, each tinted with its own
-// accent so the otherwise monochrome screen keeps a little colour.
+// Styled to match the appblips.com landing page (see studio-choice.css): a
+// monochrome stage with a top bar, a centred hero and light glass cards, so
+// stepping from the marketing site into the studio feels like the same
+// product. It follows the app theme: dark is the landing page's look, light
+// is its mirror image.
 
 const STUDIOS = [
   {
@@ -45,7 +47,11 @@ const STUDIOS = [
   },
 ];
 
-const NAV_LINK = 'text-sm font-medium text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-md px-1';
+// Colours come from the studio-* classes (studio-choice.css), not Tailwind's
+// white/black utilities, so each one has a dark and a light value.
+const FOCUS_RING = 'studio-focus';
+const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
+const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
 export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase, billingPlan = null, billingTrialing = false, onOpenPlans }) {
   // Escape mirrors the on-screen close control, but only when there is
@@ -72,38 +78,22 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
   };
 
   return (
-    <div className="studio-choice force-dark relative flex-1 min-h-0 overflow-hidden">
-      <div className="studio-bg pointer-events-none absolute inset-0" aria-hidden="true" />
+    <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
+      {/* Zero-size defs for the logo: alpha = 3*(R+G+B), so the mark's
+          opaque black field becomes transparent (see studio-choice.css). */}
+      <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+        <filter id="studio-logo-key" colorInterpolationFilters="sRGB">
+          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  3 3 3 0 0" />
+        </filter>
+      </svg>
 
-      <div className="relative z-1 h-full overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-4">
-          {/* Zero-size defs for the logo: alpha = 3*(R+G+B), so the mark's
-              opaque black field becomes transparent (see studio-choice.css). */}
-          <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
-            <filter id="studio-logo-key" colorInterpolationFilters="sRGB">
-              <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  3 3 3 0 0" />
-            </filter>
-          </svg>
-
-          <div className="studio-panel relative flex flex-1 flex-col rounded-[28px] px-4 pb-6 pt-3 sm:px-8 lg:px-14">
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                aria-label="Go back"
-                title="Go back (Esc)"
-                className="studio-close absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:right-4 sm:top-4"
-              >
-                <X size={22} aria-hidden="true" />
-              </button>
-            )}
-
-            {/* Top bar: mark left, quick links centred (md+), account right.
-                The right padding keeps clear of the close button. */}
-            <nav className={`studio-topbar flex shrink-0 items-center gap-3 pb-3 animate-stagger-1 ${onCancel ? 'pr-12 sm:pr-14' : ''}`}>
-              <div className="studio-logo-badge mr-auto">
-                <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img" />
-              </div>
+      <div className="relative h-full overflow-y-auto">
+        <div className="flex min-h-full flex-col">
+          {/* Top bar, like the landing page's: mark left, quick links centred
+              (md+), account actions right. */}
+          <nav className="studio-topbar sticky top-0 z-20 shrink-0">
+            <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
+              <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img mr-auto" />
 
               <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
                 {onOpenShowcase && (
@@ -120,7 +110,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   rel="noopener noreferrer"
                   aria-label="Help and documentation"
                   title="Help and documentation"
-                  className="studio-icon-btn inline-flex h-9 w-9 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 md:hidden"
+                  className={`${GHOST_BTN} h-9 w-9 md:hidden`}
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
@@ -130,7 +120,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     type="button"
                     onClick={onOpenPlans}
                     title={billingPlan === 'none' ? 'See plans' : 'Your plan and usage'}
-                    className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className={`${GHOST_BTN} h-9 px-3.5`}
                   >
                     <Sparkles size={15} aria-hidden="true" />
                     <span>{billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Free trial' : 'Plus') : 'Pro'}</span>
@@ -142,7 +132,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     onClick={onOpenSettings}
                     aria-label="Settings"
                     title="Settings"
-                    className="studio-icon-btn inline-flex h-9 w-9 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className={`${GHOST_BTN} h-9 w-9`}
                   >
                     <Settings size={17} aria-hidden="true" />
                   </button>
@@ -151,7 +141,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   <button
                     type="button"
                     onClick={onSignIn}
-                    className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className={`studio-primary-btn inline-flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${FOCUS_RING}`}
                   >
                     <LogIn size={15} aria-hidden="true" />
                     Sign in
@@ -161,37 +151,53 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   <button
                     type="button"
                     onClick={onSignOut}
-                    className="studio-outline-btn inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className={`${GHOST_BTN} h-9 px-3.5`}
                   >
                     <LogOut size={15} aria-hidden="true" />
                     <span className="hidden sm:inline">Sign out</span>
                   </button>
                 )}
+                {onCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    aria-label="Go back"
+                    title="Go back (Esc)"
+                    className={`${GHOST_BTN} h-9 w-9`}
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                )}
               </div>
-            </nav>
+            </div>
+          </nav>
 
-            <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center">
-              <header className="flex flex-col items-center pt-5 text-center animate-stagger-1 sm:pt-6">
-                <span className="studio-badge inline-flex items-center gap-2 rounded-full px-3.5 py-1 text-xs font-medium text-white/80 sm:text-sm">
-                  <span className="studio-badge-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
+          <div className="relative flex flex-1 flex-col">
+            <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
+            <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true" />
+
+            <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
+              <header className="flex flex-col items-center text-center animate-stagger-1">
+                <span className="studio-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium">
+                  <span className="studio-eyebrow-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
                   Describe it. Watch it build.
                 </span>
 
-                <h1 className="mt-4 text-[clamp(2rem,7vw,3.75rem)] font-black leading-[1.05] tracking-tight text-white">
-                  What will you <span className="studio-heading-accent">build?</span>
+                <h1 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:mt-6 sm:text-5xl md:text-6xl">
+                  What will you build?
                 </h1>
-                <p className="mt-3 max-w-[58ch] text-sm font-medium leading-relaxed text-white/60 sm:text-base lg:text-lg">
+                <p className="mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
                   Describe what you want in plain English. AppBlips builds a working app,
                   website or game you can preview, refine and publish.
                 </p>
 
                 {onOpenShowcase && (
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                    <span className="text-sm font-medium text-white/60">Not sure where to start?</span>
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                    <span className="text-sm studio-text-soft">Not sure where to start?</span>
                     <button
                       type="button"
                       onClick={onOpenShowcase}
-                      className="studio-chip inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                      className={`${GHOST_BTN} min-h-[40px] px-4 is-strong`}
                     >
                       <Play size={14} aria-hidden="true" />
                       Explore examples
@@ -200,7 +206,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 )}
               </header>
 
-              <div className="mt-6 flex flex-col gap-2.5 animate-stagger-3 sm:mt-7 sm:gap-3">
+              <div className="mt-10 grid grid-cols-1 gap-4 animate-stagger-3 sm:mt-12 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
                 {STUDIOS.map(({ key, Icon, title, description, cta }) => {
                   const isProjects = key === 'projects';
                   return (
@@ -209,24 +215,24 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       type="button"
                       onClick={isProjects ? handleOpenProjects : () => onSelectStudio(key)}
                       aria-label={`${cta}: ${title}`}
-                      className={`studio-row studio-row--${key} group flex w-full items-center gap-3 rounded-2xl p-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:gap-6 sm:p-3 sm:pr-6`}
+                      className={`studio-card group flex items-start gap-4 rounded-2xl p-5 text-left sm:flex-col sm:gap-0 sm:p-6 ${FOCUS_RING}`}
                     >
-                      <span className="studio-icon-tile relative flex h-16 w-16 shrink-0 items-center justify-center rounded-xl sm:h-20 sm:w-32 sm:rounded-2xl">
-                        <Icon className="studio-icon h-8 w-8 sm:h-10 sm:w-10" strokeWidth={1.4} aria-hidden="true" />
+                      <span className="studio-icon-tile relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:mb-5 sm:h-12 sm:w-12">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
                         {isProjects && savedAppsCount > 0 && (
-                          <span className="absolute -right-1.5 -top-1.5 inline-flex items-center rounded-full border border-white/15 bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold text-white/80 sm:px-2 sm:text-[11px]">
+                          <span className="studio-saved-badge absolute -right-2 -top-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
                             {savedAppsCount} saved
                           </span>
                         )}
                       </span>
 
-                      <span className="min-w-0 flex-1">
-                        <span className="studio-row-title block text-base font-bold tracking-tight sm:text-xl">{title}</span>
-                        <span className="mt-0.5 block text-xs leading-snug text-white/60 sm:mt-1 sm:text-sm">{description}</span>
-                      </span>
-
-                      <span className="studio-row-arrow inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:h-12 sm:w-12" aria-hidden="true">
-                        <ArrowRight size={20} />
+                      <span className="flex min-w-0 flex-1 flex-col self-stretch">
+                        <span className="block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
+                        <span className="mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
+                        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
+                          {cta}
+                          <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                        </span>
                       </span>
                     </button>
                   );
@@ -234,21 +240,17 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               </div>
 
               {needsSignIn && (
-                <div className="mt-6 flex flex-col items-center animate-stagger-3">
-                  <div className="studio-divider relative flex w-full items-center justify-center" aria-hidden="true">
-                    <span className="studio-divider-mark inline-flex h-7 w-7 items-center justify-center rounded-full">
-                      <Zap size={13} />
-                    </span>
-                  </div>
+                <div className="mt-10 flex flex-col items-center animate-stagger-3">
                   <button
                     type="button"
                     onClick={onSignIn}
-                    className="studio-primary-btn mt-4 inline-flex items-center gap-2 rounded-2xl px-7 py-3 text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    className={`studio-primary-btn group inline-flex min-h-[48px] items-center gap-2.5 rounded-xl px-8 py-3 text-sm font-semibold ${FOCUS_RING}`}
                   >
-                    <LogIn size={17} aria-hidden="true" />
+                    <LogIn size={16} aria-hidden="true" />
                     Sign in to start building
+                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
                   </button>
-                  <p className="mt-3 text-xs font-medium text-white/50">Your projects are saved to your account.</p>
+                  <p className="mt-3 text-sm studio-text-soft">Your projects are saved to your account.</p>
                 </div>
               )}
             </div>

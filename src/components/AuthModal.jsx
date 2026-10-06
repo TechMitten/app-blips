@@ -64,7 +64,7 @@ export default function AuthModal({ onClose = () => {}, dismissible = true }) {
   return (
     <Modal
       zIndex={80}
-      cardClass="w-full max-w-md bg-surface rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scale-in"
+      cardClass="w-full max-w-md bg-surface rounded-2xl shadow-2xl border border-slate-300 overflow-hidden animate-scale-in"
       cardProps={{ role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'auth-title' }}
     >
       <div className="relative px-6 pt-8 pb-6 text-center border-b border-slate-200">
