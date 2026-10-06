@@ -4,23 +4,23 @@ import Modal, { ModalCloseButton } from './Modal';
 import { PLANS } from '../../functions/_lib/plans.js';
 import { startCheckout, openBillingPortal, usagePercent } from '../lib/billing';
 
-const millions = (tokens) => `${Math.round(tokens / 1_000_000)}M`;
-
-// What each plan card lists. Model names stay out of it: what people buy is
-// how much they can build and what they can attach.
+// What each plan card lists. No token counts or model names: people compare
+// plans by how much more they can build and what they can attach. The
+// multiples are rounded down from the monthly allowances in plans.js (Plus
+// ~2.3x and Pro ~5.7x Free's monthly ceiling) so they never overpromise.
 const PLAN_FEATURES = {
   free: [
-    `${millions(PLANS.free.dailyTokens)} tokens a day (up to ${millions(PLANS.free.periodTokens)} a month)`,
+    'A daily usage allowance',
     'Apps, websites and games',
     'Resets every day',
   ],
   plus: [
-    `${millions(PLANS.plus.periodTokens)} tokens a month, any day you like`,
+    '2x the usage of Free, any day you like',
     'Image attachments',
     'Smarter chat in Ask mode',
   ],
   pro: [
-    `${millions(PLANS.pro.periodTokens)} tokens a month, any day you like`,
+    '5x the usage of Free, any day you like',
     'Everything in Plus',
     'For heavy building',
   ],
