@@ -1,0 +1,4 @@
+-- Applied to the live project as its own migration; the "owners list
+-- deploys" storage policy was later folded into
+-- 20260928075350_initial_schema.sql. Kept as an empty file so local
+-- migration versions match the live migration history.
