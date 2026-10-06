@@ -122,3 +122,29 @@ test('single-user builder calls record nothing', async (t) => {
   await Promise.all(waited);
   assert.ok(calls.every((call) => !call.url.includes('firestore')), 'no Firestore traffic');
 });
+
+test('DeepSeek usage is priced from the listed rates, half price off-peak', async () => {
+  const { priceUsage, isPeak } = await import('../functions/_lib/modelPrices.js');
+  // Tuesday 07:00 UTC is peak; Saturday is always off-peak.
+  const peak = new Date('2026-10-06T07:00:00Z');
+  const weekend = new Date('2026-10-10T07:00:00Z');
+  assert.equal(isPeak(peak), true);
+  assert.equal(isPeak(new Date('2026-10-06T05:00:00Z')), false);
+  assert.equal(isPeak(weekend), false);
+  const usage = { prompt_tokens: 1_000_000, prompt_cache_hit_tokens: 600_000, prompt_cache_miss_tokens: 400_000, completion_tokens: 100_000 };
+  // 600k x $0.006 + 400k x $0.30 + 100k x $1.20 per 1M = $0.2436
+  assert.equal(priceUsage('deepseek-flash', usage, peak), 243_600);
+  assert.equal(priceUsage('deepseek/deepseek-flash', usage, weekend), 121_800);
+  // Without the hit/miss split, cached_tokens is the hit and the rest the miss.
+  assert.equal(priceUsage('deepseek-flash', { prompt_tokens: 1_000_000, prompt_tokens_details: { cached_tokens: 600_000 }, completion_tokens: 100_000 }, peak), 243_600);
+  assert.equal(priceUsage('some-other-model', usage, peak), null);
+});
+
+test('recordApiUsage keeps input and output tokens apart', async (t) => {
+  const { firestore } = installFirebaseFake(t);
+  await recordApiUsage(multiUserEnv, { uid: 'user-9', kind: 'builder', tokens: 120, inputTokens: 100, outputTokens: 20 });
+  await recordApiUsage(multiUserEnv, { uid: 'user-9', kind: 'builder', tokens: 15, inputTokens: 10, outputTokens: 5 });
+  const usage = firestore.getData(usageDocPath('user-9', today()));
+  assert.equal(usage.input_tokens, 110);
+  assert.equal(usage.output_tokens, 25);
+});

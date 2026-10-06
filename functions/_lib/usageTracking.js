@@ -1,7 +1,10 @@
 // Per-account API usage counters (multi-user only), in the Firestore `usage`
 // collection: one doc per account per UTC day, id `${uid}_${date}`, holding
 // { user_id, date, builder_requests, builder_tokens, builder_prompts,
-//   cost_micros, cached_tokens, deployed_requests, deployed_tokens, updated_at }.
+//   cost_micros, cached_tokens, input_tokens, output_tokens,
+//   deployed_requests, deployed_tokens, updated_at }.
+// input_tokens / output_tokens split what the provider reported (cost
+// estimates); builder_tokens is the total the allowance counts.
 // billing.js reads the same docs to enforce plan limits.
 //
 // `deployed_*` hold usage from the retired AI-inside-apps feature; only
@@ -23,6 +26,8 @@ export const emptyUsage = () => ({
   deployed_tokens: 0,
   cost_micros: 0,
   cached_tokens: 0,
+  input_tokens: 0,
+  output_tokens: 0,
 });
 
 // Tokens used from `fromDate` up to (not including) `beforeDate`, both
@@ -49,7 +54,7 @@ const nonNegative = (value) => Math.max(Number(value) || 0, 0);
 // `reservation` ({ date, tokens }, from billing.js reserveTokens) means the
 // request already reserved an estimate against the allowance; it's settled
 // to `tokens` on the day it was reserved instead of being counted again.
-export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens, reservation }) {
+export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cachedTokens, inputTokens, outputTokens, reservation }) {
   if (!uid || kind !== 'builder') return;
   if (!firebaseConfigured(env) || !serviceAccountConfigured(env)) return;
 
@@ -69,6 +74,8 @@ export async function recordApiUsage(env, { uid, kind, tokens, costMicros, cache
           builder_tokens: Math.max(usage.builder_tokens - held + nonNegative(tokens), 0),
           cost_micros: usage.cost_micros + nonNegative(costMicros),
           cached_tokens: usage.cached_tokens + nonNegative(cachedTokens),
+          input_tokens: usage.input_tokens + nonNegative(inputTokens),
+          output_tokens: usage.output_tokens + nonNegative(outputTokens),
           updated_at: new Date(),
         })],
       };

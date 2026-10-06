@@ -39,13 +39,13 @@ export const getBillingStatus = async () => {
       plan,
       status: 'active',
       trialing,
-      trialEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       trialEligible: true,
       periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       cancelAtPeriodEnd: false,
       hasBillingAccount: plan !== 'none',
       periodTokens: 500000,
-      limits: { periodTokens: 6000000 },
+      limits: { periodTokens: 6_000_000 },
       blocked: null,
     };
   }

@@ -1,4 +1,5 @@
 import { trackApiUsage } from './usageTracking.js';
+import { priceUsage } from './modelPrices.js';
 
 // fetch() has already decoded the upstream body, so its content-encoding and
 // content-length no longer describe what is relayed. Passing them on makes the
@@ -12,12 +13,19 @@ const relayHeaders = (headers) => {
 };
 
 // What a usage block says the request cost us: OpenRouter reports `cost` in
-// dollars; cached input is `prompt_tokens_details.cached_tokens` (OpenAI and
-// OpenRouter) or `prompt_cache_hit_tokens` (DeepSeek's own API). Recorded for
-// the operator's margin numbers only, never charged to the user.
-const costOf = (usage) => ({
-  costMicros: Math.round((Number(usage.cost) || 0) * 1e6),
+// dollars; DeepSeek's own API doesn't, so it's priced from the model's listed
+// rates (modelPrices.js; 0 for an unlisted model). Cached input is
+// `prompt_tokens_details.cached_tokens` (OpenAI and OpenRouter) or
+// `prompt_cache_hit_tokens` (DeepSeek). Input and output are kept apart
+// because they're priced very differently. Recorded for the operator's
+// margin numbers only, never charged to the user.
+const costOf = (usage, model) => ({
+  costMicros: usage.cost != null
+    ? Math.round((Number(usage.cost) || 0) * 1e6)
+    : priceUsage(model, usage) || 0,
   cachedTokens: Number(usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens) || 0,
+  inputTokens: Number(usage.prompt_tokens) || 0,
+  outputTokens: Number(usage.completion_tokens) || 0,
 });
 
 // Rough input size of a request in tokens, for the reservation made before it
@@ -108,7 +116,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
               outputChars += outputLength(data.choices?.[0]?.delta);
               if (data.usage && data.usage.total_tokens) {
                 tokens = data.usage.total_tokens;
-                spend = costOf(data.usage);
+                spend = costOf(data.usage, bodyObj.model);
               }
               if (data.error || data.choices?.[0]?.finish_reason === 'error') failed = true;
             } catch {
@@ -141,7 +149,7 @@ export function wrapWithTokenTracking(env, upstreamResponse, bodyObj, { uid, kin
         outputChars = outputLength(data.choices?.[0]?.message);
         if (data.usage && data.usage.total_tokens) {
           tokens = data.usage.total_tokens;
-          spend = costOf(data.usage);
+          spend = costOf(data.usage, bodyObj.model);
         }
         if (data.error || data.choices?.[0]?.finish_reason === 'error') failed = true;
       } catch {

@@ -461,7 +461,7 @@ export default function SettingsModal({
                 </div>
               </SettingRow>
               {billingPlan && (
-                <SettingRow id="account-plan" title="Plan" description={billingPlan === 'none' ? 'You are not on a plan yet. Start the free trial to begin building.' : billingTrialing ? 'You are on the free trial of Plus.' : 'The plan your account is enrolled in.'}>
+                <SettingRow id="account-plan" title="Plan" description={billingPlan === 'none' ? 'You are not on a plan yet. Start the free trial to begin building.' : billingTrialing ? 'You are on the Free Trial.' : 'The plan your account is enrolled in.'}>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm">
                       <Sparkles size={16} />

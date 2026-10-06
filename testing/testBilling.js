@@ -53,13 +53,13 @@ test('paid plans reset at the period end', () => {
   const plus = checkAllowance({ plan: 'plus', period_tokens: PLANS.plus.periodTokens, period_end: end }, { now: NOW });
   assert.equal(plus.scope, 'period');
   assert.equal(plus.resetsAt.toISOString(), end);
-  assert.equal(checkAllowance({ plan: 'plus', today_tokens: 30_000_000, period_tokens: 30_000_000 }, { now: NOW }).allowed, true);
+  assert.equal(checkAllowance({ plan: 'plus', today_tokens: 20_000_000, period_tokens: 20_000_000 }, { now: NOW }).allowed, true);
 });
 
 test('limit messages say when it resets and what to do next', () => {
-  assert.match(limitMessage('none', { scope: 'none' }, NOW), /^Start your free 7-day trial to build/);
+  assert.match(limitMessage('none', { scope: 'none' }, NOW), /^Start your free 3-day trial to build/);
   assert.equal(limitMessage('none', { scope: 'none' }, NOW, { trialEligible: false }), 'Subscribe to Plus or Pro to build.');
-  assert.match(limitMessage('none', { scope: 'none' }, NOW, { freeBuildsUsed: true }), /^You've used your free prompts\. Start your free 7-day trial/);
+  assert.match(limitMessage('none', { scope: 'none' }, NOW, { freeBuildsUsed: true }), /^You've used your free prompts\. Start your free 3-day trial/);
   const trial = { allowed: false, scope: 'trial', resetsAt: new Date(NOW + 6 * 3600000) };
   assert.match(limitMessage('plus', trial, NOW), /Plus starts in 6h .* or start it now/);
   const plus = { allowed: false, scope: 'period', resetsAt: new Date(NOW + 3 * 86400000) };
@@ -224,7 +224,7 @@ test('an account with no plan and no free prompts is refused everything, repairs
     assert.equal(response.status, 402);
     const body = await response.json();
     assert.equal(body.code, 'subscription_required');
-    assert.match(body.error, /free 7-day trial/);
+    assert.match(body.error, /free 3-day trial/);
   }
   assert.equal(seen.upstream, null);
 });

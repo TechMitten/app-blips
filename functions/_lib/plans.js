@@ -6,9 +6,12 @@
 // Prices here are display copy; the amount actually charged is the Stripe
 // price found by `lookupKey`, so change both together.
 //
-// There is no free plan. A new account gets a TRIAL of Plus by subscribing
-// through Stripe Checkout with a card; Stripe charges for Plus when the
-// trial ends unless it was cancelled first. An account with no live
+// There is no free plan. A new account can start the Free Trial (TRIAL), a
+// plan of its own with a smaller allowance, by subscribing through Stripe
+// Checkout with a card. In Stripe it is a Plus subscription in its trial
+// period, so it turns into Plus, and is charged for, when the trial ends
+// unless it was cancelled first. Present it as its own plan, never as a
+// trial of Plus, since it doesn't include what Plus does. An account with no live
 // subscription is on `none`, which can't use the hosted AI at all (see
 // chatProxy.js). Every plan has a token allowance, counting total tokens
 // (input + output) as reported by the provider across the builder and the
@@ -28,7 +31,7 @@ export const PLANS = {
     label: 'Plus',
     price: 12,
     lookupKey: 'appblips_plus_monthly',
-    periodTokens: 35_000_000,
+    periodTokens: 25_000_000,
     images: true,
     premiumChat: true,
   },
@@ -37,18 +40,18 @@ export const PLANS = {
     label: 'Pro',
     price: 29,
     lookupKey: 'appblips_pro_monthly',
-    periodTokens: 85_000_000,
+    periodTokens: 60_000_000,
     images: true,
     premiumChat: true,
   },
 };
 
-// The free Plus trial. Its allowance is smaller than a paid month so a trial
-// that's cancelled can't cost a month of AI; the full allowance starts with
-// the first payment. One trial per account and per card (billing.js).
+// The Free Trial: `plan` is the Stripe plan it runs on and turns into. Its
+// allowance is smaller than a paid month so a trial that's cancelled can't
+// cost a month of AI; the full allowance starts with the first payment. One trial per account and per card (billing.js).
 export const TRIAL = {
   plan: 'plus',
-  days: 7,
+  days: 3,
   periodTokens: 6_000_000,
 };
 
