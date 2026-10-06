@@ -39,7 +39,7 @@ AppBlips has three studios, chosen from the launch screen:
 - **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), then lets you refine it with prompts or click-to-edit tools.
 - **Game Studio** — playable browser games with a real game loop: raw Canvas 2D for simple arcade games or the Phaser 3 engine (loaded from CDN) for sprite, tilemap and physics-heavy games, with controls, scoring, levels, juice, and sound tuned for both touch and keyboard.
 
-The studios share the same workflow: prompt, live preview, versions, export, and deploy.
+The studios share the same workflow: prompt, live preview, versions, and export.
 
 Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a server-side proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
 
@@ -180,16 +180,16 @@ There's no automated test suite wired to `npm test`. The `testing/` directory ho
 src/
   App.jsx            # Workspace/generation state, undo-redo, composition root
   previewBridge.js   # Script injected into generated apps to bridge the sandboxed iframe
-  lib/               # Framework-free logic: LLM calls, surgical edits, prompts, deploy, crypto...
-  hooks/             # Stateful concerns: auth, projects, deployment, preview viewport...
+  lib/               # Framework-free logic: LLM calls, surgical edits, prompts, crypto...
+  hooks/             # Stateful concerns: auth, projects, preview viewport...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
-functions/           # /api/chat proxy and AI relays, plus the Cloudflare Pages Functions that serve deployed apps
+functions/           # /api/chat proxy and AI relays
 server.js            # Standalone Node server used by the Docker setup
 electron/            # Desktop app: main process, preload, on-disk project store, encrypted provider settings
 testing/            # Standalone Node scripts for exercising the proxy, AI relay and preview
 ```
 
-For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals, deploy pipeline), see [`CLAUDE.md`](CLAUDE.md).
+For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 
 ## Security notes
 
@@ -197,7 +197,6 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 - Self-hosted BYOK credentials are entered explicitly by the finished-app user and live in browser storage only. Session storage is the default; persistent storage is opt-in. They are never bundled into the source or server code.
 - The self-hosted generated-app relay (`/api/app-ai/chat`) spends your provider key. It only accepts same-origin calls unless you list other origins in `APPBLIPS_APP_AI_ALLOWED_ORIGINS`. Your own copy sets no request limits, so set a spend limit with your provider.
 - In a single-user install, `/api/chat` has no token verification — every request is treated as the same local user, so anyone who can reach it can spend your configured AI budget. Keep it on localhost or behind a trusted network boundary.
-- Deployed apps are served from a separate hostname (`VITE_APPS_ORIGIN`), never the app's own origin — they're AI-generated code with full script privileges, so keeping them off-origin stops them reaching your parent app state or session details.
 
 ## License
 
