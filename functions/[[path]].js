@@ -304,10 +304,11 @@ export const parseDeploymentDoc = (doc) => ({
       .filter((n) => n !== 'index' && PAGE_SEGMENT_PATTERN.test(n)),
   )],
   bundle: doc?.bundle === true,
+  updated_at: doc?.updated_at || null,
 });
 
 const fetchDeploymentRow = async (slug, env) => {
-  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=name,storage_path,page_names,bundle&limit=1`, {
+  const res = await fetch(`${supabaseUrl(env)}/rest/v1/deployments?slug=eq.${encodeURIComponent(slug)}&select=name,storage_path,page_names,bundle,updated_at&limit=1`, {
     headers: supabaseHeaders(env),
   });
   if (!res.ok) return { ok: false, row: null };
@@ -469,28 +470,49 @@ export async function onRequest(context) {
       }
     }
 
-    const object = await fetch(`${supabaseUrl(env)}/storage/v1/object/public/${BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}`);
-
-    if (!object.ok) {
-      return notice(404, 'Not found', 'This app is no longer deployed.');
-    }
-
     const pageUrl = `https://${hostname}/${slug}${page ? `/${page}` : ''}`;
-    let body = await object.text();
-    if (!isBundle && row.page_names.length) body = rewritePageLinks(body, slug, row.page_names);
+    const cache = caches.default;
+    const cacheKey = new Request(`${pageUrl}?v=${encodeURIComponent(row.updated_at || '0')}`);
+    
+    let cachedResponse = await cache.match(cacheKey);
+    let html;
 
-    const html = injectSlug(
-      injectLockProtection(
-        injectRemixBadge(
-          injectAnalytics(
-            injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
+    if (cachedResponse) {
+      html = await cachedResponse.text();
+    } else {
+      // Append updated_at to the Supabase fetch to bust Supabase's own CDN cache on redeploys.
+      const storageUrl = `${supabaseUrl(env)}/storage/v1/object/public/${BUCKET}/${storagePath.split('/').map(encodeURIComponent).join('/')}?v=${encodeURIComponent(row.updated_at || '0')}`;
+      const object = await fetch(storageUrl);
+
+      if (!object.ok) {
+        return notice(404, 'Not found', 'This app is no longer deployed.');
+      }
+
+      let body = await object.text();
+      if (!isBundle && row.page_names.length) body = rewritePageLinks(body, slug, row.page_names);
+
+      html = injectSlug(
+        injectLockProtection(
+          injectRemixBadge(
+            injectAnalytics(
+              injectFavicon(injectSeoDefaults(body, { url: pageUrl })),
+              env,
+            ),
             env,
           ),
-          env,
         ),
-      ),
-      slug,
-    );
+        slug,
+      );
+
+      // Save to Cloudflare's edge cache for 1 year. The cache key changes on redeploy (updated_at).
+      const cacheResponse = new Response(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=31536000'
+        }
+      });
+      context.waitUntil(cache.put(cacheKey, cacheResponse));
+    }
 
     return new Response(request.method === 'HEAD' ? null : html, {
       status: 200,

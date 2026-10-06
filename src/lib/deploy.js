@@ -217,7 +217,7 @@ export const uploadDeploy = async ({ path, files, password, preventIndexing, fav
   const put = async (objectPath, html) => {
     try {
       const { error } = await supabase.storage.from(DEPLOY_BUCKET).upload(objectPath, new Blob([html], { type: 'text/html; charset=utf-8' }), {
-        contentType: 'text/html; charset=utf-8', cacheControl: '60', upsert: true
+        contentType: 'text/html; charset=utf-8', cacheControl: '31536000', upsert: true
       });
       if (error) throw error;
     } catch (error) {
