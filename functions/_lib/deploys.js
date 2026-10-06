@@ -144,6 +144,7 @@ const objectKeysFor = (doc) => {
 // -> { slug, path, pageObjects, updatedAt }. 409 { code: 'taken' } when the
 // slug belongs to someone else (the client retries with a longer tail).
 export async function handleDeployUpload(request, env) {
+  let step = 'authorize';
   try {
     const user = await requireSetup(request, env);
     if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) throw new DeployError('This app is too large to publish.', 413);
@@ -154,6 +155,7 @@ export async function handleDeployUpload(request, env) {
     const upload = parseUpload(body);
     const docPath = deploymentDocPath(upload.slug);
 
+    step = 'check link';
     const existing = (await getDoc(env, docPath))?.data || null;
     if (existing && existing.user_id !== user.id) throw new DeployError('That link is taken.', 409, 'taken');
     if (!existing) {
@@ -172,9 +174,11 @@ export async function handleDeployUpload(request, env) {
     const storagePath = reused || `${user.id}/${randomToken(10)}.html`;
     const pageFiles = upload.pages.map(([name]) => name);
 
+    step = 'upload to storage';
     await putObject(env, storagePath, upload.landing);
     for (const [name, html] of upload.pages) await putObject(env, pageKey(storagePath, name), html);
 
+    step = 'save deployment';
     const updatedAt = new Date().toISOString();
     try {
       await runTransaction(env, async (tx) => {
@@ -217,8 +221,10 @@ export async function handleDeployUpload(request, env) {
     return json({ slug: upload.slug, path: storagePath, pageObjects: pageFiles, updatedAt });
   } catch (err) {
     if (err instanceof DeployError) return json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status);
-    console.error('[deploys] upload failed:', err?.message || err);
-    return json({ error: 'Could not publish the app. Please try again.' }, 502);
+    console.error(`[deploys] upload failed at "${step}":`, err?.message || err);
+    // 500, not 502: Cloudflare swaps a 502 for its own HTML error page, which
+    // would hide this message.
+    return json({ error: `Could not publish the app (failed at: ${step}). Please try again.` }, 500);
   }
 }
 
@@ -239,7 +245,7 @@ export async function handleDeployDelete(request, env) {
   } catch (err) {
     if (err instanceof DeployError) return json({ error: err.message }, err.status);
     console.error('[deploys] delete failed:', err?.message || err);
-    return json({ error: 'Could not take the app offline. Please try again.' }, 502);
+    return json({ error: 'Could not take the app offline. Please try again.' }, 500);
   }
 }
 

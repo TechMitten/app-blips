@@ -10,8 +10,19 @@ const encoder = new TextEncoder();
 
 export const r2Bucket = (env = {}) => String(env.R2_BUCKET || 'orion-deploys').trim();
 
+// Secrets pasted into a dashboard easily pick up a stray space or newline,
+// which R2 rejects as a malformed credential.
+const r2Env = (env, name) => String(env[name] || '').trim();
+
+// R2's own reason (e.g. "Credential access key has length 40, should be 32"),
+// so a failed call can be diagnosed from the logs.
+const r2Error = async (what, res) => {
+  const detail = /<Message>([^<]*)<\/Message>/.exec(await res.text().catch(() => ''))?.[1];
+  return new Error(`Storage ${what} failed: ${res.status}${detail ? ` (${detail})` : ''}`);
+};
+
 export const r2Configured = (env = {}) =>
-  Boolean(env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
+  Boolean(r2Env(env, 'R2_ACCOUNT_ID') && r2Env(env, 'R2_ACCESS_KEY_ID') && r2Env(env, 'R2_SECRET_ACCESS_KEY'));
 
 const toHex = (buffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
 const sha256Hex = async (data) => toHex(await crypto.subtle.digest('SHA-256', typeof data === 'string' ? encoder.encode(data) : data));
@@ -54,7 +65,7 @@ export const sigV4Authorization = async ({ method, path, queryString, headers, p
 };
 
 const signedFetch = async (env, method, key, { query = {}, body, headers = {} } = {}) => {
-  const host = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const host = `${r2Env(env, 'R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`;
   const path = `/${uriEncode(r2Bucket(env))}${key ? `/${key.split('/').map(uriEncode).join('/')}` : ''}`;
   const queryString = Object.keys(query).sort().map((name) => `${uriEncode(name)}=${uriEncode(String(query[name]))}`).join('&');
   const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -64,7 +75,7 @@ const signedFetch = async (env, method, key, { query = {}, body, headers = {} } 
   for (const [name, value] of Object.entries(headers)) signed[name.toLowerCase()] = String(value).trim();
   const authorization = await sigV4Authorization({
     method, path, queryString, headers: signed, payloadHash, amzDate,
-    region: 'auto', service: 's3', accessKeyId: env.R2_ACCESS_KEY_ID, secret: env.R2_SECRET_ACCESS_KEY,
+    region: 'auto', service: 's3', accessKeyId: r2Env(env, 'R2_ACCESS_KEY_ID'), secret: r2Env(env, 'R2_SECRET_ACCESS_KEY'),
   });
 
   // fetch sets Host itself (it's a forbidden header); the rest go as signed.
@@ -81,7 +92,7 @@ export const putObject = async (env, key, body, { contentType = 'text/html; char
   assertKey(key);
   const bytes = typeof body === 'string' ? encoder.encode(body) : body;
   const res = await signedFetch(env, 'PUT', key, { body: bytes, headers: { 'content-type': contentType } });
-  if (!res.ok) throw new Error(`Storage upload failed: ${res.status}`);
+  if (!res.ok) throw await r2Error('upload', res);
 };
 
 // The object's body as text, or null when it doesn't exist.
@@ -89,7 +100,7 @@ export const getObjectText = async (env, key) => {
   assertKey(key);
   const res = await signedFetch(env, 'GET', key);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Storage read failed: ${res.status}`);
+  if (!res.ok) throw await r2Error('read', res);
   return res.text();
 };
 
@@ -99,7 +110,7 @@ export const deleteObjects = async (env, keys) => {
     await Promise.all(keys.slice(i, i + 10).map(async (key) => {
       assertKey(key);
       const res = await signedFetch(env, 'DELETE', key);
-      if (!res.ok && res.status !== 404) throw new Error(`Storage delete failed: ${res.status}`);
+      if (!res.ok && res.status !== 404) throw await r2Error('delete', res);
     }));
   }
 };
@@ -115,7 +126,7 @@ export const listKeys = async (env, prefix) => {
   do {
     const query = { 'list-type': '2', prefix, ...(continuation ? { 'continuation-token': continuation } : {}) };
     const res = await signedFetch(env, 'GET', '', { query });
-    if (!res.ok) throw new Error(`Storage list failed: ${res.status}`);
+    if (!res.ok) throw await r2Error('list', res);
     const xml = await res.text();
     for (const match of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(decodeXml(match[1]));
     const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
