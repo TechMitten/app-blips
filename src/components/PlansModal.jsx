@@ -3,6 +3,7 @@ import { Check, Loader2, Sparkles } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { PLANS, usageMultiple } from '../../functions/_lib/plans.js';
 import { startCheckout, openBillingPortal, usagePercent } from '../lib/billing';
+import { maintenanceMode } from '../lib/maintenance';
 
 // What each plan card lists. No token counts, model names or Free's daily
 // prompt number: Free is sold as daily prompts, paid plans as a multiple of
@@ -111,6 +112,11 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
             Checkout was cancelled. Nothing was charged.
           </div>
         )}
+        {maintenanceMode && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Upgrades are paused while AppBlips is down for maintenance. Nothing will be charged.
+          </div>
+        )}
         {reason && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{reason}</div>
         )}
@@ -166,7 +172,7 @@ export default function PlansModal({ status, reason = null, checkoutResult = nul
                     <button
                       type="button"
                       onClick={() => run(plan.id, () => startCheckout(plan.id))}
-                      disabled={Boolean(busy) || !status?.enabled}
+                      disabled={Boolean(busy) || !status?.enabled || maintenanceMode}
                       className="brand-fill-text w-full rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
                     >
                       {busy === plan.id ? <Loader2 size={16} className="mx-auto animate-spin" /> : isPaid ? `Switch to ${plan.label}` : `Upgrade to ${plan.label}`}

@@ -327,7 +327,8 @@ export const requestModelText = async ({
       err.isNonRetryable = response.status >= 400 && response.status < 500 && response.status !== 408;
       // 'limit_reached' / 'upgrade_required' from the plan check (chatProxy.js),
       // so the UI can offer an upgrade instead of only showing the message.
-      if (typeof errData?.code === 'string') err.billingCode = errData.code;
+      if (errData?.code === 'maintenance') err.isNonRetryable = true;
+      else if (typeof errData?.code === 'string') err.billingCode = errData.code;
       throw err;
     }
 

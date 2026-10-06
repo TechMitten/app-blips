@@ -110,7 +110,10 @@ export function providerEnv(baseEnv, active) {
   const scope = providerVarScope(active.id);
   const env = { ...baseEnv };
   for (const name of [
-    LLM_ENV.BASE_URL, LLM_ENV.REASONING_PARAM, 'APPBLIPS_LLM_BASE_URL', 'APPBLIPS_LLM_REASONING_PARAM',
+    LLM_ENV.BASE_URL, 'APPBLIPS_LLM_BASE_URL',
+    // The generic key is read before the provider's own one, so a leftover
+    // OPENAI_API_KEY would replace the user's saved key.
+    LLM_ENV.API_KEY, 'APPBLIPS_LLM_API_KEY',
     // Per-role models name the operator's provider's models, not this one's.
     LLM_ENV.VISION_MODEL, LLM_ENV.ASK_MODEL, 'APPBLIPS_LLM_VISION_MODEL', 'APPBLIPS_LLM_ASK_MODEL',
     `${scope}_MODEL`, `${scope}_BASE_URL`,

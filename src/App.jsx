@@ -73,6 +73,7 @@ import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
+import { maintenanceMode, MAINTENANCE_MESSAGE } from './lib/maintenance';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -1130,6 +1131,12 @@ export default function App() {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
+    // Starter ideas, auto-fix and resumed jobs also land here, not only the
+    // prompt box; the server refuses these requests anyway.
+    if (maintenanceMode) {
+      setError(MAINTENANCE_MESSAGE);
+      return;
+    }
 
     if (!isAutoFix) {
       cancelPendingReload();

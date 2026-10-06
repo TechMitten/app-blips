@@ -37,12 +37,16 @@ async function captureRequest(t, payload, settings = {}) {
   return upstreamBody;
 }
 
+// OpenRouter is the only provider: reasoning always goes in its `reasoning`
+// object, and forced tool choices are passed through unchanged.
 for (const effort of ['low', 'medium', 'high']) {
   for (const choice of ['required', namedChoice]) {
-    test(`reasoning ${effort} uses auto for ${JSON.stringify(choice)}`, async (t) => {
-      const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true, reasoning_effort: effort });
-      assert.equal(body.tool_choice, 'auto');
-      assert.equal(body.reasoning_effort, effort);
+    test(`reasoning ${effort} keeps ${JSON.stringify(choice)} and drops temperature`, async (t) => {
+      const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true, reasoning_effort: effort, temperature: 0 });
+      assert.deepEqual(body.tool_choice, choice);
+      assert.deepEqual(body.reasoning, { effort });
+      assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+      assert.equal(Object.hasOwn(body, 'temperature'), false);
       assert.deepEqual(body.tools, [editTool]);
       assert.equal(body.stream, true);
     });
@@ -50,10 +54,10 @@ for (const effort of ['low', 'medium', 'high']) {
 }
 
 for (const effort of [undefined, false, 'none', 'off', 'disabled']) {
-  test(`disabled reasoning ${effort} preserves forced tool choices`, async (t) => {
+  test(`disabled reasoning ${effort} sends effort none and keeps forced tools`, async (t) => {
     const body = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice, reasoning_effort: effort });
     assert.deepEqual(body.tool_choice, namedChoice);
-    assert.equal(body.reasoning_effort, 'none');
+    assert.deepEqual(body.reasoning, { effort: 'none' });
   });
 }
 
@@ -64,42 +68,21 @@ for (const choice of ['auto', 'none', undefined]) {
   });
 }
 
-test('client can disable reasoning and retain required tool use', async (t) => {
-  const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'none' });
-  assert.equal(body.tool_choice, 'required');
-  assert.equal(body.reasoning_effort, 'none');
-});
-
-test('client can enable reasoning', async (t) => {
-  const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'high' });
-  assert.equal(body.tool_choice, 'auto');
-  assert.equal(body.reasoning_effort, 'high');
-});
-
 test('initial generation keeps reasoning without adding tool choice', async (t) => {
   const body = await captureRequest(t, { stream: true, reasoning_effort: 'high' });
-  assert.equal(body.reasoning_effort, 'high');
+  assert.deepEqual(body.reasoning, { effort: 'high' });
   assert.equal(Object.hasOwn(body, 'tool_choice'), false);
   assert.equal(Object.hasOwn(body, 'tools'), false);
 });
 
-// --- Provider presets (functions/_lib/providers.js) ----------------------
+// --- Provider selection (functions/_lib/providers.js) ----------------------
 
-test('unset provider keeps stream_options when streaming', async (t) => {
+test('streaming requests ask for usage', async (t) => {
   const body = await captureRequest(t, { stream: true, reasoning_effort: 'low' });
   assert.deepEqual(body.stream_options, { include_usage: true });
 });
 
-test('provider is chosen by name, never inferred from model or host', async (t) => {
-  const body = await captureRequest(t, { reasoning_effort: 'none' }, {
-    OPENAI_LLM_MODEL: 'glm-5.3',
-    OPENAI_BASE_URL: 'https://api.z.ai/api/paas/v4',
-  });
-  assert.equal(body.reasoning_effort, 'none');
-  assert.equal(Object.hasOwn(body, 'thinking'), false);
-});
-
-test('named provider supplies its default base URL', async (t) => {
+test('OpenRouter is the default endpoint when no base URL is set', async (t) => {
   let calledUrl;
   t.mock.method(globalThis, 'fetch', async (url) => {
     calledUrl = url;
@@ -113,76 +96,16 @@ test('named provider supplies its default base URL', async (t) => {
   assert.equal(calledUrl, 'https://openrouter.ai/api/v1/chat/completions');
 });
 
-test('generic provider without a base URL reports it missing', async () => {
-  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { ...env, OPENAI_BASE_URL: '' });
-  assert.equal(response.status, 500);
-  assert.match((await response.json()).error, /OPENAI_BASE_URL/);
-});
-
-test('unknown provider name is a configuration error', async () => {
-  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { ...env, OPENAI_LLM_PROVIDER: 'nope' });
-  assert.equal(response.status, 500);
-  assert.match((await response.json()).error, /Unknown OPENAI_LLM_PROVIDER "nope"/);
-});
-
-for (const provider of ['openai', 'deepseek']) {
-  test(`${provider} sends reasoning_effort and keeps forced tools when off`, async (t) => {
-    const off = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'none' }, { OPENAI_LLM_PROVIDER: provider });
-    assert.equal(off.reasoning_effort, 'none');
-    assert.equal(off.tool_choice, 'required');
-    t.mock.restoreAll();
-    const on = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'low' }, { OPENAI_LLM_PROVIDER: provider });
-    assert.equal(on.reasoning_effort, 'low');
-    assert.equal(on.tool_choice, 'auto');
+for (const removed of ['nope', 'zai', 'openai']) {
+  test(`provider "${removed}" is a configuration error`, async () => {
+    const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    }), { ...env, OPENAI_LLM_PROVIDER: removed });
+    assert.equal(response.status, 500);
+    assert.match((await response.json()).error, new RegExp(`Unknown OPENAI_LLM_PROVIDER "${removed}"`));
   });
 }
-
-test('openrouter sends the reasoning object', async (t) => {
-  const off = await captureRequest(t, { stream: true, reasoning_effort: 'none' }, { OPENAI_LLM_PROVIDER: 'openrouter' });
-  assert.deepEqual(off.reasoning, { effort: 'none' });
-  assert.equal(Object.hasOwn(off, 'reasoning_effort'), false);
-  assert.deepEqual(off.stream_options, { include_usage: true });
-  t.mock.restoreAll();
-  const on = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice, reasoning_effort: 'low' }, { OPENAI_LLM_PROVIDER: 'openrouter' });
-  assert.deepEqual(on.reasoning, { effort: 'low' });
-  assert.equal(on.tool_choice, 'auto');
-});
-
-test('zai off -> thinking disabled, no reasoning_effort, no stream_options', async (t) => {
-  const body = await captureRequest(t, { stream: true, reasoning_effort: 'none' }, { OPENAI_LLM_PROVIDER: 'zai' });
-  assert.deepEqual(body.thinking, { type: 'disabled' });
-  assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
-  assert.equal(Object.hasOwn(body, 'stream_options'), false);
-});
-
-test('zai on -> thinking enabled with the effort', async (t) => {
-  const body = await captureRequest(t, { reasoning_effort: 'low' }, { OPENAI_LLM_PROVIDER: 'zai' });
-  assert.deepEqual(body.thinking, { type: 'enabled' });
-  assert.equal(body.reasoning_effort, 'low');
-});
-
-test('zai always relaxes forced tool choice, even with reasoning off', async (t) => {
-  const body = await captureRequest(t, { tools: [editTool], tool_choice: namedChoice, reasoning_effort: 'none' }, { OPENAI_LLM_PROVIDER: 'zai' });
-  assert.equal(body.tool_choice, 'auto');
-});
-
-test('REASONING_PARAM=omit sends no reasoning field and keeps forced tools', async (t) => {
-  const body = await captureRequest(t, { tools: [editTool], tool_choice: 'required', reasoning_effort: 'low' }, { OPENAI_LLM_REASONING_PARAM: 'omit' });
-  for (const key of ['reasoning_effort', 'reasoning', 'thinking']) assert.equal(Object.hasOwn(body, key), false);
-  assert.equal(body.tool_choice, 'required');
-});
-
-test('REASONING_PARAM overrides a preset', async (t) => {
-  const body = await captureRequest(t, { reasoning_effort: 'low' }, { OPENAI_LLM_PROVIDER: 'openrouter', OPENAI_LLM_REASONING_PARAM: 'reasoning_effort' });
-  assert.equal(body.reasoning_effort, 'low');
-  assert.equal(Object.hasOwn(body, 'reasoning'), false);
-});
 
 // --- Key-driven provider selection ----------------------------------------
 
@@ -205,8 +128,6 @@ test('a provider becomes active once its API key is filled in', async (t) => {
   const { response, upstream } = await runWith(t, {
     OPENAI_API_KEY: 'or-key',
     OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5',
-    APPBLIPS_OPENAI_API_KEY: '',
-    APPBLIPS_OPENAI_MODEL: 'gpt-x',
   }, { reasoning_effort: 'low' });
   assert.equal(response.status, 200);
   assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
@@ -215,29 +136,18 @@ test('a provider becomes active once its API key is filled in', async (t) => {
   assert.deepEqual(upstream.body.reasoning, { effort: 'low' });
 });
 
-test('a per-provider base URL overrides the preset endpoint', async (t) => {
-  const { upstream } = await runWith(t, {
-    APPBLIPS_ZAI_API_KEY: 'z-key',
-    APPBLIPS_ZAI_MODEL: 'glm-x',
-    APPBLIPS_ZAI_BASE_URL: 'https://api.z.ai/api/coding/paas/v4/',
+// The production setup: the key lives in APPBLIPS_OPENROUTER_API_KEY.
+test('APPBLIPS_OPENROUTER_API_KEY configures OpenRouter', async (t) => {
+  const { response, upstream } = await runWith(t, {
+    OPENAI_LLM_PROVIDER: 'openrouter',
+    APPBLIPS_OPENROUTER_API_KEY: 'or-env-key',
+    OPENAI_LLM_MODEL: 'deepseek/deepseek-v4-flash',
   });
-  assert.equal(upstream.url, 'https://api.z.ai/api/coding/paas/v4/chat/completions');
-  assert.deepEqual(upstream.body.thinking, { type: 'disabled' });
-});
-
-test('with several keys set the first listed provider wins, and PROVIDER overrides', async (t) => {
-  t.mock.method(console, 'warn', () => {});
-  const both = {
-    APPBLIPS_OPENAI_API_KEY: 'oa', APPBLIPS_OPENAI_MODEL: 'gpt-x',
-    APPBLIPS_DEEPSEEK_API_KEY: 'ds', APPBLIPS_DEEPSEEK_MODEL: 'ds-x',
-  };
-  const auto = await runWith(t, both);
-  assert.equal(auto.upstream.headers.Authorization, 'Bearer oa');
-  t.mock.restoreAll();
-  t.mock.method(console, 'warn', () => {});
-  const chosen = await runWith(t, { ...both, OPENAI_LLM_PROVIDER: 'deepseek' });
-  assert.equal(chosen.upstream.headers.Authorization, 'Bearer ds');
-  assert.equal(chosen.upstream.body.model, 'ds-x');
+  assert.equal(response.status, 200);
+  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(upstream.headers.Authorization, 'Bearer or-env-key');
+  assert.equal(upstream.body.model, 'deepseek/deepseek-v4-flash');
+  assert.deepEqual(upstream.body.reasoning, { effort: 'none' });
 });
 
 test('the plain OPENAI_* variables work as the generic provider', async (t) => {
@@ -273,7 +183,7 @@ test('the plain variables are a fallback for a named provider', async (t) => {
 });
 
 test('no filled-in provider is a clear configuration error', async (t) => {
-  const { response } = await runWith(t, { APPBLIPS_OPENAI_API_KEY: '', APPBLIPS_OPENAI_MODEL: 'gpt-x' });
+  const { response } = await runWith(t, { APPBLIPS_OPENROUTER_API_KEY: '', OPENAI_LLM_MODEL: 'gpt-x' });
   assert.equal(response.status, 500);
   assert.match((await response.json()).error, /No AI provider is configured/);
 });
@@ -299,7 +209,7 @@ test('a user provider works with no provider in the env', async (t) => {
 });
 
 test('a user provider wins over the env provider; without one the env is used', async (t) => {
-  const envProvider = { APPBLIPS_OPENAI_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
+  const envProvider = { APPBLIPS_OPENROUTER_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
   const withUser = await runWith(t, envProvider, { user_provider: userProvider });
   assert.equal(withUser.upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(withUser.upstream.headers.Authorization, 'Bearer user-key');
@@ -427,4 +337,19 @@ test('self-hosted app AI relay is not rate limited', async (t) => {
     }), relayEnv);
     assert.equal(response.status, 200, `relay request ${i + 1}`);
   }
+});
+
+test('maintenance mode refuses every request before calling the provider', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('provider must not be called');
+  });
+  for (const payload of [{}, { ask: true }, { user_provider: { id: 'openrouter', apiKey: 'k', model: 'm' } }]) {
+    const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
+    }), { ...env, APPBLIPS_MAINTENANCE: 'true' });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, 'maintenance');
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
 });

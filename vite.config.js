@@ -413,9 +413,10 @@ export default defineConfig(({ mode }) => (checkSupabaseConfig(mode), {
   plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode), aiRelayDevMiddleware(mode), selfHostedAppAiDevMiddleware(mode), debugUnlockDevMiddleware(mode), analyticsProxyDevMiddleware(mode), billingDevMiddleware(mode), umamiAnalyticsPlugin(mode), seoPlugin(mode)],
   // SELF_HOSTED_MODE is gone: multi-user features turn on when the operator
   // configures Supabase (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY in
-  // src/supabase.js). APPBLIPS_GENERATED_AI_MODE / APPBLIPS_APP_AI_RELAY_URL
-  // have no VITE_ prefix but still need to reach import.meta.env.
-  envPrefix: ['VITE_', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL'],
+  // src/supabase.js). APPBLIPS_GENERATED_AI_MODE / APPBLIPS_APP_AI_RELAY_URL /
+  // APPBLIPS_MAINTENANCE have no VITE_ prefix but still need to reach
+  // import.meta.env (the server reads the same variables).
+  envPrefix: ['VITE_', 'APPBLIPS_GENERATED_AI_MODE', 'APPBLIPS_APP_AI_RELAY_URL', 'APPBLIPS_MAINTENANCE'],
   server: {
     host: true,
     port: 5175,

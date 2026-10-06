@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProjectStore, folderNameFor, validateRow } from '../electron/projectStore.js';
 import { createProviderStore, providerEnv } from '../electron/providerStore.js';
+import { resolveProvider } from '../functions/_lib/providers.js';
 
 const row = (id, name, extra = {}) => ({
   id,
@@ -155,10 +156,9 @@ test('provider store encrypts the key and never describes it', async () => {
     assert.equal(reloaded.active().apiKey, 'sk-secret');
     assert.equal(reloaded.keyFor('openrouter'), 'sk-secret');
     assert.equal(reloaded.keyFor('openai'), '');
-    await reloaded.set({ id: 'openai' });
-    assert.equal(reloaded.describe().hasKey, false);
-    assert.equal(reloaded.active(), null);
-    await assert.rejects(reloaded.set({ id: 'openai-compatible' }));
+    // OpenRouter is the only provider; removed ones are refused.
+    for (const id of ['openai', 'zai', 'openai-compatible']) await assert.rejects(reloaded.set({ id }));
+    assert.equal(reloaded.active().apiKey, 'sk-secret');
 
     const weak = createProviderStore({ file: join(dir, 'p2.json'), crypto: fakeCrypto(false) });
     assert.equal(weak.describe().weakEncryption, true);
@@ -168,19 +168,21 @@ test('provider store encrypts the key and never describes it', async () => {
 });
 
 test('providerEnv points both relays at the saved provider', () => {
-  const base = { OPENAI_BASE_URL: 'http://operator', APPBLIPS_ZAI_MODEL: 'old', KEEP: '1' };
+  const base = { OPENAI_BASE_URL: 'http://operator', OPENAI_API_KEY: 'operator-key', APPBLIPS_OPENROUTER_MODEL: 'old', KEEP: '1' };
   assert.equal(providerEnv(base, null), base);
-  const env = providerEnv(base, { id: 'zai', model: 'glm', apiKey: 'k' });
-  assert.equal(env.OPENAI_LLM_PROVIDER, 'zai');
-  assert.equal(env.APPBLIPS_ZAI_API_KEY, 'k');
-  assert.equal(env.OPENAI_LLM_MODEL, 'glm');
+  const env = providerEnv(base, { id: 'openrouter', model: 'deepseek/deepseek-v4-flash', apiKey: 'k' });
+  assert.equal(env.OPENAI_LLM_PROVIDER, 'openrouter');
+  assert.equal(env.APPBLIPS_OPENROUTER_API_KEY, 'k');
+  assert.equal(env.OPENAI_LLM_MODEL, 'deepseek/deepseek-v4-flash');
   assert.equal(env.OPENAI_BASE_URL, undefined);
-  assert.equal(env.APPBLIPS_ZAI_MODEL, undefined);
+  assert.equal(env.OPENAI_API_KEY, undefined);
+  assert.equal(env.APPBLIPS_OPENROUTER_MODEL, undefined);
   assert.equal(env.KEEP, '1');
 });
 
-test('providerEnv maps hyphenated provider ids to valid variable names', () => {
-  const env = providerEnv({}, { id: 'zai-coding', model: 'glm-5.3', apiKey: 'k' });
-  assert.equal(env.OPENAI_LLM_PROVIDER, 'zai-coding');
-  assert.equal(env.APPBLIPS_ZAI_CODING_API_KEY, 'k');
+test('a saved key wins over a leftover operator key', () => {
+  const env = providerEnv({ OPENAI_API_KEY: 'leftover', APPBLIPS_LLM_API_KEY: 'old' }, { id: 'openrouter', model: 'm', apiKey: 'user-k' });
+  const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
+  assert.equal(provider.apiKey, 'user-k');
+  assert.equal(provider.baseUrl, 'https://openrouter.ai/api/v1');
 });

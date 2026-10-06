@@ -12,7 +12,7 @@ import { supabaseUrl, supabaseHeaders, supabaseServiceKey, supabaseConfigured } 
 import { PLANS, PAID_PLAN_IDS, planById, planByLookupKey, checkAllowance, checkPrompts, allowanceLimits } from './plans.js';
 // chatProxy.js imports this module too; the cycle is safe because neither
 // side uses the other at load time.
-import { authorize } from './chatProxy.js';
+import { authorize, maintenanceOn } from './chatProxy.js';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 const WEBHOOK_TOLERANCE_SECONDS = 300;
@@ -327,6 +327,9 @@ export async function handleBillingStatus(request, env) {
 // instead (where Stripe handles switching plans), so nobody pays twice.
 export async function handleBillingCheckout(request, env) {
   if (!billingEnabled(env)) return json({ error: 'Billing is not enabled.' }, 404);
+  // No new subscriptions while building is paused: nobody should pay for a
+  // service they can't use. The webhook and Customer Portal keep working.
+  if (maintenanceOn(env)) return json({ error: 'Upgrades are paused during maintenance.', code: 'maintenance' }, 503);
   const user = await authorize(request, env);
   if (!user) return json({ error: 'Sign in required.' }, 401);
   if (!billingAppliesTo(env, user)) return json({ error: 'Billing is not enabled.' }, 404);

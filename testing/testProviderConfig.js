@@ -50,30 +50,29 @@ test('app AI reports the shared model variable when no model is set anywhere', (
 
 test('the old APPBLIPS_LLM_* names still configure the builder', () => {
   const app = resolveAppProvider({
-    APPBLIPS_LLM_PROVIDER: 'zai', APPBLIPS_LLM_API_KEY: 'old-key',
-    APPBLIPS_LLM_BASE_URL: 'https://api.z.ai/api/paas/v4', APPBLIPS_LLM_MODEL: 'glm-5.3-flash',
+    APPBLIPS_LLM_PROVIDER: 'openrouter', APPBLIPS_LLM_API_KEY: 'old-key', APPBLIPS_LLM_MODEL: 'old/model',
   }, quiet);
-  assert.equal(app.id, 'zai');
+  assert.equal(app.id, 'openrouter');
   assert.equal(app.apiKey, 'old-key');
-  assert.equal(app.model, 'glm-5.3-flash');
+  assert.equal(app.model, 'old/model');
   assert.deepEqual(app.missing, []);
 });
 
 test('a new OPENAI_* name wins over its old APPBLIPS_LLM_* name', () => {
   const app = resolveAppProvider({
-    OPENAI_LLM_PROVIDER: 'zai', APPBLIPS_LLM_PROVIDER: 'deepseek',
+    OPENAI_LLM_PROVIDER: 'openrouter', APPBLIPS_LLM_PROVIDER: 'zai',
     OPENAI_API_KEY: 'new', APPBLIPS_LLM_API_KEY: 'old',
     OPENAI_LLM_MODEL: 'new-model', APPBLIPS_LLM_MODEL: 'old-model',
   }, quiet);
-  assert.equal(app.id, 'zai');
+  assert.equal(app.id, 'openrouter');
   assert.equal(app.apiKey, 'new');
   assert.equal(app.model, 'new-model');
 });
 
-test('OPENAI_API_KEY is the fallback key for a named provider', () => {
-  const app = resolveAppProvider({ OPENAI_LLM_PROVIDER: 'zai', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' }, quiet);
+test('OPENAI_API_KEY wins over APPBLIPS_OPENROUTER_API_KEY', () => {
+  const app = resolveAppProvider({ OPENAI_API_KEY: 'k', APPBLIPS_OPENROUTER_API_KEY: 'or', OPENAI_LLM_MODEL: 'm' }, quiet);
   assert.equal(app.apiKey, 'k');
-  assert.equal(app.baseUrl, 'https://api.z.ai/api/paas/v4');
+  assert.equal(app.baseUrl, 'https://openrouter.ai/api/v1');
 });
 
 test('summary lists old APPBLIPS_LLM_* names to rename', () => {
@@ -112,13 +111,6 @@ test('summary shows BYOK only when it is chosen explicitly', () => {
 test('multi-user summary explains an empty configuration', () => {
   const lines = describeConfig(multiUserEnv);
   assert.ok(lines.some((l) => l.level === 'error' && /OPENAI_API_KEY/.test(l.text)));
-});
-
-test('summary warns when several provider keys are set', () => {
-  const lines = describeConfig({ ...builderEnv, APPBLIPS_OPENAI_API_KEY: 'x' });
-  const warning = lines.find((l) => l.level === 'warn');
-  assert.match(warning.text, /using openai/);
-  assert.match(warning.text, /OPENAI_LLM_PROVIDER/);
 });
 
 test('summary reports relay mode sharing the builder provider and model', () => {

@@ -133,6 +133,12 @@ const outputCap = (env, payload, multiUser) => {
 // transparent relay.
 const isMultiUser = (env) => supabaseConfigured(env);
 
+// Maintenance mode (APPBLIPS_MAINTENANCE=true) pauses building and Ask for
+// every plan. Checked before sign-in and billing so no request reaches the
+// provider; the client shows the same message (src/lib/maintenance.js).
+export const maintenanceOn = (env) => ['1', 'true', 'on', 'yes'].includes(String(env?.APPBLIPS_MAINTENANCE || '').trim().toLowerCase());
+export const MAINTENANCE_ERROR = 'AppBlips is down for maintenance. Building and Ask are paused for now. Please check back soon.';
+
 const positiveInt = (value, fallback) => {
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -365,6 +371,13 @@ const routeModel = (env, provider, payload, plan) => {
 export async function handleChatProxy(request, env, waitUntil) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
+  }
+
+  if (maintenanceOn(env)) {
+    return new Response(JSON.stringify({ error: MAINTENANCE_ERROR, code: 'maintenance' }), {
+      status: 503,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   if (!isMultiUser(env) && isForeignOrigin(request, env)) {

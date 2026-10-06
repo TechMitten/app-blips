@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Wrench } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import { generatedAiMode } from '../lib/generatedAiMode';
+import { maintenanceMode, MAINTENANCE_MESSAGE } from '../lib/maintenance';
 
 // The mode control is one slot-machine reel with three stops. "AI" means Build
 // with AI text generation enabled, so the three are mutually exclusive and
@@ -47,7 +48,7 @@ export default function PromptInput({
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const canSubmit = !isGenerating && prompt.trim().length > 0;
+  const canSubmit = !maintenanceMode && !isGenerating && prompt.trim().length > 0;
 
   // Optional microphone dictation (the first-build hero turns it on). Spoken
   // text is appended after whatever was already typed when listening began.
@@ -199,6 +200,12 @@ export default function PromptInput({
       {voiceError && (
         <p role="alert" className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{voiceError}</p>
       )}
+      {maintenanceMode && (
+        <div role="status" className="mx-3 sm:mx-3.5 mt-3 flex gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Wrench size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <p className="leading-relaxed">{MAINTENANCE_MESSAGE}</p>
+        </div>
+      )}
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -225,7 +232,7 @@ export default function PromptInput({
                       : "e.g. A minimalist task manager with categories...")
           }
           className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
-          disabled={isGenerating}
+          disabled={isGenerating || maintenanceMode}
         />
       </div>
       <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">

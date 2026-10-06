@@ -228,11 +228,10 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
   
-  // OpenRouter specific reasoning structure
-  if (!off) {
-    bodyObj.reasoning = { effort: raw };
-  }
-  
+  // OpenRouter's reasoning object. 'none' is sent explicitly when off: models
+  // that reason by default (DeepSeek, GPT-5) keep thinking if it is left out.
+  bodyObj.reasoning = { effort: off ? 'none' : raw };
+
   const reasoningEnabled = !off;
 
   // Thinking models (like DeepSeek R1) often get stuck in endless reasoning loops
