@@ -6,9 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  // `android/` holds the Capacitor native project; its assets/public is a
-  // minified copy of dist/ written by `cap sync`, not source we maintain.
-  globalIgnores(['dist', 'dist-desktop', 'dist-electron', '.wrangler', 'android']),
+  globalIgnores(['dist', 'dist-desktop', 'dist-electron', '.wrangler']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
