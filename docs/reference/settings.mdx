@@ -110,18 +110,14 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
 
 ### Your own AI provider
 
-Shown only in the desktop app. This is where you choose the AI provider, model and API key the app uses.
+Shown only in self-hosted copies, including the desktop app. This is where you choose the model and enter the OpenRouter API key the app uses.
 
-<ParamField body="Provider" type="DeepSeek">
-  Which service to call. DeepSeek is the only option, using its standard endpoint.
+<ParamField body="Model" type="select">
+  Choose one of the curated coding models. AppBlips uses OpenRouter's latest aliases so the selection stays current without an app update.
 </ParamField>
 
-<ParamField body="Model" type="string">
-  The model to use, written exactly as it appears in [DeepSeek's model list](https://api-docs.deepseek.com/quick_start/pricing).
-</ParamField>
-
-<ParamField body="API key" type="string">
-  Your key for that provider.
+<ParamField body="OpenRouter API key" type="string">
+  Your key from [OpenRouter](https://openrouter.ai/settings/keys).
 </ParamField>
 
 <ParamField body="Remember on this device" type="toggle" default="On">
@@ -131,7 +127,7 @@ Shown only in the desktop app. This is where you choose the AI provider, model a
 Click **Test connection** to check the settings, then **Save**. Your provider is used for building, editing, and chat.
 
 <Note>
-  Your key is encrypted with your system keychain and never stored in your projects. Only the app's background process uses it, to call your provider. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+  In the desktop app, your key is encrypted with your system keychain and only the background process uses it. In a browser-based self-hosted copy, the key stays in browser storage and is sent through that copy's server. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
 </Note>
 
 ---

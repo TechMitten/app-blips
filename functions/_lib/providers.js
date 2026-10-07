@@ -1,10 +1,16 @@
-// LLM providers the proxies can talk to.
-// We only use OpenRouter. The variables follow OPENAI_LLM_* standard names.
+// LLM providers the proxies can talk to. The server-configured provider stays
+// DeepSeek; self-hosted users can supply an OpenRouter key through Settings.
+// Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
+    reasoningParam: 'reasoning_effort',
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
     reasoningParam: 'reasoning_effort',
   },
 };
@@ -115,12 +121,26 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   return provider;
 };
 
-// Providers a user can pick in Settings → AI instead of the env provider.
+// Providers a self-hosted user can pick in Settings → AI instead of the
+// env provider. Keep this separate from PROVIDER_IDS: the hosted/server-owned
+// provider remains DeepSeek, while bring-your-own-key installs use OpenRouter.
 // Presets only: the endpoint and request format come from the preset, never
 // from the user, because OpenAI-compatible APIs still differ in what they
 // accept (see the capability flags above).
-export const USER_PROVIDER_IDS = ['deepseek'];
-export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({ id, label: PROVIDERS[id].label }));
+export const OPENROUTER_CODING_MODELS = [
+  { id: '~anthropic/claude-sonnet-latest', label: 'Claude Sonnet (latest)' },
+  { id: '~openai/gpt-sol-latest', label: 'OpenAI GPT Sol (latest)' },
+  { id: '~google/gemini-pro-latest', label: 'Gemini Pro (latest)' },
+  { id: '~openai/gpt-mini-latest', label: 'OpenAI GPT Mini (latest, faster)' },
+  { id: '~google/gemini-flash-latest', label: 'Gemini Flash (latest, faster)' },
+];
+
+export const USER_PROVIDER_IDS = ['openrouter'];
+export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
+  id,
+  label: PROVIDERS[id].label,
+  models: id === 'openrouter' ? OPENROUTER_CODING_MODELS : [],
+}));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 
 const MAX_USER_KEY_LENGTH = 512;
@@ -142,6 +162,10 @@ export const resolveUserProvider = (input) => {
   if (!model) return { error: 'The model is empty.' };
   // eslint-disable-next-line no-control-regex
   if (model.length > MAX_USER_MODEL_LENGTH || /[\x00-\x1f\x7f]/.test(model)) return { error: 'The model name is not valid.' };
+  const allowedModels = USER_PROVIDER_OPTIONS.find((option) => option.id === id)?.models || [];
+  if (allowedModels.length && !allowedModels.some((option) => option.id === model)) {
+    return { error: `Choose one of the supported ${providerLabel(id)} models.` };
+  }
   const preset = PROVIDERS[id];
   return {
     id,
@@ -172,10 +196,16 @@ const missingVars = (provider) => [
 export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
-  
-  // DeepSeek reasoning parameters
-  bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
-  if (!off) bodyObj.reasoning_effort = raw;
+
+  if (provider.id === 'deepseek') {
+    bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
+    if (!off) bodyObj.reasoning_effort = raw;
+  } else if (provider.id === 'openrouter' && !off) {
+    // OpenRouter normalizes reasoning_effort across its model providers. Omit
+    // it when reasoning is off: some always-thinking models reject an
+    // explicit "none", while omission lets OpenRouter use the model default.
+    bodyObj.reasoning_effort = raw;
+  }
 
   const reasoningEnabled = !off;
 

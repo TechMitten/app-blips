@@ -198,15 +198,15 @@ test('a provider with a key but no model names the missing variable', async (t) 
 
 // --- User-supplied provider (Settings → AI) --------------------------------
 
-const userProvider = { id: 'deepseek', apiKey: 'user-key', model: 'user/model' };
+const userProvider = { id: 'openrouter', apiKey: 'user-key', model: '~anthropic/claude-sonnet-latest' };
 
 test('a user provider works with no provider in the env', async (t) => {
   const { response, upstream } = await runWith(t, {}, { user_provider: userProvider, reasoning_effort: 'low' });
   assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(upstream.headers.Authorization, 'Bearer user-key');
-  assert.equal(upstream.body.model, 'user/model');
-  assert.deepEqual(upstream.body.thinking, { type: 'enabled' });
+  assert.equal(upstream.body.model, '~anthropic/claude-sonnet-latest');
+  assert.equal(Object.hasOwn(upstream.body, 'thinking'), false);
   assert.equal(upstream.body.reasoning_effort, 'low');
   assert.equal(Object.hasOwn(upstream.body, 'user_provider'), false);
 });
@@ -214,7 +214,7 @@ test('a user provider works with no provider in the env', async (t) => {
 test('a user provider wins over the env provider; without one the env is used', async (t) => {
   const envProvider = { OPENAI_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
   const withUser = await runWith(t, envProvider, { user_provider: userProvider });
-  assert.equal(withUser.upstream.url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(withUser.upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(withUser.upstream.headers.Authorization, 'Bearer user-key');
   t.mock.restoreAll();
   const withoutUser = await runWith(t, envProvider);
@@ -236,7 +236,7 @@ test('a provider rejecting the user key is not reported as a 401', async (t) => 
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: userProvider }),
   }), noLlmEnv);
   assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /DeepSeek rejected the API key/);
+  assert.match((await response.json()).error, /OpenRouter rejected the API key/);
 });
 
 test('multi-user mode still requires sign-in and validates user_provider', async (t) => {

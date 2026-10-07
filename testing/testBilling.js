@@ -172,14 +172,15 @@ test('an account with no plan gets its free prompts, Build or Ask, then nothing'
   await settleWrites();
   assert.equal(seen.freeBuilds().used, 1);
 
-  for (const payload of [{ ask: true }, {}]) {
-    response = await chat(payload, withSecret);
+  for (let i = 1; i < FREE_BUILDS.prompts; i += 1) {
+    response = await chat(i % 2 ? { ask: true } : {}, withSecret);
     assert.equal(response.status, 200);
     await response.text();
     await settleWrites();
   }
   assert.equal(seen.freeBuilds().used, FREE_BUILDS.prompts);
-  assert.equal(seen.upstreamCalls, 4);
+  // One upstream call per prompt, plus the first prompt's follow-up.
+  assert.equal(seen.upstreamCalls, FREE_BUILDS.prompts + 1);
 
   for (const payload of [{}, { ask: true }]) {
     response = await chat(payload, withSecret);
@@ -188,7 +189,7 @@ test('an account with no plan gets its free prompts, Build or Ask, then nothing'
     assert.equal(body.code, 'subscription_required');
     assert.match(body.error, /^You've used your free prompts/);
   }
-  assert.equal(seen.upstreamCalls, 4);
+  assert.equal(seen.upstreamCalls, FREE_BUILDS.prompts + 1);
 });
 
 test('free prompts follow the person, not the account: a re-created account gets none', async (t) => {
@@ -278,7 +279,7 @@ test('billing is skipped without a Stripe key and for the user\'s own provider k
       return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
     },
   });
-  response = await chat({ user_provider: { id: 'openrouter', apiKey: 'sk-or-user', model: 'their/model' } });
+  response = await chat({ user_provider: { id: 'openrouter', apiKey: 'sk-or-user', model: '~anthropic/claude-sonnet-latest' } });
   assert.equal(response.status, 200);
   await response.text();
   assert.equal(upstreamUrl, 'https://openrouter.ai/api/v1/chat/completions');

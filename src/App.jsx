@@ -25,6 +25,7 @@ import StudioChoice from './components/StudioChoice';
 import ShowcaseView from './components/showcase/ShowcaseView';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
+import DesktopOnboarding from './components/DesktopOnboarding';
 import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
@@ -103,17 +104,17 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
-  // Desktop first run: nothing can be built until an AI provider is set, so
-  // open Settings → AI when neither it nor environment variables provide one.
+  // Desktop first run gets a dedicated introduction and AI setup. The main
+  // process owns the durable flag so clearing a provider later does not replay
+  // onboarding, while a truly fresh install still gets it.
+  const [desktopOnboarding, setDesktopOnboarding] = useState(() => isDesktop ? { loading: true } : null);
   useEffect(() => {
     if (!isDesktop) return undefined;
     let cancelled = false;
     desktopBridge.provider.get().then((info) => {
       const ready = info.envConfigured || (info.enabled && info.id && info.model && info.hasKey);
-      if (cancelled || ready) return;
-      setSettingsInitialTab('ai');
-      setIsSettingsOpen(true);
-    }).catch(() => {});
+      if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
+    }).catch(() => { if (!cancelled) setDesktopOnboarding(null); });
     return () => { cancelled = true; };
   }, []);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -2032,6 +2033,18 @@ export default function App() {
         <Loader2 className="animate-spin text-slate-400" size={28} />
       </div>
     );
+  }
+
+  if (desktopOnboarding?.loading) {
+    return (
+      <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
+        <Loader2 className="animate-spin text-slate-400" size={28} />
+      </div>
+    );
+  }
+
+  if (desktopOnboarding) {
+    return <DesktopOnboarding providerInfo={desktopOnboarding.info} onComplete={() => setDesktopOnboarding(null)} />;
   }
 
   // Every sign-out affordance (studio picker, header menu, account settings)

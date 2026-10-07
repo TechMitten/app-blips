@@ -13,11 +13,9 @@ import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
 // Edits are a draft until Save; `guardRef` lets SettingsModal stop the user
 // leaving with unsaved edits (see useProviderGuard there).
 
-const MODEL_PLACEHOLDERS = {
-  deepseek: 'e.g. deepseek-v4-pro',
-};
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
+const providerModels = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.models || [];
 
 export default function DesktopProviderSettings({ guardRef }) {
   const [saved, setSaved] = useState(null); // provider.get() result
@@ -51,7 +49,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       ? `Using ${providerLabel(saved.id)} · ${saved.model}.`
       : saved.envConfigured
         ? 'Using the provider from your environment variables. Save one here to use it instead.'
-        : 'Not set up yet. Choose a provider, a model and your API key to start building.';
+        : 'Not set up yet. Choose a model and enter your OpenRouter API key to start building.';
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = async () => {
@@ -117,38 +115,25 @@ export default function DesktopProviderSettings({ guardRef }) {
   return (
     <SettingRow
       id="set-desktop-provider"
-      title="AI provider"
+      title="OpenRouter"
       description={summary}
       details={(
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm text-slate-600">
-              Provider
-              <select
-                value={draft.id}
-                onChange={(e) => update({ id: e.target.value })}
-                className={`${INPUT_CLASS} bg-surface`}
-              >
-                {USER_PROVIDER_OPTIONS.map((p) => (
-                  <option key={p.id} value={p.id} className="bg-surface text-slate-900">{p.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm text-slate-600">
-              Model
-              <input
-                type="text"
-                value={draft.model}
-                onChange={(e) => update({ model: e.target.value })}
-                placeholder={MODEL_PLACEHOLDERS[draft.id] || 'Model id'}
-                autoComplete="off"
-                spellCheck={false}
-                className={INPUT_CLASS}
-              />
-            </label>
-          </div>
           <label className="block text-sm text-slate-600">
-            API key
+            Model
+            <select
+              value={draft.model}
+              onChange={(e) => update({ model: e.target.value })}
+              className={`${INPUT_CLASS} bg-surface`}
+            >
+              <option value="" className="bg-surface text-slate-900">Select a coding model…</option>
+              {providerModels(draft.id).map((model) => (
+                <option key={model.id} value={model.id} className="bg-surface text-slate-900">{model.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-slate-600">
+            OpenRouter API key
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}

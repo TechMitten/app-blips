@@ -62,7 +62,7 @@ export const TRIAL = {
 // including a client that keeps chaining passes. Counted per account in
 // free_builds/{uid} (billing.js); an account that has had a trial gets none.
 export const FREE_BUILDS = {
-  prompts: 3,
+  prompts: 5,
   periodTokens: 3_000_000,
 };
 

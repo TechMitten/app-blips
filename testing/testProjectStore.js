@@ -146,21 +146,38 @@ test('provider store encrypts the key and never describes it', async () => {
     await store.set({ enabled: true, id: 'openrouter', model: ' m1 ', apiKey: 'sk-secret' });
     const onDisk = await readFile(file, 'utf8');
     assert.ok(!onDisk.includes('sk-secret'));
-    assert.deepEqual(store.describe(), { enabled: true, id: 'openrouter', model: 'm1', hasKey: true, weakEncryption: false });
+    assert.deepEqual(store.describe(), { enabled: true, id: 'openrouter', model: 'm1', hasKey: true, weakEncryption: false, onboardingComplete: true });
     assert.deepEqual(store.active(), { id: 'openrouter', model: 'm1', apiKey: 'sk-secret' });
 
     // Reloads from disk; blank key keeps the saved one; a new provider drops it.
     const reloaded = createProviderStore({ file, crypto: fakeCrypto() });
     await reloaded.set({ model: 'm2' });
     assert.equal(reloaded.active().apiKey, 'sk-secret');
+
     assert.equal(reloaded.keyFor('openrouter'), 'sk-secret');
     assert.equal(reloaded.keyFor('openai'), '');
     // OpenRouter is the only provider; removed ones are refused.
     for (const id of ['openai', 'zai', 'openai-compatible']) await assert.rejects(reloaded.set({ id }));
     assert.equal(reloaded.active().apiKey, 'sk-secret');
 
+    await reloaded.clear();
+    assert.equal(reloaded.describe().onboardingComplete, true);
+    assert.equal(reloaded.active(), null);
+
     const weak = createProviderStore({ file: join(dir, 'p2.json'), crypto: fakeCrypto(false) });
     assert.equal(weak.describe().weakEncryption, true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a fresh provider store needs onboarding and a legacy file does not replay it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'appblips-provider-first-run-'));
+  try {
+    const file = join(dir, 'provider.json');
+    assert.equal(createProviderStore({ file, crypto: fakeCrypto() }).describe().onboardingComplete, false);
+    await writeFile(file, JSON.stringify({ enabled: false, id: '', model: '', key: null }));
+    assert.equal(createProviderStore({ file, crypto: fakeCrypto() }).describe().onboardingComplete, true);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

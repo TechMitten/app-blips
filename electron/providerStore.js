@@ -16,7 +16,7 @@ const MAX_FIELD = 512;
 const clean = (value) => String(value ?? '').trim().slice(0, MAX_FIELD);
 
 export function createProviderStore({ file, crypto }) {
-  let state = { enabled: false, id: '', model: '', key: null }; // key: { cipher } | { plain }
+  let state = { enabled: false, id: '', model: '', key: null, onboardingComplete: false }; // key: { cipher } | { plain }
 
   try {
     const saved = JSON.parse(readFileSync(file, 'utf8'));
@@ -25,6 +25,10 @@ export function createProviderStore({ file, crypto }) {
       id: PROVIDER_IDS.has(saved.id) ? saved.id : '',
       model: typeof saved.model === 'string' ? saved.model : '',
       key: saved.key && typeof saved.key === 'object' ? saved.key : null,
+      // provider.json did not exist before somebody used AI settings. Treat
+      // every legacy file as already onboarded, including one left behind by
+      // Clear, so upgrading or clearing settings never replays first run.
+      onboardingComplete: saved.onboardingComplete !== false,
     };
   } catch { /* first run */ }
 
@@ -60,6 +64,7 @@ export function createProviderStore({ file, crypto }) {
         model: state.model,
         hasKey: Boolean(state.key),
         weakEncryption: weakEncryption(),
+        onboardingComplete: state.onboardingComplete,
       };
     },
 
@@ -76,13 +81,14 @@ export function createProviderStore({ file, crypto }) {
       if (model !== undefined) next.model = clean(model);
       const key = clean(apiKey);
       if (key) next.key = encryptKey(key);
+      if (next.enabled && next.id && next.model && next.key) next.onboardingComplete = true;
       state = next;
       await persist();
       return this.describe();
     },
 
     async clear() {
-      state = { enabled: false, id: '', model: '', key: null };
+      state = { enabled: false, id: '', model: '', key: null, onboardingComplete: state.onboardingComplete };
       await persist();
       return this.describe();
     },

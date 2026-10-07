@@ -75,7 +75,7 @@ Want your own copy on your computer instead? Download the installer for your sys
 - **Windows:** `AppBlips-Setup-<version>.exe`
 - **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
 
-The first time you open it, AppBlips asks for a model and your API key. DeepSeek is the built-in provider: get a key from the [DeepSeek platform](https://platform.deepseek.com/). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
+The first time you open it, AppBlips asks for an OpenRouter API key and lets you choose from a curated set of coding models. Get a key from [OpenRouter](https://openrouter.ai/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 

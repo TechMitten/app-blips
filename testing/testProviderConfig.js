@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resolveProvider, resolveUserProvider, USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS } from '../functions/_lib/providers.js';
+import {
+  applyProviderSettings, OPENROUTER_CODING_MODELS, resolveProvider, resolveUserProvider,
+  USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS,
+} from '../functions/_lib/providers.js';
 import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
 import { handleChatProxy } from '../functions/_lib/chatProxy.js';
 import { installFirebaseFake, signIdToken, PROJECT_ID } from './firebaseFake.js';
@@ -79,14 +82,39 @@ test('single-user summary only warns when no provider is in .env', () => {
 // --- User-supplied provider (Settings → AI) --------------------------------
 
 test('resolveUserProvider accepts each preset and uses the preset endpoint', () => {
-  for (const { id } of USER_PROVIDER_OPTIONS) {
-    const p = resolveUserProvider({ id, apiKey: 'k', model: 'm', baseUrl: 'https://evil.invalid' });
+  for (const { id, models } of USER_PROVIDER_OPTIONS) {
+    const p = resolveUserProvider({ id, apiKey: 'k', model: models[0].id, baseUrl: 'https://evil.invalid' });
     assert.equal(p.error, undefined);
     assert.equal(p.userSupplied, true);
     assert.notEqual(p.baseUrl, 'https://evil.invalid');
     assert.ok(p.baseUrl.startsWith('https://'));
   }
   assert.ok(!USER_PROVIDER_IDS.includes('openai-compatible'));
+});
+
+test('self-hosted OpenRouter choices are curated for the coding workflow', () => {
+  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter']);
+  assert.equal(OPENROUTER_CODING_MODELS.length, 5);
+  assert.ok(OPENROUTER_CODING_MODELS.every(({ id, label }) => id.startsWith('~') && label));
+  assert.equal(resolveUserProvider({
+    id: 'openrouter', apiKey: 'sk-or-test', model: OPENROUTER_CODING_MODELS[0].id,
+  }).baseUrl, 'https://openrouter.ai/api/v1');
+  assert.match(resolveUserProvider({ id: 'openrouter', apiKey: 'k', model: 'arbitrary/model' }).error, /supported OpenRouter models/);
+});
+
+test('OpenRouter gets its compatible reasoning shape without DeepSeek fields', () => {
+  const provider = resolveUserProvider({
+    id: 'openrouter', apiKey: 'sk-or-test', model: OPENROUTER_CODING_MODELS[0].id,
+  });
+  const enabled = { temperature: 0 };
+  applyProviderSettings(enabled, provider, { effort: 'high' });
+  assert.equal(enabled.reasoning_effort, 'high');
+  assert.equal(Object.hasOwn(enabled, 'thinking'), false);
+  assert.equal(Object.hasOwn(enabled, 'temperature'), false);
+
+  const disabled = { temperature: 0.2 };
+  applyProviderSettings(disabled, provider, { effort: 'none' });
+  assert.deepEqual(disabled, { temperature: 0.2 });
 });
 
 test('resolveUserProvider rejects bad input', () => {
@@ -99,6 +127,7 @@ test('resolveUserProvider rejects bad input', () => {
     { id: 'openai', apiKey: 'k'.repeat(513), model: 'm' },
     { id: 'openai', apiKey: 'k', model: '' },
     { id: 'openai', apiKey: 'k', model: 'm'.repeat(201) },
+    { id: 'openrouter', apiKey: 'k', model: 'unsupported/model' },
   ];
   for (const input of bad) assert.ok(resolveUserProvider(input).error, JSON.stringify(input));
 });
@@ -114,4 +143,3 @@ test('multi-user config error is generic to the client and logged server-side', 
   assert.doesNotMatch(error, /APPBLIPS_|\.env/);
   assert.ok(logged.some((line) => /No AI provider is configured/.test(line)));
 });
-

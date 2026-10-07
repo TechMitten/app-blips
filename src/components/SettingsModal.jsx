@@ -74,18 +74,20 @@ function Segmented({ label, value, options, onChange, renderOption }) {
   );
 }
 
-// Example model ids, shown as placeholders only.
-const MODEL_PLACEHOLDERS = {
-  deepseek: 'e.g. deepseek-v4-pro',
-};
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
+const providerModels = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.models || [];
 
 const blankProvider = () => ({ enabled: false, id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '', remember: true });
+const normalizeProviderDraft = (value) => {
+  const id = USER_PROVIDER_OPTIONS.some((p) => p.id === value?.id) ? value.id : USER_PROVIDER_OPTIONS[0].id;
+  const model = providerModels(id).some((option) => option.id === value?.model) ? value.model : '';
+  return { ...value, id, model };
+};
 const initialDraft = () => {
   const saved = loadUserProvider();
   if (!saved) return blankProvider();
-  return { ...saved, id: USER_PROVIDER_OPTIONS.some((p) => p.id === saved.id) ? saved.id : USER_PROVIDER_OPTIONS[0].id };
+  return normalizeProviderDraft(saved);
 };
 
 // The user's own provider (a preset, a model and a key) instead of the
@@ -117,7 +119,7 @@ function UserProviderSettings({ guardRef }) {
   // Field edits Save hasn't stored yet (only while the switch is on: the
   // fields are hidden otherwise).
   const base = saved
-    ? { ...saved, id: USER_PROVIDER_OPTIONS.some((p) => p.id === saved.id) ? saved.id : USER_PROVIDER_OPTIONS[0].id }
+    ? normalizeProviderDraft(saved)
     : blankProvider();
   const unsaved = draft.enabled && (
     draft.id !== base.id
@@ -187,42 +189,27 @@ function UserProviderSettings({ guardRef }) {
 
   return (
     <div className="py-4 last:pb-0">
-      <SettingRow id="set-own-provider" title="Use my own AI provider" description={summary}>
+      <SettingRow id="set-own-provider" title="Use my OpenRouter key" description={summary}>
         <Switch checked={draft.enabled} onChange={onToggle} labelledBy="set-own-provider" />
       </SettingRow>
 
       {draft.enabled && (
         <div className="mt-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm text-slate-600">
-              Provider
-              <select
-                value={draft.id}
-                onChange={(e) => update({ id: e.target.value })}
-                className={`${INPUT_CLASS} bg-surface`}
-              >
-                {USER_PROVIDER_OPTIONS.map((p) => (
-                  // Native option lists don't inherit the select's colors on every
-                  // platform (white-on-white in dark mode), so theme them directly.
-                  <option key={p.id} value={p.id} className="bg-surface text-slate-900">{p.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm text-slate-600">
-              Model
-              <input
-                type="text"
-                value={draft.model}
-                onChange={(e) => update({ model: e.target.value })}
-                placeholder={MODEL_PLACEHOLDERS[draft.id] || 'Model id'}
-                autoComplete="off"
-                spellCheck={false}
-                className={INPUT_CLASS}
-              />
-            </label>
-          </div>
           <label className="block text-sm text-slate-600">
-            API key
+            Model
+            <select
+              value={draft.model}
+              onChange={(e) => update({ model: e.target.value })}
+              className={`${INPUT_CLASS} bg-surface`}
+            >
+              <option value="" className="bg-surface text-slate-900">Select a coding model…</option>
+              {providerModels(draft.id).map((model) => (
+                <option key={model.id} value={model.id} className="bg-surface text-slate-900">{model.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-slate-600">
+            OpenRouter API key
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
