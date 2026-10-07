@@ -60,9 +60,7 @@ Most AppBlips issues fall into a handful of categories — preview rendering and
   </Accordion>
 
   <Accordion title="Rate limit or &quot;turned the request down&quot; error">
-    **On appblips.com:** "You're sending requests too quickly" means you hit the per-account request limit. Wait a few minutes and try again. "The AI service is busy" means the AI service is overloaded for a moment. Try again shortly.
-
-    **In the desktop app or a copy you run yourself:** AppBlips sets no request limit of its own. An error such as "OpenRouter turned the request down: …" comes from your AI provider, and the text after the colon is the provider's reason. Common causes:
+    AppBlips sets no request limit of its own. An error such as "OpenRouter turned the request down: …" comes from your AI provider, and the text after the colon is the provider's reason. Common causes:
 
     - **No credit left** on your provider account. Many providers report this as a rate limit (HTTP 429).
     - **The provider's own rate or concurrency limits.** Wait and try again, or check your plan's limits.

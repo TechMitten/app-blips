@@ -1,11 +1,11 @@
 // AppBlips desktop (Electron main process).
 //
-// The renderer is the normal self-hosted build in dist/, served from the
-// privileged custom scheme appblips://app. That gives it a stable origin
-// (so UI preferences in localStorage persist) and lets the same request
-// handlers the other hosts use answer /api/* in-process: they take a Fetch Request
-// and return a Response, which is exactly what protocol.handle expects, so
-// streaming works unchanged and nothing listens on a network port.
+// The renderer is the desktop build in dist/, served from the privileged
+// custom scheme appblips://app. That gives it a stable origin (so UI
+// preferences in localStorage persist) and lets the in-process request
+// handlers answer /api/* directly: they take a Fetch Request and return a
+// Response, which is exactly what protocol.handle expects, so streaming works
+// unchanged and nothing listens on a network port.
 //
 // Projects live on disk (projectStore.js) and the AI provider key in the OS
 // keychain (providerStore.js); the renderer reaches both only through the
@@ -15,9 +15,9 @@ import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleChatProxy } from '../functions/_lib/chatProxy.js';
-import { describeConfig, formatConfigSummary } from '../functions/_lib/configSummary.js';
-import { resolveProvider } from '../functions/_lib/providers.js';
+import { handleChatProxy } from './server/chatProxy.js';
+import { describeConfig, formatConfigSummary } from './server/configSummary.js';
+import { resolveProvider } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { createProviderStore } from './providerStore.js';
 import { createUpdater } from './updater.js';
@@ -86,17 +86,9 @@ async function writeSettings(patch) {
 }
 
 // ---- Server handlers --------------------------------------------------------
-// Env for the handlers. The desktop app is always single-user (one local
-// user, no sign-in; src/firebase.js keeps Firebase off in the renderer), so
-// any Firebase project id in the developer's environment is dropped -- it
-// would make /api/chat demand ID tokens the app never has. The provider saved
-// in Settings → AI travels with each request instead (see withSavedProvider).
-function handlerEnv() {
-  const env = { ...process.env };
-  delete env.FIREBASE_PROJECT_ID;
-  delete env.VITE_FIREBASE_PROJECT_ID;
-  return env;
-}
+// The one /api/chat handler answers in-process. The desktop app is single-user,
+// so the provider saved in Settings → AI travels with each request (see
+// withSavedProvider); the env is read for a terminal-launched fallback provider.
 
 // The builder sends no key: the saved one is attached here, as the same
 // `user_provider` the web build sends from the browser, so chatProxy applies
@@ -174,7 +166,7 @@ async function handleAppRequest(request) {
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request), handlerEnv()));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request), process.env));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });
@@ -400,7 +392,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed(permission));
 
   console.log(`AppBlips desktop ${app.getVersion()} — projects in ${projectStore.root}`);
-  console.log(`\n${formatConfigSummary(describeConfig(handlerEnv()))}\n`);
+  console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
   createWindow();
 });
 

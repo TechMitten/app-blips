@@ -10,17 +10,17 @@ You can expect an acknowledgement within a few days. Please give us reasonable t
 
 ## What's in scope
 
-AppBlips runs LLM-generated code, and appblips.com hosts it at public URLs, so these areas matter most:
+AppBlips runs LLM-generated code in a sandboxed preview, and the desktop app answers `/api/*` in-process, so these areas matter most:
 
 - **Preview isolation.** Escaping the sandboxed preview iframe, or a generated app reaching the parent page (see `src/previewBridge.js`).
-- **Deployed apps.** Anything that lets a deployed app read another user's data, or run on the main app's origin.
-- **The `/api/chat` proxy.** Auth bypass, rate-limit bypass, or leaking provider keys.
-- **Firestore rules and the deploy API.** Reading or writing another user's projects, deployments, usage or subscription, or publishing under someone else's link or username.
+- **The `/api/chat` proxy.** Leaking provider keys, or letting a foreign web page (or a sandboxed generated app) reach the proxy and spend the configured budget.
+- **IPC and the filesystem.** Getting from the renderer to the Electron main process or outside the projects folder (see `electron/main.js`, `electron/preload.cjs`).
+- **Key storage.** Reading the provider key from the OS keychain backup file.
 
-## Self-hosting
+## Running from source
 
-In the default single-user configuration, `/api/chat` performs no authentication, so anyone who can reach it can spend your configured LLM budget. That is by design: a single-user AppBlips is meant to run on your own computer. If other devices on your network can reach it, put your own access control in front of it. See the Security notes in the README.
+`/api/chat` performs no authentication: anyone who can reach the dev server can spend your configured LLM budget. That is by design — AppBlips is a single-user application meant to run on your own computer. Keep it on localhost, or put your own access control in front of it. See the Security notes in the README.
 
 ## Keys in this repository
 
-The Firebase web API key and project identifiers are client-side configuration, not secrets. Access is enforced by Firebase Auth, `firestore.rules` and server-side checks. Real secrets (LLM keys, session secrets and similar) are only ever read from environment variables. If you find one committed to the repository, please report it privately.
+No secrets belong in the repository. Provider API keys and similar values are only ever read from environment variables, set in the app, or kept in your operating system's keychain. If you find a secret committed to the repository, please report it privately.

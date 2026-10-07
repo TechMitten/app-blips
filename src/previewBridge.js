@@ -77,7 +77,7 @@ const BRIDGE_SOURCE = `(function () {
   // Chromium refuses declarative autofocus in this deliberately opaque,
   // cross-origin preview frame and logs a warning for every generated input.
   // Strip only the preview DOM attribute before the browser's autofocus task
-  // runs. The user's source is untouched, so exports and deployments retain
+  // runs. The user's source is untouched, so exports retain
   // the requested autofocus behavior on their normal same-origin page.
   function removeBlockedAutofocus(root) {
     if (!root || root.nodeType !== 1) return;

@@ -1,7 +1,6 @@
-// localStorage <-> cloud (Firestore) row plumbing for the projects list. Pure helpers --
-// no React, no hooks -- so the auth hook (local -> cloud import) and the
-// projects hook can share them without an import cycle. In the desktop app the
-// same rows live on disk instead (lib/desktop.js).
+// localStorage row plumbing for the projects list. Pure helpers -- no React --
+// so the projects hook and the backup importer can share them. In the desktop
+// app the same rows live on disk instead (lib/desktop.js).
 import { isDesktop, readDesktopRows, writeDesktopRows } from './desktop.js';
 
 export const readProjectRows = () => {
@@ -30,32 +29,6 @@ export const localRowsToProjects = (rows) => rows
     ...row.data,
     lastModified: row.updatedAt
   }));
-
-// A summary row (listCloudProjects reads only meta docs) has no versions: it
-// carries `versionCount` for the list and is `isSummary`, so opening it loads
-// the full project (useProjects.loadProject).
-export const cloudRowsToProjects = (rows) => (rows || []).map(row => (row.summary ? {
-  id: row.id,
-  name: row.name,
-  isSummary: true,
-  versionCount: row.summary.versionCount,
-  deployment: row.summary.deployment || null,
-  studioMode: row.summary.studioMode,
-  lastModified: row.updated_at
-} : {
-  id: row.id,
-  name: row.name,
-  versions: row.data?.versions || [],
-  currentVersionIndex: row.data?.currentVersionIndex ?? -1,
-  chatContextStartIndex: Math.min(row.data?.chatContextStartIndex ?? 0, (row.data?.versions || []).length),
-  currentChatSessionId: row.data?.currentChatSessionId ?? null,
-  deployment: row.data?.deployment || null,
-  // Enumerated explicitly (local rows spread ...row.data instead): a field
-  // missing here silently vanishes for hosted users on load. Legacy rows
-  // predate the studio split and default to 'app'.
-  studioMode: row.data?.studioMode === 'website' ? 'website' : row.data?.studioMode === 'game' ? 'game' : 'app',
-  lastModified: row.updated_at
-}));
 
 // Versions shown for a project in the Apps list (full or summary row).
 export const projectVersionCount = (project) => project.versionCount ?? project.versions?.length ?? 0;

@@ -6,5 +6,5 @@
 
 - [ ] `npm run lint` passes
 - [ ] `npm run build` passes
-- [ ] Ran the relevant script(s) in `testing/` if I changed `src/lib/` or `functions/_lib/`
+- [ ] Ran the relevant script(s) in `testing/` if I changed `src/lib/` or the server handlers
 - [ ] No secrets or `.env` values included

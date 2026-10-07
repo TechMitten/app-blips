@@ -4,7 +4,7 @@ import { useLayoutEffect, useState } from 'react';
 // spotlight rect on it, and places the card beside it with an arrow pointing
 // at the anchor's centre. Stays attached across pane switches, resizing,
 // scrolling, the on-screen keyboard (visualViewport), and late-mounting
-// anchors (e.g. Deploy appearing once a build lands).
+// anchors (e.g. Export appearing once a build lands).
 
 const GAP = 14;      // card <-> spotlight
 const MARGIN = 12;   // card <-> viewport edge
@@ -131,7 +131,7 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
     const measure = () => {
       const element = findTarget(targetKey.split('|'));
       // Re-point the observer when the visible anchor changes (pane switch,
-      // breakpoint crossing, Deploy mounting after a build).
+      // breakpoint crossing, Export mounting after a build).
       if (element !== observed) {
         if (observed) resizeObserver.unobserve(observed);
         if (element) resizeObserver.observe(element);

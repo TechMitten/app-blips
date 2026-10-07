@@ -7,7 +7,7 @@
 // encryptString, decryptString, getSelectedStorageBackend? }), so it can be
 // tested without Electron.
 import { readFileSync } from 'node:fs';
-import { USER_PROVIDER_OPTIONS } from '../functions/_lib/providers.js';
+import { USER_PROVIDER_OPTIONS } from '../electron/server/providers.js';
 import { writeFileAtomic } from './projectStore.js';
 
 const PROVIDER_IDS = new Set(USER_PROVIDER_OPTIONS.map((p) => p.id));

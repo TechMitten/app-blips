@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
-import { firebaseEnabled } from '../firebase';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
 
-// "A new version is out" notice for self-hosted copies (never on
-// appblips.com), behind Settings → Workspace → Check for updates.
+// "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
-//   - Every other self-hosted install (.deb, source) gets a notice
+//   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions.
 // Closing a release notice hides that version for good; "Later" on a
@@ -21,7 +19,7 @@ export default function UpdateNotice() {
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    if (firebaseEnabled || !loadCheckUpdates()) return undefined;
+    if (!loadCheckUpdates()) return undefined;
     let cancelled = false;
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });

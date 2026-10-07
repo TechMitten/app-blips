@@ -4,9 +4,8 @@
 
 export const LANDING_PAGE = 'index.html';
 export const MAX_PAGES = 12;
-// Every version snapshots all pages and a signed-in project is saved (gzipped)
-// in at most ~7 MB of Firestore chunks (src/lib/cloudProjects.js), so keep any
-// single version comfortably small.
+// Every version snapshots all pages, so keep any single version comfortably
+// small.
 export const MAX_FILES_BYTES = 400 * 1024;
 
 const PAGE_NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}\.html$/;

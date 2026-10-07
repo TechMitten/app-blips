@@ -1,6 +1,6 @@
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
-  CircleHelp, LogIn, BarChart3, UserRound, LayoutGrid,
+  CircleHelp,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -40,18 +40,10 @@ export default function HeroSidebar({
   onToggleCollapsed,
   onNewApp,
   onOpenApps,
-  onOpenShowcase,
   savedAppsCount = 0,
   recents = [],
   onLoadProject,
   onOpenSettings,
-  firebaseEnabled,
-  isSignedIn,
-  authStatus,
-  userEmail,
-  onOpenAnalytics,
-  onOpenAccountSettings,
-  onSignIn,
 }) {
   const recentProjects = recents.slice(0, MAX_RECENTS);
 
@@ -93,13 +85,6 @@ export default function HeroSidebar({
             <span className={`hero-rail-count hidden ${collapsed ? '' : 'lg:inline-flex'}`}>{savedAppsCount}</span>
           ) : null}
         />
-        {onOpenShowcase && (
-          <RailItem icon={LayoutGrid} label="Showcase" collapsed={collapsed} onClick={onOpenShowcase} />
-        )}
-        {firebaseEnabled && isSignedIn && (
-          <RailItem icon={BarChart3} label="Analytics" collapsed={collapsed} onClick={onOpenAnalytics} />
-        )}
-
         {recentProjects.length > 0 && !collapsed && (
           <div className="hidden lg:flex flex-col gap-0.5 mt-4 min-h-0 overflow-y-auto">
             <p className="hero-rail-heading">Recents</p>
@@ -121,16 +106,6 @@ export default function HeroSidebar({
 
         <RailItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
         <RailItem icon={CircleHelp} label="Help" collapsed={collapsed} href={DOCS_URL} />
-        {!firebaseEnabled ? null : isSignedIn ? (
-          <RailItem
-            icon={UserRound}
-            label={userEmail ? userEmail.split('@')[0] : 'Account'}
-            collapsed={collapsed}
-            onClick={onOpenAccountSettings}
-          />
-        ) : authStatus !== 'loading' ? (
-          <RailItem icon={LogIn} label="Sign in" collapsed={collapsed} onClick={onSignIn} />
-        ) : null}
       </nav>
     </aside>
   );

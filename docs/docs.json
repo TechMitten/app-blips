@@ -36,12 +36,6 @@
             ]
           },
           {
-            "group": "Plans and Billing",
-            "pages": [
-              "pricing"
-            ]
-          },
-          {
             "group": "Reference",
             "pages": [
               "reference/settings",
@@ -62,8 +56,8 @@
     ],
     "primary": {
       "type": "button",
-      "label": "Open AppBlips",
-      "href": "https://appblips.com"
+      "label": "Download",
+      "href": "https://github.com/TechMitten/app-blips/releases"
     }
   },
   "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export or self-host.",
@@ -82,6 +76,10 @@
     },
     {
       "source": "/self-hosting/configuration",
+      "destination": "/quickstart-desktop"
+    },
+    {
+      "source": "/pricing",
       "destination": "/quickstart-desktop"
     }
   ]

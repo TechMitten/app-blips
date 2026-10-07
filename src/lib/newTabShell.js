@@ -2,8 +2,8 @@
 //
 // The tab is a blob: document, and a blob: document has the origin of the page
 // that created it -- AppBlips itself. Generated code placed directly in it
-// could read AppBlips' storage (the hosted sign-in session, a saved provider
-// key, other projects) and call /api/chat as the user. So the tab holds only
+// could read AppBlips' storage (a saved provider key, other projects) and call
+// /api/chat as the user. So the tab holds only
 // this trusted shell, and the generated page runs inside it in an iframe
 // sandboxed WITHOUT allow-same-origin, exactly like the preview pane: an
 // opaque origin that reaches the shell only through postMessage.

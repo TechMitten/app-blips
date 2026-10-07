@@ -16,10 +16,7 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
 
-https://github.com/user-attachments/assets/f4bc6002-6cbe-4529-a027-49d5292c3820
-
 <p align="center">
-  <a href="https://appblips.com">Website</a> ·
   <a href="https://docs.appblips.com/">Documentation</a> ·
   <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
   <a href="#license">License</a>
@@ -41,16 +38,16 @@ AppBlips has three studios, chosen from the launch screen:
 
 The studios share the same workflow: prompt, live preview, versions, and export.
 
-Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a server-side proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
+Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a local, single-user proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
 
-To run your own copy, install the **desktop app** (Windows and Linux): it runs on your computer, powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move. See [Quick start](#quick-start) below.
+AppBlips runs as a **desktop app** (Windows and Linux): it runs on your computer, powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move. See [Quick start](#quick-start) below.
 
 ## Features
 
 - **One simple prompt box** — describe your idea in plain English and get a working app, game, or website back
 - **App, Website, and Game studios** — pick the studio that fits; each has its own prompts, starter ideas, and default preview size
 - **Click-to-edit websites** — in the Website Studio, click text, images, and links right in the preview to change them directly, with an AI-assisted edit through chat when a change needs more nuance
-- **Instant live preview** — see exactly what you built, right next to the prompt, with no extra deploy step
+- **Instant live preview** — see exactly what you built, right next to the prompt, with no extra step
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
@@ -60,26 +57,22 @@ To run your own copy, install the **desktop app** (Windows and Linux): it runs o
 
 ## Documentation
 
-Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [desktop app quickstart](https://docs.appblips.com/quickstart-desktop), and the [app creator docs](https://docs.appblips.com/creator).
+Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [desktop app quickstart](https://docs.appblips.com/quickstart-desktop), and the [feature guides](https://docs.appblips.com/features/building-apps).
 
 ## Quick start
 
-### Use AppBlips online (recommended)
-
-The quickest way to start: open **[start.appblips.com](https://start.appblips.com)**, sign in with Google or GitHub, and type what you want to build. There's nothing to install and no AI key to set up, your projects sync to your account, and you can publish apps with a shareable link. The Plus plan starts with a free trial; see [Pricing](https://docs.appblips.com/pricing).
-
 ### Desktop app (Windows and Linux)
 
-Want your own copy on your computer instead? Download the installer for your system from **[Releases](https://github.com/TechMitten/app-blips/releases)**:
+Download the installer for your system from **[Releases](https://github.com/TechMitten/app-blips/releases)**:
 
 - **Windows:** `AppBlips-Setup-<version>.exe`
 - **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
 
-The first time you open it, AppBlips asks for an OpenRouter API key and lets you choose from a curated set of coding models. Get a key from [OpenRouter](https://openrouter.ai/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details, including how to bring over projects from a browser copy.
+The first time you open it, AppBlips asks for an OpenRouter API key and lets you choose from a curated set of coding models. Get a key from [OpenRouter](https://openrouter.ai/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
-On macOS there is no installer yet. Use [AppBlips online](#use-appblips-online-recommended) instead.
+On macOS there is no installer yet.
 
 ## Project structure
 
@@ -87,12 +80,12 @@ On macOS there is no installer yet. Use [AppBlips online](#use-appblips-online-r
 src/
   App.jsx            # Workspace/generation state, undo-redo, composition root
   previewBridge.js   # Script injected into generated apps to bridge the sandboxed iframe
-  lib/               # Framework-free logic: LLM calls, surgical edits, prompts, crypto...
-  hooks/             # Stateful concerns: auth, projects, preview viewport...
+  lib/               # Framework-free logic: LLM calls, surgical edits, prompts...
+  hooks/             # Stateful concerns: projects, preview viewport, theme...
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
-functions/           # /api/chat proxy, billing and deployed-app serving
-electron/            # Desktop app: main process, preload, on-disk project store, encrypted provider settings
-testing/            # Standalone Node scripts for exercising the proxy and preview
+electron/            # Desktop app: main process, preload, on-disk project store,
+                     # encrypted provider settings, and the in-process /api/chat handler
+testing/             # Standalone Node scripts for exercising the proxy and preview
 ```
 
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).

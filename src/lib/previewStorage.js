@@ -96,8 +96,8 @@ export const clearPreviewStorage = (projectId) => {
 };
 
 /**
- * Clear the preview storage of every project (used on hosted sign-out so the
- * next user of this browser doesn't inherit a previous account's app data).
+ * Clear the preview storage of every project (used when the workspace is
+ * reset, so a fresh start isn't haunted by the previous project's app data).
  */
 export const clearAllPreviewStorage = () => {
   try {

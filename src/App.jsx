@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { firebaseEnabled } from './firebase';
 import { isDesktop, desktopBridge } from './lib/desktop';
 
 import Header from './components/Header';
@@ -12,26 +11,20 @@ import SettingsModal from './components/SettingsModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import HeroLanding from './components/HeroLanding';
 import ProjectsListModal from './components/ProjectsListModal';
-import DeployModal from './components/DeployModal';
-import AnalyticsDashboardModal from './components/AnalyticsDashboardModal';
 import NamingModal from './components/NamingModal';
 import { isProjectNameTaken } from './lib/projectsStorage';
-import AuthModal from './components/AuthModal';
-import AuthToast from './components/AuthToast';
 import ConfirmModal from './components/ConfirmModal';
 
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
-import ShowcaseView from './components/showcase/ShowcaseView';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
-import { TriangleAlert, Loader2, LogOut } from 'lucide-react';
+import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
-import { slugifyName } from './lib/deploy';
-import authProvider from './lib/auth';
+import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure } from './lib/directEdits';
 import {
@@ -43,7 +36,6 @@ import {
 import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
 import { LANDING_PAGE, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
-import { ensureVersionFiles, isArchivedVersion } from './lib/historyStore';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
 import { checkSyntaxFiles } from './lib/pageTools';
 import {
@@ -52,20 +44,12 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isStartFresh, activeUserProvider, markPlansPrompted, wasPlansPrompted } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
-import useAuth from './hooks/useAuth';
-import useBilling from './hooks/useBilling';
-import PlansModal from './components/PlansModal';
-import { PLANS, limitMessage } from '../functions/_lib/plans.js';
 import useProjects from './hooks/useProjects';
-import useDeployment from './hooks/useDeployment';
-import useShowcaseRoute from './hooks/useShowcaseRoute';
-import { fetchRemixSource, showcaseProjects } from './lib/showcase';
-import useAnalytics from './hooks/useAnalytics';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import usePageNavigation from './hooks/usePageNavigation';
@@ -73,14 +57,10 @@ import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
-import { maintenanceMode, MAINTENANCE_MESSAGE } from './lib/maintenance';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
-
-// Shown on the plans screen when someone on Free tries to attach an image.
-const IMAGES_LOCKED_REASON = 'Image attachments are part of Plus and Pro.';
 
 export default function App() {
   useVisualViewport();
@@ -128,39 +108,6 @@ export default function App() {
   const handleToggleTheme = () => setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark');
   const { chatFont, setChatFont } = useChatFont();
 
-  // --- Auth ---
-  const {
-    authStatus, isSignedIn, user,
-    username, usernameLoading, claimUsername,
-    authToast, dismissAuthToast,
-    isAuthModalOpen, setIsAuthModalOpen,
-    handleSignOut,
-  } = useAuth();
-
-  // --- Billing (only on instances that bill; see functions/_lib/billing.js) ---
-  const billing = useBilling({ isSignedIn });
-  // { reason } when the plans screen is open; reason says why it opened. It
-  // also opens on its own when Stripe Checkout sends the user back.
-  const [plansModal, setPlansModal] = useState(null);
-  // No trial or subscription: the hosted AI is off until one starts. The
-  // user's own provider key (Settings → AI) isn't billed, so it still works.
-  const needsPlan = billing.billingOn && billing.plan === 'none' && !activeUserProvider();
-  // A new account's free prompts (Build or Ask) before it needs a plan.
-  const freeBuildsLeft = needsPlan ? billing.freeBuildsLeft : 0;
-  const imagesLocked = billing.billingOn && !PLANS[billing.plan]?.images;
-
-  // A new account starts with no plan: show the plans (and the free trial)
-  // right after sign-up, once per account in this browser. Not when coming
-  // back from Checkout, which opens the plans screen on its own, and not
-  // while it has free prompts left: those come first.
-  const newAccountId = user?.isNewAccount ? user.id : null;
-  useEffect(() => {
-    if (!newAccountId || !billing.billingOn || billing.plan !== 'none' || billing.checkoutResult || billing.freeBuildsLeft > 0) return;
-    if (wasPlansPrompted(newAccountId)) return;
-    markPlansPrompted(newAccountId);
-    setPlansModal({ welcome: true });
-  }, [newAccountId, billing.billingOn, billing.plan, billing.checkoutResult, billing.freeBuildsLeft]);
-
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
   // Which studio the workspace is in: 'app', 'website' or 'game'. Drives
@@ -188,7 +135,7 @@ export default function App() {
   const [textSession, setTextSession] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
-  // and never written into `versions`/localStorage/Firestore (keeps saved
+  // and never written into `versions`/localStorage (keeps saved
   // projects small and applySurgicalEdits/history untouched). { dataUrl, name, source }
   const [attachment, setAttachment] = useState(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
@@ -200,7 +147,7 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   // Every version stores `files` (page filename -> HTML); `index.html` is the
   // landing page. `generatedCode` is the landing page's HTML, which the
-  // generation and deploy paths still treat as "the app"; `activeCode` is
+  // generation and export paths still treat as "the app"; `activeCode` is
   // whichever page the preview/code pane is showing.
   const [files, setFiles] = useState({});
   const [activePage, setActivePage] = useState(LANDING_PAGE);
@@ -227,13 +174,6 @@ export default function App() {
   const [, setAutoFixMessage] = useState(null);
   const [versions, setVersions] = useState([]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
-  // switchVersion awaits an archived version's pages; these let it drop the
-  // switch if another switch, a build or an edit happened meanwhile.
-  const versionsRef = useRef(versions);
-  const versionSwitchRef = useRef(0);
-  useEffect(() => {
-    versionsRef.current = versions;
-  });
   // Index into `versions` where the current chat begins. Turns before it are
   // excluded from the LLM's chat history and hidden from the transcript after
   // "New chat", but stay in version history; restoring a version from another
@@ -250,12 +190,10 @@ export default function App() {
   // project's data lands. Cleared once the resume attempt (successful or not)
   // finishes.
   const [isResumingProject, setIsResumingProject] = useState(
-    () => (firebaseEnabled ? true : Boolean(localStorage.getItem('orion-current-project-id')))
+    () => Boolean(localStorage.getItem('orion-current-project-id'))
   );
   const [projectName, setProjectName] = useState('Untitled App');
   const [currentProjectId, setCurrentProjectId] = useState(null);
-  // { url, path, deployedAt, versionId } -- persisted inside the project's data blob.
-  const [deployment, setDeployment] = useState(null);
 
   // --- Interrupted build job (persisted across page reloads) ---
   const [interruptedJob, setInterruptedJob] = useState(null);
@@ -291,12 +229,9 @@ export default function App() {
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
   const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
-  // Studio picked while signed out (hosted mode); entered after sign-in.
-  const [pendingStudio, setPendingStudio] = useState(null);
 
   // --- Mobile Layout ---
   const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
@@ -356,49 +291,13 @@ export default function App() {
     myProjects, isProjectsListOpen, setIsProjectsListOpen,
     loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
-    authStatus,
-    isSignedIn,
-    user,
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, deployment, studioMode,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setDeployment, setStudioMode,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
-      // Sign-out (hosted): back to the studio-choice gate with nothing loaded.
-      // Lazy so it can reference resetCurrentWorkspace, defined further down.
-      resetWorkspace: () => resetCurrentWorkspace(null),
     },
   });
-
-  // --- Deployment ---
-  const currentVersionId = versions[currentVersionIndex]?.id ?? null;
-  const {
-    isDeployModalOpen, setIsDeployModalOpen, isDeploying, deployError, setDeployError,
-    deployCopied, confirmUndeploy, setConfirmUndeploy, isDeployStale, deploymentUrl,
-    openDeployModal, closeDeployModal, handleDeploy, handleUndeploy, handleCopyDeployUrl,
-  } = useDeployment({
-    files, isSignedIn, user, username, projectName, currentProjectId,
-    currentVersionId, deployment, setDeployment, saveProject,
-  });
-
-  // --- Showcase (curated projects; `?showcase` / `?showcase=<id>` deep links) ---
-  const {
-    isShowcaseOpen, activeProjectId: activeShowcaseProjectId,
-    openShowcase, openProject: openShowcaseProject, closeProject: closeShowcaseProject, closeShowcase,
-  } = useShowcaseRoute();
-  // Id of a just-remixed project awaiting its first save (see the effect
-  // below handleRemixFromShowcase).
-  const remixSaveRef = useRef(null);
-
-  // --- Analytics dashboard ---
-  const {
-    isAnalyticsOpen, openAnalytics, closeAnalytics,
-    myAnalyticsApps, appsLoading: analyticsAppsLoading,
-    selectedSlug: analyticsSelectedSlug, selectApp: selectAnalyticsApp,
-    range: analyticsRange, changeRange: changeAnalyticsRange,
-    stats: analyticsStats, statsLoading: analyticsStatsLoading, error: analyticsError,
-    activeVisitors: analyticsActiveVisitors,
-  } = useAnalytics({ isSignedIn, user });
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -943,10 +842,6 @@ export default function App() {
 
   const handleAttachScreenshot = useCallback(async () => {
     setAttachmentError(null);
-    if (imagesLocked) {
-      setPlansModal({ reason: needsPlan ? null : IMAGES_LOCKED_REASON });
-      return;
-    }
     setIsCapturingScreenshot(true);
     try {
       const { dataUrl } = await requestScreenshot();
@@ -957,15 +852,11 @@ export default function App() {
     } finally {
       setIsCapturingScreenshot(false);
     }
-  }, [requestScreenshot, imagesLocked, needsPlan]);
+  }, [requestScreenshot]);
 
   const handleAttachFile = useCallback(async (file) => {
     if (!file) return;
     setAttachmentError(null);
-    if (imagesLocked) {
-      setPlansModal({ reason: needsPlan ? null : IMAGES_LOCKED_REASON });
-      return;
-    }
     if (!file.type?.startsWith('image/')) {
       setAttachmentError('Please choose an image file.');
       return;
@@ -986,7 +877,7 @@ export default function App() {
     } catch (err) {
       setAttachmentError(err?.message || 'Failed to attach the image.');
     }
-  }, [imagesLocked, needsPlan]);
+  }, []);
 
   const handleRemoveAttachment = useCallback(() => {
     setAttachment(null);
@@ -1105,9 +996,7 @@ export default function App() {
     const job = loadPendingJob();
     if (!job) return;
     // The current project id is captured via closure; use the ref-based value.
-    const resumedId = firebaseEnabled
-      ? currentProjectId
-      : localStorage.getItem('orion-current-project-id') || null;
+    const resumedId = localStorage.getItem('orion-current-project-id') || null;
     const jobBelongsHere =
       (job.projectId ?? null) === (resumedId ?? null);
     if (jobBelongsHere) {
@@ -1121,7 +1010,6 @@ export default function App() {
     }
     // If the job belongs to a different project, leave the record intact but
     // don't surface it — the user can encounter it by opening that project.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per resume; currentProjectId is already settled then
   }, [isResumingProject]);
 
   const handleShowCodeViewChange = (value) => {
@@ -1133,12 +1021,6 @@ export default function App() {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
-    // Starter ideas, auto-fix and resumed jobs also land here, not only the
-    // prompt box; the server refuses these requests anyway.
-    if (maintenanceMode) {
-      setError(MAINTENANCE_MESSAGE);
-      return;
-    }
 
     if (!isAutoFix) {
       cancelPendingReload();
@@ -1155,34 +1037,6 @@ export default function App() {
       setIsAutoFixing(true);
       isAutoFixingRef.current = true;
       setAutoFixMessage(autoFixError || 'Runtime error detected');
-    }
-
-    if (!isSignedIn) {
-      if (isAutoFix) {
-        setIsAutoFixing(false);
-        isAutoFixingRef.current = false;
-        setAutoFixMessage(null);
-        setGenerationStatus(null);
-      }
-      setIsAuthModalOpen(true);
-      return;
-    }
-
-    // Nothing to send without a trial or subscription once the free prompts
-    // are used: offer the trial instead (the server refuses these requests
-    // anyway). Automatic repairs never spend a free prompt.
-    if (needsPlan && (isAutoFix || freeBuildsLeft <= 0)) {
-      if (isAutoFix) {
-        setIsAutoFixing(false);
-        isAutoFixingRef.current = false;
-        setAutoFixMessage(null);
-        setGenerationStatus(null);
-      } else {
-        setPlansModal(billing.freeBuildsUsed
-          ? { reason: limitMessage('none', { scope: 'none' }, Date.now(), { trialEligible: billing.status?.trialEligible !== false, freeBuildsUsed: true }) }
-          : {});
-      }
-      return;
     }
 
     // Require naming for transition from Untitled or New App. Skipped in ask
@@ -1230,8 +1084,7 @@ export default function App() {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    // Not on a free prompt: a round of questions would use one up.
-    const shouldAskClarifyingQuestions = !isAutoFix && !needsPlan && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
 
     const isSyntaxAutoFix = isAutoFix && autoFixError?.toLowerCase().includes('syntax');
     setGenerationStatus(
@@ -1479,8 +1332,6 @@ export default function App() {
         return;
       }
       setError(err.message);
-      // Over the plan's allowance, or an image on Free: offer the upgrade.
-      if (err.billingCode) setPlansModal({ reason: err.message });
       setPrompt(currentPrompt); // Restore prompt text on error
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
@@ -1498,7 +1349,6 @@ export default function App() {
       setPendingAttachment(null);
       setGenerationStatus(null);
       clearStreamingState();
-      if (billing.billingOn) billing.refresh();
 
       if (pendingRuntimeErrorRef.current && chatMode === 'build') {
         const pendingError = pendingRuntimeErrorRef.current;
@@ -1586,8 +1436,6 @@ export default function App() {
 
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
   // one file per page (links like about.html keep working when unzipped).
-  // Self-hosted mode's stand-in for Deploy (no public-URL hosting without the
-  // hosted backend); in hosted mode it sits alongside Deploy.
   const handleExportHtml = () => {
     if (!generatedCode) return;
     const outputFiles = buildExportFiles();
@@ -1668,7 +1516,6 @@ export default function App() {
       setCurrentVersionIndex(-1);
       setChatContextStartIndex(0);
       setCurrentChatSessionId(newChatSessionId());
-      setDeployment(null);
     }
 
     setProjectName(trimmedName);
@@ -1699,24 +1546,9 @@ export default function App() {
       // nothing was built yet -- so restoring it would roll back or blank
       // the mockup for no reason.)
       const keepsFiles = versions[index].editMode === 'ask';
-      const token = ++versionSwitchRef.current;
       let restored = null;
       if (!keepsFiles) {
-        if (isArchivedVersion(versions[index])) {
-          // Older versions' pages live in R2 (lib/historyStore.js). Nothing
-          // changes until they arrive, so a failed load leaves the workspace
-          // as it was.
-          try {
-            restored = await ensureVersionFiles(currentProjectId, versions[index]);
-          } catch (err) {
-            console.error('Could not load version:', err);
-            if (versionSwitchRef.current === token) setError(`Could not load version ${index + 1}. Check your connection and try again.`);
-            return;
-          }
-          if (versionSwitchRef.current !== token || versionsRef.current !== versions) return;
-        } else {
-          restored = versionFiles(versions[index]);
-        }
+        restored = versionFiles(versions[index]);
       }
       cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
@@ -1838,10 +1670,6 @@ export default function App() {
     setChatContextStartIndex(0);
     setCurrentChatSessionId(newChatSessionId());
     setCurrentProjectId(null);
-    setDeployment(null);
-    setDeployError(null);
-    setConfirmUndeploy(false);
-    setIsDeployModalOpen(false);
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
@@ -1859,65 +1687,18 @@ export default function App() {
     previewStorageRef.current = {};
     setInterruptedJob(null);
     clearPendingJob();
-    // The old project must not come back on the next reload -- in hosted mode
-    // there is no last-open pointer to remove, so this marker is what
-    // suppresses the resume-newest behavior.
+    // The old project must not come back on the next reload -- this marker is
+    // what suppresses the resume behavior.
     markStartFresh();
   };
 
   // The studio-choice screen. Forced on a fresh session (gate), or opened by
   // "New" once work was confirmed away. Picking seeds the untitled name and
   // the studio's default preview device.
-  // Signing in from the picker must land back on the picker (or the picked
-  // studio's hero), not resume the account's newest project: the resume in
-  // useProjects runs on the signed-out -> signed-in flip unless the
-  // start-fresh marker is set. Remember whether we set it so dismissing the
-  // modal without signing in leaves storage as we found it.
-  const pickerSetStartFreshRef = useRef(false);
-  const openPickerSignIn = () => {
-    pickerSetStartFreshRef.current = !isStartFresh();
-    markStartFresh();
-    setIsAuthModalOpen(true);
-  };
-
   const handleChooseStudio = (mode) => {
     if (!STUDIO_MODES[mode]) return;
-    // Hosted mode: a studio can't be entered signed out. Remember the pick,
-    // open the sign-in modal, and the effect below resumes it once a session
-    // lands. (Self-hosted is always signed in, so this never triggers there.)
-    if (firebaseEnabled && !isSignedIn) {
-      setPendingStudio(mode);
-      openPickerSignIn();
-      return;
-    }
     resetCurrentWorkspace(mode);
     setIsStudioChoiceOpen(false);
-  };
-
-  // A remix is saved only once its project id and versions are committed, so
-  // saveProject's closure sees the new project rather than the one it replaced
-  // (which would otherwise hand the old project's preview storage to it).
-  useEffect(() => {
-    if (!remixSaveRef.current || remixSaveRef.current !== currentProjectId || versions.length === 0) return;
-    remixSaveRef.current = null;
-    saveProject({ force: true });
-  }, [currentProjectId, versions, saveProject]);
-
-  useEffect(() => {
-    if (isSignedIn) pickerSetStartFreshRef.current = false;
-    if (!pendingStudio || !isSignedIn) return;
-    setPendingStudio(null);
-    handleChooseStudio(pendingStudio);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingStudio, isSignedIn]);
-
-  const handleCloseAuthModal = () => {
-    setIsAuthModalOpen(false);
-    setPendingStudio(null);
-    if (pickerSetStartFreshRef.current) {
-      pickerSetStartFreshRef.current = false;
-      clearStartFresh();
-    }
   };
 
   const handleCancelStudioChoice = () => {
@@ -1952,65 +1733,6 @@ export default function App() {
     return ok;
   };
 
-  // Hosted only. Re-verify first (the server only deletes for a fresh
-  // sign-in), then the server removes the account and everything it owns --
-  // projects, published apps, usage, any subscription -- and the sign-out
-  // that follows clears this browser's copy. Throws with a user-facing
-  // message so the Settings dialog can show it.
-  const handleDeleteAccount = async () => {
-    if (!firebaseEnabled || !user?.id) return;
-    await authProvider.reauthenticate();
-    await authProvider.deleteAccount();
-    setIsSettingsOpen(false);
-  };
-
-  // Copies a showcase project's source into a brand-new project of the
-  // caller's own. The current project is already auto-saved, so switching away
-  // loses nothing -- except a build still streaming, which must finish first.
-  // Hosted mode needs an account to own the copy, so signed-out visitors are
-  // sent to sign in first.
-  const handleRemixFromShowcase = async (project) => {
-    if (firebaseEnabled && !isSignedIn) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    if (isGenerating) throw new Error('Wait for the current build to finish before remixing.');
-    const source = await fetchRemixSource(project);
-    const sessionId = newChatSessionId();
-    const name = `${project.title} (remix)`.slice(0, 80);
-    const version = {
-      id: Date.now(),
-      prompt: `Remix “${project.title}”`,
-      files: source.files,
-      timestamp: new Date().toLocaleTimeString(),
-      editMode: 'remix',
-      editSummary: null,
-      reply: `Here's your copy of “${project.title}”. Tell me what you'd like to change.`,
-      chatMode: 'build',
-      sessionId,
-    };
-    resetCurrentWorkspace(source.studioMode);
-    const projectId = crypto.randomUUID();
-    loadProject({
-      id: projectId,
-      name,
-      versions: [version],
-      currentVersionIndex: 0,
-      chatContextStartIndex: 0,
-      currentChatSessionId: sessionId,
-      deployment: null,
-      studioMode: source.studioMode,
-    });
-    remixSaveRef.current = projectId;
-    setIsStudioChoiceOpen(false);
-    closeShowcase();
-  };
-
-  const handleRequireSignInFromDeploy = () => {
-    setIsDeployModalOpen(false);
-    setIsAuthModalOpen(true);
-  };
-
   const startTour = () => {
     tourLayoutRef.current = { mobileView, activeTab };
     setActiveTab('preview');
@@ -2024,17 +1746,6 @@ export default function App() {
     }
   };
 
-  // Only session restore blocks the UI; signed-out visitors can look around
-  // freely and are only prompted to sign in when they try to generate or use
-  // an account-only feature (see handleGenerate, DeployModal's onRequireSignIn).
-  if (authStatus === 'loading') {
-    return (
-      <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
-        <Loader2 className="animate-spin text-slate-400" size={28} />
-      </div>
-    );
-  }
-
   if (desktopOnboarding?.loading) {
     return (
       <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
@@ -2047,13 +1758,7 @@ export default function App() {
     return <DesktopOnboarding providerInfo={desktopOnboarding.info} onComplete={() => setDesktopOnboarding(null)} />;
   }
 
-  // Every sign-out affordance (studio picker, header menu, account settings)
-  // asks first: signing out also clears this browser's copy of the workspace.
-  const handleConfirmSignOut = () => {
-    setIsSignOutConfirmOpen(false);
-    handleSignOut();
-  };
-  // Shared by the studio picker and the workspace/hero, like signOutConfirmModal.
+  // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
           onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
@@ -2081,58 +1786,7 @@ export default function App() {
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           projectCount={myProjects.length}
-          onDeleteAccount={firebaseEnabled && isSignedIn ? handleDeleteAccount : null}
-          user={user}
-          username={username}
-          usernameLoading={usernameLoading}
-          onSignOut={() => setIsSignOutConfirmOpen(true)}
-          billingPlan={billing.plan}
-          billingTrialing={billing.trialing}
-          billingHasAccount={billing.hasBillingAccount}
-          onOpenPlans={() => setPlansModal({})}
         />
-  );
-
-  const showcaseOverlay = isShowcaseOpen && (
-    <ShowcaseView
-      activeProjectId={activeShowcaseProjectId}
-      onOpenProject={openShowcaseProject}
-      onCloseProject={closeShowcaseProject}
-      onClose={closeShowcase}
-      onRemix={handleRemixFromShowcase}
-    />
-  );
-  // Entry points stay hidden until there is something to show; `?showcase`
-  // still opens the (empty) page.
-  const onOpenShowcase = showcaseProjects.length > 0 ? openShowcase : undefined;
-
-  // Shared by the studio picker and the workspace: Checkout's return lands on
-  // whichever one a fresh page load shows.
-  const plansOverlay = (plansModal || billing.checkoutResult) && billing.billingOn && (
-    <PlansModal
-      status={billing.status}
-      reason={plansModal?.reason}
-      welcome={Boolean(plansModal?.welcome)}
-      checkoutResult={billing.checkoutResult}
-      onRefresh={billing.refresh}
-      onClose={() => { setPlansModal(null); billing.clearCheckoutResult(); }}
-    />
-  );
-
-  const signOutConfirmModal = isSignOutConfirmOpen && (
-    <ConfirmModal
-      title="Sign out?"
-      subtitle="You can sign back in any time."
-      onClose={() => setIsSignOutConfirmOpen(false)}
-      onConfirm={handleConfirmSignOut}
-      confirmLabel="Sign out"
-      icon={LogOut}
-      confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
-    >
-      <p className="text-sm text-slate-600 leading-relaxed">
-        Your projects stay saved to your account. This browser will be cleared of the current workspace until you sign in again.
-      </p>
-    </ConfirmModal>
   );
 
   // Fresh session with nothing to resume and no studio picked: the whole
@@ -2149,26 +1803,11 @@ export default function App() {
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
-          requireSignIn={firebaseEnabled}
-          isSignedIn={isSignedIn}
-          onSignIn={openPickerSignIn}
-          onSignOut={() => setIsSignOutConfirmOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenShowcase={onOpenShowcase}
-          billingPlan={billing.plan}
-          billingTrialing={billing.trialing}
-          onOpenPlans={() => setPlansModal({})}
         />
-        {showcaseOverlay}
         {settingsModal}
-        {plansOverlay}
-        <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
         {isDesktop && <DesktopStorageNotice />}
-        {!firebaseEnabled && <UpdateNotice />}
-        {isAuthModalOpen && firebaseEnabled && (
-          <AuthModal onClose={handleCloseAuthModal} />
-        )}
-        {signOutConfirmModal}
+        <UpdateNotice />
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -2194,24 +1833,12 @@ export default function App() {
         savedAppsCount={myProjects.length}
         versionsCount={versions.length}
         onOpenApps={() => setIsProjectsListOpen(true)}
-        onOpenShowcase={onOpenShowcase}
         isHistoryOpen={isHistoryOpen}
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onStartTour={startTour}
-        authStatus={authStatus}
-        isSignedIn={isSignedIn}
-        userEmail={user?.email}
-        onOpenAccountSettings={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
-        onSignIn={() => setIsAuthModalOpen(true)}
-        onSignOut={() => setIsSignOutConfirmOpen(true)}
-        billingPlan={billing.plan}
-        billingTrialing={billing.trialing}
-        onOpenPlans={() => setPlansModal({})}
-        firebaseEnabled={firebaseEnabled}
-        onOpenAnalytics={() => openAnalytics()}
         studioMode={studioMode}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
@@ -2222,7 +1849,7 @@ export default function App() {
 
       {!showHero && !isResumingProject && <TourInvitation onStart={startTour} />}
       {isTourOpen && (
-        <GuidedTour onClose={closeTour} onViewChange={setMobileView} firebaseEnabled={firebaseEnabled} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+        <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
 
       {settingsModal}
@@ -2237,8 +1864,6 @@ export default function App() {
           onDeleteProject={handleDeleteProject}
         />
       )}
-
-      {signOutConfirmModal}
 
       {isExitConfirmOpen && (
         <ConfirmModal
@@ -2294,47 +1919,6 @@ export default function App() {
         </ConfirmModal>
       )}
 
-      {isDeployModalOpen && (
-        <DeployModal
-          isSignedIn={isSignedIn}
-          username={username}
-          usernameLoading={usernameLoading}
-          onClaimUsername={claimUsername}
-          deployment={deployment}
-          studioMode={studioMode}
-          deploymentUrl={deploymentUrl}
-          isDeployStale={isDeployStale}
-          isDeploying={isDeploying}
-          deployError={deployError}
-          deployCopied={deployCopied}
-          confirmUndeploy={confirmUndeploy}
-          setConfirmUndeploy={setConfirmUndeploy}
-          hasCode={Boolean(generatedCode)}
-          onClose={closeDeployModal}
-          onDeploy={handleDeploy}
-          onUndeploy={handleUndeploy}
-          onCopyUrl={handleCopyDeployUrl}
-          onRequireSignIn={handleRequireSignInFromDeploy}
-        />
-      )}
-
-
-      {isAnalyticsOpen && firebaseEnabled && isSignedIn && (
-        <AnalyticsDashboardModal
-          apps={myAnalyticsApps}
-          appsLoading={analyticsAppsLoading}
-          selectedSlug={analyticsSelectedSlug}
-          onSelectApp={selectAnalyticsApp}
-          range={analyticsRange}
-          onRangeChange={changeAnalyticsRange}
-          stats={analyticsStats}
-          statsLoading={analyticsStatsLoading}
-          error={analyticsError}
-          activeVisitors={analyticsActiveVisitors}
-          onClose={closeAnalytics}
-        />
-      )}
-
       {isNamingModalOpen && (
         <NamingModal
           name={tempProjectName}
@@ -2346,19 +1930,8 @@ export default function App() {
         />
       )}
 
-
-
-      {plansOverlay}
-
-      <AuthToast kind={authToast} onDismiss={dismissAuthToast} />
+      <UpdateNotice />
       {isDesktop && <DesktopStorageNotice />}
-      {!firebaseEnabled && <UpdateNotice />}
-
-      {showcaseOverlay}
-
-      {isAuthModalOpen && firebaseEnabled && (
-        <AuthModal onClose={handleCloseAuthModal} />
-      )}
 
       {isResumingProject ? null : showHero ? (
         <HeroLanding
@@ -2393,18 +1966,10 @@ export default function App() {
           onDismissInterruptedJob={handleDismissInterruptedJob}
           onNewApp={handleNewApp}
           onOpenApps={() => setIsProjectsListOpen(true)}
-          onOpenShowcase={onOpenShowcase}
           savedAppsCount={myProjects.length}
           recents={myProjects}
           onLoadProject={loadProject}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          firebaseEnabled={firebaseEnabled}
-          isSignedIn={isSignedIn}
-          authStatus={authStatus}
-          userEmail={user?.email}
-          onOpenAnalytics={() => openAnalytics()}
-          onOpenAccountSettings={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
-          onSignIn={() => setIsAuthModalOpen(true)}
         />
       ) : (
       <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">
@@ -2501,11 +2066,6 @@ export default function App() {
               onRedo={handleRedo}
               hasCode={Boolean(generatedCode)}
               onOpenNewTab={handleOpenInNewTab}
-              deployment={deployment}
-              isDeployStale={isDeployStale}
-              isSignedIn={isSignedIn}
-              onOpenDeployModal={openDeployModal}
-              firebaseEnabled={firebaseEnabled}
               onExportHtml={handleExportHtml}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}

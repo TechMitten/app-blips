@@ -1,10 +1,9 @@
 // Bundles the desktop app's main process (electron/main.js plus what it
-// imports: the server handlers in functions/_lib, the project/provider stores
+// imports: the server handlers in electron/server, the project/provider stores
 // and electron-updater) into one file, dist-electron/main.cjs. The packaged
 // app then needs no node_modules at all; `electron` itself is provided by
 // the runtime. Run by the npm desktop scripts before Electron starts.
-// The desktop app is single-user, so nothing about the hosted backend is
-// baked in.
+// The desktop app is single-user, so nothing about a hosted backend is baked in.
 import { rolldown } from 'rolldown';
 
 const bundle = await rolldown({

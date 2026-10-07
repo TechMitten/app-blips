@@ -3,7 +3,7 @@
 // node in testing/.
 //
 // System stacks need nothing in the page. Google families are added to the
-// page's <head> when chosen (see fontLinkTags), so a deployed or exported
+// page's <head> when chosen (see fontLinkTags), so an exported
 // page keeps working without the studio. Stacks use single quotes so they
 // survive inside a double-quoted style="..." attribute unescaped.
 

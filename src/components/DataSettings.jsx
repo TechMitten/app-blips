@@ -9,7 +9,7 @@ import { buildBackup, backupFileName, parseBackup, mergeBackup } from '../lib/pr
 const RELOAD_DELAY_MS = 1200;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-// Settings → Data (self-hosted and desktop): back up / import saved apps as a
+// Settings → Data: back up / import saved apps as a
 // JSON file (lib/projectBackup.js) and, in the desktop app, the projects
 // folder on disk. Imports and folder changes reload the app so every hook
 // starts from the new data instead of patching live state.

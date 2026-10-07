@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, LogIn, BarChart3, Menu, X, UserRound, LayoutGrid, Sparkles, Power
+  Settings, CircleHelp, Compass, Menu, X, Power
 } from 'lucide-react';
 import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -20,30 +20,17 @@ export default function Header({
   savedAppsCount,
   versionsCount,
   onOpenApps,
-  onOpenShowcase,
   isHistoryOpen,
   onToggleHistory,
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
   onStartTour,
-  authStatus,
-  isSignedIn,
-  userEmail,
-  onOpenAccountSettings,
-  onSignIn,
-  firebaseEnabled,
-  onOpenAnalytics,
   studioMode = 'app',
   mobileView,
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
-  // 'none' | 'plus' | 'pro' when this instance bills and the user is signed
-  // in; null hides the plan button. `billingTrialing` = on the free trial.
-  billingPlan = null,
-  billingTrialing = false,
-  onOpenPlans,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -92,10 +79,6 @@ export default function Header({
   const untitledName = STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
   const displayName = hasProjectName ? projectName : untitledName;
   const article = STUDIO_MODES[studioMode]?.article || 'app';
-  // Local part only: the strip has to hold four ranks, and the domain is the
-  // half of an address that never disambiguates anything.
-  const accountLabel = userEmail ? userEmail.split('@')[0] : 'Account';
-  const planLabel = billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Free trial' : 'Plus') : billingPlan === 'pro' ? 'Pro' : null;
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
@@ -163,7 +146,7 @@ export default function Header({
       )}
 
       {/* Right: a ranked control strip -- one solid key, workspace controls,
-          environment controls, then account/theme, split by hairlines. */}
+          environment controls, then theme and exit, split by hairlines. */}
       <nav className="hidden lg:flex items-center gap-3 shrink-0" aria-label="Workspace actions">
         {/* Rank 1: Primary Action. The studio is chosen on the choice screen
             (forced on a fresh session, re-asked by "New") and remembered per
@@ -193,18 +176,6 @@ export default function Header({
             <span>Apps</span>
             {savedAppsCount > 0 && <span className="nav-count">{savedAppsCount}</span>}
           </button>
-
-          {onOpenShowcase && (
-            <button
-              onClick={onOpenShowcase}
-              className="nav-btn nav-ghost nav-btn-icon"
-              data-tip="Made with AppBlips"
-              aria-label="Showcase"
-            >
-              <LayoutGrid size={16} />
-              <span className="hidden xl:inline">Showcase</span>
-            </button>
-          )}
 
           <button
             data-tour="history"
@@ -238,7 +209,7 @@ export default function Header({
             <span className="hidden xl:inline">Settings</span>
           </button>
 
-          {/* Label held back to xl so the lg row keeps room for the account. */}
+          {/* Label held back to xl so the lg row keeps room for the theme and exit. */}
           <a
             data-tour="help"
             href={DOCS_URL}
@@ -264,64 +235,11 @@ export default function Header({
             <Compass size={16} />
             <span className="hidden xl:inline">Tour</span>
           </button>
-
-          {/* Hosted mode + signed-in only, same gate as the account control */}
-          {firebaseEnabled && isSignedIn && (
-            <button
-              onClick={onOpenAnalytics}
-              className="nav-btn nav-ghost nav-btn-icon"
-              data-tip="Analytics"
-              aria-label="Analytics"
-            >
-              <BarChart3 size={16} />
-              <span className="hidden xl:inline">Analytics</span>
-            </button>
-          )}
         </div>
 
-        {/* Rank 4: Account + theme */}
+        {/* Rank 4: theme and exit */}
         <span className="chrome-divider" aria-hidden="true" />
         <div className="nav-rank">
-          {planLabel && onOpenPlans && (
-            <button
-              type="button"
-              onClick={onOpenPlans}
-              className="nav-btn nav-ghost nav-btn-icon"
-              data-tip={billingPlan === 'none' ? 'See plans' : 'Your plan and usage'}
-              aria-label={billingPlan === 'none' ? 'Start free trial: see plans' : `${planLabel} plan: usage and billing`}
-            >
-              <Sparkles size={16} />
-              <span className="hidden xl:inline">{planLabel}</span>
-            </button>
-          )}
-          {!firebaseEnabled ? null : isSignedIn ? (
-            <button
-              onClick={onOpenAccountSettings}
-              className="nav-btn nav-ghost nav-btn-icon"
-              data-tip={userEmail || 'Signed in'}
-              aria-label="Account settings"
-            >
-              {userEmail ? (
-                <span className="h-5 w-5 rounded-full brand-gradient text-[10px] font-bold flex items-center justify-center shadow-2xs">
-                  {(userEmail[0] || '?').toUpperCase()}
-                </span>
-              ) : (
-                <UserRound size={16} />
-              )}
-              <span className="hidden 2xl:inline max-w-[9rem] truncate">{accountLabel}</span>
-            </button>
-          ) : authStatus !== 'loading' ? (
-            <button
-              onClick={onSignIn}
-              className="nav-btn nav-ghost nav-btn-icon"
-              data-tip="Sign in to your account"
-              aria-label="Sign in to your account"
-            >
-              <LogIn size={16} />
-              <span className="hidden xl:inline">Sign in</span>
-            </button>
-          ) : null}
-
           {/* Theme toggle -- the icon names the destination, not the current state */}
           <button
             onClick={onToggleTheme}
@@ -425,16 +343,6 @@ export default function Header({
                 <span>Apps</span>
                 {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
               </button>
-              {onOpenShowcase && (
-                <button
-                  type="button"
-                  onClick={() => runMobileAction(onOpenShowcase)}
-                  className="mobile-menu-item"
-                >
-                  <LayoutGrid size={16} />
-                  <span>Showcase</span>
-                </button>
-              )}
               <button
                 type="button"
                 aria-label="History"
@@ -474,49 +382,6 @@ export default function Header({
                 <Compass size={16} />
                 <span>Take the tour</span>
               </button>
-              {planLabel && onOpenPlans && (
-                <button
-                  type="button"
-                  onClick={() => runMobileAction(onOpenPlans)}
-                  className="mobile-menu-item"
-                >
-                  <Sparkles size={16} />
-                  <span>{billingPlan === 'none' ? planLabel : `${planLabel} plan`}</span>
-                </button>
-              )}
-              {firebaseEnabled && isSignedIn && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => runMobileAction(onOpenAnalytics)}
-                    className="mobile-menu-item"
-                  >
-                    <BarChart3 size={16} />
-                    <span>Analytics</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => runMobileAction(onOpenAccountSettings)}
-                    className="mobile-menu-item"
-                    title={userEmail || 'Signed in'}
-                  >
-                    <span className="h-5 w-5 rounded-full brand-gradient text-white text-[10px] font-bold flex items-center justify-center shadow-2xs">
-                      {(userEmail?.[0] || '?').toUpperCase()}
-                    </span>
-                    <span className="truncate">{userEmail || 'Account'}</span>
-                  </button>
-                </>
-              )}
-              {firebaseEnabled && !isSignedIn && authStatus !== 'loading' && (
-                <button
-                  type="button"
-                  onClick={() => runMobileAction(onSignIn)}
-                  className="mobile-menu-item"
-                >
-                  <LogIn size={16} />
-                  <span>Sign in</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => runMobileAction(onToggleTheme)}

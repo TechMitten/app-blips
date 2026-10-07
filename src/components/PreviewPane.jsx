@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Rocket, Download, RefreshCw, MousePointerClick, Move
+  ZoomIn, ZoomOut, ExternalLink, Download, RefreshCw, MousePointerClick, Move
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -21,7 +21,7 @@ const DEVICE_PRESETS = [
 ];
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
-// open/deploy) and the preview surface or code view below it.
+// open/export) and the preview surface or code view below it.
 export default function PreviewPane({
   activeTab,
   onTabChange,
@@ -45,11 +45,6 @@ export default function PreviewPane({
   onRedo,
   hasCode,
   onOpenNewTab,
-  deployment,
-  isDeployStale,
-  isSignedIn,
-  onOpenDeployModal,
-  firebaseEnabled,
   onExportHtml,
   containerRef,
   iframeRef,
@@ -248,8 +243,8 @@ export default function PreviewPane({
           )}
         </div>
 
-        {/* Zone 3 -- what you can do with it, quietest first. Exactly one key
-            in this rank is filled: Deploy when hosted, Export when not. */}
+        {/* Zone 3 -- what you can do with it, quietest first. The Export key
+            is the one filled action in this rank. */}
         <div className="preview-actions flex items-center gap-1.5 sm:gap-2 min-w-0">
           {/* Stands in for the presets once they fold away, so the two key
               groups still read as separate ranks. */}
@@ -348,44 +343,18 @@ export default function PreviewPane({
 
           {hasCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
 
-          {/* Export the HTML file (both modes; the primary action when
-              self-hosted, where it also carries the tour anchor). */}
+          {/* Export the HTML file (also carries the tour anchor). */}
           {hasCode && (
             <button
-              {...(!firebaseEnabled && { 'data-tour': 'share' })}
+              data-tour="share"
               onClick={onExportHtml}
-              className={firebaseEnabled
-                ? 'nav-btn nav-btn-secondary preview-key'
-                : 'nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs'}
+              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
               aria-label="Export app"
               data-tip="Download this app as an HTML file"
               data-tip-align="end"
             >
               <Download size={16} />
-              {/* Hosted mode already has a labelled filled key (Deploy), and a
-                  rank with two of them has no primary. Export is the secondary
-                  action there, so it keeps the icon and the tooltip only. */}
-              {!firebaseEnabled && <span className="preview-key-label">Export</span>}
-            </button>
-          )}
-
-          {/* Deploy to a public URL (hosted mode only) */}
-          {hasCode && firebaseEnabled && (
-            <button
-              data-tour="share"
-              aria-label="Manage deployment"
-              onClick={onOpenDeployModal}
-              className="nav-btn brand-fill-text preview-key relative bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
-              data-tip={deployment ? (isDeployStale && isSignedIn ? 'Deployment is out of date' : 'Manage deployment') : 'Deploy to a public URL'}
-              data-tip-align="end"
-            >
-              <Rocket size={16} />
-              <span className="preview-key-label">
-                {deployment ? (isDeployStale && isSignedIn ? 'Update' : 'Deployed') : 'Deploy'}
-              </span>
-              {isDeployStale && isSignedIn && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-brand" />
-              )}
+              <span className="preview-key-label">Export</span>
             </button>
           )}
         </div>

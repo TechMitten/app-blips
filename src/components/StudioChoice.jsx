@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
-  ArrowRight, CircleHelp, Gamepad2, LibraryBig, LogIn, LogOut, MonitorSmartphone,
-  Play, Settings, Smartphone, Sparkles, X,
+  ArrowRight, CircleHelp, Gamepad2, LibraryBig, MonitorSmartphone,
+  Settings, Smartphone, X,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
 
@@ -28,7 +28,7 @@ const STUDIOS = [
     key: 'website',
     Icon: MonitorSmartphone,
     title: 'Responsive Website',
-    description: 'Multi-page sites that look sharp on every screen, ready to publish.',
+    description: 'Multi-page sites that look sharp on every screen, ready to share.',
     cta: 'Build a website',
   },
   {
@@ -53,7 +53,7 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, requireSignIn = false, isSignedIn = true, onSignIn, onSignOut, onOpenSettings, onOpenShowcase, billingPlan = null, billingTrialing = false, onOpenPlans }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -66,15 +66,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
 
-  // Hosted mode only: self-hosted is a fixed always-signed-in local user.
-  const canSignOut = requireSignIn && isSignedIn && !!onSignOut;
-  const needsSignIn = requireSignIn && !isSignedIn;
-
-  // Hosted mode keeps projects in the account, so signed-out there is nothing
-  // to list -- ask for sign-in instead of opening an empty modal.
   const handleOpenProjects = () => {
-    if (needsSignIn) onSignIn?.();
-    else onOpenProjects?.();
+    onOpenProjects?.();
   };
 
   return (
@@ -90,15 +83,12 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       <div className="relative h-full overflow-y-auto">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
-              (md+), account actions right. */}
+              (md+), settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
             <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
               <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img mr-auto" />
 
               <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
-                {onOpenShowcase && (
-                  <button type="button" onClick={onOpenShowcase} className={NAV_LINK}>Showcase</button>
-                )}
                 <button type="button" onClick={handleOpenProjects} className={NAV_LINK}>My projects</button>
                 <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Docs</a>
               </div>
@@ -114,18 +104,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
-                {/* Only when this instance bills (billingPlan is null otherwise). */}
-                {billingPlan && onOpenPlans && (
-                  <button
-                    type="button"
-                    onClick={onOpenPlans}
-                    title={billingPlan === 'none' ? 'See plans' : 'Your plan and usage'}
-                    className={`${GHOST_BTN} h-9 px-3.5`}
-                  >
-                    <Sparkles size={15} aria-hidden="true" />
-                    <span>{billingPlan === 'none' ? 'Start free trial' : billingPlan === 'plus' ? (billingTrialing ? 'Free trial' : 'Plus') : 'Pro'}</span>
-                  </button>
-                )}
                 {onOpenSettings && (
                   <button
                     type="button"
@@ -135,26 +113,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     className={`${GHOST_BTN} h-9 w-9`}
                   >
                     <Settings size={17} aria-hidden="true" />
-                  </button>
-                )}
-                {needsSignIn && (
-                  <button
-                    type="button"
-                    onClick={onSignIn}
-                    className={`studio-primary-btn inline-flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${FOCUS_RING}`}
-                  >
-                    <LogIn size={15} aria-hidden="true" />
-                    Sign in
-                  </button>
-                )}
-                {canSignOut && (
-                  <button
-                    type="button"
-                    onClick={onSignOut}
-                    className={`${GHOST_BTN} h-9 px-3.5`}
-                  >
-                    <LogOut size={15} aria-hidden="true" />
-                    <span className="hidden sm:inline">Sign out</span>
                   </button>
                 )}
                 {onCancel && (
@@ -188,22 +146,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
                   Describe what you want in plain English. AppBlips builds a working app,
-                  website or game you can preview, refine and publish.
+                  website or game you can preview and refine.
                 </p>
 
-                {onOpenShowcase && (
-                  <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                    <span className="text-sm studio-text-soft">Not sure where to start?</span>
-                    <button
-                      type="button"
-                      onClick={onOpenShowcase}
-                      className={`${GHOST_BTN} min-h-[40px] px-4 is-strong`}
-                    >
-                      <Play size={14} aria-hidden="true" />
-                      Explore examples
-                    </button>
-                  </div>
-                )}
               </header>
 
               <div className="mt-10 grid grid-cols-1 gap-4 animate-stagger-3 sm:mt-12 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
@@ -238,21 +183,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   );
                 })}
               </div>
-
-              {needsSignIn && (
-                <div className="mt-10 flex flex-col items-center animate-stagger-3">
-                  <button
-                    type="button"
-                    onClick={onSignIn}
-                    className={`studio-primary-btn group inline-flex min-h-[48px] items-center gap-2.5 rounded-xl px-8 py-3 text-sm font-semibold ${FOCUS_RING}`}
-                  >
-                    <LogIn size={16} aria-hidden="true" />
-                    Sign in to start building
-                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
-                  </button>
-                  <p className="mt-3 text-sm studio-text-soft">Your projects are saved to your account.</p>
-                </div>
-              )}
             </div>
           </div>
         </div>

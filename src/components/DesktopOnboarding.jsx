@@ -5,7 +5,7 @@ import {
   MousePointer2, Palette, Rocket, Smartphone, Sparkles, WandSparkles,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage } from '../lib/desktop';
-import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
+import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === 'openrouter');
 
@@ -54,7 +54,7 @@ function WorkflowVisual() {
       <div className="onboarding-float-card float-game"><Gamepad2 size={21} /><span>Game</span></div>
       <div className="onboarding-tool-chip tool-palette"><Palette size={15} /> Click to edit</div>
       <div className="onboarding-tool-chip tool-code"><Code2 size={15} /> Own the code</div>
-      <div className="onboarding-tool-chip tool-ship"><Rocket size={15} /> Publish</div>
+      <div className="onboarding-tool-chip tool-ship"><Rocket size={15} /> Export</div>
       <MousePointer2 className="onboarding-cursor" size={25} />
     </div>
   );
@@ -125,7 +125,7 @@ const slides = [
   {
     eyebrow: 'Build your way',
     title: 'Create, refine and ship — all in one place.',
-    body: 'Make apps, responsive websites and browser games. Edit visually, keep iterating in chat, then export or publish when it feels right.',
+    body: 'Make apps, responsive websites and browser games. Edit visually, keep iterating in chat, then export when it feels right.',
     visual: <WorkflowVisual />,
   },
 ];

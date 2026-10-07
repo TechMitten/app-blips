@@ -63,8 +63,18 @@ export const formatModifiedTime = (value) => {
   return 'Just now';
 };
 
-export const isValidUuid = (value) =>
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value || '');
+// `Daybook - Mood & Habit Journal` -> `daybook-mood-habit-journal`. Used for
+// export file names.
+export const slugifyName = (name) =>
+  (name || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/([a-z0-9])\1{2,}/g, '$1')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
 
 // Last `count` lines of a code stream, for the build overlay's live peek. Lines
 // are never clipped here (CSS clips them) so a growing line extends in place

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
-// Building blocks shared by the settings-style modals (SettingsModal,
-// DeployModal), so their rows, switches and buttons stay identical.
+// Building blocks shared by the settings-style modals (SettingsModal), so
+// their rows, switches and buttons stay identical.
 
 export const FIELD_CLASS = 'w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400';
 export const PRIMARY_BUTTON = 'brand-fill-text inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2 bg-brand text-white font-semibold text-sm hover:bg-brand-hover shadow-sm transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100';

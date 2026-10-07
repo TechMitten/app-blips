@@ -141,8 +141,8 @@ export const REFINEMENT_TOOLS = [SURGICAL_EDIT_TOOL, VIEW_CODE_TOOL, LIST_SECTIO
 // Website projects can hold several pages. The three inspect/edit tools gain a
 // required-but-nullable `file` (strict mode needs every property required);
 // null means the landing page, index.html. Three page-management tools are
-// added. Any new tool name must also be added to ALLOWED_TOOL_NAMES in
-// functions/_lib/chatProxy.js or hosted mode rejects it.
+// added. Any new tool name must also be added to the tool list the client
+// sends (see lib/prompts.js getRefinementTools).
 const FILE_PARAM = {
   type: ['string', 'null'],
   description: 'Page filename to operate on, e.g. "about.html". Null for the landing page (index.html).'
@@ -256,7 +256,7 @@ CRITICAL RULES:
    <script type="importmap">{"imports":{
      "preact": "https://esm.sh/preact@10",
      "preact/hooks": "https://esm.sh/preact@10/hooks",
-     "htm/preact": "https://esm.sh/htm@3/preact?deps=preact@10",
+     "htm/preact": "https://esm.sh/htm@3/preact",
      "lucide-preact": "https://esm.sh/lucide-preact@0.400.0",
      "chart.js/auto": "https://esm.sh/chart.js@4/auto",
      "three": "https://esm.sh/three@0.160.0",
@@ -298,7 +298,7 @@ CRITICAL RULES:
 6. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 7. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 8. For mobile-focused apps, build a native smartphone app, not a shrunk-down website. Do not use website conventions like top nav bars with a logo, hamburger menus, hero sections, or footers. Instead use native app patterns: a fixed bottom tab bar or top app bar, full-bleed screens, card-based lists, sheets/modals that slide up from the bottom, large tappable rows, and a floating action button where appropriate. Always include a viewport-fit=cover meta tag and safe-area-inset padding.
-9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when deployed. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
+9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when the exported file is opened. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, harm users, or are sexual in nature (e.g., fake login screens, credential harvesters, scams, explicit content). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
 12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. The user will type in a custom answer to your question. If you call this tool, do NOT generate any HTML or code.

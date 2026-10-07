@@ -1,10 +1,10 @@
 ---
 title: "FAQ: Building Apps, AI, Exporting, and More"
 sidebarTitle: "FAQ"
-description: "Answers to common questions about AppBlips: what it builds, how AI works, the difference between hosted and self-hosted, exporting, and more."
+description: "Answers to common questions about AppBlips: what it builds, how AI works, exporting, and more."
 ---
 
-Here are quick answers to the most common questions about AppBlips — what it can build, how the AI works, and the differences between the hosted and self-hosted options.
+Here are quick answers to the most common questions about AppBlips — what it can build, how the AI works, and more.
 
 <AccordionGroup>
   <Accordion title="What kind of apps can AppBlips build?">
@@ -20,17 +20,15 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="What does the license allow?">
-    AppBlips is open source under the [MIT License](https://github.com/techmitten/app-blips/blob/master/LICENSE). You can use, modify, and redistribute it, including commercially, as long as you keep the copyright and license notice. The official hosted service is [appblips.com](https://appblips.com). The license text is the authoritative version.
+    AppBlips is open source under the [MIT License](https://github.com/techmitten/app-blips/blob/master/LICENSE). You can use, modify, and redistribute it, including commercially, as long as you keep the copyright and license notice. The license text is the authoritative version.
   </Accordion>
 
   <Accordion title="Which AI models can I use?">
-    On appblips.com, the AI is included with your plan and there's nothing to set up.
-
-    In the desktop app, you bring your own OpenRouter key. Open **Settings → AI**, choose one of the curated coding models, and paste your key from [OpenRouter](https://openrouter.ai/settings/keys). See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+    You bring your own OpenRouter key. Open **Settings → AI**, choose one of the curated coding models, and paste your key from [OpenRouter](https://openrouter.ai/settings/keys). See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    In the desktop app, your API key is encrypted with your system keychain and stays on your computer. On appblips.com you don't need a key. The key is used only by the app's background process when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+    Your API key is encrypted with your system keychain and stays on your computer. The key is used only by the app's background process when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="Can I export the generated project?">
@@ -42,8 +40,6 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="Is there a limit on how many apps I can build?">
-    In the **desktop app**, there is no limit imposed by AppBlips. You are only constrained by your AI provider's rate limits and your own usage budget.
-
-    In the **cloud studio** at start.appblips.com, each plan has a monthly usage allowance rather than a limit on the number of apps. See [Pricing](/pricing) for the plans, the free trial, and what happens when you run out.
+    There is no limit imposed by AppBlips. You are only constrained by your AI provider's rate limits and your own usage budget.
   </Accordion>
 </AccordionGroup>

@@ -1,7 +1,3 @@
-import { isDesktop } from './desktop.js';
-import { USER_PROVIDER_IDS } from '../../functions/_lib/providers.js';
-import { firebaseEnabled } from '../firebase.js';
-
 // There is no way to hide a key from the machine that types it in a
 // backend-less SPA. What the sandboxed preview frame buys us is the part that
 // matters: generated code can no longer read it. This toggle is the remaining
@@ -29,75 +25,6 @@ export const loadThemePreference = () => {
     return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
   } catch {
     return 'dark';
-  }
-};
-
-export const HAS_SIGNED_IN_KEY = 'orion-has-signed-in';
-
-// Set once a session lands in this browser (sign-in, sign-up or a restored
-// session); the auth modal uses it to open on "Sign in" instead of "Sign up".
-// Deliberately survives sign-out: it says "this browser has an account", not
-// "someone is signed in".
-export const markHasSignedIn = () => {
-  try {
-    safeStorage('local')?.setItem(HAS_SIGNED_IN_KEY, 'true');
-  } catch {
-    // ignore unavailable storage
-  }
-};
-
-export const hasSignedInBefore = () => {
-  try {
-    return safeStorage('local')?.getItem(HAS_SIGNED_IN_KEY) === 'true';
-  } catch {
-    return false;
-  }
-};
-
-// Per account: the Plans screen was already shown after sign-up in this
-// browser, so a reload in the sign-up session doesn't show it again.
-const PLANS_PROMPTED_KEY = 'orion-plans-prompted';
-
-export const markPlansPrompted = (uid) => {
-  try {
-    safeStorage('local')?.setItem(`${PLANS_PROMPTED_KEY}:${uid}`, 'true');
-  } catch {
-    // ignore unavailable storage
-  }
-};
-
-export const wasPlansPrompted = (uid) => {
-  try {
-    return safeStorage('local')?.getItem(`${PLANS_PROMPTED_KEY}:${uid}`) === 'true';
-  } catch {
-    return false;
-  }
-};
-
-// sessionStorage marker set just before the web OAuth flow navigates away to
-// Google/GitHub. The provider sends the tab back with a full page load, which
-// would otherwise look like a fresh visit (splash replays, the restored
-// session is treated as silent). Per-tab, so only the tab that started the
-// sign-in sees it.
-export const OAUTH_RETURN_KEY = 'orion-oauth-return';
-
-export const markOAuthRedirect = () => {
-  try {
-    safeStorage('session')?.setItem(OAUTH_RETURN_KEY, 'true');
-  } catch {
-    // ignore unavailable storage
-  }
-};
-
-// Reads and clears the marker, so a later manual reload is a normal load.
-export const consumeOAuthReturn = () => {
-  try {
-    const store = safeStorage('session');
-    const returning = store?.getItem(OAUTH_RETURN_KEY) === 'true';
-    store?.removeItem(OAUTH_RETURN_KEY);
-    return returning;
-  } catch {
-    return false;
   }
 };
 
@@ -190,7 +117,7 @@ export const markSplashShown = () => {
 export const CHECK_UPDATES_KEY = 'orion-check-updates';
 export const DISMISSED_UPDATE_KEY = 'orion-update-dismissed';
 
-// Boolean: whether a self-hosted copy asks GitHub for new releases
+// Boolean: whether the app asks GitHub for new releases
 // (lib/updates.js, desktop updater). On by default; off is stored explicitly.
 export const loadCheckUpdates = () => {
   try {
@@ -366,72 +293,3 @@ export const saveHeroRailCollapsed = (collapsed) => {
   }
 };
 
-export const USER_PROVIDER_KEY = 'orion-user-provider';
-
-// The user's own AI provider from Settings → AI: { enabled, id, model, apiKey,
-// remember }. Lives in localStorage when `remember` is on, otherwise in
-// sessionStorage (gone when the tab closes); never both. It is sent to
-// /api/chat with each request (llm.js) and replaces the server's env provider
-// for that request. Never put it in project data, exports or the preview.
-const parseUserProvider = (raw) => {
-  try {
-    const value = JSON.parse(raw);
-    if (!value || typeof value !== 'object') return null;
-    return {
-      enabled: value.enabled === true,
-      id: typeof value.id === 'string' ? value.id : '',
-      model: typeof value.model === 'string' ? value.model : '',
-      apiKey: typeof value.apiKey === 'string' ? value.apiKey : '',
-    };
-  } catch {
-    return null;
-  }
-};
-
-export const loadUserProvider = () => {
-  const session = safeStorage('session')?.getItem(USER_PROVIDER_KEY);
-  if (session) {
-    const parsed = parseUserProvider(session);
-    if (parsed) return { ...parsed, remember: false };
-  }
-  const local = safeStorage('local')?.getItem(USER_PROVIDER_KEY);
-  const parsed = local ? parseUserProvider(local) : null;
-  return parsed ? { ...parsed, remember: true } : null;
-};
-
-export const clearUserProvider = () => {
-  try { safeStorage('local')?.removeItem(USER_PROVIDER_KEY); } catch { /* storage unavailable */ }
-  try { safeStorage('session')?.removeItem(USER_PROVIDER_KEY); } catch { /* storage unavailable */ }
-};
-
-// Returns false when the chosen storage is unavailable.
-export const saveUserProvider = ({ enabled, id, model, apiKey, remember }) => {
-  clearUserProvider();
-  try {
-    const store = safeStorage(remember ? 'local' : 'session');
-    if (!store) return false;
-    store.setItem(USER_PROVIDER_KEY, JSON.stringify({
-      enabled: !!enabled,
-      id: String(id || ''),
-      model: String(model || '').trim(),
-      apiKey: String(apiKey || '').trim(),
-    }));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// { id, model, apiKey } for /api/chat when the user's provider is switched on
-// and complete, otherwise null (the server's env provider is used).
-// The desktop app keeps the provider in the main process (Settings → AI writes
-// it there) and attaches it to /api/chat itself, so the renderer sends none.
-export const activeUserProvider = () => {
-  if (isDesktop || firebaseEnabled) return null;
-  const cfg = loadUserProvider();
-  if (!cfg?.enabled || !cfg.id || !cfg.model.trim() || !cfg.apiKey.trim()) return null;
-  // A provider saved before it was dropped from the list would be refused by
-  // /api/chat on every request; ignore it so the env provider answers instead.
-  if (!USER_PROVIDER_IDS.includes(cfg.id)) return null;
-  return { id: cfg.id, model: cfg.model.trim(), apiKey: cfg.apiKey.trim() };
-};

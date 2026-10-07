@@ -153,7 +153,7 @@ export const rasterizeDomSnapshot = async ({
 
 // Keeps the base64 payload sent to the LLM bounded regardless of source --
 // there's no size limit anywhere in the proxy chain (see
-// functions/_lib/chatProxy.js), so this is the only guardrail.
+// electron/server/chatProxy.js), so this is the only guardrail.
 export const compressImageDataUrl = (dataUrl, { maxDimension = 1600, quality = 0.85 } = {}) => {
   return new Promise((resolve, reject) => {
     const img = new Image();

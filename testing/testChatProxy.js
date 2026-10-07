@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleChatProxy } from '../functions/_lib/chatProxy.js';
-import { installFirebaseFake, signIdToken, PROJECT_ID } from './firebaseFake.js';
+import { handleChatProxy } from '../electron/server/chatProxy.js';
 
 const env = {
   OPENAI_BASE_URL: 'https://llm.example/v1',
@@ -78,7 +77,7 @@ test('initial generation keeps reasoning without adding tool choice', async (t) 
   assert.equal(Object.hasOwn(body, 'tools'), false);
 });
 
-// --- Provider selection (functions/_lib/providers.js) ----------------------
+// --- Provider selection (electron/server/providers.js) ---------------------
 
 test('streaming requests ask for usage', async (t) => {
   const body = await captureRequest(t, { stream: true, reasoning_effort: 'low' });
@@ -239,27 +238,6 @@ test('a provider rejecting the user key is not reported as a 401', async (t) => 
   assert.match((await response.json()).error, /OpenRouter rejected the API key/);
 });
 
-test('multi-user mode still requires sign-in and validates user_provider', async (t) => {
-  const hostedEnv = { FIREBASE_PROJECT_ID: PROJECT_ID, APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
-  const send = (payload, headers = {}) => handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
-  }), hostedEnv);
-  assert.equal((await send({ user_provider: userProvider })).status, 401);
-
-  installFirebaseFake(t, {
-    fallback: async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }),
-  });
-  // A token that isn't a valid Firebase ID token is the same as none.
-  assert.equal((await send({ user_provider: userProvider }, { authorization: 'Bearer not-a-token' })).status, 401);
-  assert.equal((await send({ user_provider: userProvider }, { authorization: `Bearer ${await signIdToken('user-1', { key: 'other' })}` })).status, 401);
-  const auth = { authorization: `Bearer ${await signIdToken('user-1')}` };
-  assert.equal((await send({ user_provider: 'deepseek' }, auth)).status, 400);
-  assert.equal((await send({ user_provider: { ...userProvider, apiKey: 5 } }, auth)).status, 400);
-  assert.equal((await send({ user_provider: userProvider }, auth)).status, 200);
-});
-
 // Self-hosted mode has no sign-in, so browser requests from other sites
 // (including text/plain "simple" POSTs that skip CORS preflight, and
 // sandboxed apps with Origin "null") must not reach the provider.
@@ -294,17 +272,8 @@ test('self-hosted accepts its own origin, listed origins, the desktop scheme and
   assert.equal((await send('appblips://app', {}, 'appblips://app/api/chat')).status, 200);
 });
 
-test('multi-user mode leaves other-origin requests to the sign-in check', async () => {
-  const response = await handleChatProxy(new Request('https://appblips.com/api/chat', {
-    method: 'POST',
-    headers: { origin: 'https://evil.example' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { FIREBASE_PROJECT_ID: PROJECT_ID });
-  assert.equal(response.status, 401);
-});
-
-// A provider's own 429 (e.g. Z.ai balance or concurrency limits) is passed
-// to self-hosted users with its reason, marked as coming from the provider.
+// A provider's own 429 (e.g. a low balance or concurrency limit) is passed
+// to the user with its reason, marked as coming from the provider.
 test('provider 429 reaches self-hosted users with the provider reason', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response(
     JSON.stringify({ error: { code: '1113', message: 'Insufficient balance or no resource package.' } }),
@@ -321,28 +290,13 @@ test('provider 429 reaches self-hosted users with the provider reason', async (t
   assert.match(body.error, /turned the request down: Insufficient balance or no resource package\./);
 });
 
-// Self-hosted users spend their own key, so neither the builder proxy nor the
-// app AI relay throttles them; hosted keeps its per-user limit.
-test('self-hosted builder requests are not rate limited', async (t) => {
+// Self-hosted users spend their own key, so the builder proxy does not
+// throttle them; only the provider's own limits apply.
+test('builder requests are not rate limited', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
   const send = (settings) => handleChatProxy(new Request('http://localhost:5175/api/chat', {
     method: 'POST',
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
   }), { ...env, APPBLIPS_CHAT_RATE_LIMIT_MAX: '2', ...settings });
-  for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `self-hosted request ${i + 1}`);
-});
-
-test('maintenance mode refuses every request before calling the provider', async (t) => {
-  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
-    throw new Error('provider must not be called');
-  });
-  for (const payload of [{}, { ask: true }, { user_provider: { id: 'deepseek', apiKey: 'k', model: 'm' } }]) {
-    const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
-    }), { ...env, APPBLIPS_MAINTENANCE: 'true' });
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).code, 'maintenance');
-  }
-  assert.equal(fetchMock.mock.callCount(), 0);
+  for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `request ${i + 1}`);
 });

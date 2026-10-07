@@ -3,7 +3,7 @@ import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'l
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { desktopBridge, ipcErrorMessage } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
-import { USER_PROVIDER_OPTIONS } from '../../functions/_lib/providers.js';
+import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 // Settings → AI in the desktop app. The web build's UserProviderSettings keeps
 // the key in browser storage and sends it with each request; here it is saved

@@ -49,11 +49,6 @@ USAGE_TRACKING.md
 .env copy.example
 .vscode/users.json
 .mcp.json
-# Private maintainer notes
-CLOUDFLARE_ENV_GUIDE.md
-
-# Local Wrangler/Miniflare state
-.wrangler/
 
 # Local-only docs, kept out of the repo
 CLAUDE.md

@@ -4,17 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Account** (only when you're signed in at appblips.com), **Appearance**, **Workspace**, **AI**, **Data** (only in your own copy of AppBlips), **Legal**, and **Danger Zone**. Every setting is saved to your browser's local storage and persists across sessions automatically.
-
-## Account
-
-Shown on appblips.com, where you sign in with Google or GitHub.
-
-- **Email address:** the address of the account you sign in with.
-- **Username:** used in your published apps' links. You choose it the first time you publish an app, and it can't be changed afterwards.
-- **Plan:** your current plan, or the free trial. Click **Manage** (or **See plans** without a plan) to see your usage and change plans. See [Pricing](/pricing).
-- **Billing and invoices:** click **Open billing** to view invoices, update your card, or cancel in Stripe.
-- **Sign out:** signs you out on this device.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Data**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -75,7 +65,7 @@ These settings control how the preview and build experience behaves during and a
 ### Check for updates
 
 <ParamField body="Check for updates" type="toggle" default="On">
-  The desktop app checks GitHub for new versions when it starts and tells you when one is out. On Windows and as an AppImage it also downloads the update in the background and offers to restart. GitHub sees your IP address when AppBlips checks. Not shown on appblips.com, which is always up to date.
+  The desktop app checks GitHub for new versions when it starts and tells you when one is out. On Windows and as an AppImage it also downloads the update in the background and offers to restart. GitHub sees your IP address when AppBlips checks.
 </ParamField>
 
 ---
@@ -110,7 +100,7 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
 
 ### Your own AI provider
 
-Shown only in self-hosted copies, including the desktop app. This is where you choose the model and enter the OpenRouter API key the app uses.
+Where you choose the model and enter the OpenRouter API key the app uses.
 
 <ParamField body="Model" type="select">
   Choose one of the curated coding models. AppBlips uses OpenRouter's latest aliases so the selection stays current without an app update.
@@ -120,21 +110,17 @@ Shown only in self-hosted copies, including the desktop app. This is where you c
   Your key from [OpenRouter](https://openrouter.ai/settings/keys).
 </ParamField>
 
-<ParamField body="Remember on this device" type="toggle" default="On">
-  When off, the key is forgotten when the browser tab closes. Use this on shared computers.
-</ParamField>
-
 Click **Test connection** to check the settings, then **Save**. Your provider is used for building, editing, and chat.
 
 <Note>
-  In the desktop app, your key is encrypted with your system keychain and only the background process uses it. In a browser-based self-hosted copy, the key stays in browser storage and is sent through that copy's server. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+  Your key is encrypted with your system keychain and only the background process uses it. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
 </Note>
 
 ---
 
 ## Data
 
-This tab appears only in the desktop app, where projects are stored on your device instead of in an account.
+Where projects are stored on your device.
 
 - **Export all apps:** downloads every saved app, its version history and its saved app data as one backup file.
 - **Import apps:** adds apps from a backup file. An app you already have is replaced only if the backup's copy is newer.
@@ -153,8 +139,7 @@ Links to the **Privacy Policy** and the **Terms of Service**.
 ## Danger Zone
 
 <Warning>
-  Both actions are permanent and cannot be undone.
+  This action is permanent and cannot be undone.
 </Warning>
 
-- **Delete all saved apps:** removes every saved app, including any published links and cloud copies.
-- **Delete account:** shown when you're signed in. Deletes your account, all saved apps, published links and your profile.
+- **Delete all saved apps:** removes every saved app with its version history.
