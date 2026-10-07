@@ -26,7 +26,9 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 ## Set up your AI provider
 
-The first time you open the app, **Settings → AI** asks for an OpenRouter API key and a model. Create a key in [OpenRouter](https://openrouter.ai/settings/keys), paste it into AppBlips, and choose one of the curated coding models. Click **Test connection**, then **Save**.
+The first time you open the app, choose your coding provider in **Settings → API**. Create a key in [OpenRouter](https://openrouter.ai/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys), then paste it into AppBlips. Select a model from the live model list. For LM Studio or Ollama, start your local server to load its model list.
+
+Click **Refresh models** to reload the list. You can also type an exact model ID and choose **Use** if discovery is unavailable. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 

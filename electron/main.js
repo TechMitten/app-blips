@@ -213,6 +213,7 @@ function registerIpc() {
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', () => providerStore.clear());
+  handle('desktop:provider:models', (input) => providerStore.listModels(input));
 
   handle('desktop:update:check', () => updater.check());
   handle('desktop:update:install', () => updater.install());

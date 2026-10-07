@@ -80,7 +80,7 @@ test('resolveUserProvider accepts each preset and uses the preset endpoint', () 
 });
 
 test('self-hosted OpenRouter choices allow dynamic models', () => {
-  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter', 'lmstudio', 'ollama']);
+  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama']);
   assert.equal(resolveUserProvider({
     id: 'openrouter', apiKey: 'sk-or-test', model: 'arbitrary/model',
   }).baseUrl, 'https://openrouter.ai/api/v1');
@@ -148,3 +148,90 @@ for (const id of ['lmstudio', 'ollama']) {
     } finally { globalThis.fetch = originalFetch; }
   });
 }
+
+test('Gemini uses the official endpoint and compatible reasoning settings', async (t) => {
+  const provider = resolveUserProvider({ id: 'gemini', apiKey: 'google-key', model: 'gemini-test', baseUrl: 'https://evil.invalid' });
+  assert.equal(provider.baseUrl, 'https://generativelanguage.googleapis.com/v1beta/openai');
+  assert.ok(resolveUserProvider({ id: 'gemini', model: 'gemini-test' }).error);
+  const body = { temperature: 0, tool_choice: 'required', stream_options: { include_usage: true } };
+  applyProviderSettings(body, provider, { effort: 'high' });
+  assert.equal(body.reasoning_effort, 'high');
+  assert.equal(body.temperature, undefined);
+  assert.equal(body.thinking, undefined);
+  assert.equal(body.tool_choice, 'required');
+  const off = {};
+  applyProviderSettings(off, provider, { effort: 'none' });
+  assert.equal(off.reasoning_effort, undefined);
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, `${provider.baseUrl}/chat/completions`);
+    assert.equal(options.headers.Authorization, 'Bearer google-key');
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.model, 'gemini-test');
+    assert.equal(payload.reasoning_effort, 'high');
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }));
+  });
+  const response = await handleChatProxy(new Request('http://localhost/api/chat', {
+    method: 'POST', body: JSON.stringify({ user_provider: { id: 'gemini', apiKey: 'google-key', model: 'gemini-test' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high' }),
+  }), {});
+  assert.equal(response.status, 200);
+});
+
+test('user-selected DeepSeek uses its official API and thinking settings', async (t) => {
+  assert.ok(resolveUserProvider({ id: 'deepseek', model: 'deepseek-test' }).error);
+  const provider = resolveUserProvider({ id: 'deepseek', apiKey: 'ds-user-key', model: 'deepseek-test', baseUrl: 'https://evil.invalid' });
+  assert.equal(provider.baseUrl, 'https://api.deepseek.com');
+  const body = { temperature: 0 };
+  applyProviderSettings(body, provider, { effort: 'high' });
+  assert.deepEqual(body, { thinking: { type: 'enabled' }, reasoning_effort: 'high' });
+  const off = {};
+  applyProviderSettings(off, provider, { effort: 'none' });
+  assert.deepEqual(off, { thinking: { type: 'disabled' } });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'https://api.deepseek.com/chat/completions');
+    assert.equal(options.headers.Authorization, 'Bearer ds-user-key');
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.model, 'deepseek-test');
+    assert.deepEqual(payload.thinking, { type: 'enabled' });
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }));
+  });
+  const response = await handleChatProxy(new Request('http://localhost/api/chat', {
+    method: 'POST', body: JSON.stringify({ user_provider: { id: 'deepseek', apiKey: 'ds-user-key', model: 'deepseek-test' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high' }),
+  }), builderEnv);
+  assert.equal(response.status, 200);
+});
+
+test('OpenAI adapts token limits and model-specific reasoning parameters', () => {
+  for (const model of ['gpt-5-mini', 'o3-mini', 'gpt-4.1']) {
+    const provider = resolveUserProvider({ id: 'openai', apiKey: 'openai-key', model, baseUrl: 'https://evil.invalid' });
+    assert.equal(provider.baseUrl, 'https://api.openai.com/v1');
+    for (const effort of ['high', 'none']) {
+      const body = { model, temperature: 0.2, max_tokens: 4096, tool_choice: 'required', stream_options: { include_usage: true } };
+      applyProviderSettings(body, provider, { effort });
+      assert.equal(body.max_tokens, undefined);
+      assert.equal(body.max_completion_tokens, 4096);
+      assert.equal(body.thinking, undefined);
+      assert.equal(body.reasoning_effort, model === 'gpt-4.1' || effort === 'none' ? undefined : 'high');
+      if (model !== 'gpt-4.1') assert.equal(body.temperature, undefined);
+      assert.equal(body.tool_choice, 'required');
+      assert.deepEqual(body.stream_options, { include_usage: true });
+    }
+  }
+});
+
+test('user-selected OpenAI sends its key and model to the official endpoint', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(options.headers.Authorization, 'Bearer openai-user-key');
+    const body = JSON.parse(options.body);
+    assert.equal(body.model, 'gpt-5-mini');
+    assert.equal(body.max_tokens, undefined);
+    assert.equal(body.max_completion_tokens, 4096);
+    assert.equal(body.reasoning_effort, 'high');
+    assert.equal(body.temperature, undefined);
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }));
+  });
+  const response = await handleChatProxy(new Request('http://localhost/api/chat', {
+    method: 'POST', body: JSON.stringify({ user_provider: { id: 'openai', apiKey: 'openai-user-key', model: 'gpt-5-mini' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high' }),
+  }), { ...builderEnv, OPENAI_LLM_MAX_TOKENS: '4096' });
+  assert.equal(response.status, 200);
+});

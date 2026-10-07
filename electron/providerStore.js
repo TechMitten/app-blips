@@ -8,6 +8,7 @@
 // tested without Electron.
 import { readFileSync } from 'node:fs';
 import { USER_PROVIDER_OPTIONS, resolveUserProvider } from '../electron/server/providers.js';
+import { listProviderModels } from './server/providerModels.js';
 import { writeFileAtomic } from './projectStore.js';
 
 const PROVIDER_IDS = new Set(USER_PROVIDER_OPTIONS.map((p) => p.id));
@@ -108,6 +109,16 @@ export function createProviderStore({ file, crypto }) {
       const apiKey = decryptKey();
       const input = { id: state.id, model: state.model, baseUrl: state.baseUrl, apiKey };
       return resolveUserProvider(input).error ? null : input;
+    },
+
+    // Model discovery can use an unsaved key or this provider's saved key.
+    // Return only model names to the renderer, never decrypted credentials.
+    listModels(input = {}) {
+      return listProviderModels({
+        ...input,
+        apiKey: typeof input.apiKey === 'string' && input.apiKey.trim()
+          ? input.apiKey : this.keyFor(input.id),
+      });
     },
 
     // The saved key for `id`, for a "Test connection" on unsaved model edits.

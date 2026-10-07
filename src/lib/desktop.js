@@ -1,3 +1,4 @@
+import { listProviderModels } from '../../electron/server/providerModels.js';
 import { resolveUserProvider } from '../../electron/server/providers.js';
 
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
@@ -119,6 +120,9 @@ export const webProviderStore = {
     }
     if (!saved?.enabled || !saved.id || !saved.model) return null;
     return saved;
+  },
+  async listModels(input) {
+    return listProviderModels(this.forRequest(input));
   },
   async get() {
     try {

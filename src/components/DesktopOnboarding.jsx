@@ -7,6 +7,7 @@ import {
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import ModelCombobox from './ModelCombobox';
+import useProviderModels from '../hooks/useProviderModels';
 
 const defaultProvider = USER_PROVIDER_OPTIONS[0];
 
@@ -56,25 +57,13 @@ function WorkflowVisual() {
 }
 
 function SetupVisual({ provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
-  const [fetchedModels, setFetchedModels] = useState([]);
-
-  useEffect(() => {
-    if (provider.local) return;
-    fetch('https://openrouter.ai/api/v1/models')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.data) {
-          setFetchedModels(data.data.map((m) => ({ id: m.id, label: m.name })).sort((a, b) => a.label.localeCompare(b.label)));
-        }
-      })
-      .catch((err) => console.error('Failed to fetch OpenRouter models:', err));
-  }, [provider.local]);
+  const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
 
   return (
     <div className="desktop-onboarding-setup flex flex-col h-full bg-[#111827]/60">
       <div className="onboarding-setup-heading">
         <span className="onboarding-setup-icon"><Bot size={23} /></span>
-        <span><strong>{provider.label}</strong><small>{provider.local ? 'Use a model running on this computer' : 'One key, your choice of leading models'}</small></span>
+        <span><strong>{provider.label}</strong><small>{provider.local ? 'Use a model running on this computer' : provider.id === 'openrouter' ? 'One key, your choice of leading models' : `Connect directly to ${provider.label}’s API`}</small></span>
         <span className="onboarding-private-badge"><LockKeyhole size={12} /> Private</span>
       </div>
 
@@ -90,24 +79,28 @@ function SetupVisual({ provider, setProviderId, baseUrl, setBaseUrl, model, setM
       </label>}
       <fieldset className="onboarding-model-fieldset flex flex-col gap-2 !pb-2">
         <label className="text-sm font-semibold text-slate-200">Choose your model</label>
-        {provider.local ? <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Exact model name from your local server" className="rounded-lg bg-slate-800 p-2 text-slate-100" /> : <ModelCombobox
+        <ModelCombobox
           value={model}
           onChange={setModel}
-          models={fetchedModels.length > 0 ? fetchedModels : provider.models}
-          loading={fetchedModels.length === 0}
-          placeholder="Search or select a coding model…"
-        />}
+          models={modelList.models}
+          loading={modelList.loading}
+          allowCustom
+          placeholder="Select a model or enter its ID…"
+        />
+        <button type="button" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey} className="text-sm text-slate-300 disabled:opacity-50">Refresh models</button>
+        {modelList.needsKey && <p className="onboarding-key-help">Enter your API key to load models, or enter a model ID manually.</p>}
+        {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
       </fieldset>
 
       <label className="onboarding-key-label">
-        <span>{provider.local ? 'API key (optional)' : 'OpenRouter API key'}</span>
+        <span>{provider.local ? 'API key (optional)' : `${provider.label} API key`}</span>
         <span className="onboarding-key-input">
           <KeyRound size={17} />
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder="sk-or-v1-…"
+            placeholder={provider.local ? 'Optional API key' : `Your ${provider.label} API key`}
             autoComplete="off"
             spellCheck={false}
             autoFocus
@@ -119,8 +112,9 @@ function SetupVisual({ provider, setProviderId, baseUrl, setBaseUrl, model, setM
       </label>
       <p className="onboarding-key-help">
         {provider.local ? 'Start your local server and load a model that supports tool calling. Use its exact model name and a URL ending in /v1.' : <>{isDesktop ? 'Your key stays on this computer and is encrypted with your system keychain.' : 'Your key is stored locally in your browser and is never sent to our servers.'}{' '}
-        <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Create an OpenRouter key</a></>}
+        <a href={provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://openrouter.ai/settings/keys'} target="_blank" rel="noopener noreferrer">Create a {provider.label} key</a></>}
       </p>
+      {provider.id === 'openai' && <p className="onboarding-key-help">Choose an OpenAI model that supports tool calling through Chat Completions.</p>}
       {!provider.local && isDesktop && weakEncryption && (
         <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
       )}
@@ -179,7 +173,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
   const content = setup ? {
     eyebrow: 'One last step',
     title: 'Choose the AI that builds with you.',
-    body: 'Connect through OpenRouter or use LM Studio or Ollama on this computer. You can change this later in Settings.',
+    body: 'Connect through OpenRouter, OpenAI, Gemini, or DeepSeek, or use LM Studio or Ollama on this computer. You can change this later in Settings.',
   } : slides[step];
 
   return (

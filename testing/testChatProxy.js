@@ -98,7 +98,7 @@ test('DeepSeek is the default endpoint when no base URL is set', async (t) => {
   assert.equal(calledUrl, 'https://api.deepseek.com/chat/completions');
 });
 
-for (const removed of ['nope', 'zai', 'openai']) {
+for (const removed of ['nope', 'zai']) {
   test(`provider "${removed}" is a configuration error`, async () => {
     const response = await handleChatProxy(new Request('https://app.example/api/chat', {
       method: 'POST',

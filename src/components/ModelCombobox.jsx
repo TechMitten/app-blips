@@ -17,7 +17,7 @@ function filterModels(models, query) {
   });
 }
 
-export default function ModelCombobox({ value, onChange, models, loading = false, placeholder = 'Select a model…' }) {
+export default function ModelCombobox({ value, onChange, models, loading = false, allowCustom = false, placeholder = 'Select a model…' }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -28,7 +28,13 @@ export default function ModelCombobox({ value, onChange, models, loading = false
   const listId = useId();
 
   const selected = models.find((m) => m.id === value);
-  const results = useMemo(() => filterModels(models, query), [models, query]);
+  const results = useMemo(() => {
+    const matches = filterModels(models, query);
+    const custom = query.trim();
+    return allowCustom && custom && !models.some((model) => model.id === custom)
+      ? [...matches, { id: custom, label: `Use “${custom}”` }]
+      : matches;
+  }, [models, query, allowCustom]);
 
   const place = useCallback(() => {
     const rect = wrapRef.current?.getBoundingClientRect();
@@ -124,7 +130,7 @@ export default function ModelCombobox({ value, onChange, models, loading = false
     }
   };
 
-  const inputValue = open ? query : selected?.label || '';
+  const inputValue = open ? query : selected?.label || value || '';
   const inputPlaceholder = loading
     ? 'Loading models…'
     : open ? (selected?.label || 'Search models…') : placeholder;

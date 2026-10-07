@@ -26,6 +26,7 @@ if (window.location.protocol === 'appblips:') {
       get: call('desktop:provider:get'),
       set: call('desktop:provider:set'),
       clear: call('desktop:provider:clear'),
+      listModels: call('desktop:provider:models'),
     },
     updates: {
       check: call('desktop:update:check'),

@@ -1,17 +1,17 @@
 // LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; users can choose OpenRouter or a local server through Settings.
+// DeepSeek; users can choose OpenRouter, OpenAI, Gemini, DeepSeek or a local server through Settings.
 // Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
   lmstudio: {
-    label: 'LM Studio (local)',
+    label: 'LM Studio',
     baseUrl: 'http://localhost:1234/v1',
     local: true,
     forcedToolChoice: false,
     streamUsage: false,
   },
   ollama: {
-    label: 'Ollama (local)',
+    label: 'Ollama',
     baseUrl: 'http://localhost:11434/v1',
     local: true,
     forcedToolChoice: false,
@@ -20,6 +20,16 @@ const PROVIDERS = {
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
+    reasoningParam: 'reasoning_effort',
+  },
+  openai: {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    reasoningParam: 'reasoning_effort',
+  },
+  gemini: {
+    label: 'Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     reasoningParam: 'reasoning_effort',
   },
   openrouter: {
@@ -136,7 +146,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 };
 
 // User-selected providers are separate from the server-owned environment provider.
-export const USER_PROVIDER_IDS = ['openrouter', 'lmstudio', 'ollama'];
+export const USER_PROVIDER_IDS = ['openrouter', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
@@ -211,13 +221,29 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
 
-  if (provider.id === 'deepseek') {
+  if (provider.id === 'openai') {
+    // Modern OpenAI models require max_completion_tokens. Reasoning effort
+    // only applies to reasoning models; older GPT models reject it.
+    if (bodyObj.max_tokens != null) {
+      bodyObj.max_completion_tokens = bodyObj.max_tokens;
+      delete bodyObj.max_tokens;
+    }
+    const reasoningModel = /^(?:o\d(?:-|$)|gpt-(?:[5-9]|\d{2}))/i.test(bodyObj.model || provider.model);
+    if (reasoningModel) {
+      if (!off) bodyObj.reasoning_effort = raw;
+      // Omission keeps the model default when thinking cannot be disabled.
+      // Sampling parameters are unsupported by many reasoning models.
+      delete bodyObj.temperature;
+    } else {
+      delete bodyObj.reasoning_effort;
+    }
+  } else if (provider.id === 'deepseek') {
     bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
     if (!off) bodyObj.reasoning_effort = raw;
-  } else if (provider.id === 'openrouter' && !off) {
-    // OpenRouter normalizes reasoning_effort across its model providers. Omit
+  } else if ((provider.id === 'openrouter' || provider.id === 'gemini') && !off) {
+    // Both APIs accept reasoning_effort. Omit
     // it when reasoning is off: some always-thinking models reject an
-    // explicit "none", while omission lets OpenRouter use the model default.
+    // explicit "none", while omission uses the model default.
     bodyObj.reasoning_effort = raw;
   }
 
