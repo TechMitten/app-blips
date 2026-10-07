@@ -256,7 +256,7 @@ CRITICAL RULES:
    <script type="importmap">{"imports":{
      "preact": "https://esm.sh/preact@10",
      "preact/hooks": "https://esm.sh/preact@10/hooks",
-     "htm/preact": "https://esm.sh/htm@3/preact",
+     "htm/preact": "https://esm.sh/htm@3/preact?deps=preact@10",
      "lucide-preact": "https://esm.sh/lucide-preact@0.400.0",
      "chart.js/auto": "https://esm.sh/chart.js@4/auto",
      "three": "https://esm.sh/three@0.160.0",
