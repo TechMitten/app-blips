@@ -392,6 +392,28 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
 // Scaled device mockup (phone/tablet/desktop chrome) wrapping the sandboxed
 // preview iframe. The srcDoc fed here is the bridge-injected document computed
 // at render time in App -- never `generatedCode` itself.
+function SystemClock() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const updateTime = () => setNow(new Date());
+    const interval = window.setInterval(updateTime, 1000);
+    window.addEventListener('focus', updateTime);
+    document.addEventListener('visibilitychange', updateTime);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', updateTime);
+      document.removeEventListener('visibilitychange', updateTime);
+    };
+  }, []);
+
+  return (
+    <span className="building-device-time">
+      {now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+    </span>
+  );
+}
+
 export default function DeviceMockup({
   mode,
   orientation,
@@ -611,7 +633,7 @@ export default function DeviceMockup({
           {(isGenerating || isErrorAutoFix) && (
             <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
               <div className="building-device-status" aria-hidden="true">
-                <span className="building-device-time">9:41</span>
+                <SystemClock />
                 <span className="building-device-icons">
                   <span className="building-signal"><i /><i /><i /><i /></span>
                   <span className="building-wifi"><i /><i /></span>
