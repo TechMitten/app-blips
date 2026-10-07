@@ -30,6 +30,26 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run desktop:dist
+        env:
+          # Optional Windows code signing. Leave these unset to build unsigned.
+          # OV/PFX certificate: set WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Azure Trusted Signing: set these three, and uncomment
+          # win.azureSignOptions in electron-builder.yml.
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      - name: Write SHA-256 checksums
+        shell: bash
+        run: |
+          cd dist-desktop
+          : > "SHA256SUMS-${{ runner.os }}.txt"
+          for f in *.exe *.AppImage *.deb; do
+            [ -e "$f" ] || continue
+            sha256sum "$f" >> "SHA256SUMS-${{ runner.os }}.txt"
+          done
+          cat "SHA256SUMS-${{ runner.os }}.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: appblips-desktop-${{ runner.os }}
@@ -39,6 +59,7 @@ jobs:
             dist-desktop/*.deb
             dist-desktop/*.blockmap
             dist-desktop/latest*.yml
+            dist-desktop/SHA256SUMS-*.txt
           if-no-files-found: error
 
   # One job creates the release, so the two builds can't each start their own
@@ -52,6 +73,13 @@ jobs:
         with:
           path: release
           merge-multiple: true
+      - name: Combine checksums
+        shell: bash
+        run: |
+          cd release
+          cat SHA256SUMS-*.txt > SHA256SUMS.txt
+          rm -f SHA256SUMS-*.txt
+          cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
           draft: true

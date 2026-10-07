@@ -72,6 +72,8 @@ Download the installer for your system from **[Releases](https://github.com/Tech
 - **Windows:** `AppBlips-Setup-<version>.exe`
 - **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
 
+> **Windows 11 note:** Windows 11's Smart App Control can block the installer, because AppBlips isn't code-signed yet. If you see "Smart App Control blocked an app that may be unsafe," see [how to install anyway](https://docs.appblips.com/reference/troubleshooting#windows-installer-is-blocked). The Linux builds aren't affected.
+
 The first time you open it, AppBlips asks for an OpenRouter API key and lets you choose from a curated set of coding models. Get a key from [OpenRouter](https://openrouter.ai/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
@@ -98,6 +100,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
+- Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and signed.
 
 ## License
 

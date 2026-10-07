@@ -1,10 +1,40 @@
 ---
 title: "Troubleshooting: Fixes for Common Problems"
 sidebarTitle: "Troubleshooting"
-description: "Solutions for common AppBlips problems: blank previews, broken links, and API errors."
+description: "Solutions for common AppBlips problems: blocked installs, blank previews, broken links, and API errors."
 ---
 
-Most AppBlips issues fall into a handful of categories — preview rendering and API connectivity. Work through the section that matches your symptom to find a fix.
+Most AppBlips issues fall into a handful of categories — installation, preview rendering, and API connectivity. Work through the section that matches your symptom to find a fix.
+
+## Windows installer is blocked
+
+<AccordionGroup>
+  <Accordion title="Smart App Control blocked the installer">
+    Windows 11's **Smart App Control** blocks apps that aren't code-signed, and it has no "Run anyway" option. AppBlips isn't code-signed yet, so Smart App Control can block the Windows installer or the app itself.
+
+    This only affects machines with Smart App Control turned on — most often fresh Windows 11 installs. If you don't see the block, nothing is wrong.
+
+    **To install AppBlips, turn Smart App Control off:**
+
+    1. Open **Settings → Privacy & security → Windows Security → App & browser control**.
+    2. Under **Smart App Control**, select **Smart App Control settings**.
+    3. Set it to **Off**, then open the installer again.
+
+    <Warning>
+      Smart App Control is a security feature, so turn it off only if you understand the tradeoff. On Windows 11 25H2 and later you can turn it back on afterwards; on earlier versions it stays off until you reset Windows.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="A new version won't install">
+    If you already run AppBlips on a machine with Smart App Control on, the built-in updater can't install a new version, because the update installer isn't signed either. Install the new version by hand after turning Smart App Control off, as above.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  The Linux AppImage and `.deb` don't use Smart App Control and are never affected.
+</Note>
+
+---
 
 ## Preview Shows a Blank Screen
 

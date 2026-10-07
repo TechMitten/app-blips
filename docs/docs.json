@@ -40,7 +40,8 @@
             "pages": [
               "reference/settings",
               "reference/faq",
-              "reference/troubleshooting"
+              "reference/troubleshooting",
+              "reference/code-signing-policy"
             ]
           }
         ]

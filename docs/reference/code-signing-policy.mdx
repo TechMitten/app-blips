@@ -1,0 +1,30 @@
+---
+title: "Code signing policy"
+sidebarTitle: "Code signing policy"
+description: "How AppBlips builds and code-signs its release binaries."
+---
+
+This page describes how AppBlips builds and signs its release binaries.
+
+## Free code signing
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+## What gets signed
+
+Every signed release is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml), then signed before it is published. Signing covers the Windows installer and the application executable.
+
+## Team roles
+
+- **Committers and reviewers:** [repository contributors](https://github.com/TechMitten/app-blips/graphs/contributors)
+- **Approvers:** the project owner, [@TechMitten](https://github.com/TechMitten)
+
+Each signing request is reviewed and approved by a project owner before it is submitted, and every release is built from reviewed source in the repository above.
+
+## Privacy
+
+AppBlips does not transfer any information to other networked systems unless you specifically request it — for example, when you connect an AI provider in **Settings → AI**. See the [FAQ](/reference/faq) for details.
+
+<Note>
+  Windows builds aren't code-signed yet. Until signing is in place, Windows 11's Smart App Control can block the installer; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
+</Note>
