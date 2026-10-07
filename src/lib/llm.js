@@ -1,4 +1,5 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
+import { isDesktop } from './desktop';
 import { checkSyntax } from './syntaxCheck';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
@@ -248,7 +249,15 @@ export const requestModelText = async ({
     // wire copy so the key never lands in bodyObj. The Settings "Test
     // connection" button passes one explicitly; otherwise the desktop main
     // process attaches the saved provider to every request.
-    const provider = userProvider ?? null;
+    let provider = userProvider ?? null;
+    if (provider === null && !isDesktop) {
+      try {
+        const webConfig = JSON.parse(localStorage.getItem('appblips-web-provider'));
+        if (webConfig?.enabled && webConfig?.id && webConfig?.model && webConfig?.apiKey) {
+          provider = webConfig;
+        }
+      } catch {}
+    }
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers,

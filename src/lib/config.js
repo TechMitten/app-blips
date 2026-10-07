@@ -97,14 +97,7 @@ const SPLASH_REPLAY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // The intro is for first impressions; replaying it on every reload or new tab
 // just gets in a returning user's way. Show it at most once a day. Unreadable
 // storage counts as due, so a locked-down browser still gets the intro.
-export const isSplashDue = () => {
-  try {
-    const last = Number(safeStorage('local')?.getItem(SPLASH_LAST_SHOWN_KEY));
-    return !(last > 0 && Date.now() - last < SPLASH_REPLAY_INTERVAL_MS);
-  } catch {
-    return true;
-  }
-};
+export const isSplashDue = () => true;
 
 export const markSplashShown = () => {
   try {

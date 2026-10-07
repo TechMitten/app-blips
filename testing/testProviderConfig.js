@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  applyProviderSettings, OPENROUTER_CODING_MODELS, resolveProvider, resolveUserProvider,
+  applyProviderSettings, resolveProvider, resolveUserProvider,
   USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS,
 } from '../electron/server/providers.js';
 import { describeConfig, formatConfigSummary } from '../electron/server/configSummary.js';
@@ -69,8 +69,8 @@ test('a real mistake (unknown provider) is still an error', () => {
 // --- User-supplied provider (Settings → AI) --------------------------------
 
 test('resolveUserProvider accepts each preset and uses the preset endpoint', () => {
-  for (const { id, models } of USER_PROVIDER_OPTIONS) {
-    const p = resolveUserProvider({ id, apiKey: 'k', model: models[0].id, baseUrl: 'https://evil.invalid' });
+  for (const { id } of USER_PROVIDER_OPTIONS) {
+    const p = resolveUserProvider({ id, apiKey: 'k', model: 'any/model', baseUrl: 'https://evil.invalid' });
     assert.equal(p.error, undefined);
     assert.equal(p.userSupplied, true);
     assert.notEqual(p.baseUrl, 'https://evil.invalid');
@@ -79,19 +79,16 @@ test('resolveUserProvider accepts each preset and uses the preset endpoint', () 
   assert.ok(!USER_PROVIDER_IDS.includes('openai-compatible'));
 });
 
-test('self-hosted OpenRouter choices are curated for the coding workflow', () => {
+test('self-hosted OpenRouter choices allow dynamic models', () => {
   assert.deepEqual(USER_PROVIDER_IDS, ['openrouter']);
-  assert.equal(OPENROUTER_CODING_MODELS.length, 5);
-  assert.ok(OPENROUTER_CODING_MODELS.every(({ id, label }) => id.startsWith('~') && label));
   assert.equal(resolveUserProvider({
-    id: 'openrouter', apiKey: 'sk-or-test', model: OPENROUTER_CODING_MODELS[0].id,
+    id: 'openrouter', apiKey: 'sk-or-test', model: 'arbitrary/model',
   }).baseUrl, 'https://openrouter.ai/api/v1');
-  assert.match(resolveUserProvider({ id: 'openrouter', apiKey: 'k', model: 'arbitrary/model' }).error, /supported OpenRouter models/);
 });
 
 test('OpenRouter gets its compatible reasoning shape without DeepSeek fields', () => {
   const provider = resolveUserProvider({
-    id: 'openrouter', apiKey: 'sk-or-test', model: OPENROUTER_CODING_MODELS[0].id,
+    id: 'openrouter', apiKey: 'sk-or-test', model: 'anthropic/claude-3-haiku',
   });
   const enabled = { temperature: 0 };
   applyProviderSettings(enabled, provider, { effort: 'high' });
@@ -114,7 +111,6 @@ test('resolveUserProvider rejects bad input', () => {
     { id: 'openai', apiKey: 'k'.repeat(513), model: 'm' },
     { id: 'openai', apiKey: 'k', model: '' },
     { id: 'openai', apiKey: 'k', model: 'm'.repeat(201) },
-    { id: 'openrouter', apiKey: 'k', model: 'unsupported/model' },
   ];
   for (const input of bad) assert.ok(resolveUserProvider(input).error, JSON.stringify(input));
 });

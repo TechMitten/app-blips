@@ -101,3 +101,20 @@ export function createAppDataStorage(prefix) {
     },
   };
 }
+
+export const webProviderStore = {
+  async get() {
+    try { return JSON.parse(localStorage.getItem('appblips-web-provider') || '{"enabled":false}'); }
+    catch { return { enabled: false }; }
+  },
+  async set(info) {
+    localStorage.setItem('appblips-web-provider', JSON.stringify(info));
+    return info;
+  },
+  async clear() {
+    localStorage.removeItem('appblips-web-provider');
+    return {};
+  }
+};
+
+export const providerApi = bridge?.provider || webProviderStore;

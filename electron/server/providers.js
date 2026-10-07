@@ -127,19 +127,11 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 // Presets only: the endpoint and request format come from the preset, never
 // from the user, because OpenAI-compatible APIs still differ in what they
 // accept (see the capability flags above).
-export const OPENROUTER_CODING_MODELS = [
-  { id: '~anthropic/claude-sonnet-latest', label: 'Claude Sonnet (latest)' },
-  { id: '~openai/gpt-sol-latest', label: 'OpenAI GPT Sol (latest)' },
-  { id: '~google/gemini-pro-latest', label: 'Gemini Pro (latest)' },
-  { id: '~openai/gpt-mini-latest', label: 'OpenAI GPT Mini (latest, faster)' },
-  { id: '~google/gemini-flash-latest', label: 'Gemini Flash (latest, faster)' },
-];
-
 export const USER_PROVIDER_IDS = ['openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
-  models: id === 'openrouter' ? OPENROUTER_CODING_MODELS : [],
+  models: [],
 }));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 

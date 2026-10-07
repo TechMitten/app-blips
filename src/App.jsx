@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { isDesktop, desktopBridge } from './lib/desktop';
+import { isDesktop, desktopBridge, providerApi } from './lib/desktop';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -87,11 +87,10 @@ export default function App() {
   // Desktop first run gets a dedicated introduction and AI setup. The main
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
-  const [desktopOnboarding, setDesktopOnboarding] = useState(() => isDesktop ? { loading: true } : null);
+  const [desktopOnboarding, setDesktopOnboarding] = useState({ loading: true });
   useEffect(() => {
-    if (!isDesktop) return undefined;
     let cancelled = false;
-    desktopBridge.provider.get().then((info) => {
+    providerApi.get().then((info) => {
       const ready = info.envConfigured || (info.enabled && info.id && info.model && info.hasKey);
       if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
     }).catch(() => { if (!cancelled) setDesktopOnboarding(null); });
@@ -1733,6 +1732,19 @@ export default function App() {
     return ok;
   };
 
+  const handleResetApp = async () => {
+    await deleteAllProjects();
+    if (isDesktop && desktopBridge?.provider?.clear) {
+      try {
+        await desktopBridge.provider.clear();
+      } catch (err) {
+        console.error('Failed to clear desktop provider:', err);
+      }
+    }
+    localStorage.clear();
+    window.location.reload();
+  };
+
   const startTour = () => {
     tourLayoutRef.current = { mobileView, activeTab };
     setActiveTab('preview');
@@ -1785,6 +1797,7 @@ export default function App() {
           buildReasoningEffort={buildReasoningEffort}
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
+          onResetApp={handleResetApp}
           projectCount={myProjects.length}
         />
   );

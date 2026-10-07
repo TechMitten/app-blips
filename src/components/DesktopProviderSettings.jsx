@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
-import { desktopBridge, ipcErrorMessage } from '../lib/desktop';
+import { desktopBridge, ipcErrorMessage, providerApi } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
@@ -17,14 +17,27 @@ const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
 const providerModels = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.models || [];
 
+
 export default function DesktopProviderSettings({ guardRef }) {
   const [saved, setSaved] = useState(null); // provider.get() result
   const [draft, setDraft] = useState({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
+  const [fetchedModels, setFetchedModels] = useState([]);
 
   useEffect(() => {
-    desktopBridge.provider.get().then((info) => {
+    fetch('https://openrouter.ai/api/v1/models')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data) {
+          setFetchedModels(data.data.map((m) => ({ id: m.id, label: m.name })).sort((a, b) => a.label.localeCompare(b.label)));
+        }
+      })
+      .catch((err) => console.error('Failed to fetch OpenRouter models:', err));
+  }, []);
+
+  useEffect(() => {
+    providerApi.get().then((info) => {
       setSaved(info);
       if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
     }).catch((err) => setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' }));
@@ -55,7 +68,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   const onSave = async () => {
     setStatus({ kind: 'busy', text: 'Saving…' });
     try {
-      const next = await desktopBridge.provider.set({
+      const next = await providerApi.set({
         enabled: true,
         id: draft.id,
         model: draft.model.trim(),
@@ -100,7 +113,7 @@ export default function DesktopProviderSettings({ guardRef }) {
 
   const onClear = async () => {
     try {
-      const next = await desktopBridge.provider.clear();
+      const next = await providerApi.clear();
       setSaved((prev) => ({ ...prev, ...next }));
       setDraft({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
       setShowKey(false);
@@ -126,8 +139,10 @@ export default function DesktopProviderSettings({ guardRef }) {
               onChange={(e) => update({ model: e.target.value })}
               className={`${INPUT_CLASS} bg-surface`}
             >
-              <option value="" className="bg-surface text-slate-900">Select a coding model…</option>
-              {providerModels(draft.id).map((model) => (
+              <option value="" className="bg-surface text-slate-900">
+                {draft.id === 'openrouter' && fetchedModels.length === 0 ? 'Loading models…' : 'Select a coding model…'}
+              </option>
+              {(draft.id === 'openrouter' && fetchedModels.length > 0 ? fetchedModels : providerModels(draft.id)).map((model) => (
                 <option key={model.id} value={model.id} className="bg-surface text-slate-900">{model.label}</option>
               ))}
             </select>

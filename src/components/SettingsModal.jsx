@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DataSettings from './DataSettings';
@@ -28,6 +28,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  { id: 'api', label: 'API', Icon: Network },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'legal', label: 'Legal', Icon: FileText },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
@@ -92,6 +93,7 @@ export default function SettingsModal({
   buildReasoningEffort,
   onBuildReasoningEffortChange,
   onDeleteAllProjects,
+  onResetApp,
   projectCount = 0,
   initialTab = null,
 }) {
@@ -130,6 +132,9 @@ export default function SettingsModal({
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [deleteAllError, setDeleteAllError] = useState(null);
 
+  const [confirmResetApp, setConfirmResetApp] = useState(false);
+  const [isResettingApp, setIsResettingApp] = useState(false);
+
   const handleDeleteAll = async () => {
     setIsDeletingAll(true);
     setDeleteAllError(null);
@@ -138,6 +143,12 @@ export default function SettingsModal({
     setConfirmDeleteAll(false);
     if (!ok) setDeleteAllError('Some apps could not be deleted. Try again.');
   };
+
+  const handleResetAppConfirm = async () => {
+    setIsResettingApp(true);
+    await onResetApp();
+  };
+
   const selectTab = (id) => {
     if (id === tab) return;
     leaveAfterCheck(() => {
@@ -270,22 +281,40 @@ export default function SettingsModal({
           )}
 
           {tab === 'danger' && (
-            <SettingRow
-              id="set-delete-all"
-              title="Delete all saved apps"
-              description={deleteAllError || 'Permanently remove every saved app with its version history. This cannot be undone.'}
-            >
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteAll(true)}
-                disabled={isDeletingAll}
-                aria-labelledby="set-delete-all"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+            <>
+              <SettingRow
+                id="set-delete-all"
+                title="Delete all saved apps"
+                description={deleteAllError || 'Permanently remove every saved app with its version history. This cannot be undone.'}
               >
-                <Trash2 size={14} aria-hidden="true" />
-                Delete all
-              </button>
-            </SettingRow>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteAll(true)}
+                  disabled={isDeletingAll}
+                  aria-labelledby="set-delete-all"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  Delete all
+                </button>
+              </SettingRow>
+              <SettingRow
+                id="set-reset-app"
+                title="Reset app to factory defaults"
+                description="Clear all data, settings, API keys, and projects. This resets the entire app to its beginning state."
+              >
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetApp(true)}
+                  disabled={isResettingApp}
+                  aria-labelledby="set-reset-app"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  <ShieldAlert size={14} aria-hidden="true" />
+                  Factory Reset
+                </button>
+              </SettingRow>
+            </>
           )}
 
           {tab === 'ai' && (
@@ -308,8 +337,11 @@ export default function SettingsModal({
               <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />
               </SettingRow>
-              <DesktopProviderSettings guardRef={providerGuardRef} />
             </>
+          )}
+
+          {tab === 'api' && (
+            <DesktopProviderSettings guardRef={providerGuardRef} />
           )}
         </div>
       </div>
@@ -360,6 +392,25 @@ export default function SettingsModal({
             <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
             <span>
               Every saved app and its version history will be permanently deleted. This cannot be undone.
+            </span>
+          </div>
+        </ConfirmModal>
+      )}
+      {confirmResetApp && (
+        <ConfirmModal
+          title="Factory Reset?"
+          subtitle="Everything will be wiped out."
+          onClose={() => { if (!isResettingApp) setConfirmResetApp(false); }}
+          onConfirm={handleResetAppConfirm}
+          confirmLabel="Reset App"
+          busyLabel="Resetting…"
+          busy={isResettingApp}
+          confirmClass="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+        >
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <span>
+              All apps, history, and settings will be permanently removed. The app will restart. This cannot be undone.
             </span>
           </div>
         </ConfirmModal>

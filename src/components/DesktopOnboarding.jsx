@@ -4,18 +4,12 @@ import {
   Gamepad2, KeyRound, Layers3, Loader2, LockKeyhole, MonitorSmartphone,
   MousePointer2, Palette, Rocket, Smartphone, Sparkles, WandSparkles,
 } from 'lucide-react';
-import { desktopBridge, ipcErrorMessage } from '../lib/desktop';
+import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === 'openrouter');
 
-const modelNotes = {
-  '~anthropic/claude-sonnet-latest': 'Polished UI and strong all-round coding',
-  '~openai/gpt-sol-latest': 'Powerful reasoning for complex builds',
-  '~google/gemini-pro-latest': 'Strong planning and large-context work',
-  '~openai/gpt-mini-latest': 'A quick, lower-cost everyday choice',
-  '~google/gemini-flash-latest': 'Fast iteration and lightweight builds',
-};
+
 
 function IdeaVisual() {
   return (
@@ -61,29 +55,41 @@ function WorkflowVisual() {
 }
 
 function SetupVisual({ model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
+  const [fetchedModels, setFetchedModels] = useState([]);
+
+  useEffect(() => {
+    fetch('https://openrouter.ai/api/v1/models')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.data) {
+          setFetchedModels(data.data.map((m) => ({ id: m.id, label: m.name })).sort((a, b) => a.label.localeCompare(b.label)));
+        }
+      })
+      .catch((err) => console.error('Failed to fetch OpenRouter models:', err));
+  }, []);
+
   return (
-    <div className="desktop-onboarding-setup">
+    <div className="desktop-onboarding-setup flex flex-col h-full bg-[#111827]/60">
       <div className="onboarding-setup-heading">
         <span className="onboarding-setup-icon"><Bot size={23} /></span>
         <span><strong>OpenRouter</strong><small>One key, your choice of leading models</small></span>
         <span className="onboarding-private-badge"><LockKeyhole size={12} /> Private</span>
       </div>
 
-      <fieldset className="onboarding-model-fieldset">
-        <legend>Choose your model</legend>
-        <div className="onboarding-model-list">
-          {provider.models.map((option, index) => (
-            <label key={option.id} className={`onboarding-model-option ${model === option.id ? 'is-selected' : ''}`}>
-              <input type="radio" name="onboarding-model" value={option.id} checked={model === option.id} onChange={() => setModel(option.id)} />
-              <span className="onboarding-model-radio">{model === option.id && <Check size={13} />}</span>
-              <span className="onboarding-model-copy">
-                <strong>{option.label}</strong>
-                <small>{modelNotes[option.id]}</small>
-              </span>
-              {index === 0 && <span className="onboarding-recommended">Recommended</span>}
-            </label>
+      <fieldset className="onboarding-model-fieldset flex flex-col gap-2 !pb-2">
+        <label className="text-sm font-semibold text-slate-200">Choose your model</label>
+        <select
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="w-full mt-1.5 p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+        >
+          <option value="" className="bg-slate-900 text-slate-200">
+            {fetchedModels.length === 0 ? 'Loading models…' : 'Select a coding model…'}
+          </option>
+          {(fetchedModels.length > 0 ? fetchedModels : provider.models).map((m) => (
+            <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200">{m.label}</option>
           ))}
-        </div>
+        </select>
       </fieldset>
 
       <label className="onboarding-key-label">
@@ -105,10 +111,10 @@ function SetupVisual({ model, setModel, apiKey, setApiKey, showKey, setShowKey, 
         </span>
       </label>
       <p className="onboarding-key-help">
-        Your key stays on this computer and is encrypted with your system keychain.{' '}
+        {isDesktop ? 'Your key stays on this computer and is encrypted with your system keychain.' : 'Your key is stored locally in your browser and is never sent to our servers.'}{' '}
         <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Create an OpenRouter key</a>
       </p>
-      {weakEncryption && (
+      {isDesktop && weakEncryption && (
         <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
       )}
     </div>
@@ -146,7 +152,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete }) {
     if (!model || !apiKey.trim()) return;
     setStatus({ kind: 'busy', text: 'Securing your key…' });
     try {
-      await desktopBridge.provider.set({ enabled: true, id: provider.id, model, apiKey: apiKey.trim() });
+      await providerApi.set({ enabled: true, id: provider.id, model, apiKey: apiKey.trim() });
       setStatus({ kind: 'ok', text: 'You’re ready.' });
       window.setTimeout(onComplete, 350);
     } catch (error) {
