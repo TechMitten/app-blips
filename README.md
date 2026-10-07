@@ -57,7 +57,11 @@ AppBlips runs as a **desktop app** (Windows and Linux): it runs on your computer
 
 ## Documentation
 
-Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**: an [introduction](https://docs.appblips.com/introduction), the [desktop app quickstart](https://docs.appblips.com/quickstart-desktop), and the [feature guides](https://docs.appblips.com/features/building-apps).
+Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
+
+- **[Introduction](https://docs.appblips.com/introduction)** — what AppBlips is and how it works
+- **[Desktop app quickstart](https://docs.appblips.com/quickstart-desktop)** — install, add your API key, and build your first app
+- **[Feature guides](https://docs.appblips.com/features/building-apps)** — deep dives into the App, Website, and Game studios
 
 ## Quick start
 
