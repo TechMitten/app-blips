@@ -69,18 +69,18 @@ test('a real mistake (unknown provider) is still an error', () => {
 // --- User-supplied provider (Settings → AI) --------------------------------
 
 test('resolveUserProvider accepts each preset and uses the preset endpoint', () => {
-  for (const { id } of USER_PROVIDER_OPTIONS) {
-    const p = resolveUserProvider({ id, apiKey: 'k', model: 'any/model', baseUrl: 'https://evil.invalid' });
+  for (const { id, baseUrl } of USER_PROVIDER_OPTIONS) {
+    const p = resolveUserProvider({ id, apiKey: 'k', model: 'any/model' });
     assert.equal(p.error, undefined);
     assert.equal(p.userSupplied, true);
     assert.notEqual(p.baseUrl, 'https://evil.invalid');
-    assert.ok(p.baseUrl.startsWith('https://'));
+    assert.equal(p.baseUrl, baseUrl);
   }
   assert.ok(!USER_PROVIDER_IDS.includes('openai-compatible'));
 });
 
 test('self-hosted OpenRouter choices allow dynamic models', () => {
-  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter']);
+  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter', 'lmstudio', 'ollama']);
   assert.equal(resolveUserProvider({
     id: 'openrouter', apiKey: 'sk-or-test', model: 'arbitrary/model',
   }).baseUrl, 'https://openrouter.ai/api/v1');
@@ -114,3 +114,37 @@ test('resolveUserProvider rejects bad input', () => {
   ];
   for (const input of bad) assert.ok(resolveUserProvider(input).error, JSON.stringify(input));
 });
+
+for (const id of ['lmstudio', 'ollama']) {
+  test(`${id} works without a key and accepts a custom loopback port`, () => {
+    const provider = resolveUserProvider({ id, model: 'local-coder', baseUrl: 'http://127.0.0.1:12345/v1/' });
+    assert.equal(provider.error, undefined);
+    assert.equal(provider.baseUrl, 'http://127.0.0.1:12345/v1');
+    const body = { temperature: 0, reasoning_effort: 'high', stream_options: { include_usage: true }, tool_choice: { type: 'function', function: { name: 'edit' } } };
+    applyProviderSettings(body, provider, { effort: 'high' });
+    assert.deepEqual(body, { temperature: 0, tool_choice: 'auto' });
+    for (const baseUrl of ['https://evil.invalid/v1', 'file:///tmp/model', 'http://localhost:1234/v1?key=secret', 'http://user:password@localhost:1234/v1']) {
+      assert.ok(resolveUserProvider({ id, model: 'local-coder', baseUrl }).error);
+    }
+  });
+
+  test(`${id} chat requests reach the selected local endpoint`, async () => {
+    const originalFetch = globalThis.fetch;
+    let target;
+    let upstreamBody;
+    globalThis.fetch = async (url, options) => {
+      target = url;
+      upstreamBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { headers: { 'content-type': 'application/json' } });
+    };
+    try {
+      const response = await handleChatProxy(new Request('http://localhost/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ user_provider: { id, model: 'local-coder' }, messages: [{ role: 'user', content: 'hi' }], stream: false }),
+      }), {});
+      assert.equal(response.status, 200);
+      assert.equal(target, `${USER_PROVIDER_OPTIONS.find((p) => p.id === id).baseUrl}/chat/completions`);
+      assert.equal(upstreamBody.model, 'local-coder');
+    } finally { globalThis.fetch = originalFetch; }
+  });
+}

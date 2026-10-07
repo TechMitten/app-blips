@@ -91,11 +91,20 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     providerApi.get().then((info) => {
-      const ready = info.envConfigured || (info.enabled && info.id && info.model && info.hasKey);
+      const ready = info.envConfigured || (info.enabled && info.id && info.model && (info.local || info.hasKey));
       if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
     }).catch(() => { if (!cancelled) setDesktopOnboarding(null); });
     return () => { cancelled = true; };
   }, []);
+  // Settings → "Replay onboarding". Closes Settings and shows the intro again
+  // with an exit, leaving the saved provider untouched unless a new one is saved.
+  const handleRestartOnboarding = async () => {
+    let info = null;
+    try { info = await providerApi.get(); } catch { /* show onboarding without prefill */ }
+    setIsSettingsOpen(false);
+    setSettingsInitialTab(null);
+    setDesktopOnboarding({ loading: false, info, replay: true });
+  };
   const [isTourOpen, setIsTourOpen] = useState(false);
   const tourLayoutRef = useRef(null);
 
@@ -1767,7 +1776,13 @@ export default function App() {
   }
 
   if (desktopOnboarding) {
-    return <DesktopOnboarding providerInfo={desktopOnboarding.info} onComplete={() => setDesktopOnboarding(null)} />;
+    return (
+      <DesktopOnboarding
+        providerInfo={desktopOnboarding.info}
+        onComplete={() => setDesktopOnboarding(null)}
+        onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
+      />
+    );
   }
 
   // Shared by the studio picker and the workspace.
@@ -1798,6 +1813,7 @@ export default function App() {
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           onResetApp={handleResetApp}
+          onRestartOnboarding={isDesktop ? handleRestartOnboarding : undefined}
           projectCount={myProjects.length}
         />
   );

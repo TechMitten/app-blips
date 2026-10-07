@@ -1,3 +1,5 @@
+import { resolveUserProvider } from '../../electron/server/providers.js';
+
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
 // exposes window.appblipsDesktop and project data lives on disk instead of in
 // localStorage; everywhere else this module is inert (isDesktop === false).
@@ -103,13 +105,38 @@ export function createAppDataStorage(prefix) {
 }
 
 export const webProviderStore = {
+  // Resolve credentials only for the outgoing request; get() keeps keys out
+  // of settings state. A draft may change model/URL while reusing its key.
+  forRequest(input = null) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('appblips-web-provider')); }
+    catch { /* Ignore unavailable or invalid browser settings. */ }
+    if (input) {
+      return {
+        ...input,
+        apiKey: input.apiKey?.trim() || (saved?.id === input.id ? saved.apiKey : '') || '',
+      };
+    }
+    if (!saved?.enabled || !saved.id || !saved.model) return null;
+    return saved;
+  },
   async get() {
-    try { return JSON.parse(localStorage.getItem('appblips-web-provider') || '{"enabled":false}'); }
+    try {
+      const { apiKey, ...info } = JSON.parse(localStorage.getItem('appblips-web-provider') || '{"enabled":false}');
+      return { ...info, hasKey: Boolean(apiKey) };
+    }
     catch { return { enabled: false }; }
   },
   async set(info) {
-    localStorage.setItem('appblips-web-provider', JSON.stringify(info));
-    return info;
+    let previous = {};
+    try { previous = JSON.parse(localStorage.getItem('appblips-web-provider') || '{}'); }
+    catch { /* Ignore invalid saved settings. */ }
+    const apiKey = info.apiKey?.trim() || (previous.id === info.id ? previous.apiKey : '') || '';
+    const resolved = resolveUserProvider({ ...info, apiKey });
+    if (resolved.error) throw new Error(resolved.error);
+    const next = { ...info, apiKey, baseUrl: resolved.baseUrl, local: Boolean(resolved.local) };
+    localStorage.setItem('appblips-web-provider', JSON.stringify(next));
+    return this.get();
   },
   async clear() {
     localStorage.removeItem('appblips-web-provider');

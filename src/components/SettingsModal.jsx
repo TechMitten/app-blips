@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, RotateCcw } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DataSettings from './DataSettings';
@@ -94,6 +94,7 @@ export default function SettingsModal({
   onBuildReasoningEffortChange,
   onDeleteAllProjects,
   onResetApp,
+  onRestartOnboarding,
   projectCount = 0,
   initialTab = null,
 }) {
@@ -262,6 +263,19 @@ export default function SettingsModal({
               >
                 <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
               </SettingRow>
+              {onRestartOnboarding && (
+                <SettingRow id="set-onboarding" title="Replay onboarding" description="Walk through the welcome introduction and AI setup again. Your current AI setup is kept unless you save a new one.">
+                  <button
+                    type="button"
+                    onClick={() => leaveAfterCheck(onRestartOnboarding)}
+                    aria-labelledby="set-onboarding"
+                    className={SECONDARY_BUTTON}
+                  >
+                    <RotateCcw size={14} aria-hidden="true" />
+                    Replay
+                  </button>
+                </SettingRow>
+              )}
             </>
           )}
 

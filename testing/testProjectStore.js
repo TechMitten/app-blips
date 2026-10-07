@@ -146,8 +146,8 @@ test('provider store encrypts the key and never describes it', async () => {
     await store.set({ enabled: true, id: 'openrouter', model: ' m1 ', apiKey: 'sk-secret' });
     const onDisk = await readFile(file, 'utf8');
     assert.ok(!onDisk.includes('sk-secret'));
-    assert.deepEqual(store.describe(), { enabled: true, id: 'openrouter', model: 'm1', hasKey: true, weakEncryption: false, onboardingComplete: true });
-    assert.deepEqual(store.active(), { id: 'openrouter', model: 'm1', apiKey: 'sk-secret' });
+    assert.deepEqual(store.describe(), { enabled: true, id: 'openrouter', model: 'm1', baseUrl: 'https://openrouter.ai/api/v1', local: false, hasKey: true, weakEncryption: false, onboardingComplete: true });
+    assert.deepEqual(store.active(), { id: 'openrouter', model: 'm1', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-secret' });
 
     // Reloads from disk; blank key keeps the saved one; a new provider drops it.
     const reloaded = createProviderStore({ file, crypto: fakeCrypto() });
@@ -156,7 +156,7 @@ test('provider store encrypts the key and never describes it', async () => {
 
     assert.equal(reloaded.keyFor('openrouter'), 'sk-secret');
     assert.equal(reloaded.keyFor('openai'), '');
-    // OpenRouter is the only provider; removed ones are refused.
+    // Unsupported providers are refused.
     for (const id of ['openai', 'zai', 'openai-compatible']) await assert.rejects(reloaded.set({ id }));
     assert.equal(reloaded.active().apiKey, 'sk-secret');
 
@@ -181,4 +181,23 @@ test('a fresh provider store needs onboarding and a legacy file does not replay 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('local providers persist and activate without keys, dropping the previous provider key', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'appblips-local-provider-'));
+  try {
+    const file = join(dir, 'provider.json');
+    const store = createProviderStore({ file, crypto: fakeCrypto() });
+    await store.set({ enabled: true, id: 'openrouter', model: 'cloud-model', apiKey: 'secret' });
+    for (const id of ['lmstudio', 'ollama']) {
+      await store.set({ enabled: true, id, model: 'local-coder', baseUrl: 'http://localhost:12345/v1' });
+      assert.equal(store.describe().hasKey, false);
+      assert.equal(store.describe().local, true);
+      assert.equal(store.describe().onboardingComplete, true);
+      const reloaded = createProviderStore({ file, crypto: fakeCrypto() });
+      assert.deepEqual(reloaded.active(), { id, model: 'local-coder', baseUrl: 'http://localhost:12345/v1', apiKey: '' });
+      await assert.rejects(reloaded.set({ id: 'openrouter' }), /API key is empty/);
+      assert.equal(reloaded.active().id, id);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

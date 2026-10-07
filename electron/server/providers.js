@@ -1,8 +1,22 @@
 // LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; self-hosted users can supply an OpenRouter key through Settings.
+// DeepSeek; users can choose OpenRouter or a local server through Settings.
 // Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
+  lmstudio: {
+    label: 'LM Studio (local)',
+    baseUrl: 'http://localhost:1234/v1',
+    local: true,
+    forcedToolChoice: false,
+    streamUsage: false,
+  },
+  ollama: {
+    label: 'Ollama (local)',
+    baseUrl: 'http://localhost:11434/v1',
+    local: true,
+    forcedToolChoice: false,
+    streamUsage: false,
+  },
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
@@ -121,16 +135,13 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   return provider;
 };
 
-// Providers a self-hosted user can pick in Settings → AI instead of the
-// env provider. Keep this separate from PROVIDER_IDS: the hosted/server-owned
-// provider remains DeepSeek, while bring-your-own-key installs use OpenRouter.
-// Presets only: the endpoint and request format come from the preset, never
-// from the user, because OpenAI-compatible APIs still differ in what they
-// accept (see the capability flags above).
-export const USER_PROVIDER_IDS = ['openrouter'];
+// User-selected providers are separate from the server-owned environment provider.
+export const USER_PROVIDER_IDS = ['openrouter', 'lmstudio', 'ollama'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
+  local: Boolean(PROVIDERS[id].local),
+  baseUrl: PROVIDERS[id].baseUrl,
   models: [],
 }));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
@@ -138,17 +149,16 @@ export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 const MAX_USER_KEY_LENGTH = 512;
 const MAX_USER_MODEL_LENGTH = 200;
 
-// Builds a provider from a user-supplied { id, apiKey, model } (the request's
+// Builds a provider from user-supplied settings (the request's
 // `user_provider` field). Same shape as resolveProvider, or { error }. The
-// operator's APPBLIPS_LLM_BASE_URL belong to the env
-// provider and are deliberately not applied here.
+// environment endpoint is deliberately not applied to user settings.
 export const resolveUserProvider = (input) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return { error: 'Invalid provider settings.' };
   const id = typeof input.id === 'string' ? input.id.trim().toLowerCase() : '';
   const apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
   const model = typeof input.model === 'string' ? input.model.trim() : '';
   if (!USER_PROVIDER_IDS.includes(id)) return { error: `Choose one of: ${USER_PROVIDER_OPTIONS.map((p) => p.label).join(', ')}.` };
-  if (!apiKey) return { error: 'The API key is empty.' };
+  if (!apiKey && !PROVIDERS[id].local) return { error: 'The API key is empty.' };
   // eslint-disable-next-line no-control-regex
   if (apiKey.length > MAX_USER_KEY_LENGTH || /[\s\x00-\x1f\x7f]/.test(apiKey)) return { error: 'The API key is not valid.' };
   if (!model) return { error: 'The model is empty.' };
@@ -159,13 +169,25 @@ export const resolveUserProvider = (input) => {
     return { error: `Choose one of the supported ${providerLabel(id)} models.` };
   }
   const preset = PROVIDERS[id];
+  let baseUrl = preset.baseUrl;
+  if (preset.local && input.baseUrl) {
+    try {
+      const url = new URL(input.baseUrl);
+      if (!['http:', 'https:'].includes(url.protocol)
+        || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+        || url.username || url.password || url.search || url.hash) throw new Error();
+      baseUrl = url.href.replace(/\/$/, '');
+    } catch {
+      return { error: 'Use a local server URL such as http://localhost:1234/v1.' };
+    }
+  }
   return {
     id,
     ...PRESET_DEFAULTS,
     ...preset,
-    apiKey,
+    apiKey: apiKey || 'local',
     model,
-    baseUrl: preset.baseUrl,
+    baseUrl,
     reasoningParam: preset.reasoningParam,
     alsoConfigured: [],
     missing: [],
@@ -199,7 +221,13 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
     bodyObj.reasoning_effort = raw;
   }
 
-  const reasoningEnabled = !off;
+  if (provider.local) delete bodyObj.reasoning_effort;
+  if (provider.streamUsage === false) delete bodyObj.stream_options;
+  if (provider.forcedToolChoice === false && bodyObj.tool_choice && bodyObj.tool_choice !== 'none') {
+    bodyObj.tool_choice = 'auto';
+  }
+
+  const reasoningEnabled = !off && !provider.local;
 
   // Thinking models often get stuck in endless reasoning loops
   // if temperature is forced to 0 (which the proxy does for syntax repairs).
