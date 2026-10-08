@@ -34,6 +34,11 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
   const models = new Map();
   for (const model of data.data) {
     if (typeof model?.id !== 'string' || !model.id.trim()) continue;
+    // OpenRouter's catalog includes image and audio generators, which can't
+    // write code. It describes outputs in architecture.output_modalities;
+    // catalogs without that field (the other providers) are left as they are.
+    const outputs = model.architecture?.output_modalities;
+    if (Array.isArray(outputs) && !(outputs.length === 1 && outputs[0] === 'text')) continue;
     models.set(model.id, { id: model.id, label: typeof model.name === 'string' && model.name.trim() ? model.name : model.id });
   }
   return [...models.values()].sort((a, b) => a.label.localeCompare(b.label));

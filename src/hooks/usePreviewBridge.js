@@ -73,6 +73,7 @@ export default function usePreviewBridge({
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
   const pendingCapturesRef = useRef(new Map());
+  const pendingBrowserRequestsRef = useRef(new Map());
 
   useEffect(() => {
     onRuntimeErrorRef.current = onRuntimeError;
@@ -101,6 +102,11 @@ export default function usePreviewBridge({
       reject(new Error('Preview unmounted before the screenshot was captured.'));
     });
     pendingCapturesRef.current.clear();
+    pendingBrowserRequestsRef.current.forEach(({ reject, timeoutId }) => {
+      clearTimeout(timeoutId);
+      reject(new Error('Browser was closed.'));
+    });
+    pendingBrowserRequestsRef.current.clear();
   }, []);
 
   // Ensure the live token is registered synchronously to prevent race conditions
@@ -187,8 +193,20 @@ export default function usePreviewBridge({
       // NOT a secret: the generated app can read it out of its own DOM.
       if (!data || data.__orion !== BRIDGE_CHANNEL) return;
       if (!recentTokensRef.current.has(data.token)) return;
+      // Old documents can leave queued messages behind during navigation.
+      // Only their ready handshake is useful; mutations belong to the live
+      // document, especially when leaving an isolated browser-test session.
+      if (data.token !== currentTokenRef.current && data.type !== 'ready') return;
 
-      if (data.type === 'ready') {
+      if (data.type === 'browser-result') {
+        const pending = pendingBrowserRequestsRef.current.get(data.payload?.requestId);
+        if (!pending || data.token !== pending.token || data.token !== currentTokenRef.current) return;
+        pendingBrowserRequestsRef.current.delete(data.payload.requestId);
+        clearTimeout(pending.timeoutId);
+        if (data.payload.error) pending.reject(new Error(data.payload.error));
+        else pending.resolve(data.payload.result);
+      }
+      else if (data.type === 'ready') {
         push();
         forceRepaint();
         if (onReadyRef.current) onReadyRef.current({ token: data.token });
@@ -234,7 +252,7 @@ export default function usePreviewBridge({
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
       ) {
-        onStorageChangeRef.current(data.type, data.payload);
+        onStorageChangeRef.current(data.type, data.payload, { token: data.token });
       }
       else if (data.type === 'dom-snapshot' || data.type === 'screenshot-error') {
         const requestId = data.payload?.requestId;
@@ -308,6 +326,18 @@ export default function usePreviewBridge({
     });
   }, [iframeRef]);
 
+  const requestBrowserAction = useCallback((args, timeoutMs = 5000) => new Promise((resolve, reject) => {
+    if (!iframeRef.current?.contentWindow) { reject(new Error('Browser is not ready.')); return; }
+    const requestId = globalThis.crypto?.randomUUID?.() || 'browser-' + Math.random().toString(36).slice(2);
+    const token = currentTokenRef.current;
+    const timeoutId = setTimeout(() => {
+      pendingBrowserRequestsRef.current.delete(requestId);
+      reject(new Error('Browser action timed out.'));
+    }, timeoutMs);
+    pendingBrowserRequestsRef.current.set(requestId, { resolve, reject, timeoutId, token });
+    sendRef.current('browser-action', { ...args, requestId }, token);
+  }), [iframeRef]);
+
   // Website-studio picker controls: walk the current selection up one
   // ancestor (to reach containers/backgrounds from their children) or clear
   // it. Both are fire-and-forget; the frame answers with a fresh
@@ -356,7 +386,7 @@ export default function usePreviewBridge({
   const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
 
   return {
-    requestScreenshot, selectParentElement, deselectElement,
+    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement,
     replyInlineEditResult, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState, goBack, goForward, scrollToHash,

@@ -126,7 +126,7 @@ export default function Header({
             aria-pressed={mobileView === 'preview'}
             className={`nav-segmented-btn flex-1 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
           >
-            Preview
+            Browser
           </button>
         </div>
       )}

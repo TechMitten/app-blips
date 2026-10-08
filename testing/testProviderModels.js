@@ -33,6 +33,17 @@ test('OpenRouter can fetch its public catalog before key entry', async () => {
   } });
 });
 
+test('OpenRouter image and audio generators are left out of the model list', async () => {
+  const arch = (output_modalities) => ({ architecture: { output_modalities } });
+  const models = await listProviderModels({ id: 'openrouter' }, { fetchImpl: async () => Response.json({ data: [
+    { id: 'chat', name: 'Chat', ...arch(['text']) },
+    { id: 'painter', name: 'Painter', ...arch(['image', 'text']) },
+    { id: 'singer', name: 'Singer', ...arch(['text', 'audio']) },
+    { id: 'plain', name: 'Plain' },
+  ] }) });
+  assert.deepEqual(models.map((m) => m.id), ['chat', 'plain']);
+});
+
 test('discovery validates credentials and local URLs before fetching', async () => {
   const fetchImpl = () => { assert.fail('Invalid settings must not reach fetch'); };
   for (const input of [

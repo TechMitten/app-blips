@@ -19,6 +19,9 @@ if (window.location.protocol === 'appblips:') {
     app: {
       quit: call('desktop:app:quit'),
     },
+    browser: {
+      input: call('desktop:browser:input'),
+    },
     appData: {
       save: call('desktop:appData:save'),
     },

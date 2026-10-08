@@ -103,7 +103,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: true,
     port: 5175,
-    strictPort: false,
+    // Browser mode keeps the AI provider in this origin's localStorage; a
+    // silent hop to 5176 when 5175 is busy is a new origin with no saved key.
+    strictPort: true,
     watch: {
       usePolling: true
     },

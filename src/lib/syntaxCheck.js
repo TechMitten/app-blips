@@ -1,4 +1,7 @@
 import * as acorn from 'acorn';
+import acornJsx from 'acorn-jsx';
+
+const JsxParser = acorn.Parser.extend(acornJsx());
 
 // Inline script types whose content is parseable JavaScript. An absent type
 // attribute means classic JS; anything else (importmap, application/json,
@@ -19,11 +22,16 @@ const getAttribute = (attrs, name) => {
   return (match[1] ?? match[2] ?? match[3] ?? '').trim().toLowerCase();
 };
 
+// React apps keep their JSX in <script type="text/jsx">: the browser ignores
+// that type, and jsxCompile.js turns it into a module script at run/export time.
+export const JSX_TYPE = 'text/jsx';
+
 // Extract parseable inline script blocks with their document-relative start
 // line. An inline <script> ends at the FIRST </script> after its open tag --
 // even if that text sits inside a JS string literal -- because that is exactly
-// how a real browser delimits it.
-export const extractInlineScripts = (html) => {
+// how a real browser delimits it. `jsx` adds text/jsx blocks; callers that
+// only see compiled documents (loop protection) leave it off.
+export const extractInlineScripts = (html, { jsx = false } = {}) => {
   const blocks = [];
   const openTagRe = /<script\b([^>]*)>/gi;
   let open;
@@ -31,7 +39,7 @@ export const extractInlineScripts = (html) => {
     const attrs = open[1];
     if (getAttribute(attrs, 'src') !== null) continue;
     const type = getAttribute(attrs, 'type');
-    if (type !== null && !JS_TYPES.has(type)) continue;
+    if (type !== null && !JS_TYPES.has(type) && !(jsx && type === JSX_TYPE)) continue;
 
     const contentStart = openTagRe.lastIndex;
     const startLine = countNewlines(html.slice(0, contentStart)) + 1;
@@ -41,6 +49,7 @@ export const extractInlineScripts = (html) => {
       break;
     }
     blocks.push({
+      tagStart: open.index,
       code: html.slice(contentStart, closeIdx),
       startLine,
       startIdx: contentStart,
@@ -116,7 +125,7 @@ export const checkSyntax = (html) => {
   const errors = [];
   if (!html || typeof html !== 'string') return { errors };
 
-  for (const block of extractInlineScripts(html)) {
+  for (const block of extractInlineScripts(html, { jsx: true })) {
     if (block.unclosed) {
       errors.push({
         line: block.startLine,
@@ -124,21 +133,22 @@ export const checkSyntax = (html) => {
       });
       continue;
     }
+    const isJsx = block.type === JSX_TYPE;
     try {
-      const ast = acorn.parse(block.code, {
+      const ast = (isJsx ? JsxParser : acorn.Parser).parse(block.code, {
         ecmaVersion: 'latest',
-        sourceType: block.type === 'module' ? 'module' : 'script',
+        sourceType: block.type === 'module' || isJsx ? 'module' : 'script',
         locations: true
       });
-      findBareHtmComponents(ast, block.startLine, errors);
+      if (!isJsx) findBareHtmComponents(ast, block.startLine, errors);
     } catch (err) {
       let message = err.message.replace(/ \(\d+:\d+\)$/, '');
-      if (err.loc) {
+      if (err.loc && !isJsx) {
         const lines = block.code.split(/\r?\n/);
         const errLine = lines[err.loc.line - 1] || '';
         const snippet = errLine.slice(err.loc.column);
         if (/^<\s*\/?[a-zA-Z]/.test(snippet) || /^<>/ .test(snippet)) {
-          message += ' — JSX syntax is not supported in browser ES modules. Use Preact with htm tagged templates instead (e.g. html`<div class="...">...</div>` and `<${Component} />`).';
+          message += ' — JSX is only compiled inside a <script type="text/jsx"> block (React apps). In any other script, write plain JavaScript (or Preact + htm tagged templates in an existing Preact app).';
         }
       }
       errors.push({

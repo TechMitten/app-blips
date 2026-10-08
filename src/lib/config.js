@@ -195,8 +195,25 @@ export const loadBuildPaneSide = () => {
 
 export const START_FRESH_KEY = 'orion-start-fresh';
 
-// Start-fresh marker: the user confirmed leaving the current app ("New App" /
-// "Exit") or the workspace was reset, so page loads must land on the studio
+// Session storage survives renderer reloads but ends when the app window
+// closes. Read this before mounting React so StrictMode cannot consume the
+// first-launch flag twice.
+export const beginAppSession = () => {
+  const key = 'orion-app-session-started';
+  try {
+    const storage = safeStorage('session');
+    const coldStart = storage?.getItem(key) !== 'true';
+    storage?.setItem(key, 'true');
+    if (coldStart) markStartFresh();
+    return coldStart;
+  } catch {
+    markStartFresh();
+    return true;
+  }
+};
+
+// Start-fresh marker: a cold launch, leaving the current app ("New App" /
+// "Exit"), or a workspace reset means page loads must land on the studio
 // picker instead of auto-resuming the previously-open project. Cleared when a
 // project is adopted (rememberProjectId) or the user cancels out of the
 // picker, so it survives any number of reloads while the new-app flow is

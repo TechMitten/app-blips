@@ -163,7 +163,7 @@ try {
     await openNavigation(page, width, 'History');
     await assertFits(page.locator('.history-sidebar'), viewport, 'History');
     await page.getByRole('button', { name: 'Restore version 1 and close history', exact: true }).click();
-    if (width < 1024) await page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Preview', exact: true }).click();
+    if (width < 1024) await page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Browser', exact: true }).click();
     await assertNoOverflow(page, 'Preview ' + width);
     await assertTapTargets(page, width, 'Preview ' + width);
     await assertPreviewFills(page, width);

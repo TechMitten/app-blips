@@ -1,6 +1,7 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
 import { checkSyntax } from './syntaxCheck';
+import { reviewGeneratedCode } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -728,7 +729,7 @@ const generateAppCodeCore = async (
     if (check.errors.length) {
       let repairMessages = [
         { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
-        { role: 'user', content: `Current ${noun} Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors)}` }
+        { role: 'user', content: `Current ${noun} Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors, studioMode)}` }
       ];
 
       for (let repairs = 0; check.errors.length && repairs < MAX_SYNTAX_REPAIR_ATTEMPTS; repairs++) {
@@ -765,7 +766,7 @@ const generateAppCodeCore = async (
           code = nextCode;
           check = checkSyntax(code);
           if (check.errors.length) {
-            repairMessages.push({ role: 'user', content: buildSyntaxRepairInstruction(check.errors) });
+            repairMessages.push({ role: 'user', content: buildSyntaxRepairInstruction(check.errors, studioMode) });
           }
         } else {
           repairMessages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
@@ -827,7 +828,7 @@ const generateAppCodeCore = async (
   const nudgeSyntaxRepair = () => {
     syntaxRepairCycles++;
     if (onChunk) onChunk('Syntax errors found — fixing…', 'status');
-    messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+    messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors, studioMode) });
   };
 
   const syntaxResultFields = () =>
@@ -930,13 +931,13 @@ const generateAppCodeCore = async (
           try {
             const parsed = JSON.parse(lastMsg.content);
             parsed.syntaxErrors = syntaxErrors;
-            parsed.instruction = buildSyntaxRepairInstruction(syntaxErrors);
+            parsed.instruction = buildSyntaxRepairInstruction(syntaxErrors, studioMode);
             lastMsg.content = JSON.stringify(parsed);
           } catch {
-            messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+            messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors, studioMode) });
           }
         } else {
-          messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors) });
+          messages.push({ role: 'user', content: buildSyntaxRepairInstruction(syntaxErrors, studioMode) });
         }
       }
     }
@@ -991,8 +992,23 @@ export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
 
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
-  const [prompt, , , onChunk, , signal, , , , isAutoFix, , studioMode] = args;
+  const [prompt, currentCode, chatHistory, onChunk, layoutTarget, signal, , , attachment, isAutoFix, , studioMode, currentFiles, , , browser] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
+  if (isBuildResult) {
+    const review = await reviewGeneratedCode({
+      files: result.files || makeFiles(result.code),
+      previousFiles: currentFiles || makeFiles(currentCode),
+      prompt, chatHistory, onChunk, layoutTarget, signal, attachment, studioMode,
+      requestModelText, browser,
+    });
+    result.files = review.files;
+    result.code = getLanding(review.files);
+    const { files: reviewedFiles, ...qualityReview } = review;
+    result.qualityReview = qualityReview;
+    const syntaxErrors = checkSyntaxFiles(reviewedFiles).errors;
+    if (syntaxErrors.length) result.syntaxErrors = syntaxErrors;
+    else delete result.syntaxErrors;
+  }
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {
@@ -1008,6 +1024,11 @@ const generateAppCodeWithSummary = async (...args) => {
     // version (appended to the opening acknowledgement when there is one).
     if (onChunk) onChunk(`${separator}${completion}`, 'reply');
     result.reply = `${result.reply || ''}${separator}${completion}`;
+  }
+  if (result.qualityReview?.warning) {
+    const warning = `Review note: ${result.qualityReview.warning}`;
+    if (onChunk) onChunk(`\n\n${warning}`, 'reply');
+    result.reply = `${result.reply || ''}\n\n${warning}`.trim();
   }
   return result;
 };

@@ -21,6 +21,7 @@ import { resolveProvider } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { createProviderStore } from './providerStore.js';
 import { createUpdater } from './updater.js';
+import { executeBrowserInput } from './browserControls.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -202,6 +203,7 @@ function handle(channel, fn) {
 const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error;
 
 function registerIpc() {
+  handle('desktop:browser:input', (args) => executeBrowserInput(mainWindow, args));
   handle('desktop:projects:list', async () => ({
     projects: await projectStore.list(),
     orphanAppData: await projectStore.orphanAppData(),

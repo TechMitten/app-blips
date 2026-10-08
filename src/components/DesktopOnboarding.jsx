@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, Bot, Check, CircleAlert, Code2, Eye, EyeOff,
-  Gamepad2, KeyRound, Layers3, Loader2, LockKeyhole, MonitorSmartphone,
-  MousePointer2, Palette, Rocket, Smartphone, Sparkles, WandSparkles, X,
+  ArrowLeft, ArrowRight, ArrowUpRight, Box, Check, ChevronDown, CircleAlert, Code2, Cpu, Eye, EyeOff,
+  Gamepad2, KeyRound, Laptop, Layers3, Loader2, LockKeyhole, MonitorSmartphone,
+  MousePointer2, Palette, RefreshCw, Rocket, Smartphone, Sparkles, WandSparkles, X, Zap,
 } from 'lucide-react';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -11,7 +11,36 @@ import useProviderModels from '../hooks/useProviderModels';
 
 const defaultProvider = USER_PROVIDER_OPTIONS[0];
 
+// A numbered step on the setup timeline. The numbers make the step read as a
+// form to fill in, not another illustration like the slides before it; the
+// first unfinished step gets a ring so the eye lands on what to do next.
+function SetupStep({ n, title, hint, optional, current, action, children }) {
+  return (
+    <div className={`onboarding-step ${current ? 'is-current' : ''}`}>
+      <i className="onboarding-step-number">{n}</i>
+      <div className="onboarding-step-body">
+        <div className="onboarding-field-row">
+          <span className="onboarding-field-label">{title}{optional && <em>Optional</em>}</span>
+          {action}
+        </div>
+        {hint && <p className="onboarding-step-hint">{hint}</p>}
+        {children}
+      </div>
+    </div>
+  );
+}
 
+// OpenRouter's mark (two routes merging); the other providers get a generic
+// glyph rather than a copied logo.
+function ProviderGlyph({ id }) {
+  if (id !== 'openrouter') return <Cpu size={18} />;
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12h3.5c2.5 0 3.5-5 7-5H17" /><path d="M2 12h3.5c2.5 0 3.5 5 7 5H17" />
+      <path d="M15 4.5 18 7l-3 2.5" /><path d="M15 14.5 18 17l-3 2.5" />
+    </svg>
+  );
+}
 
 function IdeaVisual() {
   return (
@@ -56,80 +85,109 @@ function WorkflowVisual() {
   );
 }
 
-function SetupVisual({ provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
+function SetupVisual({ onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
+  const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://openrouter.ai/settings/keys';
+  const current = !model.trim() ? 2 : !provider.local && !apiKey.trim() ? 3 : 0;
 
   return (
-    <div className="desktop-onboarding-setup flex flex-col h-full bg-[#111827]/60">
+    <form className="desktop-onboarding-setup" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <div className="onboarding-setup-heading">
-        <span className="onboarding-setup-icon"><Bot size={23} /></span>
-        <span><strong>{provider.label}</strong><small>{provider.local ? 'Use a model running on this computer' : provider.id === 'openrouter' ? 'One key, your choice of leading models' : `Connect directly to ${provider.label}’s API`}</small></span>
-        <span className="onboarding-private-badge"><LockKeyhole size={12} /> Private</span>
+        <span className="onboarding-setup-icon"><Box size={26} /></span>
+        <span><strong>Set up your AI</strong><small>{provider.local ? `${provider.label} — a model running on this computer.` : provider.id === 'openrouter' ? 'OpenRouter — one key, your choice of leading models.' : `${provider.label} — connect directly to its API.`}</small></span>
+        <span className="onboarding-private-badge">
+          <LockKeyhole size={20} />
+          <span><strong>Private</strong><small>Your key stays on this device.</small></span>
+        </span>
       </div>
 
-      <label className="onboarding-key-label">
-        <span>Provider</span>
-        <select value={provider.id} onChange={(event) => setProviderId(event.target.value)} className="rounded-lg p-2" style={{ backgroundColor: '#1e293b', color: '#f1f5f9', colorScheme: 'dark' }}>
-          {USER_PROVIDER_OPTIONS.map((option) => <option key={option.id} value={option.id} style={{ backgroundColor: '#1e293b', color: '#f1f5f9' }}>{option.label}</option>)}
-        </select>
-      </label>
-      {provider.local && <label className="onboarding-key-label">
-        <span>Local server URL</span>
-        <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={provider.baseUrl} className="rounded-lg bg-slate-800 p-2 text-slate-100" />
-      </label>}
-      <fieldset className="onboarding-model-fieldset flex flex-col gap-2 !pb-2">
-        <label className="text-sm font-semibold text-slate-200">Choose your model</label>
-        <ModelCombobox
-          value={model}
-          onChange={setModel}
-          models={modelList.models}
-          loading={modelList.loading}
-          allowCustom
-          placeholder="Select a model or enter its ID…"
-        />
-        <button type="button" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey} className="text-sm text-slate-300 disabled:opacity-50">Refresh models</button>
-        {modelList.needsKey && <p className="onboarding-key-help">Enter your API key to load models, or enter a model ID manually.</p>}
-        {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
-      </fieldset>
+      <div className="onboarding-steps">
+        <SetupStep n={1} title="Pick a provider" hint="Choose where you want to access AI models.">
+          <span className="onboarding-select-wrap">
+            <ProviderGlyph id={provider.id} />
+            <select value={provider.id} onChange={(event) => setProviderId(event.target.value)} className="onboarding-select" aria-label="AI provider">
+              {USER_PROVIDER_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <ChevronDown size={18} />
+          </span>
+          {provider.local && (
+            <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={provider.baseUrl} className="onboarding-select onboarding-url" aria-label="Local server URL" />
+          )}
+        </SetupStep>
 
-      <label className="onboarding-key-label">
-        <span>{provider.local ? 'API key (optional)' : `${provider.label} API key`}</span>
-        <span className="onboarding-key-input">
-          <KeyRound size={17} />
-          <input
-            type={showKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder={provider.local ? 'Optional API key' : `Your ${provider.label} API key`}
-            autoComplete="off"
-            spellCheck={false}
-            autoFocus
+        <SetupStep
+          n={2}
+          title="Choose a model"
+          hint="Search for a model or select from the list."
+          current={current === 2}
+          action={(
+            <button type="button" className="onboarding-refresh" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey}>
+              <RefreshCw size={15} className={modelList.loading ? 'animate-spin' : ''} /> Refresh list
+            </button>
+          )}
+        >
+          <ModelCombobox
+            value={model}
+            onChange={setModel}
+            models={modelList.models}
+            loading={modelList.loading}
+            allowCustom
+            placeholder="Select a model or enter its ID…"
           />
-          <button type="button" onClick={() => setShowKey((value) => !value)} aria-label={showKey ? 'Hide API key' : 'Show API key'}>
-            {showKey ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
-        </span>
-      </label>
-      <p className="onboarding-key-help">
-        {provider.local ? 'Start your local server and load a model that supports tool calling. Use its exact model name and a URL ending in /v1.' : <>{isDesktop ? 'Your key stays on this computer and is encrypted with your system keychain.' : 'Your key is stored locally in your browser and is never sent to our servers.'}{' '}
-        <a href={provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://openrouter.ai/settings/keys'} target="_blank" rel="noopener noreferrer">Create a {provider.label} key</a></>}
-      </p>
-      {provider.id === 'openai' && <p className="onboarding-key-help">Choose an OpenAI model that supports tool calling through Chat Completions.</p>}
-      {!provider.local && isDesktop && weakEncryption && (
-        <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
-      )}
-    </div>
+          {modelList.needsKey && <p className="onboarding-key-help">Paste your API key below to load the model list, or type a model ID.</p>}
+          {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
+        </SetupStep>
+
+        <SetupStep
+          n={3}
+          title={`Paste your ${provider.label} API key`}
+          optional={provider.local}
+          current={current === 3}
+          hint={provider.local
+            ? 'Start your local server and load a model that supports tool calling. Use its exact model name and a URL ending in /v1.'
+            : isDesktop ? 'Your key stays on this computer and is encrypted with your system keychain.' : 'Your key is stored locally in your browser and is never sent to our servers.'}
+        >
+          <span className="onboarding-key-input">
+            <KeyRound size={19} />
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={provider.local ? 'Optional API key' : `Your ${provider.label} API key`}
+              aria-label={`${provider.label} API key`}
+              autoComplete="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <button type="button" onClick={() => setShowKey((value) => !value)} aria-label={showKey ? 'Hide API key' : 'Show API key'}>
+              {showKey ? <EyeOff size={19} /> : <Eye size={19} />}
+            </button>
+          </span>
+          {!provider.local && (
+            <p className="onboarding-key-help">
+              Don’t have a key yet? <a href={keyUrl} target="_blank" rel="noopener noreferrer">Create {provider.id === 'openai' ? 'an' : 'a'} {provider.label} key <ArrowUpRight size={15} /></a>
+            </p>
+          )}
+          {provider.id === 'openai' && <p className="onboarding-key-help">Choose an OpenAI model that supports tool calling through Chat Completions.</p>}
+          {!provider.local && isDesktop && weakEncryption && (
+            <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
+          )}
+        </SetupStep>
+      </div>
+    </form>
   );
 }
 
 const slides = [
   {
+    label: 'Welcome',
     eyebrow: 'Welcome to AppBlips',
     title: 'Turn an idea into something you can use.',
     body: 'Describe what you want in plain English. AppBlips designs it, writes the code and brings it to life in a real preview.',
     visual: <IdeaVisual />,
   },
   {
+    label: 'Build your way',
     eyebrow: 'Build your way',
     title: 'Create, refine and ship — all in one place.',
     body: 'Make apps, responsive websites and browser games. Edit visually, keep iterating in chat, then export when it feels right.',
@@ -171,10 +229,17 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
   };
 
   const content = setup ? {
+    label: 'Final setup',
     eyebrow: 'One last step',
-    title: 'Choose the AI that builds with you.',
+    title: <>Choose the AI that <span className="onboarding-title-accent">builds with you.</span></>,
     body: 'Connect through OpenRouter, OpenAI, Gemini, or DeepSeek, or use LM Studio or Ollama on this computer. You can change this later in Settings.',
   } : slides[step];
+  // Tell the user exactly what is still missing, so a disabled "Start building"
+  // never looks like a dead end.
+  const needsKey = !provider.local && !apiKey.trim();
+  const missing = !model.trim() && needsKey ? 'Connect a provider to continue.'
+    : !model.trim() ? 'Choose a model to continue.'
+      : needsKey ? 'Paste your API key to continue.' : '';
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -192,7 +257,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
               Exit setup <X size={15} />
             </button>
           ) : (
-            <span>Desktop setup</span>
+            <span><Laptop size={20} /> Desktop setup</span>
           )}
         </header>
 
@@ -201,6 +266,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
             <span className="onboarding-eyebrow"><Sparkles size={14} /> {content.eyebrow}</span>
             <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>{content.title}</h1>
             <p>{content.body}</p>
+            {setup && (
+              <div className="onboarding-your-turn" aria-live="polite">
+                <span className="onboarding-your-turn-icon">{missing ? <Zap size={24} /> : <Check size={24} />}</span>
+                <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || 'Click Start building to begin.'}</span>
+              </div>
+            )}
             {!setup && (
               <div className="onboarding-benefits">
                 {step === 0 ? (
@@ -213,14 +284,19 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
           </section>
           <section className="onboarding-visual-wrap">
             {setup
-              ? <SetupVisual provider={provider} setProviderId={changeProvider} {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey }} weakEncryption={providerInfo?.weakEncryption} />
+              ? <SetupVisual onSubmit={save} provider={provider} setProviderId={changeProvider} {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey }} weakEncryption={providerInfo?.weakEncryption} />
               : content.visual}
           </section>
         </div>
 
         <footer className="onboarding-footer">
-          <div className="onboarding-progress" aria-label={`Step ${step + 1} of ${total}`}>
-            {Array.from({ length: total }, (_, index) => <span key={index} className={index === step ? 'is-active' : index < step ? 'is-done' : ''} />)}
+          <div className="onboarding-progress-wrap">
+            <div className="onboarding-progress" aria-hidden="true">
+              {Array.from({ length: total }, (_, index) => <span key={index} className={index === step ? 'is-active' : index < step ? 'is-done' : ''} />)}
+            </div>
+            <span className="onboarding-progress-label" aria-label={`Step ${step + 1} of ${total}: ${content.label}`}>
+              {step + 1} / {total}<small>{content.label}</small>
+            </span>
           </div>
           <div className="onboarding-actions">
             {step > 0 && status?.kind !== 'busy' && (
@@ -231,8 +307,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
             {status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
             {setup ? (
               <button type="button" className="onboarding-next" onClick={save} disabled={!model.trim() || (!provider.local && !apiKey.trim()) || status?.kind === 'busy' || status?.kind === 'ok'}>
-                {status?.kind === 'busy' ? <Loader2 className="animate-spin" size={17} /> : status?.kind === 'ok' ? <Check size={17} /> : <Rocket size={17} />}
-                {status?.kind === 'busy' ? status.text : status?.kind === 'ok' ? status.text : 'Start building'}
+                {status?.kind === 'busy' ? <Loader2 className="animate-spin" size={19} /> : status?.kind === 'ok' ? <Check size={19} /> : <Sparkles size={19} />}
+                {status?.kind === 'busy' ? status.text : status?.kind === 'ok' ? status.text : <>Start building <ArrowRight size={19} /></>}
               </button>
             ) : (
               <button type="button" className="onboarding-next" onClick={() => setStep((value) => value + 1)}>

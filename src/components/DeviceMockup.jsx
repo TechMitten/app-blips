@@ -1,11 +1,9 @@
 import { memo, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
-  Sparkles, Zap, ShieldAlert, Layers, ChevronLeft, ChevronRight, RotateCw,
-  Lock, Star, X, MoreVertical, Brain
+  Sparkles, Zap, ShieldAlert, Layers, X, Brain
 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
 import { PREVIEW_MODES } from '../lib/constants';
-import { pageLabel } from '../lib/pages';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
 
 const BUILDING_MESSAGES = [
@@ -424,6 +422,8 @@ export default function DeviceMockup({
   isBareFill = false,
   iframeRef,
   srcDoc,
+  browserToken,
+  isBrowserTesting = false,
   isGenerating,
   generationStatus,
   thinkingSince = null,
@@ -435,21 +435,12 @@ export default function DeviceMockup({
   isAutoFixing = false,
   isTransitioning = false,
   onCancelGeneration,
-  tabTitle = '',
-  navState = null,
-  onNavBack,
-  onNavForward,
-  onReload,
-  pages = [],
-  activePage = 'index.html',
-  onSelectPage,
 }) {
-  const isMultiPage = pages.length > 1;
   const box = fillSize || getEffectivePreviewBox(mode, orientation);
-  const isErrorAutoFix = isAutoFixing || Boolean(
+  const isErrorAutoFix = !isBrowserTesting && (isAutoFixing || Boolean(
     generationStatus?.toLowerCase().includes('runtime error') ||
     generationStatus?.toLowerCase().includes('syntax error')
-  );
+  ));
   // Reasoning is on and the model hasn't produced output yet.
   const isThinking = Boolean(thinkingSince) && !isErrorAutoFix;
 
@@ -462,96 +453,13 @@ export default function DeviceMockup({
       }}
     >
       <div
-        className={`${PREVIEW_MODES[mode].deviceClass}${isBareFill ? ' device-bare' : ''}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
+        className={`device-embedded-browser ${PREVIEW_MODES[mode].deviceClass}${isBareFill ? ' device-bare' : ''}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
         style={{
           '--preview-zoom': zoomLevel,
           ...(fillSize ? { width: fillSize.width, height: fillSize.height } : null)
         }}
         onAnimationEnd={onFlipAnimationEnd}
       >
-        <div 
-          className={`device-browser-chrome transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${mode === 'desktop' ? 'h-[91px] opacity-100' : 'h-0 opacity-0'}`} 
-          aria-hidden="true"
-        >
-            <div className="device-browser-tabstrip">
-              <div className="device-desktop-lights">
-                <span className="device-desktop-light device-desktop-light-red"></span>
-                <span className="device-desktop-light device-desktop-light-amber"></span>
-                <span className="device-desktop-light device-desktop-light-green"></span>
-              </div>
-              {isMultiPage ? (
-                <div className="device-browser-tabs" role="tablist" aria-label="Site pages">
-                  {pages.map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      role="tab"
-                      aria-selected={name === activePage}
-                      className={`device-browser-tab device-browser-tab-button${name === activePage ? ' is-active' : ''}`}
-                      onClick={() => onSelectPage?.(name)}
-                      title={pageLabel(name)}
-                    >
-                      <span className="device-browser-favicon">
-                        <Sparkles size={10} strokeWidth={2.5} />
-                      </span>
-                      <span className="device-browser-tab-title">{pageLabel(name)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="device-browser-tab">
-                  <span className="device-browser-favicon">
-                    <Sparkles size={10} strokeWidth={2.5} />
-                  </span>
-                  <span className="device-browser-tab-title">{tabTitle.trim() || 'app-preview.local'}</span>
-                </div>
-              )}
-            </div>
-            <div className="device-browser-toolbar">
-              <div className="device-browser-nav">
-                <button
-                  type="button"
-                  className={`device-browser-navbtn${navState?.canGoBack ? '' : ' is-disabled'}`}
-                  onClick={onNavBack}
-                  disabled={!navState?.canGoBack}
-                  aria-label="Back"
-                >
-                  <ChevronLeft size={17} />
-                </button>
-                <button
-                  type="button"
-                  className={`device-browser-navbtn${navState?.canGoForward ? '' : ' is-disabled'}`}
-                  onClick={onNavForward}
-                  disabled={!navState?.canGoForward}
-                  aria-label="Forward"
-                >
-                  <ChevronRight size={17} />
-                </button>
-                <button
-                  type="button"
-                  className="device-browser-navbtn"
-                  onClick={onReload}
-                  disabled={!hasCode}
-                  aria-label="Reload"
-                >
-                  <RotateCw size={14} />
-                </button>
-              </div>
-              <div className="device-browser-addressbar">
-                <Lock size={12} strokeWidth={2.25} className="device-browser-lock" />
-                <span className="device-browser-url">{isMultiPage && activePage !== 'index.html' ? `app-preview.local/${activePage.replace(/\.html$/, '')}` : 'app-preview.local'}</span>
-                <Star size={13} strokeWidth={2} className="device-browser-star" />
-              </div>
-              <div className="device-browser-actions">
-                <span className="device-browser-navbtn">
-                  <MoreVertical size={16} />
-                </span>
-                <span className="device-browser-avatar">
-                  <img src="/browserbadge.webp" alt="" draggable="false" />
-                </span>
-              </div>
-            </div>
-          </div>
         {/* Screen */}
         <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
           <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
@@ -573,7 +481,9 @@ export default function DeviceMockup({
                 document always commits into an already-rendering frame. */}
             <iframe
               ref={iframeRef}
-              title="Generated App Preview"
+              title="AppBlips Browser"
+              data-appblips-browser="true"
+              data-browser-token={browserToken}
               srcDoc={srcDoc}
               className={`w-full h-full border-none ${isTransitioning ? 'overflow-hidden pointer-events-none' : ''}`}
               scrolling={isTransitioning ? 'no' : 'auto'}
@@ -606,7 +516,7 @@ export default function DeviceMockup({
                   </div>
 
                   <h4 className="preview-empty-title text-base sm:text-lg font-bold tracking-tight mb-1.5">
-                    Live Sandbox Preview
+                    Live Browser
                   </h4>
                   <p className="preview-empty-subtitle text-xs sm:text-sm max-w-[17rem] leading-relaxed mb-6">
                     Enter a prompt to generate and interact with your app in real-time.

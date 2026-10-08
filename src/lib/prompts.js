@@ -1,3 +1,5 @@
+import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
+
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
@@ -245,19 +247,19 @@ CRITICAL RULES:
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
 5. Reach for a real library whenever the task calls for one -- proactively, without waiting for the user to name a library or ask for it explicitly. Load libraries as ES modules from https://esm.sh via an import map; there is no build step. The bar is "would a library do this better than me reimplementing it from scratch", not "did the user ask for it by name". Never fake with hand-rolled DOM what one of these does properly -- no div-and-CSS bar charts, no manual tween loops, no hand-written drag handlers. The one exception: a genuinely trivial app (a single static view, a calculator, a unit converter) should stay dependency-free -- do not add a library that has nothing to do.
    Defaults, unless the user's request points elsewhere:
-   - Real component state (multiple interacting views, forms, filtered or re-rendering lists) -> Preact + htm, rather than hand-rolled DOM manipulation.
+   - Real component state (multiple interacting views, forms, filtered or re-rendering lists) -> React with JSX (see REACT APPS below), rather than hand-rolled DOM manipulation.
    - Charts, graphs, stats dashboards -> Chart.js.
    - 3D scenes -> Three.js.
    - Physics, particles, simulations -> Matter.js.
-   - Icon sets (more than a couple of one-off icons) -> lucide-preact (for Preact apps) or lucide.
+   - Icon sets (more than a couple of one-off icons) -> lucide-react (for React apps) or lucide.
    - Drag-and-drop or sortable lists -> SortableJS.
 
    The entries below are verified working. Copy the specifier and import shape exactly, and include ONLY the entries the app actually uses:
    <script type="importmap">{"imports":{
-     "preact": "https://esm.sh/preact@10",
-     "preact/hooks": "https://esm.sh/preact@10/hooks",
-     "htm/preact": "https://esm.sh/htm@3/preact",
-     "lucide-preact": "https://esm.sh/lucide-preact@0.400.0",
+     "react": "${REACT_IMPORTS.react}",
+     "react/jsx-runtime": "${REACT_IMPORTS['react/jsx-runtime']}",
+     "react-dom/client": "${REACT_IMPORTS['react-dom/client']}",
+     "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react",
      "chart.js/auto": "https://esm.sh/chart.js@4/auto",
      "three": "https://esm.sh/three@0.160.0",
      "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
@@ -265,11 +267,10 @@ CRITICAL RULES:
      "lucide": "https://esm.sh/lucide@0.400.0",
      "sortablejs": "https://esm.sh/sortablejs@1.15.0"
    }}</script>
-   <script type="module">
-     import { render } from 'preact';
-     import { html } from 'htm/preact';
-     import { useState, useEffect } from 'preact/hooks';
-     import { Sparkles, Heart } from 'lucide-preact';
+   <script type="text/jsx">
+     import { useState, useEffect } from 'react';
+     import { createRoot } from 'react-dom/client';
+     import { Sparkles, Heart } from 'lucide-react';
      import Chart from 'chart.js/auto';
      import * as THREE from 'three';
      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -277,29 +278,23 @@ CRITICAL RULES:
      import Sortable from 'sortablejs';
      import { createIcons, icons } from 'lucide';
    </script>
-   Preact + htm syntax rules (CRITICAL to avoid silent blank screens and broken interactivity):
-   - Components MUST be interpolated with \${}: write <\${App} /> or <\${Card} title=\${val} />, NEVER <App /> or <Card />. Bare tags without \${} are parsed as literal custom HTML tags (e.g. <app></app>); the component function never executes and leaves a blank screen with zero errors.
-   - Self-closing component tags MUST include the trailing slash: write <\${Button} />, not <\${Button}>.
-   - Mount to a container element: put <div id="app"></div> in the <body> and mount with:
-     render(html\`<\${App} />\`, document.getElementById('app'));
-     (Never mount directly to document.body, which breaks when preview or extension scripts inject into the body).
-   - Form inputs: use onInput=\${(e) => setText(e.target.value)} for real-time text input state updates (Preact onChange only fires on blur).
-   - Event handlers: use onClick=\${handleClick}, onSubmit=\${handleSubmit}, etc.
-   - Dynamic classes: class="p-4 \${active ? 'bg-blue-600' : 'bg-slate-100'}" (Preact supports class and className).
-   - Lists: \${items.map(item => html\`<li key=\${item.id}>\${item.name}</li>\`)} (always wrap mapped templates in html\`...\`).
-   - For icons in Preact apps, prefer 'lucide-preact' components (e.g. <\${Sparkles} size=\${20} />) which re-render cleanly with VDOM, rather than vanilla lucide DOM mutation.
+   REACT APPS (CRITICAL to avoid blank screens):
+   - Write the app as real React ${REACT_VERSION} function components with JSX, in ONE <script type="text/jsx"> block. AppBlips compiles that block to a JavaScript module before it runs, so it has ES module semantics: top-level import statements resolved through the import map, no require(). JSX anywhere else (a type="module" or plain <script>) is a syntax error, and NEVER load Babel standalone.
+   - The import map MUST include "react", "react/jsx-runtime" and "react-dom/client" exactly as above (all the same pinned version). Libraries that use React (lucide-react) keep the ?external=react suffix, or the page ends up with two Reacts and hooks break.
+   - Put <div id="app"></div> in the <body> and mount with: createRoot(document.getElementById('app')).render(<App />); (never mount on document.body).
+   - Use JSX attribute names: className, htmlFor, onClick={...}, style={{ ... }}. Text inputs use value + onChange. Every mapped list item needs a stable key. Hooks come from 'react'.
+   - No need to import React itself: the JSX runtime is automatic.
+   - Use lucide-react components for icons (<Sparkles size={20} />), not vanilla lucide DOM mutation.
+   - EXISTING PREACT APPS: if the current code already uses Preact + htm (imports from 'preact' / 'htm/preact'), keep using Preact + htm for edits and never mix in React or JSX.
    Import shapes that silently break if you get them wrong:
-   - Preact hooks come from 'preact/hooks', NOT from 'htm/preact' (which exports only html and its bindings).
-   - Every preact subpath in the import map must point at the SAME pinned version, or you get two Preact instances and hooks stop working.
    - 'three/addons/' needs the trailing slash on BOTH the map key and its value, and addon imports need the full '.js' path.
    - Chart.js must come from the 'chart.js/auto' subpath (it self-registers the controllers) and is a DEFAULT export.
    - matter-js and sortablejs are CommonJS: default import (Matter.Engine, Sortable.create), never named imports.
-   - NEVER emit JSX syntax and NEVER load Babel standalone: browsers cannot parse JSX natively and nothing can compile them. Always use Preact with htm tagged templates.
 6. Include modern UI elements, rounded corners, good typography, and smooth interactions.
 7. Ensure any JavaScript is fully functional and self-contained within a <script> tag.
 8. For mobile-focused apps, build a native smartphone app, not a shrunk-down website. Do not use website conventions like top nav bars with a logo, hamburger menus, hero sections, or footers. Instead use native app patterns: a fixed bottom tab bar or top app bar, full-bleed screens, card-based lists, sheets/modals that slide up from the bottom, large tappable rows, and a floating action button where appropriate. Always include a viewport-fit=cover meta tag and safe-area-inset padding.
 9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when the exported file is opened. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
-10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
+10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> or <script type="text/jsx"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 11. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create apps that are intended to deceive, defraud, phish, harm users, or are sexual in nature (e.g., fake login screens, credential harvesters, scams, explicit content). If a request violates this, do NOT generate the requested app. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
 12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. The user will type in a custom answer to your question. If you call this tool, do NOT generate any HTML or code.
 13. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the app, and a <meta name="description"> of one sentence, so the page is understandable when shared or indexed.
@@ -489,11 +484,13 @@ export const buildInitialGenerationPrompt = (prompt, layoutTarget, projectName) 
   }
 };
 
-export const buildSyntaxRepairInstruction = (errors) => `The current code contains JavaScript syntax errors that will break it:
+export const buildSyntaxRepairInstruction = (errors, studioMode = 'app') => `The current code contains JavaScript syntax errors that will break it:
 
 ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
 
-CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html\`<div class="...">\${content}</div>\` and <\${Component} /> for components).
+${studioMode === 'app'
+    ? 'CRITICAL: JSX is only compiled inside the <script type="text/jsx"> block of a React app. If an error points to JSX in any other script, move that code into the text/jsx block. If the app is an existing Preact + htm app, convert the JSX to htm tagged templates instead (html`<div class="...">${content}</div>` and <${Component} /> for components).'
+    : 'CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html`<div class="...">${content}</div>` and <${Component} /> for components).'}
 
 Fix these with apply_surgical_edits before finishing. If a search anchor around the broken code is unclear, call view_code first. Change as little as possible -- only what is needed to make the code parse.`;
 

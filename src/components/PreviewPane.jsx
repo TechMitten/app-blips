@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Download, RefreshCw, MousePointerClick, Move
+  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, MousePointerClick, Move
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
+import BrowserBar from './BrowserBar';
 import PagePicker from './PagePicker';
 import ElementToolbar from './ElementToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
@@ -44,11 +45,15 @@ export default function PreviewPane({
   onUndo,
   onRedo,
   hasCode,
+  hasSavedCode = hasCode,
   onOpenNewTab,
   onExportHtml,
+  onExportReactProject = null,
   containerRef,
   iframeRef,
   previewSrcDoc,
+  browserToken,
+  isBrowserTesting = false,
   onReloadPreview,
   isGenerating,
   generationStatus,
@@ -135,7 +140,7 @@ export default function PreviewPane({
           <div className="nav-segmented-group" role="group" aria-label="View">
             <button
               onClick={() => onTabChange('preview')}
-              aria-label="Preview"
+              aria-label="Browser"
               aria-pressed={activeTab === 'preview'}
               data-tip="Run the app"
               className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
@@ -143,7 +148,7 @@ export default function PreviewPane({
               }`}
             >
               <Play size={16} />
-              <span>Preview</span>
+              <span>Browser</span>
             </button>
             {showCodeView && (
               <button
@@ -194,10 +199,9 @@ export default function PreviewPane({
             </div>
           )}
 
-          {/* Page switcher for multi-page sites, in every device mode (on
-              desktop it sits alongside the mockup's browser tabs). The code
-              view has its own file tabs. */}
-          {pages.length > 1 && activeTab === 'preview' && (
+          {/* Project pages are shared across device modes. The code view has
+              its own file tabs. */}
+          {pages.length > 1 && activeTab === 'preview' && !isBrowserTesting && (
             <PagePicker pages={pages} activePage={activePage} onSelectPage={onSelectPage} />
           )}
         </div>
@@ -319,35 +323,40 @@ export default function PreviewPane({
             </button>
           )}
 
-          {activeTab === 'preview' && hasCode && (
-            <button
-              onClick={onReloadPreview}
-              className="nav-btn nav-ghost nav-btn-icon"
-              aria-label="Reload the app preview"
-              data-tip="Reload the preview"
-            >
-              <RefreshCw size={16} />
-            </button>
-          )}
-
-          {hasCode && (
+          {hasSavedCode && (
             <button
               onClick={onOpenNewTab}
+              disabled={isBrowserTesting}
               className="nav-btn nav-ghost nav-btn-icon"
-              aria-label="Open preview in new browser tab"
+              aria-label="Open site in new browser tab"
               data-tip="Open in a new tab"
             >
               <ExternalLink size={16} />
             </button>
           )}
 
-          {hasCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
+          {hasSavedCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
+
+          {/* React apps can also leave as a Vite project to keep building with npm. */}
+          {hasSavedCode && onExportReactProject && (
+            <button
+              onClick={onExportReactProject}
+              disabled={isBrowserTesting}
+              className="nav-btn nav-ghost nav-btn-icon"
+              aria-label="Download React project"
+              data-tip="Download as a React project (.zip)"
+              data-tip-align="end"
+            >
+              <FolderDown size={16} />
+            </button>
+          )}
 
           {/* Export the HTML file (also carries the tour anchor). */}
-          {hasCode && (
+          {hasSavedCode && (
             <button
               data-tour="share"
               onClick={onExportHtml}
+              disabled={isBrowserTesting}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
               aria-label="Export app"
               data-tip="Download this app as an HTML file"
@@ -398,6 +407,12 @@ export default function PreviewPane({
         </div>
       )}
 
+      {activeTab === 'preview' && (
+        <BrowserBar {...{ activePage, pages, onSelectPage, hasCode, navState }}
+          onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview}
+          isTesting={isBrowserTesting} status={generationStatus} onStop={onCancelGeneration} />
+      )}
+
       {/* Container for Device or Code */}
       <div
         ref={containerRef}
@@ -421,7 +436,9 @@ export default function PreviewPane({
             isBareFill={isBareFill}
             iframeRef={iframeRef}
             srcDoc={previewSrcDoc}
-            isGenerating={isGenerating}
+            browserToken={browserToken}
+            isBrowserTesting={isBrowserTesting}
+            isGenerating={isGenerating && !isBrowserTesting}
             generationStatus={generationStatus}
             thinkingSince={thinkingSince}
             streamingReasoning={streamingReasoning}
@@ -429,7 +446,7 @@ export default function PreviewPane({
             liveCodeStreamDone={liveCodeStreamDone}
             liveCodePage={liveCodePage}
             hasCode={hasCode}
-            isAutoFixing={isAutoFixing}
+            isAutoFixing={isAutoFixing && !isBrowserTesting}
             isTransitioning={isTransitioning}
             onCancelGeneration={onCancelGeneration}
             tabTitle={projectName}

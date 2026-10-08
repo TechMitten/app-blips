@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { isDesktop, desktopBridge, providerApi } from './lib/desktop';
@@ -57,12 +58,15 @@ import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
+import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
+import { buildViteProject } from './lib/reactProject';
+import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-export default function App() {
+export default function App({ coldStart = false }) {
   useVisualViewport();
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
@@ -72,7 +76,7 @@ export default function App() {
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   // Read once per page load: SplashScreen stamps the time as soon as it shows,
   // so re-reading would hide it mid-play.
-  const [splashDue] = useState(isSplashDue);
+  const [splashDue] = useState(() => coldStart || isSplashDue());
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
@@ -121,9 +125,9 @@ export default function App() {
   // Which studio the workspace is in: 'app', 'website' or 'game'. Drives
   // prompt selection, starter ideas, preview defaults and copy; persisted
   // per-project so reopening restores it. Starts null: a fresh session must
-  // pick a studio first (StudioChoice gate) -- a project resume or an
-  // adopted pending job fills it before the gate can show. Once picked, the
-  // choice is never re-litigated inside the header; the other studio is only
+  // pick a studio first (StudioChoice gate). On a renderer reload, a project
+  // resume or adopted pending job can fill it before the gate shows. Once
+  // picked, the choice is never re-litigated inside the header; the other studio is only
   // ever reached through "New", which asks again.
   const [studioMode, setStudioMode] = useState(null);
   const studioModeRef = useRef(null);
@@ -158,9 +162,13 @@ export default function App() {
   // generation and export paths still treat as "the app"; `activeCode` is
   // whichever page the preview/code pane is showing.
   const [files, setFiles] = useState({});
+  const [browserReview, setBrowserReview] = useState(null);
+  const browserReviewRef = useRef(null);
+  const browserTestTokensRef = useRef(new Set());
   const [activePage, setActivePage] = useState(LANDING_PAGE);
   const generatedCode = getLanding(files);
-  const activeCode = files[activePage] ?? generatedCode;
+  const browserFiles = browserReview?.files || files;
+  const activeCode = browserFiles[activePage] ?? getLanding(browserFiles);
   // Read by long-lived callbacks (reload settlement, runtime-error auto-fix).
   const filesRef = useRef(files);
   const activePageRef = useRef(activePage);
@@ -198,7 +206,7 @@ export default function App() {
   // project's data lands. Cleared once the resume attempt (successful or not)
   // finishes.
   const [isResumingProject, setIsResumingProject] = useState(
-    () => Boolean(localStorage.getItem('orion-current-project-id'))
+    () => !coldStart && Boolean(localStorage.getItem('orion-current-project-id'))
   );
   const [projectName, setProjectName] = useState('Untitled App');
   const [currentProjectId, setCurrentProjectId] = useState(null);
@@ -457,12 +465,15 @@ export default function App() {
     // If a preview reload is pending for the latest build/edit/auto-fix,
     // wait a settlement period after the iframe reports ready to confirm
     // that no runtime errors fire during initial mount/execution.
-    if (reloadStateRef.current.pending) {
+    if (reloadStateRef.current.pending && !browserReviewRef.current) {
       scheduleReloadSettlement(400);
     }
   }, [scheduleReloadSettlement]);
 
   const handleRuntimeError = useCallback((payload) => {
+    // Browser-review errors are returned to that review's tool loop. Do not
+    // start a competing auto-fix run against the previously saved version.
+    if (browserReviewRef.current) return;
     // If a runtime error occurs, auto-fixing is necessary.
     // Immediately cancel any pending reload so it does not reload broken code
     // or interfere with auto-fixing.
@@ -513,7 +524,14 @@ export default function App() {
   }, [currentProjectId]);
 
   const handleStorageChange = useCallback(
-    (type, payload) => {
+    (type, payload, document) => {
+      if (browserReviewRef.current || browserTestTokensRef.current.has(document?.token)) {
+        if (browserReviewRef.current) {
+          browserTestTokensRef.current.add(document?.token);
+          applyStorageChange(browserReviewRef.current.storage, type, payload);
+        }
+        return;
+      }
       const changed = applyStorageChange(previewStorageRef.current, type, payload);
       if (changed) {
         savePreviewStorage(currentProjectId, previewStorageRef.current);
@@ -535,7 +553,7 @@ export default function App() {
     () =>
       activeCode
         ? injectPreviewBridge(activeCode, {
-            initialStorage: loadPreviewStorage(currentProjectId),
+            initialStorage: browserReviewRef.current?.storage || loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
             // frame's first paint. The configure push from usePreviewBridge
@@ -554,8 +572,14 @@ export default function App() {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeCode, previewReloadCount, projectStorageVersion]
+    [activeCode, previewReloadCount, projectStorageVersion, browserReview, activePage]
   );
+  useEffect(() => {
+    if (!browserReview || !previewToken) return;
+    const tokens = browserTestTokensRef.current;
+    tokens.add(previewToken);
+    if (tokens.size > 64) tokens.delete(tokens.values().next().value);
+  }, [browserReview, previewToken]);
   // Every injection (AI shim, loop-check helper, bridge) lands right after
   // <head> and loop protection adds no newlines, so the app's lines are
   // shifted by exactly the difference in line count.
@@ -612,13 +636,13 @@ export default function App() {
     setElementEditError(null);
   }, []);
 
-  const isPreviewEditing = studioMode === 'website' && isEditMode;
+  const isPreviewEditing = studioMode === 'website' && isEditMode && !browserReview;
 
-  const pageNav = usePageNavigation({ files, activePage, setActivePage });
+  const pageNav = usePageNavigation({ files: browserFiles, activePage, setActivePage });
   pageNavRef.current = pageNav;
 
   const {
-    requestScreenshot, selectParentElement, deselectElement,
+    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement,
     replyInlineEditResult, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
@@ -1001,12 +1025,16 @@ export default function App() {
   // by projectId) or when both the job and the workspace have no project yet.
   useEffect(() => {
     if (isResumingProject) return; // Still loading — wait.
+    // Cold launches always stop at the picker. Keep interrupted work saved
+    // until its project is explicitly opened from the library.
+    if (coldStart && !currentProjectId) return;
     const job = loadPendingJob();
-    if (!job) return;
-    // The current project id is captured via closure; use the ref-based value.
-    const resumedId = localStorage.getItem('orion-current-project-id') || null;
+    if (!job) {
+      setInterruptedJob(null);
+      return;
+    }
     const jobBelongsHere =
-      (job.projectId ?? null) === (resumedId ?? null);
+      (job.projectId ?? null) === (currentProjectId ?? null);
     if (jobBelongsHere) {
       setInterruptedJob(job);
       // A pending build pins its studio: reopen straight into the workspace
@@ -1015,10 +1043,12 @@ export default function App() {
       if (!studioModeRef.current) {
         setStudioMode(job.studioMode === 'website' ? 'website' : job.studioMode === 'game' ? 'game' : 'app');
       }
+    } else {
+      setInterruptedJob(null);
     }
     // If the job belongs to a different project, leave the record intact but
     // don't surface it — the user can encounter it by opening that project.
-  }, [isResumingProject]);
+  }, [isResumingProject, coldStart, currentProjectId]);
 
   const handleShowCodeViewChange = (value) => {
     setShowCodeView(value);
@@ -1120,6 +1150,29 @@ export default function App() {
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
 
+    const browser = createEmbeddedBrowser({
+      signal: abortControllerRef.current.signal,
+      mount: (nextFiles) => {
+        const originalPage = browserReviewRef.current?.originalPage || activePage;
+        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage };
+        flushSync(() => {
+          setBrowserReview({ files: nextFiles });
+          setActivePage(LANDING_PAGE);
+          setActiveTab('preview');
+          setMobileView('preview');
+          setPreviewReloadCount((count) => count + 1);
+        });
+      },
+      inspect: (timeout) => requestBrowserAction({ action: 'inspect' }, timeout),
+      request: requestBrowserAction,
+      nativeInput: desktopBridge?.browser?.input,
+      getToken: () => iframeRef.current?.dataset.browserToken,
+      screenshot: () => desktopBridge?.browser?.input
+        ? desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken })
+        : requestScreenshot(),
+      navigate: (page) => flushSync(() => setActivePage(page)),
+      reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
+    });
     try {
       const generationResult = await generateAppCode(currentPrompt, generatedCode, chatHistory, (chunk, kind = 'content') => {
         if (kind === 'thinking_start') {
@@ -1256,7 +1309,7 @@ export default function App() {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
+      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, browser);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1270,6 +1323,7 @@ export default function App() {
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
         reply: generationResult.reply || null,
+        qualityReview: generationResult.qualityReview || null,
         chatMode,
         sessionId: currentChatSessionId
       };
@@ -1345,6 +1399,12 @@ export default function App() {
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
     } finally {
+      const reviewSession = browserReviewRef.current;
+      if (reviewSession) {
+        setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);
+        browserReviewRef.current = null;
+        setBrowserReview(null);
+      }
       setIsGenerating(false);
       isGeneratingRef.current = false;
       isEvaluatingNewCodeRef.current = false;
@@ -1422,9 +1482,9 @@ export default function App() {
     }
   };
 
-  // Pages as they leave the app in an export: loop protection is added per
-  // page here, never stored in `files`.
-  const buildExportFiles = () => mapPages(files, (html) => injectLoopProtection(html));
+  // Pages as they leave the app in an export: JSX is compiled and loop
+  // protection added per page here, never stored in `files`.
+  const buildExportFiles = () => mapPages(files, (html) => injectLoopProtection(compileJsxScripts(html)));
 
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
@@ -1456,6 +1516,23 @@ export default function App() {
     const link = document.createElement('a');
     link.href = url;
     link.download = names.length > 1 ? `${baseName}.zip` : `${baseName}.html`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // A React app's JSX as a Vite project (package.json, src/main.jsx) the user
+  // can keep developing with npm. Offered only when the landing page has JSX.
+  const canExportReactProject = studioMode === 'app' && hasJsxScripts(generatedCode);
+  const handleExportReactProject = () => {
+    const baseName = slugifyName(projectName) || 'app';
+    const entries = buildViteProject(generatedCode, { name: baseName, title: projectName || 'My App' });
+    if (!entries) return;
+    const url = URL.createObjectURL(createZip(entries));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${baseName}-react.zip`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1818,10 +1895,8 @@ export default function App() {
         />
   );
 
-  // Fresh session with nothing to resume and no studio picked: the whole
-  // workspace stays behind the studio choice. A project resume (or adopted
-  // pending job) sets studioMode before the resume flag clears, so returning
-  // users never see the gate. Mid-session, the same screen opens over "New".
+  // Cold launches begin at the picker; renderer reloads can resume a project
+  // or pending job. Mid-session, the same screen opens over "New".
   const showStudioChoice = isStudioChoiceOpen || (!isResumingProject && studioMode === null);
   if (showStudioChoice) {
     return (
@@ -2093,14 +2168,18 @@ export default function App() {
               onResetZoom={resetZoom}
               onUndo={handleUndo}
               onRedo={handleRedo}
-              hasCode={Boolean(generatedCode)}
+              hasCode={Boolean(getLanding(browserFiles))}
+              hasSavedCode={Boolean(generatedCode)}
               onOpenNewTab={handleOpenInNewTab}
               onExportHtml={handleExportHtml}
+              onExportReactProject={canExportReactProject ? handleExportReactProject : null}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
               previewSrcDoc={previewSrcDoc}
+              browserToken={previewToken}
+              isBrowserTesting={Boolean(browserReview)}
               onReloadPreview={handleReloadPreview}
-              pages={pageNames(files)}
+              pages={pageNames(browserFiles)}
               codePages={codeTabs}
               codeActivePage={codeViewPage}
               codeWritingPage={writingPage}
