@@ -8,8 +8,10 @@
 
 let sessionSeq = 0;
 
+const randomSuffix = () => crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+
 export const newChatSessionId = () =>
-  `cs-${Date.now().toString(36)}-${(sessionSeq += 1).toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  `cs-${Date.now().toString(36)}-${(sessionSeq += 1).toString(36)}-${randomSuffix()}`;
 
 // Upgrades persisted projects to the session model. Legacy rows carry no
 // `sessionId` on any version and at most one chat-context cutoff

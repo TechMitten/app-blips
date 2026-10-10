@@ -71,7 +71,7 @@ export function checkImports(files, assets, { paths, aliases = [], declared = {}
       // Every name the import binds must appear again somewhere in the file.
       const rest = code.slice(0, match.index) + code.slice(match.index + match[0].length);
       for (const name of boundNames(clause)) {
-        const used = new RegExp(`(^|[^\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`).test(rest);
+        const used = new RegExp(`(^|[^\\w$.])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w$])`).test(rest);
         if (!used) report(`"${name}" is imported but never used (the project's tsconfig has noUnusedLocals, so the build fails). Remove it.`);
       }
     }

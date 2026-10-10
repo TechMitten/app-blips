@@ -67,7 +67,12 @@ export const buildViteProject = (html, { name = 'app', title = 'My App' } = {}) 
   let indexHtml = html.slice(0, block.tagStart)
     + '<script type="module" src="/src/main.jsx"></script>'
     + html.slice(closeEnd);
-  indexHtml = indexHtml.replace(IMPORTMAP_TAG_RE, '').replace(/\n[ \t]*\n(?=[ \t]*\n)/g, '\n');
+  // Repeat until stable so removing one tag can't splice a new one together.
+  for (let prev; prev !== indexHtml;) {
+    prev = indexHtml;
+    indexHtml = indexHtml.replace(IMPORTMAP_TAG_RE, '');
+  }
+  indexHtml = indexHtml.replace(/\n[ \t]*\n(?=[ \t]*\n)/g, '\n');
 
   const packageJson = {
     name,

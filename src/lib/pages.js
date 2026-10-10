@@ -92,7 +92,11 @@ const MAX_LINK_TARGETS = 80;
 // Element ids in a page's markup (scripts, styles and comments excluded),
 // in document order.
 function anchorIds(html) {
-  const markup = String(html || '').replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  let markup = String(html || '');
+  for (let prev; prev !== markup;) {
+    prev = markup;
+    markup = markup.replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  }
   const ids = [];
   const re = /<[a-zA-Z][a-zA-Z0-9-]*\b[^>]*?\sid\s*=\s*(?:"([^"]+)"|'([^']+)')/g;
   let m;

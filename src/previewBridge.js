@@ -59,7 +59,7 @@ const makeToken = () => {
   try {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   } catch { /* fall through */ }
-  return 'tok-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return 'tok-' + Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(36)).join('');
 };
 
 /**

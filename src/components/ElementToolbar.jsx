@@ -32,7 +32,14 @@ const ROLE_LABELS = {
   container: 'Section',
 };
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+// The thumbnail renders in the app's own (privileged) page, so only load
+// image URLs that can't do anything but show a picture.
+const safeThumbSrc = (value) => {
+  const url = String(value || '').trim();
+  return /^(https?:|blob:|data:image\/)/i.test(url) ? url : '';
+};
+
+const readFileAsDataUrl =(file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(reader.result);
   reader.onerror = () => reject(new Error('Failed to read the image file.'));
@@ -252,9 +259,9 @@ export default function ElementToolbar({
           <>
             {isImage && (
               <>
-                {(src || element.attributes?.src) && (
+                {safeThumbSrc(src || element.attributes?.src) && (
                   <img
-                    src={src || element.attributes.src}
+                    src={safeThumbSrc(src || element.attributes?.src)}
                     alt=""
                     className="element-bar-thumb"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}

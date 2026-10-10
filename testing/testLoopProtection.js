@@ -88,7 +88,7 @@ const nestedApp = [
 ].join('\n');
 const nestedSrc = page(nestedApp);
 const nestedOut = injectLoopProtection(nestedSrc);
-const scriptBodies = [...nestedOut.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const scriptBodies = [...nestedOut.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
 assert.equal(scriptBodies.length, 2, 'helper + app script');
 for (const body of scriptBodies) acorn.parse(body, { ecmaVersion: 'latest' });
 assert.equal((nestedOut.match(/__orion_loop_check\(\d+\)/g) || []).length, 8, 'every loop is instrumented');

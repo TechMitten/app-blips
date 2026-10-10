@@ -62,7 +62,10 @@ export const fontLinkTags = (font, code) => {
   if (!font || !font.google) return '';
   const family = font.google.split(':')[0];
   if (code.includes(`family=${family}`) || code.includes(`family=${family.replace(/\+/g, '%20')}`)) return '';
-  const hasPreconnect = (host) => new RegExp(`rel=["']preconnect["'][^>]*${host.replace(/\./g, '\\.')}|${host.replace(/\./g, '\\.')}[^>]*rel=["']preconnect["']`).test(code);
+  const hasPreconnect = (host) => {
+    const escaped = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`rel=["']preconnect["'][^>]*${escaped}|${escaped}[^>]*rel=["']preconnect["']`).test(code);
+  };
   const lines = [];
   if (!hasPreconnect('fonts.googleapis.com')) lines.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
   if (!hasPreconnect('fonts.gstatic.com')) lines.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');

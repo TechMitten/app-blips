@@ -5,6 +5,11 @@ import { app, BrowserWindow } from 'electron';
 import { executeBrowserInput } from '../electron/browserControls.js';
 import { injectPreviewBridge } from '../src/previewBridge.js';
 
+// Escape characters that could end a <script> or a line, so values can't
+// break out of the generated source.
+const jsLiteral = (value) => JSON.stringify(value)
+  .replace(/[<>/\u2028\u2029]/g, (ch) => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'));
+
 async function run() {
   const window = new BrowserWindow({ width: 900, height: 650, show: true,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
@@ -18,18 +23,18 @@ async function run() {
     </script></body></html>`;
     const { srcDoc, token } = injectPreviewBridge(code);
     await window.loadURL('data:text/html,' + encodeURIComponent('<html><body style="margin:0"><p>Parent controls</p><iframe data-appblips-browser style="width:600px;height:400px;border:0" sandbox="allow-scripts allow-forms"></iframe></body></html>'));
-    await window.webContents.executeJavaScript(`(() => { const frame = document.querySelector('iframe'); frame.dataset.browserToken = ${JSON.stringify(token)}; frame.srcdoc = ${JSON.stringify(srcDoc)}; })()`);
+    await window.webContents.executeJavaScript(`(() => { const frame = document.querySelector('iframe'); frame.dataset.browserToken = ${jsLiteral(token)}; frame.srcdoc = ${jsLiteral(srcDoc)}; })()`);
     const request = (args) => window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
       const frame = document.querySelector('iframe');
       const requestId = 'request-' + Math.random().toString(36).slice(2);
       const timer = setTimeout(() => { window.removeEventListener('message', receive); reject(new Error('Browser timed out')); }, 5000);
       function receive(event) {
-        if (event.source !== frame.contentWindow || event.data.token !== ${JSON.stringify(token)} || event.data.type !== 'browser-result' || event.data.payload.requestId !== requestId) return;
+        if (event.source !== frame.contentWindow || event.data.token !== ${jsLiteral(token)} || event.data.type !== 'browser-result' || event.data.payload.requestId !== requestId) return;
         clearTimeout(timer); window.removeEventListener('message', receive);
         if (event.data.payload.error) reject(new Error(event.data.payload.error)); else resolve(event.data.payload.result);
       }
       window.addEventListener('message', receive);
-      frame.contentWindow.postMessage({ __orion: 'orion-preview-bridge', v: 1, token: ${JSON.stringify(token)}, type: 'browser-action', payload: { ...${JSON.stringify(args)}, requestId } }, '*');
+      frame.contentWindow.postMessage({ __orion: 'orion-preview-bridge', v: 1, token: ${jsLiteral(token)}, type: 'browser-action', payload: { ...${jsLiteral(args)}, requestId } }, '*');
     })`);
     await new Promise((resolve) => setTimeout(resolve, 500));
     let snapshot = await request({ action: 'inspect' });

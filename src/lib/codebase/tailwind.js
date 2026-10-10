@@ -70,6 +70,11 @@ export function v4Directives(css) {
   return { plugins, hasConfig, packageImports, needsRuntime: Boolean(plugins.length || hasConfig || packageImports.length) };
 }
 
+// JSON.stringify, plus escaping the characters that could end a <script> or
+// a line, so a value can't break out of the generated source.
+const jsLiteral = (value) => JSON.stringify(value)
+  .replace(/[<>/\u2028\u2029]/g, (ch) => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'));
+
 // Source of the in-frame Tailwind v4 runtime: compiles the project's CSS
 // with Tailwind's own compiler (`tailwindcss` from esm.sh, pinned like every
 // package) and rebuilds the stylesheet from the class names on the page as
@@ -77,11 +82,11 @@ export function v4Directives(css) {
 // @plugin id to what to import for it (a package name or a project path).
 export function tailwindRuntimeSource({ css, configImport, plugins, versions }) {
   const pluginEntries = Object.entries(plugins)
-    .map(([id, spec]) => `${JSON.stringify(id)}: () => import(${JSON.stringify(spec)})`).join(',\n  ');
+    .map(([id, spec]) => `${jsLiteral(id)}: () => import(${jsLiteral(spec)})`).join(',\n  ');
   return `import { compile } from 'tailwindcss';
-${configImport ? `import projectConfig from ${JSON.stringify(configImport)};` : 'const projectConfig = {};'}
-const CSS = ${JSON.stringify(css)};
-const VERSIONS = ${JSON.stringify(versions)};
+${configImport ? `import projectConfig from ${jsLiteral(configImport)};` : 'const projectConfig = {};'}
+const CSS = ${jsLiteral(css)};
+const VERSIONS = ${jsLiteral(versions)};
 const PLUGINS = {
   ${pluginEntries}
 };
