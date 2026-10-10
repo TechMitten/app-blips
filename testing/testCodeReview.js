@@ -1,6 +1,6 @@
 // Run: node testing/testCodeReview.js
 import assert from 'node:assert/strict';
-import { reviewGeneratedCode, MAX_CODE_REVIEW_TURNS, MAX_BROWSER_REVIEW_TURNS, BROWSER_WRAP_UP_TURNS, MAX_REVIEW_EDIT_ROUNDS } from '../src/lib/codeReview.js';
+import { reviewGeneratedCode, MAX_REVIEW_TURNS, LOOP_STALLED_VERDICTS, LOOP_REPEAT_TURNS, LOOP_ROLLBACKS, CODE_WRAP_UP_TURNS, BROWSER_WRAP_UP_TURNS } from '../src/lib/codeReview.js';
 
 const doc = (body) => `<!DOCTYPE html><html><head><title>Test</title></head><body>${body}</body></html>`;
 const original = { 'index.html': doc('<button>Save</button>') };
@@ -61,9 +61,10 @@ test = await run([
 ], { studioMode: 'website' });
 assert.equal(test.result.files, original, 'broken page link is rolled back');
 
-test = await run(Array.from({ length: MAX_CODE_REVIEW_TURNS }, () => verdict(false, ['Save is incomplete'])));
+// Rejecting the same version again and again without editing is a loop.
+test = await run(Array.from({ length: LOOP_STALLED_VERDICTS + CODE_WRAP_UP_TURNS }, () => verdict(false, ['Save is incomplete'])));
 assert.equal(test.result.acceptable, false);
-assert.match(test.result.warning, /ran out of turns\. Unresolved: Save is incomplete/);
+assert.match(test.result.warning, /stopped because the reviewer kept rejecting the code without fixing it: Save is incomplete/);
 assert.equal(test.requests.at(-1).tools.length, 1, 'last call only allows a verdict');
 
 test = await run([{ tool_calls: [call('submit_code_review', { acceptable: 'yes', findings: [] })] }, verdict(true)]);
@@ -97,38 +98,63 @@ assert.equal(test.result.browserTests.length, 2);
 test = await run([], { browser: { async open() { throw new Error('Frame unavailable'); } } });
 assert.equal(test.result.acceptable, false);
 assert.match(test.result.warning, /Browser testing could not finish/);
-// A late edit must not leave an untested revision: the wrap-up turns refuse
-// edits so the current version can still be tested and accepted.
+// Once a loop is found, the wrap-up turns refuse edits so the current version
+// can still be tested and accepted.
 const wrapBrowser = { async open() { return { elements: [{ id: 'e1' }], errors: [] }; }, async execute() { return { observation: { errors: [] } }; } };
-const wrapStart = MAX_BROWSER_REVIEW_TURNS - BROWSER_WRAP_UP_TURNS;
 test = await run([
-  ...Array.from({ length: wrapStart }, () => browserAction('inspect')),
+  ...Array.from({ length: LOOP_REPEAT_TURNS + 1 }, () => browserAction('inspect')),
   { tool_calls: [edit('<button>Save</button>', '<button>Late</button>')] },
   browserAction('click'), verdict(true),
 ], { browser: wrapBrowser });
 assert.equal(test.result.acceptable, true, 'review finishes inside the wrap-up turns');
 assert.equal(test.result.files, original, 'wrap-up edits are refused');
-assert.ok(!test.requests[wrapStart].tools.some((tool) => tool.function.name === 'apply_surgical_edits'));
+assert.ok(test.requests[LOOP_REPEAT_TURNS].tools.some((tool) => tool.function.name === 'apply_surgical_edits'), 'edits stay open before the loop');
+assert.ok(!test.requests[LOOP_REPEAT_TURNS + 1].tools.some((tool) => tool.function.name === 'apply_surgical_edits'));
 test = await run([verdict(false, ['Missing label']), verdict(true)]);
 assert.ok(!test.requests[1].messages.at(-1).content.includes('browser'), 'no browser tests requested without a browser');
 // A positive verdict with minor notes passes instead of looping on nitpicks.
 test = await run([verdict(true, ['Could add a hover effect'])]);
 assert.equal(test.result.acceptable, true);
 assert.equal(test.requests.length, 1);
-// Edit rounds are capped so the review converges instead of tinkering until
-// the turn cap.
-test = await run([
-  ...Array.from({ length: MAX_REVIEW_EDIT_ROUNDS }, (_, i) => ({ tool_calls: [edit(i ? `Save ${i}` : 'Save', `Save ${i + 1}`)] })),
-  { tool_calls: [edit(`Save ${MAX_REVIEW_EDIT_ROUNDS}`, 'Too many')] },
-  verdict(true),
-]);
+// A review that keeps fixing different problems is not cut off.
+const issues = ['Missing label', 'Contrast too low', 'No focus ring', 'Layout overflows on phones', 'Empty state missing', 'Keyboard shortcut broken', 'Error message unclear'];
+const step = (i) => edit(i ? `Save ${i}` : 'Save', `Save ${i + 1}`);
+test = await run([...issues.flatMap((issue, i) => [verdict(false, [issue]), { tool_calls: [step(i)] }]), verdict(true)]);
+assert.equal(test.result.acceptable, true, 'many productive edit rounds still pass');
+assert.match(test.result.files['index.html'], new RegExp(`Save ${issues.length}<`));
+// A long browser review with progress runs past the old 32-turn cap.
+const clickOn = (target) => ({ tool_calls: [call('browser_action', { action: 'click', target })] });
+test = await run([...Array.from({ length: 17 }, (_, i) => [clickOn(`e${i}`), { tool_calls: [step(i)] }]).flat(), clickOn('e99'), verdict(true)], { browser: wrapBrowser });
 assert.equal(test.result.acceptable, true);
-assert.match(test.result.files['index.html'], new RegExp(`Save ${MAX_REVIEW_EDIT_ROUNDS}<`));
-assert.ok(!test.requests[MAX_REVIEW_EDIT_ROUNDS].tools.some((tool) => tool.function.name === 'apply_surgical_edits'), 'edits close after the last round');
-// The cap warning says why the review stopped.
-test = await run(Array.from({ length: MAX_BROWSER_REVIEW_TURNS }, () => verdict(true)), { browser: wrapBrowser });
-assert.match(test.result.warning, /not tested in the browser/);
-test = await run(Array.from({ length: MAX_CODE_REVIEW_TURNS }, () => verdict(false)));
-assert.match(test.result.warning, /did not approve/);
+assert.ok(test.requests.length > 32);
+// The same finding surviving several fixes is a loop, even when reworded.
+test = await run([
+  verdict(false, ['Save is incomplete']), { tool_calls: [step(0)] },
+  verdict(false, ['The save button is still incomplete']), { tool_calls: [step(1)] },
+  verdict(false, ['Save incomplete']), { tool_calls: [step(2)] },
+  verdict(false, ['Save is incomplete']),
+  verdict(false, ['Save is incomplete']), verdict(false, ['Save is incomplete']),
+]);
+assert.equal(test.result.acceptable, false);
+assert.match(test.result.warning, /kept trying to fix the same problem without success: Save is incomplete/);
+assert.ok(!test.requests[7].tools.some((tool) => tool.function.name === 'apply_surgical_edits'), 'edits close once looping');
+assert.equal(test.requests.length, 7 + CODE_WRAP_UP_TURNS);
+// Edits that keep breaking the code are a loop.
+test = await run([
+  ...Array.from({ length: LOOP_ROLLBACKS }, () => ({ tool_calls: [edit('<button>Save</button>', '<script>const = ;</script>')] })),
+  verdict(false, ['Broken']), verdict(false, ['Broken']),
+]);
+assert.match(test.result.warning, /edits kept breaking the code/);
+assert.equal(test.result.files, original);
+// Accepting without ever testing is reported as such.
+test = await run(Array.from({ length: LOOP_STALLED_VERDICTS + BROWSER_WRAP_UP_TURNS }, () => verdict(true)), { browser: wrapBrowser });
+assert.match(test.result.warning, /never tested in the browser/);
+// Rejecting twice without naming a problem means nothing is left to fix.
+test = await run([verdict(false), verdict(false)]);
+assert.equal(test.result.acceptable, true);
 assert.match(test.requests[1].messages.at(-1).content, /without naming a problem/);
+// New calls every turn never trip the loop checks; the backstop ends it.
+test = await run(Array.from({ length: MAX_REVIEW_TURNS }, (_, i) => ({ tool_calls: [call('read_page', { file: `page${i}.html` })] })));
+assert.equal(test.requests.length, MAX_REVIEW_TURNS);
+assert.match(test.result.warning, new RegExp(`safety limit of ${MAX_REVIEW_TURNS} turns\\. The reviewer never gave a verdict`));
 console.log('testCodeReview: ok');

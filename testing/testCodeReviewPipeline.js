@@ -66,7 +66,7 @@ try {
 
   responses = Array.from({ length: 10 }, () => ({ tool_calls: [call('submit_code_review', { acceptable: false, findings: ['Save is incomplete'] })] }));
   result = await reviewBuild({ files: { 'index.html': html }, prompt: 'Make Save work' });
-  assert.match(result.reply, /Review note: Code review ran out of turns/);
+  assert.match(result.reply, /Review note: Code review stopped because the reviewer kept rejecting the code without fixing it: Save is incomplete/);
   console.log('testCodeReviewPipeline: ok');
 } finally {
   globalThis.fetch = savedFetch;
