@@ -422,6 +422,24 @@ export default function App({ coldStart = false }) {
 
   const scheduleReloadSettlementRef = useRef(null);
 
+  // Auto-fix attempts are spent. Before reporting failure, run the full
+  // review once per build: it has many more turns, browser testing, and the
+  // whole project in view, which is what used to repair these builds when it
+  // ran after every build. Imported codebases have no review yet.
+  const autoReviewRanRef = useRef(false);
+  const handleReviewRef = useRef(null);
+  const giveUpAutoFix = useCallback(() => {
+    setIsAutoFixing(false);
+    isAutoFixingRef.current = false;
+    setAutoFixMessage(null);
+    if (!autoReviewRanRef.current && studioModeRef.current !== 'codebase' && handleReviewRef.current) {
+      autoReviewRanRef.current = true;
+      setTimeout(() => handleReviewRef.current?.({ automatic: true }), 0);
+      return;
+    }
+    setError(AUTO_FIX_FAILURE);
+  }, []);
+
   const handleSyntaxError = useCallback((errors) => {
     cancelPendingReload();
 
@@ -431,10 +449,7 @@ export default function App({ coldStart = false }) {
     const errorList = Array.isArray(errors) ? errors : (errors?.errors || []);
     if (syntaxErrorRetriesRef.current >= 2) {
       console.warn('Syntax error auto-fix limit reached.');
-      setIsAutoFixing(false);
-      isAutoFixingRef.current = false;
-      setAutoFixMessage(null);
-      setError(AUTO_FIX_FAILURE);
+      giveUpAutoFix();
       return;
     }
 
@@ -446,7 +461,7 @@ export default function App({ coldStart = false }) {
     setAutoFixMessage(errorDetails);
     setGenerationStatus(automaticRepairStatus());
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
-  }, [cancelPendingReload, chatMode]);
+  }, [cancelPendingReload, chatMode, giveUpAutoFix]);
 
   const confirmAndExecuteReload = useCallback(() => {
     reloadStateRef.current.timerId = null;
@@ -549,10 +564,7 @@ export default function App({ coldStart = false }) {
 
     if (runtimeErrorRetriesRef.current >= 2) {
       console.warn('Runtime error auto-fix limit reached.');
-      setIsAutoFixing(false);
-      isAutoFixingRef.current = false;
-      setAutoFixMessage(null);
-      setError(AUTO_FIX_FAILURE);
+      giveUpAutoFix();
       return;
     }
 
@@ -574,7 +586,7 @@ export default function App({ coldStart = false }) {
     setAutoFixMessage(errorDetails);
     setGenerationStatus(automaticRepairStatus());
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
-  }, [cancelPendingReload, chatMode]);
+  }, [cancelPendingReload, chatMode, giveUpAutoFix]);
 
   const previewStorageRef = useRef({});
 
@@ -1017,7 +1029,7 @@ export default function App({ coldStart = false }) {
     ? (files[codebaseCodeFile] ?? '')
     : isGenerating
       ? ((codeViewPage === writingPage && (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : streamingPageCode))
-        || files[codeViewPage] || builtPages[codeViewPage]
+        || builtPages[codeViewPage] || files[codeViewPage]
         || (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : '') || '')
       : activeCode;
   const codebaseFileList = useMemo(
@@ -1226,6 +1238,8 @@ export default function App({ coldStart = false }) {
 
     if (!isAutoFix) {
       cancelPendingReload();
+      // A new request is a new build: it gets its own automatic review.
+      autoReviewRanRef.current = false;
       runtimeErrorRetriesRef.current = 0;
       pendingRuntimeErrorRef.current = null;
       isEvaluatingNewCodeRef.current = false;
@@ -1525,10 +1539,7 @@ export default function App({ coldStart = false }) {
             handleSyntaxError(syntaxErrors);
           }, 0);
         } else {
-          setError(AUTO_FIX_FAILURE);
-          setIsAutoFixing(false);
-          isAutoFixingRef.current = false;
-          setAutoFixMessage(null);
+          giveUpAutoFix();
         }
       } else {
         syntaxErrorRetriesRef.current = 0;
@@ -1590,15 +1601,18 @@ export default function App({ coldStart = false }) {
 
   // Runs the opt-in review offered under a finished build. The result is saved
   // as its own turn so any fixes it makes can be undone like a normal edit.
-  const handleReview = async () => {
+  // `automatic` is the run giveUpAutoFix starts when auto-fix couldn't repair
+  // a build; it doesn't need an offer.
+  const handleReview = async (options) => {
+    const automatic = options?.automatic === true;
     if (isGeneratingRef.current) return;
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const reviewed = updatedVersions[updatedVersions.length - 1];
-    if (reviewed?.reviewOffer !== 'pending') return;
+    if (!reviewed || (reviewed.reviewOffer !== 'pending' && !automatic)) return;
     // Auto-fixes carry the offer forward, so the earliest pending version in
     // the run is the build itself: its prompt is what the user asked for.
     let buildIndex = updatedVersions.length - 1;
-    while (buildIndex > 0 && updatedVersions[buildIndex - 1].reviewOffer === 'pending') buildIndex--;
+    while (buildIndex > 0 && (updatedVersions[buildIndex - 1].reviewOffer === 'pending' || isAutomaticRepair(updatedVersions[buildIndex]))) buildIndex--;
     const before = updatedVersions[buildIndex - 1];
     const chatHistory = updatedVersions.slice(chatContextStartIndex, buildIndex).flatMap((v) => [
       { role: 'user', content: v.prompt },
@@ -1619,7 +1633,10 @@ export default function App({ coldStart = false }) {
     setElementEditError(null);
     setPendingPrompt(REVIEW_PROMPT);
     // A reply line is what makes the transcript show the live status below it.
-    streamingReplyRef.current = `Checking your ${STUDIO_MODES[studioMode]?.article || 'app'} for problems now.`;
+    const noun = STUDIO_MODES[studioMode]?.article || 'app';
+    streamingReplyRef.current = automatic
+      ? `The automatic fixes didn't solve every problem, so I'm checking your ${noun} more thoroughly now.`
+      : `Checking your ${noun} for problems now.`;
     setStreamingReply(streamingReplyRef.current);
     setGenerationStatus('Starting the review…');
     abortControllerRef.current = new AbortController();
@@ -1646,11 +1663,12 @@ export default function App({ coldStart = false }) {
         chatMode: 'build',
         sessionId: currentChatSessionId,
       };
-      const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, reviewOffer: 'done' }, newVersion];
+      const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, ...(reviewed.reviewOffer ? { reviewOffer: 'done' } : {}) }, newVersion];
       setFiles(review.files);
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
       saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
+      if (automatic && review.syntaxErrors?.length) setError(AUTO_FIX_FAILURE);
     } catch (err) {
       // A cancelled review leaves the offer in place so it can be run again.
       if (err.name !== 'AbortError') setError(err.message);
@@ -1668,6 +1686,8 @@ export default function App({ coldStart = false }) {
       clearStreamingState();
     }
   };
+
+  handleReviewRef.current = handleReview;
 
   const handleSkipReview = () => {
     const reviewed = versions[currentVersionIndex];

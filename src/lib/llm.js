@@ -1,4 +1,4 @@
-import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
+import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, invalidArgumentsError } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit } from './config';
 import { checkSyntax } from './syntaxCheck';
@@ -302,7 +302,8 @@ export const requestModelText = async ({
 
     if (!onChunk) {
       const data = await response.json();
-      return data.choices[0].message;
+      const finishReason = data.choices[0].finish_reason || null;
+      return finishReason ? { ...data.choices[0].message, finishReason } : data.choices[0].message;
     }
 
     // Streaming implementation
@@ -312,6 +313,9 @@ export const requestModelText = async ({
     // Provider reasoning fields to echo back, keyed by field name.
     const echoed = {};
     let toolCallsBuffer = [];
+    // 'length' means the provider stopped at its output limit: the text or
+    // tool-call arguments are cut off mid-way (see requestFullText).
+    let finishReason = null;
 
     // With reasoning on, the model thinks silently (or streams hidden
     // reasoning_content) before any output. Bracket that window so the UI can
@@ -368,6 +372,7 @@ export const requestModelText = async ({
           try {
             const json = JSON.parse(data);
             const delta = json.choices[0]?.delta;
+            if (json.choices[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
             
             if (delta?.content) {
               endThinking();
@@ -438,7 +443,7 @@ export const requestModelText = async ({
 
     endThinking();
     if (onChunk) onChunk('', 'edit_stream_done');
-    return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean) };
+    return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
     if (onChunk) onChunk('', 'thinking_end');
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
@@ -451,6 +456,64 @@ export const requestModelText = async ({
     }
     const failure = new Error(err.message || 'Failed to generate app.');
     throw failure;
+  }
+};
+
+// How many times a cut-off plain-text reply (a whole page of HTML) is asked
+// to carry on where it stopped before the partial result is used as is.
+export const MAX_CONTINUATIONS = 3;
+export const CONTINUE_INSTRUCTION = 'Your reply was cut off by the output limit. Continue exactly where it stopped, starting with the very next character. Output only the remaining text: do not repeat anything, and add no code fence, preamble or explanation.';
+// A continuation that reopens a code fence would end the first fence early
+// when the joined text is parsed (sanitizeHtmlResponse).
+const LEADING_FENCE_RE = /^\s*```[a-z]*[ \t]*\n?/i;
+
+// requestModelText for replies that are whole documents. Providers stop at
+// their output limit and say so with finish_reason 'length'; a page cut off
+// halfway can't be fixed by search/replace repairs, so ask the model to
+// continue and join the parts. Streamed continuation text reaches onChunk
+// like the first part, so live views keep growing.
+export const requestFullText = async ({ messages, onChunk = null, ...options }) => {
+  let message = await requestModelText({ messages, onChunk, ...options });
+  let text = message.content || '';
+  let continuations = 0;
+  while (message.finishReason === 'length' && text && continuations < MAX_CONTINUATIONS) {
+    if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    continuations++;
+    if (onChunk) onChunk('The reply hit the AI\'s length limit — continuing…', 'status');
+    // Hold back the first few characters so a stray opening fence can be
+    // dropped before anything reaches the live view.
+    let head = '';
+    let headDone = false;
+    const forward = onChunk && ((chunk, kind) => {
+      if (kind !== 'content' || headDone) return onChunk(chunk, kind);
+      head += chunk;
+      if (head.length < 16 && !head.includes('\n')) return undefined;
+      headDone = true;
+      const kept = head.replace(LEADING_FENCE_RE, '');
+      return kept ? onChunk(kept, kind) : undefined;
+    });
+    message = await requestModelText({
+      ...options,
+      messages: [...messages, { role: 'assistant', content: text }, { role: 'user', content: CONTINUE_INSTRUCTION }],
+      onChunk: forward,
+    });
+    const more = (message.content || '').replace(LEADING_FENCE_RE, '');
+    if (forward && !headDone && head) {
+      const kept = head.replace(LEADING_FENCE_RE, '');
+      if (kept) onChunk(kept, 'content');
+    }
+    text += more;
+  }
+  return { ...message, content: text, ...(message.finishReason === 'length' ? { truncated: true } : {}) };
+};
+
+// The code view shows whole pages, but edits stream in as search/replace
+// snippets. Once edits apply, send each changed page in full so the view
+// doesn't sit on the text streamed before them (App: 'live_page_done').
+const reportChangedPages = (onChunk, before, after) => {
+  if (!onChunk) return;
+  for (const [page, html] of Object.entries(after)) {
+    if (before[page] !== html) onChunk(JSON.stringify({ page, html }), 'live_page_done');
   }
 };
 
@@ -478,7 +541,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
   try {
     args = JSON.parse(toolCall.function?.arguments || '{}');
   } catch (e) {
-    return { code: workingCode, applied: false, result: { success: false, error: `Arguments were not valid JSON: ${e.message}` } };
+    return { code: workingCode, applied: false, result: { success: false, error: invalidArgumentsError(e) } };
   }
 
   if (name === 'list_sections') {
@@ -525,7 +588,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
       let html = null;
       for (let attempt = 0; attempt < 2 && html === null; attempt++) {
         if (attempt > 0 && onChunk) onChunk('', 'page_stream_reset');
-        const message = await requestModelText({
+        const message = await requestFullText({
           messages: [
             { role: 'system', content: buildHtmlSystemPrompt('website') },
             { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files), projectName }) }
@@ -695,6 +758,9 @@ const generateAppCodeCore = async (
     // saving that reply text as if it were the app.
     let rawText;
     let code = null;
+    // Still cut off after every continuation: reported so the reply can say
+    // why the result is broken.
+    let outputTruncated = false;
     for (let attempt = 0; attempt <= MAX_EMPTY_GENERATION_RETRIES; attempt++) {
       if (attempt > 0) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -702,7 +768,7 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk && isWebsite) onChunk(JSON.stringify({ page: LANDING_PAGE }), 'live_page');
-      const message = await requestModelText({
+      const message = await requestFullText({
         messages,
         onChunk,
         signal,
@@ -711,6 +777,7 @@ const generateAppCodeCore = async (
       });
 
       rawText = message.content || message;
+      outputTruncated = Boolean(message.truncated);
       code = sanitizeHtmlResponse(rawText);
       if (code !== null) break;
     }
@@ -763,6 +830,7 @@ const generateAppCodeCore = async (
         }
 
         if (editsApplied) {
+          reportChangedPages(onChunk, { [LANDING_PAGE]: code }, { [LANDING_PAGE]: nextCode });
           code = nextCode;
           check = checkSyntax(code);
           if (check.errors.length) {
@@ -787,7 +855,8 @@ const generateAppCodeCore = async (
       reply,
       syntaxAutoFixAttempted,
       syntaxAutoFixSuccess: syntaxAutoFixAttempted ? check.errors.length === 0 : undefined,
-      ...(check.errors.length ? { syntaxErrors: check.errors } : {})
+      ...(check.errors.length ? { syntaxErrors: check.errors } : {}),
+      ...(outputTruncated ? { outputTruncated } : {})
     };
   }
 
@@ -897,6 +966,7 @@ const generateAppCodeCore = async (
       continue;
     }
 
+    const turnStartFiles = workingFiles;
     for (const toolCall of message.tool_calls) {
       if (toolCall.function?.name === 'ask_clarifying_questions') {
         const { question: q } = parseClarifyingQuestionArgs(toolCall.function.arguments);
@@ -916,6 +986,7 @@ const generateAppCodeCore = async (
       if (applied) editsApplied = true;
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
+    reportChangedPages(onChunk, turnStartFiles, workingFiles);
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix
@@ -1009,6 +1080,13 @@ const generateAppCodeWithSummary = async (...args) => {
     // version (appended to the opening acknowledgement when there is one).
     if (onChunk) onChunk(`${separator}${completion}`, 'reply');
     result.reply = `${result.reply || ''}${separator}${completion}`;
+  }
+  // Without this the user only sees errors the auto-fix can't clear, with no
+  // hint that the code itself is incomplete.
+  if (result?.outputTruncated && !isAutoFix) {
+    const note = `Note: the AI stopped before finishing the code because it reached its output limit, so part of your ${studioNoun(studioMode)} may be missing. Try asking for a smaller first version, or raise "Output tokens: building" in Settings → AI.`;
+    if (onChunk) onChunk(`\n\n${note}`, 'reply');
+    result.reply = `${result.reply || ''}\n\n${note}`.trim();
   }
   return result;
 };

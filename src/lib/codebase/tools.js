@@ -2,7 +2,7 @@
 // in-memory version (pure and synchronous, like pageTools.executeFilesTool).
 // Every path is validated with the same rules main applies on disk;
 // lockfiles and binary assets can't be edited as text.
-import { applySurgicalEdits, viewCode } from '../edits.js';
+import { applySurgicalEdits, viewCode, invalidArgumentsError } from '../edits.js';
 import { checkCodebaseLimits, isLockfile, validateProjectPath } from './paths.js';
 
 const MAX_LIST = 500;
@@ -161,7 +161,7 @@ function parseArgs(toolCall) {
     if (!args || typeof args !== 'object' || Array.isArray(args)) return { error: 'Arguments must be a JSON object.' };
     return { args };
   } catch (err) {
-    return { error: `Arguments were not valid JSON: ${err.message}` };
+    return { error: invalidArgumentsError(err) };
   }
 }
 

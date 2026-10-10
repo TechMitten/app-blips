@@ -1,3 +1,7 @@
+// Tool-call arguments that don't parse are almost always a call cut off by the
+// provider's output limit, so the error says how to get under it.
+export const invalidArgumentsError = (err) => `Arguments were not valid JSON (${err.message}). The call was probably cut off by the output limit: split the change into several smaller tool calls.`;
+
 export const sanitizeHtmlResponse = (text) => {
   // Fallback: if the model mistakenly wrapped the HTML in a JSON object (with or without markdown)
   try {

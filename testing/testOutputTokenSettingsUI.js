@@ -57,7 +57,7 @@ try {
   assert.equal(await ask.inputValue(), '12000');
   assert.equal((await request()).max_tokens, 24000);
 
-  await page.getByRole('button', { name: 'Use provider default for building', exact: true }).click();
+  await page.getByRole('button', { name: 'Use default for building', exact: true }).click();
   assert.equal(await build.inputValue(), '');
   assert.equal((await request()).max_tokens, undefined);
   assert.equal((await request({ askMode: true })).max_tokens, 12000);

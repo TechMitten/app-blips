@@ -166,30 +166,62 @@ test('the plain OPENAI_* variables work as the generic provider', async (t) => {
 
 test('output limits come from Settings requests and ignore environment caps', async (t) => {
   const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
-  const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '64000', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };
+  const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };
   for (const ask of [false, true]) {
+    // Builds default to 64K; Ask keeps the provider's own default.
+    const expected = ask ? undefined : 64000;
     const defaultLimit = await runWith(t, settings, { ask });
-    assert.equal(defaultLimit.upstream.body.max_tokens, undefined);
+    assert.equal(defaultLimit.upstream.body.max_tokens, expected);
     assert.equal(defaultLimit.upstream.body.temperature, 0.5);
     const custom = await runWith(t, settings, { ask, max_tokens: 12000 });
     assert.equal(custom.upstream.body.max_tokens, 12000);
     const reset = await runWith(t, settings, { ask, max_tokens: null });
-    assert.equal(reset.upstream.body.max_tokens, undefined);
+    assert.equal(reset.upstream.body.max_tokens, expected);
   }
 });
 
-test('all OpenAI-compatible providers use their own limit unless overridden', async (t) => {
+test('hosted providers get the 64K build default; local servers and Ask do not', async (t) => {
   for (const id of ['openai', 'openrouter', 'gemini', 'deepseek', 'lmstudio', 'ollama']) {
+    const field = id === 'openai' ? 'max_completion_tokens' : 'max_tokens';
+    const local = id === 'lmstudio' || id === 'ollama';
     for (const ask of [false, true]) {
       const payload = { ask, user_provider: { id, apiKey: 'test-key', model: 'test-model' } };
       const defaultLimit = await runWith(t, { OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '1' }, payload);
       assert.equal(defaultLimit.response.status, 200);
-      assert.equal(defaultLimit.upstream.body.max_tokens, undefined);
-      assert.equal(defaultLimit.upstream.body.max_completion_tokens, undefined);
+      assert.equal(defaultLimit.upstream.body[field], ask || local ? undefined : 64000);
       const custom = await runWith(t, {}, { ...payload, max_tokens: 12345 });
-      assert.equal(custom.upstream.body[id === 'openai' ? 'max_completion_tokens' : 'max_tokens'], 12345);
+      assert.equal(custom.upstream.body[field], 12345);
     }
   }
+});
+
+test('a provider that rejects the default limit gets the request again without one', async (t) => {
+  const bodies = [];
+  const reject = (status, error) => Response.json({ error: { message: error } }, { status });
+  const run = async (payload, firstReply) => {
+    bodies.length = 0;
+    t.mock.method(globalThis, 'fetch', async (url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return bodies.length === 1 ? firstReply() : new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+    });
+    return handleChatProxy(new Request('https://app.example/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: { id: 'openai', apiKey: 'k', model: 'gpt-4o' }, ...payload }),
+    }), noLlmEnv);
+  };
+  const retried = await run({}, () => reject(400, 'max_tokens is too large: 64000. This model supports at most 16384 completion tokens.'));
+  assert.equal(retried.status, 200);
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0].max_completion_tokens, 64000);
+  assert.equal(bodies[1].max_completion_tokens, undefined);
+  assert.equal(bodies[1].max_tokens, undefined);
+  // A limit the user chose is never silently dropped, and other 400s pass through.
+  const custom = await run({ max_tokens: 99999 }, () => reject(400, 'max_tokens is too large'));
+  assert.equal(custom.status, 400);
+  assert.equal(bodies.length, 1);
+  const unrelated = await run({}, () => reject(400, 'Invalid model'));
+  assert.equal(unrelated.status, 400);
+  assert.equal(bodies.length, 1);
 });
 
 test('invalid output limits are rejected before contacting a provider', async (t) => {

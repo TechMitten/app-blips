@@ -1,6 +1,6 @@
 // Tool execution and validation for multi-page websites. Kept separate from
 // llm.js (which pulls in the app's config) so it can be unit-tested with plain node.
-import { applySurgicalEdits, listSections, viewCode } from './edits.js';
+import { applySurgicalEdits, listSections, viewCode, invalidArgumentsError } from './edits.js';
 import { checkSyntax } from './syntaxCheck.js';
 import {
   LANDING_PAGE, MAX_PAGES, checkFilesLimits, findBrokenLinks, pageNames, pageTitle, validatePageName,
@@ -17,7 +17,7 @@ export const executeFilesTool = (files, toolCall) => {
   try {
     args = JSON.parse(toolCall.function?.arguments || '{}');
   } catch (e) {
-    return { files, applied: false, result: { success: false, error: `Arguments were not valid JSON: ${e.message}` } };
+    return { files, applied: false, result: { success: false, error: invalidArgumentsError(e) } };
   }
   const fail = (error) => ({ files, applied: false, result: { success: false, error } });
   const pages = pageNames(files);

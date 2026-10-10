@@ -15,7 +15,7 @@
 // (electron/main.js withSavedProvider); in the dev server the renderer may send
 // its own `user_provider`. Anything else uses the env provider.
 
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 
@@ -130,8 +130,9 @@ export async function handleChatProxy(request, env) {
     return badRequest('Invalid JSON body.');
   }
 
-  // Only Settings → AI supplies an optional output limit. Omission/null uses
-  // the provider's limit for every mode; environment caps are no longer read.
+  // Settings → AI may supply an output limit. Without one, builds get
+  // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default; environment
+  // caps are no longer read.
   const maxTokens = payload?.max_tokens;
   if (maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
@@ -167,7 +168,11 @@ export async function handleChatProxy(request, env) {
     bodyObj.stream_options = { include_usage: true };
   }
 
+  // Local servers are left alone: 64K can exceed a small local model's
+  // context, and they stream until done without a limit anyway.
+  const defaultLimit = maxTokens == null && payload.ask !== true && !provider.local;
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
+  else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) bodyObj.tool_choice = tool_choice;
@@ -179,16 +184,31 @@ export async function handleChatProxy(request, env) {
   // nudges the model if 'auto' returns no tool call.
   applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
 
+  const send = (body) => (provider.id === 'anthropic' ? callAnthropic(body, provider) : fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  }));
+
   let upstream;
   try {
-    upstream = provider.id === 'anthropic' ? await callAnthropic(bodyObj, provider) : await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(bodyObj),
-    });
+    upstream = await send(bodyObj);
+    // An older or smaller model may reject the default limit as above its
+    // maximum. The user didn't ask for that number, so try once without it
+    // (Anthropic always needs one and picks its own fallback).
+    if (defaultLimit && upstream.status === 400 && provider.id !== 'anthropic') {
+      const detail = await upstream.clone().text().catch(() => '');
+      if (/max_(?:completion_)?tokens|max(?:imum)?[ _-]?output|output[ _-]?tokens/i.test(detail)) {
+        upstream.body?.cancel().catch(() => {});
+        const unlimited = { ...bodyObj };
+        delete unlimited.max_tokens;
+        delete unlimited.max_completion_tokens;
+        upstream = await send(unlimited);
+      }
+    }
   } catch (err) {
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
       status: 502,

@@ -8,6 +8,7 @@
 // unchanged.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 
 // Claude's thinking blocks carry signatures and must be sent back exactly as
 // they arrived (same order, same bytes) on the next tool-calling turn. The
@@ -316,15 +317,9 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
   let source;
   try {
     const params = toAnthropicParams(body);
-    // Messages requires max_tokens. When Settings has no override, use the
-    // selected model's own advertised maximum rather than an app-defined cap.
-    if (params.max_tokens == null) {
-      const model = await client.models.retrieve(params.model, {}, { timeout: 15000 });
-      if (!Number.isSafeInteger(model.max_tokens) || model.max_tokens <= 0) {
-        return errorResponse(502, 'Anthropic did not report an output token limit for this model. Set a custom limit in Settings → AI.');
-      }
-      params.max_tokens = model.max_tokens;
-    }
+    // Messages requires max_tokens. Builds always arrive with one
+    // (chatProxy.js); Ask mode without a Settings value gets the same default.
+    params.max_tokens ??= DEFAULT_BUILD_MAX_TOKENS;
     source = client.beta.messages.stream(params);
     if (!body.stream) return Response.json(toChatCompletion(await source.finalMessage()));
     // Wait for the first event so an HTTP error (bad key, rate limit) becomes
