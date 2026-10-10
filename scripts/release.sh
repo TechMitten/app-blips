@@ -38,6 +38,17 @@ git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "Tag $tag already 
 say "Checking the code (lint)…"
 npm run lint --silent || fail "Lint found problems. Fix them, then run this again."
 
+# Nothing updates docs/ automatically (Mintlify only publishes it), so show
+# what changed since the last release and make sure the docs kept up.
+last_tag="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+if [ -n "$last_tag" ]; then
+  say "Changes since $last_tag:"
+  git log --oneline --no-merges "$last_tag"..HEAD -- . ':!docs' | sed 's/^/  /'
+  docs_changes="$(git diff --stat "$last_tag"..HEAD -- docs | tail -1)"
+  echo "  docs/: ${docs_changes:-no changes}"
+  ask "Are the docs up to date with these changes?" || fail "Update docs/ first (ask Claude to check them against $last_tag), then run this again."
+fi
+
 say "Ready to release $current -> $next"
 ask "Bump the version and start the GitHub build?" || fail "Cancelled. Nothing was changed."
 
