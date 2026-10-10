@@ -21,8 +21,25 @@ function BrowserAddress({ activePage, pages, onSelectPage, disabled }) {
   );
 }
 
+// Imported codebases are one-page React apps: the address is the client
+// route the router shim last reported, and entering one rebuilds the preview
+// starting there.
+function RouteAddress({ route, onNavigateRoute, disabled }) {
+  return (
+    <form className="browser-address" onSubmit={(event) => {
+      event.preventDefault();
+      const address = new FormData(event.currentTarget).get('address').trim();
+      const path = address.replace(/^(?:https?:\/\/)?appblips\.local/i, '');
+      onNavigateRoute(path.startsWith('/') ? path : `/${path}`);
+    }}>
+      <Globe size={14} aria-hidden="true" />
+      <input name="address" aria-label="Site address" defaultValue={`appblips.local${route}`} disabled={disabled} autoComplete="off" spellCheck="false" />
+    </form>
+  );
+}
+
 export default function BrowserBar({ activePage, pages, onSelectPage, hasCode, navState, onBack, onForward,
-  onReload, isTesting, status, onStop }) {
+  onReload, isTesting, status, onStop, route = null, onNavigateRoute = null }) {
   return (
     <div className="embedded-browser-bar" aria-label="Browser navigation">
       <div className="browser-navigation">
@@ -30,7 +47,9 @@ export default function BrowserBar({ activePage, pages, onSelectPage, hasCode, n
         <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Browser forward" disabled={!navState?.canGoForward || isTesting} onClick={onForward}><ArrowRight size={16} /></button>
         <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Reload browser" disabled={!hasCode || isTesting} onClick={onReload}><RotateCw size={15} /></button>
       </div>
-      <BrowserAddress key={activePage} {...{ activePage, pages, onSelectPage }} disabled={!hasCode || isTesting} />
+      {onNavigateRoute
+        ? <RouteAddress key={route} route={route || '/'} onNavigateRoute={onNavigateRoute} disabled={!hasCode || isTesting} />
+        : <BrowserAddress key={activePage} {...{ activePage, pages, onSelectPage }} disabled={!hasCode || isTesting} />}
       {isTesting && (
         <div className="browser-testing-status" role="status">
           <Loader2 size={14} className="animate-spin" />

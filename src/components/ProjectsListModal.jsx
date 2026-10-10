@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  FolderOpen, Search, X, Check, Pencil, Trash2, Smartphone, Globe, ChevronRight, Layers, Gamepad2,
+  FolderOpen, Search, X, Check, Pencil, Trash2, Smartphone, Globe, ChevronRight, Layers, Gamepad2, FileCode2,
 } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { formatModifiedTime } from '../lib/helpers';
 import { isProjectNameTaken, projectVersionCount } from '../lib/projectsStorage';
+import { normalizeStudioMode } from '../lib/constants';
 
 // One identifying icon per studio. Tints come from the indigo/sky ramps, which
 // the dark theme remaps (dark fill, light glyph), so both themes stay legible.
@@ -13,6 +14,7 @@ const STUDIO_ICONS = {
   app: { Icon: Smartphone, label: 'App', tile: 'bg-indigo-100 text-indigo-700 ring-indigo-200/80 dark:ring-indigo-400/25' },
   website: { Icon: Globe, label: 'Website', tile: 'bg-sky-100 text-sky-700 ring-sky-200/80 dark:ring-sky-400/25' },
   game: { Icon: Gamepad2, label: 'Game', tile: 'bg-violet-100 text-violet-700 ring-violet-200/80 dark:ring-violet-400/25' },
+  codebase: { Icon: FileCode2, label: 'Imported site', tile: 'bg-emerald-100 text-emerald-700 ring-emerald-200/80 dark:ring-emerald-400/25' },
 };
 
 const FILTERS = [
@@ -20,9 +22,10 @@ const FILTERS = [
   { key: 'app', label: 'Apps' },
   { key: 'website', label: 'Websites' },
   { key: 'game', label: 'Games' },
+  { key: 'codebase', label: 'Imported' },
 ];
 
-const studioOf = (project) => (project.studioMode === 'website' ? 'website' : project.studioMode === 'game' ? 'game' : 'app');
+const studioOf = (project) => normalizeStudioMode(project.studioMode);
 
 const toDate = (value) => {
   if (!value) return null;
@@ -75,6 +78,7 @@ export default function ProjectsListModal({
     app: projects.filter((p) => studioOf(p) === 'app').length,
     website: projects.filter((p) => studioOf(p) === 'website').length,
     game: projects.filter((p) => studioOf(p) === 'game').length,
+    codebase: projects.filter((p) => studioOf(p) === 'codebase').length,
   };
   const trimmedQuery = query.trim().toLowerCase();
   const visibleProjects = projects.filter((p) =>
@@ -206,7 +210,7 @@ export default function ProjectsListModal({
             </div>
 
             <div role="tablist" aria-label="Filter by studio" className="inline-flex shrink-0 rounded-lg bg-slate-100 p-0.5 dark:bg-black/30 dark:ring-1 dark:ring-white/10">
-              {FILTERS.map(({ key, label }) => {
+              {FILTERS.filter(({ key }) => key !== 'codebase' || counts.codebase > 0).map(({ key, label }) => {
                 const active = filter === key;
                 return (
                   <button

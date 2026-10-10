@@ -9,20 +9,36 @@
 //     app-data.json  the generated app's own localStorage (lib/previewStorage.js)
 //     site/*.html    the current version's pages, rewritten on every save. A
 //                    read-only convenience copy: project.json is the source of truth.
+//     blobs/<sha256> imported codebases only (studioMode 'codebase'): file contents,
+//                    stored once each; versions in project.json reference them by
+//                    hash. site/ then holds the whole project tree instead of pages.
 //
 // The renderer only ever names a project by id; folder names are derived here
 // from the project name and never accepted from IPC. App data for an id with no
 // folder yet ('draft', or a project mid-first-save) lives in `orphanDir`.
 // Every operation on one id runs through that id's queue, so a project save and
 // the app-data migration that follows it land on disk in the order they were sent.
-import { mkdir, readdir, readFile, rename, rm, writeFile, cp } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile, cp, copyFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { createHash } from 'node:crypto';
+import { dirname, join, resolve, sep } from 'node:path';
 import { versionFiles, validatePageName, MAX_PAGES } from '../src/lib/pages.js';
+import { HASH_RE, validateProjectPath, MAX_CODEBASE_FILES } from '../src/lib/codebase/paths.js';
 
 export const PROJECT_FILE = 'project.json';
 export const APP_DATA_FILE = 'app-data.json';
 export const SITE_DIR = 'site';
+export const BLOBS_DIR = 'blobs';
+// Written in site/ for codebase projects: the paths AppBlips put there, so a
+// later save deletes only its own stale files (never a node_modules the user
+// installed by hand).
+const SITE_MANIFEST = '.appblips-tree.json';
+const MAX_BLOB_BATCH_BYTES = 16 * 1024 * 1024;
+const MAX_BLOB_BATCH_COUNT = 2000;
+// Unreferenced blobs younger than this are kept: the renderer writes a new
+// version's blobs before the row that references them.
+const BLOB_GC_MIN_AGE_MS = 60 * 60 * 1000;
+const BLOB_GC_INTERVAL_MS = 10 * 60 * 1000;
 
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_NAME_LENGTH = 200;
@@ -67,6 +83,22 @@ const sanitizeAppData = (map) => {
 };
 
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
+
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+const isCodebaseRow = (row) => row?.data?.studioMode === 'codebase';
+
+// Every blob a codebase row's versions reference.
+function referencedBlobs(row) {
+  const hashes = new Set();
+  for (const version of Array.isArray(row?.data?.versions) ? row.data.versions : []) {
+    for (const map of [version?.tree, version?.assets]) {
+      if (!map || typeof map !== 'object') continue;
+      for (const hash of Object.values(map)) if (typeof hash === 'string' && HASH_RE.test(hash)) hashes.add(hash);
+    }
+  }
+  return hashes;
+}
 
 // Write to a temp file, then rename over the target, so a crash mid-write never
 // leaves a truncated project.json. Windows can briefly refuse the rename while
@@ -120,6 +152,14 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     return full;
   };
   const orphanPath = (id) => join(orphanRoot, `${id}.json`);
+  const orphanBlobDir = (id) => join(orphanRoot, BLOBS_DIR, id);
+  // Blobs of a project with no folder yet (mid-import) go to the orphan dir
+  // and are moved in on its first save, like app data.
+  const blobDir = (id) => {
+    const folder = folders.get(id);
+    return folder ? join(folderPath(folder), BLOBS_DIR) : orphanBlobDir(id);
+  };
+  const lastGc = new Map(); // id -> ms
 
   const uniqueFolder = (name, ownFolder) => {
     const base = folderNameFor(name);
@@ -171,12 +211,17 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     }
   }
 
+  function currentVersion(row) {
+    const versions = Array.isArray(row.data.versions) ? row.data.versions : [];
+    const index = Number.isInteger(row.data.currentVersionIndex) ? row.data.currentVersionIndex : versions.length - 1;
+    return versions[index] || versions[versions.length - 1];
+  }
+
   // Mirror of the current version's pages. Stale .html files from removed
   // pages are deleted; anything else a user put in site/ is left alone.
   async function writeSiteMirror(dir, row) {
-    const versions = Array.isArray(row.data.versions) ? row.data.versions : [];
-    const index = Number.isInteger(row.data.currentVersionIndex) ? row.data.currentVersionIndex : versions.length - 1;
-    const version = versions[index] || versions[versions.length - 1];
+    if (isCodebaseRow(row)) return writeCodebaseMirror(dir, row);
+    const version = currentVersion(row);
     if (!version) return;
     const files = versionFiles(version);
     const names = Object.keys(files).filter((name) => validatePageName(name) && typeof files[name] === 'string').slice(0, MAX_PAGES);
@@ -187,6 +232,80 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       if (existing.endsWith('.html') && !names.includes(existing)) await rm(join(siteDir, existing), { force: true });
     }
     for (const name of names) await writeFileAtomic(join(siteDir, name), files[name]);
+  }
+
+  // A codebase's current version as a real project folder (open it in an
+  // editor, or npm install && npm run build). Only changed files are copied;
+  // paths are re-validated here because they come from the renderer.
+  async function writeCodebaseMirror(dir, row) {
+    const version = currentVersion(row);
+    if (!version) return;
+    const siteDir = join(dir, SITE_DIR);
+    const blobs = join(dir, BLOBS_DIR);
+    const wanted = new Map();
+    for (const map of [version.tree, version.assets]) {
+      if (!map || typeof map !== 'object') continue;
+      for (const [path, hash] of Object.entries(map)) {
+        if (wanted.size >= MAX_CODEBASE_FILES) break;
+        if (typeof hash !== 'string' || !HASH_RE.test(hash) || validateProjectPath(path)) continue;
+        wanted.set(path, hash);
+      }
+    }
+    let previous = {};
+    try { previous = await readJson(join(siteDir, SITE_MANIFEST)); } catch { /* first mirror */ }
+    await mkdir(siteDir, { recursive: true });
+    const inSite = (path) => {
+      const full = resolve(siteDir, path);
+      if (!full.startsWith(siteDir + sep)) throw new Error('Path escapes the site folder.');
+      return full;
+    };
+    for (const path of Object.keys(previous)) {
+      if (!wanted.has(path) && !validateProjectPath(path)) await rm(inSite(path), { force: true });
+    }
+    const written = {};
+    for (const [path, hash] of wanted) {
+      const target = inSite(path);
+      if (previous[path] !== hash || !existsSync(target)) {
+        const source = join(blobs, hash);
+        if (!existsSync(source)) continue;
+        await mkdir(dirname(target), { recursive: true });
+        await copyFile(source, target);
+      }
+      written[path] = hash;
+    }
+    await writeFileAtomic(join(siteDir, SITE_MANIFEST), JSON.stringify(written));
+  }
+
+  // Deletes blobs no version references any more, at most every few minutes
+  // per project and never ones written in the last hour (see BLOB_GC_MIN_AGE_MS).
+  async function collectBlobs(dir, row) {
+    const now = Date.now();
+    if (now - (lastGc.get(row.id) || 0) < BLOB_GC_INTERVAL_MS) return;
+    lastGc.set(row.id, now);
+    const keep = referencedBlobs(row);
+    const blobs = join(dir, BLOBS_DIR);
+    let names = [];
+    try { names = await readdir(blobs); } catch { return; }
+    for (const name of names) {
+      if (keep.has(name)) continue;
+      const file = join(blobs, name);
+      try {
+        const info = await stat(file);
+        if (now - info.mtimeMs > BLOB_GC_MIN_AGE_MS) await rm(file, { force: true });
+      } catch { /* already gone */ }
+    }
+  }
+
+  async function adoptOrphanBlobs(id, dir) {
+    const from = orphanBlobDir(id);
+    if (!existsSync(from)) return;
+    const to = join(dir, BLOBS_DIR);
+    await mkdir(to, { recursive: true });
+    for (const name of await readdir(from)) {
+      if (!HASH_RE.test(name) || existsSync(join(to, name))) continue;
+      await rename(join(from, name), join(to, name)).catch(() => copyFile(join(from, name), join(to, name)));
+    }
+    await rm(from, { recursive: true, force: true });
   }
 
   return {
@@ -240,7 +359,9 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         if (!current && existsSync(orphanPath(row.id))) {
           await rename(orphanPath(row.id), join(dir, APP_DATA_FILE)).catch(() => {});
         }
+        if (isCodebaseRow(row)) await adoptOrphanBlobs(row.id, dir);
         await writeSiteMirror(dir, row);
+        if (isCodebaseRow(row)) await collectBlobs(dir, row);
       });
     },
 
@@ -249,6 +370,7 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       return enqueue(id, async () => {
         await ensureScanned();
         await rm(orphanPath(id), { force: true });
+        await rm(orphanBlobDir(id), { recursive: true, force: true });
         const folder = folders.get(id);
         if (!folder) return;
         const dir = folderPath(folder);
@@ -274,6 +396,56 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         await mkdir(folder ? folderPath(folder) : orphanRoot, { recursive: true });
         await writeFileAtomic(file, JSON.stringify(sanitizeAppData(map)));
       });
+    },
+
+    // entries: [{ hash, bytes }]. Content must match its hash (so a blob name
+    // can never point at the wrong bytes) and a batch is capped in count and size.
+    putBlobs(id, entries) {
+      if (!isValidProjectId(id)) return Promise.reject(new Error('Invalid project id.'));
+      if (!Array.isArray(entries) || entries.length > MAX_BLOB_BATCH_COUNT) return Promise.reject(new Error('Invalid blob batch.'));
+      let total = 0;
+      for (const entry of entries) {
+        if (!entry || typeof entry.hash !== 'string' || !HASH_RE.test(entry.hash) || !(entry.bytes instanceof Uint8Array)) {
+          return Promise.reject(new Error('Invalid blob.'));
+        }
+        total += entry.bytes.length;
+      }
+      if (total > MAX_BLOB_BATCH_BYTES) return Promise.reject(new Error('Blob batch too large.'));
+      for (const entry of entries) {
+        if (sha256(entry.bytes) !== entry.hash) return Promise.reject(new Error('Blob content does not match its hash.'));
+      }
+      return enqueue(id, async () => {
+        await ensureScanned();
+        const dir = blobDir(id);
+        await mkdir(dir, { recursive: true });
+        for (const { hash, bytes } of entries) {
+          const file = join(dir, hash);
+          if (!existsSync(file)) await writeFileAtomic(file, Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
+        }
+      });
+    },
+
+    // Returns [{ hash, bytes }] for the hashes found (missing ones are left out).
+    async getBlobs(id, hashes) {
+      if (!isValidProjectId(id)) throw new Error('Invalid project id.');
+      if (!Array.isArray(hashes) || hashes.length > MAX_BLOB_BATCH_COUNT * 5) throw new Error('Invalid blob request.');
+      await ensureScanned();
+      const out = [];
+      for (const hash of hashes) {
+        const bytes = await this.readBlob(id, hash);
+        if (bytes) out.push({ hash, bytes: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) });
+      }
+      return out;
+    },
+
+    // One blob's bytes, or null. Used by the appblips://assets protocol handler.
+    async readBlob(id, hash) {
+      if (!isValidProjectId(id) || typeof hash !== 'string' || !HASH_RE.test(hash)) return null;
+      await ensureScanned();
+      for (const dir of [blobDir(id), orphanBlobDir(id)]) {
+        try { return await readFile(join(dir, hash)); } catch { /* try the next */ }
+      }
+      return null;
     },
 
     folderOf(id) {

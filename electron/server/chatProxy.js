@@ -2,6 +2,8 @@
 // Response / fetch) so the same code runs unmodified in the desktop app
 // (electron/main.js answers /api/* in-process via protocol.handle) and as Vite
 // dev-server middleware for local UI work -- one implementation, no drift.
+// Anthropic is the exception to the plain fetch: anthropic.js calls it through
+// the official SDK and hands back an OpenAI-shaped Response.
 //
 // The point of this proxy: the real base URL / API key / model / tuning knobs
 // live only in server-side env vars (OPENAI_*, no VITE_ prefix), so they never
@@ -15,6 +17,7 @@
 
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv } from './providers.js';
 import { relayUpstream } from './relay.js';
+import { callAnthropic } from './anthropic.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -189,7 +192,7 @@ export async function handleChatProxy(request, env) {
 
   let upstream;
   try {
-    upstream = await fetch(url, {
+    upstream = provider.id === 'anthropic' ? await callAnthropic(bodyObj, provider) : await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,

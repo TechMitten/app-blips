@@ -19,6 +19,7 @@ import { handleChatProxy } from './server/chatProxy.js';
 import { describeConfig, formatConfigSummary } from './server/configSummary.js';
 import { resolveProvider } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
+import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
@@ -54,6 +55,9 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
+  // esbuild-wasm (the imported-codebase preview bundler) instantiates its
+  // module with instantiateStreaming, which requires this exact type.
+  '.wasm': 'application/wasm',
 };
 
 protocol.registerSchemesAsPrivileged([{
@@ -160,8 +164,49 @@ async function serveStatic(pathname) {
   }
 }
 
+// Images, fonts and other files of imported codebases, for the sandboxed
+// preview: appblips://assets/<projectId>/<sha256>.<ext>. A separate host, so
+// a different origin from appblips://app: even an SVG opened on its own could
+// not reach the app's storage, and `CSP: sandbox` gives such a document an
+// opaque origin anyway. The preview frame is opaque-origin, so fonts and
+// fetch() need ACAO: *. Only content-addressed blobs of a known project id
+// can be named; folder names never come from the URL.
+const ASSET_PATH_RE = /^\/([A-Za-z0-9_-]{1,128})\/([a-f0-9]{64})(\.[a-z0-9]{1,8})?$/;
+
+async function serveAsset(request, url) {
+  const headers = {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': 'sandbox',
+    'Access-Control-Allow-Origin': '*',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+  };
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers });
+  const match = url.pathname.match(ASSET_PATH_RE);
+  if (!match || !isValidProjectId(match[1]) || !HASH_RE.test(match[2])) return new Response('Not found', { status: 404, headers });
+  const bytes = await projectStore.readBlob(match[1], match[2]);
+  if (!bytes) return new Response('Not found', { status: 404, headers });
+  return new Response(request.method === 'HEAD' ? null : bytes, {
+    status: 200,
+    headers: {
+      ...headers,
+      'Content-Type': mimeTypeFor(`x${match[3] || ''}`),
+      'Content-Length': String(bytes.length),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    },
+  });
+}
+
 async function handleAppRequest(request) {
   const url = new URL(request.url);
+  if (url.host === 'assets') {
+    try {
+      return await serveAsset(request, url);
+    } catch (err) {
+      console.error('[desktop] asset request failed:', err);
+      return new Response('Not found', { status: 404 });
+    }
+  }
   if (url.host !== 'app') return new Response('Not found', { status: 404 });
   try {
     switch (url.pathname) {
@@ -211,6 +256,8 @@ function registerIpc() {
   handle('desktop:projects:save', (row) => projectStore.save(row));
   handle('desktop:projects:delete', (id) => projectStore.remove(id));
   handle('desktop:appData:save', (id, map) => projectStore.saveAppData(id, map));
+  handle('desktop:blobs:put', (id, entries) => projectStore.putBlobs(id, entries));
+  handle('desktop:blobs:get', (id, hashes) => projectStore.getBlobs(id, hashes));
 
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));

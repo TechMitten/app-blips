@@ -26,7 +26,8 @@
               "features/building-apps",
               "features/live-preview",
               "features/editing-apps",
-              "features/exporting"
+              "features/exporting",
+              "features/importing-sites"
             ]
           },
           {

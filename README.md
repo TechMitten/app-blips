@@ -67,10 +67,19 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 
 ### Desktop app (Windows and Linux)
 
-Download the installer for your system from **[Releases](https://github.com/TechMitten/app-blips/releases)**:
+Click the button for your system to download the installer:
 
-- **Windows:** `AppBlips-Setup-<version>.exe`
-- **Linux:** `AppBlips-<version>-x86_64.AppImage` (any distribution) or `AppBlips-<version>-amd64.deb` (Debian, Ubuntu and derivatives)
+<p align="center">
+  <a href="https://github.com/TechMitten/app-blips/releases/download/v0.1.3/AppBlips-Setup-0.1.3.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download_for-Windows-0078D6?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTF2MTFIMHpNMTMgMGgxMXYxMUgxM3pNMCAxM2gxMXYxMUgwek0xMyAxM2gxMXYxMUgxM3oiLz48L3N2Zz4="></a>
+  <a href="https://github.com/TechMitten/app-blips/releases/download/v0.1.3/AppBlips-0.1.3-x86_64.AppImage"><img alt="Download for Linux (AppImage)" src="https://img.shields.io/badge/Download_for-Linux_(AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black"></a>
+  <a href="https://github.com/TechMitten/app-blips/releases/download/v0.1.3/AppBlips-0.1.3-amd64.deb"><img alt="Download for Debian / Ubuntu (.deb)" src="https://img.shields.io/badge/Download_for-Debian_%2F_Ubuntu_(.deb)-E95420?style=for-the-badge&logo=ubuntu&logoColor=white"></a>
+</p>
+
+- **Windows:** run the downloaded `.exe` and follow the installer.
+- **Linux (AppImage):** works on any distribution. Right-click the file → Properties → allow it to run as a program, then double-click it.
+- **Debian / Ubuntu (.deb):** double-click the file to install it with your software center.
+
+All versions and checksums are on the **[Releases](https://github.com/TechMitten/app-blips/releases)** page.
 
 > **Windows 11 note:** Windows 11's Smart App Control can block the installer, because AppBlips isn't code-signed yet. If you see "Smart App Control blocked an app that may be unsafe," see [how to install anyway](https://docs.appblips.com/reference/troubleshooting#windows-installer-is-blocked). The Linux builds aren't affected.
 

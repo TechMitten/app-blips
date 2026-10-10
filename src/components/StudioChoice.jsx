@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import {
-  ArrowRight, CircleHelp, Gamepad2, LibraryBig, MonitorSmartphone,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, LibraryBig, MonitorSmartphone,
   Settings, Smartphone, X,
 } from 'lucide-react';
 import { DOCS_URL } from '../lib/constants';
@@ -53,7 +53,7 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -183,6 +183,31 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   );
                 })}
               </div>
+
+              {/* Importing an existing React + Vite project is the less common
+                  path, so it sits under the studios as one wide row. */}
+              {onImportSite && (
+                <button
+                  type="button"
+                  onClick={onImportSite}
+                  aria-label="Import a site: open a React + Vite project from a .zip"
+                  className={`studio-card group mt-4 flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:mt-5 sm:px-6 ${FOCUS_RING}`}
+                >
+                  <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+                    <FolderUp className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="block text-base font-semibold studio-text-strong">Import a site</span>
+                    <span className="mt-0.5 block text-sm leading-relaxed studio-text-soft">
+                      Got a React + Vite project from your web designer? Open its .zip and keep editing it with AI.
+                    </span>
+                  </span>
+                  <span className="hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
+                    Import .zip
+                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -23,12 +23,17 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+// Imported codebases keep their files in a blob store a JSON file can't
+// carry, so they are left out of backups; they leave as a project .zip
+// (Export in the workspace) instead.
+export const isBackupable = (row) => row?.data?.studioMode !== 'codebase';
+
 export function buildBackup(rows, appDataFor, now = new Date()) {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: now.toISOString(),
-    projects: rows.map((row) => {
+    projects: rows.filter(isBackupable).map((row) => {
       const appData = appDataFor(row.id);
       return { row, appData: appData && Object.keys(appData).length ? appData : null };
     }),
@@ -55,6 +60,7 @@ export function validateBackupRow(row) {
   if (typeof row.name !== 'string' || row.name.length > MAX_NAME_LENGTH) return false;
   if (row.updatedAt != null && (typeof row.updatedAt !== 'string' || Number.isNaN(Date.parse(row.updatedAt)))) return false;
   if (!isPlainObject(row.data)) return false;
+  if (!isBackupable(row)) return false;
   const { versions } = row.data;
   if (versions != null && (!Array.isArray(versions) || !versions.every(validVersion))) return false;
   return true;

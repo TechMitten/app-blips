@@ -25,6 +25,11 @@ if (window.location.protocol === 'appblips:') {
     appData: {
       save: call('desktop:appData:save'),
     },
+    // Content-addressed files of imported codebases (projectStore.putBlobs).
+    blobs: {
+      put: call('desktop:blobs:put'),
+      get: call('desktop:blobs:get'),
+    },
     provider: {
       get: call('desktop:provider:get'),
       set: call('desktop:provider:set'),

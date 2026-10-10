@@ -1,8 +1,9 @@
-import { Brain, Loader2, RotateCcw, User } from 'lucide-react';
+import { Brain, Loader2, RotateCcw, ShieldCheck, User } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
+import { STUDIO_MODES } from '../lib/constants';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -69,6 +70,37 @@ function ReplyRow({ title, className = '', children }) {
   );
 }
 
+// Shown under a finished build while its review offer is open. Reviews spend
+// extra tokens, so the user chooses; the choice is saved with the version.
+function ReviewOffer({ onReview, onSkip }) {
+  return (
+    <div className="pl-[3.25rem] animate-fade-in">
+      <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
+        <p className="flex items-start gap-2 text-[length:var(--chat-label-text)] text-slate-600 dark:text-white/70 leading-relaxed">
+          <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
+          <span>Want the AI to review this and test it in the browser? It can fix problems it finds, but uses extra tokens.</span>
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onReview}
+            className="brand-fill-text rounded-lg px-3 py-1.5 bg-brand text-white text-[length:var(--chat-label-text)] font-semibold hover:bg-brand-hover transition-colors"
+          >
+            Review
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-[length:var(--chat-label-text)] font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            Skip
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatTranscript({
   versions,
   currentVersionIndex,
@@ -83,6 +115,9 @@ export default function ChatTranscript({
   studioMode = 'app',
   chatBottomRef,
   onRewind,
+  canOfferReview = false,
+  onReview,
+  onSkipReview,
 }) {
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   return (
@@ -112,6 +147,9 @@ export default function ChatTranscript({
               <ReplyRow title={`Version ${versionNumber}`}>
                 <Markdown text={ver.reply} />
               </ReplyRow>
+            )}
+            {canOfferReview && ver.reviewOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
+              <ReviewOffer onReview={onReview} onSkip={onSkipReview} />
             )}
           </div>
         );
@@ -158,7 +196,7 @@ export default function ChatTranscript({
             <ReplyRow className="animate-fade-in flex items-center gap-2.5">
               <Loader2 className="animate-spin text-indigo-600 dark:text-white" size={14} />
               <span className="text-[length:var(--chat-label-text)] font-bold">
-                {chatMode === 'ask' ? 'Thinking...' : `Building ${studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'}...`}
+                {chatMode === 'ask' ? 'Thinking...' : `Building ${STUDIO_MODES[studioMode]?.article || 'app'}...`}
               </span>
             </ReplyRow>
           ) : null}

@@ -21,9 +21,10 @@ import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
+import ImportSiteDialog from './components/ImportSiteDialog';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode } from './lib/llm';
+import { generateAppCode, reviewBuild } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
@@ -43,9 +44,9 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -61,10 +62,18 @@ import { injectLoopProtection } from './lib/loopProtection';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
+import useCodebaseBuild from './hooks/useCodebaseBuild';
+import { generateCodebaseEdit } from './lib/codebase/llm';
+import { checkCodebaseBuild, mapPreviewLine } from './lib/codebase/preview';
+import { loadEsbuild } from './lib/codebase/esbuildBrowser';
+import { blobBytes, ensureBlobs, putBlobs } from './lib/blobStore';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
+
+// The user's turn shown in the chat when they accept a review offer.
+const REVIEW_PROMPT = 'Review and test this build';
 
 export default function App({ coldStart = false }) {
   useVisualViewport();
@@ -72,6 +81,7 @@ export default function App({ coldStart = false }) {
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
+  const [askToReview, setAskToReview] = useState(loadAskToReview);
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   // Read once per page load: SplashScreen stamps the time as soon as it shows,
@@ -132,6 +142,41 @@ export default function App({ coldStart = false }) {
   const [studioMode, setStudioMode] = useState(null);
   const studioModeRef = useRef(null);
   studioModeRef.current = studioMode;
+  // Imported React + Vite projects (studioMode 'codebase', lib/codebase/):
+  // `files` holds the whole repo (path -> text) and the current version's
+  // `assets` (path -> blob hash) its images and fonts. `codebaseMeta` is what
+  // the import found (entry file, Tailwind version, ...), saved with the project.
+  const isCodebase = studioMode === 'codebase';
+  const [codebaseMeta, setCodebaseMeta] = useState(null);
+  const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
+  // The route the preview is on (reported by the router shim). Read by the
+  // next rebuild, so edits don't throw the user back to the home page.
+  const codebaseRouteRef = useRef('/');
+  const [codebaseRoute, setCodebaseRoute] = useState('/');
+  // File shown in the code view (codebase mode); null = the entry file.
+  const [codeFile, setCodeFile] = useState(null);
+  // Latest codebase preview build (source map + bundle position), read by
+  // handleRuntimeError to name the project file an error came from.
+  const codebasePreviewRef = useRef(null);
+  // Saved with the project: the import's findings plus the route the preview
+  // was last on (route changes alone don't trigger a save).
+  const codebaseMetaToSave = useMemo(
+    () => (codebaseMeta ? { ...codebaseMeta, route: codebaseRoute } : null),
+    [codebaseMeta, codebaseRoute],
+  );
+  const handleCodebaseRouteChange = useCallback((path) => {
+    if (typeof path !== 'string' || !path.startsWith('/')) return;
+    codebaseRouteRef.current = path;
+    setCodebaseRoute(path);
+  }, []);
+  // Loading a project (or importing one) restores the route it was saved on.
+  const applyCodebaseMeta = useCallback((meta) => {
+    setCodebaseMeta(meta);
+    const route = typeof meta?.route === 'string' && meta.route.startsWith('/') ? meta.route : '/';
+    codebaseRouteRef.current = route;
+    setCodebaseRoute(route);
+    setCodeFile(null);
+  }, []);
   // Website studio's click-to-edit picker state. `selectedElement` is the
   // bridge's element-selected payload; `selectionKey` remounts the editor on
   // every new selection so its local form state resets.
@@ -168,7 +213,7 @@ export default function App({ coldStart = false }) {
   const [activePage, setActivePage] = useState(LANDING_PAGE);
   const generatedCode = getLanding(files);
   const browserFiles = browserReview?.files || files;
-  const activeCode = browserFiles[activePage] ?? getLanding(browserFiles);
+  const pageCode = browserFiles[activePage] ?? getLanding(browserFiles);
   // Read by long-lived callbacks (reload settlement, runtime-error auto-fix).
   const filesRef = useRef(files);
   const activePageRef = useRef(activePage);
@@ -309,12 +354,18 @@ export default function App({ coldStart = false }) {
     loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave,
       setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode,
+      setCodebaseMeta: applyCodebaseMeta,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
     },
   });
+  // The import flow resets the workspace and saves in one go; calling through
+  // this ref after a flushSync uses the fresh saveProject, not one that still
+  // remembers the previous project's id.
+  const saveProjectRef = useRef(saveProject);
+  saveProjectRef.current = saveProject;
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -322,15 +373,16 @@ export default function App({ coldStart = false }) {
     previewMode, setPreviewMode, previewOrientation, handleToggleOrientation,
     orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isBareFill, isAutoZoom,
     handleManualZoom, resetZoom,
-  } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' });
+  } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' || studioMode === 'codebase' });
 
   // Website workspaces live on the desktop preset (a site's primary
   // viewport); the user can still switch devices per-preview. Re-fires when
   // a project loads so opening a website project reasserts it. App and game
   // studios offer no desktop preset (they are touch-device mockups), so a
   // desktop choice persisted from a website workspace snaps back to mobile.
+  // Imported codebases are websites too.
   useEffect(() => {
-    if (studioMode === 'website') {
+    if (studioMode === 'website' || studioMode === 'codebase') {
       setPreviewMode('desktop');
     } else if (studioMode) {
       setPreviewMode((mode) => (mode === 'desktop' ? 'mobile' : mode));
@@ -510,7 +562,12 @@ export default function App({ coldStart = false }) {
     // and shims spliced in above the app's own code; translate back to the
     // source the model edits, or it hunts for line 2483 in a 400-line file.
     const sourceLine = payload?.line ? payload.line - previewLineOffsetRef.current : 0;
-    const promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${sourceLine > 0 ? ` at line ${sourceLine}` : ''}`;
+    let promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${sourceLine > 0 ? ` at line ${sourceLine}` : ''}`;
+    if (studioModeRef.current === 'codebase') {
+      // The line is in the preview bundle; its source map names the project file.
+      const where = mapPreviewLine(codebasePreviewRef.current, sourceLine, payload?.column);
+      promptText = `Fix this runtime error in the preview${codebaseRouteRef.current !== '/' ? ` (on the ${codebaseRouteRef.current} route)` : ''}:\n${errorDetails}${where ? `\nIt happened in ${where.file} at line ${where.line}.` : ''}`;
+    }
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
@@ -550,10 +607,28 @@ export default function App({ coldStart = false }) {
     prevProjectIdRef.current = currentProjectId;
   }, [currentProjectId]);
 
+  // Codebase previews are built from the whole project (useCodebaseBuild);
+  // every other studio shows one stored page.
+  const currentAssets = versions[currentVersionIndex]?.assets;
+  const codebaseBuild = useCodebaseBuild({
+    enabled: isCodebase,
+    files,
+    assets: currentAssets,
+    meta: codebaseMeta,
+    projectId: currentProjectId,
+    routeRef: codebaseRouteRef,
+    reloadKey: previewReloadCount,
+  });
+  const activeCode = isCodebase ? codebaseBuild.html : pageCode;
+  useEffect(() => {
+    codebasePreviewRef.current = codebaseBuild.preview;
+  }, [codebaseBuild.preview]);
+
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
       activeCode
         ? injectPreviewBridge(activeCode, {
+            projectMode: studioModeRef.current === 'codebase',
             initialStorage: browserReviewRef.current?.storage || loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
@@ -668,6 +743,7 @@ export default function App({ coldStart = false }) {
     onElementShortcut: handleElementShortcutTrampoline,
     onElementDrop: handleElementDropTrampoline,
     onNavigatePage: pageNav.navigateToHref,
+    onRouteChange: handleCodebaseRouteChange,
   });
   scrollToHashRef.current = scrollToHash;
   restoreScrollRef.current = restoreScroll;
@@ -932,11 +1008,28 @@ export default function App({ coldStart = false }) {
   const codeViewPage = isGenerating
     ? (codeTabOverride && codeTabs.includes(codeTabOverride) ? codeTabOverride : (autoFollowCode && writingPage) || activePage)
     : activePage;
-  const codePanelCode = isGenerating
-    ? ((codeViewPage === writingPage && (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : streamingPageCode))
-      || files[codeViewPage] || builtPages[codeViewPage]
-      || (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : '') || '')
-    : activeCode;
+  // Imported codebases show one project file at a time, picked from a list.
+  const codebaseCodeFile = isCodebase
+    ? (codeFile && (typeof files[codeFile] === 'string' || currentAssets?.[codeFile]) ? codeFile : (codebaseMeta?.entry || 'index.html'))
+    : null;
+  const codePanelCode = isCodebase
+    ? (files[codebaseCodeFile] ?? '')
+    : isGenerating
+      ? ((codeViewPage === writingPage && (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : streamingPageCode))
+        || files[codeViewPage] || builtPages[codeViewPage]
+        || (codeViewPage === LANDING_PAGE ? streamingGeneratedCode : '') || '')
+      : activeCode;
+  const codebaseFileList = useMemo(
+    () => (isCodebase ? [...Object.keys(files), ...Object.keys(currentAssets || {})].sort() : null),
+    [isCodebase, files, currentAssets],
+  );
+  // Typing a route in the address bar: rebuild the preview opening there.
+  const handleNavigateCodebaseRoute = useCallback((route) => {
+    const next = `/${String(route || '').replace(/^\/+/, '')}`;
+    codebaseRouteRef.current = next;
+    setCodebaseRoute(next);
+    setPreviewReloadCount((n) => n + 1);
+  }, []);
   const handleSelectCodePage = (page) => {
     // Mid-build this only changes what the code view shows; otherwise it is
     // the same page switch as the preview's tabs.
@@ -986,6 +1079,10 @@ export default function App({ coldStart = false }) {
   useEffect(() => {
     localStorage.setItem(ASK_CLARIFYING_QUESTIONS_KEY, askClarifyingQuestions);
   }, [askClarifyingQuestions]);
+
+  useEffect(() => {
+    localStorage.setItem(ASK_TO_REVIEW_KEY, askToReview);
+  }, [askToReview]);
 
   useEffect(() => {
     localStorage.setItem(GAME_ENGINE_ROUTER_KEY, gameEngineRouter);
@@ -1042,7 +1139,7 @@ export default function App({ coldStart = false }) {
       // the build started in (its retry banner lives there) instead of
       // stopping at the studio-choice gate.
       if (!studioModeRef.current) {
-        setStudioMode(job.studioMode === 'website' ? 'website' : job.studioMode === 'game' ? 'game' : 'app');
+        setStudioMode(normalizeStudioMode(job.studioMode));
       }
     } else {
       setInterruptedJob(null);
@@ -1055,6 +1152,57 @@ export default function App({ coldStart = false }) {
     setShowCodeView(value);
     if (!value) setActiveTab('preview');
   };
+
+  // The embedded browser the review drives. It shows the reviewed files in the
+  // preview pane while it runs; the review's finally block puts the user's
+  // page back.
+  const createReviewBrowser = (signal) => {
+    // Native test input and screenshots are hit-tested at the frame, so the
+    // review lock has to step aside while they run.
+    const withBrowserLockLifted = async (run) => {
+      const lock = browserLockRef.current;
+      if (lock) lock.style.pointerEvents = 'none';
+      try { return await run(); } finally { if (lock) lock.style.pointerEvents = ''; }
+    };
+    return createEmbeddedBrowser({
+      signal,
+      mount: (nextFiles) => {
+        const originalPage = browserReviewRef.current?.originalPage || activePage;
+        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage };
+        flushSync(() => {
+          setBrowserReview({ files: nextFiles });
+          setActivePage(LANDING_PAGE);
+          setActiveTab('preview');
+          setMobileView('preview');
+          setPreviewReloadCount((count) => count + 1);
+        });
+      },
+      inspect: (timeout) => requestBrowserAction({ action: 'inspect' }, timeout),
+      request: requestBrowserAction,
+      nativeInput: desktopBridge?.browser?.input && ((args) => withBrowserLockLifted(() => {
+        // afterAction took focus away from the frame; keys and typing need it back.
+        if (args.action !== 'click') iframeRef.current?.focus({ preventScroll: true });
+        return desktopBridge.browser.input(args);
+      })),
+      // Take keyboard focus back from the frame after each test action, so the
+      // user's keystrokes can't reach the app being reviewed.
+      afterAction: () => {
+        if (document.activeElement === iframeRef.current) browserLockRef.current?.focus({ preventScroll: true });
+      },
+      getToken: () => iframeRef.current?.dataset.browserToken,
+      screenshot: () => desktopBridge?.browser?.input
+        ? withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken }))
+        : requestScreenshot(),
+      navigate: (page) => flushSync(() => setActivePage(page)),
+      reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
+    });
+  };
+
+  // The codebase edit loop's build check: the preview bundler run on the
+  // edited files, plus imports missing from package.json.
+  const runCodebaseBuildCheck = async (checkFiles, checkAssets) => (
+    checkCodebaseBuild(await loadEsbuild(), { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files })
+  );
 
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
     e?.preventDefault();
@@ -1123,7 +1271,7 @@ export default function App({ coldStart = false }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify';
+    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
 
     const isSyntaxAutoFix = isAutoFix && autoFixError?.toLowerCase().includes('syntax');
     setGenerationStatus(
@@ -1151,47 +1299,8 @@ export default function App({ coldStart = false }) {
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
 
-    // Native test input and screenshots are hit-tested at the frame, so the
-    // review lock has to step aside while they run.
-    const withBrowserLockLifted = async (run) => {
-      const lock = browserLockRef.current;
-      if (lock) lock.style.pointerEvents = 'none';
-      try { return await run(); } finally { if (lock) lock.style.pointerEvents = ''; }
-    };
-    const browser = createEmbeddedBrowser({
-      signal: abortControllerRef.current.signal,
-      mount: (nextFiles) => {
-        const originalPage = browserReviewRef.current?.originalPage || activePage;
-        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage };
-        flushSync(() => {
-          setBrowserReview({ files: nextFiles });
-          setActivePage(LANDING_PAGE);
-          setActiveTab('preview');
-          setMobileView('preview');
-          setPreviewReloadCount((count) => count + 1);
-        });
-      },
-      inspect: (timeout) => requestBrowserAction({ action: 'inspect' }, timeout),
-      request: requestBrowserAction,
-      nativeInput: desktopBridge?.browser?.input && ((args) => withBrowserLockLifted(() => {
-        // afterAction took focus away from the frame; keys and typing need it back.
-        if (args.action !== 'click') iframeRef.current?.focus({ preventScroll: true });
-        return desktopBridge.browser.input(args);
-      })),
-      // Take keyboard focus back from the frame after each test action, so the
-      // user's keystrokes can't reach the app being reviewed.
-      afterAction: () => {
-        if (document.activeElement === iframeRef.current) browserLockRef.current?.focus({ preventScroll: true });
-      },
-      getToken: () => iframeRef.current?.dataset.browserToken,
-      screenshot: () => desktopBridge?.browser?.input
-        ? withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken }))
-        : requestScreenshot(),
-      navigate: (page) => flushSync(() => setActivePage(page)),
-      reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
-    });
     try {
-      const generationResult = await generateAppCode(currentPrompt, generatedCode, chatHistory, (chunk, kind = 'content') => {
+      const handleChunk = (chunk, kind = 'content') => {
         if (kind === 'thinking_start') {
           setThinkingSince((prev) => prev ?? Date.now());
           return;
@@ -1326,7 +1435,22 @@ export default function App({ coldStart = false }) {
             }
           }
         }
-      }, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, browser);
+      };
+      const generationResult = studioMode === 'codebase'
+        ? await generateCodebaseEdit({
+            prompt: currentPrompt,
+            files,
+            assets: currentAssets || {},
+            meta: codebaseMeta,
+            chatHistory,
+            onChunk: handleChunk,
+            signal: abortControllerRef.current.signal,
+            attachment: attachmentForRequest,
+            isAsk: chatMode === 'ask',
+            isAutoFix,
+            buildCheck: runCodebaseBuildCheck,
+          })
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1340,10 +1464,15 @@ export default function App({ coldStart = false }) {
         editMode: generationResult.editMode,
         editSummary: generationResult.editSummary,
         reply: generationResult.reply || null,
-        qualityReview: generationResult.qualityReview || null,
         chatMode,
         sessionId: currentChatSessionId
       };
+      if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};
+      // Offer a review of a finished build or edit. An auto-fix keeps the
+      // offer its build was showing, since it is still the same build. The
+      // review doesn't handle imported codebases yet.
+      const isBuildVersion = newVersion.editMode === 'full-generation' || newVersion.editMode === 'surgical';
+      if (isBuildVersion && studioMode !== 'codebase' && (isAutoFix ? prevVersion?.reviewOffer === 'pending' : askToReview)) newVersion.reviewOffer = 'pending';
 
       const finalVersions = [...updatedVersions, newVersion];
       setVersions(finalVersions);
@@ -1359,7 +1488,8 @@ export default function App({ coldStart = false }) {
       clearPendingJob();
 
       // Check syntax: verify code is valid and has no unclosed/broken syntax.
-      const syntaxCheck = checkSyntaxFiles(newFiles);
+      // Imported codebases were already build-checked inside their edit loop.
+      const syntaxCheck = studioMode === 'codebase' ? { errors: [] } : checkSyntaxFiles(newFiles);
       const syntaxErrors = (syntaxCheck.errors && syntaxCheck.errors.length > 0)
         ? syntaxCheck.errors
         : (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
@@ -1416,12 +1546,6 @@ export default function App({ coldStart = false }) {
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
     } finally {
-      const reviewSession = browserReviewRef.current;
-      if (reviewSession) {
-        setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);
-        browserReviewRef.current = null;
-        setBrowserReview(null);
-      }
       setIsGenerating(false);
       isGeneratingRef.current = false;
       isEvaluatingNewCodeRef.current = false;
@@ -1446,6 +1570,95 @@ export default function App({ coldStart = false }) {
   };
 
   handleGenerateRef.current = handleGenerate;
+
+  // Runs the opt-in review offered under a finished build. The result is saved
+  // as its own turn so any fixes it makes can be undone like a normal edit.
+  const handleReview = async () => {
+    if (isGeneratingRef.current) return;
+    const updatedVersions = versions.slice(0, currentVersionIndex + 1);
+    const reviewed = updatedVersions[updatedVersions.length - 1];
+    if (reviewed?.reviewOffer !== 'pending') return;
+    // Auto-fixes carry the offer forward, so the earliest pending version in
+    // the run is the build itself: its prompt is what the user asked for.
+    let buildIndex = updatedVersions.length - 1;
+    while (buildIndex > 0 && updatedVersions[buildIndex - 1].reviewOffer === 'pending') buildIndex--;
+    const before = updatedVersions[buildIndex - 1];
+    const chatHistory = updatedVersions.slice(chatContextStartIndex, buildIndex).flatMap((v) => [
+      { role: 'user', content: v.prompt },
+      { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') },
+    ]);
+
+    cancelPendingReload();
+    runtimeErrorRetriesRef.current = 0;
+    pendingRuntimeErrorRef.current = null;
+    setIsAutoFixing(false);
+    isAutoFixingRef.current = false;
+    setAutoFixMessage(null);
+    setIsGenerating(true);
+    isGeneratingRef.current = true;
+    clearStreamingState();
+    setError(null);
+    setSelectedElement(null);
+    setElementEditError(null);
+    setPendingPrompt(REVIEW_PROMPT);
+    // A reply line is what makes the transcript show the live status below it.
+    streamingReplyRef.current = `Checking your ${STUDIO_MODES[studioMode]?.article || 'app'} for problems now.`;
+    setStreamingReply(streamingReplyRef.current);
+    setGenerationStatus('Starting the review…');
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+    try {
+      const review = await reviewBuild({
+        files,
+        previousFiles: before ? versionFiles(before) : {},
+        prompt: updatedVersions[buildIndex].prompt,
+        chatHistory,
+        studioMode,
+        signal,
+        onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
+        browser: createReviewBrowser(signal),
+      });
+      const newVersion = {
+        id: Date.now(),
+        prompt: REVIEW_PROMPT,
+        files: review.files,
+        timestamp: new Date().toLocaleTimeString(),
+        editMode: 'review',
+        reply: review.reply,
+        qualityReview: review.qualityReview,
+        chatMode: 'build',
+        sessionId: currentChatSessionId,
+      };
+      const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, reviewOffer: 'done' }, newVersion];
+      setFiles(review.files);
+      setVersions(finalVersions);
+      setCurrentVersionIndex(updatedVersions.length);
+      saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
+    } catch (err) {
+      // A cancelled review leaves the offer in place so it can be run again.
+      if (err.name !== 'AbortError') setError(err.message);
+    } finally {
+      const reviewSession = browserReviewRef.current;
+      if (reviewSession) {
+        setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);
+        browserReviewRef.current = null;
+        setBrowserReview(null);
+      }
+      setIsGenerating(false);
+      isGeneratingRef.current = false;
+      setPendingPrompt('');
+      setGenerationStatus(null);
+      clearStreamingState();
+    }
+  };
+
+  const handleSkipReview = () => {
+    const reviewed = versions[currentVersionIndex];
+    if (reviewed?.reviewOffer !== 'pending') return;
+    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, reviewOffer: 'skipped' } : v));
+    setVersions(finalVersions);
+    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex });
+  };
 
   const handleCancelGeneration = () => {
     cancelPendingReload();
@@ -1554,6 +1767,84 @@ export default function App({ coldStart = false }) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  };
+
+  // Imported codebase (ImportSiteDialog has already read and checked the zip):
+  // store its images/fonts, start a fresh 'codebase' workspace and save the
+  // project with the import as its first version.
+  const handleImportedSite = async (imported, name) => {
+    const projectId = Date.now().toString();
+    await putBlobs(projectId, imported.blobs);
+    const sessionId = newChatSessionId();
+    const fileCount = Object.keys(imported.files).length + Object.keys(imported.assets).length;
+    const version = {
+      id: Date.now(),
+      prompt: `Imported ${imported.meta.sourceName || 'a site'}`,
+      files: imported.files,
+      assets: imported.assets,
+      timestamp: new Date().toLocaleTimeString(),
+      editMode: 'import',
+      editSummary: 'Imported project',
+      reply: `Imported ${fileCount} files. Your site is ready: describe a change below, like "Change the headline on the home page".`,
+      chatMode: 'build',
+      sessionId,
+    };
+    flushSync(() => {
+      resetCurrentWorkspace('codebase');
+      applyCodebaseMeta(imported.meta);
+      setCurrentChatSessionId(sessionId);
+      setProjectName(name);
+      setFiles(imported.files);
+      setActivePage(LANDING_PAGE);
+      setVersions([version]);
+      setCurrentVersionIndex(0);
+      setHasSentFirstPrompt(true);
+    });
+    await saveProjectRef.current({
+      versionsToSave: [version],
+      indexToSave: 0,
+      nameToSave: name,
+      idToSave: projectId,
+      chatContextStartToSave: 0,
+      sessionIdToSave: sessionId,
+      studioModeToSave: 'codebase',
+      codebaseToSave: imported.meta,
+    });
+    setIsImportSiteOpen(false);
+    setIsStudioChoiceOpen(false);
+  };
+
+  // The project back as a .zip, every file at its original path. The lockfile
+  // is exported as imported, so if the AI changed package.json the user is
+  // told to run `npm install` (not `npm ci`) first.
+  const [exportNotice, setExportNotice] = useState(null);
+  const handleExportCodebase = async () => {
+    if (!isCodebase) return;
+    try {
+      const assets = currentAssets || {};
+      await ensureBlobs(currentProjectId, Object.values(assets));
+      const { exportCodebaseZip, dependencyChanges } = await import('./lib/codebase/export');
+      const baseName = slugifyName(projectName) || 'site';
+      const { zip, missing } = exportCodebaseZip({ files, assets, bytesOf: blobBytes, folder: baseName });
+      const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${baseName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      const original = versions.find((v) => v.editMode === 'import')?.files?.['package.json'];
+      const changes = dependencyChanges(original, files);
+      const notes = [];
+      if (changes.added.length || changes.removed.length) {
+        notes.push(`The AI changed the packages in package.json (${[...changes.added.map((n) => `+${n}`), ...changes.removed.map((n) => `-${n}`)].join(', ')}). Run "npm install" (not "npm ci") before building, so the lockfile catches up.`);
+      }
+      if (missing.length) notes.push(`${missing.length} image or font file(s) could not be found and were left out: ${missing.slice(0, 5).join(', ')}`);
+      setExportNotice(notes.length ? notes.join('\n\n') : null);
+    } catch (err) {
+      setError(`Export failed: ${err?.message || err}`);
+    }
   };
 
   const handleNewApp = () => {
@@ -1728,7 +2019,7 @@ export default function App({ coldStart = false }) {
     if (!interruptedJob) return;
     const jobPrompt = interruptedJob.prompt;
     const jobChatMode = interruptedJob.chatMode || 'build';
-    const jobStudioMode = interruptedJob.studioMode === 'website' ? 'website' : interruptedJob.studioMode === 'game' ? 'game' : 'app';
+    const jobStudioMode = normalizeStudioMode(interruptedJob.studioMode);
     setInterruptedJob(null);
     clearPendingJob();
     setChatMode(jobChatMode);
@@ -1799,6 +2090,11 @@ export default function App({ coldStart = false }) {
   // the studio's default preview device.
   const handleChooseStudio = (mode) => {
     if (!STUDIO_MODES[mode]) return;
+    // There is no empty codebase workspace: the only way in is an import.
+    if (mode === 'codebase') {
+      setIsImportSiteOpen(true);
+      return;
+    }
     resetCurrentWorkspace(mode);
     setIsStudioChoiceOpen(false);
   };
@@ -1893,6 +2189,8 @@ export default function App({ coldStart = false }) {
           onShowCodeViewChange={handleShowCodeViewChange}
           askClarifyingQuestions={askClarifyingQuestions}
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
+          askToReview={askToReview}
+          onAskToReviewChange={setAskToReview}
           gameEngineRouter={gameEngineRouter}
           onGameEngineRouterChange={setGameEngineRouter}
           skipSplash={skipSplash}
@@ -1921,6 +2219,7 @@ export default function App({ coldStart = false }) {
         <SplashScreen skip={skipSplash || !splashDue} />
         <StudioChoice
           onSelectStudio={handleChooseStudio}
+          onImportSite={() => setIsImportSiteOpen(true)}
           onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
@@ -1937,6 +2236,13 @@ export default function App({ coldStart = false }) {
             onLoadProject={handleLoadProjectFromChoice}
             onRenameProject={renameProject}
             onDeleteProject={handleDeleteProject}
+          />
+        )}
+        {isImportSiteOpen && (
+          <ImportSiteDialog
+            onImported={handleImportedSite}
+            onCancel={() => setIsImportSiteOpen(false)}
+            isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
           />
         )}
       </div>
@@ -2004,6 +2310,21 @@ export default function App({ coldStart = false }) {
         </ConfirmModal>
       )}
 
+      {exportNotice && (
+        <ConfirmModal
+          title="Site exported"
+          subtitle="Your project .zip is in your downloads."
+          onClose={() => setExportNotice(null)}
+          onConfirm={() => setExportNotice(null)}
+          confirmLabel="Got it"
+          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
+            <span className="whitespace-pre-line">{exportNotice}</span>
+          </div>
+        </ConfirmModal>
+      )}
       {isNewChatConfirmOpen && (
         <ConfirmModal
           title="Start something new?"
@@ -2117,6 +2438,9 @@ export default function App({ coldStart = false }) {
               studioMode={studioMode}
               onChatModeChange={setChatMode}
               onRewind={setRewindTargetIndex}
+              canOfferReview={askToReview && chatMode === 'build'}
+              onReview={handleReview}
+              onSkipReview={handleSkipReview}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
               starterIdeas={
@@ -2187,8 +2511,9 @@ export default function App({ coldStart = false }) {
               onRedo={handleRedo}
               hasCode={Boolean(getLanding(browserFiles))}
               hasSavedCode={Boolean(generatedCode)}
-              onOpenNewTab={handleOpenInNewTab}
-              onExportHtml={handleExportHtml}
+              onOpenNewTab={isCodebase ? null : handleOpenInNewTab}
+              onExportHtml={isCodebase ? handleExportCodebase : handleExportHtml}
+              exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
               onExportReactProject={canExportReactProject ? handleExportReactProject : null}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
@@ -2197,8 +2522,15 @@ export default function App({ coldStart = false }) {
               browserToken={previewToken}
               isBrowserTesting={Boolean(browserReview)}
               onReloadPreview={handleReloadPreview}
-              pages={pageNames(browserFiles)}
-              codePages={codeTabs}
+              pages={isCodebase ? [] : pageNames(browserFiles)}
+              route={isCodebase ? codebaseRoute : null}
+              onNavigateRoute={isCodebase ? handleNavigateCodebaseRoute : null}
+              isPreviewBuilding={isCodebase && codebaseBuild.building && !codebaseBuild.html}
+              codeFiles={codebaseFileList}
+              codeFile={codebaseCodeFile}
+              codeFileIsBinary={Boolean(isCodebase && currentAssets?.[codebaseCodeFile])}
+              onSelectCodeFile={setCodeFile}
+              codePages={isCodebase ? [] : codeTabs}
               codeActivePage={codeViewPage}
               codeWritingPage={writingPage}
               onSelectCodePage={handleSelectCodePage}

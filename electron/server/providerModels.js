@@ -1,4 +1,6 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { resolveUserProvider, providerLabel } from './providers.js';
+import { listAnthropicModels } from './anthropic.js';
 
 // Shared by the main-process IPC handler and browser settings. Model discovery
 // needs credentials and an endpoint, but does not require a selected model.
@@ -10,6 +12,15 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
     apiKey: input?.id === 'openrouter' && !input?.apiKey ? 'public-catalog' : input?.apiKey,
   });
   if (provider.error) throw new Error(provider.error);
+  if (provider.id === 'anthropic') {
+    try {
+      return (await listAnthropicModels(provider.apiKey, provider.baseUrl, { fetchImpl })).sort((a, b) => a.label.localeCompare(b.label));
+    } catch (err) {
+      if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) throw new Error('Anthropic rejected the API key. Check your key and its permissions.');
+      if (err instanceof Anthropic.APIError && err.status) throw new Error(`Anthropic could not load models (HTTP ${err.status}).`);
+      throw new Error('Could not reach Anthropic to load models.');
+    }
+  }
   const headers = {};
   if (typeof input?.apiKey === 'string' && input.apiKey.trim()) headers.Authorization = `Bearer ${provider.apiKey}`;
   let response;

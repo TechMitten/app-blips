@@ -201,3 +201,88 @@ test('local providers persist and activate without keys, dropping the previous p
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+// --- Imported codebases (studioMode 'codebase'): blobs + project-tree mirror ---
+import { createHash } from 'node:crypto';
+import { utimes } from 'node:fs/promises';
+
+const sha = (text) => createHash('sha256').update(text).digest('hex');
+const blob = (text) => ({ hash: sha(text), bytes: new TextEncoder().encode(text) });
+const codebaseRow = (id, name, trees) => ({
+  id,
+  name,
+  updatedAt: new Date().toISOString(),
+  data: {
+    studioMode: 'codebase',
+    versions: trees.map((tree) => ({ tree, assets: {} })),
+    currentVersionIndex: trees.length - 1,
+  },
+});
+
+test('codebase blobs: content must match its hash; read back by id', () => withStore(async (store) => {
+  await assert.rejects(store.putBlobs('1', [{ hash: sha('a'), bytes: new TextEncoder().encode('b') }]), /does not match/);
+  await assert.rejects(store.putBlobs('../x', [blob('a')]), /Invalid project id/);
+  await assert.rejects(store.putBlobs('1', [{ hash: 'nothex', bytes: new Uint8Array(1) }]), /Invalid blob/);
+  await store.putBlobs('1', [blob('hello'), blob('world')]);
+  const got = await store.getBlobs('1', [sha('hello'), sha('missing')]);
+  assert.equal(got.length, 1);
+  assert.equal(new TextDecoder().decode(got[0].bytes), 'hello');
+  assert.equal(await store.readBlob('1', '../../etc/passwd'), null);
+  assert.equal((await store.readBlob('1', sha('world'))).toString(), 'world');
+}));
+
+test('codebase: orphan blobs move in on first save; site/ is the real project tree', () => withStore(async (store, dir) => {
+  const app = 'export default 1';
+  const pkg = '{"name":"acme"}';
+  await store.putBlobs('42', [blob(app), blob(pkg)]);
+  assert.ok(existsSync(join(dir, 'app-data', 'blobs', '42', sha(app))), 'kept aside before the project has a folder');
+  await store.save(codebaseRow('42', 'Acme Site', [{ 'src/App.tsx': sha(app), 'package.json': sha(pkg) }]));
+  const folder = join(store.root, 'Acme Site');
+  assert.ok(existsSync(join(folder, 'blobs', sha(app))));
+  assert.ok(!existsSync(join(dir, 'app-data', 'blobs', '42')), 'orphan blobs adopted');
+  assert.equal(await readFile(join(folder, 'site', 'src', 'App.tsx'), 'utf8'), app);
+  assert.equal(await readFile(join(folder, 'site', 'package.json'), 'utf8'), pkg);
+  // project.json holds hashes, not file contents
+  const saved = await readFile(join(folder, 'project.json'), 'utf8');
+  assert.ok(!saved.includes('export default 1'));
+
+  // Next version drops App.tsx: only files AppBlips wrote are removed.
+  await mkdir(join(folder, 'site', 'node_modules', 'react'), { recursive: true });
+  await writeFile(join(folder, 'site', 'node_modules', 'react', 'index.js'), 'user installed');
+  const page = 'export const About = 1';
+  await store.putBlobs('42', [blob(page)]);
+  await store.save(codebaseRow('42', 'Acme Site', [
+    { 'src/App.tsx': sha(app), 'package.json': sha(pkg) },
+    { 'src/About.tsx': sha(page), 'package.json': sha(pkg) },
+  ]));
+  assert.ok(!existsSync(join(folder, 'site', 'src', 'App.tsx')));
+  assert.equal(await readFile(join(folder, 'site', 'src', 'About.tsx'), 'utf8'), page);
+  assert.equal(await readFile(join(folder, 'site', 'node_modules', 'react', 'index.js'), 'utf8'), 'user installed');
+}));
+
+test('codebase mirror refuses paths that escape the site folder', () => withStore(async (store) => {
+  const text = 'x';
+  await store.putBlobs('7', [blob(text)]);
+  await store.save(codebaseRow('7', 'Evil', [{ '../../outside.txt': sha(text), 'ok.txt': sha(text) }]));
+  const folder = join(store.root, 'Evil');
+  assert.ok(existsSync(join(folder, 'site', 'ok.txt')));
+  assert.ok(!existsSync(join(store.root, 'outside.txt')));
+  assert.ok(!existsSync(join(folder, 'outside.txt')));
+}));
+
+test('codebase blob GC deletes only old unreferenced blobs', () => withStore(async (store) => {
+  const keep = 'keep';
+  const old = 'old';
+  const fresh = 'fresh';
+  await store.save(codebaseRow('9', 'GC', [{ 'a.txt': sha(keep) }]));
+  await store.putBlobs('9', [blob(keep), blob(old), blob(fresh)]);
+  const blobs = join(store.root, 'GC', 'blobs');
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  await utimes(join(blobs, sha(old)), twoHoursAgo, twoHoursAgo);
+  // A new store instance has no GC throttle history.
+  const again = createProjectStore({ root: store.root, orphanDir: join(store.root, '..', 'app-data') });
+  await again.save(codebaseRow('9', 'GC', [{ 'a.txt': sha(keep) }]));
+  assert.ok(existsSync(join(blobs, sha(keep))));
+  assert.ok(existsSync(join(blobs, sha(fresh))), 'young unreferenced blob kept (its row may not be saved yet)');
+  assert.ok(!existsSync(join(blobs, sha(old))));
+}));

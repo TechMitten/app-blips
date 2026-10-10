@@ -36,6 +36,7 @@ export default function usePreviewBridge({
   onElementShortcut,
   onElementDrop,
   onNavigatePage,
+  onRouteChange,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
   const onReadyRef = useRef(onReady);
@@ -50,6 +51,7 @@ export default function usePreviewBridge({
   const onElementShortcutRef = useRef(onElementShortcut);
   const onElementDropRef = useRef(onElementDrop);
   const onNavigatePageRef = useRef(onNavigatePage);
+  const onRouteChangeRef = useRef(onRouteChange);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
   // ref instead of closing over the prop so a `load` handler attached by a
@@ -89,6 +91,7 @@ export default function usePreviewBridge({
     onElementShortcutRef.current = onElementShortcut;
     onElementDropRef.current = onElementDrop;
     onNavigatePageRef.current = onNavigatePage;
+    onRouteChangeRef.current = onRouteChange;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
     dragEnabledRef.current = dragEnabled;
@@ -216,6 +219,12 @@ export default function usePreviewBridge({
         // resolves to one of the project's own pages.
         const href = data.payload?.href;
         if (typeof href === 'string' && href.length < 500 && onNavigatePageRef.current) onNavigatePageRef.current(href);
+      }
+      else if (data.type === 'route-changed') {
+        // Imported codebases: the router shim reports each client-side route.
+        // Untrusted, so only a plain path of sane length is passed on.
+        const path = data.payload?.path;
+        if (typeof path === 'string' && path.length < 2000 && path.startsWith('/') && onRouteChangeRef.current) onRouteChangeRef.current(path);
       }
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });

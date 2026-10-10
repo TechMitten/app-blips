@@ -19,7 +19,7 @@ try {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('tab', { name: 'API', exact: true }).click();
   const provider = page.locator('select:has(option[value="openrouter"])');
-  for (const id of ['openrouter', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama']) {
+  for (const id of ['openrouter', 'anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama']) {
     await provider.selectOption(id);
     if (['openai', 'gemini', 'deepseek'].includes(id)) {
       await page.getByText('Enter your API key to load models, or enter a model ID manually.', { exact: true }).waitFor();

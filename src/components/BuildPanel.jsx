@@ -34,6 +34,9 @@ export default function BuildPanel({
   isHistoryOpen = false,
   onToggleHistory,
   onRewind,
+  canOfferReview = false,
+  onReview,
+  onSkipReview,
   chatBottomRef,
   interruptedJob = null,
   onRetryInterruptedJob,
@@ -174,6 +177,9 @@ export default function BuildPanel({
                 studioMode={studioMode}
                 chatBottomRef={chatBottomRef}
                 onRewind={onRewind}
+                canOfferReview={canOfferReview}
+                onReview={onReview}
+                onSkipReview={onSkipReview}
               />
             </>
           )}

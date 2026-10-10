@@ -6,6 +6,25 @@ import { migratePreviewStorage, clearPreviewStorage } from '../lib/previewStorag
 import { migrateChatSessions } from '../lib/chatSessions';
 import { clearStartFresh, isStartFresh } from '../lib/config';
 import { LANDING_PAGE, versionFiles } from '../lib/pages';
+import { normalizeStudioMode } from '../lib/constants';
+import { packVersions, referencedTextHashes, unpackVersions } from '../lib/codebase/versions';
+import { blobText, ensureBlobs, putBlobs } from '../lib/blobStore';
+
+// Imported codebases save versions as file-hash trees with the text in the
+// blob store (lib/codebase/versions.js). Loading one fills the blob cache
+// first so unpacking stays synchronous. Returns the versions unchanged for
+// every other studio.
+async function hydrateVersions(projectId, data) {
+  if (data?.studioMode !== 'codebase') return data?.versions || [];
+  await ensureBlobs(projectId, referencedTextHashes(data.versions));
+  const { versions, missing } = unpackVersions(data.versions, blobText);
+  if (missing.length) console.warn(`[projects] ${missing.length} file(s) of project ${projectId} are missing from its blobs folder`);
+  return versions;
+}
+
+// Codebase saves are async (hash + write blobs before the row), so they run
+// one at a time: two fire-and-forget saves must land in the order they were made.
+let codebaseSaveChain = Promise.resolve();
 
 // Project persistence: the saved-apps list, load/save/rename/delete, the
 // auto-save-name debounce, and the resume-last-project effect. AppBlips is
@@ -18,8 +37,8 @@ import { LANDING_PAGE, versionFiles } from '../lib/pages';
 // all stable React state setters.
 export default function useProjects({ workspace }) {
   const {
-    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode,
-    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta,
     setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState
   } = workspace;
@@ -52,7 +71,7 @@ export default function useProjects({ workspace }) {
       // Upgrade legacy rows (no per-version session ids) to the grouped
       // chat-session model using the old single cutoff.
       const migrated = migrateChatSessions(
-        projectData.versions, projectData.chatContextStartIndex, projectData.currentChatSessionId
+        await hydrateVersions(projectId, projectData), projectData.chatContextStartIndex, projectData.currentChatSessionId
       );
 
       clearStreamingState();
@@ -61,7 +80,8 @@ export default function useProjects({ workspace }) {
       setCurrentVersionIndex(projectData.currentVersionIndex ?? -1);
       setChatContextStartIndex(Math.min(projectData.chatContextStartIndex ?? 0, migrated.versions.length));
       setCurrentChatSessionId(migrated.currentChatSessionId);
-      setStudioMode(projectData.studioMode === 'website' ? 'website' : projectData.studioMode === 'game' ? 'game' : 'app');
+      setStudioMode(normalizeStudioMode(projectData.studioMode));
+      setCodebaseMeta(projectData.codebase || null);
       const currentVersion = migrated.versions[projectData.currentVersionIndex];
       if (currentVersion) {
         setFiles(versionFiles(currentVersion));
@@ -73,7 +93,7 @@ export default function useProjects({ workspace }) {
     } catch (err) {
       console.error("Error loading project by ID:", err);
     }
-  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -83,21 +103,24 @@ export default function useProjects({ workspace }) {
       idToSave = currentProjectId,
       chatContextStartToSave = chatContextStartIndex,
       sessionIdToSave = currentChatSessionId,
-      studioModeToSave = studioMode
+      studioModeToSave = studioMode,
+      codebaseToSave = codebaseMeta
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
 
     const projectId = idToSave || currentProjectId || Date.now().toString();
 
-    try {
+    const mode = normalizeStudioMode(studioModeToSave);
+    const writeRow = (savedVersions) => {
       const projectData = {
-        versions: versionsToSave,
+        versions: savedVersions,
         currentVersionIndex: indexToSave,
         chatContextStartIndex: Math.min(chatContextStartToSave ?? 0, versionsToSave.length),
         currentChatSessionId: sessionIdToSave ?? null,
-        studioMode: studioModeToSave === 'website' ? 'website' : studioModeToSave === 'game' ? 'game' : 'app',
+        studioMode: mode,
       };
+      if (mode === 'codebase' && codebaseToSave) projectData.codebase = codebaseToSave;
 
       const rows = readProjectRows();
       const existingIndex = rows.findIndex(r => r.id === projectId);
@@ -114,6 +137,20 @@ export default function useProjects({ workspace }) {
         rows.push(row);
       }
       writeProjectRows(rows);
+    };
+
+    try {
+      if (mode === 'codebase') {
+        const run = codebaseSaveChain.then(async () => {
+          const { versions: packed, texts } = await packVersions(versionsToSave);
+          await putBlobs(projectId, texts);
+          writeRow(packed);
+        });
+        codebaseSaveChain = run.catch(() => {});
+        await run;
+      } else {
+        writeRow(versionsToSave);
+      }
 
       if (!currentProjectId || currentProjectId !== projectId) {
         migratePreviewStorage(currentProjectId || 'draft', projectId);
@@ -124,7 +161,7 @@ export default function useProjects({ workspace }) {
     } catch (err) {
       console.error("Error saving project:", err);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, chatContextStartIndex, currentChatSessionId, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, codebaseMeta, chatContextStartIndex, currentChatSessionId, loadUserProjects, setCurrentProjectId]);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -178,18 +215,26 @@ export default function useProjects({ workspace }) {
   }, []);
 
   // Loading a project straight from the saved-apps list.
-  const loadProject = (project) => {
+  const loadProject = async (project) => {
+    let hydrated;
+    try {
+      hydrated = await hydrateVersions(project.id, project);
+    } catch (err) {
+      console.error('Error loading project files:', err);
+      return;
+    }
     clearStreamingState();
     setCurrentProjectId(project.id);
     setProjectName(project.name);
     const migrated = migrateChatSessions(
-      project.versions, project.chatContextStartIndex, project.currentChatSessionId
+      hydrated, project.chatContextStartIndex, project.currentChatSessionId
     );
     setVersions(migrated.versions);
     setCurrentVersionIndex(project.currentVersionIndex);
     setChatContextStartIndex(Math.min(project.chatContextStartIndex ?? 0, migrated.versions.length));
     setCurrentChatSessionId(migrated.currentChatSessionId);
-    setStudioMode(project.studioMode === 'website' ? 'website' : project.studioMode === 'game' ? 'game' : 'app');
+    setStudioMode(normalizeStudioMode(project.studioMode));
+    setCodebaseMeta(project.codebase || null);
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));
       setActivePage(LANDING_PAGE);

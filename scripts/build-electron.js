@@ -12,6 +12,8 @@ const bundle = await rolldown({
   external: ['electron'],
   logLevel: 'warn',
 });
-await bundle.write({ file: 'dist-electron/main.cjs', format: 'cjs' });
+// codeSplitting: false keeps it one file even though dependencies (the
+// Anthropic SDK) contain dynamic imports.
+await bundle.write({ file: 'dist-electron/main.cjs', format: 'cjs', codeSplitting: false });
 await bundle.close();
 console.log('Built dist-electron/main.cjs');

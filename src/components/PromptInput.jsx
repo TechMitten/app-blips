@@ -136,7 +136,7 @@ export default function PromptInput({
   };
 
   const isWebsite = studioMode === 'website';
-  const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : 'App';
+  const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : studioMode === 'codebase' ? 'Site' : 'App';
 
   const submitLabel = isGenerating
     ? (chatMode === 'ask' ? 'Thinking...' : (isClarifying ? 'Answering...' : (hasCode ? `Updating ${noun}...` : `Building ${noun}...`)))

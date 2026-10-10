@@ -101,6 +101,16 @@ export default function PreviewPane({
   codeActivePage = 'index.html',
   codeWritingPage = null,
   onSelectCodePage,
+  // Imported codebases (studioMode 'codebase'): the preview shows a client
+  // route instead of pages, and the code view lists the project's files.
+  exportTip,
+  route = null,
+  onNavigateRoute = null,
+  isPreviewBuilding = false,
+  codeFiles = null,
+  codeFile = null,
+  codeFileIsBinary = false,
+  onSelectCodeFile,
 }) {
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
@@ -324,7 +334,7 @@ export default function PreviewPane({
             </button>
           )}
 
-          {hasSavedCode && (
+          {hasSavedCode && onOpenNewTab && (
             <button
               onClick={onOpenNewTab}
               disabled={isBrowserTesting}
@@ -360,7 +370,7 @@ export default function PreviewPane({
               disabled={isBrowserTesting}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
               aria-label="Export app"
-              data-tip="Download this app as an HTML file"
+              data-tip={exportTip || 'Download this app as an HTML file'}
               data-tip-align="end"
             >
               <Download size={16} />
@@ -409,7 +419,7 @@ export default function PreviewPane({
       )}
 
       {activeTab === 'preview' && (
-        <BrowserBar {...{ activePage, pages, onSelectPage, hasCode, navState }}
+        <BrowserBar {...{ activePage, pages, onSelectPage, hasCode, navState, route, onNavigateRoute }}
           onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview}
           isTesting={isBrowserTesting} status={generationStatus} onStop={onCancelGeneration} />
       )}
@@ -440,8 +450,8 @@ export default function PreviewPane({
             srcDoc={previewSrcDoc}
             browserToken={browserToken}
             isBrowserTesting={isBrowserTesting}
-            isGenerating={isGenerating && !isBrowserTesting}
-            generationStatus={generationStatus}
+            isGenerating={(isGenerating || isPreviewBuilding) && !isBrowserTesting}
+            generationStatus={generationStatus || (isPreviewBuilding ? 'Building the preview…' : null)}
             thinkingSince={thinkingSince}
             streamingReasoning={streamingReasoning}
             liveCodeRef={liveCodeRef}
@@ -463,6 +473,10 @@ export default function PreviewPane({
         ) : (
           <CodeView
             code={code}
+            files={codeFiles}
+            activeFile={codeFile}
+            activeFileIsBinary={codeFileIsBinary}
+            onSelectFile={onSelectCodeFile}
             pages={codePages}
             activePage={codeActivePage}
             writingPage={codeWritingPage}

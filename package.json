@@ -24,8 +24,11 @@
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "acorn": "^8.18.0",
     "acorn-jsx": "^5.3.2",
+    "esbuild-wasm": "^0.28.2",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

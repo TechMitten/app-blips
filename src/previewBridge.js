@@ -73,6 +73,9 @@ const BRIDGE_SOURCE = `(function () {
   'use strict';
 
   var TOKEN = '__ORION_TOKEN__';
+  // Imported codebases (studioMode 'codebase') are single-page React apps
+  // whose router owns in-app links; see onLinkClick.
+  var PROJECT_MODE = __ORION_PROJECT_MODE__;
   var CHANNEL = '${BRIDGE_CHANNEL}';
   var VERSION = ${BRIDGE_PROTOCOL_VERSION};
   ${BROWSER_RUNTIME_SOURCE}
@@ -1637,6 +1640,10 @@ const BRIDGE_SOURCE = `(function () {
       a.setAttribute('rel', 'noopener noreferrer');
       return;
     }
+    // In an imported codebase a relative link is a client-side route: let it
+    // reach the app's router (react-router's <Link> handles it and calls
+    // preventDefault); onUnhandledRouteClick catches plain <a href="/x">.
+    if (PROJECT_MODE) return;
     e.preventDefault();
     // A relative link may be an internal page ("about.html", "/pricing").
     // The parent owns the page set and swaps the document itself; it ignores
@@ -1646,6 +1653,26 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
   document.addEventListener('click', onLinkClick, true);
+  // Bubble phase, after the app's own handlers: a relative link nobody
+  // handled would navigate the frame away, so cancel it and hand it to the
+  // router shim (codebase/routerShim.js) when there is one.
+  function onUnhandledRouteClick(e) {
+    if (e.defaultPrevented || editingActive) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href], area[href]') : null;
+    if (!a) return;
+    var raw = (a.getAttribute('href') || '').trim();
+    if (!raw || raw.charAt(0) === '#' || /^[a-z][a-z0-9+.-]*:/i.test(raw) || /^[/][/]/.test(raw)) return;
+    e.preventDefault();
+    if (typeof window.__appblipsRouterNavigate === 'function') {
+      try { window.__appblipsRouterNavigate(raw); } catch (err) { /* router rejected it */ }
+    }
+  }
+  if (PROJECT_MODE) {
+    window.addEventListener('click', onUnhandledRouteClick);
+    window.__appblipsReportRoute = function (path) {
+      post('route-changed', { path: String(path || '/').slice(0, 2000) });
+    };
+  }
   // A form with no real destination would navigate the frame to a blank page.
   // Cancel the native submit; the app's own submit handlers still run.
   document.addEventListener('submit', function (e) {
@@ -2400,7 +2427,7 @@ const SCRIPT_OPEN = '<script data-orion-bridge="true">';
 // Assembled so this module's own source never contains the literal sequence.
 const SCRIPT_CLOSE = '</' + 'script>';
 
-const buildTag = (token, initialStorage, touchEnabled) => {
+const buildTag = (token, initialStorage, touchEnabled, projectMode) => {
   const safeData = JSON.stringify(
     initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
   ).replace(/</g, '\\u003c');
@@ -2408,7 +2435,8 @@ const buildTag = (token, initialStorage, touchEnabled) => {
   const source = BRIDGE_SOURCE
     .replace('__ORION_TOKEN__', token)
     .replace('__ORION_INITIAL_STORAGE__', safeData)
-    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false');
+    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false')
+    .replace('__ORION_PROJECT_MODE__', projectMode ? 'true' : 'false');
 
   if (source.indexOf('</') !== -1) {
     throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');
@@ -2427,12 +2455,14 @@ const buildTag = (token, initialStorage, touchEnabled) => {
  * anything touches `localStorage`.
  *
  * @param {string} code
- * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean }} [options]
+ * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, projectMode?: boolean }} [options]
  *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
  *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
  *   initial state, so the touch-scroll simulation and scrollbar hiding are
  *   active from the frame's first paint without waiting for a configure
  *   message that can lose the load race on srcdoc documents.
+ *   `projectMode` is for imported codebases: relative links are left to the
+ *   app's router and route changes are posted as 'route-changed'.
  * @returns {{ srcDoc: string, token: string }}
  */
 export const injectPreviewBridge = (code, options = {}) => {
@@ -2445,7 +2475,7 @@ export const injectPreviewBridge = (code, options = {}) => {
   code = injectLoopProtection(compileJsxScripts(code));
 
   const initialStorage = options?.initialStorage;
-  const tag = buildTag(token, initialStorage, options?.touchEnabled === true);
+  const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true);
   const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
 
   // A leading <!DOCTYPE html> needs no special case -- it falls out of this

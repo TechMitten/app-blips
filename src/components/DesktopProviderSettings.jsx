@@ -184,8 +184,8 @@ export default function DesktopProviderSettings({ guardRef }) {
           {draft.id === 'openai' && <p className="text-xs text-slate-500">
             Choose an OpenAI model that supports tool calling through Chat Completions.
           </p>}
-          {['openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
-            <a href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://platform.deepseek.com/api_keys'} target="_blank" rel="noopener noreferrer">Create a {providerLabel(draft.id)} API key</a>.
+          {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
+            <a href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} target="_blank" rel="noopener noreferrer">Create a {providerLabel(draft.id)} API key</a>.
           </p>}
           {!local && saved?.weakEncryption && (
             <p className="flex items-start gap-1.5 text-xs text-amber-600 leading-snug">

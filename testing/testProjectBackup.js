@@ -2,7 +2,7 @@
 // Run: node --test testing/testProjectBackup.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildBackup, backupFileName, parseBackup, mergeBackup } from '../src/lib/projectBackup.js';
+import { buildBackup, backupFileName, parseBackup, mergeBackup, validateBackupRow } from '../src/lib/projectBackup.js';
 
 const row = (id, updatedAt, files = { 'index.html': '<p>hi</p>' }) => ({
   id, name: `App ${id}`, updatedAt, data: { versions: [{ files }], currentVersionIndex: 0 },
@@ -62,4 +62,14 @@ test('merge adds new apps and replaces only with newer copies', () => {
   ]);
   assert.deepEqual(result.appData, [{ id: '2', map: { fresh: '1' } }]);
   assert.equal(existing[1].updatedAt, '2026-03-01T00:00:00.000Z'); // input not mutated
+});
+
+test('imported codebases are left out of backups and refused on import', () => {
+  // Their files live in a blob store a JSON backup can't carry.
+  const site = { id: 's1', name: 'Site', updatedAt: new Date().toISOString(), data: { studioMode: 'codebase', versions: [{ tree: { 'src/App.tsx': 'a'.repeat(64) } }] } };
+  const app = { id: 'a1', name: 'App', updatedAt: new Date().toISOString(), data: { versions: [{ files: { 'index.html': '<h1>x</h1>' } }] } };
+  const backup = buildBackup([site, app], () => null);
+  assert.deepEqual(backup.projects.map((p) => p.row.id), ['a1']);
+  assert.equal(validateBackupRow(site), false);
+  assert.equal(validateBackupRow(app), true);
 });

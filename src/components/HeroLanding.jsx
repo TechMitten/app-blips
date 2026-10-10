@@ -61,7 +61,7 @@ export default function HeroLanding({
     saveHeroRailCollapsed(next);
   };
 
-  const copy = COPY[chatMode === 'ask' ? 'ask' : studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'];
+  const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
 
   return (
     <div className="hero-landing dark force-dark flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row">

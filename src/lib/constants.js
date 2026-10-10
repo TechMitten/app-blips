@@ -52,7 +52,20 @@ export const STUDIO_MODES = {
     defaultPreviewMode: 'mobile',
     description: 'Playable browser games — canvas and Phaser engines, physics, scores and sound — with touch and keyboard controls.',
   },
+  // An imported React + Vite project (src/lib/codebase/): real files and
+  // folders instead of generated HTML pages. Only created by importing a .zip.
+  codebase: {
+    key: 'codebase',
+    label: 'Imported site',
+    article: 'site',
+    untitledName: 'Imported Site',
+    defaultPreviewMode: 'desktop',
+    description: 'A React + Vite project imported from a .zip — keeps its real files, exports back as a project.',
+  },
 };
+
+// A saved or interrupted job's studioMode, defaulting unknown values to 'app'.
+export const normalizeStudioMode = (mode) => (Object.hasOwn(STUDIO_MODES, mode) ? mode : 'app');
 
 export const HTML_STREAM_START_RE = /```html|<!DOCTYPE html|<html[\s>]/i;
 

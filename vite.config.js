@@ -124,6 +124,9 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Only imported codebases use these, through dynamic import(), so
+            // keep them out of the eager vendor chunk.
+            if (id.includes('esbuild-wasm') || id.includes('fflate')) return 'vendor_codebase';
             if (id.includes('lucide-react')) return 'vendor_icons';
             if (id.includes('react')) return 'vendor_react';
             return 'vendor';

@@ -16,7 +16,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (building reasoning, clarifying questions) and Data (project backup and
+// AI (building reasoning, clarifying questions, review offers) and Data (project backup and
 // the desktop projects folder). AppBlips is a desktop, single-user app, so
 // there is no account or billing tab.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
@@ -80,6 +80,8 @@ export default function SettingsModal({
   onShowCodeViewChange,
   askClarifyingQuestions,
   onAskClarifyingQuestionsChange,
+  askToReview,
+  onAskToReviewChange,
   gameEngineRouter,
   onGameEngineRouterChange,
   skipSplash,
@@ -347,6 +349,9 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
+              </SettingRow>
+              <SettingRow id="set-ask-review" title="Offer a review after each build" description="After every build or edit, ask whether the AI should review the code and test it in the browser. A review can use a lot of extra tokens, so it only runs when you say yes. Off skips the question and the review.">
+                <Switch checked={askToReview} onChange={onAskToReviewChange} labelledBy="set-ask-review" />
               </SettingRow>
               <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />

@@ -67,6 +67,20 @@ export const loadAskClarifyingQuestions = () => {
   }
 };
 
+export const ASK_TO_REVIEW_KEY = 'orion-ask-to-review';
+
+// Boolean: whether each finished build or edit offers an AI review (code check
+// plus browser test). A review can take dozens of model calls, so it only runs
+// when the user says yes; off means no offer and no review. On by default;
+// only an explicit 'false' turns it off.
+export const loadAskToReview = () => {
+  try {
+    return safeStorage('local')?.getItem(ASK_TO_REVIEW_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 export const GAME_ENGINE_ROUTER_KEY = 'orion-game-engine-router';
 
 // Boolean: whether new games get an engine (Phaser, Three.js or none) picked

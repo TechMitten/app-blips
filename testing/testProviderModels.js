@@ -12,7 +12,8 @@ const catalog = () => new Response(JSON.stringify({ data: [
   { id: 'z', name: 'Zulu' }, { id: 'a', name: 'Alpha' }, { id: 'z', name: 'Zulu' }, { id: 'bare' }, { name: 'invalid' },
 ] }));
 
-for (const { id, baseUrl, local } of USER_PROVIDER_OPTIONS) {
+// Anthropic lists models through its SDK (tested in testAnthropic.js).
+for (const { id, baseUrl, local } of USER_PROVIDER_OPTIONS.filter((option) => option.id !== 'anthropic')) {
   test(`${id} discovers models without a selected model`, async () => {
     const models = await listProviderModels({ id, apiKey: local ? '' : 'test-key', baseUrl: local ? 'http://127.0.0.1:9999/v1/' : 'https://evil.invalid' }, {
       fetchImpl: async (url, options) => {

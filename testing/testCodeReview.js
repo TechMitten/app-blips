@@ -1,6 +1,6 @@
 // Run: node testing/testCodeReview.js
 import assert from 'node:assert/strict';
-import { reviewGeneratedCode, MAX_CODE_REVIEW_TURNS, MAX_BROWSER_REVIEW_TURNS, BROWSER_WRAP_UP_TURNS } from '../src/lib/codeReview.js';
+import { reviewGeneratedCode, MAX_CODE_REVIEW_TURNS, MAX_BROWSER_REVIEW_TURNS, BROWSER_WRAP_UP_TURNS, MAX_REVIEW_EDIT_ROUNDS } from '../src/lib/codeReview.js';
 
 const doc = (body) => `<!DOCTYPE html><html><head><title>Test</title></head><body>${body}</body></html>`;
 const original = { 'index.html': doc('<button>Save</button>') };
@@ -63,7 +63,7 @@ assert.equal(test.result.files, original, 'broken page link is rolled back');
 
 test = await run(Array.from({ length: MAX_CODE_REVIEW_TURNS }, () => verdict(false, ['Save is incomplete'])));
 assert.equal(test.result.acceptable, false);
-assert.match(test.result.warning, /limit/);
+assert.match(test.result.warning, /ran out of turns\. Unresolved: Save is incomplete/);
 assert.equal(test.requests.at(-1).tools.length, 1, 'last call only allows a verdict');
 
 test = await run([{ tool_calls: [call('submit_code_review', { acceptable: 'yes', findings: [] })] }, verdict(true)]);
@@ -111,4 +111,24 @@ assert.equal(test.result.files, original, 'wrap-up edits are refused');
 assert.ok(!test.requests[wrapStart].tools.some((tool) => tool.function.name === 'apply_surgical_edits'));
 test = await run([verdict(false, ['Missing label']), verdict(true)]);
 assert.ok(!test.requests[1].messages.at(-1).content.includes('browser'), 'no browser tests requested without a browser');
+// A positive verdict with minor notes passes instead of looping on nitpicks.
+test = await run([verdict(true, ['Could add a hover effect'])]);
+assert.equal(test.result.acceptable, true);
+assert.equal(test.requests.length, 1);
+// Edit rounds are capped so the review converges instead of tinkering until
+// the turn cap.
+test = await run([
+  ...Array.from({ length: MAX_REVIEW_EDIT_ROUNDS }, (_, i) => ({ tool_calls: [edit(i ? `Save ${i}` : 'Save', `Save ${i + 1}`)] })),
+  { tool_calls: [edit(`Save ${MAX_REVIEW_EDIT_ROUNDS}`, 'Too many')] },
+  verdict(true),
+]);
+assert.equal(test.result.acceptable, true);
+assert.match(test.result.files['index.html'], new RegExp(`Save ${MAX_REVIEW_EDIT_ROUNDS}<`));
+assert.ok(!test.requests[MAX_REVIEW_EDIT_ROUNDS].tools.some((tool) => tool.function.name === 'apply_surgical_edits'), 'edits close after the last round');
+// The cap warning says why the review stopped.
+test = await run(Array.from({ length: MAX_BROWSER_REVIEW_TURNS }, () => verdict(true)), { browser: wrapBrowser });
+assert.match(test.result.warning, /not tested in the browser/);
+test = await run(Array.from({ length: MAX_CODE_REVIEW_TURNS }, () => verdict(false)));
+assert.match(test.result.warning, /did not approve/);
+assert.match(test.requests[1].messages.at(-1).content, /without naming a problem/);
 console.log('testCodeReview: ok');

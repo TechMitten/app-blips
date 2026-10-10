@@ -87,7 +87,7 @@ function WorkflowVisual() {
 
 function SetupVisual({ onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
-  const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : 'https://openrouter.ai/settings/keys';
+  const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : provider.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://openrouter.ai/settings/keys';
   const current = !model.trim() ? 2 : !provider.local && !apiKey.trim() ? 3 : 0;
 
   return (
@@ -232,7 +232,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
     label: 'Final setup',
     eyebrow: 'One last step',
     title: <>Choose the AI that <span className="onboarding-title-accent">builds with you.</span></>,
-    body: 'Connect through OpenRouter, OpenAI, Gemini, or DeepSeek, or use LM Studio or Ollama on this computer. You can change this later in Settings.',
+    body: 'Connect through OpenRouter, Anthropic, OpenAI, Gemini, or DeepSeek, or use LM Studio or Ollama on this computer. You can change this later in Settings.',
   } : slides[step];
   // Tell the user exactly what is still missing, so a disabled "Start building"
   // never looks like a dead end.

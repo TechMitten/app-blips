@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Brand Display";
+  src: url("./assets/fonts/brand.woff2") format("woff2");
+}
+
+@theme {
+  --color-brand: oklch(0.55 0.15 160);
+  --color-canvas: oklch(0.97 0.01 160);
+  --font-display: "Brand Display", system-ui, sans-serif;
+}

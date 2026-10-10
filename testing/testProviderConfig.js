@@ -80,7 +80,7 @@ test('resolveUserProvider accepts each preset and uses the preset endpoint', () 
 });
 
 test('self-hosted OpenRouter choices allow dynamic models', () => {
-  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama']);
+  assert.deepEqual(USER_PROVIDER_IDS, ['openrouter', 'anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama']);
   assert.equal(resolveUserProvider({
     id: 'openrouter', apiKey: 'sk-or-test', model: 'arbitrary/model',
   }).baseUrl, 'https://openrouter.ai/api/v1');

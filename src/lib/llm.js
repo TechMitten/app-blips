@@ -31,7 +31,7 @@ import {
 // The studio's lowercase noun, used in prompts, labels and error copy. Games
 // ride the same single-file pipeline as apps -- only the prompts differ.
 const studioNoun = (studioMode) => (
-  studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : 'app'
+  studioMode === 'website' ? 'website' : studioMode === 'game' ? 'game' : studioMode === 'codebase' ? 'site' : 'app'
 );
 
 const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
@@ -331,10 +331,17 @@ export const requestModelText = async ({
     const readWithTimeout = async () => {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       const readPromise = reader.read();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Stream stalled: no data received for ' + (STREAM_READ_TIMEOUT_MS / 1000) + 's')), STREAM_READ_TIMEOUT_MS)
-      );
-      return await Promise.race([readPromise, timeoutPromise]);
+      let timer;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Stream stalled: no data received for ' + (STREAM_READ_TIMEOUT_MS / 1000) + 's')), STREAM_READ_TIMEOUT_MS);
+      });
+      // Cleared once the read settles, so every chunk doesn't leave a
+      // 3-minute timer behind.
+      try {
+        return await Promise.race([readPromise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     let isDone = false;
@@ -964,7 +971,7 @@ const generateAppCodeCore = async (
 // completes. This asks for a short past-tense summary of the finished work; if
 // that call fails too, a fixed line is used so the turn always ends with a
 // message.
-const generateCompletionReply = async ({ prompt, editMode, studioMode, signal }) => {
+export const generateCompletionReply = async ({ prompt, editMode, studioMode, signal }) => {
   const noun = studioNoun(studioMode);
   const verb = editMode === 'full-generation' ? 'built' : 'updated';
   const fallback = `Done — I've ${verb} your ${noun}.`;
@@ -992,23 +999,8 @@ export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
 
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
-  const [prompt, currentCode, chatHistory, onChunk, layoutTarget, signal, , , attachment, isAutoFix, , studioMode, currentFiles, , , browser] = args;
+  const [prompt, , , onChunk, , signal, , , , isAutoFix, , studioMode] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
-  if (isBuildResult) {
-    const review = await reviewGeneratedCode({
-      files: result.files || makeFiles(result.code),
-      previousFiles: currentFiles || makeFiles(currentCode),
-      prompt, chatHistory, onChunk, layoutTarget, signal, attachment, studioMode,
-      requestModelText, browser,
-    });
-    result.files = review.files;
-    result.code = getLanding(review.files);
-    const { files: reviewedFiles, ...qualityReview } = review;
-    result.qualityReview = qualityReview;
-    const syntaxErrors = checkSyntaxFiles(reviewedFiles).errors;
-    if (syntaxErrors.length) result.syntaxErrors = syntaxErrors;
-    else delete result.syntaxErrors;
-  }
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {
@@ -1025,10 +1017,24 @@ const generateAppCodeWithSummary = async (...args) => {
     if (onChunk) onChunk(`${separator}${completion}`, 'reply');
     result.reply = `${result.reply || ''}${separator}${completion}`;
   }
-  if (result.qualityReview?.warning) {
-    const warning = `Review note: ${result.qualityReview.warning}`;
-    if (onChunk) onChunk(`\n\n${warning}`, 'reply');
-    result.reply = `${result.reply || ''}\n\n${warning}`.trim();
-  }
   return result;
+};
+
+// The review is a separate, opt-in step (see "Offer a review" in Settings):
+// it can take dozens of model calls, so builds no longer run it on their own.
+// The reply is a fixed line rather than another model call, so a review costs
+// only its own turns.
+export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
+  layoutTarget = 'both', signal, onChunk, browser = null }) => {
+  const review = await reviewGeneratedCode({
+    files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
+    requestModelText, browser,
+  });
+  const { files: reviewedFiles, ...qualityReview } = review;
+  const checked = browser ? 'reviewed and tested' : 'reviewed';
+  const reply = review.acceptable
+    ? (review.improved ? `I ${checked} the ${studioNoun(studioMode)} and fixed the problems I found.` : `I ${checked} the ${studioNoun(studioMode)} and found no problems.`)
+    : `${review.improved ? `I ${checked} the ${studioNoun(studioMode)} and fixed what I could.` : `I ${checked} the ${studioNoun(studioMode)}.`}\n\nReview note: ${review.warning}`;
+  const syntaxErrors = checkSyntaxFiles(reviewedFiles).errors;
+  return { files: reviewedFiles, qualityReview, reply, ...(syntaxErrors.length ? { syntaxErrors } : {}) };
 };

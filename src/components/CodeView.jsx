@@ -1,13 +1,56 @@
-import { useLayoutEffect, useRef } from 'react';
-import { Code2, Check, Copy, Loader2 } from 'lucide-react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Code2, Check, Copy, Image as ImageIcon, Loader2, Search } from 'lucide-react';
 import { syntaxHighlightHtml } from '../lib/helpers';
+
+// Imported codebases can hold hundreds of files, so instead of tabs the
+// code view gets a searchable list of every path.
+function FileList({ files, activeFile, onSelect }) {
+  const [query, setQuery] = useState('');
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? files.filter((f) => f.toLowerCase().includes(q)) : files;
+  }, [files, query]);
+  return (
+    <div className="flex w-56 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950">
+      <label className="flex items-center gap-2 border-b border-neutral-800 px-3 py-2 text-slate-400">
+        <Search size={13} aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Find a file"
+          aria-label="Find a file"
+          className="min-w-0 flex-1 bg-transparent font-mono text-xs text-slate-200 outline-none placeholder:text-slate-500"
+        />
+      </label>
+      <ul className="flex-1 overflow-y-auto py-1 custom-scrollbar" aria-label="Project files">
+        {shown.map((path) => (
+          <li key={path}>
+            <button
+              type="button"
+              onClick={() => onSelect?.(path)}
+              title={path}
+              className={`block w-full truncate px-3 py-1 text-left font-mono text-[11.5px] ${
+                path === activeFile ? 'bg-neutral-800 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+              }`}
+            >
+              {path}
+            </button>
+          </li>
+        ))}
+        {!shown.length && <li className="px-3 py-2 font-mono text-xs text-slate-500">No matching files</li>}
+      </ul>
+    </div>
+  );
+}
 
 // Editor-styled read-only view of the generated (or streaming) HTML.
 export default function CodeView({
   code, isGenerating, copied, onCopy, autoFollow = true,
   pages = [], activePage = 'index.html', writingPage = null, onSelectPage,
+  files = null, activeFile = null, activeFileIsBinary = false, onSelectFile,
 }) {
   const hasTabs = pages.length > 1;
+  const hasFileList = Array.isArray(files);
   const scrollRef = useRef(null);
   // Tracks whether the view should keep following new lines as they stream in;
   // cleared when the user scrolls away from the bottom to read earlier code.
@@ -63,7 +106,7 @@ export default function CodeView({
             })}
           </div>
         ) : (
-          <span className="text-xs text-slate-400 font-mono">{activePage}</span>
+          <span className="text-xs text-slate-400 font-mono truncate">{hasFileList ? activeFile : activePage}</span>
         )}
         <div className="flex-1"></div>
         {code && (
@@ -81,8 +124,15 @@ export default function CodeView({
           </button>
         )}
       </div>
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-auto bg-black custom-scrollbar">
-        {code ? (
+      <div className="flex flex-1 min-h-0">
+      {hasFileList && <FileList files={files} activeFile={activeFile} onSelect={onSelectFile} />}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-w-0 overflow-auto bg-black custom-scrollbar">
+        {activeFileIsBinary ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 font-mono text-sm">
+            <ImageIcon size={36} className="mb-3 text-slate-500" />
+            <span>Image or font file — no code to show</span>
+          </div>
+        ) : code ? (
           <>
             {isGenerating && (!writingPage || writingPage === activePage) && (
               <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-blue-500/20 bg-black/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-300 backdrop-blur-sm">
@@ -103,9 +153,10 @@ export default function CodeView({
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-slate-400 font-mono text-sm">
             <Code2 size={36} className="mb-3 text-slate-500" />
-            <span>// No code yet</span>
+            <span>{hasFileList ? '// This file is empty' : '// No code yet'}</span>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

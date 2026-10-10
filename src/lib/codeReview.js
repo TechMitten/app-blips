@@ -3,8 +3,13 @@ import { executeFilesTool, checkSyntaxFiles } from './pageTools.js';
 import { findBrokenLinks, formatFilesForPrompt } from './pages.js';
 import { BROWSER_ACTION_TOOL, BROWSER_REVIEW_INSTRUCTION } from './browserTools.js';
 
-export const MAX_CODE_REVIEW_TURNS = 8;
-export const MAX_BROWSER_REVIEW_TURNS = 24;
+// Turn caps are a safety net against a reviewer that never settles (each turn
+// is a paid model call that resends the whole conversation), not the normal
+// way a review ends. Capping edit rounds is what makes reviews converge: every
+// applied edit reopens the browser and needs a fresh round of tests.
+export const MAX_CODE_REVIEW_TURNS = 10;
+export const MAX_BROWSER_REVIEW_TURNS = 32;
+export const MAX_REVIEW_EDIT_ROUNDS = 3;
 // The last turns of a browser review accept no edits. Otherwise a late edit
 // leaves an untested revision that can never be accepted and the review ends
 // at its limit even when the code is fine.
@@ -20,7 +25,7 @@ export const CODE_REVIEW_TOOL = {
       type: 'object',
       properties: {
         acceptable: { type: 'boolean' },
-        findings: { type: 'array', items: { type: 'string' }, description: 'Concrete remaining problems, with filenames and evidence. Empty when acceptable.' },
+        findings: { type: 'array', items: { type: 'string' }, description: 'Concrete remaining problems, with filenames and evidence. Empty when acceptable; with acceptable true, anything listed is treated as a minor note.' },
       },
       required: ['acceptable', 'findings'],
       additionalProperties: false,
@@ -44,6 +49,8 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
   let testedCurrentRevision = false;
   let browserErrors = [];
   let browserHasControls = false;
+  let editRounds = 0;
+  let lastVerdict = null;
   const browserTests = [];
   const maxTurns = browser ? MAX_BROWSER_REVIEW_TURNS : MAX_CODE_REVIEW_TURNS;
   const status = (text) => onChunk?.(text, 'status');
@@ -72,10 +79,11 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       status(improved ? 'Reviewing the improved code…' : 'Reviewing code quality and completeness…');
       const finalTurn = turn === maxTurns - 1;
       const wrapUp = !!browser && turn >= maxTurns - BROWSER_WRAP_UP_TURNS;
-      if (wrapUp && turn === maxTurns - BROWSER_WRAP_UP_TURNS) {
+      const editsClosed = wrapUp || editRounds >= MAX_REVIEW_EDIT_ROUNDS;
+      if (wrapUp && turn === maxTurns - BROWSER_WRAP_UP_TURNS && editRounds < MAX_REVIEW_EDIT_ROUNDS) {
         messages.push({ role: 'user', content: `The review is almost out of turns. Make no more edits. Test the current version with browser_action (several actions per response are fine), then submit your verdict.` });
       }
-      const refinementTools = getRefinementTools(studioMode).filter((tool) => !wrapUp || !EDIT_TOOLS.includes(tool.function.name));
+      const refinementTools = getRefinementTools(studioMode).filter((tool) => !editsClosed || !EDIT_TOOLS.includes(tool.function.name));
       const message = await requestModelText({
         messages,
         tools: finalTurn ? [CODE_REVIEW_TOOL] : [...refinementTools, ...(browser ? [BROWSER_ACTION_TOOL] : []), CODE_REVIEW_TOOL],
@@ -84,7 +92,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       const calls = message.tool_calls || [];
       messages.push({ role: 'assistant', content: message.content || null, ...(calls.length ? { tool_calls: calls } : {}) });
       let candidate = workingFiles;
-      const hasEdits = !wrapUp && calls.some((call) => EDIT_TOOLS.includes(call.function?.name));
+      const hasEdits = !editsClosed && calls.some((call) => EDIT_TOOLS.includes(call.function?.name));
       let verdict = null;
       const screenshots = [];
       for (const call of calls) {
@@ -100,7 +108,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
           }
         } else if (finalTurn) {
           result = { success: false, error: 'The review limit is reached; submit a verdict without further edits.' };
-        } else if (wrapUp && EDIT_TOOLS.includes(call.function?.name)) {
+        } else if (editsClosed && EDIT_TOOLS.includes(call.function?.name)) {
           result = { success: false, error: 'Edits are closed for this review. Test the current version and submit a verdict.' };
         } else if (call.function?.name === 'browser_action' && browser) {
           try {
@@ -142,26 +150,41 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
         } else {
           workingFiles = candidate;
           improved = true;
-          messages.push({ role: 'user', content: `${formatFilesForPrompt(workingFiles, 'Updated project to review')}\nReview this code again before submitting a verdict.` });
+          editRounds++;
+          const closing = editRounds >= MAX_REVIEW_EDIT_ROUNDS ? `\nThat was the last edit round: edits are now closed. ${browser ? 'Test this version with browser_action, then submit' : 'Submit'} your verdict on it.` : '';
+          messages.push({ role: 'user', content: `${formatFilesForPrompt(workingFiles, 'Updated project to review')}\nReview this code again before submitting a verdict.${closing}` });
           if (browser) await openBrowser();
         }
       }
       if (verdict && !hasEdits) {
-        findings = verdict.findings.filter((item) => item.trim());
-        if (verdict.acceptable && findings.length === 0 && errors.length === 0 && brokenLinks.length === 0 && (!browser || (testedCurrentRevision && browserErrors.length === 0))) {
+        lastVerdict = verdict;
+        // An acceptable verdict passes even with listed findings: the reviewer
+        // judged them minor, and sending it back to fix nitpicks is what used
+        // to burn the remaining turns.
+        findings = verdict.acceptable ? [] : verdict.findings.filter((item) => item.trim());
+        if (verdict.acceptable && errors.length === 0 && brokenLinks.length === 0 && (!browser || (testedCurrentRevision && browserErrors.length === 0))) {
           status(browser ? 'Code review and browser checks passed.' : 'Code review passed.');
           return { files: workingFiles, acceptable: true, improved, findings: [], ...(browser ? { browserTests } : {}) };
         }
         // Without a browser there is nothing to test; asking for browser tests
         // made the reviewer reject its own work until the turns ran out.
-        const nextStep = browser ? 'Address the remaining findings and run browser tests on the current version before accepting' : 'Address the remaining findings before accepting';
+        const fix = editRounds >= MAX_REVIEW_EDIT_ROUNDS ? 'Edits are closed, so judge the current version as it is' : 'Address the remaining findings';
+        const nextStep = !verdict.acceptable && !findings.length ? 'You rejected the code without naming a problem. Name the concrete problems, or accept it'
+          : browser && verdict.acceptable && !testedCurrentRevision ? 'Exercise the current version with a click, type, press, navigate or reload action before accepting'
+          : browser ? `${fix}, and run browser tests on the current version before accepting` : `${fix} before accepting`;
         messages.push({ role: 'user', content: `${nextStep}: ${JSON.stringify({ findings, errors, brokenLinks, ...(browser ? { testedCurrentRevision, browserErrors } : {}) })}` });
       } else if (!calls.length || (verdict && hasEdits)) {
         messages.push({ role: 'user', content: 'Submit a review verdict in its own response, or use the tools to inspect and improve the code first.' });
       }
     }
-    const unresolved = findings.length ? ` Unresolved: ${findings.slice(0, 3).join('; ')}` : browserErrors.length ? ` Runtime errors: ${browserErrors.slice(0, 2).join('; ')}` : '';
-    return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: `Code review reached its limit. The result still needs review.${unresolved}` };
+    // Say why the review stopped; a bare "reached its limit" gave the user
+    // nothing to act on.
+    const reason = findings.length ? `Unresolved: ${findings.slice(0, 3).join('; ')}`
+      : browserErrors.length ? `Runtime errors: ${browserErrors.slice(0, 2).join('; ')}`
+      : !lastVerdict ? 'The reviewer never gave a verdict.'
+      : browser && lastVerdict.acceptable && !testedCurrentRevision ? 'The latest changes were not tested in the browser.'
+      : 'The reviewer did not approve the final version.';
+    return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: `Code review ran out of turns. ${reason}` };
   } catch (error) {
     if (error?.name === 'AbortError' || signal?.aborted) throw error;
     return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: browser ? 'Browser testing could not finish. The result still needs review.' : 'Code review could not finish. The result still needs review.' };

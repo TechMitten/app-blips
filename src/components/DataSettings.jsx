@@ -4,7 +4,7 @@ import { SettingRow, SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop, desktopBridge, ipcErrorMessage } from '../lib/desktop';
 import { readProjectRows, writeProjectRows } from '../lib/projectsStorage';
 import { loadPreviewStorage, savePreviewStorage } from '../lib/previewStorage';
-import { buildBackup, backupFileName, parseBackup, mergeBackup } from '../lib/projectBackup';
+import { buildBackup, backupFileName, parseBackup, mergeBackup, isBackupable } from '../lib/projectBackup';
 
 const RELOAD_DELAY_MS = 1200;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -25,9 +25,14 @@ export default function DataSettings() {
   const reloadSoon = () => setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
 
   const exportAll = () => {
-    const rows = readProjectRows();
+    const allRows = readProjectRows();
+    const rows = allRows.filter(isBackupable);
+    const importedSites = allRows.length - rows.length;
+    const sitesNote = importedSites
+      ? ` ${plural(importedSites, 'imported site')} ${importedSites === 1 ? 'is' : 'are'} not included: open ${importedSites === 1 ? 'it' : 'each one'} and use Export to download it as a .zip.`
+      : '';
     if (!rows.length) {
-      setStatus({ kind: 'error', text: 'There are no saved apps to export.' });
+      setStatus({ kind: 'error', text: `There are no saved apps to export.${sitesNote}` });
       return;
     }
     const backup = buildBackup(rows, loadPreviewStorage);
@@ -39,7 +44,7 @@ export default function DataSettings() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setStatus({ kind: 'ok', text: `Exported ${plural(rows.length, 'app')}.` });
+    setStatus({ kind: 'ok', text: `Exported ${plural(rows.length, 'app')}.${sitesNote}` });
   };
 
   const importFile = async (file) => {

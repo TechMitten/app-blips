@@ -1,0 +1,61 @@
+---
+title: "Import a React + Vite site"
+sidebarTitle: "Importing sites"
+description: "Open a React + Vite + TypeScript project from a .zip, keep editing it with AI, and export it back as the same project."
+---
+
+AppBlips can open a real React + Vite website project, such as one a web designer built for you, and let you keep editing it with AI. The project keeps its own files and folders: when you export it, you get the same project back, ready for `npm install` and `npm run build`.
+
+## What can be imported
+
+AppBlips imports projects that use:
+
+- **React** with **Vite** (TypeScript or JavaScript)
+- **Tailwind CSS** v3 or v4, or plain CSS and CSS modules
+- **React Router** (v6 or v7), including `createBrowserRouter`
+- npm packages such as shadcn/ui, Radix, Framer Motion and lucide-react
+- Images and fonts in `src/assets` or `public/`
+
+Next.js, Create React App, Vue and monorepos with several packages can't be imported.
+
+## For designers: prepare the zip
+
+1. Open the project folder on your computer (the folder that contains `package.json`, `index.html` and `src`).
+2. Delete or leave out the `node_modules` and `dist` folders. AppBlips skips them anyway, but the zip is much smaller without them.
+3. Zip the folder: right-click it and choose **Compress** (macOS) or **Send to → Compressed (zipped) folder** (Windows).
+4. Send the `.zip` file to your customer.
+
+<Note>
+  AppBlips never imports `.env` files, because they can contain secrets. It does read `.env.example`, so put the `VITE_*` values the site needs to display there.
+</Note>
+
+## For site owners: import and edit
+
+1. On the start screen, click **Import a site**.
+2. Click the box and choose the `.zip` file, or drag the file onto it.
+3. Check the name AppBlips suggests, then click **Open site**.
+4. Describe a change in the chat, for example "Change the headline on the home page to Fresh bread daily", and click **Update Site**.
+
+The AI finds the right files, edits them, and checks that the project still builds before it finishes. The preview updates when it's done. Use the address bar above the preview to open another page, for example `appblips.local/about`.
+
+## Export the project
+
+Click **Export** in the toolbar to download the project as a `.zip`. Every file is at its original path, and files the AI didn't change are exactly as they were imported.
+
+To build or host it:
+
+1. Unzip the file.
+2. In a terminal, open the unzipped folder.
+3. Run `npm install`.
+4. Run `npm run build`.
+
+<Warning>
+  If the AI added or removed an npm package, AppBlips tells you when you export. Use `npm install`, not `npm ci`, so the lockfile catches up with `package.json`.
+</Warning>
+
+## Good to know
+
+- The preview loads npm packages from the internet, so editing an imported site needs a connection.
+- The preview runs Tailwind in the browser. It looks very close to the real build, and the export always keeps your real Tailwind setup.
+- In the desktop app, each imported site is also saved as a normal project folder: open **Settings → Data** to find your projects folder, then look in `<site name>/site`.
+- Imported sites aren't included in **Export all apps** backups. Export each one as a `.zip` instead.

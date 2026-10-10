@@ -1,5 +1,5 @@
 // LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; users can choose OpenRouter, OpenAI, Gemini, DeepSeek or a local server through Settings.
+// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini, DeepSeek or a local server through Settings.
 // Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
@@ -21,6 +21,15 @@ const PROVIDERS = {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
     reasoningParam: 'reasoning_effort',
+  },
+  // Not OpenAI-compatible: chatProxy.js sends its requests through the
+  // official SDK (anthropic.js), which translates to and from this shape.
+  // Current Claude models reject forced tool choices.
+  anthropic: {
+    label: 'Anthropic',
+    baseUrl: 'https://api.anthropic.com',
+    reasoningParam: 'reasoning_effort',
+    forcedToolChoice: false,
   },
   openai: {
     label: 'OpenAI',
@@ -50,8 +59,8 @@ const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 const read = (env, name) => String(env?.[name] ?? '').trim();
 const warned = new Set();
 
-// The generic LLM variables. Every provider here speaks the OpenAI-compatible
-// API, so they follow the OpenAI SDK's own names (OPENAI_API_KEY,
+// The generic LLM variables. Every provider here but Anthropic speaks the
+// OpenAI-compatible API, so they follow the OpenAI SDK's own names (OPENAI_API_KEY,
 // OPENAI_BASE_URL).
 export const LLM_ENV = {
   PROVIDER: 'OPENAI_LLM_PROVIDER',
@@ -146,7 +155,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 };
 
 // User-selected providers are separate from the server-owned environment provider.
-export const USER_PROVIDER_IDS = ['openrouter', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama'];
+export const USER_PROVIDER_IDS = ['openrouter', 'anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
@@ -240,8 +249,9 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   } else if (provider.id === 'deepseek') {
     bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
     if (!off) bodyObj.reasoning_effort = raw;
-  } else if ((provider.id === 'openrouter' || provider.id === 'gemini') && !off) {
-    // Both APIs accept reasoning_effort. Omit
+  } else if (['openrouter', 'gemini', 'anthropic'].includes(provider.id) && !off) {
+    // These accept reasoning_effort (anthropic.js maps it to Claude's
+    // thinking and effort settings). Omit
     // it when reasoning is off: some always-thinking models reject an
     // explicit "none", while omission uses the model default.
     bodyObj.reasoning_effort = raw;

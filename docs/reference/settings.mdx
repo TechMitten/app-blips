@@ -92,6 +92,12 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
   When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
 </ParamField>
 
+### Offer a review after each build
+
+<ParamField body="Offer a review after each build" type="toggle" default="On">
+  When enabled, AppBlips asks after every build or edit whether you want the AI to review it. A review checks the code against your request, tests the project in the built-in browser, and fixes problems it finds. Choose **Review** to run it or **Skip** to move on. Reviews can use a lot of extra tokens, so they only run when you say yes. Turn this off to skip both the question and the review.
+</ParamField>
+
 ### Smart game engine
 
 <ParamField body="Smart game engine" type="toggle" default="On">
@@ -100,14 +106,14 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
 
 ### Your own AI provider
 
-Choose OpenRouter, **OpenAI**, **Gemini**, **DeepSeek**, LM Studio, or Ollama as your coding provider.
+Choose OpenRouter, **Anthropic**, **OpenAI**, **Gemini**, **DeepSeek**, LM Studio, or Ollama as your coding provider.
 
 <ParamField body="Model" type="select">
-  Select a model from your provider’s live model list. Enter your API key first for OpenAI, Gemini, or DeepSeek. Local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID and choose **Use** to enter it manually.
+  Select a model from your provider’s live model list. Enter your API key first for Anthropic, OpenAI, Gemini, or DeepSeek. Local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID and choose **Use** to enter it manually.
 </ParamField>
 
 <ParamField body="API key" type="string">
-  Your key from [OpenAI](https://platform.openai.com/api-keys), [OpenRouter](https://openrouter.ai/settings/keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys). Local servers only need a key if you enabled authentication.
+  Your key from [OpenAI](https://platform.openai.com/api-keys), [OpenRouter](https://openrouter.ai/settings/keys), [Anthropic](https://platform.claude.com/settings/keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys). Local servers only need a key if you enabled authentication.
 </ParamField>
 
 For OpenAI, use a model that supports tool calling through Chat Completions.

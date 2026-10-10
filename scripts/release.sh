@@ -75,6 +75,14 @@ if ask "Publish $tag now? Users will start getting the update."; then
   read -r -p "Release notes (one line, what changed): " notes
   gh release edit "$tag" --draft=false --notes "${notes:-Improvements and fixes.}" >/dev/null
   say "Published! $(gh release view "$tag" --json url --jq .url)"
+  # The README download buttons link straight to versioned installer files,
+  # so point them at the release that just went live.
+  sed -i -E "s#releases/download/v[0-9.]+/AppBlips(-Setup)?-[0-9]+\.[0-9]+\.[0-9]+#releases/download/$tag/AppBlips\1-$next#g" README.md
+  if [ -n "$(git status --porcelain README.md)" ]; then
+    git commit -q -m "docs: point README downloads at $tag" README.md
+    git push -q origin master
+    say "README download buttons now point at $tag."
+  fi
 else
   say "Left as a draft. Publish it later at: $(gh release view "$tag" --json url --jq .url)"
 fi
