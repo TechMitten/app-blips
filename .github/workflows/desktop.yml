@@ -29,17 +29,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Builds unsigned. Windows signing is planned through SignPath (see
+      # docs/reference/code-signing-policy.mdx), which signs after the build.
       - run: npm run desktop:dist
-        env:
-          # Optional Windows code signing. Leave these unset to build unsigned.
-          # OV/PFX certificate: set WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD.
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          # Azure Trusted Signing: set these three, and uncomment
-          # win.azureSignOptions in electron-builder.yml.
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       - name: Write SHA-256 checksums
         shell: bash
         run: |

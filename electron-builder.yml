@@ -24,15 +24,6 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.png
-  # Code signing. For an OV/PFX certificate, set the WIN_CSC_LINK and
-  # WIN_CSC_KEY_PASSWORD secrets and leave this file as-is (electron-builder
-  # signs automatically). For Azure Trusted Signing, uncomment below and set
-  # the AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET secrets.
-  # azureSignOptions:
-  #   publisherName: "CN=TechMitten"
-  #   endpoint: "https://<region>.codesigning.azure.net/"
-  #   codeSigningAccountName: "<account>"
-  #   certificateProfileName: "<profile>"
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
