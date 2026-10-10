@@ -40,7 +40,7 @@ The studios share the same workflow: prompt, live preview, versions, and export.
 
 Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a local, single-user proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
 
-AppBlips runs as a **desktop app** (Windows and Linux): it runs on your computer, powered by your own AI provider key. No account, no cloud sync, and your projects are saved as folders you can back up or move. See [Quick start](#quick-start) below.
+AppBlips runs on your computer, powered by your own AI provider key. No account, no cloud sync. Install the **desktop app** (Windows and Linux), or **run it from source** or with **Docker** on any system and use it in your browser. See [Quick start](#quick-start) below.
 
 ## Features
 
@@ -61,6 +61,8 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 
 - **[Introduction](https://docs.appblips.com/introduction)** — what AppBlips is and how it works
 - **[Desktop app quickstart](https://docs.appblips.com/quickstart-desktop)** — install, add your API key, and build your first app
+- **[Run from source](https://docs.appblips.com/quickstart-source)** — run it in your browser with Node.js, or build the desktop app yourself
+- **[Docker](https://docs.appblips.com/self-hosting/docker)** — run it in a container with one command
 - **[Feature guides](https://docs.appblips.com/features/building-apps)** — deep dives into the App, Website, and Game studios
 
 ## Quick start
@@ -81,7 +83,43 @@ The first time you open it, AppBlips asks for an OpenRouter API key and lets you
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
-On macOS there is no installer yet.
+On macOS there is no installer yet: run it from source or with Docker instead (below).
+
+### Run from source (Windows, macOS, Linux)
+
+You need [Node.js](https://nodejs.org/) 22.12 or newer (the LTS version).
+
+1. Get the code and install it:
+
+   ```bash
+   git clone https://github.com/techmitten/app-blips.git
+   cd app-blips
+   npm install
+   ```
+
+2. Start AppBlips in your browser:
+
+   ```bash
+   npm start
+   ```
+
+3. Open [http://localhost:3000](http://localhost:3000) and add your AI provider when asked.
+
+Your projects and API key are saved in your browser, so back up with **Settings → Data → Export** now and then. Prefer the desktop app? Run `npm run desktop` instead of `npm start`, or `npm run desktop:dist` to build your own installers into `dist-desktop/`. See the [run from source guide](https://docs.appblips.com/quickstart-source) for details, including updating.
+
+### Docker
+
+With [Docker](https://docs.docker.com/get-docker/) installed, in the `app-blips` folder run:
+
+```bash
+docker compose up -d
+```
+
+Then open [http://localhost:3000](http://localhost:3000). It's the same browser version, with nothing else to install. Stop it with `docker compose down`; update with `git pull` and `docker compose up -d --build`. See the [Docker guide](https://docs.appblips.com/self-hosting/docker) for ports and local models.
+
+### Optional configuration
+
+The browser version and Docker can read an AI provider and server settings from a `.env` file: copy `.env.example` to `.env` and fill in what you need. Everything in it is optional; see the [configuration reference](https://docs.appblips.com/self-hosting/configuration).
 
 ## Project structure
 
@@ -94,6 +132,8 @@ src/
   components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
 electron/            # Desktop app: main process, preload, on-disk project store,
                      # encrypted provider settings, and the in-process /api/chat handler
+server.js            # Browser version (npm start, Docker): serves dist/ and /api/chat
+Dockerfile           # Container image for the browser version (docker-compose.yml)
 testing/             # Standalone Node scripts for exercising the proxy and preview
 ```
 
@@ -103,6 +143,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
+- The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved in your browser.
 - Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and signed.
 
 ## License

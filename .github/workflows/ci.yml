@@ -18,5 +18,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
       - run: npm run lint
       - run: npm run build
+      # The browser version (npm start, Docker) on top of that build.
+      - run: npm run build:server
+      - run: node --test testing/testServer.js
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t appblips:ci .

@@ -65,7 +65,7 @@ These settings control how the preview and build experience behaves during and a
 ### Check for updates
 
 <ParamField body="Check for updates" type="toggle" default="On">
-  The desktop app checks GitHub for new versions when it starts and tells you when one is out. On Windows and as an AppImage it also downloads the update in the background and offers to restart. GitHub sees your IP address when AppBlips checks. The setting also shows which version you're on, and a change takes effect the next time you open AppBlips.
+  AppBlips checks GitHub for new versions when it starts and tells you when one is out. The desktop app on Windows and as an AppImage also downloads the update in the background and offers to restart. If you run AppBlips from source or Docker, it links to [how to update](/quickstart-source#updating). GitHub sees your IP address when AppBlips checks. The setting also shows which version you're on, and a change takes effect the next time you open AppBlips.
 </ParamField>
 
 ### Replay onboarding
@@ -143,7 +143,7 @@ Choose the AI provider that builds your apps: **OpenRouter**, **Anthropic**, **O
 Click **Test connection** to check the settings, then **Save**. **Clear** removes the saved provider and key. If you leave the tab with unsaved changes, AppBlips asks whether to save or discard them.
 
 <Note>
-  Your key is encrypted with your system keychain and only the app's background process uses it. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+  In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), it's saved in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
 </Note>
 
 ---
@@ -154,7 +154,7 @@ Where projects are stored on your device.
 
 - **Export all apps:** downloads every saved app, its version history and its saved app data as one backup file.
 - **Import apps:** adds apps from a backup file. An app you already have is replaced only if the backup's copy is newer.
-- **Projects folder:** shows where projects are saved. Click **Change…** to pick another folder.
+- **Projects folder:** desktop app only. Shows where projects are saved. Click **Change…** to pick another folder. The browser version saves projects in your browser instead.
 
 See [Back up or move your projects](/quickstart-desktop#back-up-or-move-your-projects) for moving apps between computers.
 

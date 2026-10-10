@@ -28,7 +28,15 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    Your API key is encrypted with your system keychain and stays on your computer. The key is used only by the app's background process when it calls your AI provider — it is never sent to the browser, never embedded in generated app code, and never included in any exported HTML file.
+    In the desktop app, your API key is encrypted with your system keychain and stays on your computer. It is used only by the app's background process when it calls your AI provider. In the browser version (run from source or Docker), it's saved in your browser and sent only to AppBlips' own server on your computer. In every version, it is never embedded in generated app code and never included in any exported HTML file.
+  </Accordion>
+
+  <Accordion title="Can I use AppBlips on a Mac?">
+    There is no macOS installer yet. You can [run AppBlips from source](/quickstart-source) with Node.js and use it in your browser, or run it with [Docker](/self-hosting/docker).
+  </Accordion>
+
+  <Accordion title="What's the difference between the desktop app and the browser version?">
+    They're the same app. The [desktop app](/quickstart-desktop) saves your projects as folders on your computer, keeps your key in the system keychain and updates itself. The browser version ([from source](/quickstart-source) or [Docker](/self-hosting/docker)) saves projects and your key in your browser, and you update it yourself. Use **Settings → Data → Export** and **Import…** to move projects between them.
   </Accordion>
 
   <Accordion title="Can I export the generated project?">

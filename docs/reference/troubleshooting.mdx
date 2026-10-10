@@ -1,10 +1,10 @@
 ---
 title: "Troubleshooting: Fixes for Common Problems"
 sidebarTitle: "Troubleshooting"
-description: "Solutions for common AppBlips problems: blocked installs, blank previews, broken links, and API errors."
+description: "Solutions for common AppBlips problems: blocked installs, source and Docker setups, blank previews, broken links, and API errors."
 ---
 
-Most AppBlips issues fall into a handful of categories — installation, preview rendering, and API connectivity. Work through the section that matches your symptom to find a fix.
+Most AppBlips issues fall into a handful of categories — installation, running from source or Docker, preview rendering, and API connectivity. Work through the section that matches your symptom to find a fix.
 
 ## Windows installer is blocked
 
@@ -33,6 +33,48 @@ Most AppBlips issues fall into a handful of categories — installation, preview
 <Note>
   The Linux AppImage and `.deb` don't use Smart App Control and are never affected.
 </Note>
+
+---
+
+## Running from source or Docker
+
+<AccordionGroup>
+  <Accordion title="&quot;Port 3000 is already in use&quot;">
+    Another program is using port 3000.
+
+    - **From source:** start AppBlips on another port. On macOS or Linux run `PORT=3001 npm start`; on Windows (PowerShell) run `$env:PORT=3001; npm start`. Then open `http://localhost:3001`.
+    - **Docker:** add `APPBLIPS_PORT=3001` to a `.env` file in the AppBlips folder and run `docker compose up -d` again. See [Use another port](/self-hosting/docker#use-another-port).
+
+    Projects are saved per address, so the new port starts with an empty project list. Export them from **Settings → Data** at the old address first if you need them.
+  </Accordion>
+
+  <Accordion title="&quot;This address isn't allowed&quot;">
+    AppBlips only answers when you open it as `localhost` or `127.0.0.1`. Open [http://localhost:3000](http://localhost:3000) instead. If you deliberately use another name (for example behind a reverse proxy), add it to `APPBLIPS_ALLOWED_HOSTS` in `.env`. See the [Configuration reference](/self-hosting/configuration#server).
+  </Accordion>
+
+  <Accordion title="My projects disappeared">
+    The browser version saves projects in your browser, separately for each address. Check that you opened the same address as before (same port, `localhost` rather than `127.0.0.1`), in the same browser and not a private window. Clearing your browser's site data deletes them for good, so back up with **Settings → Data → Export** now and then.
+  </Accordion>
+
+  <Accordion title="npm install or npm start fails">
+    Check your Node.js version with `node --version`. AppBlips needs 22.12 or newer; install the **LTS** version from [nodejs.org](https://nodejs.org/). Then delete the `node_modules` folder and run `npm install` again.
+  </Accordion>
+
+  <Accordion title="npm run desktop on Linux fails with a chrome-sandbox error">
+    Ubuntu 24.04 and some other distributions need Electron's sandbox helper to be owned by the system. In the AppBlips folder, run:
+
+    ```bash
+    sudo chown root:root node_modules/electron/dist/chrome-sandbox
+    sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+    ```
+
+    Then run `npm run desktop` again. Don't use `--no-sandbox` instead.
+  </Accordion>
+
+  <Accordion title="Docker can't reach LM Studio or Ollama">
+    On Linux, the local server has to accept connections from the container. Start Ollama with `OLLAMA_HOST=0.0.0.0`, or turn on **Serve on Local Network** in LM Studio. If it still fails, a firewall may block the container. See [Local models](/self-hosting/docker#local-models-lm-studio-and-ollama).
+  </Accordion>
+</AccordionGroup>
 
 ---
 

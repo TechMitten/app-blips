@@ -13,6 +13,7 @@ dist/
 dist-ssr/
 dist-desktop/
 dist-electron/
+dist-server/
 coverage/
 *.local
 

@@ -1,0 +1,27 @@
+# Run AppBlips in your browser with: docker compose up -d
+# Then open http://localhost:3000 (or the port you set as APPBLIPS_PORT).
+services:
+  appblips:
+    build:
+      context: .
+    image: appblips:local
+    ports:
+      # 127.0.0.1 keeps AppBlips on this computer. It has no sign-in, so
+      # anyone who can reach it can spend your API key: keep this prefix.
+      - "127.0.0.1:${APPBLIPS_PORT:-3000}:3000"
+    environment:
+      # Fixed inside the container; a PORT in .env is for `npm start`.
+      PORT: 3000
+      HOST: 0.0.0.0
+      APPBLIPS_PUBLIC_PORT: ${APPBLIPS_PORT:-3000}
+      # Lets LM Studio and Ollama on your computer be reached from inside the
+      # container (see the Docker guide for the one setting they need).
+      APPBLIPS_LOCAL_AI_HOST: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      # Optional: an AI provider for the server. You can instead pick one in
+      # the app under Settings → AI.
+      - path: .env
+        required: false
+    restart: unless-stopped

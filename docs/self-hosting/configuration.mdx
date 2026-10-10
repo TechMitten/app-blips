@@ -1,0 +1,102 @@
+---
+title: "Configuration Reference for Source and Docker Installs"
+sidebarTitle: "Configuration"
+description: "Every .env setting for running AppBlips in a browser from source or Docker: an AI provider for the server, ports, and allowed addresses."
+---
+
+<Note>
+  Using the [desktop app](/quickstart-desktop)? You don't need any of this: set your AI provider in the app under **Settings → API**.
+</Note>
+
+When you run AppBlips in a browser, [from source](/quickstart-source) or with [Docker](/self-hosting/docker), you can configure it with a `.env` file in the AppBlips folder. **Everything here is optional.** The simplest setup is no `.env` at all: pick your provider, key and model in the app under **Settings → API**.
+
+To create the file:
+
+1. In the AppBlips folder, copy `.env.example` and name the copy `.env`.
+2. Open `.env` in any text editor and fill in only the lines you need.
+3. Restart AppBlips: press `Ctrl+C` and run `npm start` again, or run `docker compose up -d` for Docker.
+
+When it starts, AppBlips prints which AI provider it found. It never prints your key.
+
+## AI provider for the server
+
+These give the server its own provider. It's used whenever **Settings → API** has no provider saved; a provider saved in the app always wins.
+
+<ParamField body="OPENAI_API_KEY" type="string">
+  Your API key. With `OPENAI_BASE_URL` blank, this is a [DeepSeek](https://platform.deepseek.com/api_keys) key.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_MODEL" type="string">
+  The model, written exactly as your provider names it, for example `deepseek-v4-pro`.
+</ParamField>
+
+<ParamField body="OPENAI_BASE_URL" type="string">
+  The address of any service that speaks the OpenAI chat-completions API, such as OpenRouter, Ollama, vLLM, LM Studio, LiteLLM or Groq. Blank means DeepSeek.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_VISION_MODEL" type="string">
+  A model for requests with an attached image, on the same service and key. Use it when your main model can't read images. Blank uses `OPENAI_LLM_MODEL`.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_TEMPERATURE" type="number">
+  Sampling temperature for the builder. Defaults to `0.2`.
+</ParamField>
+
+<Warning>
+  A key in `.env` can be used by anyone who can open AppBlips. Keep AppBlips on your own computer (the default), and set a spend limit with your provider.
+</Warning>
+
+## Server
+
+<ParamField body="PORT" type="number" default="3000">
+  The port `npm start` listens on. Docker ignores it: use `APPBLIPS_PORT`.
+</ParamField>
+
+<ParamField body="APPBLIPS_PORT" type="number" default="3000">
+  Docker only: the port on your computer to open AppBlips at.
+</ParamField>
+
+<ParamField body="HOST" type="string" default="127.0.0.1">
+  `npm start` only: the network address to listen on. The default lets only your own computer connect. Change it only if you put your own sign-in in front of AppBlips.
+</ParamField>
+
+<ParamField body="APPBLIPS_ALLOWED_HOSTS" type="string">
+  AppBlips only answers when you open it as `localhost` or `127.0.0.1`, which stops other websites from reaching it through tricks with their own domain name. To open it under another name, such as a reverse proxy's domain, list the names here, comma-separated, without `http://` or a port (for example `appblips.home.example`).
+</ParamField>
+
+<ParamField body="APPBLIPS_CHAT_ALLOWED_ORIGINS" type="string">
+  AppBlips refuses AI requests from any page other than its own. If a reverse proxy changes the `Host` header, builds may fail with "Requests from other sites are not allowed." List the exact address you open AppBlips at (comma-separated, for example `https://appblips.home.example`).
+</ParamField>
+
+<ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">
+  Where LM Studio and Ollama run, when that isn't the same machine as the server. `docker-compose.yml` sets it to `host.docker.internal`, so a container can reach your computer; you rarely need to change it.
+</ParamField>
+
+## Example `.env` files
+
+<CodeGroup>
+```bash DeepSeek
+OPENAI_API_KEY=sk-...
+OPENAI_LLM_MODEL=deepseek-v4-pro
+```
+
+```bash OpenRouter
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_API_KEY=sk-or-...
+OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
+```
+
+```bash Ollama (from source)
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=ollama
+OPENAI_LLM_MODEL=llama3.1
+```
+
+```bash Ollama (Docker)
+OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+OPENAI_API_KEY=ollama
+OPENAI_LLM_MODEL=llama3.1
+```
+</CodeGroup>
+
+AppBlips sends requests in DeepSeek's format, including its reasoning setting. If another service rejects builds, set **Reasoning: building** to **Off** in [Settings → AI](/reference/settings#reasoning).

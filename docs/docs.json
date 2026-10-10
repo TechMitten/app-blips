@@ -17,7 +17,9 @@
             "group": "Get Started",
             "pages": [
               "introduction",
-              "quickstart-desktop"
+              "quickstart-desktop",
+              "quickstart-source",
+              "self-hosting/docker"
             ]
           },
           {
@@ -33,6 +35,7 @@
           {
             "group": "Advanced",
             "pages": [
+              "self-hosting/configuration",
               "self-hosting/security"
             ]
           },
@@ -62,7 +65,7 @@
       "href": "https://github.com/TechMitten/app-blips/releases"
     }
   },
-  "description": "Documentation for AppBlips, a desktop app that turns plain English into working apps, websites and games, with a live preview and export.",
+  "description": "Documentation for AppBlips, an app that turns plain English into working apps, websites and games, with a live preview and export. Install it on Windows or Linux, or run it from source or Docker.",
   "logo": {
     "light": "/logo-light.png",
     "dark": "/logo-dark.png"
@@ -70,15 +73,7 @@
   "redirects": [
     {
       "source": "/quickstart-self-hosted",
-      "destination": "/quickstart-desktop"
-    },
-    {
-      "source": "/self-hosting/docker",
-      "destination": "/quickstart-desktop"
-    },
-    {
-      "source": "/self-hosting/configuration",
-      "destination": "/quickstart-desktop"
+      "destination": "/quickstart-source"
     },
     {
       "source": "/pricing",

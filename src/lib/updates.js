@@ -10,7 +10,9 @@
 
 export const UPDATE_REPO = 'TechMitten/app-blips';
 export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
-export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-desktop#updates';
+// Only the browser version (from source or Docker) links here; the desktop
+// app updates itself or links to the installer.
+export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#updating';
 export const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 export const CHECK_CACHE_KEY = 'orion-update-check';
 

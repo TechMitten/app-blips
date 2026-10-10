@@ -1,31 +1,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
-import { Readable, pipeline } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './electron/server/chatProxy.js'
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js'
+import { toChatRequest, sendWebResponse } from './electron/server/nodeHttp.js'
 
-// Dev-middleware plumbing. Vite's connect server does not catch rejections from
-// async middleware, and an 'error' event on an unhandled stream is an uncaught
-// exception; on modern Node either one kills the whole dev server. The proxy
-// below goes through these so an upstream failure or a client abort (e.g. the
-// user cancelling a generation mid-stream) costs one request, not the server.
-function sendWebResponse(res, response) {
-  res.statusCode = response.status
-  response.headers.forEach((value, key) => res.setHeader(key, value))
-  if (!response.body) {
-    res.end()
-    return
-  }
-  // pipeline() forwards errors from either side and, when the client goes
-  // away, destroys the upstream body so the LLM request is cancelled too.
-  pipeline(Readable.fromWeb(response.body), res, (err) => {
-    if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
-      console.error('[dev-proxy] stream error:', err.message)
-    }
-  })
-}
-
+// Vite's connect server does not catch rejections from async middleware; on
+// modern Node that kills the whole dev server, so the proxy goes through this
+// and an upstream failure costs one request, not the server. (Stream errors
+// are handled in sendWebResponse.)
 function guarded(handler) {
   return async (req, res, next) => {
     try {
@@ -58,10 +41,11 @@ function configSummaryPlugin(mode) {
 
 // Runs the desktop app's LLM proxy handler (electron/server/chatProxy.js) as
 // dev-server middleware, so the renderer can be developed in a browser with
-// hot-reload. This is a development convenience only -- it is not a supported
-// way to run AppBlips. Reads the OPENAI_* LLM variables from a local .env with
-// no prefix filter: these never reach the client bundle since they aren't
-// VITE_-prefixed and are only read here, in Node config code.
+// hot-reload. This is for working on AppBlips itself; to run a copy in a
+// browser, use server.js (npm start, or Docker). Reads the OPENAI_* LLM
+// variables from a local .env with no prefix filter: these never reach the
+// client bundle since they aren't VITE_-prefixed and are only read here, in
+// Node config code.
 function llmProxyDevMiddleware(mode) {
   return {
     name: 'appblips-llm-proxy-dev-middleware',
@@ -73,21 +57,8 @@ function llmProxyDevMiddleware(mode) {
           res.end('Method not allowed')
           return
         }
-        const chunks = []
-        for await (const chunk of req) chunks.push(chunk)
-        // The real Host and Origin go through so the handler refuses browser
-        // requests from other sites (isForeignOrigin in chatProxy.js).
-        const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim()
-        const request = new Request(protocol + '://' + (req.headers.host || 'localhost') + '/api/chat', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-          },
-          body: Buffer.concat(chunks),
-        })
-        const response = await handleChatProxy(request, env)
-        sendWebResponse(res, response)
+        const response = await handleChatProxy(await toChatRequest(req), env)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },
   }

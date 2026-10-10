@@ -1,0 +1,120 @@
+---
+title: "Run AppBlips with Docker Compose"
+sidebarTitle: "Docker"
+description: "Run AppBlips in your browser from a Docker container. One command builds it and starts it on localhost port 3000, with no Node.js needed on your computer."
+---
+
+<Note>
+  This is an advanced option. Most people should install the [desktop app](/quickstart-desktop) instead.
+</Note>
+
+Docker runs AppBlips inside a container: a sealed-off box with everything AppBlips needs already in it. You don't install Node.js or anything else on your computer. One command builds the container and starts it, and you use AppBlips in your web browser.
+
+It's the same app as the [browser version from source](/quickstart-source#run-it-in-your-browser): your projects and API key are saved in your browser, not in the container.
+
+## Before you start
+
+- Install **Docker**. On Windows and macOS, install [Docker Desktop](https://docs.docker.com/get-docker/) and open it. On Linux, install [Docker Engine](https://docs.docker.com/engine/install/) with the Compose plugin.
+- Get the AppBlips code. With Git:
+
+  ```bash
+  git clone https://github.com/techmitten/app-blips.git
+  cd app-blips
+  ```
+
+  Without Git, open the [GitHub page](https://github.com/techmitten/app-blips), click **Code → Download ZIP**, unzip it, and open a terminal in that folder.
+
+## Start AppBlips
+
+<Steps>
+  <Step title="Build and start the container">
+    In the AppBlips folder, run:
+
+    ```bash
+    docker compose up -d
+    ```
+
+    The first time, Docker downloads what it needs and builds AppBlips. That takes a few minutes. Later starts take seconds.
+  </Step>
+  <Step title="Open AppBlips">
+    Go to [http://localhost:3000](http://localhost:3000) in your browser.
+  </Step>
+  <Step title="Set up your AI provider">
+    The welcome tour ends by asking for your AI provider, API key and model. You can change them later in **Settings → API**.
+  </Step>
+</Steps>
+
+To see what AppBlips is printing (for example, if the page doesn't load), run `docker compose logs -f`. Press `Ctrl+C` to stop watching; AppBlips keeps running.
+
+The container restarts by itself when your computer or Docker restarts, until you stop it.
+
+## Stop and update
+
+To stop AppBlips, run this in the AppBlips folder:
+
+```bash
+docker compose down
+```
+
+To update to a newer version:
+
+1. Get the new code: `git pull` (or download the ZIP again and unzip it over the old folder).
+2. Rebuild and restart:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+Your projects stay in your browser through updates and restarts.
+
+## Use another port
+
+AppBlips uses port 3000 on your computer. To use another one:
+
+1. In the AppBlips folder, create a file named `.env` (or copy `.env.example` to `.env`).
+2. Add this line, with the port you want:
+
+   ```bash
+   APPBLIPS_PORT=8080
+   ```
+
+3. Run `docker compose up -d` again, then open `http://localhost:8080`.
+
+Projects are saved per address, so moving to a new port starts with an empty project list. Export your apps first from **Settings → Data**, and import them at the new address.
+
+## Give the server an AI provider (optional)
+
+Instead of entering your provider in the app, you can put it in the same `.env` file, for example:
+
+```bash
+OPENAI_API_KEY=sk-...
+OPENAI_LLM_MODEL=deepseek-v4-pro
+```
+
+Run `docker compose up -d` after changing `.env` so the container picks up the new values. See the [Configuration reference](/self-hosting/configuration) for every setting.
+
+## Local models (LM Studio and Ollama)
+
+AppBlips can use LM Studio or Ollama running on your computer. Choose it in **Settings → API** as usual and leave the server URL as it is: the container reaches your computer through the name `host.docker.internal` by itself.
+
+- **Windows and macOS (Docker Desktop):** this works as it is.
+- **Linux:** the local server has to accept connections from the container, not only from your own computer:
+  - **Ollama:** start it with `OLLAMA_HOST=0.0.0.0`. For the system service, run `sudo systemctl edit ollama`, add `Environment="OLLAMA_HOST=0.0.0.0"` under `[Service]`, save, and run `sudo systemctl restart ollama`.
+  - **LM Studio:** in the **Developer** tab, turn on **Serve on Local Network**.
+  - If it still can't connect, your firewall may be blocking the container. Running [from source](/quickstart-source) avoids this.
+
+<Warning>
+  "Serve on local network" and `OLLAMA_HOST=0.0.0.0` also let other devices on your network use your local model. Only do this on a network you trust.
+</Warning>
+
+## Keep it on your computer
+
+`docker-compose.yml` publishes AppBlips as `127.0.0.1:3000`, so only your own computer can open it.
+
+<Warning>
+  Don't remove the `127.0.0.1:` part. AppBlips has no sign-in, so anyone who can reach it can spend the API key you gave the server. See [Security](/self-hosting/security#browser-and-docker-versions).
+</Warning>
+
+<Note>
+  The container runs a small Node.js server bundled into a single file, with no `node_modules` folder, and it runs as a non-root user.
+</Note>

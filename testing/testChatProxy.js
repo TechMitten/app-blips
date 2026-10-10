@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleChatProxy, smallerOutputLimit } from '../electron/server/chatProxy.js';
+import { handleChatProxy, smallerOutputLimit, localServerUrl } from '../electron/server/chatProxy.js';
 
 const env = {
   OPENAI_BASE_URL: 'https://llm.example/v1',
@@ -377,4 +377,13 @@ test('builder requests are not rate limited', async (t) => {
     body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
   }), { ...env, APPBLIPS_CHAT_RATE_LIMIT_MAX: '2', ...settings });
   for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `request ${i + 1}`);
+});
+
+test('APPBLIPS_LOCAL_AI_HOST points local servers at another machine (Docker), and nothing else', () => {
+  const env = { APPBLIPS_LOCAL_AI_HOST: 'host.docker.internal' };
+  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://localhost:11434/v1' }), 'http://host.docker.internal:11434/v1');
+  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://127.0.0.1:1234/v1' }), 'http://host.docker.internal:1234/v1');
+  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://[::1]:1234/v1' }), 'http://host.docker.internal:1234/v1');
+  assert.equal(localServerUrl({}, { local: true, baseUrl: 'http://localhost:11434/v1' }), 'http://localhost:11434/v1');
+  assert.equal(localServerUrl(env, { local: false, baseUrl: 'https://api.deepseek.com' }), 'https://api.deepseek.com');
 });

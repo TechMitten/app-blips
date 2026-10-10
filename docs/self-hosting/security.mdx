@@ -1,22 +1,37 @@
 ---
 title: "Security Guide for Self-Hosted Copies"
 sidebarTitle: "Security"
-description: "Key security boundaries for your own copy of AppBlips: the desktop app, sandboxed previews, and how your API key is protected."
+description: "Key security boundaries for your own copy of AppBlips: the desktop app, the browser and Docker versions, sandboxed previews, and how your API key is protected."
 ---
 
-The [desktop app](/quickstart-desktop) is your own copy of AppBlips, running on your computer for a single user. This page explains the security boundaries that matter in that setup.
+Every way of running AppBlips gives you your own copy for a single user: the [desktop app](/quickstart-desktop), the [browser version from source](/quickstart-source), and [Docker](/self-hosting/docker). This page explains the security boundaries that matter in each.
 
-## It Stays on Your Computer
+## The desktop app stays on your computer
 
 - The desktop app has no sign-in and opens no network port, so other devices can't reach it or use your API key.
 - The apps you build, and web pages from other sites, can't use AppBlips to call your AI provider.
 - Set a spend limit with your AI provider. Your own copy of AppBlips doesn't limit how many requests it sends, so a runaway app could otherwise run up costs.
 
-## Your API Key
+## Browser and Docker versions
 
-Your provider key is encrypted with your system keychain and used only by the app's background process. It is never sent to the browser, never embedded in generated app code, and never included in exported HTML.
+The browser version (`npm start`) and Docker run a small web server on your computer. Like the desktop app, it has no sign-in, so it's set up to answer only you:
 
-## Sandboxed Preview
+- It listens on `127.0.0.1` (Docker publishes it as `127.0.0.1:3000`), so other devices on your network can't connect.
+- It only answers when opened as `localhost` or `127.0.0.1`. This stops a website from pointing its own domain name at your computer to reach AppBlips.
+- Like the desktop app, it refuses AI requests from other websites and from the apps you build.
+
+<Warning>
+  If you make AppBlips reachable from other devices (by changing `HOST`, removing `127.0.0.1:` from `docker-compose.yml`, or adding names to `APPBLIPS_ALLOWED_HOSTS`), anyone who can reach it can spend an API key set in `.env` and use the server to send requests on your behalf. Put your own sign-in in front of it first, for example a reverse proxy with authentication.
+</Warning>
+
+## Your API key
+
+- **Desktop app:** your provider key is encrypted with your system keychain and used only by the app's background process. It is never sent to the app's web page.
+- **Browser and Docker versions:** a key entered in **Settings → API** is saved in your browser's storage for AppBlips' address and sent to AppBlips' own server with each request, which passes it to your provider. Anyone who can use your browser profile can read it. A key in `.env` stays on the server and never reaches the browser.
+
+In every version, the key is never embedded in generated app code and never included in exported HTML.
+
+## Sandboxed preview
 
 Generated apps never run directly inside the main AppBlips page. Every generated app runs in an isolated preview, which means:
 
@@ -28,6 +43,6 @@ Generated apps never run directly inside the main AppBlips page. Every generated
 
 This isolation is the main protection against malicious or buggy generated code affecting AppBlips itself.
 
-## Opening Exported Apps
+## Opening exported apps
 
 Exported apps are self-contained HTML with full script privileges. Open or host them separately from AppBlips (for example, as a local file or on a different domain) rather than serving them from the same origin as AppBlips, so an app can't read what AppBlips stores in the browser.
