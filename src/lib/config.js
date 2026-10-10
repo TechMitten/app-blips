@@ -260,13 +260,12 @@ export const isStartFresh = () => {
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // The initial build (first generation of an app/site) is the only call whose
 // reasoning is user-configurable. Sent to /api/chat as `reasoning_effort`; a
-// Low/High choice where Low is sent as 'low' and High as 'high'. Low is the
-// default (and the minimum). Edits, error repair and chat calls are hardcoded
-// to LOW in llm.js.
+// Off/Low/High choice where Off is sent as 'none'. Off is the default.
+// Edits, error repair and chat calls are hardcoded to LOW in llm.js.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
 export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'high'];
-// Efforts saved before the Low/High choice (and the legacy combined key); the
-// top ones map to High, everything else falls back to Low.
+// Older saved efforts (including the legacy combined key): the top ones map
+// to High, and unrecognised values fall back to Off.
 const HIGH_EFFORTS = ['medium', 'high'];
 
 // Output limits are optional device settings. No saved value means the
@@ -314,9 +313,8 @@ export const saveChatMode = (mode) => {
 };
 
 // Build reasoning only. Falls back to the legacy single setting, so users who
-// had already picked an effort keep it. Older saved 'none' (and the pre-toggle
-// 'medium'/'high') migrate: the top efforts become High, everything else
-// becomes the Low default.
+// had already picked an effort keep it. Older saved 'medium' migrates to High;
+// missing or unrecognised values default to Off ('none').
 export const loadReasoningEffort = () => {
   try {
     const storage = safeStorage('local');

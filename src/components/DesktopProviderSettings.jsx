@@ -140,22 +140,6 @@ export default function DesktopProviderSettings({ guardRef }) {
             <input value={draft.baseUrl} onChange={(e) => update({ baseUrl: e.target.value })} placeholder={option.baseUrl} className={INPUT_CLASS} />
           </label>}
           <label className="block text-sm text-slate-600">
-            Model
-            <ModelCombobox
-              value={draft.model}
-              onChange={(model) => update({ model })}
-              models={modelList.models}
-              loading={modelList.loading}
-              allowCustom
-              placeholder="Select a model or enter its ID…"
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <button type="button" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey} className={SECONDARY_BUTTON}>Refresh models</button>
-            {modelList.needsKey && <span>Enter your API key to load models, or enter a model ID manually.</span>}
-            {modelList.error && <span role="status">{modelList.error} Type a model ID to continue.</span>}
-          </div>
-          <label className="block text-sm text-slate-600">
             {local ? 'API key (optional)' : `${providerLabel(draft.id)} API key`}
             <div className="relative">
               <input
@@ -181,9 +165,6 @@ export default function DesktopProviderSettings({ guardRef }) {
             {local ? 'Start your local server and load a model that supports tool calling. The server URL must include /v1. No API key is required unless your server uses authentication.' : <>Your key is encrypted with your system keychain and stored only on this computer, never in your projects.
             Apps you open in a new tab use it too; exported HTML files ask whoever runs them for their own key.</>}
           </p>
-          {draft.id === 'openai' && <p className="text-xs text-slate-500">
-            Choose an OpenAI model that supports tool calling through Chat Completions.
-          </p>}
           {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <a href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} target="_blank" rel="noopener noreferrer">Create a {providerLabel(draft.id)} API key</a>.
           </p>}
@@ -193,6 +174,25 @@ export default function DesktopProviderSettings({ guardRef }) {
               No system keychain was found, so the key is stored with weak encryption. Installing GNOME Keyring or KWallet protects it properly.
             </p>
           )}
+          <label className="block text-sm text-slate-600">
+            Model
+            <ModelCombobox
+              value={draft.model}
+              onChange={(model) => update({ model })}
+              models={modelList.models}
+              loading={modelList.loading}
+              allowCustom
+              placeholder="Select a model or enter its ID…"
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <button type="button" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey} className={SECONDARY_BUTTON}>Refresh models</button>
+            {modelList.needsKey && <span>Enter your API key to load models, or enter a model ID manually.</span>}
+            {modelList.error && <span role="status">{modelList.error} Type a model ID to continue.</span>}
+          </div>
+          {draft.id === 'openai' && <p className="text-xs text-slate-500">
+            Choose an OpenAI model that supports tool calling through Chat Completions.
+          </p>}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"

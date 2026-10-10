@@ -93,7 +93,7 @@ export default function SettingsModal({
   onLiveCodePreviewChange,
   buildPaneSide,
   onBuildPaneSideChange,
-  buildReasoningEffort,
+  buildReasoningEffort = 'none',
   onBuildReasoningEffortChange,
   onDeleteAllProjects,
   onResetApp,
@@ -340,7 +340,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-reasoning-build"
                 title="Reasoning: building"
-                description="Let the AI reason before generating a new app from scratch. Low is faster and cheaper; High thinks harder for complex apps."
+                description="Let the AI reason before generating a new app from scratch. Off by default. Low is faster and cheaper; High thinks harder for complex apps."
               >
                 <Segmented
                   label="Reasoning for building"
