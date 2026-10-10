@@ -134,68 +134,89 @@ export const replaceExactOccurrence = (haystack, needle, replacement, occurrence
   return haystack.slice(0, idx) + replacement + haystack.slice(idx + needle.length);
 };
 
-export const applySurgicalEdits = (currentCode, edits) => {
-  if (!currentCode || !edits || !Array.isArray(edits)) return { success: false, error: 'Invalid edit format' };
-
-  let newCode = currentCode;
-
-  for (const block of edits) {
-    const { search: searchStr, replace: replaceStr, occurrence, replace_all: replaceAll } = block;
-    if (!searchStr) continue;
-
-    const exactCount = countExactOccurrences(newCode, searchStr);
-
-    if (exactCount > 0) {
-      if (replaceAll) {
-        newCode = newCode.split(searchStr).join(replaceStr);
-      } else if (exactCount === 1) {
-        newCode = newCode.replace(searchStr, replaceStr);
-      } else if (occurrence && occurrence >= 1 && occurrence <= exactCount) {
-        newCode = replaceExactOccurrence(newCode, searchStr, replaceStr, occurrence);
-      } else {
-        return {
-          success: false,
-          error: `Ambiguous: search block matches ${exactCount} locations. Set "occurrence" (1-${exactCount}) or "replace_all": true.`,
-          ambiguous: true,
-          matchCount: exactCount
-        };
-      }
-      continue;
+// Match offsets let us replace literal text and preserve bytes outside the
+// selected range, including CRLF line endings. Imported source uses the
+// conservative mode: only line endings and indentation may differ, never
+// whitespace inside JSX copy, strings, or expressions.
+const exactRanges = (code, search, normalizeNewlines) => {
+  const ranges = [];
+  if (normalizeNewlines) {
+    const pattern = search.replace(/\r\n/g, '\n').split('\n')
+      .map((line) => line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\r?\n');
+    for (const match of code.matchAll(new RegExp(pattern, 'g'))) {
+      ranges.push({ start: match.index, end: match.index + match[0].length });
     }
-
-    // Fuzzy fallback: whitespace-normalized line-window match, same occurrence/replace_all logic.
-    const codeLines = newCode.split(/\r?\n/);
-    const searchLines = searchStr.split(/\r?\n/);
-    const matches = findFuzzyMatches(codeLines, searchLines);
-
-    if (matches.length === 0) {
-      return {
-        success: false,
-        error: `Search block not found: "${searchStr.substring(0, 100)}..."`,
-        failedBlock: searchStr
-      };
-    } else if (matches.length === 1 || replaceAll) {
-      const targets = replaceAll ? matches : [matches[0]];
-      // Apply from the last match backwards so earlier indices stay valid.
-      let lines = codeLines;
-      for (let t = targets.length - 1; t >= 0; t--) {
-        const matchIndex = targets[t];
-        lines = [...lines.slice(0, matchIndex), replaceStr, ...lines.slice(matchIndex + searchLines.length)];
-      }
-      newCode = lines.join('\n');
-    } else if (occurrence && occurrence >= 1 && occurrence <= matches.length) {
-      const matchIndex = matches[occurrence - 1];
-      newCode = [...codeLines.slice(0, matchIndex), replaceStr, ...codeLines.slice(matchIndex + searchLines.length)].join('\n');
-    } else {
-      return {
-        success: false,
-        error: `Ambiguous: search block matches ${matches.length} locations. Set "occurrence" (1-${matches.length}) or "replace_all": true.`,
-        ambiguous: true,
-        matchCount: matches.length
-      };
+  } else {
+    let start = 0;
+    while ((start = code.indexOf(search, start)) !== -1) {
+      ranges.push({ start, end: start + search.length });
+      start += search.length;
     }
   }
+  return ranges;
+};
 
+export const applySurgicalEdits = (currentCode, edits, { conservative = false } = {}) => {
+  if (typeof currentCode !== 'string' || !Array.isArray(edits) || !edits.length) {
+    return { success: false, error: 'Provide a non-empty array of search/replace edits.' };
+  }
+
+  let newCode = currentCode;
+  for (const [index, block] of edits.entries()) {
+    const failure = (error, details = {}) => ({ success: false, error, failedEdit: index + 1, ...details });
+    if (!block || typeof block.search !== 'string' || !block.search.length || typeof block.replace !== 'string') {
+      return failure('Each edit needs a non-empty search string and a replacement string (use "" to delete text).');
+    }
+    const { search, replace, occurrence, replace_all: replaceAll } = block;
+    if (occurrence != null && (!Number.isInteger(occurrence) || occurrence < 1)) {
+      return failure('occurrence must be a positive, 1-based integer or null.');
+    }
+    if (replaceAll != null && typeof replaceAll !== 'boolean') {
+      return failure('replace_all must be a boolean or null.');
+    }
+    if (replaceAll && occurrence != null) return failure('Use either occurrence or replace_all, not both.');
+
+    let matches = exactRanges(newCode, search, conservative);
+    if (!matches.length) {
+      const codeLines = newCode.split(/\r?\n/);
+      const searchLines = search.split(/\r?\n/);
+      const offsets = [];
+      let offset = 0;
+      for (const line of newCode.split(/(?<=\n)/)) {
+        offsets.push(offset);
+        offset += line.length;
+      }
+      if (offsets.length < codeLines.length) offsets.push(newCode.length);
+      const starts = conservative
+        ? codeLines.flatMap((_, i) => i + searchLines.length <= codeLines.length
+          && searchLines.every((line, j) => line.trim() === codeLines[i + j].trim()) ? [i] : [])
+        : findFuzzyMatches(codeLines, searchLines);
+      matches = starts.map((i) => ({ start: offsets[i], end: offsets[i + searchLines.length - 1] + codeLines[i + searchLines.length - 1].length }));
+    }
+
+    if (!matches.length) return failure(`Search block not found: "${search.substring(0, 100)}..."`, { failedBlock: search });
+    const matchLines = matches.slice(0, 20).map((m) => newCode.slice(0, m.start).split('\n').length);
+    if (occurrence != null && occurrence > matches.length) {
+      return failure(`occurrence ${occurrence} is out of range; search matches ${matches.length} locations.`, { matchCount: matches.length, matchLines });
+    }
+    if (matches.length > 1 && occurrence == null && !replaceAll) {
+      return failure(`Ambiguous: search block matches ${matches.length} locations. Set "occurrence" (1-${matches.length}) or "replace_all": true.`, {
+        ambiguous: true, matchCount: matches.length, matchLines,
+      });
+    }
+    const targets = replaceAll ? matches : [matches[(occurrence || 1) - 1]];
+    if (targets.some((m, i) => i && m.start < targets[i - 1].end)) {
+      return failure('Search blocks overlap. Use a smaller, unique search block.');
+    }
+    const replacement = conservative
+      ? replace.replace(/\r?\n/g, newCode.includes('\r\n') ? '\r\n' : '\n')
+      : replace;
+    // String.replace treats $&, $`, $' and $$ specially. Slicing keeps model
+    // output literal, which matters for regexes, templates and currency copy.
+    for (const match of targets.slice().reverse()) {
+      newCode = newCode.slice(0, match.start) + replacement + newCode.slice(match.end);
+    }
+  }
   return { success: true, code: newCode };
 };
 

@@ -231,7 +231,7 @@ test('user-selected OpenAI sends its key and model to the official endpoint', as
     return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }));
   });
   const response = await handleChatProxy(new Request('http://localhost/api/chat', {
-    method: 'POST', body: JSON.stringify({ user_provider: { id: 'openai', apiKey: 'openai-user-key', model: 'gpt-5-mini' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high' }),
+    method: 'POST', body: JSON.stringify({ user_provider: { id: 'openai', apiKey: 'openai-user-key', model: 'gpt-5-mini' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high', max_tokens: 4096 }),
   }), { ...builderEnv, OPENAI_LLM_MAX_TOKENS: '4096' });
   assert.equal(response.status, 200);
 });

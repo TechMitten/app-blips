@@ -67,8 +67,6 @@ export const LLM_ENV = {
   API_KEY: 'OPENAI_API_KEY',
   BASE_URL: 'OPENAI_BASE_URL',
   MODEL: 'OPENAI_LLM_MODEL',
-  MAX_TOKENS: 'OPENAI_LLM_MAX_TOKENS',
-  ASK_MAX_TOKENS: 'OPENAI_LLM_ASK_MAX_TOKENS',
   // Optional per-role models on the same provider (chatProxy.js routeModel).
   VISION_MODEL: 'OPENAI_LLM_VISION_MODEL',
   TEMPERATURE: 'OPENAI_LLM_TEMPERATURE',

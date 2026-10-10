@@ -39,6 +39,7 @@ import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
 import { LANDING_PAGE, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
+import { AUTO_FIX_PROMPT, AUTO_FIX_REPLY, AUTO_FIX_FAILURE, automaticRepairStatus, isAutomaticRepair } from './lib/buildMessages';
 import { checkSyntaxFiles } from './lib/pageTools';
 import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
@@ -433,8 +434,7 @@ export default function App({ coldStart = false }) {
       setIsAutoFixing(false);
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
-      const formatted = formatSyntaxErrors(errorList);
-      setError(`Syntax errors detected in code:\n${formatted}`);
+      setError(AUTO_FIX_FAILURE);
       return;
     }
 
@@ -444,7 +444,7 @@ export default function App({ coldStart = false }) {
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
-    setGenerationStatus(`Fixing syntax error: ${errorList[0]?.message || 'Syntax error'}`);
+    setGenerationStatus(automaticRepairStatus());
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
   }, [cancelPendingReload, chatMode]);
 
@@ -552,7 +552,7 @@ export default function App({ coldStart = false }) {
       setIsAutoFixing(false);
       isAutoFixingRef.current = false;
       setAutoFixMessage(null);
-      setError(`Runtime error in preview: ${payload?.message || 'Runtime error detected'}`);
+      setError(AUTO_FIX_FAILURE);
       return;
     }
 
@@ -572,7 +572,7 @@ export default function App({ coldStart = false }) {
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
     setAutoFixMessage(errorDetails);
-    setGenerationStatus(`Fixing runtime error: ${errorDetails}`);
+    setGenerationStatus(automaticRepairStatus());
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
   }, [cancelPendingReload, chatMode]);
 
@@ -1213,9 +1213,11 @@ export default function App({ coldStart = false }) {
 
   // The codebase edit loop's build check: the preview bundler run on the
   // edited files, plus imports missing from package.json.
-  const runCodebaseBuildCheck = async (checkFiles, checkAssets) => (
-    checkCodebaseBuild(await loadEsbuild(), { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files })
-  );
+  const runCodebaseBuildCheck = async (checkFiles, checkAssets, { diagnostics } = {}) => {
+    diagnostics?.info('Waiting for esbuild initialization');
+    const esbuild = await loadEsbuild();
+    return checkCodebaseBuild(esbuild, { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files, diagnostics });
+  };
 
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
     e?.preventDefault();
@@ -1278,6 +1280,7 @@ export default function App({ coldStart = false }) {
     savePendingJob({
       projectId: currentProjectId,
       prompt: currentPrompt,
+      isAutoFix,
       chatMode,
       studioMode,
       startedAt: Date.now(),
@@ -1286,12 +1289,9 @@ export default function App({ coldStart = false }) {
     const prevVersion = updatedVersions[updatedVersions.length - 1];
     const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
 
-    const isSyntaxAutoFix = isAutoFix && autoFixError?.toLowerCase().includes('syntax');
     setGenerationStatus(
       isAutoFix
-        ? (isSyntaxAutoFix
-            ? `Fixing syntax error${autoFixError ? `: ${autoFixError.slice(0, 80)}` : '…'}`
-            : `Fixing runtime error${autoFixError ? `: ${autoFixError.slice(0, 80)}` : '…'}`)
+        ? automaticRepairStatus()
         : shouldAskClarifyingQuestions
           ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
           : null
@@ -1299,7 +1299,7 @@ export default function App({ coldStart = false }) {
     abortControllerRef.current = new AbortController();
 
     setPrompt(''); // Clear input so user can easily type their next refinement
-    setPendingPrompt(currentPrompt);
+    setPendingPrompt(isAutoFix ? AUTO_FIX_PROMPT : currentPrompt);
     // Captured before clearing so this request still carries it -- the
     // attachment is ephemeral (never persisted onto the version/chat history).
     const attachmentForRequest = attachment;
@@ -1314,6 +1314,9 @@ export default function App({ coldStart = false }) {
 
     try {
       const handleChunk = (chunk, kind = 'content') => {
+        // Repair details and model explanations remain internal. Code stream
+        // markers still reach the preview, while chat shows general progress.
+        if (isAutoFix && ['content', 'reply', 'reasoning'].includes(kind)) return;
         if (kind === 'thinking_start') {
           setThinkingSince((prev) => prev ?? Date.now());
           return;
@@ -1347,7 +1350,7 @@ export default function App({ coldStart = false }) {
           return;
         }
         if (kind === 'status') {
-          setGenerationStatus(chunk);
+          setGenerationStatus(isAutoFix ? automaticRepairStatus(chunk) : chunk);
           return;
         }
         if (kind === 'live_page') {
@@ -1452,6 +1455,7 @@ export default function App({ coldStart = false }) {
       const generationResult = studioMode === 'codebase'
         ? await generateCodebaseEdit({
             prompt: currentPrompt,
+            projectId: currentProjectId,
             files,
             assets: currentAssets || {},
             meta: codebaseMeta,
@@ -1475,8 +1479,9 @@ export default function App({ coldStart = false }) {
         files: newFiles,
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
-        editSummary: generationResult.editSummary,
-        reply: generationResult.reply || null,
+        editSummary: isAutoFix ? AUTO_FIX_PROMPT : generationResult.editSummary,
+        isAutoFix,
+        reply: isAutoFix ? AUTO_FIX_REPLY : generationResult.reply || null,
         chatMode,
         sessionId: currentChatSessionId
       };
@@ -1520,8 +1525,7 @@ export default function App({ coldStart = false }) {
             handleSyntaxError(syntaxErrors);
           }, 0);
         } else {
-          const formatted = formatSyntaxErrors(syntaxErrors);
-          setError(`Syntax errors in generated code:\n${formatted}`);
+          setError(AUTO_FIX_FAILURE);
           setIsAutoFixing(false);
           isAutoFixingRef.current = false;
           setAutoFixMessage(null);
@@ -1553,8 +1557,8 @@ export default function App({ coldStart = false }) {
         clearPendingJob();
         return;
       }
-      setError(err.message);
-      setPrompt(currentPrompt); // Restore prompt text on error
+      setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
+      if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
@@ -2037,9 +2041,10 @@ export default function App({ coldStart = false }) {
     clearPendingJob();
     setChatMode(jobChatMode);
     setStudioMode(jobStudioMode);
-    setPrompt(jobPrompt);
+    const autoFix = isAutomaticRepair(interruptedJob);
+    if (!autoFix) setPrompt(jobPrompt);
     // Use setTimeout so state setters flush before handleGenerate reads them.
-    setTimeout(() => handleGenerateRef.current?.(null, jobPrompt), 0);
+    setTimeout(() => handleGenerateRef.current?.(null, jobPrompt, autoFix), 0);
   }, [interruptedJob]);
 
   const handleDismissInterruptedJob = useCallback(() => {

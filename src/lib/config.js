@@ -269,6 +269,30 @@ export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'high'];
 // top ones map to High, everything else falls back to Low.
 const HIGH_EFFORTS = ['medium', 'high'];
 
+// Output limits are optional device settings. No saved value means the
+// provider chooses its limit, independently for building and Ask mode.
+export const BUILD_MAX_TOKENS_KEY = 'orion-max-tokens-build';
+export const ASK_MAX_TOKENS_KEY = 'orion-max-tokens-ask';
+const outputTokensKey = (askMode) => askMode ? ASK_MAX_TOKENS_KEY : BUILD_MAX_TOKENS_KEY;
+
+export const loadOutputTokenLimit = (askMode = false) => {
+  try {
+    const stored = safeStorage('local')?.getItem(outputTokensKey(askMode));
+    const value = Number(stored);
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveOutputTokenLimit = (value, askMode = false) => {
+  if (value != null && (!Number.isSafeInteger(value) || value <= 0)) return;
+  try {
+    const storage = safeStorage('local');
+    if (value == null) storage?.removeItem(outputTokensKey(askMode));
+    else storage?.setItem(outputTokensKey(askMode), String(value));
+  } catch { /* storage unavailable */ }
+};
 // 'build' | 'ask'; anything unrecognised falls back to 'build'.
 export const CHAT_MODE_KEY = 'orion-chat-mode';
 

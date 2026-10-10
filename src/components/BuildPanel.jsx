@@ -2,6 +2,7 @@ import { TriangleAlert, RotateCcw, X, Plus, History } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
+import { displayBuildPrompt } from '../lib/buildMessages';
 
 // Left-hand prompt/chat pane: studio header, starter ideas, chat transcript and
 // the fixed bottom input area (prompt). The generation flow and
@@ -140,8 +141,8 @@ export default function BuildPanel({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-[10px] font-bold text-amber-800 uppercase tracking-[0.14em] mb-0.5">Build interrupted</p>
-                      <p className="text-xs text-amber-950 font-semibold leading-snug truncate" title={interruptedJob.prompt}>
-                        &ldquo;{interruptedJob.prompt}&rdquo;
+                      <p className="text-xs text-amber-950 font-semibold leading-snug truncate" title={displayBuildPrompt(interruptedJob)}>
+                        &ldquo;{displayBuildPrompt(interruptedJob)}&rdquo;
                       </p>
                     </div>
                     <button

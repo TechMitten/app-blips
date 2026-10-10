@@ -4,6 +4,7 @@ import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DataSettings from './DataSettings';
 import DesktopProviderSettings from './DesktopProviderSettings';
+import OutputTokenSettings from './OutputTokenSettings';
 import {
   SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
@@ -335,6 +336,7 @@ export default function SettingsModal({
 
           {tab === 'ai' && (
             <>
+              <OutputTokenSettings />
               <SettingRow
                 id="set-reasoning-build"
                 title="Reasoning: building"

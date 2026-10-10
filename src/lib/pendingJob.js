@@ -12,6 +12,7 @@ const PENDING_JOB_KEY = 'orion-pending-job';
  * @typedef {Object} PendingJob
  * @property {string|null} projectId   - The project being edited (null for brand-new apps).
  * @property {string}      prompt      - The prompt that triggered the build.
+ * @property {boolean}     [isAutoFix] - Automatic repair; diagnostics stay internal when displayed or retried.
  * @property {string}      chatMode    - 'build' or 'ask'.
  * @property {string}      [studioMode] - 'app', 'website' or 'game' (legacy records predate this field).
  * @property {number}      startedAt   - Date.now() timestamp when the job began.

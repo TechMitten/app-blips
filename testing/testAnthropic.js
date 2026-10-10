@@ -51,7 +51,8 @@ test('requests translate to Messages API params', () => {
     ],
   });
   assert.equal(params.system, 'Be brief.');
-  assert.equal(params.max_tokens, 64000);
+  assert.equal(params.max_tokens, undefined);
+  assert.equal(toAnthropicParams({ model: 'claude-opus-5-5', max_tokens: 12000 }).max_tokens, 12000);
   assert.deepEqual(params.thinking, { type: 'adaptive', display: 'summarized' });
   assert.deepEqual(params.output_config, { effort: 'high' });
   assert.deepEqual(params.tool_choice, { type: 'auto' });
@@ -98,6 +99,11 @@ test('a streamed reply becomes OpenAI chunks through the SDK', async () => {
   let sent;
   const response = await callAnthropic({ model: 'claude-opus-5-5', stream: true, messages: [{ role: 'user', content: 'hi' }] }, provider, {
     fetchImpl: async (url, init) => {
+      if (init.method === 'GET') {
+        assert.equal(String(url), 'https://api.anthropic.com/v1/models/claude-opus-5-5');
+        assert.equal(new Headers(init.headers).get('x-api-key'), 'sk-ant-test');
+        return Response.json({ id: 'claude-opus-5-5', max_tokens: 128000 });
+      }
       sent = { url: String(url), headers: new Headers(init.headers), body: JSON.parse(init.body) };
       return sse(replyEvents);
     },
@@ -107,6 +113,7 @@ test('a streamed reply becomes OpenAI chunks through the SDK', async () => {
   assert.equal(sent.headers.get('x-api-key'), 'sk-ant-test');
   assert.match(sent.headers.get('anthropic-beta'), /server-side-fallback-2026-07-01/);
   assert.equal(sent.body.stream, true);
+  assert.equal(sent.body.max_tokens, 128000);
   const chunks = (await response.text()).split('\n\n').filter(Boolean).map((line) => line.slice(6));
   assert.equal(chunks.at(-1), '[DONE]');
   const deltas = chunks.slice(0, -1).map((data) => JSON.parse(data).choices[0]);
@@ -122,7 +129,7 @@ test('a streamed reply becomes OpenAI chunks through the SDK', async () => {
 });
 
 test('non-streamed replies and errors keep the OpenAI-compatible shape', async () => {
-  const reply = await callAnthropic({ model: 'claude-opus-5-5', messages: [{ role: 'user', content: 'hi' }] }, provider, { fetchImpl: async () => sse(replyEvents) });
+  const reply = await callAnthropic({ model: 'claude-opus-5-5', messages: [{ role: 'user', content: 'hi' }] }, provider, { fetchImpl: async (url, init) => init.method === 'GET' ? Response.json({ max_tokens: 128000 }) : sse(replyEvents) });
   const message = (await reply.json()).choices[0].message;
   assert.equal(message.content, 'Editing.');
   assert.deepEqual(message.tool_calls, [{ id: 'toolu_1', type: 'function', function: { name: 'edit', arguments: '{"a":1}' } }]);
@@ -133,6 +140,43 @@ test('non-streamed replies and errors keep the OpenAI-compatible shape', async (
   assert.equal(rejected.status, 429);
   assert.equal(rejected.headers.get('retry-after'), '7');
   assert.equal((await rejected.json()).error.message, 'Slow down');
+});
+
+test('Anthropic uses each model maximum and custom limits bypass discovery', async () => {
+  for (const maxTokens of [8192, 64000, 128000]) {
+    let requests = 0;
+    const response = await callAnthropic({ model: 'claude-test', messages: [{ role: 'user', content: 'hi' }] }, provider, {
+      fetchImpl: async (url, init) => {
+        requests++;
+        if (init.method === 'GET') return Response.json({ max_tokens: maxTokens });
+        assert.equal(JSON.parse(init.body).max_tokens, maxTokens);
+        return sse(replyEvents);
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(requests, 2);
+  }
+  const custom = await callAnthropic({ model: 'claude-test', max_tokens: 4000, messages: [] }, provider, {
+    fetchImpl: async (url, init) => {
+      assert.equal(init.method, 'POST');
+      assert.equal(JSON.parse(init.body).max_tokens, 4000);
+      return sse(replyEvents);
+    },
+  });
+  assert.equal(custom.status, 200);
+});
+
+test('Anthropic never substitutes a hardcoded cap for missing model metadata', async () => {
+  for (const max_tokens of [null, 0, -1, 1.5, '64000']) {
+    const response = await callAnthropic({ model: 'claude-test', messages: [] }, provider, {
+      fetchImpl: async (url, init) => {
+        assert.equal(init.method, 'GET');
+        return Response.json({ max_tokens });
+      },
+    });
+    assert.equal(response.status, 502);
+    assert.match((await response.json()).error.message, /Set a custom limit in Settings/);
+  }
 });
 
 test('Anthropic models load through the SDK', async () => {

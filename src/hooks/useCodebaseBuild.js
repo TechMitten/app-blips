@@ -3,6 +3,7 @@ import { loadEsbuild } from '../lib/codebase/esbuildBrowser';
 import { buildCodebasePreview, makeAssetUrl } from '../lib/codebase/preview';
 import { blobBytes, ensureBlobs } from '../lib/blobStore';
 import { isDesktop } from '../lib/desktop';
+import { createCodebaseDiagnostics } from '../lib/codebase/diagnostics';
 
 const IDLE = { html: '', building: false, preview: null, error: null };
 
@@ -20,20 +21,30 @@ export default function useCodebaseBuild({ enabled, files, assets, meta, project
     if (!active) return undefined;
     let cancelled = false;
     const timer = setTimeout(async () => {
+      const route = routeRef?.current || meta.route || '/';
+      const diagnostics = createCodebaseDiagnostics('preview', { projectId, entry: meta.entry, route });
+      diagnostics.info('Preview rebuild started', { fileCount: Object.keys(files).length, assetCount: Object.keys(assets || {}).length });
       const done = (fields) => {
         if (!cancelled) setResult({ files, assets, meta, projectId, reloadKey, ...fields });
       };
       try {
+        diagnostics.info('Waiting for esbuild initialization');
         const esbuild = await loadEsbuild();
         // The browser dev build inlines assets, so their bytes must be loaded.
-        if (!isDesktop && projectId) await ensureBlobs(projectId, Object.values(assets || {}));
+        if (!isDesktop && projectId) {
+          diagnostics.info('Loading preview asset blobs');
+          await ensureBlobs(projectId, Object.values(assets || {}));
+        }
         const assetUrl = makeAssetUrl({ projectId, isDesktop, bytesOf: blobBytes });
         const preview = await buildCodebasePreview(esbuild, {
-          files, assets: assets || {}, meta, assetUrl, route: routeRef?.current || meta.route || '/',
+          files, assets: assets || {}, meta, assetUrl, route, diagnostics,
+        });
+        diagnostics[preview.ok ? 'info' : 'error'](preview.ok ? 'Preview rebuild passed' : 'Preview rebuild failed', {
+          errors: preview.errors, discarded: cancelled,
         });
         done({ html: preview.html, preview, error: null });
       } catch (err) {
-        console.error('[codebase] preview build failed:', err);
+        diagnostics.error('Preview rebuild threw', { error: err, discarded: cancelled });
         done({ html: '', preview: null, error: String(err?.message || err) });
       }
     }, 150);

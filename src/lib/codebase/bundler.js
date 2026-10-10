@@ -155,7 +155,7 @@ function formatMessage(m) {
 // opts: { files, assets, meta: { entry }, assetUrl(path, hash) -> string }
 // Returns { ok, js, css, tailwindCss, tailwindConfigJs, tailwindRuntimeJs, cssLinks, importMap, undeclared, map, env,
 // publicMap, errors, warnings }.
-export async function bundleCodebase(esbuild, { files, assets = {}, meta, assetUrl }) {
+export async function bundleCodebase(esbuild, { files, assets = {}, meta, assetUrl, diagnostics }) {
   const ctx = { files, assets, aliases: readAliases(files), assetUrl };
   const publicMap = publicUrls(files, assets, assetUrl);
   const versions = packageVersions(files);
@@ -284,14 +284,18 @@ export async function bundleCodebase(esbuild, { files, assets = {}, meta, assetU
     plugins: [plugin],
   };
   let result;
+  const started = performance.now();
+  diagnostics?.info('esbuild started', { entry: meta.entry, fileCount: Object.keys(files).length, assetCount: Object.keys(assets).length });
   try {
     result = await esbuild.build({ ...options, entryPoints: [meta.entry] });
   } catch (err) {
     const errors = Array.isArray(err?.errors) && err.errors.length
       ? err.errors.map(formatMessage)
       : [{ file: null, line: null, column: null, text: String(err?.message || err), lineText: '', message: String(err?.message || err) }];
+    diagnostics?.error('esbuild failed', { durationMs: Math.round(performance.now() - started), errors, error: err });
     return { ok: false, errors, warnings: (err?.warnings || []).map(formatMessage) };
   }
+  diagnostics?.info('esbuild passed', { durationMs: Math.round(performance.now() - started) });
 
   // The v3 Play CDN takes the project's tailwind.config as a JS object, so the
   // config is bundled too (its packages, e.g. tailwindcss-animate, go through
@@ -303,10 +307,12 @@ export async function bundleCodebase(esbuild, { files, assets = {}, meta, assetU
   const buildTailwindEntry = async (source, label) => {
     specs = tailwindSpecs;
     twEntrySource = source;
+    diagnostics?.info('Bundling Tailwind setup', { config: label });
     try {
       const built = await esbuild.build({ ...options, entryPoints: [TAILWIND_ENTRY], sourcemap: false });
       return built.outputFiles.find((f) => f.path.endsWith('.js'))?.text || '';
     } catch (err) {
+      diagnostics?.warn('Tailwind setup failed; preview styling may differ', { config: label, error: err });
       warnings.push({ file: label, line: null, column: null, text: `The preview could not load ${label}, so styling may differ from the real build.`, lineText: '', message: `${label}: ${err?.errors?.[0]?.text || err?.message || err}` });
       return '';
     } finally {

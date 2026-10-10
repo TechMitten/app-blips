@@ -3,12 +3,25 @@
 // Every path is validated with the same rules main applies on disk;
 // lockfiles and binary assets can't be edited as text.
 import { applySurgicalEdits, viewCode } from '../edits.js';
-import { checkCodebaseLimits, isLockfile, isProtectedPath, validateProjectPath } from './paths.js';
+import { checkCodebaseLimits, isLockfile, validateProjectPath } from './paths.js';
 
 const MAX_LIST = 500;
 const MAX_SEARCH_HITS = 50;
+const MAX_BATCH_CHANGES = 50;
 
 const fileParam = (description) => ({ type: 'string', description });
+
+const editItems = {
+  type: 'object',
+  properties: {
+    search: { type: 'string', description: 'Exact current source copied without line numbers. Include enough context to be unique.' },
+    replace: { type: 'string', description: 'Literal replacement text. Empty string deletes the matched text.' },
+    occurrence: { type: ['integer', 'null'], description: '1-based match to replace. Null for a unique search.' },
+    replace_all: { type: ['boolean', 'null'], description: 'True to replace every match. Null otherwise; do not combine with occurrence.' },
+  },
+  required: ['search', 'replace', 'occurrence', 'replace_all'],
+  additionalProperties: false,
+};
 
 export const CODEBASE_TOOLS = [
   {
@@ -61,27 +74,47 @@ export const CODEBASE_TOOLS = [
     type: 'function',
     function: {
       name: 'apply_surgical_edits',
-      description: 'Edit one existing text file with search/replace blocks. Each search must match the current file exactly once (copy it from read_file without the line numbers), unless occurrence or replace_all is set.',
+      description: 'Edit one existing text file with ordered search/replace blocks copied from current source without line numbers. Only line-ending and indentation differences are tolerated. All blocks must succeed or the file stays unchanged. Use apply_file_changes for related changes across files.',
       parameters: {
         type: 'object',
         properties: {
           file: fileParam('Repo-relative path of the file to edit.'),
           edits: {
             type: 'array',
+            items: editItems,
+          },
+        },
+        required: ['file', 'edits'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_file_changes',
+      description: 'Apply related edits, new files and deletions across the project atomically, in order. Useful for components plus imports, routes plus navigation, or shared styles. If any change fails, NONE are applied. Read current files first. The build is checked after the entire batch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          changes: {
+            type: 'array',
+            minItems: 1,
+            maxItems: MAX_BATCH_CHANGES,
             items: {
               type: 'object',
               properties: {
-                search: { type: 'string', description: 'Exact existing text to replace.' },
-                replace: { type: 'string', description: 'Replacement text.' },
-                occurrence: { type: ['integer', 'null'], description: 'Which match to replace (1-based) when search appears several times. Null otherwise.' },
-                replace_all: { type: ['boolean', 'null'], description: 'Replace every match. Null otherwise.' },
+                action: { type: 'string', enum: ['edit', 'create', 'delete'] },
+                path: fileParam('Repo-relative file path.'),
+                edits: { type: ['array', 'null'], items: editItems, description: 'For edit: non-empty search/replace blocks, applied in order. Null otherwise.' },
+                content: { type: ['string', 'null'], description: 'For create: complete contents of the new file. Null otherwise. Existing files cannot be overwritten.' },
               },
-              required: ['search', 'replace', 'occurrence', 'replace_all'],
+              required: ['action', 'path', 'edits', 'content'],
               additionalProperties: false,
             },
           },
         },
-        required: ['file', 'edits'],
+        required: ['changes'],
         additionalProperties: false,
       },
     },
@@ -124,13 +157,15 @@ export const CODEBASE_READ_TOOLS = CODEBASE_TOOLS.filter((t) => READ_ONLY_TOOL_N
 
 function parseArgs(toolCall) {
   try {
-    return { args: JSON.parse(toolCall.function?.arguments || '{}') };
+    const args = JSON.parse(toolCall.function?.arguments || '{}');
+    if (!args || typeof args !== 'object' || Array.isArray(args)) return { error: 'Arguments must be a JSON object.' };
+    return { args };
   } catch (err) {
     return { error: `Arguments were not valid JSON: ${err.message}` };
   }
 }
 
-const fail = (state, error) => ({ state, applied: false, result: { success: false, error } });
+const fail = (state, error, details = {}) => ({ state, applied: false, result: { success: false, error, ...details } });
 
 function checkPath(path) {
   if (typeof path !== 'string' || !path.trim()) return 'A path is required.';
@@ -150,6 +185,12 @@ function cleanPath(path) {
 // state: { files: {path: text}, assets: {path: hash} }. Returns
 // { state, applied, result } where result is reported back to the model.
 export function executeCodebaseTool(state, toolCall) {
+  return executeTool(state, toolCall);
+}
+
+// Batches stage changes privately and validate size limits on the final tree.
+// This also allows replacing a file at the project's file-count limit.
+function executeTool(state, toolCall, checkLimits = true) {
   const name = toolCall.function?.name;
   const { args, error } = parseArgs(toolCall);
   if (error) return fail(state, error);
@@ -175,7 +216,15 @@ export function executeCodebaseTool(state, toolCall) {
     if (assets[path]) return fail(state, `${path} is a binary file (image/font) and can't be read as text.`);
     if (typeof files[path] !== 'string') return fail(state, `No file at ${path}. Use list_files or search_files to find the right path.`);
     if (files[path] === '') return { state, applied: false, result: { success: true, path, totalLines: 0, code: '' } };
-    return { state, applied: false, result: { path, ...viewCode(files[path], { start_line: args.start_line, end_line: args.end_line }) } };
+    const totalLines = files[path].split(/\r?\n/).length;
+    for (const field of ['start_line', 'end_line']) {
+      if (args[field] != null && (!Number.isInteger(args[field]) || args[field] < 1)) return fail(state, `${field} must be a positive line number or null.`);
+    }
+    const start = args.start_line || 1;
+    if (start > totalLines) return fail(state, `${path} has ${totalLines} lines; start_line is beyond the end of the file.`);
+    if (args.end_line != null && args.end_line < start) return fail(state, 'end_line must be at least start_line.');
+    const read = viewCode(files[path], { start_line: start, end_line: Math.min(args.end_line || start + 199, start + 399) });
+    return { state, applied: false, result: { path, ...read, totalLines, truncated: read.endLine < totalLines || undefined } };
   }
 
   if (name === 'search_files') {
@@ -194,25 +243,64 @@ export function executeCodebaseTool(state, toolCall) {
     return { state, applied: false, result: { success: true, matches: hits, truncated: hits.length >= MAX_SEARCH_HITS || undefined } };
   }
 
+  if (name === 'apply_file_changes') {
+    if (!Array.isArray(args.changes) || !args.changes.length || args.changes.length > MAX_BATCH_CHANGES) {
+      return fail(state, `Provide 1-${MAX_BATCH_CHANGES} file changes.`);
+    }
+    let staged = state;
+    for (const [index, change] of args.changes.entries()) {
+      const reject = (error, details = {}) => fail(state, error, {
+        ...details, failedChange: index + 1, file: change?.path,
+        rolledBack: true, instruction: 'No changes in this batch were applied. Read the current source and retry the complete batch with corrected changes.',
+      });
+      if (!change || !['edit', 'create', 'delete'].includes(change.action)) return reject('Each change needs an edit, create or delete action.');
+      if (change.action !== 'edit' && change.edits != null) return reject('edits must be null for create/delete.');
+      if (change.action !== 'create' && change.content != null) return reject('content must be null for edit/delete.');
+      const names = { edit: 'apply_surgical_edits', create: 'create_file', delete: 'delete_file' };
+      const params = change.action === 'edit'
+        ? { file: change.path, edits: change.edits }
+        : { path: change.path, content: change.content, overwrite: false };
+      const outcome = executeTool(staged, { function: { name: names[change.action], arguments: JSON.stringify(params) } }, false);
+      if (!outcome.result.success) return reject(outcome.result.error, outcome.result);
+      staged = outcome.state;
+    }
+    const limit = checkCodebaseLimits(staged.files, staged.assets);
+    if (limit) return fail(state, limit, { rolledBack: true });
+    const changedFiles = [...new Set([...Object.keys(state.files), ...Object.keys(staged.files), ...Object.keys(state.assets), ...Object.keys(staged.assets)])]
+      .filter((path) => state.files[path] !== staged.files[path] || state.assets[path] !== staged.assets[path]);
+    return { state: changedFiles.length ? staged : state, applied: changedFiles.length > 0, result: { success: true, changed: changedFiles.length > 0, files: changedFiles } };
+  }
+
   if (name === 'apply_surgical_edits') {
     const problem = checkPath(args.file);
     if (problem) return fail(state, problem);
     const path = cleanPath(args.file);
-    if (isProtectedPath(path)) return fail(state, `${path} is a lockfile and must not be edited; change package.json instead.`);
+    if (isLockfile(path)) return fail(state, `${path} is a lockfile and must not be edited; change package.json instead.`);
     if (typeof files[path] !== 'string') return fail(state, `No text file at ${path}.${assets[path] ? ' It is a binary file.' : ' Use create_file for new files.'}`);
-    const result = applySurgicalEdits(files[path], args.edits);
-    if (!result.success) return fail(state, result.error);
+    const result = applySurgicalEdits(files[path], args.edits, { conservative: true });
+    if (!result.success) {
+      // The model needs the failure's position and real source, rather than a
+      // generic 'not found'. Never apply a best guess from this diagnostic.
+      const searchLine = result.failedBlock?.split(/\r?\n/).find((line) => line.trim().length > 3)?.trim();
+      const near = result.matchLines?.[0] || (searchLine ? files[path].split(/\r?\n/).findIndex((line) => line.includes(searchLine)) + 1 : 0);
+      return fail(state, result.error, {
+        ...result, file: path, rolledBack: true,
+        ...(near ? { context: viewCode(files[path], { start_line: Math.max(1, near - 3), end_line: near + 6 }).code } : {}),
+        instruction: `None of this file's edits were applied. Read ${path} for current source, remove line numbers, use a unique search block, and retry all edits. Blocks run in order against the result of earlier blocks.`,
+      });
+    }
+    if (result.code === files[path]) return { state, applied: false, result: { success: true, file: path, changed: false } };
     const next = { ...files, [path]: result.code };
-    const limit = checkCodebaseLimits(next, assets);
+    const limit = checkLimits ? checkCodebaseLimits(next, assets) : null;
     if (limit) return fail(state, limit);
-    return { state: { files: next, assets }, applied: true, result: { success: true, file: path } };
+    return { state: { files: next, assets }, applied: true, result: { success: true, file: path, changed: true } };
   }
 
   if (name === 'create_file') {
     const problem = checkPath(args.path);
     if (problem) return fail(state, problem);
     const path = cleanPath(args.path);
-    if (isProtectedPath(path)) return fail(state, `${path} is a lockfile and must not be edited.`);
+    if (isLockfile(path)) return fail(state, `${path} is a lockfile and must not be edited.`);
     if (assets[path]) return fail(state, `${path} is an existing binary file.`);
     if (typeof files[path] === 'string' && args.overwrite !== true) {
       return fail(state, `${path} already exists. Use apply_surgical_edits to change it, or set overwrite to true to replace it.`);
@@ -221,8 +309,9 @@ export function executeCodebaseTool(state, toolCall) {
     const clash = Object.keys(files).concat(Object.keys(assets)).find((p) => p !== path && p.toLowerCase() === lower);
     if (clash) return fail(state, `${clash} already exists with different upper/lower case.`);
     if (typeof args.content !== 'string') return fail(state, 'content must be a string.');
+    if (files[path] === args.content) return { state, applied: false, result: { success: true, file: path, changed: false } };
     const next = { ...files, [path]: args.content };
-    const limit = checkCodebaseLimits(next, assets);
+    const limit = checkLimits ? checkCodebaseLimits(next, assets) : null;
     if (limit) return fail(state, limit);
     return { state: { files: next, assets }, applied: true, result: { success: true, file: path, created: !(path in files) } };
   }
@@ -231,7 +320,7 @@ export function executeCodebaseTool(state, toolCall) {
     const problem = checkPath(args.path);
     if (problem) return fail(state, problem);
     const path = cleanPath(args.path);
-    if (isProtectedPath(path) || ['package.json', 'index.html'].includes(path)) return fail(state, `${path} is required and can't be deleted.`);
+    if (isLockfile(path) || ['package.json', 'index.html'].includes(path)) return fail(state, `${path} is required and can't be deleted.`);
     if (typeof files[path] === 'string') {
       return { state: { files: without(files, path), assets }, applied: true, result: { success: true, deleted: path } };
     }
@@ -246,13 +335,10 @@ export function executeCodebaseTool(state, toolCall) {
 
 export function describeCodebaseToolCall(toolCall) {
   const name = toolCall.function?.name;
-  let args = {};
-  try { args = JSON.parse(toolCall.function?.arguments || '{}'); } catch { /* defaults */ }
-  if (name === 'list_files') return 'Looking through the project files…';
-  if (name === 'read_file') return `Reading ${args.path || 'a file'}…`;
-  if (name === 'search_files') return `Searching for "${String(args.query || '').slice(0, 40)}"…`;
-  if (name === 'apply_surgical_edits') return `Editing ${args.file || 'a file'}…`;
-  if (name === 'create_file') return `Creating ${args.path || 'a file'}…`;
-  if (name === 'delete_file') return `Deleting ${args.path || 'a file'}…`;
-  return `Calling ${name}…`;
+  if (name === 'list_files' || name === 'read_file') return 'Reviewing your site…';
+  if (name === 'search_files') return 'Finding where to make the change…';
+  if (name === 'apply_surgical_edits' || name === 'apply_file_changes') return 'Updating your site…';
+  if (name === 'create_file') return 'Adding new content…';
+  if (name === 'delete_file') return 'Removing content…';
+  return 'Working on your changes…';
 }

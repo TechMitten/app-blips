@@ -1,3 +1,4 @@
+import { displayBuildPrompt } from '../lib/buildMessages';
 import { useState } from 'react';
 import { PanelLeftClose, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 
@@ -50,7 +51,7 @@ function CheckpointCard({ ver, idx, isActive, onSwitchVersion, onCollapse, rever
             <span className={`block text-[13px] 2xl:text-[14px] leading-[1.35] truncate ${
               isActive ? 'text-slate-900 font-bold' : 'text-slate-700 font-medium'
             }`}>
-              {ver.prompt}
+              {displayBuildPrompt(ver)}
             </span>
             <div className="mt-0.5 flex items-center gap-2 text-[10px] 2xl:text-[11px] font-medium min-w-0">
               <span className={`shrink-0 font-mono font-bold ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
@@ -121,7 +122,7 @@ function SessionGroups({ chatSessions, versions, activeSessionIndex, currentVers
     // else (including legacy versions with no recorded mode) is a build.
     const isAskSession = sessionVersions.length > 0 && sessionVersions.every((ver) => ver.chatMode === 'ask');
     const sessionLabel = `${isAskSession ? 'Chat' : 'Build'} ${position + 1}`;
-    const firstPrompt = sessionVersions[0]?.prompt || 'New chat';
+    const firstPrompt = displayBuildPrompt(sessionVersions[0]) || 'New chat';
     const checkpointCount = sessionVersions.length;
     const sessionTime = sessionVersions[sessionVersions.length - 1]?.timestamp;
     return (

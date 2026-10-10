@@ -30,23 +30,6 @@ const badRequest = (error, status = 400) => new Response(JSON.stringify({ error 
   headers: { 'content-type': 'application/json' },
 });
 
-// Ask-mode answers are prose, not app code, so they get their own output cap
-// (OPENAI_LLM_ASK_MAX_TOKENS) that never falls back to the builder's
-// OPENAI_LLM_MAX_TOKENS. Sized to leave headroom for reasoning tokens, which
-// count toward the limit on thinking models.
-const DEFAULT_ASK_MAX_TOKENS = 8192;
-
-// The output cap a request is sent with. null = none, which a single-user
-// install allows (the provider's own default applies).
-const outputCap = (env, payload) => {
-  if (payload.ask === true) {
-    const parsedAskMax = parseInt(llmEnv(env, 'ASK_MAX_TOKENS'), 10);
-    return parsedAskMax > 0 ? parsedAskMax : DEFAULT_ASK_MAX_TOKENS;
-  }
-  const parsedMax = parseInt(llmEnv(env, 'MAX_TOKENS'), 10);
-  return parsedMax > 0 ? parsedMax : null;
-};
-
 // Misconfiguration is the operator's problem, and the operator is also the
 // user of a single-user install, so they get the exact fix.
 const configError = (env, detail) => new Response(
@@ -147,6 +130,13 @@ export async function handleChatProxy(request, env) {
     return badRequest('Invalid JSON body.');
   }
 
+  // Only Settings → AI supplies an optional output limit. Omission/null uses
+  // the provider's limit for every mode; environment caps are no longer read.
+  const maxTokens = payload?.max_tokens;
+  if (maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
+    return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
+  }
+
   const picked = pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
@@ -177,8 +167,7 @@ export async function handleChatProxy(request, env) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  const maxTokens = outputCap(env, payload);
-  if (maxTokens) bodyObj.max_tokens = maxTokens;
+  if (maxTokens != null) bodyObj.max_tokens = maxTokens;
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) bodyObj.tool_choice = tool_choice;

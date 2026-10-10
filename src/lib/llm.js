@@ -1,5 +1,6 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
+import { loadOutputTokenLimit } from './config';
 import { checkSyntax } from './syntaxCheck';
 import { reviewGeneratedCode } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
@@ -243,7 +244,10 @@ export const requestModelText = async ({
     // Signals an error-repair request to the proxy, which pins temperature to
     // 0.0 for deterministic fixes regardless of OPENAI_LLM_TEMPERATURE.
     if (forceTemperatureZero) bodyObj.auto_fix = true;
-    // Ask-mode replies use a dedicated, smaller server-side output cap.
+    // The device's optional output limits apply to all calls, including code
+    // reviews, repairs, and codebase builds. Empty settings use provider defaults.
+    const maxTokens = loadOutputTokenLimit(askMode);
+    if (maxTokens != null) bodyObj.max_tokens = maxTokens;
     if (askMode) bodyObj.ask = true;
 
     // The user's own provider rides along with the request, added only to the
@@ -459,22 +463,11 @@ export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
-  let args = {};
-  try { args = JSON.parse(toolCall.function?.arguments || '{}'); } catch { /* ignore, use defaults below */ }
-
-  if (name === 'list_sections') return 'Listing sections...';
-  if (name === 'view_code') {
-    return args.section ? `Inspecting section "${args.section}"...` : `Inspecting lines ${args.start_line ?? '?'}-${args.end_line ?? '?'}...`;
-  }
-  if (name === 'apply_surgical_edits') {
-    const count = Array.isArray(args.edits) ? args.edits.length : 1;
-    const where = args.file && args.file !== LANDING_PAGE ? ` to ${args.file}` : '';
-    return `Applying ${count} edit${count === 1 ? '' : 's'}${where}...`;
-  }
-  if (name === 'create_page') return `Creating page ${args.name || ''}...`;
-  if (name === 'delete_page') return `Deleting page ${args.name || ''}...`;
-  if (name === 'list_pages') return 'Listing pages...';
-  return `Calling ${name}...`;
+  if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
+  if (name === 'apply_surgical_edits') return 'Applying your changes…';
+  if (name === 'create_page') return 'Adding a page…';
+  if (name === 'delete_page') return 'Removing a page…';
+  return 'Working on your changes…';
 };
 
 // Executes one tool call against workingCode. Returns the (possibly updated) code plus
@@ -980,7 +973,7 @@ export const generateCompletionReply = async ({ prompt, editMode, studioMode, si
       messages: [
         {
           role: 'system',
-          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Reply with ONE short, friendly sentence (roughly 20 words or fewer) in the past tense saying what you did. Plain text only: no markdown, no code, no quotation marks, and no questions.`
+          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Reply with ONE short, friendly sentence (roughly 20 words or fewer) in the past tense saying generally what changed for the user. Do not include file paths, line numbers, error messages, or implementation details. Plain text only: no markdown, no code, no quotation marks, and no questions.`
         },
         { role: 'user', content: `Request: ${prompt}` }
       ],

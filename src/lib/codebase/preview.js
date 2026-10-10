@@ -7,6 +7,7 @@ import { packageVersions, readAliases, strictnessFlags } from './config.js';
 import { checkImports } from './importCheck.js';
 import { mimeTypeFor } from './paths.js';
 import { originalPosition } from '../sourceMap.js';
+import { createCodebaseDiagnostics } from './diagnostics.js';
 
 // Desktop serves imported images/fonts from the project's blobs folder
 // (electron/main.js serveAsset); elsewhere they are inlined from the cache.
@@ -37,31 +38,40 @@ function undeclaredErrors(undeclared) {
 // build, every package must be in package.json, and the files this edit
 // changed (compared with `baseline`, the files before it) must have no
 // imports `tsc -b` would reject.
-export async function checkCodebaseBuild(esbuild, { files, assets, meta, baseline = null }) {
-  const result = await bundleCodebase(esbuild, { files, assets, meta, assetUrl: () => 'data:,' });
+export async function checkCodebaseBuild(esbuild, { files, assets, meta, baseline = null, diagnostics = createCodebaseDiagnostics('check', { entry: meta?.entry }) }) {
+  diagnostics.info('Bundling for edit validation');
+  const result = await bundleCodebase(esbuild, { files, assets, meta, assetUrl: () => 'data:,', diagnostics });
   if (!result.ok) return { errors: result.errors };
+  if (result.warnings.length) diagnostics.warn('Bundle warnings', { warnings: result.warnings });
   const errors = undeclaredErrors(result.undeclared);
+  if (errors.length) diagnostics.error('Dependency validation failed', { undeclared: result.undeclared, errors });
   if (baseline) {
     const changed = Object.keys(files).filter((p) => files[p] !== baseline[p]);
+    diagnostics.info('Checking imports in changed files', { paths: changed });
     const importErrors = checkImports(files, assets, {
       paths: changed,
       aliases: readAliases(files),
       declared: packageVersions(files).declared,
       noUnusedLocals: Boolean(strictnessFlags(files).noUnusedLocals),
     });
+    if (importErrors.length) diagnostics.error('Import validation failed', { errors: importErrors });
     for (const e of importErrors) if (!errors.some((x) => x.message === e.message)) errors.push(e);
   }
   return { errors };
 }
 
-export async function buildCodebasePreview(esbuild, { files, assets, meta, assetUrl, route = '/' }) {
-  const bundle = await bundleCodebase(esbuild, { files, assets, meta, assetUrl });
+export async function buildCodebasePreview(esbuild, { files, assets, meta, assetUrl, route = '/', diagnostics = createCodebaseDiagnostics('preview', { entry: meta?.entry, route }) }) {
+  diagnostics.info('Bundling preview');
+  const bundle = await bundleCodebase(esbuild, { files, assets, meta, assetUrl, diagnostics });
   if (!bundle.ok) return { ok: false, errors: bundle.errors, html: buildErrorPage(bundle.errors) };
   const tailwindVersion = packageVersions(files).versions.tailwindcss || '';
   const { html, bundleLine, notices } = buildPreviewHtml({
     files, meta, bundle, env: bundle.env, publicMap: bundle.publicMap, route, tailwindVersion,
   });
   const warnings = [...bundle.warnings];
+  if (warnings.length) diagnostics.warn('Preview warnings', { warnings });
+  if (bundle.undeclared.length) diagnostics.warn('Preview uses undeclared dependencies', { undeclared: bundle.undeclared });
+  if (notices.length) diagnostics.warn('Preview notices', { notices });
   return {
     ok: true,
     html,

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
+import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
@@ -142,10 +143,10 @@ export default function ChatTranscript({
         const canRewind = onRewind && !isGenerating && versionIndex < currentVersionIndex;
         return (
           <div key={ver.id} className="space-y-2.5">
-            <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined}>{ver.prompt}</PromptRow>
+            <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined}>{displayBuildPrompt(ver)}</PromptRow>
             {ver.reply && (
               <ReplyRow title={`Version ${versionNumber}`}>
-                <Markdown text={ver.reply} />
+                <Markdown text={displayBuildReply(ver)} />
               </ReplyRow>
             )}
             {canOfferReview && ver.reviewOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
@@ -196,7 +197,7 @@ export default function ChatTranscript({
             <ReplyRow className="animate-fade-in flex items-center gap-2.5">
               <Loader2 className="animate-spin text-indigo-600 dark:text-white" size={14} />
               <span className="text-[length:var(--chat-label-text)] font-bold">
-                {chatMode === 'ask' ? 'Thinking...' : `Building ${STUDIO_MODES[studioMode]?.article || 'app'}...`}
+                {chatMode === 'ask' ? 'Thinking...' : generationStatus || `Building ${STUDIO_MODES[studioMode]?.article || 'app'}...`}
               </span>
             </ReplyRow>
           ) : null}

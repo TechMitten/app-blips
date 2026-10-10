@@ -27,10 +27,6 @@ const NO_SAMPLING_MODEL = /^claude-(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[7-9]
 const FALLBACK_MODEL = /^claude-(?:opus-5|fable-5-1|sonnet-5-5)(?:$|-)/;
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-// Anthropic requires max_tokens. Streaming has no HTTP timeout to worry about,
-// so leave room for whole-page tool calls plus thinking.
-const DEFAULT_MAX_TOKENS = 64000;
-
 const FINISH_REASONS = { end_turn: 'stop', stop_sequence: 'stop', tool_use: 'tool_calls', max_tokens: 'length', refusal: 'content_filter' };
 const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → AI.';
 
@@ -150,9 +146,9 @@ export const toAnthropicParams = (body) => {
   const effort = body.reasoning_effort;
   const params = {
     model,
-    max_tokens: body.max_tokens || DEFAULT_MAX_TOKENS,
     messages,
   };
+  if (body.max_tokens != null) params.max_tokens = body.max_tokens;
   if (system) params.system = system;
   const tools = toAnthropicTools(body.tools);
   if (tools.length) {
@@ -317,9 +313,19 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
     maxRetries: 0,
     fetch: fetchImpl,
   });
-  const params = toAnthropicParams(body);
-  const source = client.beta.messages.stream(params);
+  let source;
   try {
+    const params = toAnthropicParams(body);
+    // Messages requires max_tokens. When Settings has no override, use the
+    // selected model's own advertised maximum rather than an app-defined cap.
+    if (params.max_tokens == null) {
+      const model = await client.models.retrieve(params.model, {}, { timeout: 15000 });
+      if (!Number.isSafeInteger(model.max_tokens) || model.max_tokens <= 0) {
+        return errorResponse(502, 'Anthropic did not report an output token limit for this model. Set a custom limit in Settings → AI.');
+      }
+      params.max_tokens = model.max_tokens;
+    }
+    source = client.beta.messages.stream(params);
     if (!body.stream) return Response.json(toChatCompletion(await source.finalMessage()));
     // Wait for the first event so an HTTP error (bad key, rate limit) becomes
     // a status code rather than a broken stream.
@@ -331,7 +337,7 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
       headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
     });
   } catch (err) {
-    source.abort();
+    source?.abort();
     return sdkErrorResponse(err);
   }
 }

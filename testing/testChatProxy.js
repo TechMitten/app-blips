@@ -164,13 +164,41 @@ test('the plain OPENAI_* variables work as the generic provider', async (t) => {
   assert.equal(upstream.body.model, 'm');
 });
 
-test('max tokens and temperature come from OPENAI_LLM_*', async (t) => {
+test('output limits come from Settings requests and ignore environment caps', async (t) => {
   const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
-  const fresh = await runWith(t, { ...base, OPENAI_LLM_MAX_TOKENS: '64000', OPENAI_LLM_TEMPERATURE: '0.5' });
-  assert.equal(fresh.upstream.body.max_tokens, 64000);
-  assert.equal(fresh.upstream.body.temperature, 0.5);
-  const ask = await runWith(t, { ...base, OPENAI_LLM_ASK_MAX_TOKENS: '2000' }, { ask: true });
-  assert.equal(ask.upstream.body.max_tokens, 2000);
+  const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '64000', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };
+  for (const ask of [false, true]) {
+    const defaultLimit = await runWith(t, settings, { ask });
+    assert.equal(defaultLimit.upstream.body.max_tokens, undefined);
+    assert.equal(defaultLimit.upstream.body.temperature, 0.5);
+    const custom = await runWith(t, settings, { ask, max_tokens: 12000 });
+    assert.equal(custom.upstream.body.max_tokens, 12000);
+    const reset = await runWith(t, settings, { ask, max_tokens: null });
+    assert.equal(reset.upstream.body.max_tokens, undefined);
+  }
+});
+
+test('all OpenAI-compatible providers use their own limit unless overridden', async (t) => {
+  for (const id of ['openai', 'openrouter', 'gemini', 'deepseek', 'lmstudio', 'ollama']) {
+    for (const ask of [false, true]) {
+      const payload = { ask, user_provider: { id, apiKey: 'test-key', model: 'test-model' } };
+      const defaultLimit = await runWith(t, { OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '1' }, payload);
+      assert.equal(defaultLimit.response.status, 200);
+      assert.equal(defaultLimit.upstream.body.max_tokens, undefined);
+      assert.equal(defaultLimit.upstream.body.max_completion_tokens, undefined);
+      const custom = await runWith(t, {}, { ...payload, max_tokens: 12345 });
+      assert.equal(custom.upstream.body[id === 'openai' ? 'max_completion_tokens' : 'max_tokens'], 12345);
+    }
+  }
+});
+
+test('invalid output limits are rejected before contacting a provider', async (t) => {
+  for (const max_tokens of [0, -1, 1.5, '2000', true, {}, Number.MAX_SAFE_INTEGER + 1]) {
+    const { response, upstream } = await runWith(t, {}, { max_tokens });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /positive whole number/);
+    assert.equal(upstream, undefined);
+  }
 });
 
 test('the plain variables are a fallback for a named provider', async (t) => {

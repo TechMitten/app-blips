@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { test, before, after } from 'node:test';
 import * as esbuild from 'esbuild-wasm';
 import { createServer } from 'vite';
-import { executeCodebaseTool } from '../src/lib/codebase/tools.js';
+import { CODEBASE_TOOLS, executeCodebaseTool } from '../src/lib/codebase/tools.js';
 import { packVersions, referencedTextHashes, unpackVersions } from '../src/lib/codebase/versions.js';
 import { checkCodebaseBuild } from '../src/lib/codebase/preview.js';
 import { formatCodebaseContext, findRoutesFile } from '../src/lib/codebase/prompts.js';
@@ -17,10 +17,11 @@ import { zipFixture } from './helpers/codebaseFixture.js';
 // resolves (same approach as testCodeReviewPipeline.js).
 let server;
 let generateCodebaseEdit;
+let MAX_CODEBASE_TURNS;
 const savedFetch = globalThis.fetch;
 before(async () => {
   server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
-  ({ generateCodebaseEdit } = await server.ssrLoadModule('/src/lib/codebase/llm.js'));
+  ({ generateCodebaseEdit, MAX_CODEBASE_TURNS } = await server.ssrLoadModule('/src/lib/codebase/llm.js'));
 });
 after(async () => {
   globalThis.fetch = savedFetch;
@@ -203,4 +204,207 @@ test('import check: missing files, undeclared packages and unused imports in cha
   assert.ok(texts.some((t) => t.startsWith('3: "canvas-confetti" is imported but not listed')));
   assert.ok(texts.some((t) => t.startsWith('5: "Thing" is imported but never used')));
   assert.deepEqual(checkImports(files, {}, { paths: ['src/thing.ts'], declared: {}, noUnusedLocals: true }), []);
+});
+
+const block = (search, replace, extra = {}) => ({ search, replace, occurrence: null, replace_all: null, ...extra });
+const change = (action, path, value) => ({ action, path, edits: action === 'edit' ? value : null, content: action === 'create' ? value : null });
+const batch = (changes) => call('apply_file_changes', { changes });
+const editCall = (file, search, replace) => call('apply_surgical_edits', { file, edits: [block(search, replace)] });
+
+test('multi-file batches stage edits, creates and asset deletes atomically', () => {
+  const original = state0();
+  const result = executeCodebaseTool(original, batch([
+    change('edit', 'src/App.tsx', [block('Hello', 'Hi')]),
+    change('create', 'src/Banner.tsx', 'export default () => <aside>Hi</aside>'),
+    change('delete', 'src/assets/logo.png'),
+  ]));
+  assert.equal(result.applied, true);
+  assert.equal(result.state.files['src/App.tsx'].includes('Hi'), true);
+  assert.ok(result.state.files['src/Banner.tsx']);
+  assert.equal(result.state.assets['src/assets/logo.png'], undefined);
+  assert.deepEqual(original, state0());
+  assert.deepEqual(result.result.files.sort(), ['src/App.tsx', 'src/Banner.tsx', 'src/assets/logo.png']);
+
+  const failed = executeCodebaseTool(original, batch([
+    change('edit', 'src/App.tsx', [block('Hello', 'Hi')]),
+    change('create', 'src/Banner.tsx', 'export default 1'),
+    change('edit', 'src/App.tsx', [block('missing', 'Bye')]),
+  ]));
+  assert.equal(failed.state, original);
+  assert.equal(failed.applied, false);
+  assert.equal(failed.result.rolledBack, true);
+  assert.equal(failed.result.failedChange, 3);
+  assert.equal(failed.result.failedEdit, 1);
+  assert.match(failed.result.instruction, /complete batch/);
+});
+
+test('batches retain file protections and validate the final project limits', () => {
+  const original = state0();
+  for (const bad of [change('edit', 'package-lock.json', [block('{}', '[]')]), change('delete', 'index.html'), change('create', '../bad.ts', 'x'), change('create', 'src/app.tsx', 'x'), change('create', 'src/assets/logo.png', 'x'), change('create', 'src/App.tsx', 'x')]) {
+    const result = executeCodebaseTool(original, batch([change('edit', 'src/App.tsx', [block('Hello', 'Hi')]), bad]));
+    assert.equal(result.state, original);
+    assert.equal(result.applied, false);
+    assert.equal(result.result.failedChange, 2);
+  }
+  const oversized = executeCodebaseTool(original, batch([change('create', 'src/huge.ts', 'x'.repeat(1024 * 1024 + 1))]));
+  assert.equal(oversized.state, original);
+  assert.equal(oversized.result.rolledBack, true);
+  const full = { files: Object.fromEntries(Array.from({ length: 1000 }, (_, i) => [`src/file${i}.ts`, 'x'])), assets: {} };
+  const replaced = executeCodebaseTool(full, batch([change('create', 'src/new.ts', 'y'), change('delete', 'src/file0.ts')]));
+  assert.equal(replaced.applied, true, 'intermediate file count may exceed the limit');
+  assert.equal(Object.keys(replaced.state.files).length, 1000);
+});
+
+test('failed block diagnostics survive tool execution and the file stays untouched', () => {
+  const original = state0();
+  const result = executeCodebaseTool(original, call('apply_surgical_edits', { file: 'src/App.tsx', edits: [block('Hello', 'Hi'), block('App', 'Thing', { occurrence: 2 })] }));
+  assert.equal(result.state, original);
+  assert.equal(result.result.failedEdit, 2);
+  assert.equal(result.result.matchCount, 1);
+  assert.deepEqual(result.result.matchLines, [1]);
+  assert.match(result.result.context, /Hello/);
+  assert.match(result.result.instruction, /None.*applied/);
+});
+
+test('no-op mutations return the original state; malformed arguments do not throw', () => {
+  const original = state0();
+  for (const tool of [editCall('src/App.tsx', 'Hello', 'Hello'), call('create_file', { path: 'src/App.tsx', content: original.files['src/App.tsx'], overwrite: true }), batch([change('edit', 'src/App.tsx', [block('Hello', 'Hi'), block('Hi', 'Hello')])])]) {
+    const result = executeCodebaseTool(original, tool);
+    assert.equal(result.state, original);
+    assert.equal(result.applied, false);
+    assert.equal(result.result.changed, false);
+  }
+  for (const argumentsText of ['null', '[]', '42']) {
+    assert.equal(executeCodebaseTool(original, { function: { name: 'read_file', arguments: argumentsText } }).result.success, false);
+  }
+  for (const changes of [[], [null], [{ action: 'bogus', path: 'src/App.tsx' }]]) {
+    assert.equal(executeCodebaseTool(original, batch(changes)).result.success, false);
+  }
+});
+
+test('file reads show remaining lines and enforce the advertised 400-line cap', () => {
+  const state = { files: { 'src/long.ts': Array.from({ length: 450 }, (_, i) => `line${i + 1}`).join('\n') }, assets: {} };
+  const read = executeCodebaseTool(state, call('read_file', { path: 'src/long.ts', start_line: 1, end_line: 450 })).result;
+  assert.equal(read.totalLines, 450);
+  assert.equal(read.endLine, 400);
+  assert.equal(read.code.split('\n').length, 400);
+  assert.equal(read.truncated, true);
+  assert.equal(executeCodebaseTool(state, call('read_file', { path: 'src/long.ts', start_line: 500 })).result.success, false);
+});
+
+test('tool schemas remain strict, including nested multi-file changes', () => {
+  function check(schema) {
+    if (schema.properties) {
+      assert.equal(schema.additionalProperties, false);
+      assert.deepEqual(Object.keys(schema.properties).sort(), [...schema.required].sort());
+      Object.values(schema.properties).forEach(check);
+    }
+    if (schema.items) check(schema.items);
+  }
+  CODEBASE_TOOLS.forEach((tool) => check(tool.function.parameters));
+});
+
+test('edit loop retries an atomic batch and checks the complete multi-file change once', async () => {
+  const { files, assets, meta } = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const edits = [
+    block('import hero from "@/assets/hero.png"', 'import hero from "@/assets/hero.png"\nimport Banner from "@/components/Banner"'),
+    block('<main className="p-8">', '<main className="p-8">\n      <Banner />'),
+  ];
+  const changes = [change('edit', 'src/pages/Home.tsx', edits), change('create', 'src/components/Banner.tsx', 'export default function Banner() { return <aside>Welcome</aside> }')];
+  const requests = mockModel([
+    [batch([changes[0], change('edit', 'src/components/Banner.tsx', [block('missing', 'x')])])],
+    'Done already.',
+    [call('read_file', { path: 'src/pages/Home.tsx', start_line: null, end_line: null })],
+    [batch(changes)],
+    'Added a welcome banner.',
+  ]);
+  let checks = 0;
+  const result = await generateCodebaseEdit({ prompt: 'Add a welcome banner', files, assets, meta, buildCheck: async (f, a) => {
+    checks++;
+    assert.ok(f['src/components/Banner.tsx'], 'checks see all files in the batch');
+    return checkCodebaseBuild(esbuild, { files: f, assets: a, meta, baseline: files });
+  } });
+  assert.equal(checks, 1);
+  assert.match(result.files['src/pages/Home.tsx'], /<Banner \/>/);
+  assert.ok(result.files['src/components/Banner.tsx']);
+  assert.ok(!files['src/pages/Home.tsx'].includes('Banner'));
+  assert.ok(!result.reply.includes('Done already.'));
+  const feedback = requests.flatMap((request) => request.messages || []).filter((message) => message.role === 'tool').map((message) => JSON.parse(message.content));
+  assert.ok(feedback.some((r) => r.failedChange === 2 && r.rolledBack));
+  assert.ok(requests.some((request) => request.messages.some((m) => m.role === 'user' && /changes failed/.test(m.content))));
+});
+
+test('edit loop preserves the previous version when a requested edit remains failed', async () => {
+  const { files, assets } = state0();
+  const before = { ...files };
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hi'), editCall('index.html', 'missing', 'x')], 'Done.']);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Update two files', files, assets, isAutoFix: true, buildCheck: async () => ({ errors: [] }) }), /requested edits.*previous version has been kept/);
+  assert.deepEqual(files, before);
+});
+
+test('edit loop rejects unrepaired build errors without emitting a success reply', async () => {
+  const { files, assets } = state0();
+  const before = { ...files };
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hi')], 'All done.']);
+  const chunks = [];
+  let checks = 0;
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Change the greeting', files, assets, isAutoFix: true, onChunk: (chunk, kind) => chunks.push({ chunk, kind }), buildCheck: async () => {
+    checks++;
+    return { errors: [{ message: 'src/App.tsx:2: build is broken' }] };
+  } }), /previous version has been kept[\s\S]*build is broken/);
+  assert.equal(checks, 1, 'the same tree is not rebuilt for confirmation turns');
+  assert.ok(!chunks.some((chunk) => chunk.kind === 'reply'));
+  assert.deepEqual(files, before);
+});
+
+test('no-op and fully reverted changes do not create a successful edit result', async () => {
+  const { files, assets } = state0();
+  let checks = 0;
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hello')], 'Done.']);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Change the greeting', files, assets, isAutoFix: true, buildCheck: async () => { checks++; return { errors: [] }; } }), /did not make any change/);
+  assert.equal(checks, 0);
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hi')], [editCall('src/App.tsx', 'Hi', 'Hello')], 'Done.']);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Change the greeting', files, assets, isAutoFix: true, buildCheck: async () => ({ errors: [] }) }), /did not make any change/);
+});
+
+test('ask mode refuses multi-file mutations as well as single-file mutations', async () => {
+  const { files, assets } = state0();
+  const requests = mockModel([[batch([change('delete', 'src/App.tsx')])], 'The greeting says Hello.']);
+  const result = await generateCodebaseEdit({ prompt: 'What is the greeting?', files, assets, isAsk: true });
+  assert.equal(result.files, files);
+  assert.match(result.reply, /Hello/);
+  assert.ok(requests.some((r) => r.messages.some((m) => m.role === 'tool' && /Read-only/.test(m.content))));
+});
+
+
+test('turn exhaustion preserves the previous version even when the partial edits build', async () => {
+  const { files, assets } = state0();
+  const before = { ...files };
+  const read = call('read_file', { path: 'src/App.tsx', start_line: null, end_line: null });
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hi')], ...Array.from({ length: MAX_CODEBASE_TURNS - 1 }, () => [read])]);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Update the site', files, assets, isAutoFix: true, buildCheck: async () => ({ errors: [] }) }), /could not finish.*previous version has been kept/);
+  assert.deepEqual(files, before);
+});
+
+test('a no-op retry does not hide a failed edit on an already changed file', async () => {
+  const { files, assets } = state0();
+  mockModel([
+    [editCall('src/App.tsx', 'Hello', 'Hi')],
+    [editCall('src/App.tsx', 'missing', 'replacement')],
+    [editCall('src/App.tsx', 'Hi', 'Hi')],
+    'Done.',
+  ]);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Update the greeting and title', files, assets, isAutoFix: true, buildCheck: async () => ({ errors: [] }) }), /requested edits.*previous version has been kept/);
+  assert.match(files['src/App.tsx'], /Hello/);
+});
+
+test('cancellation during a build check propagates without returning edited files', async () => {
+  const { files, assets } = state0();
+  const controller = new AbortController();
+  mockModel([[editCall('src/App.tsx', 'Hello', 'Hi')]]);
+  await assert.rejects(generateCodebaseEdit({ prompt: 'Update the greeting', files, assets, isAutoFix: true, signal: controller.signal, buildCheck: async () => {
+    controller.abort();
+    return { errors: [] };
+  } }), { name: 'AbortError' });
+  assert.match(files['src/App.tsx'], /Hello/);
 });

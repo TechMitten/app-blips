@@ -5,10 +5,28 @@
 import { generateChatReply, generateCompletionReply, requestModelText } from '../llm.js';
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
+import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
 
 export const MAX_CODEBASE_TURNS = 20;
 export const MAX_CODEBASE_ASK_TURNS = 8;
 export const MAX_BUILD_REPAIRS = 3;
+const MAX_EDIT_RECOVERIES = 3;
+const MUTATION_TOOLS = new Set(['apply_surgical_edits', 'apply_file_changes', 'create_file', 'delete_file']);
+
+function mutationPaths(toolCall) {
+  try {
+    const args = JSON.parse(toolCall.function.arguments);
+    const paths = toolCall.function.name === 'apply_file_changes'
+      ? args.changes?.map((change) => change?.path) : [args.file || args.path];
+    return (paths || []).filter((path) => typeof path === 'string' && path.trim())
+      .map((path) => path.trim().replace(/^\.\//, ''));
+  } catch { return []; }
+}
+
+function sameMap(a, b) {
+  const paths = Object.keys(a);
+  return paths.length === Object.keys(b).length && paths.every((path) => a[path] === b[path]);
+}
 
 const userContent = (text, attachment) => (attachment?.dataUrl
   ? [{ type: 'text', text }, { type: 'image_url', image_url: { url: attachment.dataUrl } }]
@@ -31,11 +49,34 @@ const forwardChunks = (onChunk) => (chunk, kind) => {
 };
 
 // opts: { prompt, files, assets, meta, chatHistory, onChunk, signal, attachment,
-//   isAsk, isAutoFix, buildCheck(files, assets) -> Promise<{ errors }> }
+//   isAsk, isAutoFix, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
 // Returns { files, assets, editMode, editSummary, reply, buildErrors }.
-export async function generateCodebaseEdit({
+export async function generateCodebaseEdit(options) {
+  const diagnostics = createCodebaseDiagnostics(options.isAsk ? 'ask' : 'edit', {
+    projectId: options.projectId, entry: options.meta?.entry, isAutoFix: Boolean(options.isAutoFix),
+  });
+  diagnostics.info('Started', {
+    fileCount: Object.keys(options.files).length,
+    assetCount: Object.keys(options.assets || {}).length,
+    maxTurns: options.isAsk ? MAX_CODEBASE_ASK_TURNS : MAX_CODEBASE_TURNS,
+    maxBuildRepairs: MAX_BUILD_REPAIRS,
+  });
+  try {
+    const result = await runCodebaseEdit({ ...options, diagnostics });
+    diagnostics.info('Completed', {
+      changedFiles: changedProjectPaths(result.files, result.assets, options.files, options.assets || {}),
+    });
+    return result;
+  } catch (error) {
+    if (error?.name === 'AbortError') diagnostics.info('Cancelled');
+    else diagnostics.error('Failed; previous version kept', { error });
+    throw error;
+  }
+}
+
+async function runCodebaseEdit({
   prompt, files, assets = {}, meta, chatHistory = [], onChunk = null, signal = null,
-  attachment = null, isAsk = false, isAutoFix = false, buildCheck,
+  attachment = null, isAsk = false, isAutoFix = false, buildCheck, diagnostics,
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
@@ -86,6 +127,7 @@ export async function generateCodebaseEdit({
       intro = await generateChatReply({ prompt, currentCode: 'codebase', onChunk, signal, studioMode: 'codebase' });
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
+      diagnostics.warn('Acknowledgement failed; continuing edits', { error: err });
     }
   }
 
@@ -93,15 +135,35 @@ export async function generateCodebaseEdit({
   let nudged = false;
   let repairs = 0;
   let buildErrors = [];
-  const replyParts = [];
+  let completionText = '';
+  let completed = false;
+  let editRecoveries = 0;
+  const pendingFailures = new Map();
+  let buildChecks = 0;
 
   const runBuildCheck = async () => {
-    if (!buildCheck) return [];
+    if (!buildCheck) {
+      diagnostics.warn('Build check skipped: no checker supplied');
+      return [];
+    }
     status('Checking that the project still builds…');
+    const buildCheckNumber = ++buildChecks;
+    const started = performance.now();
+    diagnostics.info('Build check started', {
+      buildCheckNumber, repairs,
+      changedFiles: changedProjectPaths(state.files, state.assets, files, assets),
+    });
     try {
-      const result = await buildCheck(state.files, state.assets);
-      return result?.errors || [];
+      const result = await buildCheck(state.files, state.assets, { diagnostics });
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      const errors = result?.errors || [];
+      diagnostics[errors.length ? 'error' : 'info'](errors.length ? 'Build check failed' : 'Build check passed', {
+        buildCheckNumber, durationMs: Math.round(performance.now() - started), errors,
+      });
+      return errors;
     } catch (err) {
+      if (err?.name === 'AbortError' || signal?.aborted) throw err;
+      diagnostics.error('Build checker threw', { buildCheckNumber, error: err });
       return [{ message: String(err?.message || err) }];
     }
   };
@@ -109,6 +171,8 @@ export async function generateCodebaseEdit({
   for (let turn = 1; turn <= MAX_CODEBASE_TURNS; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     if (turn === 1) status('Looking through your site\'s files…');
+    diagnostics.info('Requesting model turn', { turn, repairs, pendingFailures: [...pendingFailures.keys()] });
+    const modelStarted = performance.now();
     const message = await requestModelText({
       messages,
       onChunk: forwardChunks(onChunk),
@@ -118,23 +182,39 @@ export async function generateCodebaseEdit({
       forceTemperatureZero: true,
       reasoningEffort: 'none',
     });
-    if (message.content?.trim()) replyParts.push(message.content.trim());
+    diagnostics.info('Model turn received', {
+      turn, durationMs: Math.round(performance.now() - modelStarted),
+      tools: (message.tool_calls || []).map((call) => call.function?.name),
+      finishReason: message.finish_reason,
+    });
     messages.push(assistantTurn(message));
 
     if (!message.tool_calls?.length) {
+      if (pendingFailures.size) {
+        if (editRecoveries++ >= MAX_EDIT_RECOVERIES) {
+          throw new Error('Some requested edits could not be applied. Your previous version has been kept. Try a more specific change.');
+        }
+        status('Retrying edits that did not apply…');
+        diagnostics.warn('Retrying failed edits', { turn, editRecoveries, failures: [...pendingFailures.entries()] });
+        messages.push({ role: 'user', content: `Some requested changes failed and must be retried before finishing. Read the current source and retry the failed operation:\n${[...new Set(pendingFailures.values())].join('\n')}` });
+        continue;
+      }
       if (!changed) {
         if (nudged) throw new Error('The AI did not make any change to the project.');
         nudged = true;
-        messages.push({ role: 'user', content: 'Use the tools to make the requested change (search_files / read_file, then apply_surgical_edits or create_file).' });
+        diagnostics.warn('Model finished without changes; requesting edits', { turn });
+        messages.push({ role: 'user', content: 'Use the tools to make the requested change (search_files / read_file, then apply_surgical_edits or apply_file_changes).' });
         continue;
       }
-      buildErrors = await runBuildCheck();
       if (buildErrors.length && repairs < MAX_BUILD_REPAIRS) {
         repairs++;
         status('Fixing build errors…');
+        diagnostics.warn('Requesting build repair', { turn, repair: repairs, maxBuildRepairs: MAX_BUILD_REPAIRS, errors: buildErrors });
         messages.push({ role: 'user', content: buildRepairInstruction(buildErrors) });
         continue;
       }
+      completionText = message.content?.trim() || '';
+      completed = true;
       break;
     }
 
@@ -142,29 +222,60 @@ export async function generateCodebaseEdit({
     for (const toolCall of message.tool_calls) {
       status(describeCodebaseToolCall(toolCall));
       const outcome = executeCodebaseTool(state, toolCall);
+      diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });
       state = outcome.state;
       if (outcome.applied) { changed = true; changedThisTurn = true; }
+      if (MUTATION_TOOLS.has(toolCall.function?.name)) {
+        const paths = mutationPaths(toolCall);
+        if (!outcome.result.success) {
+          for (const path of paths.length ? paths : ['*']) pendingFailures.set(path, outcome.result.error);
+        } else if (outcome.applied) {
+          for (const path of paths) pendingFailures.delete(path);
+          pendingFailures.delete('*');
+        }
+      }
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
     }
     if (changedThisTurn) {
       buildErrors = await runBuildCheck();
       if (buildErrors.length && repairs < MAX_BUILD_REPAIRS) {
         repairs++;
+        diagnostics.warn('Requesting build repair', { turn, repair: repairs, maxBuildRepairs: MAX_BUILD_REPAIRS, errors: buildErrors });
         messages.push({ role: 'user', content: buildRepairInstruction(buildErrors) });
+      } else if (buildErrors.length) {
+        diagnostics.error('Build repair limit reached', { turn, repairs, maxBuildRepairs: MAX_BUILD_REPAIRS, errors: buildErrors });
       }
     }
   }
 
-  if (!changed) throw new Error('The AI did not make any change to the project.');
+  if (pendingFailures.size) {
+    throw new Error('Some requested edits could not be applied. Your previous version has been kept. Try a more specific change.');
+  }
+  if (!changed || (sameMap(files, state.files) && sameMap(assets, state.assets))) {
+    throw new Error('The AI did not make any change to the project.');
+  }
+  // App.jsx saves every returned surgical result. Throw before returning if
+  // repairs fail, so an invalid or partially applied attempt never becomes
+  // the user's current version. The original maps were never mutated.
+  if (buildErrors.length) {
+    diagnostics.error('Unresolved build errors', { buildChecks, repairs, errors: buildErrors });
+    const details = buildErrors.slice(0, 3).map((e) => e.message || e.text || 'Unknown build error').join('\n');
+    throw new Error(`The edits could not pass the project build check. Your previous version has been kept.\n${details}`);
+  }
 
-  let reply = [intro, replyParts.join(' ').trim()].filter(Boolean).join('\n\n');
-  if (!isAutoFix && !replyParts.length) {
+  if (!completed) {
+    diagnostics.error('Model turn limit reached', { maxTurns: MAX_CODEBASE_TURNS, buildChecks, repairs });
+    throw new Error('The AI could not finish the requested changes in time. Your previous version has been kept. Try a smaller change.');
+  }
+
+  let reply = [intro, completionText].filter(Boolean).join('\n\n');
+  if (!isAutoFix && !completionText) {
     status('Writing a summary of the changes…');
     const completion = await generateCompletionReply({ prompt, editMode: 'surgical', studioMode: 'codebase', signal });
     onChunk?.(`${intro ? '\n\n' : ''}${completion}`, 'reply');
     reply = [intro, completion].filter(Boolean).join('\n\n');
-  } else if (replyParts.length) {
-    onChunk?.(`${intro ? '\n\n' : ''}${replyParts.join(' ').trim()}`, 'reply');
+  } else if (completionText) {
+    onChunk?.(`${intro ? '\n\n' : ''}${completionText}`, 'reply');
   }
 
   return {
