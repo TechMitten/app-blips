@@ -684,4 +684,37 @@ check('prompt with source context quotes the element, its section and page', () 
   assert.match(plain, /^Directly edit the section \(<div>/);
 });
 
+check('text edit across inline markup keeps the tags', () => {
+  const page = `<body>
+  <div class="hero">
+      <h1 class="mt-6 font-display text-6xl">
+        Jenny <span class="italic text-gold">&amp;</span> Adam
+      </h1>
+  </div>
+</body>`;
+  // The live DOM serializes the same markup; the visible text spans the span.
+  const heading = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Jenny & Adam',
+    outerHTML: '<h1 class="mt-6 font-display text-6xl">\n        Jenny <span class="italic text-gold">&amp;</span> Adam\n      </h1>',
+  });
+  const rename = applyDirectEdit(page, heading, { text: 'Jenny & Bob' });
+  assert.ok(rename.ok, rename.reason);
+  assert.match(rename.code, /\n {8}Jenny <span class="italic text-gold">&amp;<\/span> Bob\n {6}<\/h1>/);
+
+  const amp = applyDirectEdit(page, heading, { text: 'Jenny + Adam' });
+  assert.ok(amp.ok, amp.reason);
+  assert.match(amp.code, /Jenny <span class="italic text-gold">\+<\/span> Adam/);
+
+  // A change spanning the tag puts the new text in the first run.
+  const both = applyDirectEdit(page, heading, { text: 'Jen and Adam' });
+  assert.ok(both.ok, both.reason);
+  assert.match(both.code, /Jen and<span class="italic text-gold"><\/span> Adam/);
+
+  const styled = applyDirectEdit(page, heading, { text: 'Jenny & Al', style: { fontSize: '40px' } });
+  assert.ok(styled.ok, styled.reason);
+  assert.match(styled.code, /<h1 class="mt-6 font-display text-6xl" style="font-size: 40px;">\n {8}Jenny <span class="italic text-gold">&amp;<\/span> Al\n/);
+});
+
 console.log(`\n${passed} checks passed${process.exitCode ? ' (with failures above)' : ''}`);

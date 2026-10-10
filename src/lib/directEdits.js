@@ -231,6 +231,79 @@ const pickTextCandidate = (candidates, element) => {
   return byClass.length === 1 ? byClass[0] : null;
 };
 
+// Visible text of an inner-HTML fragment as innerText-style characters
+// (entities decoded, whitespace collapsed, tags dropped, <br> as a space),
+// each mapped to its [start, end) span in the fragment. Lets a text edit be
+// applied to text that runs across inline tags, e.g.
+// `Jenny <span class="italic">&amp;</span> Adam`.
+const TEXT_TOKEN_RE = /<!--[\s\S]*?-->|<[^>]*>|&(?:#x[0-9a-f]+|#\d+|[a-z]+);|\s+|[^<&\s]+|[<&]/giy;
+const mapVisibleText = (fragment) => {
+  const chars = [];
+  const pushSpace = (start, end) => {
+    if (chars.length && chars[chars.length - 1].ch !== ' ') chars.push({ ch: ' ', start, end });
+  };
+  TEXT_TOKEN_RE.lastIndex = 0;
+  let m;
+  while ((m = TEXT_TOKEN_RE.exec(fragment))) {
+    const token = m[0];
+    const at = m.index;
+    if (token[0] === '<' && token.length > 1) {
+      if (/^<br\b/i.test(token)) pushSpace(at, at);
+    } else if (token[0] === '&' && token.length > 1) {
+      for (const ch of decodeEntities(token)) {
+        if (/\s/.test(ch)) pushSpace(at, at + token.length);
+        else chars.push({ ch, start: at, end: at + token.length });
+      }
+    } else if (/^\s/.test(token)) {
+      pushSpace(at, at + token.length);
+    } else {
+      for (let i = 0; i < token.length; i += 1) chars.push({ ch: token[i], start: at + i, end: at + i + 1 });
+    }
+  }
+  while (chars.length && chars[chars.length - 1].ch === ' ') chars.pop();
+  return chars;
+};
+
+// Apply `prevText` -> `nextText` to a fragment whose visible text equals
+// `prevText` but is split by inline markup. Only the changed middle (common
+// prefix/suffix trimmed) is rewritten, and tags are never touched: the new
+// text lands in the first text run the change covers and later runs lose
+// their changed characters. Returns null when the texts don't line up.
+const spliceVisibleText = (fragment, prevText, nextText) => {
+  const chars = mapVisibleText(fragment);
+  const visible = chars.map((c) => c.ch).join('');
+  if (visible.toLowerCase() !== prevText.toLowerCase() || visible.length !== prevText.length) return null;
+
+  let prefix = 0;
+  while (prefix < prevText.length && prefix < nextText.length && prevText[prefix] === nextText[prefix]) prefix += 1;
+  let suffix = 0;
+  while (
+    suffix < prevText.length - prefix && suffix < nextText.length - prefix
+    && prevText[prevText.length - 1 - suffix] === nextText[nextText.length - 1 - suffix]
+  ) suffix += 1;
+  const removed = chars.slice(prefix, chars.length - suffix);
+  const inserted = escapeHtmlText(nextText.slice(prefix, nextText.length - suffix));
+
+  if (!removed.length) {
+    // Pure insertion: stay in the text run before the caret when there is one.
+    const at = prefix > 0 ? chars[prefix - 1].end : chars[0].start;
+    return fragment.slice(0, at) + inserted + fragment.slice(at);
+  }
+  // Group the removed characters into contiguous source runs (a run breaks
+  // wherever markup sits between two characters).
+  const runs = [];
+  removed.forEach((c) => {
+    const last = runs[runs.length - 1];
+    if (last && last.end === c.start) last.end = c.end;
+    else if (!last || c.start >= last.end) runs.push({ start: c.start, end: c.end });
+  });
+  let out = fragment;
+  for (let i = runs.length - 1; i >= 0; i -= 1) {
+    out = out.slice(0, runs[i].start) + (i === 0 ? inserted : '') + out.slice(runs[i].end);
+  }
+  return out;
+};
+
 const applyTextByScan = (code, element, prevText, nextText, styles) => {
   const candidate = pickTextCandidate(findElementsByText(code, element.tag, prevText), element);
   if (!candidate) return null;
@@ -248,8 +321,10 @@ const applyTextByScan = (code, element, prevText, nextText, styles) => {
       const trail = /\s*$/.exec(candidate.inner)[0];
       nextInner = lead + escapedNext + trail;
     } else {
-      // Nested markup: only swap when the old text is verbatim inside.
-      nextInner = swapTextInFragment(candidate.inner, prevText, escapedNext);
+      // Nested markup: swap the old text when it is verbatim inside,
+      // otherwise edit across the inline tags without touching them.
+      nextInner = swapTextInFragment(candidate.inner, prevText, escapedNext)
+        ?? spliceVisibleText(candidate.inner, prevText, nextText);
     }
     if (nextInner === null) return null;
   }
