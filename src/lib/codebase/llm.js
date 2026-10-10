@@ -77,6 +77,8 @@ export async function generateCodebaseEdit(options) {
 async function runCodebaseEdit({
   prompt, files, assets = {}, meta, chatHistory = [], onChunk = null, signal = null,
   attachment = null, isAsk = false, isAutoFix = false, buildCheck, diagnostics,
+  // The user's reasoning setting, used for edit turns; Ask answers stay off.
+  reasoningEffort = 'none',
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
@@ -180,7 +182,7 @@ async function runCodebaseEdit({
       tool_choice: turn === 1 ? 'required' : 'auto',
       signal,
       forceTemperatureZero: true,
-      reasoningEffort: 'none',
+      reasoningEffort,
     });
     diagnostics.info('Model turn received', {
       turn, durationMs: Math.round(performance.now() - modelStarted),

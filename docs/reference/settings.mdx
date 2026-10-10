@@ -94,14 +94,14 @@ Changes save as you type. Click **Use default** (or **Use provider default**) to
 
 ### Reasoning
 
-Reasoning applies when generating a new app from scratch. Editing an existing app always uses low reasoning, so small changes stay fast.
+Reasoning applies whenever the AI writes code: building a new app, editing one, and fixing errors.
 
-<ParamField body="Reasoning: building" type="Off | Low | High" default="Low">
-  Lets the AI reason before generating a new app from scratch. **Off** is fastest. **Low** thinks a little first. **High** thinks harder for complex apps but takes longer.
+<ParamField body="Reasoning" type="Off | Low | High" default="Low">
+  Lets the AI reason before it writes code, for new apps and for changes. **Off** is fastest. **Low** thinks a little first. **High** thinks harder for complex apps but takes longer.
 </ParamField>
 
 <Tip>
-  Editing, error repair, and chat-only replies (clarifying questions and Ask-mode answers) always run with low reasoning.
+  Chat-only replies (clarifying questions and Ask-mode answers) always run with reasoning off, so they stay quick.
 </Tip>
 
 ### Clarifying questions

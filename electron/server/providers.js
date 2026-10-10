@@ -230,9 +230,8 @@ const missingVars = (provider) => [
 
 // Adapts an OpenAI-style request body in place to what `provider` accepts:
 // writes the reasoning setting, drops stream_options where unsupported, and
-// relaxes forced tool choices where they would be rejected (providers that
-// only accept 'auto', and any request with reasoning on -- thinking models
-// reject required/named tool choices). Returns { reasoningEnabled }.
+// relaxes forced tool choices for providers that only accept 'auto' (Claude
+// rejects them with thinking on). Returns { reasoningEnabled }.
 export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);

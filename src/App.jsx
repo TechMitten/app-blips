@@ -1482,6 +1482,7 @@ export default function App({ coldStart = false }) {
             isAsk: chatMode === 'ask',
             isAutoFix,
             buildCheck: runCodebaseBuildCheck,
+            reasoningEffort: buildReasoningEffort,
           })
         : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
       isEvaluatingNewCodeRef.current = true;

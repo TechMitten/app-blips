@@ -17,7 +17,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (building reasoning, clarifying questions, review offers) and Data (project backup and
+// AI (reasoning, clarifying questions, review offers) and Data (project backup and
 // the desktop projects folder). AppBlips is a desktop, single-user app, so
 // there is no account or billing tab.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
@@ -339,11 +339,11 @@ export default function SettingsModal({
               <OutputTokenSettings />
               <SettingRow
                 id="set-reasoning-build"
-                title="Reasoning: building"
-                description="Let the AI reason before generating a new app from scratch. Low by default. Low is faster and cheaper; High thinks harder for complex apps."
+                title="Reasoning"
+                description="Let the AI reason before it writes code, both when building a new app and when changing or fixing one. Low by default. Low is faster and cheaper; High thinks harder for complex apps."
               >
                 <Segmented
-                  label="Reasoning for building"
+                  label="Reasoning"
                   value={buildReasoningEffort}
                   onChange={onBuildReasoningEffortChange}
                   options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}

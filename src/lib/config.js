@@ -258,10 +258,10 @@ export const isStartFresh = () => {
 
 // Legacy single setting, read only to seed the build key below.
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
-// The initial build (first generation of an app/site) is the only call whose
-// reasoning is user-configurable. Sent to /api/chat as `reasoning_effort`; a
-// Off/Low/High choice where Off is sent as 'none'. Low is the default.
-// Edits, error repair and chat calls are hardcoded to LOW in llm.js.
+// Reasoning for every code-writing call (builds, edits, error repair, imported
+// codebase edits). Sent to /api/chat as `reasoning_effort`; an Off/Low/High
+// choice where Off is sent as 'none'. Low is the default. Chat-only calls
+// (clarifying questions, replies, Ask mode) always run with reasoning off.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
 export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'high'];
 // Older saved efforts (including the legacy combined key): the top ones map
@@ -312,7 +312,7 @@ export const saveChatMode = (mode) => {
   }
 };
 
-// Build reasoning only. Falls back to the legacy single setting, so users who
+// The reasoning setting. Falls back to the legacy single setting, so users who
 // had already picked an effort keep it. Older saved 'medium' migrates to High;
 // missing or unrecognised values default to Low.
 export const loadReasoningEffort = () => {

@@ -65,14 +65,9 @@ function parseClarifyingQuestionArgs(rawArguments) {
 }
 
 // Reasoning for calls that only produce chat text (clarifying question, intro
-// and completion replies, ask-mode answers). Only the initial build follows the
-// user's Build reasoning toggle, so these are hardcoded to LOW.
+// and completion replies, ask-mode answers). Code-writing calls follow the
+// user's reasoning setting instead; these stay off so replies are quick.
 export const CHAT_REASONING_EFFORT = 'none';
-
-// Reasoning for every code-writing/fixing call other than the initial build:
-// the surgical refinement loop and all syntax/broken-link/auto-fix repair
-// passes. Hardcoded to LOW so the user's toggle only governs building.
-const EDIT_REASONING_EFFORT = 'none';
 
 export const generateClarifyingQuestion = async ({
   prompt,
@@ -633,8 +628,8 @@ const generateAppCodeCore = async (
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
-  // Only the initial build follows the user's reasoning toggle. Edits, error
-  // repair and chat-only calls are hardcoded to LOW (see the constants above).
+  // Every code-writing call (build, edits, syntax/link/auto-fix repairs)
+  // follows the user's reasoning setting; chat-only calls stay off.
   const buildEffort = reasoningEffort?.build ?? 'none';
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
@@ -809,7 +804,7 @@ const generateAppCodeCore = async (
           tool_choice: 'required',
           signal,
           forceTemperatureZero: true,
-          reasoningEffort: EDIT_REASONING_EFFORT
+          reasoningEffort: buildEffort
         });
         repairMessages.push(assistantTurn(repairMessage));
 
@@ -927,7 +922,7 @@ const generateAppCodeCore = async (
       tool_choice: turn === 1 ? 'required' : 'auto',
       signal,
       forceTemperatureZero: true,
-      reasoningEffort: EDIT_REASONING_EFFORT
+      reasoningEffort: buildEffort
     });
 
     if (message.content && message.content.trim()) {
