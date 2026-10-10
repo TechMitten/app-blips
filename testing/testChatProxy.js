@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleChatProxy } from '../electron/server/chatProxy.js';
+import { handleChatProxy, smallerOutputLimit } from '../electron/server/chatProxy.js';
 
 const env = {
   OPENAI_BASE_URL: 'https://llm.example/v1',
@@ -195,14 +195,25 @@ test('hosted providers get the 64K build default; local servers and Ask do not',
   }
 });
 
-test('a provider that rejects the default limit gets the request again without one', async (t) => {
+test('smallerOutputLimit reads the allowed limit from provider errors', () => {
+  // DeepSeek, Anthropic model cap, OpenAI, Anthropic context overflow.
+  assert.equal(smallerOutputLimit('Invalid max_tokens value, the valid range of max_tokens is [1, 8192]', 64000), 8192);
+  assert.equal(smallerOutputLimit('max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-opus-4-1-20250805', 64000), 32000);
+  assert.equal(smallerOutputLimit('This model supports at most 16,384 completion tokens.', 64000), 16384);
+  assert.equal(smallerOutputLimit('input length and `max_tokens` exceed context limit: 150000 + 64000 > 200000, decrease input length or `max_tokens` and try again', 64000), 50000);
+  // No room left after the input, or nothing left to halve.
+  assert.equal(smallerOutputLimit('input length and `max_tokens` exceed context limit: 199500 + 64000 > 200000', 64000), null);
+  assert.equal(smallerOutputLimit('max_tokens too large', 1500), null);
+});
+
+test('a provider that rejects the default limit gets the request again with a smaller one', async (t) => {
   const bodies = [];
   const reject = (status, error) => Response.json({ error: { message: error } }, { status });
-  const run = async (payload, firstReply) => {
+  const run = async (payload, firstReply, rejections = 1) => {
     bodies.length = 0;
     t.mock.method(globalThis, 'fetch', async (url, options) => {
       bodies.push(JSON.parse(options.body));
-      return bodies.length === 1 ? firstReply() : new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+      return bodies.length <= rejections ? firstReply() : new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
     });
     return handleChatProxy(new Request('https://app.example/api/chat', {
       method: 'POST',
@@ -213,8 +224,15 @@ test('a provider that rejects the default limit gets the request again without o
   assert.equal(retried.status, 200);
   assert.equal(bodies.length, 2);
   assert.equal(bodies[0].max_completion_tokens, 64000);
-  assert.equal(bodies[1].max_completion_tokens, undefined);
+  assert.equal(bodies[1].max_completion_tokens, 16384);
   assert.equal(bodies[1].max_tokens, undefined);
+  // Without a number in the error, the limit halves, a few times at most.
+  const halved = await run({}, () => reject(400, 'max_tokens too large for this model'), 2);
+  assert.equal(halved.status, 200);
+  assert.deepEqual(bodies.map((b) => b.max_completion_tokens), [64000, 32000, 16000]);
+  const exhausted = await run({}, () => reject(400, 'max_tokens too large for this model'), 99);
+  assert.equal(exhausted.status, 400);
+  assert.equal(bodies.length, 4);
   // A limit the user chose is never silently dropped, and other 400s pass through.
   const custom = await run({ max_tokens: 99999 }, () => reject(400, 'max_tokens is too large'));
   assert.equal(custom.status, 400);

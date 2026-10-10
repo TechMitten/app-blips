@@ -317,8 +317,8 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
   let source;
   try {
     const params = toAnthropicParams(body);
-    // Messages requires max_tokens. Builds always arrive with one
-    // (chatProxy.js); Ask mode without a Settings value gets the same default.
+    // Messages requires max_tokens. chatProxy.js always sends one; this is
+    // only a backstop for other callers.
     params.max_tokens ??= DEFAULT_BUILD_MAX_TOKENS;
     source = client.beta.messages.stream(params);
     if (!body.stream) return Response.json(toChatCompletion(await source.finalMessage()));

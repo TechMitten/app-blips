@@ -57,8 +57,9 @@ export const DEFAULT_PROVIDER = 'deepseek';
 // has none. Without one, providers apply their own default, which can be a
 // few thousand tokens: a whole app then stops halfway and no search/replace
 // repair can bring back the missing half. Current hosted models allow at
-// least this much; a provider that rejects it gets the request again without
-// a limit (chatProxy.js). Ask mode keeps the provider default.
+// least this much; a provider that rejects it gets the request again with the
+// largest limit its error allows (chatProxy.js). Ask mode keeps the provider
+// default, except on Anthropic, which requires a limit.
 export const DEFAULT_BUILD_MAX_TOKENS = 64000;
 export const PROVIDER_IDS = ['deepseek'];
 

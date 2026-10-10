@@ -94,6 +94,27 @@ const upstreamErrorMessage = async (upstream) => {
   return String(message).replace(/\s+/g, ' ').trim().slice(0, 300);
 };
 
+// A smaller output limit to retry with after a provider rejected `current`,
+// or null when no useful limit is left. Dropping the limit instead would fall
+// back to the provider's own default, often a few thousand tokens, which cuts
+// a whole app off halfway: the problem DEFAULT_BUILD_MAX_TOKENS exists for.
+const MIN_RETRY_LIMIT = 1024;
+const OUTPUT_LIMIT_ERROR = /max_(?:completion_)?tokens|max(?:imum)?[ _-]?output|output[ _-]?tokens/i;
+export const smallerOutputLimit = (detail, current) => {
+  const text = String(detail).replace(/(\d),(?=\d{3}\b)/g, '$1');
+  // "input + max_tokens > context" (Anthropic): the room left after the input.
+  const sum = text.match(/(\d+)\s*\+\s*(\d+)\s*>\s*(\d+)/);
+  if (sum && Number(sum[2]) === current) {
+    const room = Number(sum[3]) - Number(sum[1]);
+    return room >= MIN_RETRY_LIMIT && room < current ? room : null;
+  }
+  // Most providers name their maximum ("at most 16384", "range [1, 8192]");
+  // otherwise halve.
+  const named = (text.match(/\b\d+\b/g) || []).map(Number).filter((n) => n >= MIN_RETRY_LIMIT && n < current);
+  const next = named.length ? Math.max(...named) : Math.floor(current / 2);
+  return next >= MIN_RETRY_LIMIT ? next : null;
+};
+
 // A provider rejecting the user's own key must not reach the client as a 401,
 // which it reads as an expired AppBlips session.
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
@@ -169,8 +190,10 @@ export async function handleChatProxy(request, env) {
   }
 
   // Local servers are left alone: 64K can exceed a small local model's
-  // context, and they stream until done without a limit anyway.
-  const defaultLimit = maxTokens == null && payload.ask !== true && !provider.local;
+  // context, and they stream until done without a limit anyway. Anthropic
+  // requires a limit, so its Ask requests get the default here too, where a
+  // rejection can be retried.
+  const defaultLimit = maxTokens == null && !provider.local && (payload.ask !== true || provider.id === 'anthropic');
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
   else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
 
@@ -197,17 +220,18 @@ export async function handleChatProxy(request, env) {
   try {
     upstream = await send(bodyObj);
     // An older or smaller model may reject the default limit as above its
-    // maximum. The user didn't ask for that number, so try once without it
-    // (Anthropic always needs one and picks its own fallback).
-    if (defaultLimit && upstream.status === 400 && provider.id !== 'anthropic') {
+    // maximum, or a large input may leave less room than it in the context
+    // window. The user didn't ask for that number, so retry with the largest
+    // limit the error allows (a few tries at most).
+    const limitField = Object.hasOwn(bodyObj, 'max_completion_tokens') ? 'max_completion_tokens' : 'max_tokens';
+    let limit = bodyObj[limitField];
+    for (let tries = 0; defaultLimit && upstream.status === 400 && tries < 3; tries++) {
       const detail = await upstream.clone().text().catch(() => '');
-      if (/max_(?:completion_)?tokens|max(?:imum)?[ _-]?output|output[ _-]?tokens/i.test(detail)) {
-        upstream.body?.cancel().catch(() => {});
-        const unlimited = { ...bodyObj };
-        delete unlimited.max_tokens;
-        delete unlimited.max_completion_tokens;
-        upstream = await send(unlimited);
-      }
+      const next = OUTPUT_LIMIT_ERROR.test(detail) ? smallerOutputLimit(detail, limit) : null;
+      if (next == null) break;
+      upstream.body?.cancel().catch(() => {});
+      limit = next;
+      upstream = await send({ ...bodyObj, [limitField]: limit });
     }
   } catch (err) {
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
