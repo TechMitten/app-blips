@@ -1884,12 +1884,17 @@ export default function App({ coldStart = false }) {
     }
   };
 
+  // A project with an id is auto-saved after every change, so leaving it loses
+  // nothing; only a running build (picking a studio aborts it) or work that
+  // never got saved is worth a warning.
+  const hasUnsavedWork = !currentProjectId && Boolean(generatedCode || versions.length > 0 || hasSentFirstPrompt);
+
   const handleNewApp = () => {
-    if (generatedCode || versions.length > 0 || isGenerating || hasSentFirstPrompt) {
+    if (isGenerating || hasUnsavedWork) {
       setIsNewChatConfirmOpen(true);
     } else {
       // Nothing to lose -- go straight to the studio pick.
-      setIsStudioChoiceOpen(true);
+      handleConfirmNewChat();
     }
   };
 
@@ -2375,7 +2380,9 @@ export default function App({ coldStart = false }) {
           <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
             <span>
-              You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You&apos;ll pick the studio on the next screen.
+              {isGenerating && !hasUnsavedWork
+                ? 'The AI is still working on this project. Starting something new will stop it; everything finished so far is already saved. You’ll pick the studio on the next screen.'
+                : 'You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You’ll pick the studio on the next screen.'}
             </span>
           </div>
         </ConfirmModal>
