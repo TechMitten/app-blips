@@ -58,3 +58,91 @@ export function browserSafeV4Css(css) {
     });
   return { css: out, removed };
 }
+
+// Tailwind v4 CSS that the ready-made browser build can't handle: a JS
+// config (@config, common after a v3 -> v4 upgrade), plugins (@plugin) or
+// CSS packages (@import "tw-animate-css"). Those projects get our own small
+// runtime instead (tailwindRuntimeSource), still running inside the frame.
+export function v4Directives(css) {
+  const plugins = [...css.matchAll(/@plugin\s+["']([^"']+)["']/g)].map((m) => m[1]);
+  const hasConfig = /@config\s+["'][^"']+["']/.test(css);
+  const packageImports = [...css.matchAll(/@import\s+(?:url\()?["']([^"'./][^"']*)["']/g)].map((m) => m[1]).filter((s) => !/^tailwindcss(\/|$)/.test(s));
+  return { plugins, hasConfig, packageImports, needsRuntime: Boolean(plugins.length || hasConfig || packageImports.length) };
+}
+
+// Source of the in-frame Tailwind v4 runtime: compiles the project's CSS
+// with Tailwind's own compiler (`tailwindcss` from esm.sh, pinned like every
+// package) and rebuilds the stylesheet from the class names on the page as
+// the app renders. configImport is a project path or null; plugins maps each
+// @plugin id to what to import for it (a package name or a project path).
+export function tailwindRuntimeSource({ css, configImport, plugins, versions }) {
+  const pluginEntries = Object.entries(plugins)
+    .map(([id, spec]) => `${JSON.stringify(id)}: () => import(${JSON.stringify(spec)})`).join(',\n  ');
+  return `import { compile } from 'tailwindcss';
+${configImport ? `import projectConfig from ${JSON.stringify(configImport)};` : 'const projectConfig = {};'}
+const CSS = ${JSON.stringify(css)};
+const VERSIONS = ${JSON.stringify(versions)};
+const PLUGINS = {
+  ${pluginEntries}
+};
+const packageUrl = (id) => {
+  const name = id.startsWith('@') ? id.split('/').slice(0, 2).join('/') : id.split('/')[0];
+  return 'https://esm.sh/' + name + '@' + (VERSIONS[name] || 'latest') + id.slice(name.length);
+};
+async function loadStylesheet(id, base) {
+  const url = /^(\\.|\\/|https?:)/.test(id) ? new URL(id, base).href
+    : id === 'tailwindcss' ? packageUrl('tailwindcss/index.css') : packageUrl(id);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Could not load the stylesheet ' + id + ' (' + response.status + ')');
+  return { path: response.url, base: response.url.replace(/[^/]*$/, ''), content: await response.text() };
+}
+async function loadModule(id, base, hint) {
+  if (hint === 'config') return { path: id, base, module: projectConfig };
+  const load = PLUGINS[id];
+  if (!load) throw new Error('The preview cannot load the Tailwind plugin ' + id);
+  const mod = await load();
+  return { path: id, base, module: mod.default ?? mod };
+}
+let compiler;
+try {
+  compiler = await compile(CSS, { base: '/', loadStylesheet, loadModule });
+} catch (err) {
+  // A plugin or config the preview can't load: style the page without it
+  // rather than not at all.
+  console.warn('[AppBlips preview] Tailwind config/plugins could not be loaded, so styling may differ:', err);
+  compiler = await compile(CSS.replace(/@(plugin|config)\\s+["'][^"']+["'][^;]*;/g, ''), { base: '/', loadStylesheet });
+}
+const style = document.createElement('style');
+style.setAttribute('data-appblips-tailwind', '');
+document.head.appendChild(style);
+const classes = new Set();
+let fresh = false;
+let queued = false;
+const collect = (el) => {
+  const value = el.getAttribute && el.getAttribute('class');
+  if (!value) return;
+  for (const name of value.split(/\\s+/)) if (name && !classes.has(name)) { classes.add(name); fresh = true; }
+};
+const scan = (root) => {
+  if (root.nodeType !== 1) return;
+  collect(root);
+  root.querySelectorAll('[class]').forEach(collect);
+};
+const flush = () => {
+  queued = false;
+  if (!fresh) return;
+  fresh = false;
+  style.textContent = compiler.build([...classes]);
+};
+scan(document.documentElement);
+style.textContent = compiler.build([...classes]);
+fresh = false;
+new MutationObserver((records) => {
+  for (const record of records) {
+    if (record.type === 'attributes') collect(record.target);
+    else record.addedNodes.forEach(scan);
+  }
+  if (fresh && !queued) { queued = true; setTimeout(flush, 16); }
+}).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+`;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Play, TerminalSquare, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
+  Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
   ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, MousePointerClick, Move
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
@@ -111,6 +111,10 @@ export default function PreviewPane({
   codeFile = null,
   codeFileIsBinary = false,
   onSelectCodeFile,
+  codeFileChanges,
+  codeEntryFile = null,
+  codeProjectKey,
+  codeAssetUrl = null,
 }) {
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
@@ -164,15 +168,15 @@ export default function PreviewPane({
             {showCodeView && (
               <button
                 onClick={() => onTabChange('code')}
-                aria-label="Code"
+                aria-label={codeFiles ? 'Files' : 'Code'}
                 aria-pressed={activeTab === 'code'}
-                data-tip="Read the generated HTML"
+                data-tip={codeFiles ? 'Browse the project\'s files' : 'Read the generated HTML'}
                 className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
                   activeTab === 'code' ? 'nav-segmented-btn-active' : ''
                 }`}
               >
-                <TerminalSquare size={16} />
-                <span>Code</span>
+                {codeFiles ? <FolderTree size={16} /> : <TerminalSquare size={16} />}
+                <span>{codeFiles ? 'Files' : 'Code'}</span>
               </button>
             )}
           </div>
@@ -477,6 +481,10 @@ export default function PreviewPane({
             activeFile={codeFile}
             activeFileIsBinary={codeFileIsBinary}
             onSelectFile={onSelectCodeFile}
+            fileChanges={codeFileChanges}
+            entryFile={codeEntryFile}
+            projectKey={codeProjectKey}
+            assetUrl={codeAssetUrl}
             pages={codePages}
             activePage={codeActivePage}
             writingPage={codeWritingPage}

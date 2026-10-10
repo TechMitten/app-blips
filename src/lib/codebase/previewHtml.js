@@ -52,7 +52,10 @@ export function buildPreviewHtml({ files, meta, bundle, env = {}, publicMap = ne
   for (const href of bundle.cssLinks || []) head.push(`<link rel="stylesheet" href="${href.replace(/"/g, '&quot;')}">`);
 
   let tailwindCss = bundle.tailwindCss || '';
-  if (tailwindCss && meta.tailwind === 4) {
+  if (tailwindCss && meta.tailwind === 4 && bundle.tailwindRuntimeJs) {
+    // @config / @plugin / CSS packages: our in-frame compiler (tailwind.js).
+    head.push(`<script type="module">${escapeInlineScript(bundle.tailwindRuntimeJs)}${CLOSE_SCRIPT}`);
+  } else if (tailwindCss && meta.tailwind === 4) {
     const safe = browserSafeV4Css(tailwindCss);
     tailwindCss = safe.css;
     if (safe.removed.length) notices.push(`The preview skips these Tailwind plugins/imports: ${safe.removed.join(' ')}`);

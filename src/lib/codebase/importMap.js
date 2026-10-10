@@ -13,7 +13,13 @@ const ALWAYS = ['react', 'react-dom'];
 export function esmUrl(name, version, subpath, externals) {
   const others = externals.filter((e) => e !== name);
   const base = `${ESM_HOST}/${name}@${encodeURIComponent(version).replace(/%5E/g, '^').replace(/%7E/g, '~')}`;
-  if (subpath === '/') return others.length ? `${base}&external=${others.join(',')}/` : `${base}/`;
+  if (subpath === '/') {
+    // Prefix entries put the external list in the path, where esm.sh reads
+    // the '/' of a scoped name (@scope/pkg) as the start of the subpath and
+    // 404s, encoded or not; those keep their own copy in this form only.
+    const unscoped = others.filter((e) => !e.includes('/'));
+    return unscoped.length ? `${base}&external=${unscoped.join(',')}/` : `${base}/`;
+  }
   return `${base}${subpath}${others.length ? `?external=${others.join(',')}` : ''}`;
 }
 

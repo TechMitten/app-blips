@@ -46,6 +46,25 @@ const CASES = [
     },
     route: '/contact',
   },
+  {
+    fixture: 'vite-js-tw4-config',
+    // Tailwind v4 + @config "../tailwind.config.js" (theme + typography plugin)
+    // + `import '@fontsource-variable/outfit'`: the in-frame Tailwind runtime
+    // and stylesheet-only packages.
+    check: async (frame) => {
+      await frame.locator('#order').click();
+      assert.equal((await frame.locator('#order').innerText()).trim(), 'Order (1)', 'useState works');
+      await frame.locator('#story').evaluate(() => document.fonts.ready);
+      const font = await frame.locator('#headline').evaluate((el) => getComputedStyle(el).fontFamily);
+      assert.match(font, /^"Outfit Variable"/, 'fontFamily from tailwind.config (via @config)');
+      const loaded = await frame.locator('#headline').evaluate(() => [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Outfit Variable' && f.status === 'loaded'));
+      assert.ok(loaded, 'Fontsource font loads from its stylesheet');
+      assert.equal(await frame.locator('#headline').evaluate((el) => getComputedStyle(el).color), 'rgb(107, 62, 38)', 'colour from tailwind.config');
+      const proseColor = await frame.locator('#story p').evaluate((el) => getComputedStyle(el).color);
+      assert.notEqual(proseColor, 'rgb(0, 0, 0)', 'typography plugin styles .prose');
+    },
+    route: null,
+  },
 ];
 
 const browser = await chromium.launch();
@@ -61,6 +80,7 @@ try {
     const errors = [];
     const routes = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('response', (r) => { if (r.status() >= 400 && !/favicon/.test(r.url())) errors.push(`HTTP ${r.status()} ${r.url()}`); });
     page.on('pageerror', (e) => errors.push(e.message));
     await page.exposeFunction('noteRoute', (path) => routes.push(path));
     await page.setContent('<script>addEventListener("message", (e) => { if (e.data && e.data.type === "route-changed") noteRoute(e.data.payload.path); });</script><iframe sandbox="allow-scripts allow-forms" style="width:1000px;height:700px"></iframe>');
@@ -70,7 +90,7 @@ try {
     await page.waitForTimeout(500);
     await check(frame);
     await page.waitForTimeout(300);
-    assert.deepEqual(routes, ['/', route], `${fixture}: routes reported to the parent`);
+    if (route) assert.deepEqual(routes, ['/', route], `${fixture}: routes reported to the parent`);
     // Fonts in the tw4 fixture are deliberately fake bytes; only real errors count.
     assert.deepEqual(errors.filter((e) => !/favicon|font|OTS/i.test(e)), [], `${fixture}: no console errors`);
     await page.close();

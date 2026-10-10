@@ -7,7 +7,7 @@ import { test, after } from 'node:test';
 import * as esbuild from 'esbuild-wasm';
 import { unzipSync } from 'fflate';
 import { importCodebaseZip } from '../src/lib/codebase/import.js';
-import { bundleCodebase, rewritePublicPaths } from '../src/lib/codebase/bundler.js';
+import { bundleCodebase, isCssSpecifier, rewritePublicPaths } from '../src/lib/codebase/bundler.js';
 import { buildCodebasePreview, checkCodebaseBuild, mapPreviewLine } from '../src/lib/codebase/preview.js';
 import { exportCodebaseZip, dependencyChanges } from '../src/lib/codebase/export.js';
 import { injectPreviewBridge } from '../src/previewBridge.js';
@@ -92,6 +92,44 @@ test('a preview line maps back to the project file through the source map', asyn
   assert.equal(where.line, 5);
 });
 
+test('stylesheet-only packages become <link>s; other bare side-effect imports get a CSS fallback', async () => {
+  for (const spec of ['@fontsource-variable/outfit', '@fontsource/inter/400.css', 'swiper/css', 'swiper/css/navigation', 'react-toastify/dist/ReactToastify.css']) {
+    assert.ok(isCssSpecifier(spec), spec);
+  }
+  for (const spec of ['react', 'framer-motion/dom', '@fontsource/utils/index.js', 'swiper/react']) assert.ok(!isCssSpecifier(spec), spec);
+  const { files, assets, meta } = await load('vite-js-tw4-config');
+  const edited = {
+    ...files,
+    'package.json': files['package.json'].replace('"react": ', '"some-polyfill": "^1.0.0",\n    "react": '),
+    'src/main.jsx': `import 'some-polyfill'\n${files['src/main.jsx']}`,
+  };
+  const result = await bundleCodebase(esbuild, { files: edited, assets, meta, assetUrl });
+  assert.ok(result.ok, JSON.stringify(result.errors));
+  assert.equal(result.cssLinks.length, 1);
+  assert.match(result.cssLinks[0], /^https:\/\/esm\.sh\/@fontsource-variable\/outfit@5\.\d+\.\d+$/, 'pinned to the lockfile version');
+  assert.ok(!result.importMap.imports['@fontsource-variable/outfit'], 'never imported as a module');
+  assert.ok(result.js.includes('await import("some-polyfill")'), 'unknown side-effect import tried as JS first');
+  assert.ok(result.js.includes('https://esm.sh/some-polyfill@^1.0.0'), '...with a stylesheet fallback');
+});
+
+test('Tailwind v4 with @config/@plugin gets the in-frame runtime with the config bundled', async () => {
+  const { files, assets, meta } = await load('vite-js-tw4-config');
+  const result = await bundleCodebase(esbuild, { files, assets, meta, assetUrl });
+  assert.ok(result.tailwindRuntimeJs.includes('compile'), 'runtime bundled');
+  assert.ok(result.tailwindRuntimeJs.includes('espresso'), 'tailwind.config.js bundled into it');
+  assert.ok(result.importMap.imports.tailwindcss && result.importMap.imports['@tailwindcss/typography'], 'compiler and plugin mapped');
+  assert.deepEqual(result.undeclared, []);
+  const preview = await buildCodebasePreview(esbuild, { files, assets, meta, assetUrl });
+  assert.ok(!preview.html.includes('@tailwindcss/browser'), 'browser build not used');
+  // A plain v4 project keeps Tailwind's own browser build.
+  const plain = await load('vite-ts-tw4');
+  const plainResult = await bundleCodebase(esbuild, { ...plain, assetUrl });
+  assert.equal(plainResult.tailwindRuntimeJs, '');
+  // Packages only the Tailwind setup imports are never reported to the AI as missing.
+  const noTypographyDep = { ...files, 'package.json': files['package.json'].replace(/\s*"@tailwindcss\/typography": "[^"]+",/, '') };
+  assert.deepEqual((await checkCodebaseBuild(esbuild, { files: noTypographyDep, assets, meta })).errors, []);
+});
+
 test('public paths: exact literals only, line count unchanged', () => {
   const map = new Map([['/logo.svg', 'data:x']]);
   const src = 'const a = "/logo.svg";\nconst b = "/logo.svg?v=1";\nconst c = "/logo.svgz";\n.x{background:url(/logo.svg)}';
@@ -123,9 +161,9 @@ test('exported project builds with npm (CODEBASE_REAL_BUILD=1)', { skip: !proces
   const { mkdtemp, writeFile, mkdir, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const { join, dirname } = await import('node:path');
-  for (const name of ['vite-ts-tw3', 'vite-ts-tw4']) {
+  for (const name of ['vite-ts-tw3', 'vite-ts-tw4', 'vite-js-tw4-config']) {
     const imported = await load(name);
-    const home = 'src/pages/Home.tsx';
+    const home = imported.files['src/pages/Home.tsx'] ? 'src/pages/Home.tsx' : 'src/App.jsx';
     const files = { ...imported.files, [home]: imported.files[home].replace(/(id="headline"[^>]*>)[^<]+/, '$1Edited headline') };
     const { zip } = exportCodebaseZip({ files, assets: imported.assets, bytesOf: (h) => imported.blobs.get(h), folder: name });
     const dir = await mkdtemp(join(tmpdir(), 'appblips-build-'));

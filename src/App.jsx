@@ -64,7 +64,8 @@ import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import { generateCodebaseEdit } from './lib/codebase/llm';
-import { checkCodebaseBuild, mapPreviewLine } from './lib/codebase/preview';
+import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
+import { changedFiles } from './lib/codebase/fileInfo';
 import { loadEsbuild } from './lib/codebase/esbuildBrowser';
 import { blobBytes, ensureBlobs, putBlobs } from './lib/blobStore';
 
@@ -1023,6 +1024,18 @@ export default function App({ coldStart = false }) {
     () => (isCodebase ? [...Object.keys(files), ...Object.keys(currentAssets || {})].sort() : null),
     [isCodebase, files, currentAssets],
   );
+  // What the last edit added or changed, for the file explorer's markers.
+  const previousVersion = isCodebase && currentVersionIndex > 0 ? versions[currentVersionIndex - 1] : null;
+  const codebaseFileChanges = useMemo(
+    () => (isCodebase ? changedFiles(files, currentAssets, previousVersion?.files, previousVersion?.assets) : {}),
+    [isCodebase, files, currentAssets, previousVersion],
+  );
+  // Image/font previews in the code view use the same URLs as the preview.
+  const codebaseAssetUrl = useMemo(() => {
+    if (!isCodebase) return null;
+    const toUrl = makeAssetUrl({ projectId: currentProjectId, isDesktop, bytesOf: blobBytes });
+    return (path) => (currentAssets?.[path] ? toUrl(path, currentAssets[path]) : '');
+  }, [isCodebase, currentProjectId, currentAssets]);
   // Typing a route in the address bar: rebuild the preview opening there.
   const handleNavigateCodebaseRoute = useCallback((route) => {
     const next = `/${String(route || '').replace(/^\/+/, '')}`;
@@ -2491,7 +2504,9 @@ export default function App({ coldStart = false }) {
               projectName={projectName}
               activeTab={activeTab}
               onTabChange={handleTabChange}
-              showCodeView={showCodeView}
+              // Imported sites always get the Files tab: browsing the project
+              // is how people find their way around code they didn't write.
+              showCodeView={showCodeView || isCodebase}
               versions={versions}
               currentVersionIndex={currentVersionIndex}
               previewMode={previewMode}
@@ -2530,6 +2545,10 @@ export default function App({ coldStart = false }) {
               codeFile={codebaseCodeFile}
               codeFileIsBinary={Boolean(isCodebase && currentAssets?.[codebaseCodeFile])}
               onSelectCodeFile={setCodeFile}
+              codeFileChanges={codebaseFileChanges}
+              codeEntryFile={codebaseMeta?.entry || null}
+              codeProjectKey={currentProjectId || 'unsaved'}
+              codeAssetUrl={codebaseAssetUrl}
               codePages={isCodebase ? [] : codeTabs}
               codeActivePage={codeViewPage}
               codeWritingPage={writingPage}

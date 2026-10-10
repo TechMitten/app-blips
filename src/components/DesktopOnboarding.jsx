@@ -88,7 +88,7 @@ function WorkflowVisual() {
 function SetupVisual({ onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
   const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : provider.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://openrouter.ai/settings/keys';
-  const current = !model.trim() ? 2 : !provider.local && !apiKey.trim() ? 3 : 0;
+  const current = !provider.local && !apiKey.trim() ? 2 : !model.trim() ? 3 : 0;
 
   return (
     <form className="desktop-onboarding-setup" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
@@ -117,32 +117,9 @@ function SetupVisual({ onSubmit, provider, setProviderId, baseUrl, setBaseUrl, m
 
         <SetupStep
           n={2}
-          title="Choose a model"
-          hint="Search for a model or select from the list."
-          current={current === 2}
-          action={(
-            <button type="button" className="onboarding-refresh" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey}>
-              <RefreshCw size={15} className={modelList.loading ? 'animate-spin' : ''} /> Refresh list
-            </button>
-          )}
-        >
-          <ModelCombobox
-            value={model}
-            onChange={setModel}
-            models={modelList.models}
-            loading={modelList.loading}
-            allowCustom
-            placeholder="Select a model or enter its ID…"
-          />
-          {modelList.needsKey && <p className="onboarding-key-help">Paste your API key below to load the model list, or type a model ID.</p>}
-          {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
-        </SetupStep>
-
-        <SetupStep
-          n={3}
           title={`Paste your ${provider.label} API key`}
           optional={provider.local}
-          current={current === 3}
+          current={current === 2}
           hint={provider.local
             ? 'Start your local server and load a model that supports tool calling. Use its exact model name and a URL ending in /v1.'
             : isDesktop ? 'Your key stays on this computer and is encrypted with your system keychain.' : 'Your key is stored locally in your browser and is never sent to our servers.'}
@@ -168,10 +145,33 @@ function SetupVisual({ onSubmit, provider, setProviderId, baseUrl, setBaseUrl, m
               Don’t have a key yet? <a href={keyUrl} target="_blank" rel="noopener noreferrer">Create {provider.id === 'openai' ? 'an' : 'a'} {provider.label} key <ArrowUpRight size={15} /></a>
             </p>
           )}
-          {provider.id === 'openai' && <p className="onboarding-key-help">Choose an OpenAI model that supports tool calling through Chat Completions.</p>}
           {!provider.local && isDesktop && weakEncryption && (
             <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
           )}
+        </SetupStep>
+
+        <SetupStep
+          n={3}
+          title="Choose a model"
+          hint="Search for a model or select from the list."
+          current={current === 3}
+          action={(
+            <button type="button" className="onboarding-refresh" onClick={modelList.refresh} disabled={modelList.loading || modelList.needsKey}>
+              <RefreshCw size={15} className={modelList.loading ? 'animate-spin' : ''} /> Refresh list
+            </button>
+          )}
+        >
+          <ModelCombobox
+            value={model}
+            onChange={setModel}
+            models={modelList.models}
+            loading={modelList.loading}
+            allowCustom
+            placeholder="Select a model or enter its ID…"
+          />
+          {modelList.needsKey && <p className="onboarding-key-help">Paste your API key above to load the model list, or type a model ID.</p>}
+          {provider.id === 'openai' && <p className="onboarding-key-help">Choose an OpenAI model that supports tool calling through Chat Completions.</p>}
+          {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
         </SetupStep>
       </div>
     </form>

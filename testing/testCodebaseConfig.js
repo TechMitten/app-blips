@@ -87,6 +87,9 @@ test('import map: one shared copy of every direct dependency, undeclared flagged
   assert.equal(importMap.imports['react-dom/client'], 'https://esm.sh/react-dom@18.3.1/client?external=react,react-router-dom');
   assert.equal(importMap.imports['react-router-dom/'], 'https://esm.sh/react-router-dom@6.30.6&external=react,react-dom/');
   assert.equal(esmUrl('clsx', '^2.1.0', '', ['clsx']), 'https://esm.sh/clsx@^2.1.0');
+  // esm.sh 404s on a scoped name inside the prefix form's path
+  assert.equal(esmUrl('tailwindcss', '4.3.3', '/', ['tailwindcss', '@tailwindcss/typography', 'react']), 'https://esm.sh/tailwindcss@4.3.3&external=react/');
+  assert.equal(esmUrl('tailwindcss', '4.3.3', '/colors', ['@tailwindcss/typography', 'react']), 'https://esm.sh/tailwindcss@4.3.3/colors?external=@tailwindcss/typography,react');
 });
 
 test('tailwind helpers: CDN versions, CommonJS configs, v4 browser-safe CSS', () => {
