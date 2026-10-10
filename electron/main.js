@@ -318,6 +318,15 @@ function createWindow() {
     },
   });
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  // Secret shortcut for the native dev console (Ctrl+Alt+Shift+I). It is kept
+  // out of the menu so users don't stumble into DevTools. Matched on `code`, not
+  // `key`, because Alt/Shift change the reported key on some keyboard layouts.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.code !== 'KeyI') return;
+    if (!input.control || !input.alt || !input.shift) return;
+    event.preventDefault();
+    mainWindow.webContents.toggleDevTools();
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.loadURL(`${APP_ORIGIN}/`);
 }
@@ -337,7 +346,6 @@ function buildMenu() {
       label: 'View',
       submenu: [
         { role: 'reload' },
-        { role: 'toggleDevTools' },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
