@@ -45,7 +45,44 @@ export function createBrowserRuntime() {
     }
     return { title: document.title, readyState: document.readyState, focusedElement: ids.get(document.activeElement) || document.activeElement?.tagName,
       text: (document.body?.innerText || '').slice(0, 12000), elements,
-      viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY }, errors: errors.slice() };
+      viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY }, errors: errors.slice(), layoutIssues: layoutIssues(elements) };
+  };
+  // Visual problems a text observation can't show, measured from layout so
+  // models that can't read screenshots still catch them.
+  const layoutIssues = (elements) => {
+    const issues = [];
+    const describe = (el) => {
+      const text = (el.getAttribute('aria-label') || el.innerText || el.getAttribute('src') || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+      return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (text ? ' "' + text + '"' : '');
+    };
+    const pageWidth = document.documentElement.scrollWidth;
+    if (pageWidth > innerWidth + 1) {
+      // Name the widest offenders, skipping ones inside an element that
+      // scrolls or clips sideways on purpose (carousels, code blocks).
+      const clipped = (el) => {
+        for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+          if (getComputedStyle(node).overflowX !== 'visible') return true;
+        }
+        return false;
+      };
+      const wide = [];
+      for (const el of Array.from(document.body?.querySelectorAll('*') || []).slice(0, 3000)) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.right + scrollX > innerWidth + 1 && !clipped(el)) wide.push({ el, right: rect.right });
+      }
+      const outermost = wide.filter(({ el }) => !wide.some((other) => other.el !== el && other.el.contains(el)));
+      outermost.sort((a, b) => b.right - a.right);
+      issues.push('Content is ' + pageWidth + 'px wide in a ' + innerWidth + 'px viewport, so it overflows sideways' +
+        (outermost.length ? '; too wide: ' + outermost.slice(0, 3).map(({ el }) => describe(el)).join(', ') : ''));
+    }
+    const brokenImages = Array.from(document.images).filter((img) => img.getAttribute('src') && img.complete && img.naturalWidth === 0);
+    if (brokenImages.length) issues.push('Images failed to load: ' + brokenImages.slice(0, 3).map(describe).join(', '));
+    const noAlt = Array.from(document.images).filter((img) => !img.hasAttribute('alt') && visible(img));
+    if (noAlt.length) issues.push(noAlt.length + ' visible image(s) have no alt attribute');
+    const named = (el) => el && (el.hasAttribute('aria-labelledby') || el.querySelector('img[alt]:not([alt=""]), [aria-label], svg title'));
+    const unlabeled = elements.filter((item) => item.tag !== 'canvas' && !item.label.trim() && !named(nodes.get(item.id)));
+    if (unlabeled.length) issues.push('Controls with no visible text or accessible name: ' + unlabeled.slice(0, 5).map((item) => item.id + ' (' + item.tag + ')').join(', '));
+    return issues;
   };
   const act = (args) => {
     if (args.action === 'inspect') return inspect();

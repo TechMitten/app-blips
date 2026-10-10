@@ -5,9 +5,12 @@ const pause = (ms, signal) => new Promise((resolve, reject) => {
   signal?.addEventListener('abort', abort, { once: true });
 });
 
+const VIEWPORTS = ['mobile', 'tablet', 'desktop'];
+const VIEWPORT_SETTLE_MS = 600;
+
 // Host callbacks own React rendering and the sandbox bridge. The adapter never
 // exports or persists test data, and only navigates within the project's files.
-export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, getToken, afterAction, signal }) {
+export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, setViewport, getToken, afterAction, signal }) {
   let files = {};
   const observe = async () => {
     let lastError;
@@ -30,6 +33,13 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
       if (typeof args.text !== 'string' || !Object.hasOwn(files, args.text)) throw new Error('Navigate to an existing project filename.');
       navigate(args.text);
     } else if (args.action === 'reload') reload();
+    else if (args.action === 'viewport') {
+      if (!VIEWPORTS.includes(args.text)) throw new Error('Viewport must be mobile, tablet or desktop.');
+      setViewport(args.text);
+      // The device frame animates to its new size; observing mid-animation
+      // would report an in-between width.
+      await pause(VIEWPORT_SETTLE_MS, signal);
+    }
     else if (args.action === 'screenshot') result = await screenshot();
     else if (['click', 'type', 'press'].includes(args.action)) {
       if (args.action === 'type' && (typeof args.text !== 'string' || args.text.length > 2000)) throw new Error('Text must be at most 2000 characters.');

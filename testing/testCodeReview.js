@@ -157,4 +157,24 @@ assert.match(test.requests[1].messages.at(-1).content, /without naming a problem
 test = await run(Array.from({ length: MAX_REVIEW_TURNS }, (_, i) => ({ tool_calls: [call('read_page', { file: `page${i}.html` })] })));
 assert.equal(test.requests.length, MAX_REVIEW_TURNS);
 assert.match(test.result.warning, new RegExp(`safety limit of ${MAX_REVIEW_TURNS} turns\\. The reviewer never gave a verdict`));
+// Only the newest screenshot is resent; older ones become a short note.
+const shotBrowser = { ...wrapBrowser, async execute(args) { return { dataUrl: `data:image/png;base64,${args.target}`, observation: { errors: [] } }; } };
+const shoot = (target) => ({ tool_calls: [call('browser_action', { action: 'screenshot', target })] });
+const images = (request) => request.messages.flatMap((m) => Array.isArray(m.content) ? m.content.filter((part) => part.type === 'image_url').map((part) => part.image_url.url) : []);
+test = await run([shoot('a'), shoot('b'), clickOn('e1'), verdict(true)], { browser: shotBrowser });
+assert.equal(test.result.acceptable, true);
+assert.deepEqual(images(test.requests[1]), ['data:image/png;base64,a']);
+assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,b']);
+assert.ok(test.requests[2].messages.some((m) => typeof m.content === 'string' && m.content.includes('earlier screenshot was removed')));
+// A model that rejects images gets the request again without them, and
+// screenshots stay off for the rest of the review.
+test = await run([shoot('a'), new Error('This model does not support image input'), shoot('b'), clickOn('e1'), verdict(true)], { browser: shotBrowser });
+assert.equal(test.result.acceptable, true);
+assert.deepEqual(images(test.requests[2]), []);
+assert.ok(!test.requests[2].tools.find((t) => t.function.name === 'browser_action').function.parameters.properties.action.enum.includes('screenshot'));
+assert.match(test.requests[3].messages.findLast((m) => m.role === 'tool').content, /Screenshots are off/);
+assert.deepEqual(images(test.requests[3]), []);
+// Without screenshots in the conversation, a model error still ends the review.
+test = await run([new Error('Provider unavailable')], { browser: shotBrowser });
+assert.equal(test.result.acceptable, false);
 console.log('testCodeReview: ok');

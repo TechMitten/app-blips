@@ -1193,7 +1193,8 @@ export default function App({ coldStart = false }) {
       signal,
       mount: (nextFiles) => {
         const originalPage = browserReviewRef.current?.originalPage || activePage;
-        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage };
+        const originalMode = browserReviewRef.current?.originalMode || previewMode;
+        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage, originalMode };
         flushSync(() => {
           setBrowserReview({ files: nextFiles });
           setActivePage(LANDING_PAGE);
@@ -1220,6 +1221,7 @@ export default function App({ coldStart = false }) {
         : requestScreenshot(),
       navigate: (page) => flushSync(() => setActivePage(page)),
       reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
+      setViewport: (mode) => flushSync(() => setPreviewMode(mode)),
     });
   };
 
@@ -1676,6 +1678,8 @@ export default function App({ coldStart = false }) {
       const reviewSession = browserReviewRef.current;
       if (reviewSession) {
         setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);
+        // The reviewer may have switched screen sizes; give the user theirs back.
+        setPreviewMode(reviewSession.originalMode);
         browserReviewRef.current = null;
         setBrowserReview(null);
       }
