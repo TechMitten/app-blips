@@ -144,7 +144,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
 - The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved in your browser.
-- Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and signed.
+- Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and how to check a download.
 
 ## License
 

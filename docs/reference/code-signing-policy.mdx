@@ -1,30 +1,38 @@
 ---
 title: "Code signing policy"
 sidebarTitle: "Code signing policy"
-description: "How AppBlips builds and code-signs its release binaries."
+description: "Whether AppBlips release files are code-signed, and how to check that a download is genuine."
 ---
 
-This page describes how AppBlips builds and signs its release binaries.
+Code signing adds a digital signature to a program, so Windows can tell who made it. AppBlips release files aren't code-signed yet.
 
-## Free code signing
+## What this means for you
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+- **Windows:** SmartScreen may warn you the first time you run the installer. Choose **More info → Run anyway**. On Windows 11, Smart App Control can block the installer completely; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
+- **Linux:** the AppImage and `.deb` files aren't affected.
 
-## What gets signed
+## How releases are built
 
-Every signed release is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml), then signed before it is published. Signing covers the Windows installer and the application executable.
+Every release is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds release files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
 
-## Team roles
+## Check that your download is genuine
 
-- **Committers and reviewers:** [repository contributors](https://github.com/TechMitten/app-blips/graphs/contributors)
-- **Approvers:** the project owner, [@TechMitten](https://github.com/TechMitten)
+Each release includes a `SHA256SUMS.txt` file that lists a fingerprint for every download. If your file's fingerprint matches the one in the list, the file is exactly what the workflow built.
 
-Each signing request is reviewed and approved by a project owner before it is submitted, and every release is built from reviewed source in the repository above.
+<Tabs>
+  <Tab title="Windows">
+    1. Open the folder that holds the file you downloaded.
+    2. Click the address bar, type `powershell`, and press **Enter**.
+    3. Type `Get-FileHash .\AppBlips-Setup-<version>.exe`, replacing `<version>` with the version you downloaded, and press **Enter**.
+    4. Compare the long code under **Hash** with the line for that file in `SHA256SUMS.txt`. Capital letters don't matter.
+  </Tab>
+  <Tab title="Linux">
+    1. Open a terminal in the folder that holds your download.
+    2. Type `sha256sum <file name>` and press **Enter**.
+    3. Compare the long code with the line for that file in `SHA256SUMS.txt`.
+  </Tab>
+</Tabs>
 
 ## Privacy
 
-AppBlips does not transfer any information to other networked systems unless you specifically request it — for example, when you connect an AI provider in **Settings → API**. See the [FAQ](/reference/faq) for details.
-
-<Note>
-  Windows builds aren't code-signed yet. Until signing is in place, Windows 11's Smart App Control can block the installer; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
-</Note>
+AppBlips sends your prompts and projects only to the AI provider you set up in **Settings → API**. It also checks GitHub for new versions, and the desktop app downloads updates from GitHub automatically. See the [FAQ](/reference/faq) for details.

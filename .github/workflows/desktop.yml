@@ -29,8 +29,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Builds unsigned. Windows signing is planned through SignPath (see
-      # docs/reference/code-signing-policy.mdx), which signs after the build.
+      # Builds unsigned: Windows releases aren't code-signed yet (see
+      # docs/reference/code-signing-policy.mdx).
       - run: npm run desktop:dist
       - name: Write SHA-256 checksums
         shell: bash
