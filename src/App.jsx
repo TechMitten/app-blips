@@ -254,6 +254,7 @@ export default function App({ coldStart = false }) {
 
   const chatBottomRef = useRef(null);
   const iframeRef = useRef(null);
+  const browserLockRef = useRef(null);
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
@@ -1150,6 +1151,13 @@ export default function App({ coldStart = false }) {
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
 
+    // Native test input and screenshots are hit-tested at the frame, so the
+    // review lock has to step aside while they run.
+    const withBrowserLockLifted = async (run) => {
+      const lock = browserLockRef.current;
+      if (lock) lock.style.pointerEvents = 'none';
+      try { return await run(); } finally { if (lock) lock.style.pointerEvents = ''; }
+    };
     const browser = createEmbeddedBrowser({
       signal: abortControllerRef.current.signal,
       mount: (nextFiles) => {
@@ -1165,10 +1173,19 @@ export default function App({ coldStart = false }) {
       },
       inspect: (timeout) => requestBrowserAction({ action: 'inspect' }, timeout),
       request: requestBrowserAction,
-      nativeInput: desktopBridge?.browser?.input,
+      nativeInput: desktopBridge?.browser?.input && ((args) => withBrowserLockLifted(() => {
+        // afterAction took focus away from the frame; keys and typing need it back.
+        if (args.action !== 'click') iframeRef.current?.focus({ preventScroll: true });
+        return desktopBridge.browser.input(args);
+      })),
+      // Take keyboard focus back from the frame after each test action, so the
+      // user's keystrokes can't reach the app being reviewed.
+      afterAction: () => {
+        if (document.activeElement === iframeRef.current) browserLockRef.current?.focus({ preventScroll: true });
+      },
       getToken: () => iframeRef.current?.dataset.browserToken,
       screenshot: () => desktopBridge?.browser?.input
-        ? desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken })
+        ? withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken }))
         : requestScreenshot(),
       navigate: (page) => flushSync(() => setActivePage(page)),
       reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
@@ -2175,6 +2192,7 @@ export default function App({ coldStart = false }) {
               onExportReactProject={canExportReactProject ? handleExportReactProject : null}
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
+              browserLockRef={browserLockRef}
               previewSrcDoc={previewSrcDoc}
               browserToken={previewToken}
               isBrowserTesting={Boolean(browserReview)}

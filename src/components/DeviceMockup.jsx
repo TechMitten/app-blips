@@ -421,6 +421,7 @@ export default function DeviceMockup({
   fillSize = null,
   isBareFill = false,
   iframeRef,
+  browserLockRef,
   srcDoc,
   browserToken,
   isBrowserTesting = false,
@@ -490,7 +491,22 @@ export default function DeviceMockup({
               sandbox="allow-scripts allow-forms allow-popups"
               referrerPolicy="no-referrer"
               allow=""
+              tabIndex={isBrowserTesting ? -1 : undefined}
             />
+            {/* Locks the app while the AI reviews it, so the user's clicks,
+                scrolls and typing can't change what the reviewer is testing.
+                Transparent so the reviewer's screenshots look normal; App lifts
+                it (pointer-events) only while native test input is dispatched,
+                because that input is hit-tested like a real mouse. */}
+            {isBrowserTesting && (
+              <div
+                ref={browserLockRef}
+                className="absolute inset-0 z-10 cursor-not-allowed outline-none"
+                tabIndex={-1}
+                title="The AI is testing this app. It unlocks when the review is done."
+                aria-label="Preview locked while the AI tests the app"
+              />
+            )}
             {!hasCode && (
               <div className="preview-empty-backdrop absolute inset-0 flex flex-col items-center justify-center p-6 sm:p-8 text-center select-none overflow-hidden">
                 {/* Ambient glow */}

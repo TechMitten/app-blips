@@ -5,6 +5,11 @@ import { BROWSER_ACTION_TOOL, BROWSER_REVIEW_INSTRUCTION } from './browserTools.
 
 export const MAX_CODE_REVIEW_TURNS = 8;
 export const MAX_BROWSER_REVIEW_TURNS = 24;
+// The last turns of a browser review accept no edits. Otherwise a late edit
+// leaves an untested revision that can never be accepted and the review ends
+// at its limit even when the code is fine.
+export const BROWSER_WRAP_UP_TURNS = 5;
+const EDIT_TOOLS = ['apply_surgical_edits', 'create_page', 'delete_page'];
 
 export const CODE_REVIEW_TOOL = {
   type: 'function',
@@ -66,15 +71,20 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       status(improved ? 'Reviewing the improved code…' : 'Reviewing code quality and completeness…');
       const finalTurn = turn === maxTurns - 1;
+      const wrapUp = !!browser && turn >= maxTurns - BROWSER_WRAP_UP_TURNS;
+      if (wrapUp && turn === maxTurns - BROWSER_WRAP_UP_TURNS) {
+        messages.push({ role: 'user', content: `The review is almost out of turns. Make no more edits. Test the current version with browser_action (several actions per response are fine), then submit your verdict.` });
+      }
+      const refinementTools = getRefinementTools(studioMode).filter((tool) => !wrapUp || !EDIT_TOOLS.includes(tool.function.name));
       const message = await requestModelText({
         messages,
-        tools: finalTurn ? [CODE_REVIEW_TOOL] : [...getRefinementTools(studioMode), ...(browser ? [BROWSER_ACTION_TOOL] : []), CODE_REVIEW_TOOL],
+        tools: finalTurn ? [CODE_REVIEW_TOOL] : [...refinementTools, ...(browser ? [BROWSER_ACTION_TOOL] : []), CODE_REVIEW_TOOL],
         tool_choice: 'required', signal, reasoningEffort: 'none', forceTemperatureZero: true,
       });
       const calls = message.tool_calls || [];
       messages.push({ role: 'assistant', content: message.content || null, ...(calls.length ? { tool_calls: calls } : {}) });
       let candidate = workingFiles;
-      const hasEdits = calls.some((call) => ['apply_surgical_edits', 'create_page', 'delete_page'].includes(call.function?.name));
+      const hasEdits = !wrapUp && calls.some((call) => EDIT_TOOLS.includes(call.function?.name));
       let verdict = null;
       const screenshots = [];
       for (const call of calls) {
@@ -90,6 +100,8 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
           }
         } else if (finalTurn) {
           result = { success: false, error: 'The review limit is reached; submit a verdict without further edits.' };
+        } else if (wrapUp && EDIT_TOOLS.includes(call.function?.name)) {
+          result = { success: false, error: 'Edits are closed for this review. Test the current version and submit a verdict.' };
         } else if (call.function?.name === 'browser_action' && browser) {
           try {
             if (hasEdits) throw new Error('Test in a separate response after the edit batch is applied to the browser.');
@@ -140,12 +152,16 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
           status(browser ? 'Code review and browser checks passed.' : 'Code review passed.');
           return { files: workingFiles, acceptable: true, improved, findings: [], ...(browser ? { browserTests } : {}) };
         }
-        messages.push({ role: 'user', content: `Address the remaining findings and run browser tests on the current version before accepting: ${JSON.stringify({ findings, errors, brokenLinks, ...(browser ? { testedCurrentRevision, browserErrors } : {}) })}` });
+        // Without a browser there is nothing to test; asking for browser tests
+        // made the reviewer reject its own work until the turns ran out.
+        const nextStep = browser ? 'Address the remaining findings and run browser tests on the current version before accepting' : 'Address the remaining findings before accepting';
+        messages.push({ role: 'user', content: `${nextStep}: ${JSON.stringify({ findings, errors, brokenLinks, ...(browser ? { testedCurrentRevision, browserErrors } : {}) })}` });
       } else if (!calls.length || (verdict && hasEdits)) {
         messages.push({ role: 'user', content: 'Submit a review verdict in its own response, or use the tools to inspect and improve the code first.' });
       }
     }
-    return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: 'Code review reached its limit. The result still needs review.' };
+    const unresolved = findings.length ? ` Unresolved: ${findings.slice(0, 3).join('; ')}` : browserErrors.length ? ` Runtime errors: ${browserErrors.slice(0, 2).join('; ')}` : '';
+    return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: `Code review reached its limit. The result still needs review.${unresolved}` };
   } catch (error) {
     if (error?.name === 'AbortError' || signal?.aborted) throw error;
     return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: browser ? 'Browser testing could not finish. The result still needs review.' : 'Code review could not finish. The result still needs review.' };

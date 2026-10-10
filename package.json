@@ -20,7 +20,8 @@
     "preview": "vite preview",
     "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
-    "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never"
+    "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "acorn": "^8.18.0",

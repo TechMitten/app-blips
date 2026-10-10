@@ -1,6 +1,6 @@
 // Run: node testing/testCodeReview.js
 import assert from 'node:assert/strict';
-import { reviewGeneratedCode, MAX_CODE_REVIEW_TURNS } from '../src/lib/codeReview.js';
+import { reviewGeneratedCode, MAX_CODE_REVIEW_TURNS, MAX_BROWSER_REVIEW_TURNS, BROWSER_WRAP_UP_TURNS } from '../src/lib/codeReview.js';
 
 const doc = (body) => `<!DOCTYPE html><html><head><title>Test</title></head><body>${body}</body></html>`;
 const original = { 'index.html': doc('<button>Save</button>') };
@@ -97,4 +97,18 @@ assert.equal(test.result.browserTests.length, 2);
 test = await run([], { browser: { async open() { throw new Error('Frame unavailable'); } } });
 assert.equal(test.result.acceptable, false);
 assert.match(test.result.warning, /Browser testing could not finish/);
+// A late edit must not leave an untested revision: the wrap-up turns refuse
+// edits so the current version can still be tested and accepted.
+const wrapBrowser = { async open() { return { elements: [{ id: 'e1' }], errors: [] }; }, async execute() { return { observation: { errors: [] } }; } };
+const wrapStart = MAX_BROWSER_REVIEW_TURNS - BROWSER_WRAP_UP_TURNS;
+test = await run([
+  ...Array.from({ length: wrapStart }, () => browserAction('inspect')),
+  { tool_calls: [edit('<button>Save</button>', '<button>Late</button>')] },
+  browserAction('click'), verdict(true),
+], { browser: wrapBrowser });
+assert.equal(test.result.acceptable, true, 'review finishes inside the wrap-up turns');
+assert.equal(test.result.files, original, 'wrap-up edits are refused');
+assert.ok(!test.requests[wrapStart].tools.some((tool) => tool.function.name === 'apply_surgical_edits'));
+test = await run([verdict(false, ['Missing label']), verdict(true)]);
+assert.ok(!test.requests[1].messages.at(-1).content.includes('browser'), 'no browser tests requested without a browser');
 console.log('testCodeReview: ok');

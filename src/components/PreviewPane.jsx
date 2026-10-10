@@ -51,6 +51,7 @@ export default function PreviewPane({
   onExportReactProject = null,
   containerRef,
   iframeRef,
+  browserLockRef,
   previewSrcDoc,
   browserToken,
   isBrowserTesting = false,
@@ -435,6 +436,7 @@ export default function PreviewPane({
             fillSize={fillSize}
             isBareFill={isBareFill}
             iframeRef={iframeRef}
+            browserLockRef={browserLockRef}
             srcDoc={previewSrcDoc}
             browserToken={browserToken}
             isBrowserTesting={isBrowserTesting}

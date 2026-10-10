@@ -7,7 +7,7 @@ const pause = (ms, signal) => new Promise((resolve, reject) => {
 
 // Host callbacks own React rendering and the sandbox bridge. The adapter never
 // exports or persists test data, and only navigates within the project's files.
-export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, getToken, signal }) {
+export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, getToken, afterAction, signal }) {
   let files = {};
   const observe = async () => {
     let lastError;
@@ -23,6 +23,27 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
     }
     throw lastError || new Error('Embedded browser did not become ready.');
   };
+  const run = async (args) => {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    let result = { success: true };
+    if (args.action === 'navigate') {
+      if (typeof args.text !== 'string' || !Object.hasOwn(files, args.text)) throw new Error('Navigate to an existing project filename.');
+      navigate(args.text);
+    } else if (args.action === 'reload') reload();
+    else if (args.action === 'screenshot') result = await screenshot();
+    else if (['click', 'type', 'press'].includes(args.action)) {
+      if (args.action === 'type' && (typeof args.text !== 'string' || args.text.length > 2000)) throw new Error('Text must be at most 2000 characters.');
+      if (nativeInput) {
+        const point = await request(args.target ? { action: 'target', target: args.target, focus: args.action !== 'click', select: args.action === 'type' } : { action: 'point', x: args.x, y: args.y });
+        if (args.action === 'type' && !point.acceptsText) throw new Error('Choose a text field.');
+        result = await nativeInput({ action: args.action, token: getToken(), x: point.x / point.width, y: point.y / point.height, text: args.text, key: args.key });
+      } else result = await request(args);
+    } else if (args.action === 'scroll') result = await request(args);
+    else if (args.action !== 'inspect') throw new Error('Unsupported browser action.');
+    await pause(250, signal);
+    const observation = await observe();
+    return { ...result, observation };
+  };
   return {
     async open(nextFiles) {
       files = nextFiles;
@@ -31,25 +52,7 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
       return observe();
     },
     async execute(args) {
-      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-      let result = { success: true };
-      if (args.action === 'navigate') {
-        if (typeof args.text !== 'string' || !Object.hasOwn(files, args.text)) throw new Error('Navigate to an existing project filename.');
-        navigate(args.text);
-      } else if (args.action === 'reload') reload();
-      else if (args.action === 'screenshot') result = await screenshot();
-      else if (['click', 'type', 'press'].includes(args.action)) {
-        if (args.action === 'type' && (typeof args.text !== 'string' || args.text.length > 2000)) throw new Error('Text must be at most 2000 characters.');
-        if (nativeInput) {
-          const point = await request(args.target ? { action: 'target', target: args.target, focus: args.action !== 'click', select: args.action === 'type' } : { action: 'point', x: args.x, y: args.y });
-          if (args.action === 'type' && !point.acceptsText) throw new Error('Choose a text field.');
-          result = await nativeInput({ action: args.action, token: getToken(), x: point.x / point.width, y: point.y / point.height, text: args.text, key: args.key });
-        } else result = await request(args);
-      } else if (args.action === 'scroll') result = await request(args);
-      else if (args.action !== 'inspect') throw new Error('Unsupported browser action.');
-      await pause(250, signal);
-      const observation = await observe();
-      return { ...result, observation };
+      try { return await run(args); } finally { afterAction?.(); }
     },
   };
 }
