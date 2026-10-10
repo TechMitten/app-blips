@@ -40,14 +40,13 @@ Most AppBlips issues fall into a handful of categories — installation, preview
 
 <AccordionGroup>
   <Accordion title="The preview is blank after generation">
-    A blank preview after a successful generation usually means the generated code contains a syntax or runtime error that prevents it from rendering.
+    A blank preview after a successful generation usually means the generated code contains a syntax or runtime error that prevents it from rendering. AppBlips catches most of these and fixes them on its own, and runs a full review if the quick fixes don't work.
 
-    **Steps to fix:**
+    **If the preview is still blank:**
 
-    1. Open your browser's developer tools and check the **Console** tab for error messages.
-    2. Look for JavaScript errors or references to undefined variables.
-    3. In the AppBlips prompt input, type a follow-up like `Fix any JavaScript errors` and let AppBlips correct the code.
-    4. If the problem persists, try rephrasing your original prompt with more specific instructions about the behavior you want.
+    1. In the AppBlips prompt input, type a follow-up like `The preview is blank. Fix any JavaScript errors` and let AppBlips correct the code.
+    2. Click the camera key next to the prompt box to attach a screenshot of the preview, so the AI can see what you see.
+    3. If the problem persists, step back with **Previous version** and try rephrasing your prompt with more specific instructions about the behavior you want.
 
     <Tip>
       Enabling **Code view** in Settings lets you inspect the raw generated HTML directly in the preview toolbar, which can help you spot issues at a glance.
@@ -69,7 +68,7 @@ Most AppBlips issues fall into a handful of categories — installation, preview
   <Accordion title="I get an API error when building">
     An API error during a build almost always points to a misconfigured or invalid AI provider connection.
 
-    **In the desktop app, open Settings → AI and check that:**
+    **Open Settings → API and check that:**
 
     - An API key is filled in, and it is valid and active for your provider
     - The model is a name your provider recognizes and your key has access to
@@ -84,9 +83,20 @@ Most AppBlips issues fall into a handful of categories — installation, preview
 
     **Try the following:**
 
-    1. Dismiss the current build and try again.
+    1. Click **Cancel** next to the prompt box and try again.
     2. Check your AI provider's status page for any ongoing outages or elevated latency.
     3. If **Reasoning: building** is set to Low or High in Settings, try switching it to Off. Reasoning takes longer and is more likely to hit timeouts on slower providers.
+  </Accordion>
+
+  <Accordion title="The app was cut off or is incomplete">
+    Every AI reply has a length limit. When a reply hits it, AppBlips asks the AI to continue where it stopped, up to three times. If the app is still incomplete, the reply says so.
+
+    **Try the following:**
+
+    1. Open **Settings → AI** and look at **Output tokens: building**. If you typed a number there, clear the field to go back to the default of 64,000.
+    2. Ask for the rest in a follow-up prompt, for example `Finish the parts that are missing`.
+    3. For a very large app, build it in smaller steps: start with the main screen, then add features one prompt at a time.
+    4. Some models have a low limit of their own. If this keeps happening, choose a different model in **Settings → API**.
   </Accordion>
 
   <Accordion title="Rate limit or &quot;turned the request down&quot; error">

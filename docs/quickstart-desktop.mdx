@@ -26,9 +26,13 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 ## Set up your AI provider
 
-The first time you open the app, choose your coding provider in **Settings → API**. Create a key in [OpenRouter](https://openrouter.ai/settings/keys), [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys), then paste it into AppBlips. Select a model from the live model list. For LM Studio or Ollama, start your local server to load its model list.
+The first time you open AppBlips, a short welcome tour ends with three setup steps:
 
-Click **Refresh models** to reload the list. You can also type an exact model ID and choose **Use** if discovery is unavailable. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**.
+1. **Pick a provider:** OpenRouter, Anthropic, OpenAI, Gemini, DeepSeek, LM Studio or Ollama.
+2. **Paste your API key.** Create one at [OpenRouter](https://openrouter.ai/settings/keys), [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys). LM Studio and Ollama don't need a key: start your local server instead.
+3. **Choose a model** from the live model list, then finish the setup.
+
+To change any of this later, open **Settings → API**. There you can click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**. To see the welcome tour again, open **Settings → Workspace** and click **Replay**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 
@@ -50,14 +54,14 @@ The `site/` folder is a convenience copy: open or share those files freely, but 
 
 To use a different folder, open **Settings → Data → Projects folder → Change…**. You can move your existing projects there at the same time.
 
-## Move projects from the browser version
+## Back up or move your projects
 
-Projects in a browser copy of AppBlips live in that browser's storage, which the desktop app cannot read. To bring them over:
+To back up your apps, or move them to another computer:
 
-1. In the browser copy, open **Settings → Data** and click **Export**. This downloads one backup file.
-2. In the desktop app, open **Settings → Data**, click **Import…** and choose that file.
+1. Open **Settings → Data** and click **Export**. This downloads one backup file with every app, its versions and its saved app data.
+2. On the other computer (or after reinstalling), open **Settings → Data**, click **Import…** and choose that file.
 
-An app you already have is only replaced if the backup's copy is newer. The same export works as a backup of the desktop app itself.
+An app you already have is only replaced if the backup's copy is newer. Imported sites aren't included in the backup: export each one as a `.zip` instead (see [Import a React + Vite site](/features/importing-sites#export-the-project)).
 
 ## Updates
 

@@ -62,7 +62,7 @@
       "href": "https://github.com/TechMitten/app-blips/releases"
     }
   },
-  "description": "Documentation for AppBlips: generate single-file HTML apps and websites from plain English, preview them live, and export or self-host.",
+  "description": "Documentation for AppBlips, a desktop app that turns plain English into working apps, websites and games, with a live preview and export.",
   "logo": {
     "light": "/logo-light.png",
     "dark": "/logo-dark.png"

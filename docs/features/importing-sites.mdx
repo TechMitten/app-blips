@@ -11,9 +11,9 @@ AppBlips can open a real React + Vite website project, such as one a web designe
 AppBlips imports projects that use:
 
 - **React** with **Vite** (TypeScript or JavaScript)
-- **Tailwind CSS** v3 or v4, or plain CSS and CSS modules
+- **Tailwind CSS** v3 or v4 (including v4 setups with `@config` and `@plugin`), or plain CSS and CSS modules
 - **React Router** (v6 or v7), including `createBrowserRouter`
-- npm packages such as shadcn/ui, Radix, Framer Motion and lucide-react
+- npm packages such as shadcn/ui, Radix, Framer Motion and lucide-react, plus packages that only add styles (such as Fontsource fonts or `swiper/css`)
 - Images and fonts in `src/assets` or `public/`
 
 Next.js, Create React App, Vue and monorepos with several packages can't be imported.
@@ -38,6 +38,18 @@ Next.js, Create React App, Vue and monorepos with several packages can't be impo
 
 The AI finds the right files, edits them, and checks that the project still builds before it finishes. The preview updates when it's done. Use the address bar above the preview to open another page, for example `appblips.local/about`.
 
+## Browse the project's files
+
+Click the **Files** tab in the preview toolbar to look through the project:
+
+- The file list on the left shows every folder and file. Type in **Search files…** to find one by name.
+- Common files and folders have a short plain-English description of what they're for, shown above the code.
+- Files changed by the AI's last edit have a small dot, and **Changed in the last edit** lists them.
+- Code files are colour-highlighted. Images, fonts and videos show a preview instead.
+- Click **Copy** to copy a file's code. Drag the edge of the file list to resize it, or double-click the edge to reset it.
+
+You can't type into files here: ask the AI for changes in the chat.
+
 ## Export the project
 
 Click **Export** in the toolbar to download the project as a `.zip`. Every file is at its original path, and files the AI didn't change are exactly as they were imported.
@@ -59,3 +71,4 @@ To build or host it:
 - The preview runs Tailwind in the browser. It looks very close to the real build, and the export always keeps your real Tailwind setup.
 - In the desktop app, each imported site is also saved as a normal project folder: open **Settings → Data** to find your projects folder, then look in `<site name>/site`.
 - Imported sites aren't included in **Export all apps** backups. Export each one as a `.zip` instead.
+- The **Review** offer after a build isn't available for imported sites yet. The AI still checks that the project builds after every change.

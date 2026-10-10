@@ -52,7 +52,7 @@ individual colors before regenerating.
 
 You can drop a screenshot, mockup, or reference image directly into the prompt area alongside your description. AppBlips will use the image as a visual reference when generating your app — useful when you want to recreate an existing layout, match a design you've sketched, or base your app on something you've seen elsewhere.
 
-To attach an image, drag and drop it onto the build pane or use the image attachment button next to the prompt input. You can combine an image with a written prompt: for example, attach a screenshot of a form and write "build this, but replace the file upload field with a text area."
+To attach an image, drag and drop it onto the build pane or use the image attachment button next to the prompt input. Once your app is built, the camera key next to it attaches a screenshot of the current preview, which is handy for pointing out what looks wrong. You can combine an image with a written prompt: for example, attach a screenshot of a form and write "build this, but replace the file upload field with a text area."
 
 ## Refining with Follow-up Prompts
 
@@ -73,6 +73,12 @@ Add a text field so the user can filter the list by keyword.
 ```
 
 You can chain as many refinements as you like. Each one picks up from the current version of the app.
+
+To start a fresh conversation without losing anything, click **New chat** in the header. Your versions stay in the history.
+
+## Asking Questions (Ask Mode)
+
+The key next to the prompt box switches between **Build** and **Ask**. In Build mode, your message changes the app. In Ask mode, the AI only answers: ask how something works, what a piece of code does, or what to try next, and your app stays as it is. Click the key again to go back to Build.
 
 ## Reasoning
 
@@ -102,7 +108,13 @@ If you prefer to just hit go and refine afterward, turn the toggle off.
 
 After each build or edit, AppBlips asks whether you want the AI to review it. Choose **Review** and the AI checks the code against your request, clicks through the project in the built-in browser, and fixes problems it finds. Any fixes are saved as a new version, so you can undo them. Choose **Skip** if you're happy with the result.
 
-A review can take many AI requests, so it uses extra tokens. To stop being asked, turn off **Offer a review after each build** in **Settings → AI**. No reviews run while it's off.
+A review can take many AI requests, so it uses extra tokens. To stop being asked, turn off **Offer a review after each build** in **Settings → AI**.
+
+AppBlips also checks every build for code errors and fixes them on its own. If those quick fixes don't work, it runs one full review automatically, once per build, even when review offers are off.
+
+## Long Apps
+
+Each AI reply has a length limit, set in **Settings → AI → Output tokens: building** (64,000 tokens by default, enough for a large app). If a reply is cut off at the limit, AppBlips asks the AI to carry on where it stopped, up to three times, and tells you if the app is still incomplete afterwards. See [The app was cut off](/reference/troubleshooting#api-and-build-errors) if that happens.
 
 <Note>
   Once your app is built, you can also edit it visually by pointing and clicking on any element. See [Editing Apps](/features/editing-apps) to learn how.

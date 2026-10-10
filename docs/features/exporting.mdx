@@ -1,14 +1,14 @@
 ---
 title: "Export: File Download"
 sidebarTitle: "Exporting"
-description: "Download any AppBlips app as a standalone HTML file or a website as a ZIP."
+description: "Download any AppBlips app as a standalone HTML file, a website as a ZIP, or a React app as a Vite project."
 ---
 
 When your app or website is ready, you can download it as a file you keep and host yourself. This produces something you can share with anyone.
 
 ## Export to HTML or ZIP
 
-Click the **Export** button in the toolbar to download your project. Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
+Click the **Export** button (the download icon at the right of the preview toolbar) to download your project. Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
 
 Open the downloaded file directly in a browser, drag it onto a hosting service, or drop it into any static file host — it's ready to go immediately. (For `.zip` files, extract them first).
 
@@ -16,11 +16,24 @@ Open the downloaded file directly in a browser, drag it onto a hosting service, 
   For a free and instant way to share your exported app, try [Netlify Drop](https://app.netlify.com/drop): drag your HTML file onto the page and Netlify gives it a public URL in seconds. [GitHub Pages](https://pages.github.com/) and [Cloudflare Pages](https://pages.cloudflare.com/) are also free options if you want the file in a repository.
 </Tip>
 
+## Export a React project
 
+Apps from the App studio are built with React. Next to **Export**, a second key (**Download as a React project**) saves the app as a `.zip` of a ready-made Vite project, for when you or a developer want to keep working on it with normal coding tools.
+
+To run it:
+
+1. Unzip the file.
+2. In a terminal, open the unzipped folder.
+3. Run `npm install`.
+4. Run `npm run dev` to try it, or `npm run build` to build it for hosting.
+
+## Imported sites
+
+An [imported React + Vite site](/features/importing-sites) exports as a `.zip` of the whole project instead. See [Export the project](/features/importing-sites#export-the-project).
 
 ## The Exported File
 
-The downloaded project is fully self-contained: all styles, logic, and structure are bundled into the document(s) with no external dependencies on AppBlips. Once you have the exported `.html` or `.zip` file, it works on its own — open it, host it, or email it, and it runs the same way every time.
+The downloaded file doesn't depend on AppBlips: all of your app's styles, logic and structure are inside it. Once you have the exported `.html` or `.zip` file, it works on its own — open it, host it, or email it. Some libraries (such as React, Tailwind CSS or the Phaser game engine) load from public CDNs, so the app needs an internet connection to load.
 
 <Note>
   Exported HTML never contains an API key.

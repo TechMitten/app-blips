@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Data**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **API**, **Data**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -39,7 +39,7 @@ These settings control how the preview and build experience behaves during and a
 ### Code view
 
 <ParamField body="Code view" type="toggle" default="Off">
-  When enabled, a **Code** tab appears in the preview toolbar. Select it to inspect the raw HTML of your generated app at any time. This setting is off by default so the interface stays focused on the live preview for most users.
+  When enabled, a **Code** tab appears in the preview toolbar. Select it to inspect the raw HTML of your generated app at any time. This setting is off by default so the interface stays focused on the live preview for most users. Imported sites always show a **Files** tab instead, whatever this is set to.
 </ParamField>
 
 ### Auto Follow Code
@@ -65,14 +65,32 @@ These settings control how the preview and build experience behaves during and a
 ### Check for updates
 
 <ParamField body="Check for updates" type="toggle" default="On">
-  The desktop app checks GitHub for new versions when it starts and tells you when one is out. On Windows and as an AppImage it also downloads the update in the background and offers to restart. GitHub sees your IP address when AppBlips checks.
+  The desktop app checks GitHub for new versions when it starts and tells you when one is out. On Windows and as an AppImage it also downloads the update in the background and offers to restart. GitHub sees your IP address when AppBlips checks. The setting also shows which version you're on, and a change takes effect the next time you open AppBlips.
 </ParamField>
+
+### Replay onboarding
+
+Click **Replay** to walk through the welcome screens and AI setup again. Your current AI setup is kept unless you save a new one, and you can leave at any step.
 
 ---
 
 ## AI
 
 These settings influence how the AI model reasons and communicates before and during generation.
+
+### Output tokens
+
+A token is a small piece of text, roughly three-quarters of a word. These limits cap how long one AI reply can be.
+
+<ParamField body="Output tokens: building" type="number" default="64,000">
+  The longest reply allowed when building, editing, reviewing or fixing code. Leave it empty to use the default of 64,000, which is enough for a large app (LM Studio and Ollama use their own default instead). Reasoning (thinking) also counts against this limit. If your provider doesn't accept the number, AppBlips retries with the largest value the provider allows.
+</ParamField>
+
+<ParamField body="Output tokens: Ask" type="number" default="Provider default">
+  The longest reply allowed in Ask mode. Leave it empty to let your AI provider decide.
+</ParamField>
+
+Changes save as you type. Click **Use default** (or **Use provider default**) to clear a value.
 
 ### Reasoning
 
@@ -104,24 +122,28 @@ Reasoning applies when generating a new app from scratch. Editing an existing ap
   Applies in the Game studio. Before building a new game, the AI picks the engine that suits it: **Phaser** for platformers, shooters and RPGs, **Three.js** for 3D games, and no engine for simple arcade, puzzle and card games, which then load faster. If you name an engine in your prompt, your choice always wins. Turn it off to let the builder choose as it writes.
 </ParamField>
 
-### Your own AI provider
+---
 
-Choose OpenRouter, **Anthropic**, **OpenAI**, **Gemini**, **DeepSeek**, LM Studio, or Ollama as your coding provider.
+## API
 
-<ParamField body="Model" type="select">
-  Select a model from your provider’s live model list. Enter your API key first for Anthropic, OpenAI, Gemini, or DeepSeek. Local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID and choose **Use** to enter it manually.
-</ParamField>
+Choose the AI provider that builds your apps: **OpenRouter**, **Anthropic**, **OpenAI**, **Gemini**, **DeepSeek**, **LM Studio**, or **Ollama**. Your provider is used for building, editing, reviews, and Ask mode.
 
 <ParamField body="API key" type="string">
-  Your key from [OpenAI](https://platform.openai.com/api-keys), [OpenRouter](https://openrouter.ai/settings/keys), [Anthropic](https://platform.claude.com/settings/keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys). Local servers only need a key if you enabled authentication.
+  Your key from [OpenRouter](https://openrouter.ai/settings/keys), [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), or [DeepSeek](https://platform.deepseek.com/api_keys). Local servers only need a key if you turned on authentication.
 </ParamField>
 
-For OpenAI, use a model that supports tool calling through Chat Completions.
+<ParamField body="Local server URL" type="string">
+  Only for LM Studio and Ollama. The address of your local server, ending in `/v1`. Leave it empty to use the usual address.
+</ParamField>
 
-Click **Test connection** to check the settings, then **Save**. Your provider is used for building, editing, and chat.
+<ParamField body="Model" type="select">
+  Select a model from your provider's live model list. Enter your API key first for cloud providers; local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, use a model that supports tool calling through Chat Completions. For local servers, load a model that supports tool calling.
+</ParamField>
+
+Click **Test connection** to check the settings, then **Save**. **Clear** removes the saved provider and key. If you leave the tab with unsaved changes, AppBlips asks whether to save or discard them.
 
 <Note>
-  Your key is encrypted with your system keychain and only the background process uses it. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+  Your key is encrypted with your system keychain and only the app's background process uses it. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
 </Note>
 
 ---
@@ -134,7 +156,7 @@ Where projects are stored on your device.
 - **Import apps:** adds apps from a backup file. An app you already have is replaced only if the backup's copy is newer.
 - **Projects folder:** shows where projects are saved. Click **Change…** to pick another folder.
 
-See [Move projects from the browser version](/quickstart-desktop#move-projects-from-the-browser-version) for moving apps between copies.
+See [Back up or move your projects](/quickstart-desktop#back-up-or-move-your-projects) for moving apps between computers.
 
 ---
 
@@ -147,7 +169,8 @@ Links to the **Privacy Policy** and the **Terms of Service**.
 ## Danger Zone
 
 <Warning>
-  This action is permanent and cannot be undone.
+  These actions are permanent and cannot be undone.
 </Warning>
 
 - **Delete all saved apps:** removes every saved app with its version history.
+- **Factory Reset:** clears all data, settings, API keys and projects, and returns AppBlips to the state it was in when you first installed it.
