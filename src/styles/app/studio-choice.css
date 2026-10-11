@@ -108,6 +108,11 @@
   backdrop-filter: blur(24px);
 }
 
+.studio-footer {
+  border-top: 1px solid var(--sc-topbar-line);
+  background-color: var(--sc-topbar-bg);
+}
+
 /* newlog.webp is lettering on an opaque black field with generous empty
    margin. Key the black out (#studio-logo-key in StudioChoice.jsx turns
    brightness into alpha) and crop the margin away. */

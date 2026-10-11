@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, LibraryBig, MonitorSmartphone,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, MonitorSmartphone,
   Settings, Smartphone, X,
 } from 'lucide-react';
-import { DOCS_URL } from '../lib/constants';
+import { DOCS_URL, GITHUB_URL } from '../lib/constants';
 
 // Studio choice screen. Two lives:
 //   1. Forced gate -- a fresh session with nothing to resume must pick a
@@ -83,7 +83,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       <div className="relative h-full overflow-y-auto">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
-              (md+), settings on the right. */}
+              (md+), GitHub and settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
             <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
               <img src="/newlog.webp" alt="AppBlips" className="studio-logo-img mr-auto" />
@@ -94,6 +94,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               </div>
 
               <div className="flex items-center gap-2">
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="AppBlips on GitHub"
+                  title="AppBlips on GitHub"
+                  className={`${GHOST_BTN} h-9 w-9`}
+                >
+                  <Github size={17} aria-hidden="true" />
+                </a>
                 <a
                   href={DOCS_URL}
                   target="_blank"
@@ -210,6 +220,39 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               )}
             </div>
           </div>
+
+          <footer className="studio-footer relative shrink-0 overflow-x-auto">
+            <nav aria-label="Footer links" className="mx-auto flex w-max min-w-full items-center justify-center gap-4 whitespace-nowrap px-4 py-4 sm:gap-6 sm:px-6 md:px-10">
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="AppBlips on GitHub"
+                title="AppBlips on GitHub"
+                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+              >
+                <Github size={17} aria-hidden="true" />
+                <span>GitHub</span>
+              </a>
+              <a
+                href="https://www.appblips.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${NAV_LINK} inline-flex min-h-9 items-center`}
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="https://www.appblips.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${NAV_LINK} inline-flex min-h-9 items-center`}
+              >
+                Terms of Service
+              </a>
+              <span className="studio-text-muted text-xs">© 2025 TechMitten LLC</span>
+            </nav>
+          </footer>
         </div>
       </div>
     </div>
