@@ -31,6 +31,23 @@ test('built-ins, comments, string literals and types do not trigger the prompt',
   }).detected, false);
 });
 
+test('HTML inspection skips comments without joining source fragments', () => {
+  const cases = [
+    ['%VITE_<!-- ignored -->FAKE%', []],
+    ['%<!-- ignored -->VITE_FAKE%', []],
+    ['%VITE_FAKE<!-- ignored -->%', []],
+    ['<!-- %VITE_HIDDEN%\n<!-- nested opener -->%VITE_VISIBLE%', ['VITE_VISIBLE']],
+    ['<!<!-- ignored -->-- %VITE_VISIBLE% -->', ['VITE_VISIBLE']],
+    ['<!-- %VITE_HIDDEN% -->\n<title>%VITE_TITLE%</title><!-- %VITE_OTHER% -->', ['VITE_TITLE']],
+    ['<!-- unterminated\n%VITE_HIDDEN%', []],
+  ];
+  for (const [html, expected] of cases) {
+    const inspection = inspectEnvironment({ 'index.html': html });
+    assert.deepEqual(inspection.variables.map((v) => v.name), expected, html);
+    assert.equal(inspection.detected, expected.length > 0, html);
+  }
+});
+
 test('detects aliases and Vite/dotenv configuration loading', () => {
   for (const code of ['const env = import.meta.env; console.log(env.VITE_URL);', 'import { loadEnv } from "vite"; loadEnv(mode, process.cwd());', 'import "dotenv/config";', 'require("dotenv").config();']) {
     assert.deepEqual(inspectEnvironment({ 'vite.config.ts': code }).dynamicFiles, ['vite.config.ts']);

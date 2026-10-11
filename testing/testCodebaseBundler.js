@@ -13,11 +13,19 @@ import { exportCodebaseZip, dependencyChanges } from '../src/lib/codebase/export
 import { injectPreviewBridge } from '../src/previewBridge.js';
 import { readFixture, zipFixture } from './helpers/codebaseFixture.js';
 import { completeEnvironment } from '../src/lib/codebase/environment.js';
+import { jsonForScript } from '../src/lib/codebase/previewHtml.js';
 
 after(() => esbuild.stop?.());
 
 const assetUrl = (path, hash) => `appblips://assets/p1/${hash}.png`;
 const load = async (name) => importCodebaseZip(zipFixture(name));
+
+test('inline JSON preserves data without exposing HTML script delimiters', () => {
+  const value = { token: `"\\\n</ScRiPt><script>throw new Error('injected')</script><!--\u2028\u2029` };
+  const encoded = jsonForScript(value);
+  assert.ok(!encoded.includes('<'));
+  assert.deepEqual(JSON.parse(encoded), value);
+});
 
 test('completed environment settings reach the bundle and HTML preview', async () => {
   const prepared = completeEnvironment(await load('vite-ts-tw3'), 'VITE_SITE_NAME="My edited bakery"\nVITE_CONTACT_EMAIL="custom@bakery.test"');

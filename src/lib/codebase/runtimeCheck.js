@@ -3,6 +3,7 @@
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, injectPreviewBridge } from '../../previewBridge.js';
 import { loadEsbuild } from './esbuildBrowser.js';
 import { buildCodebasePreview, makeAssetUrl, mapPreviewLine } from './preview.js';
+import { jsonForScript } from './previewHtml.js';
 
 const abortError = () => new DOMException('Aborted', 'AbortError');
 
@@ -67,7 +68,7 @@ export async function checkCodebaseRuntime({ files, assets, meta, blobs, assetUr
     };
     // Track startup fetches as well as synchronous module execution. The
     // wrapper lives only in this frame, never in exports or saved files.
-    const fetchTracker = `<script>(function(){var pending=0;var original=window.fetch;function post(){parent.postMessage({__appblipsRuntime:${JSON.stringify(runtimeCheckToken)},type:'fetch-pending',count:pending},'*');}window.fetch=function(){pending++;post();return Promise.resolve().then(function(args){return original.apply(window,args);}.bind(null,arguments)).then(function(value){pending--;post();return value;},function(error){pending--;post();throw error;});};})();</script>`;
+    const fetchTracker = `<script>(function(){var pending=0;var original=window.fetch;function post(){parent.postMessage({__appblipsRuntime:${jsonForScript(runtimeCheckToken)},type:'fetch-pending',count:pending},'*');}window.fetch=function(){pending++;post();return Promise.resolve().then(function(args){return original.apply(window,args);}.bind(null,arguments)).then(function(value){pending--;post();return value;},function(error){pending--;post();throw error;});};})();</script>`;
     const head = /<head\b[^>]*>/i.exec(srcDoc);
     const at = head ? head.index + head[0].length : 0;
     window.addEventListener('message', onMessage);

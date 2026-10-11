@@ -201,13 +201,41 @@ fetch(endpoint + '/blog/index.json').then((response) => {
     setTimeout(() => controller.abort(), 100);
     let abortName;
     try { await cancelled; } catch (error) { abortName = error.name; }
-    return { delayed, storage, timeout, abortName, savedStorage: localStorage.getItem('probe-storage'), remainingFrames: document.querySelectorAll('iframe[aria-hidden=true]').length };
+
+    // Exercise HTML parsing of the actual tracker with a hostile token. Only
+    // the runtime token is overridden; the bridge still gets a normal UUID.
+    const hostileToken = `"\\\n</ScRiPt><script>parent.postMessage({__appblipsInjection:true},'*')</script><!--\u2028\u2029`;
+    const originalUUID = crypto.randomUUID;
+    let tokenUsed = false;
+    crypto.randomUUID = () => {
+      if (tokenUsed) return originalUUID.call(crypto);
+      tokenUsed = true;
+      return hostileToken;
+    };
+    let injected = false;
+    const fetchCounts = [];
+    const observe = (event) => {
+      if (event.data?.__appblipsInjection) injected = true;
+      if (event.data?.__appblipsRuntime === hostileToken && event.data.type === 'fetch-pending') fetchCounts.push(event.data.count);
+    };
+    window.addEventListener('message', observe);
+    let hostile;
+    try {
+      hostile = await run(`fetch('data:application/json,{}').then((response) => response.json());`);
+    } finally {
+      crypto.randomUUID = originalUUID;
+      window.removeEventListener('message', observe);
+    }
+    return { delayed, storage, timeout, abortName, hostile, injected, fetchCounts, savedStorage: localStorage.getItem('probe-storage'), remainingFrames: document.querySelectorAll('iframe[aria-hidden=true]').length };
   });
   assert.ok(probeResults.delayed.errors[0].message.includes('Delayed blog startup failure'), 'await pending startup requests beyond the quiet interval');
   assert.deepEqual(probeResults.storage.errors, []);
   assert.equal(probeResults.savedStorage, null);
   assert.equal(probeResults.timeout.errors[0].code, 'preview-unavailable');
   assert.equal(probeResults.abortName, 'AbortError');
+  assert.deepEqual(probeResults.hostile.errors, [], 'script delimiters in a token do not break startup');
+  assert.equal(probeResults.injected, false, 'token data cannot inject an HTML script');
+  assert.deepEqual(probeResults.fetchCounts, [1, 0], 'the tracker preserves the exact token and reports fetch completion');
   assert.equal(probeResults.remainingFrames, 0);
   await probe.close();
 

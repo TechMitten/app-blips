@@ -60,7 +60,11 @@ export function inspectEnvironment(files, skipped = [], { includeTemplates = tru
       for (const name of Object.keys(parseEnv(text).values)) add(name, path, 'template');
     }
     if (/\.html?$/.test(path)) {
-      for (const match of text.replace(/<!--[\s\S]*?-->/g, '').matchAll(/%([A-Z][A-Z0-9_]*)%/g)) add(match[1], path, 'vite');
+      // Skip comments in the original source; deleting them can join unrelated
+      // fragments into new placeholders or comment delimiters.
+      for (const match of text.matchAll(/<!--[\s\S]*?(?:-->|$)|%([A-Z][A-Z0-9_]*)%/g)) {
+        if (match[1]) add(match[1], path, 'vite');
+      }
     }
     if (!/\.[cm]?[jt]sx?$/.test(path) || /\.d\.[cm]?ts$/.test(path) || !/import\s*\.\s*meta|process|loadEnv|dotenv/.test(text)) continue;
     const visit = (node, parent) => {

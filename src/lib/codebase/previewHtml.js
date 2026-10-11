@@ -17,7 +17,8 @@ function escapeInlineStyle(css) {
   return css.replace(/<\/(style)/gi, '<\\/$1');
 }
 
-function jsonForScript(value) {
+// JSON quoting alone does not stop the HTML parser from ending a script.
+export function jsonForScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
