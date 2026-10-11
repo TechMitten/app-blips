@@ -200,6 +200,21 @@ test('user-selected DeepSeek uses its official API and thinking settings', async
   assert.equal(response.status, 200);
 });
 
+test('DeepSeek thinking retains edit tools and relaxes forced choices only while reasoning is enabled', () => {
+  const provider = resolveUserProvider({ id: 'deepseek', apiKey: 'ds-user-key', model: 'deepseek-v4-pro' });
+  const tools = [{ type: 'function', function: { name: 'apply_file_changes' } }];
+  for (const choice of ['required', { type: 'function', function: { name: 'apply_file_changes' } }, 'auto', 'none', undefined]) {
+    for (const effort of ['low', 'medium', 'high', 'none']) {
+      const body = { tools, ...(choice ? { tool_choice: choice } : {}) };
+      applyProviderSettings(body, provider, { effort });
+      assert.equal(body.thinking.type, effort === 'none' ? 'disabled' : 'enabled');
+      assert.equal(body.reasoning_effort, effort === 'none' ? undefined : effort);
+      assert.deepEqual(body.tools, tools);
+      assert.deepEqual(body.tool_choice, effort === 'none' || choice === 'none' || choice === undefined ? choice : 'auto');
+    }
+  }
+});
+
 test('OpenAI adapts token limits and model-specific reasoning parameters', () => {
   for (const model of ['gpt-5-mini', 'o3-mini', 'gpt-4.1']) {
     const provider = resolveUserProvider({ id: 'openai', apiKey: 'openai-key', model, baseUrl: 'https://evil.invalid' });

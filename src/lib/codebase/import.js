@@ -10,6 +10,7 @@ import {
 } from './paths.js';
 import { sha256Hex } from './hash.js';
 import { lockfileVersions } from './config.js';
+import { inspectEnvironment } from './environment.js';
 
 // Hard ceiling on what a zip may decompress to, checked against the declared
 // sizes before inflating and the real sizes after (a zip bomb can lie).
@@ -214,5 +215,6 @@ export async function importCodebaseZip(bytes, { sourceName = '' } = {}) {
     meta: { ...meta, sourceName: String(sourceName).slice(0, 200), importedAt: new Date().toISOString(), skipped: skipped.slice(0, 200) },
     skipped,
     warnings,
+    environment: inspectEnvironment(files, skipped),
   };
 }

@@ -12,16 +12,24 @@ import { checkCodebaseBuild } from '../src/lib/codebase/preview.js';
 import { formatCodebaseContext, findRoutesFile } from '../src/lib/codebase/prompts.js';
 import { importCodebaseZip } from '../src/lib/codebase/import.js';
 import { zipFixture } from './helpers/codebaseFixture.js';
+import { handleChatProxy } from '../electron/server/chatProxy.js';
 
 // codebase/llm.js imports ../llm.js, whose extensionless imports only Vite
 // resolves (same approach as testCodeReviewPipeline.js).
 let server;
 let generateCodebaseEdit;
 let MAX_CODEBASE_TURNS;
+let prepareEnvironmentFreeSite;
 const savedFetch = globalThis.fetch;
 before(async () => {
   server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
   ({ generateCodebaseEdit, MAX_CODEBASE_TURNS } = await server.ssrLoadModule('/src/lib/codebase/llm.js'));
+  const preparation = await server.ssrLoadModule('/src/lib/codebase/prepareEnvironment.js');
+  // Browser execution is exercised in the UI regression; these Node tests
+  // inject its result while using real bundling and model/proxy tool loops.
+  prepareEnvironmentFreeSite = (imported, options) => preparation.prepareEnvironmentFreeSite(imported, {
+    runtimeCheck: async () => ({ errors: [] }), ...options,
+  });
 });
 after(async () => {
   globalThis.fetch = savedFetch;
@@ -126,10 +134,205 @@ function mockModel(turns) {
     const turn = turns.shift();
     if (!turn) return sse([{ content: 'Done.' }]);
     if (typeof turn === 'string') return sse([{ content: turn }]);
+    if (turn.deltas) return sse(turn.deltas);
     return sse(turn.map((tc, index) => ({ tool_calls: [{ index, id: tc.id, type: 'function', function: { name: tc.function.name, arguments: tc.function.arguments } }] })));
   };
   return requests;
 }
+
+test('AI environment removal repairs remaining settings and preserves the original for undo', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const requests = mockModel([
+    [call('apply_surgical_edits', { file: 'src/pages/Home.tsx', edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"hello@demo.test"' }] })],
+    [call('apply_surgical_edits', { file: 'index.html', edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] })],
+    'Your standalone site is ready.',
+  ]);
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    buildCheck: (files, assets) => checkCodebaseBuild(esbuild, { files, assets, meta: imported.meta, baseline: imported.files }),
+  });
+  assert.equal(prepared.meta.environmentResolution, 'ai');
+  assert.ok(prepared.files['src/pages/Home.tsx'].includes('hello@demo.test'));
+  assert.equal(prepared.originalFiles, imported.files);
+  assert.equal(prepared.originalAssets, imported.assets);
+  assert.ok(imported.files['src/pages/Home.tsx'].includes('import.meta.env.VITE_CONTACT_EMAIL'));
+  assert.ok(requests.some((r) => r.messages.some((m) => m.content?.includes?.('still requires custom environment settings'))), 'removal check feeds missed HTML references back for repair');
+});
+
+test('AI preparation rejects unresolved environment dependencies and cancelled work without replacing the upload', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const unchanged = JSON.stringify(imported.files);
+  await assert.rejects(prepareEnvironmentFreeSite(imported, {
+    generateEdit: async () => ({ files: imported.files, assets: imported.assets }),
+    buildCheck: async () => ({ errors: [] }),
+  }), /could not make the site run/);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(prepareEnvironmentFreeSite(imported, {
+    signal: controller.signal,
+    generateEdit: async () => ({ files: imported.files, assets: imported.assets }),
+    buildCheck: async () => ({ errors: [] }),
+  }), { name: 'AbortError' });
+  assert.equal(JSON.stringify(imported.files), unchanged);
+});
+
+test('environment preparation breaks a repeated reviewing loop and supplies the affected source up front', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const review = [call('read_file', { path: 'src/pages/Home.tsx', start_line: null, end_line: null })];
+  const requests = mockModel([
+    review, review, review,
+    [call('apply_file_changes', { changes: [
+      { action: 'edit', path: 'src/pages/Home.tsx', content: null, edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"hello@demo.test"' }] },
+      { action: 'edit', path: 'index.html', content: null, edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] },
+    ] })],
+    'Your standalone site is ready.',
+  ]);
+  const statuses = [];
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    onChunk: (text, kind) => { if (kind === 'status') statuses.push(text); },
+    buildCheck: (files, assets) => checkCodebaseBuild(esbuild, { files, assets, meta: imported.meta, baseline: imported.files }),
+  });
+  assert.ok(prepared.files['src/pages/Home.tsx'].includes('hello@demo.test'));
+  const toolRequests = requests.filter((request) => request.tools);
+  assert.equal(toolRequests[3].tool_choice, 'required');
+  assert.ok(toolRequests[3].tools.every((tool) => !['read_file', 'list_files', 'search_files'].includes(tool.function.name)));
+  assert.ok(toolRequests[4].tools.some((tool) => tool.function.name === 'read_file'), 'normal tools return after editing');
+  const firstPrompt = toolRequests[0].messages.at(-1).content;
+  assert.ok(firstPrompt.includes('### src/pages/Home.tsx'));
+  assert.ok(firstPrompt.includes(imported.files['src/pages/Home.tsx']));
+  assert.ok(statuses.some((status) => status.startsWith('Preparing changes')));
+});
+
+test('reasoning-enabled environment import passes DeepSeek tool constraints and echoes streamed thinking across every turn', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const toolDelta = (toolCall) => ({ tool_calls: [{ index: 0, ...toolCall }] });
+  const review = call('read_file', { path: 'src/pages/Home.tsx', start_line: null, end_line: null });
+  const edits = call('apply_file_changes', { changes: [
+    { action: 'edit', path: 'src/pages/Home.tsx', content: null, edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"hello@demo.test"' }] },
+    { action: 'edit', path: 'index.html', content: null, edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] },
+  ] });
+  const requests = mockModel([
+    { deltas: [{ reasoning_content: 'test-' }, { reasoning_content: 'thinking' }, toolDelta(review)] },
+    { deltas: [{ reasoning_content: '' }, toolDelta(review)] },
+    { deltas: [{ reasoning_content: 'test-edit-plan' }, toolDelta(review)] },
+    { deltas: [{ reasoning_content: 'test-apply' }, toolDelta(edits)] },
+    { deltas: [{ reasoning_content: 'test-finish' }, { content: 'Your standalone site is ready.' }] },
+  ]);
+  const modelFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    if (url === '/api/chat') return handleChatProxy(new Request('http://localhost/api/chat', options), {
+      OPENAI_API_KEY: 'test-key', OPENAI_LLM_MODEL: 'deepseek-v4-pro', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
+    });
+    const body = JSON.parse(options.body);
+    if (body.tools) {
+      assert.deepEqual(body.thinking, { type: 'enabled' });
+      assert.equal(body.reasoning_effort, 'high');
+      assert.equal(body.tool_choice, 'auto', 'DeepSeek thinking rejects forced choices');
+      const assistants = body.messages.filter((message) => message.role === 'assistant');
+      assert.ok(assistants.every((message) => Object.hasOwn(message, 'reasoning_content')));
+      if (assistants.length >= 1) assert.equal(assistants[0].reasoning_content, 'test-thinking');
+      if (assistants.length >= 2) assert.equal(assistants[1].reasoning_content, '', 'empty provider reasoning is echoed too');
+    }
+    return modelFetch(url, options);
+  };
+  const chunks = [];
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    reasoningEffort: 'high', onChunk: (text, kind) => chunks.push(kind),
+    buildCheck: (files, assets) => checkCodebaseBuild(esbuild, { files, assets, meta: imported.meta, baseline: imported.files }),
+  });
+  assert.equal(prepared.meta.environmentResolution, 'ai');
+  const toolRequests = requests.filter((request) => request.tools);
+  assert.equal(toolRequests.length, 5);
+  assert.ok(toolRequests[3].tools.every((tool) => !['read_file', 'list_files', 'search_files'].includes(tool.function.name)), 'review-loop guard still works with auto choice');
+  assert.ok(chunks.includes('thinking_start') && chunks.includes('thinking_end'));
+  assert.ok(imported.files['index.html'].includes('%VITE_SITE_NAME%'));
+});
+
+test('a forced edit failure can reread source and retry without losing the original', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const review = [call('read_file', { path: 'index.html', start_line: null, end_line: null })];
+  const requests = mockModel([
+    review, review, review,
+    [call('apply_surgical_edits', { file: 'index.html', edits: [{ search: 'incorrect anchor', replace: 'Demo bakery' }] })],
+    review,
+    [call('apply_file_changes', { changes: [
+      { action: 'edit', path: 'src/pages/Home.tsx', content: null, edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"hello@demo.test"' }] },
+      { action: 'edit', path: 'index.html', content: null, edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] },
+    ] })],
+    'Your standalone site is ready.',
+  ]);
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    buildCheck: (files, assets) => checkCodebaseBuild(esbuild, { files, assets, meta: imported.meta, baseline: imported.files }),
+  });
+  assert.ok(requests.filter((request) => request.tools)[4].tools.some((tool) => tool.function.name === 'read_file'));
+  assert.ok(prepared.files['index.html'].includes('<title>Demo bakery</title>'));
+  assert.ok(imported.files['index.html'].includes('%VITE_SITE_NAME%'));
+});
+
+test('a provider that ignores the edit requirement cannot keep reviewing for twenty turns', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const requests = mockModel(Array.from({ length: MAX_CODEBASE_TURNS }, () => [call('read_file', { path: 'index.html' })]));
+  await assert.rejects(prepareEnvironmentFreeSite(imported, { buildCheck: async () => ({ errors: [] }) }), /kept reviewing.*uploaded files are unchanged/);
+  assert.equal(requests.filter((request) => request.tools).length, 6);
+  assert.ok(requests.some((request) => request.messages.some((message) => message.role === 'tool' && message.content.includes('temporarily unavailable'))));
+  assert.ok(imported.files['index.html'].includes('%VITE_SITE_NAME%'));
+});
+
+test('unused environment templates/private files do not require an artificial AI edit', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw4', { extra: { '.env.example': 'VITE_UNUSED=example', '.env': 'SECRET=never-read' } }));
+  let checked = false;
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    generateEdit: async () => { throw new Error('AI should not be called for an independent site'); },
+    buildCheck: async (files, assets) => {
+      checked = true;
+      return checkCodebaseBuild(esbuild, { files, assets, meta: imported.meta });
+    },
+  });
+  assert.ok(checked);
+  assert.equal(prepared.files, imported.files);
+  assert.equal(prepared.meta.environmentResolution, 'verified');
+});
+
+test('passing the build is insufficient: startup errors are repaired before accepting the import', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const requests = mockModel([
+    [call('apply_file_changes', { changes: [
+      { action: 'edit', path: 'src/pages/Home.tsx', content: null, edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"hello@demo.test"' }] },
+      { action: 'edit', path: 'index.html', content: null, edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] },
+    ] })],
+    [call('create_file', { path: 'src/data/blogPosts.json', content: '[]', overwrite: false })],
+    'Your standalone site is ready.',
+  ]);
+  let checks = 0;
+  const prepared = await prepareEnvironmentFreeSite(imported, {
+    runtimeCheck: async ({ files }) => {
+      checks++;
+      return { errors: files['src/data/blogPosts.json'] ? [] : [{ message: 'Preview startup error: Blog content is unavailable. Run the build to generate the static blog data.' }] };
+    },
+    buildCheck: async () => ({ errors: [] }),
+  });
+  assert.equal(checks, 2, 'each edited tree is executed once');
+  assert.equal(prepared.files['src/data/blogPosts.json'], '[]');
+  assert.ok(!('src/data/blogPosts.json' in imported.files));
+  assert.ok(requests.some((request) => request.messages.some((message) => message.role === 'user' && message.content?.includes('Blog content is unavailable'))));
+});
+
+test('unrepaired startup errors and a preview that cannot load never report successful preparation', async () => {
+  const imported = await importCodebaseZip(zipFixture('vite-ts-tw3'));
+  const edited = { ...imported.files, 'index.html': '<title>Demo bakery</title>', 'src/pages/Home.tsx': 'export default function Home() { return null; }' };
+  await assert.rejects(prepareEnvironmentFreeSite(imported, {
+    generateEdit: async () => ({ files: edited, assets: imported.assets }),
+    buildCheck: async () => ({ errors: [] }),
+    runtimeCheck: async () => ({ errors: [{ message: 'Blog content is unavailable' }] }),
+  }), /could not make the site run/);
+  mockModel([[call('apply_file_changes', { changes: [
+    { action: 'edit', path: 'src/pages/Home.tsx', content: null, edits: [{ search: 'import.meta.env.VITE_CONTACT_EMAIL', replace: '"demo@test"' }] },
+    { action: 'edit', path: 'index.html', content: null, edits: [{ search: '%VITE_SITE_NAME%', replace: 'Demo bakery' }] },
+  ] })]]);
+  await assert.rejects(prepareEnvironmentFreeSite(imported, {
+    buildCheck: async () => ({ errors: [] }),
+    runtimeCheck: async () => ({ errors: [{ code: 'preview-unavailable', message: 'Preview could not load' }] }),
+  }), /Preview could not load/);
+});
 
 test('edit loop: search, edit, build error fed back, repaired, finished', async () => {
   const { files, assets, meta } = await importCodebaseZip(zipFixture('vite-ts-tw3'));

@@ -41,6 +41,8 @@ try {
   await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
   await page.getByRole('button', { name: /Import a site/ }).first().click({ timeout: 20000 });
   await page.locator('input[type=file][accept*=zip]').setInputFiles(zipPath);
+  await page.getByRole('button', { name: /I’ll fill in the .env settings/ }).click();
+  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   await page.getByRole('button', { name: 'Open site' }).click({ timeout: 15000 });
   const frame = page.frameLocator('iframe').first();
   await frame.locator('#headline').waitFor({ timeout: 60000 });

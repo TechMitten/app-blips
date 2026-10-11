@@ -230,8 +230,8 @@ const missingVars = (provider) => [
 
 // Adapts an OpenAI-style request body in place to what `provider` accepts:
 // writes the reasoning setting, drops stream_options where unsupported, and
-// relaxes forced tool choices for providers that only accept 'auto' (Claude
-// rejects them with thinking on). Returns { reasoningEnabled }.
+// relaxes forced tool choices where unsupported (including DeepSeek with
+// thinking on). Returns { reasoningEnabled }.
 export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
   const raw = effort ?? 'none';
   const off = OFF_EFFORTS.has(raw);
@@ -265,7 +265,10 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
 
   if (provider.local) delete bodyObj.reasoning_effort;
   if (provider.streamUsage === false) delete bodyObj.stream_options;
-  if (provider.forcedToolChoice === false && bodyObj.tool_choice && bodyObj.tool_choice !== 'none') {
+  // DeepSeek supports thinking + tools, but thinking rejects "required"
+  // and named choices. Keep thinking enabled and retain the offered tools.
+  const cannotForceTools = provider.forcedToolChoice === false || (provider.id === 'deepseek' && !off);
+  if (cannotForceTools && bodyObj.tool_choice && bodyObj.tool_choice !== 'none') {
     bodyObj.tool_choice = 'auto';
   }
 

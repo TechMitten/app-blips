@@ -2,6 +2,7 @@
 // path aliases, TypeScript strictness, VITE_* values and package versions.
 // Config files are only parsed (JSONC) or pattern-matched, never executed:
 // this runs in the privileged renderer, and vite.config.ts is arbitrary code.
+import { ENV_TEMPLATES, parseEnv } from './environment.js';
 
 // JSON with comments and trailing commas, as tsconfig allows.
 export function parseJsonc(text) {
@@ -155,19 +156,16 @@ export function esbuildTsconfigRaw(files) {
   return { compilerOptions };
 }
 
-// VITE_* values for import.meta.env in the preview. Real .env files are
-// skipped at import (secrets), so only the committed templates are read.
+// ZIP secrets stay excluded. .env.local is created only after the user
+// explicitly completes public settings in the import dialog.
 export function envValues(files) {
   const env = {};
-  for (const name of ['.env.example', '.env.sample', '.env.template', '.env.local.example']) {
+  for (const name of ['.env.local', ...ENV_TEMPLATES]) {
     const text = files[name];
     if (typeof text !== 'string') continue;
-    for (const line of text.split(/\r?\n/)) {
-      const match = line.match(/^\s*(?:export\s+)?(VITE_[A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (!match || match[1] in env) continue;
-      const raw = match[2].trim();
-      const quoted = raw.match(/^(['"])(.*?)\1/);
-      env[match[1]] = quoted ? quoted[2] : raw.replace(/\s+#.*$/, '');
+    for (const [key, value] of Object.entries(parseEnv(text).values)) {
+      if (!key.startsWith('VITE_') || key in env) continue;
+      env[key] = value;
     }
   }
   return env;

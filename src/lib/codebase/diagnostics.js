@@ -9,9 +9,12 @@ export function createCodebaseDiagnostics(scope, context = {}) {
     const fields = {
       ...context, ...details, elapsedMs: Math.round(performance.now() - started),
     };
-    console[level](`[AppBlips codebase][${runId}] ${event}`, Object.fromEntries(
+    const detailsText = JSON.stringify(Object.fromEntries(
       Object.entries(fields).filter(([, value]) => value !== undefined),
-    ));
+    ), (_key, value) => value instanceof Error ? { name: value.name, message: value.message } : value);
+    // Keep copied console logs useful: browser consoles collapse a separate
+    // object argument to "Object", hiding which tools ran and what failed.
+    console[level](`[AppBlips codebase][${runId}] ${event} ${detailsText}`);
   };
   return {
     info: (event, details) => write('info', event, details),

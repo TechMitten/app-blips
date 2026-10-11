@@ -60,13 +60,13 @@ export async function checkCodebaseBuild(esbuild, { files, assets, meta, baselin
   return { errors };
 }
 
-export async function buildCodebasePreview(esbuild, { files, assets, meta, assetUrl, route = '/', diagnostics = createCodebaseDiagnostics('preview', { entry: meta?.entry, route }) }) {
+export async function buildCodebasePreview(esbuild, { files, assets, meta, assetUrl, route = '/', runtimeCheckToken = null, diagnostics = createCodebaseDiagnostics('preview', { entry: meta?.entry, route }) }) {
   diagnostics.info('Bundling preview');
   const bundle = await bundleCodebase(esbuild, { files, assets, meta, assetUrl, diagnostics });
   if (!bundle.ok) return { ok: false, errors: bundle.errors, html: buildErrorPage(bundle.errors) };
   const tailwindVersion = packageVersions(files).versions.tailwindcss || '';
   const { html, bundleLine, notices } = buildPreviewHtml({
-    files, meta, bundle, env: bundle.env, publicMap: bundle.publicMap, route, tailwindVersion,
+    files, meta, bundle, env: bundle.env, publicMap: bundle.publicMap, route, tailwindVersion, runtimeCheckToken,
   });
   const warnings = [...bundle.warnings];
   if (warnings.length) diagnostics.warn('Preview warnings', { warnings });

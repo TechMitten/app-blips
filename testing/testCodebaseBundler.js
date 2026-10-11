@@ -12,11 +12,22 @@ import { buildCodebasePreview, checkCodebaseBuild, mapPreviewLine } from '../src
 import { exportCodebaseZip, dependencyChanges } from '../src/lib/codebase/export.js';
 import { injectPreviewBridge } from '../src/previewBridge.js';
 import { readFixture, zipFixture } from './helpers/codebaseFixture.js';
+import { completeEnvironment } from '../src/lib/codebase/environment.js';
 
 after(() => esbuild.stop?.());
 
 const assetUrl = (path, hash) => `appblips://assets/p1/${hash}.png`;
 const load = async (name) => importCodebaseZip(zipFixture(name));
+
+test('completed environment settings reach the bundle and HTML preview', async () => {
+  const prepared = completeEnvironment(await load('vite-ts-tw3'), 'VITE_SITE_NAME="My edited bakery"\nVITE_CONTACT_EMAIL="custom@bakery.test"');
+  const bundle = await bundleCodebase(esbuild, { ...prepared, assetUrl });
+  assert.ok(bundle.ok);
+  assert.ok(bundle.js.includes('custom@bakery.test'));
+  assert.ok(!bundle.js.includes('hello@acme.test'));
+  const preview = await buildCodebasePreview(esbuild, { ...prepared, assetUrl });
+  assert.ok(preview.html.includes('<title>My edited bakery</title>'));
+});
 
 test('fixture projects bundle: TSX, aliases, assets, env, router shim', async () => {
   for (const name of ['vite-ts-tw3', 'vite-ts-tw4']) {

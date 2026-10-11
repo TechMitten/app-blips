@@ -37,13 +37,13 @@ async function captureRequest(t, payload, settings = {}) {
   return upstreamBody;
 }
 
-// DeepSeek is the only provider: reasoning always goes in its `reasoning`
-// object, and forced tool choices are passed through unchanged.
+// DeepSeek thinking supports tools with auto/none choices. Forced choices
+// must be relaxed while preserving thinking and the offered tools.
 for (const effort of ['low', 'medium', 'high']) {
   for (const choice of ['required', namedChoice]) {
-    test(`reasoning ${effort} keeps ${JSON.stringify(choice)} and drops temperature`, async (t) => {
+    test(`reasoning ${effort} relaxes ${JSON.stringify(choice)} and drops temperature`, async (t) => {
       const body = await captureRequest(t, { tools: [editTool], tool_choice: choice, stream: true, reasoning_effort: effort, temperature: 0 });
-      assert.deepEqual(body.tool_choice, choice);
+      assert.equal(body.tool_choice, 'auto');
       assert.deepEqual(body.thinking, { type: 'enabled' });
       assert.equal(body.reasoning_effort, effort);
       assert.equal(Object.hasOwn(body, 'temperature'), false);

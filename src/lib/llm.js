@@ -198,7 +198,7 @@ const mergeReasoningDetails = (acc, items) => {
 const assistantTurn = (message) => {
   const turn = { role: 'assistant', content: message.content || null };
   for (const field of REASONING_ECHO_FIELDS) {
-    if (message[field]?.length) turn[field] = message[field];
+    if (message[field] != null) turn[field] = message[field];
   }
   if (message.tool_calls?.length) turn.tool_calls = message.tool_calls;
   return turn;
@@ -381,7 +381,7 @@ export const requestModelText = async ({
             let reasoningDelta = '';
             for (const field of REASONING_TEXT_FIELDS) {
               const piece = delta?.[field];
-              if (typeof piece !== 'string' || !piece) continue;
+              if (typeof piece !== 'string') continue;
               echoed[field] = (echoed[field] || '') + piece;
               // A provider may send the same text in two fields; show it once.
               reasoningDelta ||= piece;

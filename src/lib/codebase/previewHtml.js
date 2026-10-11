@@ -40,7 +40,7 @@ function countLines(text) {
 
 // bundle: result of bundleCodebase (ok). Returns { html, bundleLine, notices }
 // where bundleLine is the 1-based line of the first bundle line in `html`.
-export function buildPreviewHtml({ files, meta, bundle, env = {}, publicMap = new Map(), route = '/', tailwindVersion = '' }) {
+export function buildPreviewHtml({ files, meta, bundle, env = {}, publicMap = new Map(), route = '/', tailwindVersion = '', runtimeCheckToken = null }) {
   const notices = [];
   let html = files['index.html'] || '<!doctype html><html><head></head><body><div id="root"></div></body></html>';
   html = removeEntryScript(replaceHtmlEnv(html, env), meta.entry);
@@ -88,7 +88,10 @@ export function buildPreviewHtml({ files, meta, bundle, env = {}, publicMap = ne
   }
 
   const scriptOpen = '<script type="module">\n';
-  const script = scriptOpen + escapeInlineScript(bundle.js) + CLOSE_SCRIPT;
+  // Check completion inside the app module, so failed imports/startup cannot
+  // be mistaken for a successful load by a separate script.
+  const runtimeMarker = runtimeCheckToken ? `\nwindow.parent.postMessage({__appblipsRuntime:${jsonForScript(runtimeCheckToken)},type:'module-ready'},'*');` : '';
+  const script = scriptOpen + escapeInlineScript(bundle.js + runtimeMarker) + CLOSE_SCRIPT;
   const bodyClose = html.search(/<\/body\s*>/i);
   const at = bodyClose >= 0 ? bodyClose : html.length;
   const bundleLine = countLines(html.slice(0, at)) + 2;

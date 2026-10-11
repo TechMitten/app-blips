@@ -43,7 +43,7 @@ test('vite.config aliases are pattern-matched, never executed', () => {
   assert.ok(viteAliases(arrayForm).some((a) => a.find === '#/' && a.replace === 'src/'));
 });
 
-test('VITE_* values come from .env.example only', () => {
+test('VITE_* template values are supported and ZIP .env files are ignored', () => {
   assert.deepEqual(envValues({ '.env.example': 'VITE_A=1\nSECRET=x\nVITE_B="two words" # note\nexport VITE_C=3 # c' }), { VITE_A: '1', VITE_B: 'two words', VITE_C: '3' });
   assert.deepEqual(envValues({ '.env': 'VITE_A=1' }), {});
 });

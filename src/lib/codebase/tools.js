@@ -4,6 +4,7 @@
 // lockfiles and binary assets can't be edited as text.
 import { applySurgicalEdits, viewCode, invalidArgumentsError } from '../edits.js';
 import { checkCodebaseLimits, isLockfile, validateProjectPath } from './paths.js';
+import { isPrivateEnvPath } from './environment.js';
 
 const MAX_LIST = 500;
 const MAX_SEARCH_HITS = 50;
@@ -196,6 +197,11 @@ function executeTool(state, toolCall, checkLimits = true) {
   if (error) return fail(state, error);
   const { files, assets } = state;
 
+  const target = args.file || args.path;
+  if (typeof target === 'string' && isPrivateEnvPath(cleanPath(target))) {
+    return fail(state, 'Environment values are managed by the user and cannot be read or changed by AI.');
+  }
+
   if (name === 'list_files') {
     const prefix = typeof args.prefix === 'string' ? cleanPath(args.prefix) : '';
     const entries = [
@@ -233,7 +239,7 @@ function executeTool(state, toolCall, checkLimits = true) {
     const prefix = typeof args.prefix === 'string' ? cleanPath(args.prefix) : '';
     const hits = [];
     for (const path of Object.keys(files).sort()) {
-      if (!path.startsWith(prefix) || isLockfile(path)) continue;
+      if (!path.startsWith(prefix) || isLockfile(path) || isPrivateEnvPath(path)) continue;
       const lines = files[path].split('\n');
       for (let i = 0; i < lines.length && hits.length < MAX_SEARCH_HITS; i++) {
         if (lines[i].toLowerCase().includes(query)) hits.push(`${path}:${i + 1}: ${lines[i].trim().slice(0, 200)}`);

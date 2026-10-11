@@ -35,7 +35,7 @@ const userContent = (text, attachment) => (attachment?.dataUrl
 const assistantTurn = (message) => {
   const turn = { role: 'assistant', content: message.content || null };
   for (const field of ['reasoning_content', 'reasoning', 'reasoning_details']) {
-    if (message[field]?.length) turn[field] = message[field];
+    if (message[field] != null) turn[field] = message[field];
   }
   if (message.tool_calls?.length) turn.tool_calls = message.tool_calls;
   return turn;
@@ -49,7 +49,7 @@ const forwardChunks = (onChunk) => (chunk, kind) => {
 };
 
 // opts: { prompt, files, assets, meta, chatHistory, onChunk, signal, attachment,
-//   isAsk, isAutoFix, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
+//   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
 // Returns { files, assets, editMode, editSummary, reply, buildErrors }.
 export async function generateCodebaseEdit(options) {
   const diagnostics = createCodebaseDiagnostics(options.isAsk ? 'ask' : 'edit', {
@@ -79,6 +79,9 @@ async function runCodebaseEdit({
   attachment = null, isAsk = false, isAutoFix = false, buildCheck, diagnostics,
   // The user's reasoning setting, used for edit turns; Ask answers stay off.
   reasoningEffort = 'none',
+  // Import preparation bounds reviewing before it requires an actual edit.
+  // Ordinary editing and Ask mode keep their existing behavior.
+  maxReadOnlyTurns = 0,
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
@@ -142,6 +145,8 @@ async function runCodebaseEdit({
   let editRecoveries = 0;
   const pendingFailures = new Map();
   let buildChecks = 0;
+  let readOnlyTurns = 0;
+  let forcedEditAttempts = 0;
 
   const runBuildCheck = async () => {
     if (!buildCheck) {
@@ -165,6 +170,7 @@ async function runCodebaseEdit({
       return errors;
     } catch (err) {
       if (err?.name === 'AbortError' || signal?.aborted) throw err;
+      if (err?.isNonRepairable) throw err;
       diagnostics.error('Build checker threw', { buildCheckNumber, error: err });
       return [{ message: String(err?.message || err) }];
     }
@@ -173,13 +179,24 @@ async function runCodebaseEdit({
   for (let turn = 1; turn <= MAX_CODEBASE_TURNS; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     if (turn === 1) status('Looking through your site\'s files…');
+    const requireEdit = maxReadOnlyTurns > 0 && readOnlyTurns >= maxReadOnlyTurns
+      && (!changed || buildErrors.length > 0) && !pendingFailures.size;
+    const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name)) : CODEBASE_TOOLS;
+    if (requireEdit) {
+      if (++forcedEditAttempts > 3) {
+        throw new Error('The AI kept reviewing the site without applying the required changes. Your uploaded files are unchanged. Try preparing the site again.');
+      }
+      status('Preparing changes to make your site work without settings…');
+      diagnostics.info('Review limit reached; requiring edits', { turn, readOnlyTurns });
+      messages.push({ role: 'user', content: 'You have reviewed the project without making the required changes. Apply an actual edit now using the current source supplied in the request and tool results. Use apply_surgical_edits or apply_file_changes to replace the environment-dependent behavior with a working standalone implementation. Read tools are temporarily unavailable; reuse the file contents you already have. Do not repeat unchanged content or claim completion without editing.' });
+    }
     diagnostics.info('Requesting model turn', { turn, repairs, pendingFailures: [...pendingFailures.keys()] });
     const modelStarted = performance.now();
     const message = await requestModelText({
       messages,
       onChunk: forwardChunks(onChunk),
-      tools: CODEBASE_TOOLS,
-      tool_choice: turn === 1 ? 'required' : 'auto',
+      tools: availableTools,
+      tool_choice: turn === 1 || requireEdit ? 'required' : 'auto',
       signal,
       forceTemperatureZero: true,
       reasoningEffort,
@@ -223,7 +240,9 @@ async function runCodebaseEdit({
     let changedThisTurn = false;
     for (const toolCall of message.tool_calls) {
       status(describeCodebaseToolCall(toolCall));
-      const outcome = executeCodebaseTool(state, toolCall);
+      const allowed = availableTools.some((tool) => tool.function.name === toolCall.function?.name);
+      const outcome = !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
+        : { state, applied: false, result: { success: false, error: 'This tool is temporarily unavailable. Apply the requested edits using the file contents already provided.' } };
       diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });
       state = outcome.state;
       if (outcome.applied) { changed = true; changedThisTurn = true; }
@@ -238,6 +257,8 @@ async function runCodebaseEdit({
       }
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
     }
+    readOnlyTurns = changedThisTurn || pendingFailures.size ? 0 : readOnlyTurns + 1;
+    if (changedThisTurn) forcedEditAttempts = 0;
     if (changedThisTurn) {
       buildErrors = await runBuildCheck();
       if (buildErrors.length && repairs < MAX_BUILD_REPAIRS) {

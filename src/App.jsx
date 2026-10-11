@@ -1227,10 +1227,24 @@ export default function App({ coldStart = false }) {
 
   // The codebase edit loop's build check: the preview bundler run on the
   // edited files, plus imports missing from package.json.
-  const runCodebaseBuildCheck = async (checkFiles, checkAssets, { diagnostics } = {}) => {
+  const runCodebaseBuildCheck = async (checkFiles, checkAssets, { diagnostics, verifyRuntime = false } = {}) => {
     diagnostics?.info('Waiting for esbuild initialization');
     const esbuild = await loadEsbuild();
-    return checkCodebaseBuild(esbuild, { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files, diagnostics });
+    const result = await checkCodebaseBuild(esbuild, { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files, diagnostics });
+    if (result.errors.length || !verifyRuntime) return result;
+    const { checkCodebaseRuntime } = await import('./lib/codebase/runtimeCheck');
+    const runtime = await checkCodebaseRuntime({
+      files: checkFiles, assets: checkAssets, meta: codebaseMeta, diagnostics,
+      signal: abortControllerRef.current?.signal,
+      assetUrl: makeAssetUrl({ projectId: currentProjectId, isDesktop, bytesOf: blobBytes }),
+    });
+    const unavailable = runtime.errors.find((error) => error.code === 'preview-unavailable');
+    if (unavailable) {
+      const error = new Error(unavailable.message);
+      error.isNonRepairable = true;
+      throw error;
+    }
+    return runtime;
   };
 
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
@@ -1481,7 +1495,10 @@ export default function App({ coldStart = false }) {
             attachment: attachmentForRequest,
             isAsk: chatMode === 'ask',
             isAutoFix,
-            buildCheck: runCodebaseBuildCheck,
+            buildCheck: (checkFiles, checkAssets, options) => runCodebaseBuildCheck(checkFiles, checkAssets, {
+              ...options, verifyRuntime: isAutoFix && codebaseMeta?.environmentResolution === 'ai',
+            }),
+            maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: buildReasoningEffort,
           })
         : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
@@ -1831,6 +1848,18 @@ export default function App({ coldStart = false }) {
       chatMode: 'build',
       sessionId,
     };
+    const importedVersions = imported.originalFiles ? [
+      {
+        ...version, id: version.id - 1, files: imported.originalFiles, assets: imported.originalAssets,
+        reply: 'Your original imported site is kept here. The next version removes its environment settings.',
+      },
+      {
+        ...version, prompt: 'Make the site editable without .env settings', editMode: 'surgical',
+        editSummary: 'Removed environment dependency',
+        reply: 'Your standalone site is ready to edit. Connected features may use demo data. You can restore the original from version history.',
+      },
+    ] : [version];
+    const importedIndex = importedVersions.length - 1;
     flushSync(() => {
       resetCurrentWorkspace('codebase');
       applyCodebaseMeta(imported.meta);
@@ -1838,13 +1867,13 @@ export default function App({ coldStart = false }) {
       setProjectName(name);
       setFiles(imported.files);
       setActivePage(LANDING_PAGE);
-      setVersions([version]);
-      setCurrentVersionIndex(0);
+      setVersions(importedVersions);
+      setCurrentVersionIndex(importedIndex);
       setHasSentFirstPrompt(true);
     });
     await saveProjectRef.current({
-      versionsToSave: [version],
-      indexToSave: 0,
+      versionsToSave: importedVersions,
+      indexToSave: importedIndex,
       nameToSave: name,
       idToSave: projectId,
       chatContextStartToSave: 0,
@@ -2291,6 +2320,7 @@ export default function App({ coldStart = false }) {
             onImported={handleImportedSite}
             onCancel={() => setIsImportSiteOpen(false)}
             isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
+            reasoningEffort={buildReasoningEffort}
           />
         )}
       </div>
