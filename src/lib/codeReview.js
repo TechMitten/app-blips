@@ -237,7 +237,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
         emptyRejections = !verdict.acceptable && !findings.length ? emptyRejections + 1 : 0;
         if (checksPass && (verdict.acceptable || emptyRejections >= 2)) {
           status(browser ? 'Code review and browser checks passed.' : 'Code review passed.');
-          return { files: workingFiles, acceptable: true, improved, findings: [], ...(browser ? { browserTests } : {}) };
+          return { files: workingFiles, acceptable: true, improved, findings: [], fixedFindings: improved ? tracked.map((item) => item.text) : [], ...(browser ? { browserTests } : {}) };
         }
         stalledVerdicts++;
         if (findings.length) {

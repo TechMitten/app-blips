@@ -25,6 +25,13 @@ How to work:
 
 export const CODEBASE_ASK_PROMPT = `You are a helpful assistant for a customer who owns a React + Vite + TypeScript website project (built by their web designer) and edits it in AppBlips. Answer their question about the site directly and in plain, friendly language; they are not a developer. You can look at the project with list_files, read_file and search_files, but you cannot change anything in this mode: if they want a change, tell them to switch to Build mode and describe it.`;
 
+// The same read-only answer for a question typed in Build mode: the user is
+// already where changes happen, so offer the change instead of a mode switch.
+export const CODEBASE_ROUTED_ASK_PROMPT = CODEBASE_ASK_PROMPT.replace(
+  'if they want a change, tell them to switch to Build mode and describe it.',
+  'if the answer points to a change they might want, end by offering to make it: they can just say yes.',
+);
+
 function fence(path, text) {
   const ext = path.split('.').pop();
   return `### ${path}\n\`\`\`${ext}\n${text}\n\`\`\``;

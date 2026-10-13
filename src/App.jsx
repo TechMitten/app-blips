@@ -1516,7 +1516,8 @@ export default function App({ coldStart = false }) {
         editSummary: isAutoFix ? AUTO_FIX_PROMPT : generationResult.editSummary,
         isAutoFix,
         reply: isAutoFix ? AUTO_FIX_REPLY : generationResult.reply || null,
-        chatMode,
+        // A question asked in Build mode is answered as an Ask turn.
+        chatMode: generationResult.editMode === 'ask' ? 'ask' : chatMode,
         sessionId: currentChatSessionId
       };
       if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};

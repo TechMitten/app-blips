@@ -18,6 +18,8 @@ import {
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   GAME_ENGINE_ROUTER_SYSTEM_PROMPT,
+  BUILD_INTENT_SYSTEM_PROMPT,
+  parseBuildIntent,
   parseGameEngineChoice,
   buildGameEngineDirective,
   CHAT_REPLY_SYSTEM_PROMPT,
@@ -123,6 +125,47 @@ export const routeGameEngine = async ({ requestText, signal = null }) => {
   });
   return buildGameEngineDirective(parseGameEngineChoice(message?.content ?? message));
 };
+
+// Only messages that read like a question pay for the intent check below;
+// plain instructions ("Add a dark mode") go straight to building.
+const QUESTION_START_RE = /^(what|whats|what's|why|how|when|where|who|which|is|are|was|were|do|does|did|can|could|would|should|will|has|have|explain|tell me|describe)\b/i;
+const looksLikeQuestion = (prompt) => {
+  const text = String(prompt || '').trim();
+  return text.includes('?') || QUESTION_START_RE.test(text);
+};
+
+// True when a Build-mode message only asks a question, so the caller answers
+// it instead of editing the project. The last few chat turns go along so
+// "yes, can you?" after an offer still counts as a build. Any failure falls
+// back to building, which is what Build mode did before.
+export const isQuestionOnly = async ({ prompt, chatHistory = [], signal = null }) => {
+  if (!looksLikeQuestion(prompt)) return false;
+  const recent = chatHistory
+    .filter((m) => typeof m.content === 'string' && m.content.trim())
+    .slice(-4)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 500)}`)
+    .join('\n');
+  try {
+    const message = await requestModelText({
+      messages: [
+        { role: 'system', content: BUILD_INTENT_SYSTEM_PROMPT },
+        { role: 'user', content: `${recent ? `Recent conversation:\n${recent}\n\n` : ''}Latest message: ${prompt}` }
+      ],
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal
+    });
+    return parseBuildIntent(message?.content ?? message) === 'question';
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) throw err;
+    console.warn('[Orion] Intent check failed, building as usual:', err);
+    return false;
+  }
+};
+
+// Ask answers stream as 'content'; a question routed out of Build mode streams
+// as 'reply' instead, which the Build-mode chat shows as prose rather than
+// treating it as incoming app code.
+export const asRoutedAnswerChunks = (onChunk) => onChunk && ((chunk, kind) => onChunk(chunk, kind === 'content' ? 'reply' : kind));
 
 // Streams the one-sentence conversational acknowledgement for a build/edit turn
 // as its own cheap, reasoning-free call. It runs BEFORE the heavy
@@ -641,14 +684,22 @@ const generateAppCodeCore = async (
     : isGame
       ? (p) => buildGameInitialGenerationPrompt(p, projectName, engineDirective)
       : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
-  if (isAskMode) {
+  // A question typed in Build mode is answered like Ask mode, without touching
+  // the project.
+  let routedFromBuild = false;
+  if (!isAskMode && !isAutoFix) {
+    routedFromBuild = await isQuestionOnly({ prompt, chatHistory, signal });
+  }
+  if (isAskMode || routedFromBuild) {
+    if (routedFromBuild && onChunk) onChunk('Answering your question…', 'status');
     const messages = [
       {
         role: 'system',
-        content: (currentCode
-          ? 'You are a helpful coding assistant. The user is asking a question about their current app code. Answer the question directly and concisely. Do NOT generate or output the full HTML code. Provide a plain-text or markdown answer.'
-          : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.'
-        )
+        content: routedFromBuild
+          ? `You are a helpful assistant inside a no-code ${noun} builder. The user asked a question in Build mode, so answer it directly and concisely in plain, friendly language. Do NOT generate or output any HTML/${noun} code. If the answer points to a change they might want, end by offering to make it: they can just say yes.`
+          : currentCode
+            ? 'You are a helpful coding assistant. The user is asking a question about their current app code. Answer the question directly and concisely. Do NOT generate or output the full HTML code. Provide a plain-text or markdown answer.'
+            : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.'
       },
       ...chatHistory,
       {
@@ -659,7 +710,13 @@ const generateAppCodeCore = async (
         )
       }
     ];
-    const message = await requestModelText({ messages, onChunk, signal, reasoningEffort: CHAT_REASONING_EFFORT, askMode: true });
+    const message = await requestModelText({
+      messages,
+      onChunk: routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk,
+      signal,
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      askMode: true
+    });
     const rawText = (message.content || message).trim();
     return {
       code: currentCode || '',
@@ -1024,13 +1081,45 @@ const generateAppCodeCore = async (
   throw new Error(`Failed to apply updates after ${MAX_REFINEMENT_TURNS} turns.`);
 };
 
+// A compact, line-based summary of what changed between two file maps, so the
+// closing message can describe the work actually done rather than restating
+// the request. Each changed file shows only the lines between its unchanged
+// start and end; everything is capped so the call stays cheap.
+export const describeFileChanges = (before = {}, after = {}, budget = 6000) => {
+  const parts = [];
+  const clip = (text, max) => (text.length > max ? `${text.slice(0, max)}\n…` : text);
+  for (const path of Object.keys(after)) {
+    const next = after[path];
+    const prev = before[path];
+    if (prev === next) continue;
+    if (prev === undefined) {
+      parts.push(`New file ${path}:\n${clip(next, 2500)}`);
+      continue;
+    }
+    const a = prev.split('\n');
+    const b = next.split('\n');
+    let start = 0;
+    while (start < a.length && start < b.length && a[start] === b[start]) start++;
+    let endA = a.length - 1;
+    let endB = b.length - 1;
+    while (endA >= start && endB >= start && a[endA] === b[endB]) { endA--; endB--; }
+    const removed = a.slice(start, endA + 1).join('\n');
+    const added = b.slice(start, endB + 1).join('\n');
+    parts.push(`Changed ${path}:\n${removed ? `Removed:\n${clip(removed, 1200)}\n` : ''}${added ? `Added:\n${clip(added, 1800)}` : ''}`);
+  }
+  for (const path of Object.keys(before)) {
+    if (!(path in after)) parts.push(`Deleted file ${path}`);
+  }
+  return clip(parts.join('\n\n'), budget);
+};
+
 // Closing chat message for every finished build/edit. The pre-build
 // acknowledgement (generateChatReply) only says what is ABOUT to happen and is
 // a separate, non-fatal call, so on its own the chat goes quiet once the work
 // completes. This asks for a short past-tense summary of the finished work; if
 // that call fails too, a fixed line is used so the turn always ends with a
 // message.
-export const generateCompletionReply = async ({ prompt, editMode, studioMode, signal }) => {
+export const generateCompletionReply = async ({ prompt, editMode, studioMode, signal, changes = '' }) => {
   const noun = studioNoun(studioMode);
   const verb = editMode === 'full-generation' ? 'built' : 'updated';
   const fallback = `Done — I've ${verb} your ${noun}.`;
@@ -1039,9 +1128,9 @@ export const generateCompletionReply = async ({ prompt, editMode, studioMode, si
       messages: [
         {
           role: 'system',
-          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Reply with ONE short, friendly sentence (roughly 20 words or fewer) in the past tense saying generally what changed for the user. Do not include file paths, line numbers, error messages, or implementation details. Plain text only: no markdown, no code, no quotation marks, and no questions.`
+          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Explain to the user what you did, in the past tense and the first person, in one to three short, friendly sentences (roughly 60 words or fewer). Base it on the changes listed: name the specific things you added, changed or removed as the user would see them on screen (a new button, a darker header, a score counter), not how the code does it. The user is not a developer, so never mention file names, code, tags, functions, CSS or line numbers. Plain text only: no markdown, no lists, no quotation marks, and no questions.`
         },
-        { role: 'user', content: `Request: ${prompt}` }
+        { role: 'user', content: changes ? `Request: ${prompt}\n\nChanges made:\n${changes}` : `Request: ${prompt}` }
       ],
       reasoningEffort: CHAT_REASONING_EFFORT,
       signal
@@ -1058,17 +1147,19 @@ export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
 
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
-  const [prompt, , , onChunk, , signal, , , , isAutoFix, , studioMode] = args;
+  const [prompt, currentCode, , onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {
     if (onChunk) onChunk('Writing a summary of the changes…', 'status');
+    const before = currentFiles && Object.keys(currentFiles).length ? currentFiles : currentCode ? makeFiles(currentCode) : {};
     const completion = await generateCompletionReply({
       prompt,
       editMode: result.editMode,
       studioMode,
-      signal
+      signal,
+      changes: describeFileChanges(before, result.files || makeFiles(result.code))
     });
     const separator = result.reply ? '\n\n' : '';
     // Surface it in the live transcript right away, then persist it with the
@@ -1098,9 +1189,24 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
   });
   const { files: reviewedFiles, ...qualityReview } = review;
   const checked = browser ? 'reviewed and tested' : 'reviewed';
+  // When the review changed something, say what, from the problems it named
+  // and the edits it made; otherwise a fixed line is enough.
+  let fixedSummary = `I ${checked} the ${studioNoun(studioMode)} and fixed ${review.acceptable ? 'the problems I found' : 'what I could'}.`;
+  if (review.improved) {
+    if (onChunk) onChunk('Writing a summary of the fixes…', 'status');
+    const problems = (review.fixedFindings || []).slice(0, 6).map((item) => `- ${item}`).join('\n');
+    const summary = await generateCompletionReply({
+      prompt: `Check the ${studioNoun(studioMode)} for problems and fix them.`,
+      editMode: 'surgical',
+      studioMode,
+      signal,
+      changes: `${problems ? `Problems found:\n${problems}\n\n` : ''}${describeFileChanges(files, reviewedFiles)}`
+    });
+    fixedSummary = `I ${checked} the ${studioNoun(studioMode)}. ${summary}`;
+  }
   const reply = review.acceptable
-    ? (review.improved ? `I ${checked} the ${studioNoun(studioMode)} and fixed the problems I found.` : `I ${checked} the ${studioNoun(studioMode)} and found no problems.`)
-    : `${review.improved ? `I ${checked} the ${studioNoun(studioMode)} and fixed what I could.` : `I ${checked} the ${studioNoun(studioMode)}.`}\n\nReview note: ${review.warning}`;
+    ? (review.improved ? fixedSummary : `I ${checked} the ${studioNoun(studioMode)} and found no problems.`)
+    : `${review.improved ? fixedSummary : `I ${checked} the ${studioNoun(studioMode)}.`}\n\nReview note: ${review.warning}`;
   const syntaxErrors = checkSyntaxFiles(reviewedFiles).errors;
   return { files: reviewedFiles, qualityReview, reply, ...(syntaxErrors.length ? { syntaxErrors } : {}) };
 };

@@ -1,0 +1,18 @@
+{
+  // Used only by `npm run check` (scripts/typecheck.js). Not named tsconfig.json
+  // so editors and Vite don't pick it up and flag every file.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["vite/client", "node"],
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "electron/**/*", "server.js", "vite.config.js"],
+  "exclude": ["src/**/*.orig"]
+}

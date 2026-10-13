@@ -74,8 +74,10 @@ export function createProviderStore({ file, crypto }) {
 
     // Partial update. An empty/missing apiKey keeps the saved key, unless the
     // provider changes: a key never carries over to a different provider.
-    async set({ enabled, id, model, apiKey, baseUrl } = {}) {
+    async set({ enabled, id, model, apiKey, baseUrl, onboardingComplete } = {}) {
       const next = { ...state };
+      // "Skip for now" in onboarding: remember it without saving a provider.
+      if (onboardingComplete === true) next.onboardingComplete = true;
       if (enabled !== undefined) next.enabled = enabled === true;
       if (id !== undefined) {
         if (!PROVIDER_IDS.has(id)) throw new Error('Unknown provider.');

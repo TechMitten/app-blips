@@ -135,6 +135,21 @@ export default function PromptInput({
     if (file) onAttachFile?.(file);
   };
 
+  // Ctrl/Cmd+V of a screenshot or copied image attaches it like the paperclip.
+  // Plain text pastes fall through to the textarea untouched.
+  const handlePaste = (e) => {
+    if (!onAttachFile) return;
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.kind === 'file' && i.type.startsWith('image/'));
+    const file = item?.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    // Clipboard screenshots arrive as a generic "image.png".
+    const named = file.name && file.name !== 'image.png'
+      ? file
+      : new File([file], 'Pasted image', { type: file.type });
+    onAttachFile(named);
+  };
+
   const isWebsite = studioMode === 'website';
   const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : studioMode === 'codebase' ? 'Site' : 'App';
 
@@ -196,6 +211,7 @@ export default function PromptInput({
           value={prompt}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isClarifying
               ? "Type your answer here..."

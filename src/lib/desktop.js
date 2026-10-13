@@ -135,15 +135,26 @@ export const webProviderStore = {
     let previous = {};
     try { previous = JSON.parse(localStorage.getItem('appblips-web-provider') || '{}'); }
     catch { /* Ignore invalid saved settings. */ }
+    // "Skip for now" in onboarding: remember it without saving a provider.
+    if (info.onboardingComplete === true && info.id === undefined) {
+      localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, ...previous, onboardingComplete: true }));
+      return this.get();
+    }
     const apiKey = info.apiKey?.trim() || (previous.id === info.id ? previous.apiKey : '') || '';
     const resolved = resolveUserProvider({ ...info, apiKey });
     if (resolved.error) throw new Error(resolved.error);
-    const next = { ...info, apiKey, baseUrl: resolved.baseUrl, local: Boolean(resolved.local) };
+    const next = { ...info, apiKey, baseUrl: resolved.baseUrl, local: Boolean(resolved.local), onboardingComplete: Boolean(previous.onboardingComplete || info.enabled) };
     localStorage.setItem('appblips-web-provider', JSON.stringify(next));
     return this.get();
   },
   async clear() {
-    localStorage.removeItem('appblips-web-provider');
+    // Keep the onboarding flag, as the desktop store does, so clearing a
+    // provider doesn't replay setup.
+    let previous = {};
+    try { previous = JSON.parse(localStorage.getItem('appblips-web-provider') || '{}'); }
+    catch { /* Ignore invalid saved settings. */ }
+    if (previous.onboardingComplete) localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
+    else localStorage.removeItem('appblips-web-provider');
     return {};
   }
 };

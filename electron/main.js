@@ -236,7 +236,12 @@ function registerIpc() {
   handle('desktop:provider:models', (input) => providerStore.listModels(input));
 
   handle('desktop:update:check', () => updater.check());
-  handle('desktop:update:install', () => updater.install());
+  // A failed install leaves the app running: take back what beforeInstall gave up.
+  handle('desktop:update:install', () => updater.install().catch((err) => {
+    flushed = false;
+    app.requestSingleInstanceLock();
+    throw err;
+  }));
 
   handle('desktop:folder:get', () => projectStore.root);
   handle('desktop:folder:open', async (id) => {
@@ -409,6 +414,9 @@ app.whenReady().then(() => {
     beforeInstall: async () => {
       await projectStore.flush();
       flushed = true;
+      // The updated app is started while this one is still quitting; holding
+      // the lock would make it see a "second instance" and exit at once.
+      app.releaseSingleInstanceLock();
     },
   });
 

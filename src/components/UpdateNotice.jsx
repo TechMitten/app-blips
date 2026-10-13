@@ -17,6 +17,7 @@ import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage
 export default function UpdateNotice() {
   const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url? }
   const [installing, setInstalling] = useState(false);
+  const [installFailed, setInstallFailed] = useState(false);
 
   useEffect(() => {
     if (!loadCheckUpdates()) return undefined;
@@ -56,7 +57,11 @@ export default function UpdateNotice() {
 
   const install = () => {
     setInstalling(true);
-    desktopBridge.updates.install().catch(() => setInstalling(false));
+    setInstallFailed(false);
+    desktopBridge.updates.install().catch(() => {
+      setInstalling(false);
+      setInstallFailed(true);
+    });
   };
 
   const ready = update.kind === 'ready';
@@ -80,6 +85,11 @@ export default function UpdateNotice() {
                 ? 'Download the new installer and install it over this version. Your projects stay where they are.'
                 : 'See what changed, and how to update your copy.'}
           </p>
+          {installFailed && (
+            <p className="mt-1.5 text-xs text-red-600 leading-snug">
+              The update couldn't start. Close AppBlips to install it, or download the new installer from the releases page.
+            </p>
+          )}
           <div className="mt-2.5 flex flex-wrap gap-2">
             {ready ? (
               <>

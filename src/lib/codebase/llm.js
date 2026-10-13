@@ -2,9 +2,9 @@
 // ../llm.js (tool calls against an in-memory copy, bounded turns) but with
 // codebase tools, and after every turn that changed files it runs a real
 // build check (the preview bundler) and feeds errors back for repair.
-import { generateChatReply, generateCompletionReply, requestModelText } from '../llm.js';
+import { asRoutedAnswerChunks, describeFileChanges, generateChatReply, generateCompletionReply, isQuestionOnly, requestModelText } from '../llm.js';
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
-import { CODEBASE_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
+import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
 
 export const MAX_CODEBASE_TURNS = 20;
@@ -52,6 +52,13 @@ const forwardChunks = (onChunk) => (chunk, kind) => {
 //   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
 // Returns { files, assets, editMode, editSummary, reply, buildErrors }.
 export async function generateCodebaseEdit(options) {
+  // A question typed in Build mode gets the read-only Ask loop instead of edits.
+  const routedFromBuild = !options.isAsk && !options.isAutoFix
+    && await isQuestionOnly({ prompt: options.prompt, chatHistory: options.chatHistory, signal: options.signal });
+  if (routedFromBuild) {
+    options = { ...options, isAsk: true, routedFromBuild, onChunk: asRoutedAnswerChunks(options.onChunk) };
+    options.onChunk?.('Answering your question…', 'status');
+  }
   const diagnostics = createCodebaseDiagnostics(options.isAsk ? 'ask' : 'edit', {
     projectId: options.projectId, entry: options.meta?.entry, isAutoFix: Boolean(options.isAutoFix),
   });
@@ -76,7 +83,7 @@ export async function generateCodebaseEdit(options) {
 
 async function runCodebaseEdit({
   prompt, files, assets = {}, meta, chatHistory = [], onChunk = null, signal = null,
-  attachment = null, isAsk = false, isAutoFix = false, buildCheck, diagnostics,
+  attachment = null, isAsk = false, routedFromBuild = false, isAutoFix = false, buildCheck, diagnostics,
   // The user's reasoning setting, used for edit turns; Ask answers stay off.
   reasoningEffort = 'none',
   // Import preparation bounds reviewing before it requires an actual edit.
@@ -86,7 +93,7 @@ async function runCodebaseEdit({
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
   const messages = [
-    { role: 'system', content: isAsk ? CODEBASE_ASK_PROMPT : CODEBASE_SYSTEM_PROMPT },
+    { role: 'system', content: isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT },
     ...chatHistory,
     { role: 'user', content: userContent(`${context}\n\n## Request\n${prompt}`, attachment) },
   ];
@@ -294,7 +301,9 @@ async function runCodebaseEdit({
   let reply = [intro, completionText].filter(Boolean).join('\n\n');
   if (!isAutoFix && !completionText) {
     status('Writing a summary of the changes…');
-    const completion = await generateCompletionReply({ prompt, editMode: 'surgical', studioMode: 'codebase', signal });
+    const completion = await generateCompletionReply({
+      prompt, editMode: 'surgical', studioMode: 'codebase', signal, changes: describeFileChanges(files, state.files),
+    });
     onChunk?.(`${intro ? '\n\n' : ''}${completion}`, 'reply');
     reply = [intro, completion].filter(Boolean).join('\n\n');
   } else if (completionText) {

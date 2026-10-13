@@ -60,7 +60,20 @@ export function createUpdater({ app, send, beforeInstall }) {
     async install() {
       if (state.status !== 'ready') throw new Error('No update is ready to install.');
       await beforeInstall();
-      autoUpdater.quitAndInstall();
+      // Silent + relaunch: without isSilent our assisted (non-one-click) NSIS
+      // installer opens its full wizard and never starts the app again, so an
+      // unfinished wizard left the old version running and offering the same
+      // update forever. electron-updater reports a failed start through 'error'
+      // (synchronously) and simply doesn't quit, so surface that to the caller.
+      let failure = null;
+      const onError = (err) => { failure = err; };
+      autoUpdater.once('error', onError);
+      try {
+        autoUpdater.quitAndInstall(true, true);
+      } finally {
+        autoUpdater.off('error', onError);
+      }
+      if (failure) throw failure;
     },
   };
 }

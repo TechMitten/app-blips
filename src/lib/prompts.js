@@ -84,6 +84,17 @@ export const GAME_ENGINE_ROUTER_SYSTEM_PROMPT = `You choose the engine for a bro
 - user: the user already named an engine or library (Phaser, Three.js, Pixi, Babylon, Kaboom, p5, ...) or asked for none (plain canvas, vanilla JS, no engine). Their choice stands.
 Reply with that single word only: no punctuation, no explanation.`;
 
+// Build mode sends every message to the code writer, so a question typed there
+// would otherwise start an edit. This router sends pure questions to the Ask
+// path instead (see classifyBuildIntent in llm.js).
+export const BUILD_INTENT_SYSTEM_PROMPT = `You route messages a user types into a no-code app builder while it is in Build mode. Decide whether the latest message asks for a change to their project or only asks a question.
+- build: they want something created, added, changed, fixed or removed, even when it is phrased as a question ("can you add a dark mode?", "could you make the header blue?", "why is the button broken? fix it"), or they are answering a question the assistant just asked, or confirming an offer it made ("yes", "sure, do that").
+- question: they only want information, an explanation, advice or an opinion, and nothing in the project should change ("how does the score get saved?", "what font is this using?", "is this mobile friendly?", "what would make this look better?").
+When in doubt, choose build.
+Reply with that single word only: no punctuation, no explanation.`;
+
+export const parseBuildIntent = (text) => (/^\W*question\b/i.test(String(text || '')) ? 'question' : 'build');
+
 const GAME_ENGINE_DIRECTIVES = {
   phaser: 'ENGINE (chosen for this genre): build it on Phaser 3, loaded once from its CDN exactly as the PHASER GUIDELINES say. Do not load Three.js or Matter.js.',
   three: 'ENGINE (chosen for this genre): build it in 3D with Three.js, loaded through the import map. Do not load Phaser or Matter.js.',
