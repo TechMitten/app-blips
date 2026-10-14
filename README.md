@@ -79,7 +79,7 @@ All versions and checksums are on the **[Releases](https://github.com/TechMitten
 
 > **Windows 11 note:** Windows 11's Smart App Control can block the installer, because AppBlips isn't code-signed yet. If you see "Smart App Control blocked an app that may be unsafe," see [how to install anyway](https://docs.appblips.com/reference/troubleshooting#windows-installer-is-blocked). The Linux builds aren't affected.
 
-The first time you open it, AppBlips asks for an OpenRouter API key and lets you choose from a curated set of coding models. Get a key from [OpenRouter](https://openrouter.ai/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
+The first time you open it, AppBlips asks you to choose an AI provider (Anthropic by default; OpenAI, Gemini, DeepSeek, OpenRouter, or LM Studio/Ollama on your own computer), paste its API key and pick a model. Get an Anthropic key from the [Claude Console](https://platform.claude.com/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
 
 The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 

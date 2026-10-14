@@ -162,7 +162,8 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 };
 
 // User-selected providers are separate from the server-owned environment provider.
-export const USER_PROVIDER_IDS = ['openrouter', 'anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama'];
+// The first entry is the default in onboarding and Settings.
+export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama', 'openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,

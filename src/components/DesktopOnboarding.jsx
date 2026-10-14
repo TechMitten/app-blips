@@ -194,7 +194,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
             <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
               Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
             </h1>
-            <p>Connect through OpenRouter, Anthropic, OpenAI, Gemini, or DeepSeek, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
+            <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
             <div className={`onboarding-your-turn ${attempted && missing ? 'is-invalid' : ''}`} aria-live="polite">
               <span className="onboarding-your-turn-icon">{missing ? <Zap size={24} /> : <Check size={24} />}</span>
               <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || 'Click Start building to begin.'}</span>
