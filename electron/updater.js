@@ -38,7 +38,7 @@ export function createUpdater({ app, send, beforeInstall }) {
     autoUpdater.on('update-downloaded', (info) => report({ status: 'ready', version: info.version }));
     // A failed check or download is retried at the next check; nothing to show.
     autoUpdater.on('error', (err) => {
-      console.warn('[updater]', err?.message || err);
+      console.warn('[updater]', err);
       if (state.status === 'downloading') state = { status: 'idle' };
     });
   }
@@ -52,7 +52,7 @@ export function createUpdater({ app, send, beforeInstall }) {
       const busy = state.status === 'downloading' || state.status === 'ready';
       if (!busy && Date.now() - lastCheck > RECHECK_MS) {
         lastCheck = Date.now();
-        autoUpdater.checkForUpdates().catch((err) => console.warn('[updater] check failed:', err?.message || err));
+        autoUpdater.checkForUpdates().catch((err) => console.warn('[updater] check failed:', err));
       }
       return { ...result, state };
     },

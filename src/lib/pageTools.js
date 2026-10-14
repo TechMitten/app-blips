@@ -2,6 +2,7 @@
 // llm.js (which pulls in the app's config) so it can be unit-tested with plain node.
 import { applySurgicalEdits, listSections, viewCode, invalidArgumentsError } from './edits.js';
 import { checkSyntax } from './syntaxCheck.js';
+import { logWarn } from './errorLog.js';
 import {
   LANDING_PAGE, MAX_PAGES, checkFilesLimits, findBrokenLinks, pageNames, pageTitle, validatePageName,
 } from './pages.js';
@@ -17,6 +18,7 @@ export const executeFilesTool = (files, toolCall) => {
   try {
     args = JSON.parse(toolCall.function?.arguments || '{}');
   } catch (e) {
+    logWarn(`${name || 'Tool'} arguments were not valid JSON, reported back to the model. Model sent: ${String(toolCall.function?.arguments ?? '').slice(0, 300)}`, e);
     return { files, applied: false, result: { success: false, error: invalidArgumentsError(e) } };
   }
   const fail = (error) => ({ files, applied: false, result: { success: false, error } });

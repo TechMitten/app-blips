@@ -221,8 +221,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             </div>
           </div>
 
-          <footer className="studio-footer relative shrink-0 overflow-x-auto">
-            <nav aria-label="Footer links" className="mx-auto flex w-max min-w-full items-center justify-center gap-4 whitespace-nowrap px-4 py-4 sm:gap-6 sm:px-6 md:px-10">
+          <footer className="studio-footer relative shrink-0">
+            <nav aria-label="Footer links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap px-4 py-3 sm:gap-x-6 sm:py-4 sm:px-6 md:px-10">
               <a
                 href={GITHUB_URL}
                 target="_blank"
@@ -250,7 +250,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               >
                 Terms of Service
               </a>
-              <span className="studio-text-muted text-xs">© 2025 TechMitten LLC</span>
             </nav>
           </footer>
         </div>

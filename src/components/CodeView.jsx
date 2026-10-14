@@ -5,6 +5,7 @@ import { highlightSource } from '../lib/sourceHighlight';
 import { describeFile, mediaKind } from '../lib/codebase/fileInfo';
 import { formatBytes, utf8Length } from '../lib/codebase/paths';
 import FileExplorer, { FileIcon } from './FileExplorer';
+import { logError } from '../lib/errorLog';
 
 const EXPLORER_WIDTH_KEY = 'orion-file-explorer-width';
 const EXPLORER_OPEN_KEY = 'orion-file-explorer-open';
@@ -41,7 +42,11 @@ function MediaPreview({ path, url }) {
       if (cancelled) return;
       document.fonts.add(loaded);
       setFontFamily(family);
-    }).catch(() => { if (!cancelled) setInfo('This font could not be loaded for a preview.'); });
+    }).catch((err) => {
+      if (cancelled) return;
+      logError('Could not load a font file for a preview', err);
+      setInfo('This font could not be loaded for a preview.');
+    });
     return () => { cancelled = true; document.fonts.delete(face); };
   }, [kind, url]);
 

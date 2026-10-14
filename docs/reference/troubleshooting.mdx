@@ -149,6 +149,34 @@ Most AppBlips issues fall into a handful of categories — installation, running
   </Accordion>
 </AccordionGroup>
 
+---
+
+## Find the error details
+
+When something fails without a clear message, AppBlips writes the details to its log. Include those lines when you report a problem.
+
+<AccordionGroup>
+  <Accordion title="Desktop app">
+    1. In AppBlips, press `Ctrl+Alt+Shift+I`. The developer tools open next to the app.
+    2. Click the **Console** tab.
+    3. Try the action that failed again.
+    4. Copy the yellow and red lines that start with `[AppBlips]`.
+
+    If you started the app with `npm run desktop`, the same warnings and errors also appear in that terminal.
+  </Accordion>
+
+  <Accordion title="Browser version">
+    1. In the browser tab with AppBlips, press `F12` (on a Mac, `Cmd+Option+J`).
+    2. Click the **Console** tab.
+    3. Try the action that failed again.
+    4. Copy the yellow and red lines that start with `[AppBlips]`.
+
+    Messages from the AI connection appear where AppBlips runs instead: the terminal where you ran `npm start` or `npm run dev`, or `docker compose logs -f` for Docker. Lines starting with `[anthropic]` show what each Claude request asked for and what came back.
+  </Accordion>
+</AccordionGroup>
+
+The logs never contain your API key. They can include the first few lines of an AI reply, so check what you paste before sharing it publicly.
+
 <Note>
   For general questions about how AppBlips works, visit the [FAQ](/reference/faq).
 </Note>

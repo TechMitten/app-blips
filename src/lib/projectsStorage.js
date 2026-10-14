@@ -2,12 +2,14 @@
 // so the projects hook and the backup importer can share them. In the desktop
 // app the same rows live on disk instead (lib/desktop.js).
 import { isDesktop, readDesktopRows, writeDesktopRows } from './desktop.js';
+import { logError } from './errorLog.js';
 
 export const readProjectRows = () => {
   if (isDesktop) return readDesktopRows();
   try {
     return JSON.parse(localStorage.getItem('orion-projects') || '[]');
-  } catch {
+  } catch (err) {
+    logError('Could not read the saved projects list, showing none', err);
     return [];
   }
 };

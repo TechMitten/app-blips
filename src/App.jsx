@@ -69,6 +69,7 @@ import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase
 import { changedFiles } from './lib/codebase/fileInfo';
 import { loadEsbuild } from './lib/codebase/esbuildBrowser';
 import { blobBytes, ensureBlobs, putBlobs } from './lib/blobStore';
+import { logError, logWarn } from './lib/errorLog';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -109,14 +110,20 @@ export default function App({ coldStart = false }) {
     providerApi.get().then((info) => {
       const ready = info.envConfigured || (info.enabled && info.id && info.model && (info.local || info.hasKey));
       if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
-    }).catch(() => { if (!cancelled) setDesktopOnboarding(null); });
+    }).catch((err) => {
+      logWarn('Could not read the AI settings; skipping first-run setup', err);
+      if (!cancelled) setDesktopOnboarding(null);
+    });
     return () => { cancelled = true; };
   }, []);
   // Settings → "Replay onboarding". Closes Settings and shows the intro again
   // with an exit, leaving the saved provider untouched unless a new one is saved.
   const handleRestartOnboarding = async () => {
     let info = null;
-    try { info = await providerApi.get(); } catch { /* show onboarding without prefill */ }
+    try { info = await providerApi.get(); } catch (err) {
+      // Show onboarding without prefill.
+      logWarn('Could not read the AI settings to prefill setup', err);
+    }
     setIsSettingsOpen(false);
     setSettingsInitialTab(null);
     setDesktopOnboarding({ loading: false, info, replay: true });
@@ -448,7 +455,7 @@ export default function App({ coldStart = false }) {
 
     const errorList = Array.isArray(errors) ? errors : (errors?.errors || []);
     if (syntaxErrorRetriesRef.current >= 2) {
-      console.warn('Syntax error auto-fix limit reached.');
+      logWarn('Syntax error auto-fix limit reached');
       giveUpAutoFix();
       return;
     }
@@ -563,7 +570,7 @@ export default function App({ coldStart = false }) {
     }
 
     if (runtimeErrorRetriesRef.current >= 2) {
-      console.warn('Runtime error auto-fix limit reached.');
+      logWarn('Runtime error auto-fix limit reached');
       giveUpAutoFix();
       return;
     }
@@ -970,6 +977,7 @@ export default function App({ coldStart = false }) {
       const compressed = await compressImageDataUrl(dataUrl);
       setAttachment({ dataUrl: compressed, name: 'Preview screenshot', source: 'screenshot' });
     } catch (err) {
+      logError('Could not capture the preview screenshot', err);
       setAttachmentError(err?.message || 'Failed to capture the preview screenshot.');
     } finally {
       setIsCapturingScreenshot(false);
@@ -997,6 +1005,7 @@ export default function App({ coldStart = false }) {
       const compressed = await compressImageDataUrl(dataUrl);
       setAttachment({ dataUrl: compressed, name: file.name, source: 'upload' });
     } catch (err) {
+      logError(`Could not attach image ${file.name} (${file.size} bytes)`, err);
       setAttachmentError(err?.message || 'Failed to attach the image.');
     }
   }, []);
@@ -1398,14 +1407,14 @@ export default function App({ coldStart = false }) {
               liveCodePageRef.current = merged;
               setLiveCodePage(merged);
             }
-          } catch { /* malformed marker: ignore */ }
+          } catch (err) { logWarn('Ignored a malformed live page marker', err); }
           return;
         }
         if (kind === 'live_page_done') {
           try {
             const done = JSON.parse(chunk);
             if (done?.page && typeof done.html === 'string') setBuiltPages((prev) => ({ ...prev, [done.page]: done.html }));
-          } catch { /* malformed marker: ignore */ }
+          } catch (err) { logWarn('Ignored a malformed page-done marker', err); }
           return;
         }
         if (kind === 'page_stream_reset') {
@@ -1589,6 +1598,7 @@ export default function App({ coldStart = false }) {
         clearPendingJob();
         return;
       }
+      logError(isAutoFix ? 'Auto-fix failed' : 'Generation failed', err);
       setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
       if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
       // Clear the pending job on a hard error — user can see the error message
@@ -1692,7 +1702,10 @@ export default function App({ coldStart = false }) {
       if (automatic && review.syntaxErrors?.length) setError(AUTO_FIX_FAILURE);
     } catch (err) {
       // A cancelled review leaves the offer in place so it can be run again.
-      if (err.name !== 'AbortError') setError(err.message);
+      if (err.name !== 'AbortError') {
+        logError('Code review failed', err);
+        setError(err.message);
+      }
     } finally {
       const reviewSession = browserReviewRef.current;
       if (reviewSession) {
@@ -1915,6 +1928,7 @@ export default function App({ coldStart = false }) {
       if (missing.length) notes.push(`${missing.length} image or font file(s) could not be found and were left out: ${missing.slice(0, 5).join(', ')}`);
       setExportNotice(notes.length ? notes.join('\n\n') : null);
     } catch (err) {
+      logError('Codebase export failed', err);
       setError(`Export failed: ${err?.message || err}`);
     }
   };
@@ -2087,7 +2101,7 @@ export default function App({ coldStart = false }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy code:', err);
+      logWarn('Could not copy the code to the clipboard', err);
     }
   };
 
@@ -2215,7 +2229,7 @@ export default function App({ coldStart = false }) {
       try {
         await desktopBridge.provider.clear();
       } catch (err) {
-        console.error('Failed to clear desktop provider:', err);
+        logError('Could not clear the desktop AI provider during reset', err);
       }
     }
     localStorage.clear();

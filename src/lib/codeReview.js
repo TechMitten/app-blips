@@ -2,6 +2,7 @@ import { getRefinementTools, buildHtmlSystemPrompt } from './prompts.js';
 import { executeFilesTool, checkSyntaxFiles } from './pageTools.js';
 import { findBrokenLinks, formatFilesForPrompt } from './pages.js';
 import { BROWSER_ACTION_TOOL, BROWSER_TOOL_WITHOUT_SCREENSHOTS, BROWSER_REVIEW_INSTRUCTION } from './browserTools.js';
+import { logError, logWarn } from './errorLog.js';
 
 // A review runs until nothing is left to fix or it starts looping. Fixed turn
 // and edit-round caps cut off reviews that were still fixing real problems,
@@ -143,6 +144,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
         message = await request();
       } catch (error) {
         if (error?.name === 'AbortError' || signal?.aborted || !dropScreenshots(messages, false)) throw error;
+        logWarn('Review request with screenshots failed, retrying without them', error);
         screenshotsAllowed = false;
         messages.push({ role: 'user', content: 'The model could not accept the screenshot, so screenshots are off for this review. Use inspect and layoutIssues to check the layout instead.' });
         message = await request();
@@ -161,7 +163,8 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
             if (typeof parsed.acceptable !== 'boolean' || !Array.isArray(parsed.findings) || !parsed.findings.every((item) => typeof item === 'string')) throw new Error('Invalid review verdict');
             verdict = parsed;
             result = { success: true };
-          } catch {
+          } catch (error) {
+            logWarn(`Review verdict was malformed, asked the model again. Model sent: ${String(call.function.arguments ?? '').slice(0, 300)}`, error);
             result = { success: false, error: 'Provide acceptable as a boolean and findings as an array of strings.' };
           }
         } else if (finalTurn) {
@@ -184,6 +187,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
             browserTests.push({ action: args.action, target: args.target || null, errors: browserErrors.slice(0, 3).map((error) => String(error).slice(0, 300)) });
           } catch (error) {
             if (error?.name === 'AbortError' || signal?.aborted) throw error;
+            if (!hasEdits) logWarn(`Browser test action failed, reported back to the model. Arguments: ${String(call.function.arguments ?? '').slice(0, 300)}`, error);
             result = { success: false, error: error.message };
           }
         } else {
@@ -280,6 +284,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
     return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: `Code review stopped because ${loopReason}.${detail}` };
   } catch (error) {
     if (error?.name === 'AbortError' || signal?.aborted) throw error;
+    logError(browser ? 'Browser testing could not finish' : 'Code review could not finish', error);
     return { files: workingFiles, acceptable: false, improved, findings, ...(browser ? { browserTests } : {}), warning: browser ? 'Browser testing could not finish. The result still needs review.' : 'Code review could not finish. The result still needs review.' };
   }
 }

@@ -22,7 +22,12 @@ import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
 // settings as real environment variables instead; those win over the file.
-try { process.loadEnvFile(); } catch { /* no .env: environment only */ }
+try {
+  process.loadEnvFile();
+} catch (err) {
+  // No .env is normal: environment only.
+  if (err.code !== 'ENOENT') console.warn('[server] could not read .env:', err);
+}
 
 const DIST_DIR = fileURLToPath(new URL('./dist', import.meta.url));
 const INDEX_FILE = join(DIST_DIR, 'index.html');

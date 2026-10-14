@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ipcErrorMessage, providerApi } from '../lib/desktop';
+import { logError } from '../lib/errorLog';
 
 const EMPTY_MODELS = [];
 
@@ -20,6 +21,7 @@ export default function useProviderModels({ id, apiKey = '', baseUrl = '', hasSa
         const models = await providerApi.listModels({ id, apiKey: apiKey.trim(), baseUrl: baseUrl.trim() });
         if (!cancelled) setResult({ requestKey, loading: false, models, error: models.length ? '' : 'No models were returned. You can enter a model ID manually.' });
       } catch (err) {
+        logError(`Could not load the model list for ${id}`, err);
         if (!cancelled) setResult({ requestKey, loading: false, models: EMPTY_MODELS, error: ipcErrorMessage(err) || 'Could not load models.' });
       }
     }, 400);

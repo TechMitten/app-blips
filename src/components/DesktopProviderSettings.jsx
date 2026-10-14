@@ -5,6 +5,7 @@ import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
+import { logError } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 // Settings → AI in the desktop app. The web build's UserProviderSettings keeps
@@ -34,7 +35,10 @@ export default function DesktopProviderSettings({ guardRef }) {
     providerApi.get().then((info) => {
       setSaved(info);
       if (info.id) setDraft({ id: info.id, model: info.model, baseUrl: info.baseUrl || '', apiKey: '' });
-    }).catch((err) => setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' }));
+    }).catch((err) => {
+      logError('Could not read the AI settings', err);
+      setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' });
+    });
   }, []);
 
   const update = (fields) => {
@@ -77,6 +81,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       setStatus({ kind: 'ok', text: 'Saved.' });
       return true;
     } catch (err) {
+      logError(`Could not save the AI provider settings (${draft.id})`, err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not save.' });
       return false;
     }
@@ -104,6 +109,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       });
       setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });
     } catch (err) {
+      logError(`AI provider test request failed (${draft.id}, ${draft.model.trim()})`, err);
       setStatus({ kind: 'error', text: err?.message || 'The test request failed.' });
     }
   };
@@ -116,6 +122,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       setShowKey(false);
       setStatus(null);
     } catch (err) {
+      logError('Could not clear the AI provider settings', err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not clear.' });
     }
   };

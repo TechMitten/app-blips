@@ -54,7 +54,12 @@ const settingsFile = () => join(app.getPath('userData'), 'settings.json');
 const defaultProjectsRoot = () => join(app.getPath('documents'), 'AppBlips', 'Projects');
 
 function readSettings() {
-  try { return JSON.parse(readFileSync(settingsFile(), 'utf8')) || {}; } catch { return {}; }
+  try {
+    return JSON.parse(readFileSync(settingsFile(), 'utf8')) || {};
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn('[main] ignoring unreadable settings file', settingsFile(), err);
+    return {};
+  }
 }
 
 async function writeSettings(patch) {
@@ -130,7 +135,8 @@ async function serveStatic(pathname) {
         'Cache-Control': filePath === indexFile ? 'no-cache' : 'public, max-age=3600',
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[main] could not read app file', filePath, err);
     return new Response('Not found — run `npm run build` first.', { status: 404, headers: SECURITY_HEADERS });
   }
 }
@@ -350,6 +356,24 @@ function createWindow() {
     event.preventDefault();
     mainWindow.webContents.toggleDevTools();
   });
+  // Renderer warnings and errors also go to the terminal, so a problem in the
+  // desktop app can be reported without opening the hidden DevTools.
+  mainWindow.webContents.on('console-message', (event) => {
+    if (event.level !== 'warning' && event.level !== 'error') return;
+    const where = event.sourceId ? ` (${event.sourceId.replace(APP_ORIGIN, '')}:${event.lineNumber})` : '';
+    // Messages from generated code in the preview frame are labelled apart.
+    const source = event.frame && event.frame !== mainWindow?.webContents.mainFrame ? 'preview' : 'renderer';
+    console[event.level === 'error' ? 'error' : 'warn'](`[${source}] ${event.message}${where}`);
+  });
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[main] The window's renderer process stopped: ${details.reason} (exit code ${details.exitCode})`);
+  });
+  mainWindow.webContents.on('preload-error', (_event, preloadPath, err) => {
+    console.error(`[main] Preload script failed (${preloadPath}):`, err);
+  });
+  mainWindow.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
+    if (isMainFrame) console.error(`[main] The app page failed to load: ${description} (${code}) ${url}`);
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.loadURL(`${APP_ORIGIN}/`);
 }
@@ -389,6 +413,10 @@ function buildMenu() {
 }
 
 // ---- Lifecycle -------------------------------------------------------------------
+// The monitor variant only observes: Electron's own crash handling still runs.
+process.on('uncaughtExceptionMonitor', (err, origin) => console.error(`[main] ${origin}:`, err));
+process.on('unhandledRejection', (reason) => console.error('[main] Unhandled promise rejection:', reason));
+
 app.on('second-instance', () => {
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();

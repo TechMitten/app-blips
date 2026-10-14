@@ -102,7 +102,12 @@ export const isForeignOrigin = (request, env) => {
 // { error: { message } }, or a plain string), capped for display.
 const upstreamErrorMessage = async (upstream) => {
   let text = '';
-  try { text = await upstream.text(); } catch { return ''; }
+  try {
+    text = await upstream.text();
+  } catch (err) {
+    console.warn('[proxy] could not read the upstream error body:', err);
+    return '';
+  }
   let message = text;
   try {
     const body = JSON.parse(text);
@@ -252,11 +257,15 @@ export async function handleChatProxy(request, env) {
       upstream = await send({ ...bodyObj, [limitField]: limit });
     }
   } catch (err) {
+    console.error(`[proxy] could not reach ${provider.id} (${model}):`, err);
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
     });
   }
+
+  // Anthropic errors are logged in anthropic.js, with the reason.
+  if (!upstream.ok && provider.id !== 'anthropic') console.warn(`[proxy] ${provider.id} (${model}) answered HTTP ${upstream.status}`);
 
   if (provider.userSupplied && (upstream.status === 401 || upstream.status === 403)) {
     upstream.body?.cancel().catch(() => {});

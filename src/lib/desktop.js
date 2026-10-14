@@ -1,5 +1,6 @@
 import { listProviderModels } from '../../electron/server/providerModels.js';
 import { resolveUserProvider } from '../../electron/server/providers.js';
+import { logError, logWarn } from './errorLog.js';
 
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
 // exposes window.appblipsDesktop and project data lives on disk instead of in
@@ -45,7 +46,7 @@ export const ipcErrorMessage = (err) => String(err?.message || err || '')
   .replace(/\.$/, '');
 
 const report = (what) => (err) => {
-  console.error(`[desktop] ${what} failed:`, err);
+  logError(`${what} failed`, err);
   lastError = `${what} failed: ${ipcErrorMessage(err)}`;
   errorListeners.forEach((listener) => listener(lastError));
 };
@@ -129,7 +130,11 @@ export const webProviderStore = {
       const { apiKey, ...info } = JSON.parse(localStorage.getItem('appblips-web-provider') || '{"enabled":false}');
       return { ...info, hasKey: Boolean(apiKey) };
     }
-    catch { return { enabled: false }; }
+    catch (err) {
+      // Not the error itself: a JSON SyntaxError's message can quote the saved key.
+      if (err?.name === 'SyntaxError') logWarn('Saved AI provider settings are not valid JSON, treating them as not set');
+      return { enabled: false };
+    }
   },
   async set(info) {
     let previous = {};

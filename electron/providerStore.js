@@ -32,7 +32,10 @@ export function createProviderStore({ file, crypto }) {
       // Clear, so upgrading or clearing settings never replays first run.
       onboardingComplete: saved.onboardingComplete !== false,
     };
-  } catch { /* first run */ }
+  } catch (err) {
+    // JSON.parse messages quote part of the file, which holds the key.
+    if (err.code !== 'ENOENT') console.warn('[providerStore] ignoring unreadable', file, err instanceof SyntaxError ? 'not valid JSON' : err);
+  }
 
   const encrypted = () => crypto.isEncryptionAvailable();
   // Linux without a keyring falls back to a hardcoded key ('basic_text'):
@@ -46,7 +49,7 @@ export function createProviderStore({ file, crypto }) {
       if (typeof state.key.cipher === 'string') return crypto.decryptString(Buffer.from(state.key.cipher, 'base64'));
       if (typeof state.key.plain === 'string') return state.key.plain;
     } catch (err) {
-      console.warn('[providerStore] could not decrypt the saved API key:', err.message);
+      console.warn('[providerStore] could not decrypt the saved API key:', err);
     }
     return '';
   };

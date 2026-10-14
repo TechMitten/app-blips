@@ -2,6 +2,7 @@ import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extra
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit } from './config';
 import { checkSyntax } from './syntaxCheck';
+import { logWarn } from './errorLog';
 import { reviewGeneratedCode } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
@@ -55,7 +56,8 @@ function parseClarifyingQuestionArgs(rawArguments) {
   let args;
   try {
     args = JSON.parse(rawArguments);
-  } catch {
+  } catch (err) {
+    logWarn(`Clarifying question arguments were not valid JSON, using a generic question. Model sent: ${String(rawArguments ?? '').slice(0, 300)}`, err);
     args = { question: "Could you clarify what you mean?" };
   }
 
@@ -123,7 +125,12 @@ export const routeGameEngine = async ({ requestText, signal = null }) => {
     reasoningEffort: CHAT_REASONING_EFFORT,
     signal
   });
-  return buildGameEngineDirective(parseGameEngineChoice(message?.content ?? message));
+  const reply = message?.content ?? message;
+  const engine = parseGameEngineChoice(reply);
+  if (!engine && !/\buser\b/i.test(String(reply || ''))) {
+    logWarn(`Engine router reply named no engine, letting the build model choose. Reply: ${String(reply || '').slice(0, 300) || '(empty)'}`);
+  }
+  return buildGameEngineDirective(engine);
 };
 
 // Only messages that read like a question pay for the intent check below;
@@ -154,10 +161,14 @@ export const isQuestionOnly = async ({ prompt, chatHistory = [], signal = null }
       reasoningEffort: CHAT_REASONING_EFFORT,
       signal
     });
-    return parseBuildIntent(message?.content ?? message) === 'question';
+    const reply = message?.content ?? message;
+    if (!/^\W*(question|build)\b/i.test(String(reply || ''))) {
+      logWarn(`Intent check reply was neither "question" nor "build", building as usual. Reply: ${String(reply || '').slice(0, 300) || '(empty)'}`);
+    }
+    return parseBuildIntent(reply) === 'question';
   } catch (err) {
     if (err?.name === 'AbortError' || signal?.aborted) throw err;
-    console.warn('[Orion] Intent check failed, building as usual:', err);
+    logWarn('Intent check failed, building as usual', err);
     return false;
   }
 };
@@ -248,6 +259,17 @@ const assistantTurn = (message) => {
 };
 
 // --- API Helper with Exponential Backoff ---
+// One console line per AI reply: why it stopped, how much text came back and
+// which tools it called. A reply with neither text nor tool calls is the usual
+// cause of a build that "does nothing", so it is a warning.
+const logModelReply = (message, finishReason) => {
+  const text = typeof message?.content === 'string' ? message.content : '';
+  const tools = (message?.tool_calls || []).map((call) => call.function?.name).filter(Boolean);
+  const line = `[AppBlips] AI reply: finish=${finishReason || '?'} text=${text.length} chars tools=[${tools.join(', ')}]`;
+  if (text.trim() || tools.length) console.info(line);
+  else console.warn(`${line} (empty reply)`);
+};
+
 export const requestModelText = async ({
   messages,
   onChunk = null,
@@ -341,6 +363,7 @@ export const requestModelText = async ({
     if (!onChunk) {
       const data = await response.json();
       const finishReason = data.choices[0].finish_reason || null;
+      logModelReply(data.choices[0].message, finishReason);
       return finishReason ? { ...data.choices[0].message, finishReason } : data.choices[0].message;
     }
 
@@ -481,11 +504,13 @@ export const requestModelText = async ({
 
     endThinking();
     if (onChunk) onChunk('', 'edit_stream_done');
+    logModelReply({ content: text, tool_calls: toolCallsBuffer.filter(Boolean) }, finishReason);
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
     if (onChunk) onChunk('', 'thinking_end');
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    logWarn(`AI request failed${willRetry ? `, retrying (${retryCount + 1}/${delays.length})` : ''}`, err);
     if (willRetry) {
       await new Promise(r => setTimeout(r, delays[retryCount]));
       return requestModelText({
@@ -579,6 +604,7 @@ export const executeRefinementTool = (workingCode, toolCall) => {
   try {
     args = JSON.parse(toolCall.function?.arguments || '{}');
   } catch (e) {
+    logWarn(`${name || 'Tool'} arguments were not valid JSON, reported back to the model. Model sent: ${String(toolCall.function?.arguments ?? '').slice(0, 300)}`, e);
     return { code: workingCode, applied: false, result: { success: false, error: invalidArgumentsError(e) } };
   }
 
@@ -646,7 +672,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
       if (onChunk) onChunk(JSON.stringify({ page: pageName, html: result[pageName] }), 'live_page_done');
     } catch (err) {
       if (err?.name === 'AbortError' || signal?.aborted) throw err;
-      console.warn(`[Orion] Could not create ${pageName}:`, err);
+      logWarn(`Could not create ${pageName}`, err);
     }
   }
   return result;
@@ -747,7 +773,7 @@ const generateAppCodeCore = async (
       }
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
-      console.warn('[Orion] Clarification check failed, proceeding with generation:', err);
+      logWarn('Clarification check failed, proceeding with generation', err);
     }
   }
 
@@ -761,7 +787,7 @@ const generateAppCodeCore = async (
       introReply = await generateChatReply({ prompt, currentCode, onChunk, signal, studioMode });
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
-      console.warn('[Orion] Intro reply failed, continuing with generation:', err);
+      logWarn('Intro reply failed, continuing with generation', err);
       introReply = '';
     }
   }
@@ -780,7 +806,7 @@ const generateAppCodeCore = async (
       });
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
-      console.warn('[Orion] Engine routing failed, letting the model choose:', err);
+      logWarn('Engine routing failed, letting the model choose', err);
     }
   }
 
@@ -835,6 +861,7 @@ const generateAppCodeCore = async (
     }
 
     if (code === null) {
+      logWarn(`No ${noun} code found in the reply. It started with: ${String(rawText || '').slice(0, 300) || '(empty)'}`);
       throw new Error(`The model did not return any ${noun} code. Please try again.`);
     }
 
@@ -1012,7 +1039,10 @@ const generateAppCodeCore = async (
           ...syntaxResultFields()
         };
       }
-      if (nudged) throw new Error('Model did not use any tool to make the requested edit.');
+      if (nudged) {
+        logWarn(`The model answered without calling an edit tool twice. Its text: ${replyParts.join(' ').slice(0, 300) || '(empty)'}`);
+        throw new Error('Model did not use any tool to make the requested edit.');
+      }
       nudged = true;
       messages.push({ role: 'user', content: 'You must call a tool (apply_surgical_edits, view_code, or list_sections) to make progress on the task.' });
       continue;
@@ -1139,6 +1169,7 @@ export const generateCompletionReply = async ({ prompt, editMode, studioMode, si
     return text || fallback;
   } catch (err) {
     if (err?.name === 'AbortError' || signal?.aborted) throw err;
+    logWarn('Completion reply failed, using the default summary', err);
     return fallback;
   }
 };

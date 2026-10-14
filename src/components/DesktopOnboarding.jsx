@@ -4,6 +4,7 @@ import {
   KeyRound, Laptop, Loader2, Sparkles, X, Zap,
 } from 'lucide-react';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
+import { logError, logWarn } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
@@ -148,6 +149,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
       setStatus({ kind: 'ok', text: 'You’re ready.' });
       window.setTimeout(onComplete, 350);
     } catch (error) {
+      logError(`Could not save the AI setup (${provider.id})`, error);
       setStatus({ kind: 'error', text: ipcErrorMessage(error) || 'Could not save your AI setup.' });
     }
   };
@@ -156,8 +158,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
     if (busy) return;
     try {
       await providerApi.set({ onboardingComplete: true });
-    } catch {
+    } catch (err) {
       // Not remembering the skip only means setup shows again next launch.
+      logWarn('Could not remember that AI setup was skipped', err);
     }
     onComplete();
   };

@@ -7,6 +7,7 @@
 
 import { safeStorage } from './config.js';
 import { isDesktop, createAppDataStorage } from './desktop.js';
+import { logError, logWarn } from './errorLog.js';
 
 const STORAGE_PREFIX = 'orion-preview-storage:';
 const MAX_STORAGE_BYTES = 2 * 1024 * 1024; // 2MB quota per project
@@ -33,7 +34,10 @@ export const loadPreviewStorage = (projectId) => {
     const raw = store.getItem(getPreviewStorageKey(projectId));
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      logWarn(`Saved app data for project ${projectId || 'draft'} is not an object, ignoring it`);
+      return {};
+    }
 
     const clean = Object.create(null);
     for (const [k, v] of Object.entries(parsed)) {
@@ -43,7 +47,7 @@ export const loadPreviewStorage = (projectId) => {
     }
     return clean;
   } catch (err) {
-    console.warn('[previewStorage] Failed to load storage for', projectId, err);
+    logWarn(`Could not load saved app data for project ${projectId || 'draft'}`, err);
     return {};
   }
 };
@@ -70,14 +74,14 @@ export const savePreviewStorage = (projectId, storeMap) => {
 
     const serialized = JSON.stringify(clean);
     if (serialized.length > MAX_STORAGE_BYTES) {
-      console.warn('[previewStorage] Quota exceeded (max 2MB), ignoring save for', projectId);
+      logError(`App data for project ${projectId || 'draft'} is over the 2MB limit (${serialized.length} chars), not saved`);
       return false;
     }
 
     store.setItem(getPreviewStorageKey(projectId), serialized);
     return true;
   } catch (err) {
-    console.warn('[previewStorage] Failed to save storage for', projectId, err);
+    logError(`Could not save app data for project ${projectId || 'draft'}`, err);
     return false;
   }
 };
@@ -91,7 +95,7 @@ export const clearPreviewStorage = (projectId) => {
     const store = previewStore();
     store?.removeItem(getPreviewStorageKey(projectId));
   } catch (err) {
-    console.warn('[previewStorage] Failed to clear storage for', projectId, err);
+    logWarn(`Could not clear app data for project ${projectId || 'draft'}`, err);
   }
 };
 
@@ -110,7 +114,7 @@ export const clearAllPreviewStorage = () => {
     }
     keys.forEach((key) => store.removeItem(key));
   } catch (err) {
-    console.warn('[previewStorage] Failed to clear all storage:', err);
+    logWarn('Could not clear the app data of every project', err);
   }
 };
 
@@ -135,7 +139,7 @@ export const migratePreviewStorage = (fromProjectId, toProjectId) => {
       store.removeItem(fromKey);
     }
   } catch (err) {
-    console.warn('[previewStorage] Migration failed:', err);
+    logWarn(`Could not move app data from project ${fromProjectId || 'draft'} to ${toProjectId || 'draft'}`, err);
   }
 };
 

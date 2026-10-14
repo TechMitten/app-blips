@@ -83,8 +83,8 @@ export function parseBackup(text) {
   let parsed;
   try {
     parsed = JSON.parse(text);
-  } catch {
-    throw new Error('That file is not valid JSON.');
+  } catch (err) {
+    throw new Error('That file is not valid JSON.', { cause: err });
   }
   if (!isPlainObject(parsed) || parsed.format !== BACKUP_FORMAT) {
     throw new Error('That file is not an AppBlips backup.');

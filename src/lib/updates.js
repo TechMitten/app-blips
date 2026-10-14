@@ -8,6 +8,8 @@
 // unauthenticated API allows 60 requests an hour per IP. No React, so
 // testing/testUpdates.js can load it in node.
 
+import { logWarn } from './errorLog.js';
+
 export const UPDATE_REPO = 'TechMitten/app-blips';
 export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
 // Only the browser version (from source or Docker) links here; the desktop
@@ -82,7 +84,8 @@ export async function checkForUpdate({
   } else {
     try {
       release = await fetchLatestRelease(fetchImpl);
-    } catch {
+    } catch (err) {
+      logWarn('Update check failed', err);
       return null;
     }
     try { storage?.setItem(CHECK_CACHE_KEY, JSON.stringify({ checkedAt: now, release })); } catch { /* storage unavailable */ }

@@ -9,6 +9,7 @@ import { LANDING_PAGE, versionFiles } from '../lib/pages';
 import { normalizeStudioMode } from '../lib/constants';
 import { packVersions, referencedTextHashes, unpackVersions } from '../lib/codebase/versions';
 import { blobText, ensureBlobs, putBlobs } from '../lib/blobStore';
+import { logError, logWarn } from '../lib/errorLog';
 
 // Imported codebases save versions as file-hash trees with the text in the
 // blob store (lib/codebase/versions.js). Loading one fills the blob cache
@@ -18,7 +19,7 @@ async function hydrateVersions(projectId, data) {
   if (data?.studioMode !== 'codebase') return data?.versions || [];
   await ensureBlobs(projectId, referencedTextHashes(data.versions));
   const { versions, missing } = unpackVersions(data.versions, blobText);
-  if (missing.length) console.warn(`[projects] ${missing.length} file(s) of project ${projectId} are missing from its blobs folder`);
+  if (missing.length) logWarn(`${missing.length} file(s) of project ${projectId} are missing from its blobs folder`);
   return versions;
 }
 
@@ -91,7 +92,7 @@ export default function useProjects({ workspace }) {
       setHasSentFirstPrompt(Boolean(projectData.versions?.length));
       rememberProjectId(projectId);
     } catch (err) {
-      console.error("Error loading project by ID:", err);
+      logError(`Could not load project ${projectId}`, err);
     }
   }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
@@ -159,7 +160,7 @@ export default function useProjects({ workspace }) {
       }
       loadUserProjects();
     } catch (err) {
-      console.error("Error saving project:", err);
+      logError(`Could not save project ${projectId}`, err);
     }
   }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, codebaseMeta, chatContextStartIndex, currentChatSessionId, loadUserProjects, setCurrentProjectId]);
 
@@ -220,7 +221,7 @@ export default function useProjects({ workspace }) {
     try {
       hydrated = await hydrateVersions(project.id, project);
     } catch (err) {
-      console.error('Error loading project files:', err);
+      logError(`Could not load the files of project ${project.id}`, err);
       return;
     }
     clearStreamingState();
@@ -268,7 +269,7 @@ export default function useProjects({ workspace }) {
       loadUserProjects();
       return true;
     } catch (err) {
-      console.error('Error renaming project:', err);
+      logError(`Could not rename project ${project.id}`, err);
       return false;
     }
   };
@@ -283,7 +284,7 @@ export default function useProjects({ workspace }) {
       loadUserProjects();
       return true;
     } catch (err) {
-      console.error('Error deleting project:', err);
+      logError(`Could not delete project ${project.id}`, err);
       return false;
     }
   };
@@ -300,14 +301,14 @@ export default function useProjects({ workspace }) {
           clearPreviewStorage(project.id);
         } catch (err) {
           allOk = false;
-          console.error('Error deleting project:', project.id, err);
+          logError(`Could not clear preview storage of project ${project.id}`, err);
         }
       }
       writeProjectRows([]);
       await loadUserProjects();
       return allOk;
     } catch (err) {
-      console.error('Error deleting all projects:', err);
+      logError('Could not delete all projects', err);
       return false;
     }
   };

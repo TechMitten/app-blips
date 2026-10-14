@@ -146,8 +146,8 @@ export const rasterizeDomSnapshot = async ({
 
   try {
     return canvas.toDataURL('image/png');
-  } catch {
-    throw new Error("Couldn't capture the screenshot — this app references external content that blocks capture. Try the paperclip upload instead.");
+  } catch (err) {
+    throw new Error("Couldn't capture the screenshot — this app references external content that blocks capture. Try the paperclip upload instead.", { cause: err });
   }
 };
 

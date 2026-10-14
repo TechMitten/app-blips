@@ -6,6 +6,8 @@
 // key survives, and on the next load the app can detect the interrupted build
 // and offer to retry it.
 
+import { logWarn } from './errorLog.js';
+
 const PENDING_JOB_KEY = 'orion-pending-job';
 
 /**
@@ -51,9 +53,13 @@ export const loadPendingJob = () => {
     if (!raw) return null;
     const job = JSON.parse(raw);
     // Basic shape guard
-    if (!job || typeof job.prompt !== 'string') return null;
+    if (!job || typeof job.prompt !== 'string') {
+      logWarn('Saved interrupted-build record has no prompt, ignoring it');
+      return null;
+    }
     return job;
-  } catch {
+  } catch (err) {
+    logWarn('Could not read the saved interrupted-build record, ignoring it', err);
     return null;
   }
 };

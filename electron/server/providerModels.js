@@ -16,6 +16,7 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
     try {
       return (await listAnthropicModels(provider.apiKey, provider.baseUrl, { fetchImpl })).sort((a, b) => a.label.localeCompare(b.label));
     } catch (err) {
+      console.warn('[providers] could not load Anthropic models:', err);
       if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) throw new Error('Anthropic rejected the API key. Check your key and its permissions.');
       if (err instanceof Anthropic.APIError && err.status) throw new Error(`Anthropic could not load models (HTTP ${err.status}).`);
       throw new Error('Could not reach Anthropic to load models.');
@@ -31,7 +32,8 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
       // Keep credentials on the validated endpoint, including local servers.
       redirect: 'error',
     });
-  } catch {
+  } catch (err) {
+    console.warn(`[providers] could not reach ${provider.id} to load models:`, err);
     throw new Error(`Could not reach ${providerLabel(provider.id)} to load models.`);
   }
   if (!response.ok) {
@@ -40,7 +42,10 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
   }
   let data;
   try { data = await response.json(); }
-  catch { throw new Error('The provider returned an invalid model list.'); }
+  catch (err) {
+    console.warn(`[providers] ${provider.id} returned an invalid model list:`, err);
+    throw new Error('The provider returned an invalid model list.');
+  }
   if (!Array.isArray(data?.data)) throw new Error('The provider returned an invalid model list.');
   const models = new Map();
   for (const model of data.data) {

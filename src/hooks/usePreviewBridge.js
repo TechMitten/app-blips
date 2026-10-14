@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
+import { logWarn } from '../lib/errorLog';
 
 // --- Preview bridge ---
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -229,7 +230,7 @@ export default function usePreviewBridge({
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
       }
-      else if (data.type === "error") console.warn('[preview bridge]', data.payload?.message);
+      else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
       else if (data.type === 'element-deselected' && onElementDeselectedRef.current) onElementDeselectedRef.current();

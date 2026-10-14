@@ -4,6 +4,7 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
+import { logError, logWarn } from '../lib/errorLog';
 
 // "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
@@ -30,7 +31,10 @@ export default function UpdateNotice() {
     });
     const run = async () => {
       if (isDesktop) {
-        const result = await desktopBridge.updates.check().catch(() => null);
+        const result = await desktopBridge.updates.check().catch((err) => {
+          logWarn('Desktop update check failed; checking GitHub releases instead', err);
+          return null;
+        });
         if (result?.auto) {
           fromDesktop(result.state);
           return;
@@ -58,7 +62,8 @@ export default function UpdateNotice() {
   const install = () => {
     setInstalling(true);
     setInstallFailed(false);
-    desktopBridge.updates.install().catch(() => {
+    desktopBridge.updates.install().catch((err) => {
+      logError('Could not install the downloaded update', err);
       setInstalling(false);
       setInstallFailed(true);
     });

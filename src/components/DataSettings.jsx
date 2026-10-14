@@ -5,6 +5,7 @@ import { isDesktop, desktopBridge, ipcErrorMessage } from '../lib/desktop';
 import { readProjectRows, writeProjectRows } from '../lib/projectsStorage';
 import { loadPreviewStorage, savePreviewStorage } from '../lib/previewStorage';
 import { buildBackup, backupFileName, parseBackup, mergeBackup, isBackupable } from '../lib/projectBackup';
+import { logError, logWarn } from '../lib/errorLog';
 
 const RELOAD_DELAY_MS = 1200;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -19,7 +20,7 @@ export default function DataSettings() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (isDesktop) desktopBridge.folder.get().then(setFolder).catch(() => {});
+    if (isDesktop) desktopBridge.folder.get().then(setFolder).catch((err) => logWarn('Could not read the projects folder location', err));
   }, []);
 
   const reloadSoon = () => setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
@@ -64,6 +65,7 @@ export default function DataSettings() {
       setStatus({ kind: 'ok', text: `Imported ${parts.join(', ')}.${skippedNote} Reloading…` });
       reloadSoon();
     } catch (err) {
+      logError(`Could not import backup ${file.name} (${file.size} bytes)`, err);
       const full = err?.name === 'QuotaExceededError';
       setStatus({
         kind: 'error',
@@ -74,7 +76,10 @@ export default function DataSettings() {
     }
   };
 
-  const openFolder = () => desktopBridge.folder.open().catch((err) => setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not open the folder.' }));
+  const openFolder = () => desktopBridge.folder.open().catch((err) => {
+    logError('Could not open the projects folder', err);
+    setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not open the folder.' });
+  });
 
   const chooseFolder = async () => {
     try {
@@ -85,6 +90,7 @@ export default function DataSettings() {
       setStatus({ kind: 'ok', text: `Projects folder changed.${movedNote} Reloading…` });
       reloadSoon();
     } catch (err) {
+      logError('Could not change the projects folder', err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not change the folder.' });
     }
   };

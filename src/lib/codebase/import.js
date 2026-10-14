@@ -18,7 +18,7 @@ const MAX_UNZIPPED_BYTES = MAX_TEXT_BYTES + MAX_LOCKFILE_BYTES + MAX_ASSET_BYTES
 
 export class CodebaseImportError extends Error {}
 
-const fail = (message) => { throw new CodebaseImportError(message); };
+const fail = (message, cause) => { throw new CodebaseImportError(message, cause === undefined ? undefined : { cause }); };
 
 function unzipAsync(bytes, filter) {
   return new Promise((resolve, reject) => {
@@ -56,7 +56,7 @@ export function inspectProject(files, assets = {}) {
     fail('This zip has no package.json at its top level. Zip the project folder itself (the one that contains package.json, index.html and src).');
   }
   let pkg;
-  try { pkg = JSON.parse(files['package.json']); } catch { fail('package.json is not valid JSON.'); }
+  try { pkg = JSON.parse(files['package.json']); } catch (err) { fail('package.json is not valid JSON.', err); }
   const deps = { ...(pkg.devDependencies || {}), ...(pkg.dependencies || {}) };
   if (pkg.workspaces || ['pnpm-workspace.yaml', 'turbo.json', 'lerna.json'].some((p) => p in files)) {
     fail('This looks like a monorepo with several packages. Import just the one website folder instead.');
@@ -149,7 +149,7 @@ export async function importCodebaseZip(bytes, { sourceName = '' } = {}) {
     });
   } catch (err) {
     if (err instanceof CodebaseImportError) throw err;
-    fail('This file could not be opened as a .zip archive.');
+    fail('This file could not be opened as a .zip archive.', err);
   }
 
   const names = Object.keys(raw).map(normalizeProjectPath);

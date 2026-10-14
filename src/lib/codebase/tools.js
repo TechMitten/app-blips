@@ -5,6 +5,7 @@
 import { applySurgicalEdits, viewCode, invalidArgumentsError } from '../edits.js';
 import { checkCodebaseLimits, isLockfile, validateProjectPath } from './paths.js';
 import { isPrivateEnvPath } from './environment.js';
+import { logWarn } from '../errorLog.js';
 
 const MAX_LIST = 500;
 const MAX_SEARCH_HITS = 50;
@@ -162,6 +163,7 @@ function parseArgs(toolCall) {
     if (!args || typeof args !== 'object' || Array.isArray(args)) return { error: 'Arguments must be a JSON object.' };
     return { args };
   } catch (err) {
+    logWarn(`${toolCall.function?.name || 'Tool'} arguments were not valid JSON, reported back to the model. Model sent: ${String(toolCall.function?.arguments ?? '').slice(0, 300)}`, err);
     return { error: invalidArgumentsError(err) };
   }
 }

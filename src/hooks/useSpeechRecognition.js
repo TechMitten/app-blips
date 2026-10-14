@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { logError } from '../lib/errorLog';
 
 // Browser speech-to-text via the Web Speech API. There is no transcription
 // endpoint behind /api/chat, so this runs entirely in the browser: Chromium
@@ -80,7 +81,8 @@ export default function useSpeechRecognition({ onTranscript }) {
     try {
       recognition.start();
       setListening(true);
-    } catch {
+    } catch (err) {
+      logError('Could not start voice input', err);
       recognitionRef.current = null;
       setError('Voice input could not start. Try again.');
     }

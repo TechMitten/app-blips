@@ -84,6 +84,10 @@ const sanitizeAppData = (map) => {
 
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
 
+// What to log for a failed readJson: JSON.parse messages quote part of the
+// file, which may be the user's project code.
+const readError = (err) => (err instanceof SyntaxError ? 'not valid JSON' : err);
+
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 const isCodebaseRow = (row) => row?.data?.studioMode === 'codebase';
@@ -181,7 +185,8 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       let row;
       try {
         row = await readJson(join(projectsRoot, entry.name, PROJECT_FILE));
-      } catch {
+      } catch (err) {
+        if (err.code !== 'ENOENT') console.warn('[projectStore] skipping project folder', entry.name, readError(err));
         continue; // not a project folder, or unreadable
       }
       if (validateRow(row)) continue;
@@ -206,7 +211,8 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     const file = folder ? join(folderPath(folder), APP_DATA_FILE) : orphanPath(id);
     try {
       return sanitizeAppData(await readJson(file));
-    } catch {
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.warn('[projectStore] ignoring unreadable app data', file, readError(err));
       return null;
     }
   }
@@ -252,7 +258,11 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       }
     }
     let previous = {};
-    try { previous = await readJson(join(siteDir, SITE_MANIFEST)); } catch { /* first mirror */ }
+    try {
+      previous = await readJson(join(siteDir, SITE_MANIFEST));
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.warn('[projectStore] ignoring unreadable site manifest', siteDir, readError(err));
+    }
     await mkdir(siteDir, { recursive: true });
     const inSite = (path) => {
       const full = resolve(siteDir, path);
@@ -285,7 +295,12 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     const keep = referencedBlobs(row);
     const blobs = join(dir, BLOBS_DIR);
     let names = [];
-    try { names = await readdir(blobs); } catch { return; }
+    try {
+      names = await readdir(blobs);
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.warn('[projectStore] could not list blobs for cleanup', blobs, err);
+      return;
+    }
     for (const name of names) {
       if (keep.has(name)) continue;
       const file = join(blobs, name);
@@ -336,7 +351,11 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       for (const name of names) {
         const id = name.replace(/\.json$/, '');
         if (!name.endsWith('.json') || !isValidProjectId(id) || folders.has(id)) continue;
-        try { out[id] = sanitizeAppData(await readJson(join(orphanRoot, name))); } catch { /* skip */ }
+        try {
+          out[id] = sanitizeAppData(await readJson(join(orphanRoot, name)));
+        } catch (err) {
+          console.warn('[projectStore] skipping unreadable draft app data', name, readError(err));
+        }
       }
       return out;
     },
@@ -357,7 +376,7 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         await writeFileAtomic(join(dir, PROJECT_FILE), JSON.stringify(row, null, 2));
         // First save of a project: adopt app data written while it had no folder.
         if (!current && existsSync(orphanPath(row.id))) {
-          await rename(orphanPath(row.id), join(dir, APP_DATA_FILE)).catch(() => {});
+          await rename(orphanPath(row.id), join(dir, APP_DATA_FILE)).catch((err) => console.warn('[projectStore] could not move draft app data into', dir, err));
         }
         if (isCodebaseRow(row)) await adoptOrphanBlobs(row.id, dir);
         await writeSiteMirror(dir, row);
@@ -376,7 +395,13 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         const dir = folderPath(folder);
         folders.delete(id);
         if (trash) {
-          try { await trash(dir); return; } catch { /* no trash on this system: delete */ }
+          try {
+            await trash(dir);
+            return;
+          } catch (err) {
+            // No trash on this system: delete.
+            console.warn('[projectStore] could not move project to the trash, deleting it instead:', dir, err);
+          }
         }
         await rm(dir, { recursive: true, force: true });
       });
@@ -443,7 +468,11 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       if (!isValidProjectId(id) || typeof hash !== 'string' || !HASH_RE.test(hash)) return null;
       await ensureScanned();
       for (const dir of [blobDir(id), orphanBlobDir(id)]) {
-        try { return await readFile(join(dir, hash)); } catch { /* try the next */ }
+        try {
+          return await readFile(join(dir, hash));
+        } catch (err) {
+          if (err.code !== 'ENOENT') console.warn('[projectStore] could not read blob', join(dir, hash), err);
+        }
       }
       return null;
     },

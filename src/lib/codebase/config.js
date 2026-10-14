@@ -3,6 +3,7 @@
 // Config files are only parsed (JSONC) or pattern-matched, never executed:
 // this runs in the privileged renderer, and vite.config.ts is arbitrary code.
 import { ENV_TEMPLATES, parseEnv } from './environment.js';
+import { logWarn } from '../errorLog.js';
 
 // JSON with comments and trailing commas, as tsconfig allows.
 export function parseJsonc(text) {
@@ -49,7 +50,7 @@ export function joinPath(base, rel) {
 
 function readJsonc(files, path) {
   if (typeof files[path] !== 'string') return null;
-  try { return parseJsonc(files[path]); } catch { return null; }
+  try { return parseJsonc(files[path]); } catch (err) { logWarn(`Could not parse ${path}, ignoring it for the preview`, err); return null; }
 }
 
 // Merged compilerOptions of a tsconfig, following relative `extends`.
@@ -182,7 +183,9 @@ export function lockfileVersions(lockText) {
       const match = key.match(/^node_modules\/((?:@[^/]+\/)?[^/]+)$/);
       if (match && entry?.version) versions[match[1]] = entry.version;
     }
-  } catch { /* unreadable lockfile: fall back to package.json ranges */ }
+  } catch (err) {
+    logWarn('package-lock.json is not valid JSON, using the version ranges in package.json', err);
+  }
   return versions;
 }
 

@@ -18,10 +18,12 @@ import { DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 const CONTENT_DETAIL = 'anthropic.content';
 
 // Model families with adaptive thinking and output_config.effort (Opus/Sonnet
-// 4.6 and later, Fable, Mythos). Older models (Haiku 4.5, ...) get neither.
-const ADAPTIVE_MODEL = /^claude-(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[6-9])/;
-// Opus/Sonnet 4.7 and later reject temperature/top_p/top_k with a 400.
-const NO_SAMPLING_MODEL = /^claude-(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[7-9])/;
+// 4.6 and later, Haiku 5 and later, Fable, Mythos). Older models (Haiku 4.5,
+// ...) get neither.
+const ADAPTIVE_MODEL = /^claude-(?:(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[6-9])|haiku-[5-9])/;
+// Opus/Sonnet 4.7 and later and Haiku 5 and later reject temperature/top_p/
+// top_k with a 400. Haiku 4.5 still accepts them.
+const NO_SAMPLING_MODEL = /^claude-(?:(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[7-9])|haiku-[5-9])/;
 // Models whose safety classifiers can decline a request mid-flight. The
 // server-side fallback re-runs a declined request on a suitable model inside
 // the same call, so a refusal doesn't end a build.
@@ -171,6 +173,33 @@ export const toAnthropicParams = (body) => {
   return params;
 };
 
+// One terminal line per request and per result, so a reply that produced no
+// code can be traced (stop reason, which content blocks came back). Settings
+// and sizes only: never the key or the conversation.
+const describeParams = (params) => [
+  params.model,
+  `effort=${params.output_config?.effort ?? '-'}`,
+  `thinking=${params.thinking?.type ?? 'default'}`,
+  `temperature=${params.temperature ?? '-'}`,
+  `tools=${params.tools?.length ?? 0}`,
+  `tool_choice=${params.tool_choice?.type ?? '-'}`,
+  `max_tokens=${params.max_tokens}`,
+].join(' ');
+
+const describeContent = (content) => content.map((block) => {
+  if (block.type === 'text') return `text(${block.text.length})`;
+  if (block.type === 'thinking') return `thinking(${block.thinking.length})`;
+  if (block.type === 'tool_use') return `tool_use(${block.name})`;
+  return block.type;
+}).join(', ') || 'none';
+
+const logResult = (message) => {
+  const line = `[anthropic] done: ${message.model} stop=${message.stop_reason} content=[${describeContent(message.content)}] in=${message.usage?.input_tokens ?? '?'} out=${message.usage?.output_tokens ?? '?'}`;
+  const textOut = message.content.some((block) => (block.type === 'text' && block.text.trim()) || block.type === 'tool_use');
+  if (textOut && message.stop_reason !== 'refusal') console.info(line);
+  else console.warn(`${line} (no text or tool calls in the reply)`);
+};
+
 const errorResponse = (status, message, headers = {}) => new Response(
   JSON.stringify({ error: { message } }),
   { status, headers: { 'content-type': 'application/json', ...headers } },
@@ -179,6 +208,7 @@ const errorResponse = (status, message, headers = {}) => new Response(
 // An SDK error as the upstream response an OpenAI-compatible provider would
 // have sent: same status, the provider's message, and its Retry-After.
 const sdkErrorResponse = (err) => {
+  console.error(`[anthropic] request failed: ${err?.status ? `HTTP ${err.status} ` : ''}${err?.error?.error?.message || err?.message || err}`);
   if (err instanceof Anthropic.APIConnectionError) return errorResponse(502, `Could not reach Anthropic: ${err.message}`);
   if (err instanceof Anthropic.APIError && err.status) {
     const retryAfter = err.headers?.get?.('retry-after');
@@ -281,6 +311,7 @@ const streamAsChatChunks = (stream, firstEvent) => {
           }
         }
         const message = await stream.source.finalMessage();
+        logResult(message);
         const refused = message.stop_reason === 'refusal';
         let tail = '';
         if (refused && !sentText) tail += chunk({ content: REFUSAL_TEXT });
@@ -290,6 +321,7 @@ const streamAsChatChunks = (stream, firstEvent) => {
         controller.enqueue(encoder.encode(tail));
         controller.close();
       } catch (err) {
+        console.error(`[anthropic] stream broke: ${err?.message || err}`);
         // A broken stream must look broken, so the renderer retries instead
         // of treating a partial reply as complete.
         controller.error(err);
@@ -320,8 +352,13 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
     // Messages requires max_tokens. chatProxy.js always sends one; this is
     // only a backstop for other callers.
     params.max_tokens ??= DEFAULT_BUILD_MAX_TOKENS;
+    console.info(`[anthropic] request: ${describeParams(params)}${body.stream ? ' (streaming)' : ''}`);
     source = client.beta.messages.stream(params);
-    if (!body.stream) return Response.json(toChatCompletion(await source.finalMessage()));
+    if (!body.stream) {
+      const message = await source.finalMessage();
+      logResult(message);
+      return Response.json(toChatCompletion(message));
+    }
     // Wait for the first event so an HTTP error (bad key, rate limit) becomes
     // a status code rather than a broken stream.
     const iterator = source[Symbol.asyncIterator]();
@@ -339,7 +376,18 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
 
 // Model discovery for Settings → AI.
 export async function listAnthropicModels(apiKey, baseUrl, { fetchImpl = globalThis.fetch } = {}) {
-  const client = new Anthropic({ apiKey, authToken: null, baseURL: baseUrl, maxRetries: 0, timeout: 15000, fetch: fetchImpl });
+  const client = new Anthropic({
+    apiKey,
+    authToken: null,
+    baseURL: baseUrl,
+    maxRetries: 0,
+    timeout: 15000,
+    fetch: fetchImpl,
+    // The browser version (dev, server.js, Docker) lists models from the page
+    // itself (webProviderStore), with the user's own key that already lives in
+    // that browser's storage. Without this the SDK throws before any request.
+    dangerouslyAllowBrowser: true,
+  });
   const models = [];
   for await (const model of client.models.list({ limit: 100 })) {
     models.push({ id: model.id, label: model.display_name || model.id });

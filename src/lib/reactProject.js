@@ -1,5 +1,6 @@
 import { JSX_TYPE, extractInlineScripts } from './syntaxCheck.js';
 import { REACT_VERSION } from './jsxCompile.js';
+import { logWarn } from './errorLog.js';
 
 const IMPORTMAP_TAG_RE = /<script\b[^>]*\btype\s*=\s*["']?importmap["']?[^>]*>([\s\S]*?)<\/script\s*>/i;
 
@@ -15,7 +16,8 @@ const readImportMap = (html) => {
   if (!tag) return {};
   try {
     return JSON.parse(tag[1]).imports || {};
-  } catch {
+  } catch (err) {
+    logWarn('The app\'s import map is not valid JSON, so the Vite project lists only React as a dependency', err);
     return {};
   }
 };

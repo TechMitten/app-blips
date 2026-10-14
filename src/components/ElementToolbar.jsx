@@ -4,6 +4,7 @@ import {
   ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
+import { logError } from '../lib/errorLog';
 import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts';
 
 // Contextual toolbar for the Website Studio's click-to-edit mode. It docks
@@ -118,6 +119,7 @@ export default function ElementToolbar({
       if (isImage) setSrc(compressed);
       else setBgImage(compressed);
     } catch (err) {
+      logError(`Could not process image ${file.name} (${file.size} bytes)`, err);
       setUploadError(err?.message || 'Failed to process the image.');
     } finally {
       setIsUploading(false);

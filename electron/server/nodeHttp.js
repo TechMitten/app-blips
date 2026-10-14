@@ -38,7 +38,7 @@ export function sendWebResponse(res, response, extraHeaders = {}, logPrefix = '[
   }
   pipeline(Readable.fromWeb(response.body), res, (err) => {
     if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
-      console.error(`${logPrefix} stream error:`, err.message);
+      console.error(`${logPrefix} stream error:`, err);
     }
   });
 }

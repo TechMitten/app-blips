@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Edit2, FileArchive, Loader2, 
 import Modal from './Modal';
 import { formatBytes } from '../lib/codebase/paths';
 import { completeEnvironment, environmentDraft } from '../lib/codebase/environment';
+import { logError } from '../lib/errorLog';
 
 // Imports a React + Vite project from a .zip (studioMode 'codebase'). Step
 // one reads and checks the zip without saving anything; step two shows what
@@ -55,6 +56,7 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
       setPhase(imported.environment.detected ? 'environment' : 'review');
     } catch (err) {
       if (request.signal.aborted) return;
+      logError(`Could not import ${file.name} (${file.size} bytes)`, err);
       setError(err?.message || 'This zip could not be imported.');
       setPhase('pick');
     }
@@ -86,6 +88,7 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
       setPhase('review');
     } catch (err) {
       if (request.signal.aborted) return;
+      logError('AI could not prepare the imported site without environment settings', err);
       setError(err?.message || 'AI could not prepare the site. Try again or fill in the settings yourself.');
       setPhase('environment');
     }
@@ -103,6 +106,7 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
     try {
       await onImported(result, trimmed);
     } catch (err) {
+      logError('Could not save the imported site', err);
       setError(err?.message || 'The site could not be saved.');
       setPhase('review');
     }
