@@ -507,10 +507,10 @@ export default function App({ coldStart = false }) {
       setAutoFixMessage(null);
     }
 
-    // Mark pending false BEFORE triggering the reload so the reloaded frame doesn't re-trigger.
+    // No reload here: the frame already navigated to the new code when it
+    // landed, so reloading again would only flash the same document twice.
     reloadStateRef.current.pending = false;
-    handleReloadPreview();
-  }, [chatMode, generatedCode, handleReloadPreview, handleSyntaxError]);
+  }, [chatMode, generatedCode, handleSyntaxError]);
 
 
   const scheduleReloadSettlement = useCallback((delayMs = 400) => {
@@ -1580,7 +1580,8 @@ export default function App({ coldStart = false }) {
         syntaxErrorRetriesRef.current = 0;
         if (generationResult.editMode !== 'clarify' && generationResult.editMode !== 'ask') {
           // At the end of each build or edit, or when auto-fixing (syntax or runtime)
-          // is complete, schedule a single preview reload once the iframe settles cleanly.
+          // is complete, watch the fresh frame for a settlement period to confirm it
+          // runs without errors (this also ends auto-fixing).
           cancelPendingReload();
           reloadStateRef.current = {
             pending: true,
