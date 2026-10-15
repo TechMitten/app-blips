@@ -10,11 +10,16 @@
 // aren't installs at all (`npm run desktop`), so check() answers
 // { auto: false } and the renderer falls back to its notify-only check
 // against the GitHub API (src/lib/updates.js), linking to the release.
+//
+// Microsoft Store (MSIX) installs are updated by the Store, so they answer
+// { auto: false, store: true } and the renderer doesn't check at all: an
+// MSIX package can't run the NSIS updater, and a "download the installer"
+// notice would push Store users onto the unsigned GitHub build.
 import electronUpdater from 'electron-updater';
 
 const RECHECK_MS = 60 * 60 * 1000;
 
-export const canAutoUpdate = (app) => app.isPackaged
+export const canAutoUpdate = (app) => app.isPackaged && !process.windowsStore
   && (process.platform === 'win32' || Boolean(process.env.APPIMAGE));
 
 export function createUpdater({ app, send, beforeInstall }) {
@@ -48,6 +53,7 @@ export function createUpdater({ app, send, beforeInstall }) {
     // an update is downloading or waiting for a restart.
     async check() {
       const result = { auto, version: app.getVersion() };
+      if (process.windowsStore) return { ...result, store: true };
       if (!auto) return result;
       const busy = state.status === 'downloading' || state.status === 'ready';
       if (!busy && Date.now() - lastCheck > RECHECK_MS) {

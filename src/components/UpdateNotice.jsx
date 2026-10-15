@@ -9,6 +9,7 @@ import { logError, logWarn } from '../lib/errorLog';
 // "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
+//   - Microsoft Store installs are updated by the Store: no notice at all.
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions.
@@ -35,6 +36,7 @@ export default function UpdateNotice() {
           logWarn('Desktop update check failed; checking GitHub releases instead', err);
           return null;
         });
+        if (result?.store) return;
         if (result?.auto) {
           fromDesktop(result.state);
           return;

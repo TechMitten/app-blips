@@ -25,6 +25,7 @@
     "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
     "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",
+    "desktop:store": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --win appx --publish never",
     "release": "bash scripts/release.sh"
   },
   "dependencies": {

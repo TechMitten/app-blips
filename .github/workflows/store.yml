@@ -1,0 +1,29 @@
+name: Microsoft Store
+
+# Builds the Microsoft Store package (.appx, MSIX format) on Windows. Manual
+# only (Actions tab → Microsoft Store → Run workflow), so tags and
+# `npm run release` never build or publish it. Download it from the run's
+# artifacts and upload it in Partner Center; the Store signs it there.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:store
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appblips-microsoft-store
+          path: dist-desktop/*.appx
+          if-no-files-found: error
