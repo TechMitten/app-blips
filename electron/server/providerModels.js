@@ -2,9 +2,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { resolveUserProvider, providerLabel } from './providers.js';
 import { listAnthropicModels } from './anthropic.js';
 
-// Shared by the main-process IPC handler and browser settings. Model discovery
-// needs credentials and an endpoint, but does not require a selected model.
-export async function listProviderModels(input, { fetchImpl = globalThis.fetch } = {}) {
+// Shared by the main-process IPC handler and the browser version's server
+// (providerApi.js). Model discovery needs credentials and an endpoint, but
+// does not require a selected model. `baseUrlFor` lets the Docker server reach
+// LM Studio and Ollama on the host (localServerUrl in chatProxy.js).
+export async function listProviderModels(input, { fetchImpl = globalThis.fetch, baseUrlFor = (provider) => provider.baseUrl } = {}) {
   const provider = resolveUserProvider({
     ...input,
     model: 'model-discovery',
@@ -26,7 +28,7 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch }
   if (typeof input?.apiKey === 'string' && input.apiKey.trim()) headers.Authorization = `Bearer ${provider.apiKey}`;
   let response;
   try {
-    response = await fetchImpl(`${provider.baseUrl.replace(/\/+$/, '')}/models`, {
+    response = await fetchImpl(`${baseUrlFor(provider).replace(/\/+$/, '')}/models`, {
       headers,
       signal: AbortSignal.timeout(15000),
       // Keep credentials on the validated endpoint, including local servers.

@@ -4,7 +4,7 @@ sidebarTitle: "Building Apps"
 description: "Type what you want and AppBlips generates a working single-file app or multi-page website in seconds. Learn to write effective prompts and use images and reasoning effort."
 ---
 
-AppBlips turns a plain-English description into a working, interactive project in one step. Before writing your prompt, you choose a studio: **App** (single-file interactive tools), **Website** (multi-page websites with navigation), or **Game** (browser games built on plain Canvas, the Phaser engine, or Three.js for 3D, with keyboard and touch controls). Type what you want in the prompt box, press build, and watch your project appear in the live preview alongside it — no project setup, no files to juggle, no build step to run. Once it's built, you can keep refining it with follow-up prompts until it's exactly what you had in mind.
+AppBlips turns a plain-English description into a working, interactive project in one step. Before writing your prompt, you choose a studio: **App** (single-file interactive tools), **Website** (multi-page websites with navigation, plus carousels, photo galleries, animations or maps when the site needs them), or **Game** (browser games built on plain Canvas, the Phaser engine, or Three.js for 3D, with keyboard and touch controls). Type what you want in the prompt box, press build, and watch your project appear in the live preview alongside it — no project setup, no files to juggle, no build step to run. Once it's built, you can keep refining it with follow-up prompts until it's exactly what you had in mind.
 
 ## Writing Your First Prompt
 
@@ -92,11 +92,69 @@ AppBlips can let the AI think before it writes code. In **Settings → AI** you 
 
 It defaults to Low. Choose Off for the fastest builds, or High for building apps with intricate logic or multi-step flows. Higher reasoning takes longer and uses more tokens, on every build and edit.
 
-## Game Engines
+## Game engines
 
-In the Game studio, AppBlips picks an engine for each new game based on its genre. Platformers, shooters and RPGs get **Phaser**, 3D games get **Three.js**, and simple arcade, puzzle and card games get no engine at all, so they load faster. To choose yourself, name the engine in your prompt, for example "make it in Three.js" or "plain canvas, no engine". Your choice always wins.
+In the Game studio, AppBlips picks an engine for each new game before it starts building. A quick extra request asks the AI which engine suits your idea:
 
-To let the builder decide as it writes instead, turn off **Smart game engine** in **Settings → AI**.
+| What you ask for | Engine |
+|------------------|--------|
+| Platformers, shooters, RPGs, tower defense, games with lots of moving sprites | **Phaser** (a 2D game engine, about 1 MB to download) |
+| Anything 3D: racing, flying, first-person, voxel worlds | **Three.js** |
+| Simple arcade, puzzle, card, board, word and quiz games | No engine (plain canvas), so the game loads faster |
+
+To choose yourself, name the engine in your prompt, for example "make it in Three.js" or "plain canvas, no engine". Your choice always wins.
+
+### See what was picked
+
+The choice appears in the chat, in the AI's reply for that build. It comes right after the AI's first sentence and before the game is written:
+
+> I'll build a side-scrolling platformer with coins and enemies.
+>
+> Engine: Phaser 3, a game engine for 2D games with sprites, levels and physics. It adds about 1 MB to download.
+
+The message is saved with that version, so you can still see it later in the chat history. You may also see:
+
+- **"Engine: the one you asked for in your request."** You named an engine yourself.
+- **"Engine: the engine picker didn't answer, so the builder chooses as it writes."** The extra request failed. Your game is still built.
+
+The engine is picked once, for the first build only. Later edits keep the engine the game already uses, and no message appears.
+
+To let the builder decide as it writes instead, turn off **Smart game engine** in **Settings → AI**. No message appears then either.
+
+## Website add-ons
+
+In the Website studio, AppBlips picks ready-made libraries ("add-ons") for each new website before it starts building. A quick extra request asks the AI which add-ons suit your site:
+
+| Add-on | What it adds |
+|--------|--------------|
+| **Swiper** | Carousels and sliders, such as testimonials or a photo slideshow |
+| **GLightbox** | Click a photo to see it full screen |
+| **GSAP** or **AOS** | Sections that animate in as you scroll (never both) |
+| **Lenis** | Smooth scrolling, for showcase sites that also animate |
+| **Alpine.js** | Tabs, pop-ups and monthly/yearly price toggles |
+| **Chart.js** | Charts of numbers |
+| **Leaflet** | An interactive map of your location |
+
+A site gets at most three, and only what it clearly needs. A photography portfolio might get GLightbox and AOS. A simple one-page site gets none, because every add-on is an extra download.
+
+To choose yourself, name the library in your prompt, for example "use Swiper for the reviews" or "no libraries". Your choice always wins.
+
+### See what was picked
+
+The choice appears in the chat, in the AI's reply for that build. It comes right after the AI's first sentence and before the site is written:
+
+> I'll build a pet care website with services, a photo gallery and booking.
+>
+> Add-ons: Swiper (carousels), GLightbox (full-screen photos).
+
+The message is saved with that version, so you can still see it later in the chat history. You may also see:
+
+- **"Add-ons: none. This site doesn't need any, so it loads faster."**
+- **"Add-ons: none. The add-on picker didn't answer, so the site uses plain JavaScript."** The extra request failed. Your site is still built.
+
+Add-ons are picked once, for the first build only, and no message appears for later edits. When an edit asks for something an add-on is made for, such as "add a photo carousel", the AI can add that add-on then. Extra pages use the same add-ons as the landing page when they need them.
+
+To build new websites with plain JavaScript only, turn off **Smart website add-ons** in **Settings → AI**. No message appears then.
 
 ## Clarifying Questions
 

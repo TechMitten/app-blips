@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { listProviderModels } from '../electron/server/providerModels.js';
 import { USER_PROVIDER_OPTIONS } from '../electron/server/providers.js';
 import { createProviderStore } from '../electron/providerStore.js';
-import { webProviderStore } from '../src/lib/desktop.js';
+import { handleProviderApi } from '../electron/server/providerApi.js';
+import { createKeyFile } from '../electron/server/keyFile.js';
 
 const catalog = () => new Response(JSON.stringify({ data: [
   { id: 'z', name: 'Zulu' }, { id: 'a', name: 'Alpha' }, { id: 'z', name: 'Zulu' }, { id: 'bare' }, { name: 'invalid' },
@@ -87,23 +88,28 @@ test('desktop discovery reuses only the matching saved key and accepts draft rep
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('browser discovery reuses the matching saved key without changing saved settings', async (t) => {
-  const values = new Map();
-  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  t.after(() => {
-    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
-    else delete globalThis.localStorage;
-  });
-  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value),
-  } });
-  await webProviderStore.set({ enabled: true, id: 'gemini', model: 'saved-model', apiKey: 'saved-key' });
-  t.mock.method(globalThis, 'fetch', async (_url, options) => {
-    assert.equal(options.headers.Authorization, 'Bearer saved-key');
+test('browser discovery reuses the matching saved key on the server', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'appblips-keys-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const keys = createKeyFile({ file: join(dir, 'provider-key.json') });
+  await keys.save('gemini', 'saved-key');
+  const list = (body, env = {}) => handleProviderApi(new Request('http://localhost:3000/api/provider/models', {
+    method: 'POST',
+    headers: { origin: 'http://localhost:3000', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }), env, keys);
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (String(url).includes('generativelanguage')) assert.equal(options.headers.Authorization, 'Bearer saved-key');
+    // Docker: LM Studio on the host, not in the container.
+    else assert.equal(url, 'http://host.docker.internal:1234/v1/models');
     return catalog();
   });
-  assert.ok((await webProviderStore.listModels({ id: 'gemini' })).length);
-  await assert.rejects(webProviderStore.listModels({ id: 'openai' }), /key is empty/);
-  assert.equal((await webProviderStore.get()).model, 'saved-model');
+  const gemini = await list({ id: 'gemini' });
+  assert.equal(gemini.status, 200);
+  assert.ok((await gemini.json()).length);
+  const openai = await list({ id: 'openai' });
+  assert.equal(openai.status, 400);
+  assert.match((await openai.json()).error, /key is empty/);
+  const local = await list({ id: 'lmstudio', baseUrl: 'http://localhost:1234/v1' }, { APPBLIPS_LOCAL_AI_HOST: 'host.docker.internal' });
+  assert.equal(local.status, 200);
 });

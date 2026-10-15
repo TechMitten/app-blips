@@ -10,7 +10,7 @@ description: "Run AppBlips in your browser from a Docker container. One command 
 
 Docker runs AppBlips inside a container: a sealed-off box with everything AppBlips needs already in it. You don't install Node.js or anything else on your computer. One command builds the container and starts it, and you use AppBlips in your web browser.
 
-It's the same app as the [browser version from source](/quickstart-source#run-it-in-your-browser): your projects and API key are saved in your browser, not in the container.
+It's the same app as the [browser version from source](/quickstart-source#run-it-in-your-browser): your projects are saved in your browser, not in the container. Your API key is saved by the container in a Docker volume named `appblips-data`, not in your browser.
 
 ## Before you start
 
@@ -65,7 +65,7 @@ To update to a newer version:
    docker compose up -d --build
    ```
 
-Your projects stay in your browser through updates and restarts.
+Your projects stay in your browser, and your API key stays in the `appblips-data` volume, through updates and restarts. `docker compose down -v` deletes that volume, so you would enter your key again.
 
 ## Use another port
 

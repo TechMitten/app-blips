@@ -93,6 +93,18 @@ export const loadGameEngineRouter = () => {
   }
 };
 
+export const WEBSITE_ADDON_ROUTER_KEY = 'orion-website-addon-router';
+
+// Boolean: whether new websites get add-on libraries (Swiper, GSAP, ...)
+// picked for them. On by default; only an explicit 'false' turns it off.
+export const loadWebsiteAddonRouter = () => {
+  try {
+    return safeStorage('local')?.getItem(WEBSITE_ADDON_ROUTER_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 export const SKIP_SPLASH_KEY = 'orion-skip-splash';
 
 // Boolean: when true the splash screen is skipped entirely on load. Off by

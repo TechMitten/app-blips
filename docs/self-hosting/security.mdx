@@ -27,7 +27,7 @@ The browser version (`npm start`) and Docker run a small web server on your comp
 ## Your API key
 
 - **Desktop app:** your provider key is encrypted with your system keychain and used only by the app's background process. It is never sent to the app's web page.
-- **Browser and Docker versions:** a key entered in **Settings → API** is saved in your browser's storage for AppBlips' address and sent to AppBlips' own server with each request, which passes it to your provider. Anyone who can use your browser profile can read it. A key in `.env` stays on the server and never reaches the browser.
+- **Browser and Docker versions:** a key entered in **Settings → API** is sent once to AppBlips' own server, which saves it in a file only your user account can read (`provider-key.json` in `.appblips` in your home folder, or in the `appblips-data` volume for Docker). The server adds it to each request to your provider. It is never saved in your browser, and the page can't read it back. A key in `.env` also stays on the server. Versions before this change kept the key in the browser; the first time you open the new version, it moves the key to the server and deletes it from the browser.
 
 In every version, the key is never embedded in generated app code and never included in exported HTML.
 

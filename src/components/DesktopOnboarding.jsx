@@ -78,7 +78,7 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
         </span>
         {!provider.local && (
           <p className="onboarding-key-help">
-            {isDesktop ? 'Stays on this computer.' : 'Stays in this browser.'}
+            {isDesktop ? 'Stays on this computer.' : 'Saved by AppBlips on this computer, not in the browser.'}
             <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>
           </p>
         )}

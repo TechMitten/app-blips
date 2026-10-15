@@ -3,16 +3,17 @@ import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'l
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
-import { ipcErrorMessage, providerApi } from '../lib/desktop';
+import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { logError } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
-// Settings → AI in the desktop app. The web build's UserProviderSettings keeps
-// the key in browser storage and sends it with each request; here it is saved
-// in the main process, encrypted with the OS keychain (electron/providerStore.js),
-// and attached to requests there. The renderer only learns { id, model, hasKey },
-// so the key field is write-only: blank means "keep the saved key".
+// Settings → AI. In the desktop app the key is saved in the main process,
+// encrypted with the OS keychain (electron/providerStore.js); in the browser
+// version AppBlips' own server keeps it (electron/server/keyFile.js). Either
+// way it is attached to requests there, and the page only learns
+// { id, model, hasKey }, so the key field is write-only: blank means "keep the
+// saved key".
 // Edits are a draft until Save; `guardRef` lets SettingsModal stop the user
 // leaving with unsaved edits (see useProviderGuard there).
 
@@ -169,7 +170,9 @@ export default function DesktopProviderSettings({ guardRef }) {
             </div>
           </label>
           <p className="text-xs text-slate-500 leading-snug">
-            {local ? 'Start your local server and load a model that supports tool calling. The server URL must include /v1. No API key is required unless your server uses authentication.' : <>Your key is encrypted with your system keychain and stored only on this computer, never in your projects.
+            {local ? 'Start your local server and load a model that supports tool calling. The server URL must include /v1. No API key is required unless your server uses authentication.' : <>{isDesktop
+              ? 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
+              : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}
             Apps you open in a new tab use it too; exported HTML files ask whoever runs them for their own key.</>}
           </p>
           {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">

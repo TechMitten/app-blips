@@ -23,7 +23,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    HOST=0.0.0.0
+    HOST=0.0.0.0 \
+    APPBLIPS_DATA_DIR=/data
+
+# The Settings → AI key is kept here, not in the browser. docker-compose.yml
+# mounts a volume on it so the key survives rebuilding the container; the
+# volume takes this folder's owner, so the node user can write to it.
+RUN mkdir -p /data && chown node:node /data && chmod 700 /data
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server/server.mjs ./server.mjs

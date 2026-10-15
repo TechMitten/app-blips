@@ -119,7 +119,13 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 ### Smart game engine
 
 <ParamField body="Smart game engine" type="toggle" default="On">
-  Applies in the Game studio. Before building a new game, the AI picks the engine that suits it: **Phaser** for platformers, shooters and RPGs, **Three.js** for 3D games, and no engine for simple arcade, puzzle and card games, which then load faster. If you name an engine in your prompt, your choice always wins. Turn it off to let the builder choose as it writes.
+  Applies in the Game studio. Before building a new game, the AI picks the engine that suits it: **Phaser** for platformers, shooters and RPGs, **Three.js** for 3D games, and no engine for simple arcade, puzzle and card games, which then load faster. If you name an engine in your prompt, your choice always wins. The chat shows which engine was picked, right after the AI's first sentence. Turn it off to let the builder choose as it writes. See [Game engines](/features/building-apps#game-engines).
+</ParamField>
+
+### Smart website add-ons
+
+<ParamField body="Smart website add-ons" type="toggle" default="On">
+  Applies in the Website studio. Before building a new website, the AI picks ready-made libraries that suit it: **Swiper** for carousels, **GLightbox** for full-screen photos, **GSAP** or **AOS** for scroll animations, **Lenis** for smooth scrolling, **Alpine.js** for tabs and toggles, **Chart.js** for charts and **Leaflet** for maps. Simple sites get none, so they load faster. If you name a library in your prompt, your choice always wins. The chat shows which add-ons were picked, right after the AI's first sentence. Turn it off to build new websites with plain JavaScript only. See [Website add-ons](/features/building-apps#website-add-ons).
 </ParamField>
 
 ---
@@ -143,7 +149,7 @@ Choose the AI provider that builds your apps: **Anthropic** (the default), **Ope
 Click **Test connection** to check the settings, then **Save**. **Clear** removes the saved provider and key. If you leave the tab with unsaved changes, AppBlips asks whether to save or discard them.
 
 <Note>
-  In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), it's saved in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
+  In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), AppBlips' own server saves it on your computer, never in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
 </Note>
 
 ---

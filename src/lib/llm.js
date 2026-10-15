@@ -23,6 +23,11 @@ import {
   parseBuildIntent,
   parseGameEngineChoice,
   buildGameEngineDirective,
+  describeGameEngineChoice,
+  WEBSITE_ADDON_ROUTER_SYSTEM_PROMPT,
+  parseWebsiteAddons,
+  buildWebsiteAddonDirective,
+  describeWebsiteAddons,
   CHAT_REPLY_SYSTEM_PROMPT,
   WEBSITE_CHAT_REPLY_SYSTEM_PROMPT,
   GAME_CHAT_REPLY_SYSTEM_PROMPT,
@@ -113,9 +118,10 @@ export const generateClarifyingQuestion = async ({
 };
 
 // Asks the model which engine a new game should use (see
-// GAME_ENGINE_ROUTER_SYSTEM_PROMPT). Returns the ENGINE directive to append to
-// the prompt, or '' when the user picked an engine themselves. It runs inside
-// the build, so it's a follow-up request, not another prompt.
+// GAME_ENGINE_ROUTER_SYSTEM_PROMPT). Returns { directive, note }: the ENGINE
+// line to append to the prompt ('' when the user picked an engine themselves)
+// and the sentence the chat shows about it. It runs inside the build, so it's
+// a follow-up request, not another prompt.
 export const routeGameEngine = async ({ requestText, signal = null }) => {
   const message = await requestModelText({
     messages: [
@@ -127,10 +133,32 @@ export const routeGameEngine = async ({ requestText, signal = null }) => {
   });
   const reply = message?.content ?? message;
   const engine = parseGameEngineChoice(reply);
-  if (!engine && !/\buser\b/i.test(String(reply || ''))) {
+  const userChose = !engine && /\buser\b/i.test(String(reply || ''));
+  if (!engine && !userChose) {
     logWarn(`Engine router reply named no engine, letting the build model choose. Reply: ${String(reply || '').slice(0, 300) || '(empty)'}`);
   }
-  return buildGameEngineDirective(engine);
+  return { directive: buildGameEngineDirective(engine), note: describeGameEngineChoice(engine, { userChose }) };
+};
+
+// Asks the model which add-on libraries a new website should load (see
+// WEBSITE_ADDON_ROUTER_SYSTEM_PROMPT). Returns { directive, note }: the
+// ADD-ONS line to append to the prompt ('' when the site needs none) and the
+// sentence the chat shows about it.
+export const routeWebsiteAddons = async ({ requestText, signal = null }) => {
+  const message = await requestModelText({
+    messages: [
+      { role: 'system', content: WEBSITE_ADDON_ROUTER_SYSTEM_PROMPT },
+      { role: 'user', content: `Request: ${requestText}` }
+    ],
+    reasoningEffort: CHAT_REASONING_EFFORT,
+    signal
+  });
+  const reply = String(message?.content ?? message ?? '');
+  const addons = parseWebsiteAddons(reply);
+  if (!addons.length && !/\bnone\b/i.test(reply)) {
+    logWarn(`Add-on router reply named no add-on, building without any. Reply: ${reply.slice(0, 300) || '(empty)'}`);
+  }
+  return { directive: buildWebsiteAddonDirective(addons), note: describeWebsiteAddons(addons) };
 };
 
 // Only messages that read like a question pay for the intent check below;
@@ -311,9 +339,10 @@ export const requestModelText = async ({
     if (askMode) bodyObj.ask = true;
 
     // The user's own provider rides along with the request, added only to the
-    // wire copy so the key never lands in bodyObj. The Settings "Test
-    // connection" button passes one explicitly; otherwise the desktop main
-    // process attaches the saved provider to every request.
+    // wire copy so a typed key never lands in bodyObj. The Settings "Test
+    // connection" button passes one explicitly. The saved key never passes
+    // through the page: the desktop main process or the browser version's
+    // server attaches it (withSavedProvider).
     let provider = userProvider ?? null;
     if (!isDesktop) provider = webProviderStore.forRequest(provider);
     const response = await fetch('/api/chat', {
@@ -693,7 +722,8 @@ const generateAppCodeCore = async (
   studioMode = 'app',
   currentFiles = null,
   projectName = '',
-  gameEngineRouter = true
+  gameEngineRouter = true,
+  websiteAddonRouter = true
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -703,10 +733,11 @@ const generateAppCodeCore = async (
   // Pages of the site so far. Non-website projects only ever have index.html.
   const startFiles = currentFiles && Object.keys(currentFiles).length ? currentFiles : makeFiles(currentCode);
   const noun = studioNoun(studioMode);
-  // Set by the engine router before the first game build (see below).
+  // Set by the engine / add-on router before the first build (see below).
   let engineDirective = '';
+  let addonDirective = '';
   const buildInitialPrompt = isWebsite
-    ? (p) => buildWebsiteInitialGenerationPrompt(p, projectName)
+    ? (p) => buildWebsiteInitialGenerationPrompt(p, projectName, addonDirective)
     : isGame
       ? (p) => buildGameInitialGenerationPrompt(p, projectName, engineDirective)
       : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
@@ -798,17 +829,36 @@ const generateAppCodeCore = async (
   // Runs after the intro reply, never alongside it: requests that start
   // together would race on the same engine choice. A failure just leaves the
   // choice to the build model.
+  // What a router decided, told to the user right after the intro reply and
+  // kept in the saved reply, so they know what the build will use.
+  let routerNote = '';
   if (isGame && gameEngineRouter && !currentCode) {
     try {
-      engineDirective = await routeGameEngine({
+      ({ directive: engineDirective, note: routerNote } = await routeGameEngine({
         requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
         signal
-      });
+      }));
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
       logWarn('Engine routing failed, letting the model choose', err);
+      routerNote = describeGameEngineChoice(null, { failed: true });
     }
   }
+  // Same rules for a new website's add-on libraries. Later edits keep (or
+  // add) add-ons through the system prompt's rule 6 instead.
+  if (isWebsite && websiteAddonRouter && !currentCode) {
+    try {
+      ({ directive: addonDirective, note: routerNote } = await routeWebsiteAddons({
+        requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
+        signal
+      }));
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+      logWarn('Add-on routing failed, building without add-ons', err);
+      routerNote = describeWebsiteAddons([], { failed: true });
+    }
+  }
+  if (routerNote && onChunk) onChunk(`${introReply ? '\n\n' : ''}${routerNote}`, 'reply');
 
   if (!currentCode) {
     const formattedChatHistory = chatHistory.map((msg, idx) => {
@@ -865,7 +915,7 @@ const generateAppCodeCore = async (
       throw new Error(`The model did not return any ${noun} code. Please try again.`);
     }
 
-    const reply = introReply || extractLeadingReply(rawText) || undefined;
+    const reply = [introReply || extractLeadingReply(rawText), routerNote].filter(Boolean).join('\n\n') || undefined;
 
     // End-of-generation syntax gate: parse the finished document, and if it
     // doesn't parse, feed the errors back for correction. Repair requests use

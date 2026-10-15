@@ -22,6 +22,7 @@ import { resolveProvider } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
 import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
+import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
 
@@ -70,39 +71,6 @@ async function writeSettings(patch) {
 // The one /api/chat handler answers in-process. The desktop app is single-user,
 // so the provider saved in Settings → AI travels with each request (see
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
-
-// The builder sends no key: the saved one is attached here, as the same
-// `user_provider` the web build sends from the browser, so chatProxy applies
-// identical handling (preset endpoint, "rejected the API key" errors). A test
-// request for the saved provider may leave apiKey empty to mean "the saved key".
-async function withSavedProvider(request) {
-  if (request.method !== 'POST') return request;
-  const text = await request.text();
-  let body;
-  try { body = JSON.parse(text); } catch { body = null; }
-  if (body && typeof body === 'object' && !Array.isArray(body)) {
-    const sent = body.user_provider;
-    if (sent && typeof sent === 'object' && !sent.apiKey) {
-      body.user_provider = { ...sent, apiKey: providerStore.keyFor(sent.id) };
-    } else if (sent == null) {
-      const active = providerStore.active();
-      if (active) body.user_provider = active;
-    }
-  }
-  const origin = request.headers.get('origin');
-  const authorization = request.headers.get('authorization');
-  return new Request(request.url, {
-    method: 'POST',
-    // Origin is kept for chatProxy's other-site check: a sandboxed app's
-    // request arrives as Origin "null" and must still be refused.
-    headers: {
-      'content-type': 'application/json',
-      ...(origin ? { origin } : {}),
-      ...(authorization ? { authorization } : {}),
-    },
-    body: body ? JSON.stringify(body) : text,
-  });
-}
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -189,7 +157,7 @@ async function handleAppRequest(request) {
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request), process.env));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });

@@ -47,7 +47,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, isSplashDue, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -86,6 +86,7 @@ export default function App({ coldStart = false }) {
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [askToReview, setAskToReview] = useState(loadAskToReview);
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
+  const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   // Read once per page load: SplashScreen stamps the time as soon as it shows,
   // so re-reading would hide it mid-play.
@@ -1123,6 +1124,10 @@ export default function App({ coldStart = false }) {
   }, [gameEngineRouter]);
 
   useEffect(() => {
+    localStorage.setItem(WEBSITE_ADDON_ROUTER_KEY, websiteAddonRouter);
+  }, [websiteAddonRouter]);
+
+  useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
   }, [autoFollowCode]);
 
@@ -1510,7 +1515,7 @@ export default function App({ coldStart = false }) {
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: buildReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -2225,12 +2230,12 @@ export default function App({ coldStart = false }) {
 
   const handleResetApp = async () => {
     await deleteAllProjects();
-    if (isDesktop && desktopBridge?.provider?.clear) {
-      try {
-        await desktopBridge.provider.clear();
-      } catch (err) {
-        logError('Could not clear the desktop AI provider during reset', err);
-      }
+    // Both versions keep the key outside the page (desktop: keychain; browser:
+    // AppBlips' server), so clearing localStorage alone would leave it behind.
+    try {
+      await providerApi.clear();
+    } catch (err) {
+      logError('Could not clear the saved AI provider during reset', err);
     }
     localStorage.clear();
     window.location.reload();
@@ -2285,6 +2290,8 @@ export default function App({ coldStart = false }) {
           onAskToReviewChange={setAskToReview}
           gameEngineRouter={gameEngineRouter}
           onGameEngineRouterChange={setGameEngineRouter}
+          websiteAddonRouter={websiteAddonRouter}
+          onWebsiteAddonRouterChange={setWebsiteAddonRouter}
           skipSplash={skipSplash}
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}

@@ -39,6 +39,8 @@ body {
 .token-attr-name { color: #d19a66; }
 .token-string { color: #98c379; }
 .token-keyword { color: #c678dd; }
+.token-function { color: #61afef; }
+.token-property { color: #56b6c2; }
 /* --- Animations --- */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }

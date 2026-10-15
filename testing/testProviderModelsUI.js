@@ -12,8 +12,12 @@ try {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   let failure = false;
-  await page.route(/\/models$/, async (route) => {
-    await route.fulfill({ status: failure ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'test-coder', name: 'Test Coding Model' }] }) });
+  // Models are listed by AppBlips' server (it holds the saved key), so its
+  // answer is what's faked here.
+  await page.route(/\/api\/provider\/models$/, async (route) => {
+    await route.fulfill(failure
+      ? { status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'The provider could not load models (HTTP 503).' }) }
+      : { status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'test-coder', label: 'Test Coding Model' }]) });
   });
   await page.goto(process.env.MODEL_TEST_URL || 'http://127.0.0.1:5182');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -40,7 +44,7 @@ try {
   assert.deepEqual(errors, []);
   const onboarding = await browser.newPage();
   await onboarding.addInitScript(() => localStorage.setItem('orion-skip-splash', 'true'));
-  await onboarding.route(/\/models$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'onboarding-coder', name: 'Onboarding Model' }] }) }));
+  await onboarding.route(/\/api\/provider\/models$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'onboarding-coder', label: 'Onboarding Model' }]) }));
   await onboarding.goto(process.env.MODEL_TEST_URL || 'http://127.0.0.1:5182');
   for (let step = 0; step < 2; step++) await onboarding.getByRole('button', { name: 'Next', exact: true }).click();
   await onboarding.locator('select').selectOption('gemini');
@@ -52,5 +56,8 @@ try {
   const saved = await onboarding.evaluate(() => JSON.parse(localStorage.getItem('appblips-web-provider')));
   assert.equal(saved.id, 'gemini');
   assert.equal(saved.model, 'onboarding-coder');
+  // The key went to the server, not into the browser's storage.
+  assert.equal(saved.apiKey, undefined);
+  assert.equal((await onboarding.evaluate(() => fetch('/api/provider').then((r) => r.json()))).hasKey, true);
   console.log('All six provider pickers, manual fallback, and onboarding selection passed.');
 } finally { await browser.close(); }

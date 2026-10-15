@@ -28,7 +28,7 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    In the desktop app, your API key is encrypted with your system keychain and stays on your computer. It is used only by the app's background process when it calls your AI provider. In the browser version (run from source or Docker), it's saved in your browser and sent only to AppBlips' own server on your computer. In every version, it is never embedded in generated app code and never included in any exported HTML file.
+    In the desktop app, your API key is encrypted with your system keychain and stays on your computer. It is used only by the app's background process when it calls your AI provider. In the browser version (run from source or Docker), AppBlips' own server on your computer saves it in a file only you can read, never in your browser. In every version, it is never embedded in generated app code and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="Can I use AppBlips on a Mac?">
@@ -36,11 +36,11 @@ Here are quick answers to the most common questions about AppBlips — what it c
   </Accordion>
 
   <Accordion title="What's the difference between the desktop app and the browser version?">
-    They're the same app. The [desktop app](/quickstart-desktop) saves your projects as folders on your computer, keeps your key in the system keychain and updates itself. The browser version ([from source](/quickstart-source) or [Docker](/self-hosting/docker)) saves projects and your key in your browser, and you update it yourself. Use **Settings → Data → Export** and **Import…** to move projects between them.
+    They're the same app. The [desktop app](/quickstart-desktop) saves your projects as folders on your computer, keeps your key in the system keychain and updates itself. The browser version ([from source](/quickstart-source) or [Docker](/self-hosting/docker)) saves projects in your browser and your key on your computer, and you update it yourself. Use **Settings → Data → Export** and **Import…** to move projects between them.
   </Accordion>
 
   <Accordion title="Can I export the generated project?">
-    Yes. Use the **Export** option to download your app as a single self-contained HTML file, or your website as a `.zip` archive of pages. Apps from the App studio can also download as a React project you can keep building with npm. The exported files work in any modern web browser with no server or build step. They load styling and some libraries (such as Tailwind CSS or the Phaser game engine) from public CDNs, so they need an internet connection.
+    Yes. Use the **Export** option to download your app as a single self-contained HTML file, or your website as a `.zip` archive of pages. Apps from the App studio can also download as a React project you can keep building with npm. The exported files work in any modern web browser with no server or build step. They load styling and some libraries (such as Tailwind CSS, the Phaser game engine or a website's carousel and animation add-ons) from public CDNs, so they need an internet connection.
   </Accordion>
 
   <Accordion title="How do I undo a change?">

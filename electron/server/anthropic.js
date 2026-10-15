@@ -383,10 +383,6 @@ export async function listAnthropicModels(apiKey, baseUrl, { fetchImpl = globalT
     maxRetries: 0,
     timeout: 15000,
     fetch: fetchImpl,
-    // The browser version (dev, server.js, Docker) lists models from the page
-    // itself (webProviderStore), with the user's own key that already lives in
-    // that browser's storage. Without this the SDK throws before any request.
-    dangerouslyAllowBrowser: true,
   });
   const models = [];
   for await (const model of client.models.list({ limit: 100 })) {

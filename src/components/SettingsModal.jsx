@@ -85,6 +85,8 @@ export default function SettingsModal({
   onAskToReviewChange,
   gameEngineRouter,
   onGameEngineRouterChange,
+  websiteAddonRouter,
+  onWebsiteAddonRouterChange,
   skipSplash,
   onSkipSplashChange,
   autoFollowCode,
@@ -357,6 +359,9 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />
+              </SettingRow>
+              <SettingRow id="set-addon-router" title="Smart website add-ons" description="Before building a new website, the AI picks ready-made libraries that suit it: Swiper for carousels, GLightbox for full-screen photos, GSAP or AOS for scroll animations, Lenis for smooth scrolling, Alpine.js for tabs and toggles, Chart.js for charts and Leaflet for maps. Simple sites get none, so they load faster. Naming a library in your prompt always wins. Off builds new websites with plain JavaScript only.">
+                <Switch checked={websiteAddonRouter} onChange={onWebsiteAddonRouterChange} labelledBy="set-addon-router" />
               </SettingRow>
             </>
           )}

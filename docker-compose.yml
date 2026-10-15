@@ -17,11 +17,20 @@ services:
       # Lets LM Studio and Ollama on your computer be reached from inside the
       # container (see the Docker guide for the one setting they need).
       APPBLIPS_LOCAL_AI_HOST: host.docker.internal
+      # The volume below. Set here so an empty one in .env can't override it.
+      APPBLIPS_DATA_DIR: /data
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      # The API key you enter under Settings → AI (only readable inside
+      # this volume, never stored in the browser).
+      - appblips-data:/data
     env_file:
       # Optional: an AI provider for the server. You can instead pick one in
       # the app under Settings → AI.
       - path: .env
         required: false
     restart: unless-stopped
+
+volumes:
+  appblips-data:

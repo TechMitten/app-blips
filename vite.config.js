@@ -3,7 +3,11 @@ import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './electron/server/chatProxy.js'
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js'
-import { toChatRequest, sendWebResponse } from './electron/server/nodeHttp.js'
+import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js'
+import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
+import { handleProviderApi } from './electron/server/providerApi.js'
+import { withSavedProvider } from './electron/server/savedProvider.js'
+import { hostAllowed } from './electron/server/hosts.js'
 
 // Vite's connect server does not catch rejections from async middleware; on
 // modern Node that kills the whole dev server, so the proxy goes through this
@@ -51,13 +55,30 @@ function llmProxyDevMiddleware(mode) {
     name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
+      // The Settings → AI key, kept server-side as server.js does. `host: true`
+      // puts this server on the network, and these routes run before Vite's
+      // own host check, so the saved key is used only from this computer (or a
+      // host in APPBLIPS_ALLOWED_HOSTS), never by another device or a
+      // DNS-rebinding page.
+      const keys = createKeyFile({ file: defaultKeyFile(env) })
+      const noKeys = { keyFor: () => '' }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
           return
         }
-        const response = await handleChatProxy(await toChatRequest(req), env)
+        const savedKeys = hostAllowed(req.headers.host || '', env) ? keys : noKeys
+        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      server.middlewares.use('/api/provider', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Settings → AI is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleProviderApi(await toFetchRequest(req), env, keys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },
@@ -74,8 +95,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: true,
     port: 5175,
-    // Browser mode keeps the AI provider in this origin's localStorage; a
-    // silent hop to 5176 when 5175 is busy is a new origin with no saved key.
+    // Browser mode keeps the AI provider choice in this origin's localStorage;
+    // a silent hop to 5176 when 5175 is busy is a new origin with none saved.
     strictPort: true,
     watch: {
       usePolling: true

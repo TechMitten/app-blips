@@ -111,6 +111,86 @@ export const parseGameEngineChoice = (reply) => {
 
 export const buildGameEngineDirective = (engine) => GAME_ENGINE_DIRECTIVES[engine] || '';
 
+// What the chat tells the user the engine router decided. `engine` is the
+// parsed choice; `userChose` when the router answered "user".
+const GAME_ENGINE_NOTES = {
+  phaser: 'Engine: Phaser 3, a game engine for 2D games with sprites, levels and physics. It adds about 1 MB to download.',
+  three: 'Engine: Three.js, for a 3D game.',
+  canvas: 'Engine: none. A game like this runs best on plain canvas, which has nothing extra to download.',
+};
+
+export const describeGameEngineChoice = (engine, { userChose = false, failed = false } = {}) => {
+  if (engine) return GAME_ENGINE_NOTES[engine];
+  if (userChose) return 'Engine: the one you asked for in your request.';
+  return failed
+    ? 'Engine: the engine picker didn\'t answer, so the builder chooses as it writes.'
+    : 'Engine: the engine picker gave no clear answer, so the builder chooses as it writes.';
+};
+
+// The Website Studio's counterpart: a small call picks which add-on libraries
+// (see WEBSITE_ADDON_GUIDELINES) suit a new site, so a photography portfolio
+// gets a lightbox and a plain brochure page stays Tailwind-only. Each add-on
+// costs the visitor a download, hence the "fewer is better" bias.
+export const WEBSITE_ADDON_ROUTER_SYSTEM_PROMPT = `You choose optional add-on libraries for a website that will be built as static HTML with Tailwind CSS. Read the user's request (and any follow-up answers) and pick only the add-ons this site clearly benefits from:
+- gsap: rich scroll-driven animation -- staggered reveals, parallax, pinned sections, animated hero entrances. Agencies, portfolios, product launches, landing pages that should feel premium.
+- aos: simple fade or slide-in as sections scroll into view. A light touch for ordinary business, restaurant, event and service sites. Never together with gsap.
+- lenis: buttery smooth scrolling. Only for showcase sites (agency, portfolio, luxury brand) that also use gsap or aos.
+- swiper: carousels and sliders -- testimonials, product or property galleries, hero slideshows, team or logo rows.
+- glightbox: click a photo to see it full screen. Photography, galleries, portfolios, real estate, restaurants, venues, weddings.
+- alpine: lots of interactive UI -- tabs, pricing monthly/yearly toggles, filters, multi-step forms, several modals. A single menu or FAQ needs none.
+- chart: charts of numbers -- statistics, impact reports, investor or data-driven pages.
+- leaflet: an interactive map -- a shop, venue, office, or event location the visitor should find.
+- none: a simple page that needs none of these.
+If the user named a library from this list, include it; if they asked for no libraries or plain HTML, reply none. Pick at most three, and when in doubt pick fewer: every add-on is an extra download.
+Reply with the chosen words separated by commas, or the single word none: no other text.`;
+
+export const WEBSITE_ADDONS = {
+  gsap: 'GSAP + ScrollTrigger',
+  aos: 'AOS',
+  lenis: 'Lenis',
+  swiper: 'Swiper',
+  glightbox: 'GLightbox',
+  alpine: 'Alpine.js',
+  chart: 'Chart.js',
+  leaflet: 'Leaflet',
+};
+
+// The add-on keys named in the router's reply, in WEBSITE_ADDONS order. An
+// empty list means none (or an unusable reply), which leaves the site on
+// Tailwind and plain JavaScript as it is with the router off.
+export const parseWebsiteAddons = (reply) => {
+  const words = new Set(String(reply || '').toLowerCase().match(/[a-z.]+/g) || []);
+  if (words.has('chart.js') || words.has('chartjs')) words.add('chart');
+  if (words.has('alpine.js') || words.has('alpinejs')) words.add('alpine');
+  const picked = Object.keys(WEBSITE_ADDONS).filter((key) => words.has(key));
+  // gsap and aos do the same job; two animation systems fight over the same
+  // elements, so gsap (the richer one) wins.
+  return (picked.includes('gsap') ? picked.filter((key) => key !== 'aos') : picked).slice(0, 3);
+};
+
+// What each add-on is for, as the chat reports the router's choice.
+const WEBSITE_ADDON_PURPOSES = {
+  gsap: 'scroll animations',
+  aos: 'sections that fade in as you scroll',
+  lenis: 'smooth scrolling',
+  swiper: 'carousels',
+  glightbox: 'full-screen photos',
+  alpine: 'tabs, toggles and pop-ups',
+  chart: 'charts',
+  leaflet: 'an interactive map',
+};
+
+export const describeWebsiteAddons = (addons, { failed = false } = {}) => {
+  if (addons?.length) return `Add-ons: ${addons.map((key) => `${WEBSITE_ADDONS[key]} (${WEBSITE_ADDON_PURPOSES[key]})`).join(', ')}.`;
+  return failed
+    ? 'Add-ons: none. The add-on picker didn\'t answer, so the site uses plain JavaScript.'
+    : 'Add-ons: none. This site doesn\'t need any, so it loads faster.';
+};
+
+export const buildWebsiteAddonDirective = (addons) => (addons?.length
+  ? `ADD-ONS (chosen for this site): use ${addons.map((key) => WEBSITE_ADDONS[key]).join(', ')}, loaded and used exactly as the ADD-ON LIBRARIES section says. Do not load any other add-on.`
+  : '');
+
 export const GAME_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a game-building chat. The user has just asked to build a new game or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The game itself is generated separately after your reply, so never include or describe code.`;
 
@@ -238,7 +318,7 @@ export const buildCreatePageInstruction = ({ pageName, request, landingHtml, pro
 Original request: ${request}
 
 Rules for the new page:
-- It must be a complete standalone HTML document that reuses the landing page's exact <head> styling setup (Tailwind CDN, fonts, palette, theme), navigation bar and footer, so the site feels like one website. Mark this page's link in the navigation as the current one.
+- It must be a complete standalone HTML document that reuses the landing page's exact <head> styling setup (Tailwind CDN, fonts, palette, theme), navigation bar and footer, plus the same add-on library tags and setup code if the landing page loads any and this page uses them (a page with no carousel needs no Swiper), so the site feels like one website. Mark this page's link in the navigation as the current one.
 - Give it its own unique <title>, meta description, Open Graph tags, a single <h1>, and real, substantial content appropriate to the page's purpose (infer it from the filename, the navigation label and the request). Static HTML only.${buildProjectNameInstruction(projectName, 'website')}
 - Link to other pages by relative filename (e.g. href="index.html", href="about.html"); link back to landing sections as href="index.html#section-id". Only link to pages that exist or that appear in the landing page's navigation.
 - Wrap each region in <!-- @section: name --> landmark comments.
@@ -327,6 +407,22 @@ REPLY GUIDELINES:
 
 Beyond the short reply described above, do not include any explanations, markdown markers, or text outside of these formats.`;
 
+// How each website add-on is loaded and used. Versions are pinned so a library
+// release can't change sites already built. Every rule keeps content in the
+// static markup (rule 5): libraries only animate, arrange or reveal what the
+// HTML already holds, and the page still reads fine if a CDN script never
+// loads.
+const WEBSITE_ADDON_GUIDELINES = `ADD-ON LIBRARIES (load one only as rule 6 allows):
+- General: load each add-on exactly once. Put its CSS <link> in the <head> and its classic <script> tags at the end of <body>, before your own script, which initializes it. Never add add-ons to an import map. Use the exact URLs below. Add-ons may only enhance markup that already exists: never render visible content from JavaScript. When the visitor prefers reduced motion (matchMedia('(prefers-reduced-motion: reduce)')), skip scroll animations and smooth scrolling.
+- GSAP + ScrollTrigger: <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script> <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>, then gsap.registerPlugin(ScrollTrigger). Animate FROM a hidden state with gsap.from()/gsap.fromTo() and scrollTrigger options, so content stays visible if the script fails; never hide content in CSS while waiting for GSAP. Good for staggered reveals, hero entrances, parallax and pinned sections. A number counter counts up to the value already written in the markup.
+- AOS: <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css"> and <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>, then AOS.init({ once: true, duration: 700 }). Add data-aos="fade-up" (optionally data-aos-delay="100") to existing section content. Do not use it together with GSAP.
+- Lenis (smooth scrolling): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.css"> and <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js"></script>, then const lenis = new Lenis({ autoRaf: true }). With GSAP also call lenis.on('scroll', ScrollTrigger.update). Send in-page #anchor links through lenis.scrollTo(target) and do not also set CSS scroll-behavior: smooth.
+- Swiper (carousels): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.css"> and <script src="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.js"></script>, which exposes the global Swiper. Write every slide in the markup (.swiper > .swiper-wrapper > .swiper-slide), add pagination and navigation elements, and set breakpoints so phones show one slide. Do not use loop: true, because it clones slides and the page then no longer mirrors its markup.
+- GLightbox (full-screen photos): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/css/glightbox.min.css"> and <script src="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/js/glightbox.min.js"></script>, then GLightbox({ selector: '.glightbox' }). Wrap each thumbnail <img> in <a href="(large image URL)" class="glightbox" data-gallery="(group name)">, so without the script the link still opens the photo.
+- Alpine.js (interactive UI): <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script> (this one may go in the <head>, with defer). Use x-data, x-show, x-transition, @click and :class to toggle tabs, menus, modals, accordions and pricing toggles whose content is all written in the markup. Never use x-text, x-html or x-for for visible content (rule 5); for a monthly/yearly price toggle write both prices in the markup and x-show the right one. Add [x-cloak]{display:none} and x-cloak on elements that start hidden.
+- Chart.js: <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>, which exposes the global Chart. Draw into a <canvas> inside a sized container with responsive: true and maintainAspectRatio: false, using the site's palette. Also state the key figures in the static text (a caption, list or table), since a canvas is not readable or editable text.
+- Leaflet (maps): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"> and <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>, then L.map('map').setView([lat, lng], 15) with an OpenStreetMap tile layer ('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', keeping its © OpenStreetMap contributors attribution) and a marker with a popup. Give the map container an explicit height, and write the street address in the static markup next to it.`;
+
 // The Website Studio variant: same delivery format and edit tooling as the
 // app prompt, but inverted content rules -- website anatomy (nav, hero,
 // sections, footer) is REQUIRED, JavaScript is demoted to progressive
@@ -344,7 +440,7 @@ CRITICAL RULES:
 3. Build a REAL WEBSITE with real website anatomy: a top navigation bar (site name, menu links, and a call-to-action button), a prominent hero section, several distinct content sections appropriate to the request, and a footer with useful links and contact info. Embrace website conventions -- these are features here, not anti-patterns.
 4. RESPONSIVE, DESKTOP-FIRST: design the layout for a wide (1440px) viewport first, then make it reflow gracefully down to phone widths using Tailwind responsive prefixes (sm:, md:, lg:, xl:). Never let content overflow or break at any width. Navigation collapses to a working hamburger menu on mobile (progressive enhancement, see rule 5).
 5. ALL VISIBLE CONTENT MUST BE STATIC HTML. Every heading, paragraph, label, price, image, and link the visitor can see MUST exist verbatim in the HTML markup. Do NOT render content from JavaScript and do NOT build visible DOM client-side (no Preact/React, no template literals constructing page content). The ONLY allowed JavaScript is progressive enhancement of markup that already exists without it: a mobile nav toggle, smooth scrolling, form validation, accordion open/close, simple scroll-reveal animations, and copy buttons. Each must degrade gracefully.
-6. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling. Do not load other frameworks or component libraries; a website of this scope needs none.
+6. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling. Do not load frameworks or component libraries, with one exception: the add-ons in ADD-ON LIBRARIES below. Load an add-on only when an ADD-ONS line in the request names it, the user asks for it, the site already loads it, or an edit asks for exactly what it is for (e.g. "add a testimonial carousel" -> Swiper). Otherwise use plain JavaScript.
 7. Use real, high-quality photography from https://images.unsplash.com (stable photo URLs that work without an API key) or rich CSS gradients / inline SVG patterns for imagery and backgrounds. Give every image meaningful alt text. For icons use inline SVGs (e.g. hand-inlined lucide/heroicons paths) rather than icon-font CDNs.
 8. Aim for professional, modern design: strong typographic hierarchy (a display font via Google Fonts <link> plus a body font), a consistent color palette, generous whitespace, rounded corners, subtle shadows, tasteful hover states, and coherent dark or light theme.
 9. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, nav, hero, and each content section such as features, gallery, menu, pricing, testimonials, faq, contact, footer) so later edits have stable anchors.
@@ -353,6 +449,8 @@ CRITICAL RULES:
 12. SAFETY AND ABUSE PREVENTION: You must strictly refuse to create sites that are intended to deceive, defraud, phish, harm users, or are sexual in nature. If a request violates this, do NOT generate the requested site. Instead, generate a styled HTML page containing only a polite error message explaining that the request violates safety policies.
 13. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. "a website for my business" without saying what the business does). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
 14. SEARCH-READY MARKUP (SEO): Set <html lang="en"> (or the user's language). Give the <head> a unique, descriptive <title> (about 50-60 characters, business or site name plus what it offers) and a <meta name="description"> (about 150 characters, written as an enticing summary rather than keyword stuffing). Add Open Graph tags (og:title, og:description, og:type set to website) and <meta name="twitter:card" content="summary_large_image">. Use exactly one <h1> (the hero headline) followed by a logical h2/h3 hierarchy with no skipped levels, and wrap the page in semantic landmarks: <header>, <nav>, <main>, <section>, and <footer>. Use descriptive link text (never 'click here'). For local businesses, organizations, or restaurants, add a <script type="application/ld+json"> block with matching schema.org data (LocalBusiness, Restaurant, Organization, etc.) using only facts stated in the page content.
+
+${WEBSITE_ADDON_GUIDELINES}
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
@@ -508,11 +606,12 @@ Fix these with apply_surgical_edits before finishing. If a search anchor around 
 // The Website Studio's initial-generation instruction. Websites skip the app
 // prompt's layout-target switch (mobile/desktop/both): the site is always
 // desktop-first responsive, so one instruction covers it.
-export const buildWebsiteInitialGenerationPrompt = (prompt, projectName) => {
+export const buildWebsiteInitialGenerationPrompt = (prompt, projectName, addonDirective = '') => {
   const trimmedPrompt = prompt.trim();
   const nameInstruction = buildProjectNameInstruction(projectName, 'website');
+  const addonLine = addonDirective ? `\n\n${addonDirective}` : '';
 
-  return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.
+  return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.${addonLine}
 
 Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.${nameInstruction}`;
 };

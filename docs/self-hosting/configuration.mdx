@@ -68,6 +68,10 @@ These give the server its own provider. It's used whenever **Settings → API** 
   AppBlips refuses AI requests from any page other than its own. If a reverse proxy changes the `Host` header, builds may fail with "Requests from other sites are not allowed." List the exact address you open AppBlips at (comma-separated, for example `https://appblips.home.example`).
 </ParamField>
 
+<ParamField body="APPBLIPS_DATA_DIR" type="string">
+  The folder where the server saves the API key you enter under **Settings → AI** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
+</ParamField>
+
 <ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">
   Where LM Studio and Ollama run, when that isn't the same machine as the server. `docker-compose.yml` sets it to `host.docker.internal`, so a container can reach your computer; you rarely need to change it.
 </ParamField>

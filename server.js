@@ -6,7 +6,9 @@
 // configured key, so this listens on 127.0.0.1 unless HOST says otherwise
 // (the Docker image listens on 0.0.0.0 inside the container, and
 // docker-compose.yml publishes it on 127.0.0.1 only). Projects and the
-// Settings → AI provider live in the browser's own storage, as in `npm run dev`.
+// Settings → AI provider choice live in the browser's own storage, as in
+// `npm run dev`; the provider's API key is kept here instead (keyFile.js), so
+// the page never stores it.
 //
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
@@ -17,7 +19,11 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './electron/server/chatProxy.js';
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js';
-import { toChatRequest, sendWebResponse } from './electron/server/nodeHttp.js';
+import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
+import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
+import { handleProviderApi } from './electron/server/providerApi.js';
+import { withSavedProvider } from './electron/server/savedProvider.js';
+import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
@@ -33,21 +39,7 @@ const DIST_DIR = fileURLToPath(new URL('./dist', import.meta.url));
 const INDEX_FILE = join(DIST_DIR, 'index.html');
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
-
-// DNS rebinding: a web page on evil.example can point its own name at
-// 127.0.0.1, and its requests then carry a matching Host and Origin, so
-// isForeignOrigin alone can't tell them apart from AppBlips. Only names that
-// mean this computer pass, plus any the user lists (a LAN name or a reverse
-// proxy's domain).
-const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
-const extraHosts = String(process.env.APPBLIPS_ALLOWED_HOSTS || '')
-  .split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
-
-const hostAllowed = (hostHeader) => {
-  let hostname = '';
-  try { hostname = new URL(`http://${hostHeader}`).hostname.toLowerCase(); } catch { return false; }
-  return LOCAL_HOSTNAMES.has(hostname) || hostname.endsWith('.localhost') || extraHosts.includes(hostname);
-};
+const keys = createKeyFile({ file: defaultKeyFile() });
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -119,7 +111,16 @@ const server = createServer((req, res) => {
       return;
     }
     toChatRequest(req)
+      .then((request) => withSavedProvider(request, keys))
       .then((request) => handleChatProxy(request, process.env))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
+    toFetchRequest(req)
+      .then((request) => handleProviderApi(request, process.env, keys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

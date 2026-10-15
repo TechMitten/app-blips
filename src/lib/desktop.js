@@ -1,5 +1,3 @@
-import { listProviderModels } from '../../electron/server/providerModels.js';
-import { resolveUserProvider } from '../../electron/server/providers.js';
 import { logError, logWarn } from './errorLog.js';
 
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
@@ -106,60 +104,116 @@ export function createAppDataStorage(prefix) {
   };
 }
 
+// The browser version's Settings → AI (npm run dev, server.js, Docker). The
+// choice of provider, model and URL is kept in this origin's localStorage, but
+// the API key is not: localStorage is plain text that any script on this
+// origin, or anyone with the browser profile, can read. The key goes to
+// AppBlips' own server (/api/provider, electron/server/providerApi.js), which
+// keeps it in a private file and attaches it to /api/chat, as the desktop
+// app's main process does. The page only ever learns `hasKey`.
+const WEB_PROVIDER_KEY = 'appblips-web-provider';
+
+const readWebProvider = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WEB_PROVIDER_KEY) || '{}');
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  } catch (err) {
+    // Not the error itself: a JSON SyntaxError's message can quote the saved data.
+    if (err?.name === 'SyntaxError') logWarn('Saved AI provider settings are not valid JSON, treating them as not set');
+    return {};
+  }
+};
+
+const writeWebProvider = (info) => {
+  // A key is never written here.
+  const rest = { ...info };
+  delete rest.apiKey;
+  delete rest.hasKey;
+  localStorage.setItem(WEB_PROVIDER_KEY, JSON.stringify(rest));
+};
+
+const providerRequest = async (path, method = 'GET', body = undefined) => {
+  const response = await fetch(path, {
+    method,
+    ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  });
+  let data = null;
+  try { data = await response.json(); } catch { /* not JSON: reported below */ }
+  if (!response.ok) throw new Error(data?.error || `AppBlips' server could not save the AI settings (HTTP ${response.status}).`);
+  return data;
+};
+
+// Versions before this one kept the key in localStorage. Hand it to the
+// server once and remove it from the browser; until that succeeds it stays
+// where it was, so a failed move never loses the key.
+let legacyKeyMove = null;
+const moveLegacyKey = () => {
+  if (legacyKeyMove) return legacyKeyMove;
+  const saved = readWebProvider();
+  if (typeof saved.apiKey !== 'string') return Promise.resolve();
+  legacyKeyMove = (saved.apiKey.trim() && saved.id
+    ? providerRequest('/api/provider', 'PUT', { id: saved.id, apiKey: saved.apiKey })
+    : Promise.resolve()
+  ).then(
+    () => writeWebProvider(readWebProvider()),
+    (err) => {
+      legacyKeyMove = null;
+      logWarn('Could not move the saved API key to AppBlips\' server, keeping it in the browser for now', err);
+    },
+  );
+  return legacyKeyMove;
+};
+
 export const webProviderStore = {
-  // Resolve credentials only for the outgoing request; get() keeps keys out
-  // of settings state. A draft may change model/URL while reusing its key.
+  // The provider for an outgoing /api/chat request, without a key: the server
+  // attaches the saved one (withSavedProvider). A draft from "Test connection"
+  // goes as given, with its typed key or an empty one meaning "the saved key".
   forRequest(input = null) {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem('appblips-web-provider')); }
-    catch { /* Ignore unavailable or invalid browser settings. */ }
-    if (input) {
-      return {
-        ...input,
-        apiKey: input.apiKey?.trim() || (saved?.id === input.id ? saved.apiKey : '') || '',
-      };
-    }
-    if (!saved?.enabled || !saved.id || !saved.model) return null;
-    return saved;
+    if (input) return input;
+    const { enabled, id, model, baseUrl } = readWebProvider();
+    if (!enabled || !id || !model) return null;
+    return { id, model, baseUrl: baseUrl || '' };
   },
   async listModels(input) {
-    return listProviderModels(this.forRequest(input));
+    await moveLegacyKey();
+    return providerRequest('/api/provider/models', 'POST', input);
   },
   async get() {
-    try {
-      const { apiKey, ...info } = JSON.parse(localStorage.getItem('appblips-web-provider') || '{"enabled":false}');
-      return { ...info, hasKey: Boolean(apiKey) };
-    }
-    catch (err) {
-      // Not the error itself: a JSON SyntaxError's message can quote the saved key.
-      if (err?.name === 'SyntaxError') logWarn('Saved AI provider settings are not valid JSON, treating them as not set');
-      return { enabled: false };
-    }
+    await moveLegacyKey();
+    const info = readWebProvider();
+    // A legacy key the move couldn't hand over yet.
+    delete info.apiKey;
+    let server = { id: '', hasKey: false };
+    try { server = await providerRequest('/api/provider'); }
+    catch (err) { logWarn('Could not ask AppBlips\' server for the saved API key', err); }
+    return { enabled: false, ...info, hasKey: Boolean(info.id && server.id === info.id && server.hasKey) };
   },
   async set(info) {
-    let previous = {};
-    try { previous = JSON.parse(localStorage.getItem('appblips-web-provider') || '{}'); }
-    catch { /* Ignore invalid saved settings. */ }
+    await moveLegacyKey();
+    const previous = readWebProvider();
     // "Skip for now" in onboarding: remember it without saving a provider.
     if (info.onboardingComplete === true && info.id === undefined) {
-      localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, ...previous, onboardingComplete: true }));
+      writeWebProvider({ enabled: false, ...previous, onboardingComplete: true });
       return this.get();
     }
-    const apiKey = info.apiKey?.trim() || (previous.id === info.id ? previous.apiKey : '') || '';
-    const resolved = resolveUserProvider({ ...info, apiKey });
-    if (resolved.error) throw new Error(resolved.error);
-    const next = { ...info, apiKey, baseUrl: resolved.baseUrl, local: Boolean(resolved.local), onboardingComplete: Boolean(previous.onboardingComplete || info.enabled) };
-    localStorage.setItem('appblips-web-provider', JSON.stringify(next));
+    // The server checks the settings (with the saved key when none is typed)
+    // and keeps the key; only the rest is saved here.
+    const saved = await providerRequest('/api/provider', 'PUT', info);
+    writeWebProvider({
+      ...info,
+      baseUrl: saved.baseUrl,
+      local: Boolean(saved.local),
+      onboardingComplete: Boolean(previous.onboardingComplete || info.enabled),
+    });
     return this.get();
   },
   async clear() {
     // Keep the onboarding flag, as the desktop store does, so clearing a
     // provider doesn't replay setup.
-    let previous = {};
-    try { previous = JSON.parse(localStorage.getItem('appblips-web-provider') || '{}'); }
-    catch { /* Ignore invalid saved settings. */ }
-    if (previous.onboardingComplete) localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
-    else localStorage.removeItem('appblips-web-provider');
+    const previous = readWebProvider();
+    await providerRequest('/api/provider', 'DELETE');
+    if (previous.onboardingComplete) writeWebProvider({ enabled: false, onboardingComplete: true });
+    else localStorage.removeItem(WEB_PROVIDER_KEY);
     return {};
   }
 };

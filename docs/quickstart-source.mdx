@@ -17,7 +17,7 @@ You can run it in two ways:
 | **Start it with** | `npm start` | `npm run desktop` |
 | **Opens in** | Your web browser, at `http://localhost:3000` | Its own window, like the installed app |
 | **Projects are saved** | In your browser | As folders in `Documents/AppBlips/Projects` |
-| **API key is saved** | In your browser | Encrypted with your system keychain |
+| **API key is saved** | On your computer, by AppBlips' server (not in the browser) | Encrypted with your system keychain |
 | **Works on** | Windows, macOS, Linux | Windows and Linux (macOS is untested) |
 
 ## Before you start
@@ -85,7 +85,7 @@ Port 3000 already taken? Start it on another port. On macOS or Linux run `PORT=3
 ### Things to know about the browser version
 
 - **Your projects live in your browser,** for the exact address you opened (`http://localhost:3000`). A different browser, a private window or another port starts empty. Clearing your browser's site data deletes them, so back up with **Settings → Data → Export** now and then.
-- **Your API key is saved in your browser** and sent to AppBlips with each request. It's never put into your projects or exported apps.
+- **Your API key is saved by AppBlips on your computer,** in a file only you can read (`.appblips` in your home folder), not in your browser. It's never put into your projects or exported apps.
 - **It only answers on your own computer.** Other devices on your network can't open it. See [Security](/self-hosting/security#browser-and-docker-versions) before changing that.
 - Instead of entering a provider in the app, you can give the server one in a `.env` file. See the [Configuration reference](/self-hosting/configuration).
 

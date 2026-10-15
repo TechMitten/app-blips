@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Code2, Check, Copy, FileQuestion, Image as ImageIcon, Loader2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { syntaxHighlightHtml } from '../lib/helpers';
 import { highlightSource } from '../lib/sourceHighlight';
 import { describeFile, mediaKind } from '../lib/codebase/fileInfo';
 import { formatBytes, utf8Length } from '../lib/codebase/paths';
@@ -206,7 +205,7 @@ export default function CodeView({
 
   const isSvgText = hasFileList && !activeFileIsBinary && /\.svg$/i.test(activeFile || '') && Boolean(code);
   const highlighted = useMemo(
-    () => (hasFileList ? highlightSource(code, activeFile) : syntaxHighlightHtml(code)),
+    () => highlightSource(code, hasFileList ? activeFile : 'index.html'),
     [code, hasFileList, activeFile],
   );
   const fileStats = useMemo(() => {

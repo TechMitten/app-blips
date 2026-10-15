@@ -33,7 +33,7 @@ AppBlips lets you describe an app, a game, or a website in plain language and ge
 AppBlips has three studios, chosen from the launch screen:
 
 - **App Studio** — interactive tools and dashboards. JavaScript-driven, saves its data in the browser, and designed to feel native on a phone (mobile preview by default).
-- **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), then lets you refine it with prompts or click-to-edit tools.
+- **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), adds libraries such as Swiper carousels, GSAP scroll animations or Leaflet maps when the site needs them, then lets you refine it with prompts or click-to-edit tools.
 - **Game Studio** — playable browser games with a real game loop: raw Canvas 2D for simple arcade games or the Phaser 3 engine (loaded from CDN) for sprite, tilemap and physics-heavy games, with controls, scoring, levels, juice, and sound tuned for both touch and keyboard.
 
 The studios share the same workflow: prompt, live preview, versions, and export.
@@ -105,7 +105,7 @@ You need [Node.js](https://nodejs.org/) 22.12 or newer (the LTS version).
 
 3. Open [http://localhost:3000](http://localhost:3000) and add your AI provider when asked.
 
-Your projects and API key are saved in your browser, so back up with **Settings → Data → Export** now and then. Prefer the desktop app? Run `npm run desktop` instead of `npm start`, or `npm run desktop:dist` to build your own installers into `dist-desktop/`. See the [run from source guide](https://docs.appblips.com/quickstart-source) for details, including updating.
+Your projects are saved in your browser (your API key is saved by AppBlips on your computer, not in the browser), so back up with **Settings → Data → Export** now and then. Prefer the desktop app? Run `npm run desktop` instead of `npm start`, or `npm run desktop:dist` to build your own installers into `dist-desktop/`. See the [run from source guide](https://docs.appblips.com/quickstart-source) for details, including updating.
 
 ### Docker
 
@@ -143,7 +143,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
-- The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved in your browser.
+- The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved by the server in a file only you can read (`~/.appblips`, or the `appblips-data` volume in Docker), never in your browser.
 - Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and how to check a download.
 
 ## License

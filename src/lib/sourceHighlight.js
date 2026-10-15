@@ -1,10 +1,9 @@
-// Read-only highlighting for imported codebase files (TS/JS/JSX, CSS, JSON).
-// syntaxHighlightHtml only knows HTML tags, which turns TSX into noise. This
-// is a single-pass tokenizer, not a parser: good enough to tell comments,
-// strings and keywords apart at a glance. Output uses the same
-// `.code-line` / `.line-number` markup as syntaxHighlightHtml so the code
-// view styles both alike.
-import { syntaxHighlightHtml } from './helpers.js';
+// Read-only highlighting for the code view: HTML pages (including the JS/JSX
+// and CSS inside their <script> and <style> blocks) and imported codebase
+// files (TS/JS/JSX, CSS, JSON). This is a single-pass tokenizer, not a parser:
+// good enough to tell comments, strings, keywords and calls apart at a
+// glance. Output uses the same `.code-line` / `.line-number` markup as
+// syntaxHighlightHtml (still used line by line for the live code peek).
 
 const JS_KEYWORDS = new Set([
   'import', 'export', 'from', 'default', 'as', 'const', 'let', 'var', 'function', 'return', 'if', 'else',
@@ -17,18 +16,34 @@ const JS_KEYWORDS = new Set([
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Order matters: comments and strings first so keywords inside them stay plain.
-const JS_RE = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|(`(?:\\[\s\S]|[^`\\])*`?|"(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?)|(<\/?[A-Za-z][\w.:-]*)|\b(\d[\d_.]*(?:e[+-]?\d+)?n?|0x[\da-f]+)\b|([A-Za-z_$][\w$]*)/gi;
+const JS_RE = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|(`(?:\\[\s\S]|[^`\\])*`?|"(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?)|((?<![\w$)\]])<[A-Za-z][\w.:-]*|<\/[A-Za-z][\w.:-]*)|\b(\d[\d_.]*(?:e[+-]?\d+)?n?|0x[\da-f]+)\b|([A-Za-z_$][\w$]*)/gi;
 const CSS_RE = /(\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?)|(@[\w-]+)|(#[\da-f]{3,8}\b|-?\d*\.?\d+(?:px|rem|em|%|vh|vw|s|ms|deg|fr)?\b)|([\w-]+)(?=\s*:)/gi;
+const HTML_RE = /(<!--[\s\S]*?(?:-->|$))|(<!doctype[^>]*>?)|<(\/?)([A-Za-z][\w:-]*)((?:"[^"]*"|'[^']*'|[^'">])*)(>?)/gi;
+const ATTR_RE = /([^\s"'=<>/]+)(?:(\s*=\s*)("[^"]*"?|'[^']*'?|[^\s"'>]+))?/g;
 const JSON_RE = /("(?:\\.|[^"\\\n])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/gi;
 
 function tokenize(code, kind) {
   const tokens = []; // [className | null, text]
   let last = 0;
+  // JSX tag state: after `<Tag`, `name=` is a prop until the tag's `>` (a `>`
+  // inside `{...}` such as an arrow function doesn't count).
+  let inTag = false;
+  let braceDepth = 0;
   const push = (cls, text) => { if (text) tokens.push([cls, text]); };
+  const plain = (text) => {
+    if (inTag) {
+      for (const ch of text) {
+        if (ch === '{') braceDepth++;
+        else if (ch === '}') braceDepth = Math.max(0, braceDepth - 1);
+        else if (braceDepth === 0 && (ch === '>' || ch === ';')) { inTag = false; break; }
+      }
+    }
+    push(null, text);
+  };
   const re = new RegExp(kind === 'css' ? CSS_RE : kind === 'json' ? JSON_RE : JS_RE);
   for (let m = re.exec(code); m; m = re.exec(code)) {
     if (m[0] === '') { re.lastIndex++; continue; }
-    push(null, code.slice(last, m.index));
+    plain(code.slice(last, m.index));
     last = m.index + m[0].length;
     if (kind === 'json') {
       if (m[1]) { push(m[2] ? 'token-attr-name' : 'token-string', m[1]); push(null, m[2] || ''); }
@@ -37,9 +52,68 @@ function tokenize(code, kind) {
       push(m[1] ? 'token-comment' : m[2] ? 'token-string' : m[3] ? 'token-keyword' : m[4] ? 'token-attr-name' : 'token-tag-name', m[0]);
     } else if (m[1]) push('token-comment', m[0]);
     else if (m[2]) push('token-string', m[0]);
-    else if (m[3]) push('token-tag-name', m[0]);
+    else if (m[3]) { push('token-tag-name', m[0]); inTag = true; braceDepth = 0; }
     else if (m[4]) push('token-attr-name', m[0]);
-    else push(JS_KEYWORDS.has(m[5]) ? 'token-keyword' : null, m[0]);
+    else push(identifierClass(m[5], code, m.index, last, inTag && braceDepth === 0), m[0]);
+  }
+  push(null, code.slice(last));
+  return tokens;
+}
+
+const CALL_RE = /\s*\(/y;
+const JSX_ATTR_RE = /\s*=(?![=>])/y;
+const followedBy = (re, code, at) => { re.lastIndex = at; return re.test(code); };
+
+// Most of a file is identifiers, so leaving them all plain reads as a wall of
+// white. Color the ones an editor would: calls, properties and JSX props.
+function identifierClass(word, code, start, end, jsxAttrPosition) {
+  const afterDot = code[start - 1] === '.';
+  if (!afterDot && JS_KEYWORDS.has(word)) return 'token-keyword';
+  if (followedBy(CALL_RE, code, end)) return 'token-function';
+  if (afterDot) return 'token-property';
+  if (jsxAttrPosition && followedBy(JSX_ATTR_RE, code, end)) return 'token-attr-name';
+  return null;
+}
+
+function scriptKind(attrs) {
+  const type = attrs.match(/\btype\s*=\s*["']?([^"'\s>]+)/i)?.[1]?.toLowerCase();
+  if (!type || /javascript|ecmascript|module|jsx|babel/.test(type)) return 'js';
+  if (/json|importmap/.test(type)) return 'json';
+  return 'text'; // templates, shaders and other non-JS payloads
+}
+
+function tokenizeHtml(code) {
+  const tokens = [];
+  const push = (cls, text) => { if (text) tokens.push([cls, text]); };
+  const re = new RegExp(HTML_RE);
+  let last = 0;
+  for (let m = re.exec(code); m; m = re.exec(code)) {
+    push(null, code.slice(last, m.index));
+    last = re.lastIndex;
+    if (m[1]) { push('token-comment', m[0]); continue; }
+    if (m[2]) { push('token-doctype', m[0]); continue; }
+    const [, , , slash, name, attrs, close] = m;
+    push(null, `<${slash}`);
+    push('token-tag-name', name);
+    let attrLast = 0;
+    for (const a of attrs.matchAll(ATTR_RE)) {
+      push(null, attrs.slice(attrLast, a.index));
+      push('token-attr-name', a[1]);
+      push(null, a[2] || '');
+      push('token-string', a[3] || '');
+      attrLast = a.index + a[0].length;
+    }
+    push(null, attrs.slice(attrLast) + close);
+    // Script and style bodies are code, not markup: hand them to the JS/CSS
+    // tokenizers, up to the matching close tag.
+    const tag = name.toLowerCase();
+    if (slash || !close || (tag !== 'script' && tag !== 'style') || /\/\s*$/.test(attrs)) continue;
+    const found = code.slice(last).search(new RegExp(`</${tag}\\b`, 'i'));
+    const stop = found === -1 ? code.length : last + found;
+    const body = code.slice(last, stop);
+    const kind = tag === 'style' ? 'css' : scriptKind(attrs);
+    tokens.push(...(kind === 'text' ? [[null, body]] : tokenize(body, kind)));
+    last = re.lastIndex = stop;
   }
   push(null, code.slice(last));
   return tokens;
@@ -57,8 +131,7 @@ function languageOf(path) {
 export function highlightSource(code, path) {
   if (!code) return '';
   const lang = languageOf(path || '');
-  if (lang === 'html') return syntaxHighlightHtml(code);
-  const tokens = lang === 'text' ? [[null, code]] : tokenize(code, lang);
+  const tokens = lang === 'text' ? [[null, code]] : lang === 'html' ? tokenizeHtml(code) : tokenize(code, lang);
   // A token can span lines (block comments, template strings), so each line
   // closes and reopens its span to keep every .code-line self-contained.
   const lines = [''];

@@ -22,6 +22,23 @@ export async function toChatRequest(req) {
   });
 }
 
+// The same for /api/provider/*, keeping the method and path. Under Vite's
+// connect, req.url has the mount prefix stripped; originalUrl doesn't.
+export async function toFetchRequest(req) {
+  const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+  const chunks = [];
+  if (hasBody) for await (const chunk of req) chunks.push(chunk);
+  return new Request(protocol + '://' + (req.headers.host || 'localhost') + (req.originalUrl || req.url), {
+    method: req.method,
+    headers: {
+      ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
+      ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+    },
+    ...(hasBody ? { body: Buffer.concat(chunks) } : {}),
+  });
+}
+
 // Vite's connect server and a bare http server both treat an 'error' event on
 // an unhandled stream as an uncaught exception, which on modern Node kills the
 // whole process. This costs one request instead: pipeline() forwards errors
