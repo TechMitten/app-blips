@@ -30,9 +30,9 @@ nsis:
   perMachine: false
   createDesktopShortcut: true
   artifactName: AppBlips-Setup-${version}.${ext}
-# Microsoft Store package (npm run desktop:store, or the "Microsoft Store"
-# workflow; Windows only). Never part of npm run release: it's uploaded to
-# Partner Center by hand, and the Store signs it, so it needs no certificate.
+# Microsoft Store package (npm run desktop:store, on a Windows PC). Never part
+# of npm run release or CI: it's built locally and uploaded to Partner Center
+# by hand, and the Store signs it, so it needs no certificate.
 # The tile images are build/appx/*.png, made from build/icon.png by
 # scripts/appx-icons.sh (rerun it after changing the icon). The identity
 # values come from Partner Center → the app → Product identity and must match
