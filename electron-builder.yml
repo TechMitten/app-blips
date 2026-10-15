@@ -33,20 +33,23 @@ nsis:
 # Microsoft Store package (npm run desktop:store, or the "Microsoft Store"
 # workflow; Windows only). Never part of npm run release: it's uploaded to
 # Partner Center by hand, and the Store signs it, so it needs no certificate.
-# The tile images are build/appx/*.png, made from build/icon.png. Fill in the
-# three identity values from Partner Center → the app → Product identity
-# before uploading: with these placeholders it still builds, but the Store
-# rejects it. The package is unsigned, so Windows won't install it straight
+# The tile images are build/appx/*.png, made from build/icon.png. The identity
+# values come from Partner Center → the app → Product identity and must match
+# it exactly, or the upload is rejected. The package is unsigned, so Windows won't install it straight
 # from the file; test it through the Store (a private flight or an unlisted
 # submission).
 appx:
   identityName: TechMitten.AppBlips          # Package/Identity/Name
-  publisher: CN=00000000-0000-0000-0000-000000000000  # Package/Identity/Publisher
+  publisher: CN=ADD5F838-06D7-4CA2-AAEB-75AF269F2969  # Package/Identity/Publisher
   publisherDisplayName: TechMitten           # Package/Properties/PublisherDisplayName
   applicationId: AppBlips
   displayName: AppBlips
   backgroundColor: transparent
   languages: [en-US]
+  # Electron needs Windows 10 1809 (build 17763) or later; electron-builder's
+  # default (14316) would offer it to Windows versions it can't run on.
+  minVersion: 10.0.17763.0
+  maxVersionTested: 10.0.26100.0
   artifactName: AppBlips-Store-${version}.${ext}
 linux:
   target:
