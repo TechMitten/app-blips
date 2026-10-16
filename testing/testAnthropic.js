@@ -64,6 +64,10 @@ test('requests translate to Messages API params', () => {
   assert.equal(off.thinking, undefined);
   assert.deepEqual(off.output_config, { effort: 'low' });
   assert.equal(off.temperature, undefined);
+  // Low must ask for more than Off, or Claude never thinks at Low.
+  const low = toAnthropicParams({ model: 'claude-opus-5-5', reasoning_effort: 'low', messages: [{ role: 'user', content: 'hi' }] });
+  assert.deepEqual(low.thinking, { type: 'adaptive', display: 'summarized' });
+  assert.deepEqual(low.output_config, { effort: 'medium' });
   // Older models get neither effort nor fallbacks, but keep temperature.
   const haiku = toAnthropicParams({ model: 'claude-haiku-4-5', temperature: 0, messages: [{ role: 'user', content: 'hi' }] });
   assert.equal(haiku.output_config, undefined);

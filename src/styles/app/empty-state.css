@@ -371,15 +371,6 @@
   transition-delay: 0s;
 }
 
-/* Desktop previews have much more horizontal room, so the shared tall
-   mobile/tablet card would leave an oversized empty tail below the stream. */
-.live-code-peek-compact {
-  min-height: 0;
-}
-/* The compact card is content-sized, so cap how tall the stream can grow. */
-.live-code-peek-compact .live-code-peek-body {
-  max-height: calc(12 * 1.55em + 22px);
-}
 .live-code-peek .token-comment { color: var(--peek-comment); }
 .live-code-peek .token-doctype { color: var(--peek-doctype); }
 .live-code-peek .token-tag-name { color: var(--peek-tag); }
@@ -434,19 +425,18 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* In the tall card the body stretches to fill the card's min-height;
-     LiveCodePeek shows only as many lines as fit, so they fill from the top
-     and the newest line ends up at the bottom once the card is full. */
+  /* The body stretches to fill the card's min-height; LiveCodePeek shows
+     only as many lines as fit, so they fill from the top and the newest line
+     ends up at the bottom once the card is full. */
   overflow: hidden;
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--peek-fg);
 }
-/* In the tall card the body's size must not depend on how many lines it
-   shows, or measuring it (to decide how many lines to show) feeds back on
-   itself. */
-.live-code-peek:not(.live-code-peek-compact) .live-code-peek-body {
+/* The body's size must not depend on how many lines it shows, or measuring
+   it (to decide how many lines to show) feeds back on itself. */
+.live-code-peek .live-code-peek-body {
   flex-basis: 0;
 }
 /* Fade the top only once earlier lines have scrolled off, so the first lines

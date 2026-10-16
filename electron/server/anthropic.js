@@ -159,7 +159,10 @@ export const toAnthropicParams = (body) => {
     if (body.tool_choice) params.tool_choice = toAnthropicToolChoice(body.tool_choice);
   }
   if (ADAPTIVE_MODEL.test(model)) {
-    params.output_config = { effort: effort === 'high' ? 'high' : effort === 'medium' ? 'medium' : 'low' };
+    // Off already takes Claude's lowest effort, and at that effort adaptive
+    // thinking mostly decides not to think, so Low starts one step up
+    // (medium) or it would behave exactly like Off.
+    params.output_config = { effort: effort === 'high' ? 'high' : effort ? 'medium' : 'low' };
     // A readable summary keeps the "Thinking" indicator fed while it works.
     if (effort) params.thinking = { type: 'adaptive', display: 'summarized' };
   }

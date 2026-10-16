@@ -243,12 +243,10 @@ function BuildingStatusMessage() {
 // rather than rendering them as they land it reveals the text on animation
 // frames at a steady pace that speeds up in proportion to the backlog -- it
 // types, rather than flickers.
-// Most lines kept from the stream: enough to fill the tall mobile/tablet card
-// (up to 420px, about 19 lines). How many are shown is measured from the
-// card (see `capacity` in LiveCodePeek); the compact desktop card shows
-// COMPACT_PEEK_LINES and stays content-sized up to that.
+// Most lines kept from the stream: enough to fill the tallest card (520px,
+// about 18 lines). How many are shown is measured from the card (see
+// `capacity` in LiveCodePeek).
 const PEEK_LINES = 22;
-const COMPACT_PEEK_LINES = 12;
 // Once the text has stopped growing (and the typing has caught up) for this
 // long, the model is no longer writing code -- it is reviewing, summarizing or
 // waiting -- so the peek steps aside until more code arrives.
@@ -263,7 +261,7 @@ const PeekLine = memo(function PeekLine({ text }) {
   return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text || ' ') }} />;
 });
 
-function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = '', compact = false, className = '' }) {
+function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = '', className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
   const [idle, setIdle] = useState(false);
   // Flips one frame after the first lines exist so the entrance transitions
@@ -277,8 +275,7 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
   // CSS can't do both (bottom-aligned leaves a gap above a short stream), so
   // the body shows exactly as many lines as fit.
   const bodyRef = useRef(null);
-  const [measured, setMeasured] = useState(PEEK_LINES);
-  const capacity = compact ? COMPACT_PEEK_LINES : measured;
+  const [capacity, setCapacity] = useState(PEEK_LINES);
   const shown = view.lines.length > capacity ? view.lines.slice(-capacity) : view.lines;
   const shownStart = view.start + view.lines.length - shown.length;
   const scrolledOff = shownStart > 0;
@@ -289,20 +286,20 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
 
   useLayoutEffect(() => {
     const el = bodyRef.current;
-    if (!el || compact || typeof ResizeObserver === 'undefined') return undefined;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const measure = () => {
       const style = getComputedStyle(el);
       const lineHeight = parseFloat(style.lineHeight);
       const inner = el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
       if (lineHeight > 0 && inner > 0) {
-        setMeasured(Math.max(1, Math.min(PEEK_LINES, Math.floor(inner / lineHeight))));
+        setCapacity(Math.max(1, Math.min(PEEK_LINES, Math.floor(inner / lineHeight))));
       }
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasLines, compact]);
+  }, [hasLines]);
 
   useEffect(() => {
     if (!hasLines) return undefined;
@@ -356,7 +353,7 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
 
   if (!hasLines && !reasoning) return null;
   return (
-    <div className={`live-code-peek w-[min(600px,92%)] text-left ${compact ? 'live-code-peek-compact' : ''} ${(reasoning || (entered && !idle)) ? 'is-visible' : ''} ${className}`}>
+    <div className={`live-code-peek w-[min(600px,92%)] text-left ${(reasoning || (entered && !idle)) ? 'is-visible' : ''} ${className}`}>
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
         <span className="live-code-peek-label">generating code</span>
@@ -628,7 +625,7 @@ export default function DeviceMockup({
                 )}
               </div>
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} compact={mode === 'desktop'} className="mt-6" />
+                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} className="mt-6" />
               )}
             </div>
           )}
