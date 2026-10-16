@@ -532,7 +532,6 @@ export const requestModelText = async ({
     }
 
     endThinking();
-    if (onChunk) onChunk('', 'edit_stream_done');
     logModelReply({ content: text, tool_calls: toolCallsBuffer.filter(Boolean) }, finishReason);
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
@@ -1263,22 +1262,26 @@ const generateAppCodeWithSummary = async (...args) => {
 // only inspects and reports; when it finds problems, `mission` is the request
 // App sends to a normal build in a fresh chat, so the fix starts with nothing
 // but the report and the code.
+// `fixCheck` is a review of the build an earlier review's report started. Its
+// request is that report, so the reviewer's summary talks about "the fix";
+// a plain "found no problems" before it read as if nothing had been wrong.
 export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
-  layoutTarget = 'both', signal, onChunk, browser = null }) => {
+  layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false }) => {
   const review = await reviewGeneratedCode({
     files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
     requestModelText, browser,
   });
   const noun = studioNoun(studioMode);
   const checked = browser ? 'reviewed and tested' : 'reviewed';
+  const subject = fixCheck ? 'the fixes' : `the ${noun}`;
   const report = formatReviewReport(review);
   const mission = review.problems.length
     ? `Fix the problems a review found in this ${noun}. Change only what these fixes need and keep everything else working as it is.\n\nReview report:\n\n${report}`
     : null;
   const reply = mission
-    ? `I ${checked} the ${noun} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}. I'm starting a new chat to fix ${review.problems.length === 1 ? 'it' : 'them'}.\n\n${report}`
+    ? `I ${checked} ${subject} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}${fixCheck ? ' still to fix' : ''}. I'm starting a new chat to fix ${review.problems.length === 1 ? 'it' : 'them'}.\n\n${report}`
     : review.warning
-      ? `I ${checked} the ${noun} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
-      : `I ${checked} the ${noun} and found no problems.${review.summary ? ` ${review.summary}` : ''}`;
+      ? `I ${checked} ${subject} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
+      : `${fixCheck ? `I ${checked} the fixes and the ${noun} works now.` : `I ${checked} the ${noun} and found no problems.`}${review.summary ? ` ${review.summary}` : ''}`;
   return { qualityReview: review, report, mission, reply };
 };

@@ -1,6 +1,8 @@
 /* Prompt/build command dock — light theme: frosted glass over the pastel
    mesh, hairline border, no heavy elevation. Dark keeps its pop-out physical
-   extrusion untouched below. */
+   extrusion untouched below.
+   Focus deepens the shadow only: the dock used to lift 2px on focus, which
+   made it jump every time it was clicked. */
 .prompt-input-dock {
   border: 1.5px solid rgba(15, 23, 42, 0.4);
   background: rgba(255, 255, 255, 0.75);
@@ -20,7 +22,6 @@
     0 1px 0 rgba(255, 255, 255, 0.7) inset,
     0 8px 20px -4px rgba(15, 23, 42, 0.2),
     0 18px 40px -10px rgba(15, 23, 42, 0.26);
-  transform: translateY(-2px);
 }
 
 /* The dock used to carry a 2px rim over a 5px black under-edge -- a physical
@@ -42,7 +43,6 @@
     0 22px 48px -4px rgba(0, 0, 0, 0.95),
     0 8px 18px -2px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transform: translateY(-2px);
 }
 
 /* "Blips" — the three shard colours from the AppBlips mark. They are the

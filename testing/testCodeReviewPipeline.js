@@ -64,6 +64,15 @@ try {
   assert.match(result.reply, /reviewed and tested the app and found no problems/);
   assert.equal(responses.length, 0);
 
+  // Re-reviewing a build a review's report started says it checked the fixes,
+  // not that nothing was ever wrong.
+  responses = [reportCall([])];
+  result = await reviewBuild({ files: { 'index.html': html }, prompt: 'Fix the problems a review found in this app.', fixCheck: true });
+  assert.match(result.reply, /^I reviewed the fixes and the app works now\. Checked\.$/);
+  responses = [reportCall([{ title: 'Save does nothing', evidence: 'Clicked Save, nothing was stored.', fix: 'Add a click handler.' }])];
+  result = await reviewBuild({ files: { 'index.html': html }, prompt: 'Fix the problems a review found in this app.', fixCheck: true });
+  assert.match(result.reply, /^I reviewed the fixes and found one problem still to fix\./);
+
   console.log('testCodeReviewPipeline: ok');
 } finally {
   globalThis.fetch = savedFetch;

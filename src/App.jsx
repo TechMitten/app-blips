@@ -278,8 +278,6 @@ export default function App({ coldStart = false }) {
   const liveCodeRef = useRef('');
   // Which page the live code peek is writing: { page, step?, total? } or null.
   const [liveCodePage, setLiveCodePage] = useState(null);
-  // Whether the current live code stream has finished
-  const [liveCodeStreamDone, setLiveCodeStreamDone] = useState(false);
   // Body of a page being created (not in `files` yet), for the code view's tab.
   const [streamingPageCode, setStreamingPageCode] = useState('');
   // Pages finished during the CURRENT build ({ 'index.html': html, ... }). The
@@ -804,12 +802,18 @@ export default function App({ coldStart = false }) {
 
   // Switching drag mode keeps the selection (so a container picked with
   // select-parent can be dragged next) but ends any in-place text session,
-  // which the frame aborts on its side.
+  // which the frame aborts on its side. The Drag key is always in the toolbar,
+  // so pressing it outside click-to-edit turns click-to-edit on as well.
   const handleToggleDragMode = useCallback(() => {
+    if (!isEditMode) {
+      handleToggleEditMode();
+      setIsDragMode(true);
+      return;
+    }
     setIsDragMode((on) => !on);
     setTextSession(null);
     setElementEditError(null);
-  }, []);
+  }, [isEditMode, handleToggleEditMode]);
 
   const handleCancelElementSelection = useCallback(() => {
     deselectElement();
@@ -1431,7 +1435,6 @@ export default function App({ coldStart = false }) {
           pageStreamRef.current = '';
           liveCodeRef.current = '';
           setStreamingPageCode('');
-          setLiveCodeStreamDone(false);
           return;
         }
         if (kind === 'page_stream') {
@@ -1446,15 +1449,10 @@ export default function App({ coldStart = false }) {
           setStreamingPageCode(html || '');
           return;
         }
-        if (kind === 'edit_stream_done') {
-          setLiveCodeStreamDone(true);
-          return;
-        }
         if (kind === 'edit_stream_reset') {
           editStreamRef.current = '';
           liveCodeRef.current = '';
           setStreamingPageCode('');
-          setLiveCodeStreamDone(false);
           return;
         }
         if (kind === 'edit_stream') {
@@ -1537,7 +1535,10 @@ export default function App({ coldStart = false }) {
         reply: isAutoFix ? AUTO_FIX_REPLY : generationResult.reply || null,
         // A question asked in Build mode is answered as an Ask turn.
         chatMode: generationResult.editMode === 'ask' ? 'ask' : chatMode,
-        sessionId: currentChatSessionId
+        sessionId: currentChatSessionId,
+        // Marks the build a review's report started, so reviewing it again is
+        // worded as checking those fixes (see reviewBuild).
+        ...(isReviewFix ? { reviewFix: true } : {}),
       };
       if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};
       // Offer a review of a finished build or edit. An auto-fix keeps the
@@ -1691,6 +1692,7 @@ export default function App({ coldStart = false }) {
         files,
         previousFiles: before ? versionFiles(before) : {},
         prompt: updatedVersions[buildIndex].prompt,
+        fixCheck: updatedVersions[buildIndex].reviewFix === true,
         chatHistory,
         studioMode,
         signal,
@@ -2681,7 +2683,6 @@ export default function App({ coldStart = false }) {
               thinkingSince={thinkingSince}
               streamingReasoning={streamingReasoning}
               liveCodeRef={liveCodePreview ? liveCodeRef : null}
-              liveCodeStreamDone={liveCodeStreamDone}
               liveCodePage={studioMode === 'website' ? liveCodePage : null}
               isAutoFixing={isAutoFixing}
               onCancelGeneration={handleCancelGeneration}

@@ -61,7 +61,6 @@ export default function PreviewPane({
   thinkingSince = null,
   streamingReasoning = '',
   liveCodeRef,
-  liveCodeStreamDone,
   liveCodePage = null,
   isAutoFixing,
   onCancelGeneration,
@@ -322,10 +321,12 @@ export default function PreviewPane({
             </button>
           )}
 
-          {/* Drag mode: a secondary key that only exists while click-to-edit
-              is on. While it is on, dragging an element in the preview moves
-              it, and a click selects without starting text editing. */}
-          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && isEditMode && (
+          {/* Drag mode: while it is on, dragging an element in the preview
+              moves it, and a click selects without starting text editing. It
+              is always shown beside click-to-edit (and turns click-to-edit on
+              when needed): a key that appeared only in edit mode shifted the
+              end-aligned rank under the pointer. */}
+          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
             <button
               data-tour="drag"
               onClick={onToggleDragMode}
@@ -459,7 +460,6 @@ export default function PreviewPane({
             thinkingSince={thinkingSince}
             streamingReasoning={streamingReasoning}
             liveCodeRef={liveCodeRef}
-            liveCodeStreamDone={liveCodeStreamDone}
             liveCodePage={liveCodePage}
             hasCode={hasCode}
             isAutoFixing={isAutoFixing && !isBrowserTesting}

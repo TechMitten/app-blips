@@ -214,7 +214,6 @@
      narrower hardware rather than something the normal layout relies on. */
   .prompt-input-footer { flex-wrap: wrap; gap: 8px; }
   .prompt-input-footer > div:last-child { margin-left: auto; }
-  .prompt-input-dock:focus-within { transform: none; }
   .preview-canvas {
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));

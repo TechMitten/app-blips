@@ -247,10 +247,6 @@ function BuildingStatusMessage() {
 // about 18 lines). How many are shown is measured from the card (see
 // `capacity` in LiveCodePeek).
 const PEEK_LINES = 22;
-// Once the text has stopped growing (and the typing has caught up) for this
-// long, the model is no longer writing code -- it is reviewing, summarizing or
-// waiting -- so the peek steps aside until more code arrives.
-const PEEK_IDLE_MS = 1500;
 
 // One highlighted line. Memoized on its text so lines that have finished
 // streaming are never touched again -- only the line being written re-renders.
@@ -261,14 +257,11 @@ const PeekLine = memo(function PeekLine({ text }) {
   return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text || ' ') }} />;
 });
 
-function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = '', className = '' }) {
+function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) {
   const [view, setView] = useState({ start: 0, lines: [] });
-  const [idle, setIdle] = useState(false);
   // Flips one frame after the first lines exist so the entrance transitions
   // from the hidden state instead of appearing already visible.
   const [entered, setEntered] = useState(false);
-  const streamDoneRef = useRef(streamDone);
-  useEffect(() => { streamDoneRef.current = streamDone; }, [streamDone]);
   const hasLines = view.lines.length > 0;
   // Lines that fit the tall card. Lines fill from the top until the card is
   // full, then the newest stays at the bottom and older ones scroll off. Plain
@@ -311,26 +304,10 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
     let raf = 0;
     let cursor = 0;
     let lastKey = '';
-    let lastLength = 0;
-    let lastActivity = performance.now();
-    let isIdle = false;
-    const setIdleState = (next) => {
-      if (next !== isIdle) {
-        isIdle = next;
-        setIdle(next);
-      }
-    };
     const tick = () => {
       const text = codeRef?.current || '';
-      const now = performance.now();
-      if (text.length !== lastLength) {
-        lastLength = text.length;
-        lastActivity = now;
-      }
       if (cursor > text.length) cursor = text.length;
       const backlog = text.length - cursor;
-      if (backlog > 0 || !streamDoneRef.current || now - lastActivity < PEEK_IDLE_MS) setIdleState(false);
-      else setIdleState(true);
       if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
       if (backlog > 0) {
         cursor += Math.min(backlog, Math.max(2, Math.ceil(backlog / 24)));
@@ -353,7 +330,7 @@ function LiveCodePeek({ codeRef, page = null, streamDone = false, reasoning = ''
 
   if (!hasLines && !reasoning) return null;
   return (
-    <div className={`live-code-peek w-[min(600px,92%)] text-left ${(reasoning || (entered && !idle)) ? 'is-visible' : ''} ${className}`}>
+    <div className={`live-code-peek w-[min(600px,92%)] text-left ${(reasoning || entered) ? 'is-visible' : ''} ${className}`}>
       <div className="live-code-peek-bar">
         <span className="live-code-peek-dot" />
         <span className="live-code-peek-label">generating code</span>
@@ -426,7 +403,6 @@ export default function DeviceMockup({
   generationStatus,
   thinkingSince = null,
   liveCodeRef = null,
-  liveCodeStreamDone = false,
   liveCodePage = null,
   streamingReasoning = '',
   hasCode,
@@ -625,7 +601,7 @@ export default function DeviceMockup({
                 )}
               </div>
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} streamDone={liveCodeStreamDone} page={liveCodePage} reasoning={streamingReasoning} className="mt-6" />
+                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} reasoning={streamingReasoning} className="mt-6" />
               )}
             </div>
           )}
