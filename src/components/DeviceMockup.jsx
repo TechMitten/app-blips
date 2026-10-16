@@ -1,9 +1,9 @@
-import { memo, useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
   Sparkles, Zap, ShieldAlert, Layers, X, Brain
 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
-import { PREVIEW_MODES } from '../lib/constants';
+import { PREVIEW_MODES, PREVIEW_SHUTTER_MS } from '../lib/constants';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
 
 const BUILDING_MESSAGES = [
@@ -386,6 +386,75 @@ function SystemClock() {
   );
 }
 
+// Every edit (a drag-drop, a text change), version switch and generation
+// hands the preview a new srcDoc. Navigating the visible frame blanks it
+// until the new document paints -- the whole preview flashes, longest for
+// React apps waiting on esm.sh. So the new document loads in a second frame
+// underneath while the old one stays on top (inert, clicks pass through),
+// and they swap once the new one has loaded and painted. Both frames stay
+// mounted and laid out for good: see the comment on the iframe below for
+// why a document must never land in a frame that was just created or shown.
+const COVER_SETTLE_MS = 80;
+const COVER_MAX_MS = 3000;
+
+function useDoubleBufferedDoc(srcDoc) {
+  const [frames, setFrames] = useState(() => ({ docs: [srcDoc, ''], live: 0, covering: false, seen: srcDoc }));
+  if (frames.seen !== srcDoc) {
+    const docs = [...frames.docs];
+    let { live, covering } = frames;
+    if (!srcDoc) {
+      docs[0] = docs[1] = '';
+      covering = false;
+    } else if (covering || !docs[live]) {
+      // Already covered by the last painted document (or nothing to keep
+      // showing): just point the loading frame at the newest one.
+      docs[live] = srcDoc;
+    } else {
+      live = 1 - live;
+      docs[live] = srcDoc;
+      covering = true;
+    }
+    setFrames({ docs, live, covering, seen: srcDoc });
+  }
+
+  const uncover = useCallback(() => {
+    setFrames((f) => {
+      if (!f.covering) return f;
+      const docs = [...f.docs];
+      // Unload the old document so its timers, audio and bridge stop.
+      docs[1 - f.live] = '';
+      return { ...f, docs, covering: false };
+    });
+  }, []);
+
+  const settleRef = useRef({ timer: 0, raf: 0 });
+  const onLiveLoad = useCallback(() => {
+    const s = settleRef.current;
+    clearTimeout(s.timer);
+    cancelAnimationFrame(s.raf);
+    // `load` comes before a React root's first render is painted; give it a
+    // moment and two frames so the swap reveals a painted page.
+    s.timer = setTimeout(() => {
+      s.raf = requestAnimationFrame(() => { s.raf = requestAnimationFrame(uncover); });
+    }, COVER_SETTLE_MS);
+  }, [uncover]);
+
+  // A document that never fires `load` (a hung request) must not leave the
+  // stale one up forever.
+  useEffect(() => {
+    if (!frames.covering) return undefined;
+    const id = setTimeout(uncover, COVER_MAX_MS);
+    return () => clearTimeout(id);
+  }, [frames.covering, frames.seen, uncover]);
+
+  useEffect(() => () => {
+    clearTimeout(settleRef.current.timer);
+    cancelAnimationFrame(settleRef.current.raf);
+  }, []);
+
+  return { frames, onLiveLoad };
+}
+
 export default function DeviceMockup({
   mode,
   orientation,
@@ -399,6 +468,7 @@ export default function DeviceMockup({
   srcDoc,
   browserToken,
   isBrowserTesting = false,
+  shutterCount = 0,
   isGenerating,
   generationStatus,
   thinkingSince = null,
@@ -410,6 +480,7 @@ export default function DeviceMockup({
   isTransitioning = false,
   onCancelGeneration,
 }) {
+  const { frames, onLiveLoad } = useDoubleBufferedDoc(srcDoc);
   const box = fillSize || getEffectivePreviewBox(mode, orientation);
   const isErrorAutoFix = !isBrowserTesting && (isAutoFixing || Boolean(
     generationStatus?.toLowerCase().includes('runtime error') ||
@@ -452,20 +523,40 @@ export default function DeviceMockup({
                 recomposite. That is the "white until I toggle Code/Preview or
                 switch device" bug: both of those force a fresh element or a
                 relayout. Keeping the frame laid out at all times means a new
-                document always commits into an already-rendering frame. */}
-            <iframe
-              ref={iframeRef}
-              title="AppBlips Browser"
-              data-appblips-browser="true"
-              data-browser-token={browserToken}
-              srcDoc={srcDoc}
-              className={`w-full h-full border-none ${isTransitioning ? 'overflow-hidden pointer-events-none' : ''}`}
-              scrolling={isTransitioning ? 'no' : 'auto'}
-              sandbox="allow-scripts allow-forms allow-popups"
-              referrerPolicy="no-referrer"
-              allow=""
-              tabIndex={isBrowserTesting ? -1 : undefined}
-            />
+                document always commits into an already-rendering frame.
+
+                There are two of them (see useDoubleBufferedDoc). Only the live
+                one -- the frame holding the newest document -- gets the ref
+                and the data-appblips-browser marker, so the bridge, the
+                embedded browser and the native input all address it. Their
+                order never changes: moving an iframe in the DOM reloads it.
+                The wrapper's own stacking context keeps the frames' z-index
+                below the overlays that follow. */}
+            <div className="absolute inset-0 isolate">
+              {[0, 1].map((slot) => {
+                const isLive = slot === frames.live;
+                const onTop = isLive !== frames.covering;
+                return (
+                  <iframe
+                    key={slot}
+                    ref={isLive ? iframeRef : undefined}
+                    title="AppBlips Browser"
+                    data-appblips-browser={isLive ? 'true' : undefined}
+                    data-browser-token={isLive ? browserToken : undefined}
+                    srcDoc={frames.docs[slot]}
+                    onLoad={isLive ? onLiveLoad : undefined}
+                    inert={!isLive}
+                    style={{ zIndex: onTop ? 1 : 0 }}
+                    className={`absolute inset-0 w-full h-full border-none ${!isLive || isTransitioning ? 'overflow-hidden pointer-events-none' : ''}`}
+                    scrolling={isLive && !isTransitioning ? 'auto' : 'no'}
+                    sandbox="allow-scripts allow-forms allow-popups"
+                    referrerPolicy="no-referrer"
+                    allow=""
+                    tabIndex={isBrowserTesting || !isLive ? -1 : undefined}
+                  />
+                );
+              })}
+            </div>
             {/* Locks the app while the AI reviews it, so the user's clicks,
                 scrolls and typing can't change what the reviewer is testing.
                 Transparent so the reviewer's screenshots look normal; App lifts
@@ -479,6 +570,22 @@ export default function DeviceMockup({
                 title="The AI is testing this app. It unlocks when the review is done."
                 aria-label="Preview locked while the AI tests the app"
               />
+            )}
+            {/* Camera-shutter blink after each screenshot, so it's visible
+                when the AI (or the user) takes a picture. Remounted per shot
+                by its key; it plays once and ends invisible. Painted after
+                the capture, so it never appears in one. */}
+            {shutterCount > 0 && (
+              <div
+                key={shutterCount}
+                className="preview-shutter"
+                style={{ '--shutter-ms': `${PREVIEW_SHUTTER_MS}ms` }}
+                aria-hidden="true"
+              >
+                <div className="preview-shutter-blade preview-shutter-top" />
+                <div className="preview-shutter-blade preview-shutter-bottom" />
+                <div className="preview-shutter-flash" />
+              </div>
             )}
             {!hasCode && (
               <div className="preview-empty-backdrop absolute inset-0 flex flex-col items-center justify-center p-6 sm:p-8 text-center select-none overflow-hidden">

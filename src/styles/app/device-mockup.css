@@ -807,3 +807,73 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
 .device-bare .device-preview-surface-mobile {
   border-radius: 0;
 }
+
+/* Camera shutter over the preview after a screenshot (DeviceMockup): two
+   blades close to the middle and part again over a fading white flash. */
+.preview-shutter {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.preview-shutter-blade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.5%;
+  background: #0b0b0f;
+  animation-duration: var(--shutter-ms, 420ms);
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+}
+
+.preview-shutter-top {
+  top: 0;
+  transform: translateY(-100%);
+  animation-name: preview-shutter-top;
+}
+
+.preview-shutter-bottom {
+  bottom: 0;
+  transform: translateY(100%);
+  animation-name: preview-shutter-bottom;
+}
+
+.preview-shutter-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: preview-shutter-flash var(--shutter-ms, 420ms) ease-out forwards;
+}
+
+@keyframes preview-shutter-top {
+  0% { transform: translateY(-100%); }
+  30%, 42% { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+
+@keyframes preview-shutter-bottom {
+  0% { transform: translateY(100%); }
+  30%, 42% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes preview-shutter-flash {
+  0%, 40% { opacity: 0; }
+  48% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-shutter-blade { display: none; }
+  .preview-shutter-flash { animation-name: preview-shutter-fade; }
+}
+
+@keyframes preview-shutter-fade {
+  0% { opacity: 0.5; }
+  100% { opacity: 0; }
+}

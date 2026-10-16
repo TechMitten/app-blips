@@ -174,7 +174,7 @@ fetch(endpoint + '/blog/index.json').then((response) => {
   const blogRow = await savedProject(blog);
   assert.ok(blogRow.data.versions[1].tree['public/blog/index.json']);
   assert.ok(sawRuntimeFeedback);
-  await blog.frameLocator('iframe').first().getByText('Local blog post', { exact: true }).waitFor();
+  await blog.frameLocator('iframe[data-appblips-browser]').getByText('Local blog post', { exact: true }).waitFor();
   await blog.waitForTimeout(1000);
   assert.equal(blogRequests.filter((request) => request.tools).length, 3, 'opening the repaired project does not launch another automatic repair');
   assert.equal(await blog.locator('iframe[aria-hidden=true]').count(), 0, 'test frames are cleaned up');

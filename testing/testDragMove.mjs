@@ -106,7 +106,7 @@ const rectOf = (selector) => frame.evaluate((s) => {
 }, selector);
 
 const chrome = () => frame.evaluate(() => [...document.querySelectorAll('div[data-orion-bridge]')].map((d) => ({
-  display: d.style.display, width: parseFloat(d.style.width), height: parseFloat(d.style.height),
+  role: d.getAttribute('data-orion-drag'), display: d.style.display, text: d.textContent.trim().slice(0, 40), width: parseFloat(d.style.width), height: parseFloat(d.style.height),
 })));
 
 // Press at `from`, move in steps to `to`, optionally inspect mid-drag, release.
@@ -115,9 +115,12 @@ const dragBetween = async (from, to, { during, release = true } = {}) => {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 8 });
+  // The bridge paints the drag once per animation frame.
+  await page.waitForTimeout(50);
   const seen = during ? await during() : null;
   if (release) await page.mouse.up();
-  await page.waitForTimeout(80);
+  // Long enough for the dropped copy's settle animation to finish.
+  await page.waitForTimeout(300);
   const drops = await page.evaluate(() => window.__drops.slice());
   const selections = await page.evaluate(() => window.__selections.slice());
   return { seen, drops, selections };
@@ -141,8 +144,10 @@ await fresh();
     { x: free.right - 10, y: free.top + free.height / 2 },
     { during: chrome },
   );
-  const line = seen?.find((c) => c.display === 'block');
-  check('drag shows a ghost and an insertion line', seen?.length === 2 && !!line, JSON.stringify(seen));
+  const line = seen?.find((c) => c.role === 'line' && c.display === 'block');
+  check('drag shows a ghost, a floating copy and an insertion line',
+    seen?.length === 3 && seen.some((c) => c.role === 'ghost') && !!line, JSON.stringify(seen));
+  check('the floating copy is the card', /^Fast/.test(seen?.find((c) => c.role === 'lift')?.text || ''), JSON.stringify(seen));
   check('row layout gets a vertical line', line && line.height > line.width, JSON.stringify(line));
   check('one drop is reported', drops.length === 1, `${drops.length}`);
   const drop = drops[0];
@@ -167,7 +172,7 @@ await fresh();
     { x: h2.left + 30, y: h2.top + 3 },
     { during: chrome },
   );
-  const line = seen?.find((c) => c.display === 'block');
+  const line = seen?.find((c) => c.role === 'line' && c.display === 'block');
   check('column layout gets a horizontal line', line && line.width > line.height, JSON.stringify(line));
   const drop = drops[0];
   check('image drop targets the heading, before it', drop?.element?.tag === 'img' && drop?.target?.tag === 'h2' && drop?.position === 'before',
@@ -283,7 +288,7 @@ await fresh();
   );
   await page.keyboard.press('Escape');
   await page.mouse.up();
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(300);
   const afterEsc = await page.evaluate(() => window.__drops.length);
   check('Escape cancels the drag', esc.drops.length === 0 && afterEsc === 0 && (await chrome()).length === 0);
 }

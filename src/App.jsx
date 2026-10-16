@@ -45,7 +45,7 @@ import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
 import {
-  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, STUDIO_MODES, DOCS_URL, normalizeStudioMode
+  STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
 import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh } from './lib/config';
 
@@ -203,6 +203,13 @@ export default function App({ coldStart = false }) {
   // projects small and applySurgicalEdits/history untouched). { dataUrl, name, source }
   const [attachment, setAttachment] = useState(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  // Bumped after each preview screenshot; DeviceMockup plays a camera-shutter
+  // blink keyed on it. Resolves when the blink is over.
+  const [shutterCount, setShutterCount] = useState(0);
+  const playShutter = useCallback(() => new Promise((resolve) => {
+    setShutterCount((count) => count + 1);
+    setTimeout(resolve, PREVIEW_SHUTTER_MS);
+  }), []);
   const [attachmentError, setAttachmentError] = useState(null);
   // Mirrors `attachment` for the duration of one in-flight request, purely so
   // the pending/"sending..." chat bubble can show the thumbnail -- see the
@@ -982,6 +989,7 @@ export default function App({ coldStart = false }) {
     setIsCapturingScreenshot(true);
     try {
       const { dataUrl } = await requestScreenshot();
+      playShutter();
       const compressed = await compressImageDataUrl(dataUrl);
       setAttachment({ dataUrl: compressed, name: 'Preview screenshot', source: 'screenshot' });
     } catch (err) {
@@ -990,7 +998,7 @@ export default function App({ coldStart = false }) {
     } finally {
       setIsCapturingScreenshot(false);
     }
-  }, [requestScreenshot]);
+  }, [requestScreenshot, playShutter]);
 
   const handleAttachFile = useCallback(async (file) => {
     if (!file) return;
@@ -1237,9 +1245,17 @@ export default function App({ coldStart = false }) {
         if (document.activeElement === iframeRef.current) browserLockRef.current?.focus({ preventScroll: true });
       },
       getToken: () => iframeRef.current?.dataset.browserToken,
-      screenshot: () => desktopBridge?.browser?.input
-        ? withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken }))
-        : requestScreenshot(),
+      // The blink plays after the capture (never in it) and the next action
+      // waits for it to end.
+      screenshot: async ({ viewportWidth } = {}) => {
+        const shot = desktopBridge?.browser?.input
+          ? await withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken, viewportWidth }))
+          : await requestScreenshot();
+        await playShutter();
+        return shot;
+      },
+      getPage: () => activePageRef.current,
+      screen: previewMode,
       navigate: (page) => flushSync(() => setActivePage(page)),
       reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
       setViewport: (mode) => flushSync(() => setPreviewMode(mode)),
@@ -2653,6 +2669,7 @@ export default function App({ coldStart = false }) {
               containerRef={previewContainerRef}
               iframeRef={iframeRef}
               browserLockRef={browserLockRef}
+              shutterCount={shutterCount}
               previewSrcDoc={previewSrcDoc}
               browserToken={previewToken}
               isBrowserTesting={Boolean(browserReview)}

@@ -62,6 +62,7 @@ try {
   assert.equal(result.qualityReview.acceptable, true);
   assert.equal(result.mission, null);
   assert.match(result.reply, /reviewed and tested the app and found no problems/);
+  assert.match(result.reply, /\n\nI looked at one screenshot of it\.$/, 'the reply says what the review saw');
   assert.equal(responses.length, 0);
 
   // Re-reviewing a build a review's report started says it checked the fixes,

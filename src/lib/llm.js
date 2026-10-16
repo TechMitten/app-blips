@@ -1283,5 +1283,14 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
     : review.warning
       ? `I ${checked} ${subject} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
       : `${fixCheck ? `I ${checked} the fixes and the ${noun} works now.` : `I ${checked} the ${noun} and found no problems.`}${review.summary ? ` ${review.summary}` : ''}`;
-  return { qualityReview: review, report, mission, reply };
+  // A review can quietly end up without seeing the page at all (a text-only
+  // model rejects the first image), so the user is told what it looked at.
+  const shots = review.screenshotsTaken;
+  const seen = !browser ? ''
+    : review.screenshotsOff
+      ? 'Screenshots didn\'t work with this AI model, so I checked the page\'s text and layout without seeing it.'
+      : shots
+        ? `I looked at ${shots === 1 ? 'one screenshot' : `${shots} screenshots`} of it.`
+        : 'I didn\'t take any screenshots, so I checked the page\'s text and layout without seeing it.';
+  return { qualityReview: review, report, mission, reply: seen ? `${reply}\n\n${seen}` : reply };
 };

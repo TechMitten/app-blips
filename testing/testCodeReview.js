@@ -1,6 +1,7 @@
 // Run: node testing/testCodeReview.js
 import assert from 'node:assert/strict';
 import { reviewGeneratedCode, formatReviewReport, MAX_REVIEW_TURNS, LOOP_REPEAT_TURNS } from '../src/lib/codeReview.js';
+import { BROWSER_ACTION_TOOL } from '../src/lib/browserTools.js';
 
 const doc = (body) => `<!DOCTYPE html><html><head><title>Test</title></head><body>${body}</body></html>`;
 const original = { 'index.html': doc('<button>Save</button>') };
@@ -75,12 +76,35 @@ assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,a']);
 assert.deepEqual(images(test.requests[3]), ['data:image/png;base64,b'], 'only the newest screenshot is resent');
 assert.equal(test.result.problems[0].title, 'Runtime error');
 assert.match(test.requests[0].messages[0].content, /Take screenshots/);
+assert.equal(test.result.screenshotsOff, false);
+
+// A batch taken in one turn is shown together, each labelled with its page
+// and screen size; next turn they become lines naming what they showed.
+const labelledBrowser = {
+  async open() { return { elements: [], errors: [] }; },
+  async execute(args) {
+    return { dataUrl: `data:image/png;base64,${args.target}`, page: 'index.html', screen: args.target,
+      observation: { errors: [], viewport: { width: args.target === 'mobile' ? 390 : 1280, height: 800, scrollX: 0, scrollY: 0 } } };
+  },
+};
+test = await run([{ tool_calls: [
+  call('browser_action', { action: 'screenshot', target: 'mobile' }),
+  { ...call('browser_action', { action: 'screenshot', target: 'desktop' }), id: 'call-2' },
+] }, shoot('tablet'), report()], { browser: labelledBrowser });
+assert.deepEqual(images(test.requests[1]), ['data:image/png;base64,mobile', 'data:image/png;base64,desktop'], 'a batch is shown whole');
+const labels = (request) => request.messages.flatMap((m) => Array.isArray(m.content) ? [m.content[0].text] : []);
+assert.match(labels(test.requests[1])[0], /#1 \(index\.html, mobile screen, 390×800 px viewport, scrolled to y=0\)/);
+assert.match(labels(test.requests[1])[1], /#2 \(index\.html, desktop screen, 1280×800/);
+assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,tablet']);
+assert.ok(test.requests[2].messages.some((m) => typeof m.content === 'string' && /^\[Screenshot of the embedded browser #2 \(index\.html, desktop screen.*\) was removed/.test(m.content)));
+assert.ok(BROWSER_ACTION_TOOL.function.parameters.required.includes('notes'), 'the reviewer records what it saw');
 
 // A model that rejects images continues without them.
 test = await run([shoot('a'), new Error('This model does not support image input'), report()], { browser: shotBrowser });
 assert.deepEqual(images(test.requests[2]), []);
 assert.ok(!test.requests[2].tools.find((t) => t.function.name === 'browser_action').function.parameters.properties.action.enum.includes('screenshot'));
 assert.equal(test.result.warning, undefined);
+assert.equal(test.result.screenshotsOff, true);
 
 test = await run([], { browser: { async open() { throw new Error('Frame unavailable'); } } });
 assert.match(test.result.warning, /Browser testing could not finish/);

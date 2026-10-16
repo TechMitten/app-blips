@@ -44,7 +44,7 @@ try {
   await page.getByRole('button', { name: /I’ll fill in the .env settings/ }).click();
   await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   await page.getByRole('button', { name: 'Open site' }).click({ timeout: 15000 });
-  const frame = page.frameLocator('iframe').first();
+  const frame = page.frameLocator('iframe[data-appblips-browser]');
   await frame.locator('#headline').waitFor({ timeout: 60000 });
   const heroSrc = await frame.locator('#hero').getAttribute('src');
   assert.match(heroSrc, /^appblips:\/\/assets\/\d+\/[a-f0-9]{64}\.png$/, 'image served from the asset host');
@@ -78,7 +78,7 @@ try {
   await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
   await page.getByRole('button', { name: 'My projects' }).click({ timeout: 20000 });
   await page.getByText('Acme Bakery').first().click();
-  const frame2 = page.frameLocator('iframe').first();
+  const frame2 = page.frameLocator('iframe[data-appblips-browser]');
   page.on('console', (m) => { if (m.type() === 'error') console.log('restart console error:', m.text().slice(0, 300)); });
   try {
     await frame2.locator('#headline').waitFor({ timeout: 60000 });

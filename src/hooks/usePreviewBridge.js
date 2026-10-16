@@ -301,6 +301,13 @@ export default function usePreviewBridge({
     return () => {
       window.removeEventListener('message', onMessage);
       iframe.removeEventListener('load', handleLoad);
+      // A new document went to the other frame (DeviceMockup's double
+      // buffer). This one stays on screen as-is until the swap and is then
+      // unloaded, so tearing its setup down would only make it visibly
+      // change (scrollbars, outlines) while it covers. Reading the ref's
+      // value at cleanup time is the point: it is the frame now live.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (iframeRef.current && iframeRef.current !== iframe) return;
       // Toggling previewMode does NOT reload the frame -- React reconciles the
       // iframe in place -- so this message is what actually tears down the
       // listeners, injected styles and cursor inside it.

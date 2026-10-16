@@ -52,6 +52,7 @@ export default function PreviewPane({
   containerRef,
   iframeRef,
   browserLockRef,
+  shutterCount = 0,
   previewSrcDoc,
   browserToken,
   isBrowserTesting = false,
@@ -452,6 +453,7 @@ export default function PreviewPane({
             isBareFill={isBareFill}
             iframeRef={iframeRef}
             browserLockRef={browserLockRef}
+            shutterCount={shutterCount}
             srcDoc={previewSrcDoc}
             browserToken={browserToken}
             isBrowserTesting={isBrowserTesting}

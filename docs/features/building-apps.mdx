@@ -166,7 +166,7 @@ If you prefer to just hit go and refine afterward, turn the toggle off.
 
 ## Reviewing a Build
 
-After each build or edit, AppBlips asks whether you want the AI to review it. Choose **Review** and the AI opens your project in the built-in browser, takes screenshots at each screen size, clicks through it, and reads the code. It doesn't change anything while it looks. When it's done, it writes a report in the chat listing each problem it found, what it saw and what should change.
+After each build or edit, AppBlips asks whether you want the AI to review it. Choose **Review** and the AI opens your project in the built-in browser, takes screenshots at each screen size, clicks through it, and reads the code. It doesn't change anything while it looks. The preview blinks like a camera shutter each time it takes a screenshot. When it's done, it writes a report in the chat listing each problem it found, what it saw and what should change. The report ends by saying how many screenshots it looked at. Screenshots need an AI model that can read images: with a text-only model, the report says so, and the AI checks the page's text and layout without seeing it.
 
 If the report lists problems, AppBlips clears the chat and starts a new one with the report as its first message, and the AI fixes those problems as a normal edit. Starting fresh keeps the AI focused on the report instead of everything said before. The earlier chat, with the report, stays in your version history. The fixes are saved as a new version, so you can undo them. If the report finds nothing, nothing else happens.
 

@@ -1408,6 +1408,10 @@ export const ASK_STARTER_PRESETS = [
   }
 ];
 
+// How long the camera-shutter blink over the preview lasts after a
+// screenshot. Review captures wait it out, so a batch never photographs it.
+export const PREVIEW_SHUTTER_MS = 420;
+
 export const PREVIEW_MODES = {
   mobile: {
     label: 'Smartphone',

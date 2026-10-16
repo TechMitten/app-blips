@@ -1237,6 +1237,12 @@ const BRIDGE_SOURCE = `(function () {
 
   var DRAG_THRESHOLD = 6;
   var DRAG_EDGE = 48;
+  // A dragged element bigger than this floats as a scaled-down copy.
+  var DRAG_LIFT_MAX_W = 320;
+  var DRAG_LIFT_MAX_H = 240;
+  var DRAG_LIFT_NODES = 400;
+  var DRAG_SETTLE_MS = 180;
+  var DRAG_LINE_TRANSITION = 'left 110ms ease-out, top 110ms ease-out, width 110ms ease-out, height 110ms ease-out, opacity 120ms ease-out';
   var DRAG_CSS = '* { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; }';
   var PHRASING_PARENT_ROLES = { heading: 1, text: 1, link: 1, button: 1 };
   var REPLACED_TAGS = { IMG: 1, SVG: 1, PICTURE: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1 };
@@ -1381,9 +1387,10 @@ const BRIDGE_SOURCE = `(function () {
     return { el: el, position: position, horizontal: horizontal };
   }
 
-  function dragChrome(css) {
+  function dragChrome(css, role) {
     var node = document.createElement('div');
     node.setAttribute('data-orion-bridge', 'true');
+    node.setAttribute('data-orion-drag', role);
     node.style.cssText = 'position:fixed;pointer-events:none;box-sizing:border-box;margin:0;' + css;
     document.documentElement.appendChild(node);
     return node;
@@ -1396,23 +1403,128 @@ const BRIDGE_SOURCE = `(function () {
     node.style.height = Math.max(0, height) + 'px';
   }
 
-  function paintDrag() {
-    var b = drag.el.getBoundingClientRect();
-    placeBox(drag.ghost, b.left, b.top, b.width, b.height);
-    var t = drag.target;
-    if (!t) { drag.line.style.display = 'none'; return; }
+  function reducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (mErr) { return false; }
+  }
+
+  // Every computed style is inlined onto the copy so it looks the same while
+  // it floats outside the page's selectors (".card img", "#hero h1" no
+  // longer match it there). Bounded: past the cap a huge section keeps its
+  // plain clone styling rather than stalling the start of the drag.
+  function inlineComputed(src, copy, budget) {
+    if (budget.left-- <= 0) return;
+    var cs = window.getComputedStyle(src);
+    var css = '';
+    for (var i = 0; i < cs.length; i++) css += cs[i] + ':' + cs.getPropertyValue(cs[i]) + ';';
+    copy.style.cssText = css + 'transition:none;animation:none;';
+    // Not the editor's hover/selection outline, which is painted inline.
+    if (src.__orionOutlineSaved) copy.style.outline = src.__orionOutlineSaved.outline || 'none';
+    if (upperTag(src) === 'CANVAS') {
+      try { copy.getContext('2d').drawImage(src, 0, 0); } catch (cvErr) { /* tainted or WebGL: stays blank */ }
+    }
+    for (var a = src.firstElementChild, b = copy.firstElementChild; a && b; a = a.nextElementSibling, b = b.nextElementSibling) {
+      inlineComputed(a, b, budget);
+    }
+  }
+
+  // The copy joins the page, so nothing in it may act like the original:
+  // duplicate ids would capture getElementById (and url(#id) still resolves
+  // to the original without them), a named checked radio would uncheck its
+  // twin, and frames would load again.
+  function neuterCopy(copy) {
+    var all = [copy].concat(Array.prototype.slice.call(copy.querySelectorAll('*')));
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i];
+      var tag = upperTag(n);
+      if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'OBJECT' || tag === 'EMBED') {
+        var stub = document.createElement('div');
+        stub.style.cssText = n.style.cssText;
+        if (n.parentNode) n.parentNode.replaceChild(stub, n);
+        if (n === copy) return stub;
+        continue;
+      }
+      n.removeAttribute('id');
+      n.removeAttribute('autofocus');
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') n.removeAttribute('name');
+      if (tag === 'VIDEO' || tag === 'AUDIO') {
+        n.removeAttribute('autoplay');
+        try { n.muted = true; n.pause(); } catch (mvErr) { /* not playable */ }
+      }
+    }
+    return copy;
+  }
+
+  // What follows the pointer: a styled copy of the element, shrunk when it is
+  // large (a whole section would hide the page it is being dropped into).
+  function makeLift(el, rect) {
+    var w = el.offsetWidth || rect.width;
+    var h = el.offsetHeight || rect.height;
+    var lift = dragChrome('z-index:2147483647;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;opacity:0.94;' +
+      'width:' + w + 'px;height:' + h + 'px;filter:drop-shadow(0 14px 28px rgba(15,23,42,0.3));', 'lift');
+    try {
+      var copy = el.cloneNode(true);
+      inlineComputed(el, copy, { left: DRAG_LIFT_NODES });
+      copy = neuterCopy(copy);
+      var display = copy.style.display;
+      copy.style.position = 'relative';
+      copy.style.left = copy.style.top = copy.style.right = copy.style.bottom = 'auto';
+      copy.style.margin = '0';
+      copy.style.boxSizing = 'border-box';
+      copy.style.width = w + 'px';
+      copy.style.height = h + 'px';
+      copy.style.minWidth = copy.style.minHeight = '0';
+      copy.style.maxWidth = copy.style.maxHeight = 'none';
+      copy.style.pointerEvents = 'none';
+      if (display === 'inline' || display === 'contents') copy.style.display = 'inline-block';
+      lift.appendChild(copy);
+    } catch (copyErr) {
+      lift.style.background = 'rgba(57,135,208,0.18)';
+      lift.style.border = '2px solid rgba(57,135,208,0.9)';
+      lift.style.borderRadius = '6px';
+    }
+    return { node: lift, w: w, h: h };
+  }
+
+  function placeLift(d, smooth) {
+    // Eased toward its size so lifting a big element shrinks rather than
+    // snaps; the point under the pointer stays under it throughout.
+    d.scale += (d.scaleTarget - d.scale) * (smooth ? 0.3 : 1);
+    var s = d.scale;
+    d.lift.style.transform = 'translate3d(' + (d.x - d.grabX * s) + 'px,' + (d.y - d.grabY * s) + 'px,0) scale(' + s + ')';
+  }
+
+  // Where the insertion line goes for a drop target, in viewport pixels.
+  function lineRect(t) {
     var r = t.el.getBoundingClientRect();
     var vw = window.innerWidth || document.documentElement.clientWidth;
     var vh = window.innerHeight || document.documentElement.clientHeight;
     var clamp = function (v, max) { return Math.max(0, Math.min(v, max - 4)); };
-    drag.line.style.display = 'block';
-    if (t.horizontal) placeBox(drag.line, clamp(t.position === 'before' ? r.left - 4 : r.right, vw), r.top, 4, r.height);
-    else placeBox(drag.line, r.left, clamp(t.position === 'before' ? r.top - 4 : r.bottom, vh), r.width, 4);
+    if (t.horizontal) return { left: clamp(t.position === 'before' ? r.left - 4 : r.right, vw), top: r.top, width: 4, height: r.height };
+    return { left: r.left, top: clamp(t.position === 'before' ? r.top - 4 : r.bottom, vh), width: r.width, height: 4 };
   }
 
-  function updateDrag() {
-    drag.target = resolveDrop(drag.x, drag.y, drag.el);
-    paintDrag();
+  function paintDrag(scrolled) {
+    var b = drag.el.getBoundingClientRect();
+    placeBox(drag.ghost, b.left, b.top, b.width, b.height);
+    placeLift(drag, !drag.still);
+    var t = drag.target;
+    if (!t) { drag.line.style.display = 'none'; return; }
+    var lr = lineRect(t);
+    if (drag.line.style.display === 'none') {
+      // Appears where it belongs (fading in) instead of sliding in from
+      // wherever it was last hidden.
+      drag.line.style.transition = 'none';
+      drag.line.style.opacity = '0';
+      drag.line.style.display = 'block';
+      placeBox(drag.line, lr.left, lr.top, lr.width, lr.height);
+      void drag.line.offsetWidth;
+      drag.line.style.transition = drag.still ? 'none' : DRAG_LINE_TRANSITION;
+      drag.line.style.opacity = '1';
+      return;
+    }
+    // Glides between spots, but tracks content exactly while auto-scrolling.
+    drag.line.style.transition = scrolled || drag.still ? 'none' : DRAG_LINE_TRANSITION;
+    placeBox(drag.line, lr.left, lr.top, lr.width, lr.height);
   }
 
   // Assignments must be instant even on scroll-behavior: smooth pages (see
@@ -1437,9 +1549,12 @@ const BRIDGE_SOURCE = `(function () {
     return document.scrollingElement || document.documentElement;
   }
 
-  // Holding the pointer near the top or bottom edge scrolls, faster the
-  // closer it gets, so an element can be carried to any part of the page.
-  function dragAutoScroll() {
+  // One paint per frame: pointermove only records the position (it can fire
+  // several times a frame), and this resolves the drop target and moves the
+  // chrome in step with the display. Holding the pointer near the top or
+  // bottom edge also scrolls, faster the closer it gets, so an element can
+  // be carried to any part of the page.
+  function dragFrame() {
     if (!drag || !drag.active) return;
     var vh = window.innerHeight || document.documentElement.clientHeight;
     var step = 0;
@@ -1447,9 +1562,13 @@ const BRIDGE_SOURCE = `(function () {
     else if (drag.y > vh - DRAG_EDGE) step = Math.ceil((drag.y - (vh - DRAG_EDGE)) / 3);
     if (step) {
       try { scrollInstant(scrollerAt(drag.x, drag.y), step); } catch (scrollErr) { /* nothing to scroll */ }
-      updateDrag();
     }
-    drag.raf = requestAnimationFrame(dragAutoScroll);
+    if (step || drag.moved) {
+      drag.moved = false;
+      drag.target = resolveDrop(drag.x, drag.y, drag.el);
+    }
+    paintDrag(!!step);
+    drag.raf = requestAnimationFrame(dragFrame);
   }
 
   function startDrag() {
@@ -1461,9 +1580,50 @@ const BRIDGE_SOURCE = `(function () {
     } catch (selErr) { /* nothing selected */ }
     try { document.documentElement.setPointerCapture(drag.pointerId); } catch (capErr) { /* events still arrive while pressed */ }
     if (editStyleEl) editStyleEl.textContent = editCursorCss() + DRAG_CSS;
-    drag.ghost = dragChrome('z-index:2147483646;background:rgba(57,135,208,0.12);border:2px dashed rgba(57,135,208,0.9);border-radius:4px;');
-    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);');
-    drag.raf = requestAnimationFrame(dragAutoScroll);
+    var rect = drag.el.getBoundingClientRect();
+    drag.still = reducedMotion();
+    drag.ghost = dragChrome('z-index:2147483646;background:rgba(57,135,208,0.14);border:2px dashed rgba(57,135,208,0.9);border-radius:4px;', 'ghost');
+    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);', 'line');
+    var lift = makeLift(drag.el, rect);
+    drag.lift = lift.node;
+    drag.w = lift.w;
+    drag.h = lift.h;
+    // The press point inside the element, in its own (unscaled) pixels.
+    drag.grabX = (drag.startX - rect.left) * (lift.w / (rect.width || lift.w));
+    drag.grabY = (drag.startY - rect.top) * (lift.h / (rect.height || lift.h));
+    drag.scale = 1;
+    drag.scaleTarget = Math.min(1, DRAG_LIFT_MAX_W / (lift.w || 1), DRAG_LIFT_MAX_H / (lift.h || 1));
+    drag.moved = true;
+    dragFrame();
+  }
+
+  // The copy glides into the insertion line (or back home on a cancel) and
+  // fades, rather than vanishing. The parent reloads the page from the moved
+  // source meanwhile, and keeps this document on screen until the new one
+  // has painted, so the move reads as one motion.
+  function settleLift(d, target) {
+    var lift = d.lift;
+    if (!lift) return;
+    var remove = function () { if (lift.parentNode) lift.parentNode.removeChild(lift); };
+    if (d.still) { remove(); return; }
+    var s;
+    var x;
+    var y;
+    if (target) {
+      var lr = lineRect(target);
+      s = d.scale * 0.85;
+      x = lr.left + lr.width / 2 - (d.w * s) / 2;
+      y = lr.top + lr.height / 2 - (d.h * s) / 2;
+    } else {
+      var home = d.el.getBoundingClientRect();
+      s = (home.width || d.w) / (d.w || 1);
+      x = home.left;
+      y = home.top;
+    }
+    lift.style.transition = 'transform ' + DRAG_SETTLE_MS + 'ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity ' + DRAG_SETTLE_MS + 'ms ease-in';
+    lift.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) scale(' + s + ')';
+    lift.style.opacity = '0';
+    setTimeout(remove, DRAG_SETTLE_MS + 40);
   }
 
   function endDrag(commit) {
@@ -1480,7 +1640,9 @@ const BRIDGE_SOURCE = `(function () {
     // the next one in case no click comes.
     dragSuppressClick = true;
     setTimeout(function () { dragSuppressClick = false; }, 0);
-    if (!commit || !d.target || !editingActive) return;
+    var dropping = commit && d.target && editingActive;
+    settleLift(d, dropping ? d.target : null);
+    if (!dropping) return;
     post('element-drop', {
       element: buildElementDescription(d.el),
       target: describeLite(d.target.el),
@@ -1498,7 +1660,7 @@ const BRIDGE_SOURCE = `(function () {
     if (!el) return;
     drag = {
       el: el, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
-      active: false, target: null, raf: 0, ghost: null, line: null
+      active: false, target: null, raf: 0, ghost: null, line: null, lift: null, moved: false
     };
   }
 
@@ -1516,7 +1678,7 @@ const BRIDGE_SOURCE = `(function () {
       startDrag();
     }
     e.preventDefault();
-    updateDrag();
+    drag.moved = true;
   }
 
   function dragOnPointerUp(e) {

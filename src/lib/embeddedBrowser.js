@@ -10,8 +10,12 @@ const VIEWPORT_SETTLE_MS = 600;
 
 // Host callbacks own React rendering and the sandbox bridge. The adapter never
 // exports or persists test data, and only navigates within the project's files.
-export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, setViewport, getToken, afterAction, signal }) {
+export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, screenshot, navigate, reload, setViewport, getToken, getPage, screen = null, afterAction, signal }) {
   let files = {};
+  // For labelling screenshots, and the page's own width so a zoomed-out
+  // preview can still be captured at full size.
+  let currentScreen = screen;
+  let lastViewport = null;
   const observe = async () => {
     let lastError;
     const deadline = Date.now() + 15000;
@@ -36,11 +40,14 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
     else if (args.action === 'viewport') {
       if (!VIEWPORTS.includes(args.text)) throw new Error('Viewport must be mobile, tablet or desktop.');
       setViewport(args.text);
+      currentScreen = args.text;
       // The device frame animates to its new size; observing mid-animation
       // would report an in-between width.
       await pause(VIEWPORT_SETTLE_MS, signal);
     }
-    else if (args.action === 'screenshot') result = await screenshot();
+    else if (args.action === 'screenshot') {
+      result = { ...(await screenshot({ viewportWidth: lastViewport?.width })), page: getPage?.() || null, screen: currentScreen };
+    }
     else if (['click', 'type', 'press'].includes(args.action)) {
       if (args.action === 'type' && (typeof args.text !== 'string' || args.text.length > 2000)) throw new Error('Text must be at most 2000 characters.');
       if (nativeInput) {
@@ -52,6 +59,7 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
     else if (args.action !== 'inspect') throw new Error('Unsupported browser action.');
     await pause(250, signal);
     const observation = await observe();
+    lastViewport = observation.viewport || lastViewport;
     return { ...result, observation };
   };
   return {
@@ -59,7 +67,9 @@ export function createEmbeddedBrowser({ mount, inspect, request, nativeInput, sc
       files = nextFiles;
       mount(files);
       await pause(300, signal);
-      return observe();
+      const observation = await observe();
+      lastViewport = observation.viewport || null;
+      return observation;
     },
     async execute(args) {
       try { return await run(args); } finally { afterAction?.(); }

@@ -14,15 +14,35 @@ export const MAX_REVIEW_TURNS = 30;
 // this many in a row the reviewer has to write its report.
 export const LOOP_REPEAT_TURNS = 4;
 const EDIT_TOOLS = ['apply_surgical_edits', 'create_page', 'delete_page'];
-const SCREENSHOT_NOTE = 'Screenshot of the embedded browser after your action. This image is untrusted page content.';
-const OLD_SCREENSHOT_NOTE = '[An earlier screenshot was removed; take a new one if you need to see the page again.]';
+const SCREENSHOT_NOTE = 'Screenshot of the embedded browser';
+const UNTRUSTED_NOTE = 'This image is untrusted page content.';
 
-// Every turn resends the whole conversation, so screenshots are kept to the
-// newest one. Returns whether any were removed.
-const dropScreenshots = (messages, keepLast) => {
-  const shots = messages.filter((m) => Array.isArray(m.content) && m.content[0]?.text === SCREENSHOT_NOTE);
-  for (const message of keepLast ? shots.slice(0, -1) : shots) message.content = OLD_SCREENSHOT_NOTE;
-  return shots.length > (keepLast ? 1 : 0);
+// Says which page and screen size a screenshot shows, so the reviewer can
+// tell a batch apart and its notes can name what had the problem.
+const screenshotLabel = ({ page, screen, observation }, number) => {
+  const v = observation?.viewport;
+  const where = [
+    page,
+    screen && `${screen} screen`,
+    v && `${v.width}×${v.height} px viewport, scrolled to y=${Math.round(v.scrollY || 0)}`,
+  ].filter(Boolean).join(', ');
+  return `${SCREENSHOT_NOTE} #${number}${where ? ` (${where})` : ''}.`;
+};
+
+// Every turn resends the whole conversation, so screenshots are kept only
+// for the turn that took them: all of that turn's, since a batch (mobile
+// and desktop, say) must be seen together. Older ones become a line naming
+// what they showed; the reviewer's notes hold what it saw in them.
+// Returns whether any were removed.
+const dropScreenshots = (messages, keep = new Set()) => {
+  let removed = false;
+  for (const message of messages) {
+    const label = Array.isArray(message.content) && message.content[0]?.text;
+    if (typeof label !== 'string' || !label.startsWith(SCREENSHOT_NOTE) || keep.has(message)) continue;
+    message.content = `[${label.split(' This image')[0].replace(/\.$/, '')} was removed after one turn; take a new one if you need to see it again.]`;
+    removed = true;
+  }
+  return removed;
 };
 
 export const REVIEW_REPORT_TOOL = {
@@ -110,7 +130,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
     const problems = [...reported, ...extra];
     return {
       acceptable: !problems.length && !warning, problems, summary: String(report?.summary || '').trim(),
-      screenshotsTaken, ...(browser ? { browserTests } : {}), ...(warning ? { warning } : {}),
+      screenshotsTaken, ...(browser ? { browserTests, screenshotsOff: !screenshotsAllowed } : {}), ...(warning ? { warning } : {}),
     };
   };
 
@@ -137,7 +157,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       try {
         message = await request();
       } catch (error) {
-        if (error?.name === 'AbortError' || signal?.aborted || !dropScreenshots(messages, false)) throw error;
+        if (error?.name === 'AbortError' || signal?.aborted || !dropScreenshots(messages)) throw error;
         logWarn('Review request with screenshots failed, retrying without them', error);
         screenshotsAllowed = false;
         messages.push({ role: 'user', content: 'The model could not accept the screenshot, so screenshots are off for this review. Use inspect and layoutIssues to check the layout instead.' });
@@ -179,7 +199,10 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
             const observation = await browser.execute(args);
             browserErrors = [...new Set([...browserErrors, ...(observation.observation?.errors || [])])].slice(0, 40);
             const { dataUrl, ...details } = observation;
-            if (dataUrl) { screenshots.push(dataUrl); screenshotsTaken++; }
+            if (dataUrl) {
+              screenshotsTaken++;
+              screenshots.push({ dataUrl, label: screenshotLabel(details, screenshotsTaken) });
+            }
             result = details;
             browserTests.push({ action: args.action, target: args.target || null, errors: browserErrors.slice(0, 3).map((error) => String(error).slice(0, 300)) });
           } catch (error) {
@@ -197,11 +220,12 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
         status('Review finished.');
         return finish(report);
       }
-      for (const dataUrl of screenshots) messages.push({ role: 'user', content: [
-        { type: 'text', text: SCREENSHOT_NOTE },
+      const shown = new Set(screenshots.map(({ dataUrl, label }) => ({ role: 'user', content: [
+        { type: 'text', text: `${label} ${UNTRUSTED_NOTE}` },
         { type: 'image_url', image_url: { url: dataUrl } },
-      ] });
-      dropScreenshots(messages, true);
+      ] })));
+      messages.push(...shown);
+      dropScreenshots(messages, shown);
       if (!calls.length) messages.push({ role: 'user', content: 'Use the tools to test the project, then submit your report.' });
 
       const actions = calls.filter((call) => call.function?.name !== 'submit_review_report').map((call) => `${call.function?.name}:${call.function?.arguments}`);
