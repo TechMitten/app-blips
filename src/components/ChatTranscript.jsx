@@ -79,7 +79,7 @@ function ReviewOffer({ onReview, onSkip }) {
       <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
         <p className="flex items-start gap-2 text-[length:var(--chat-label-text)] text-slate-600 dark:text-white/70 leading-relaxed">
           <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Want the AI to review this and test it in the browser? It can fix problems it finds, but uses extra tokens.</span>
+          <span>Want the AI to screenshot and test this in the browser, then write a report? If it finds problems, a new chat starts to fix them. Uses extra tokens.</span>
         </p>
         <div className="flex gap-2">
           <button

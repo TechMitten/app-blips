@@ -10,8 +10,6 @@ try {
   const { generateAppCode, reviewBuild } = await server.ssrLoadModule('/src/lib/llm.js');
   const html = '<!DOCTYPE html><html><head><title>Test</title></head><body><button>Save</button></body></html>';
   const call = (name, args) => ({ id: `call-${name}`, type: 'function', function: { name, arguments: JSON.stringify(args) } });
-  const edit = { tool_calls: [call('apply_surgical_edits', { edits: [{ search: '<button>Save</button>', replace: '<button onclick="localStorage.setItem(\'saved\', \'yes\')">Save</button>', occurrence: null, replace_all: null }] })] };
-  const accepted = { tool_calls: [call('submit_code_review', { acceptable: true, findings: [] })] };
   let responses = [];
   let requests = [];
   globalThis.fetch = async (_url, options) => {
@@ -31,7 +29,7 @@ try {
   let result = await generate();
   assert.equal(result.editMode, 'full-generation');
   assert.equal(result.qualityReview, undefined);
-  assert.ok(!requests.some((req) => req.tools?.some((tool) => tool.function.name === 'submit_code_review')), 'a build does not start a review');
+  assert.ok(!requests.some((req) => req.tools?.some((tool) => tool.function.name === 'submit_review_report')), 'a build does not start a review');
   assert.equal(responses.length, 0);
 
   requests = [];
@@ -40,33 +38,32 @@ try {
   assert.equal(result.editMode, 'ask');
   assert.equal(requests.length, 1, 'questions do not start a code review');
 
+  // The review only reports. Problems become a mission for a fresh chat.
+  const reportCall = (problems) => ({ tool_calls: [call('submit_review_report', { summary: 'Checked.', problems })] });
   requests = [];
-  responses = [edit, accepted];
+  responses = [reportCall([{ title: 'Save does nothing', evidence: 'Clicked Save, nothing was stored.', fix: 'Add a click handler.' }])];
   result = await reviewBuild({ files: { 'index.html': html }, previousFiles: { 'index.html': html }, prompt: 'Make Save work' });
-  assert.equal(result.qualityReview.acceptable, true);
-  assert.match(result.files['index.html'], /localStorage.setItem/);
-  assert.match(result.reply, /fixed the problems/);
+  assert.equal(result.qualityReview.acceptable, false);
+  assert.equal(result.files, undefined, 'a review never edits');
+  assert.match(result.mission, /^Fix the problems a review found in this app\./);
+  assert.match(result.mission, /1\. Save does nothing: Clicked Save/);
+  assert.match(result.reply, /found one problem\. I'm starting a new chat/);
   assert.ok(requests[0].messages.some((msg) => typeof msg.content === 'string' && msg.content.includes('Project before this edit')));
   assert.equal(responses.length, 0, 'a review makes no extra summary call');
 
   let opens = 0;
-  let interactions = 0;
   const browser = {
     async open(files) { opens++; assert.equal(files['index.html'], html); return { elements: [{ id: 'e1' }], errors: [] }; },
-    async execute(args) { interactions++; assert.equal(args.action, 'click'); return { observation: { errors: [] } }; },
+    async execute(args) { return { ...(args.action === 'screenshot' ? { dataUrl: 'data:image/png;base64,x' } : {}), observation: { errors: [] } }; },
   };
-  responses = [accepted, { tool_calls: [call('browser_action', { action: 'click', target: 'e1' })] }, accepted];
+  responses = [{ tool_calls: [call('browser_action', { action: 'screenshot', target: null })] }, reportCall([])];
   result = await reviewBuild({ files: { 'index.html': html }, prompt: 'Make Save work', browser });
   assert.equal(opens, 1, 'the review opens the build in the embedded browser');
-  assert.equal(interactions, 1);
   assert.equal(result.qualityReview.acceptable, true);
-  assert.equal(result.qualityReview.browserTests[0].action, 'click');
+  assert.equal(result.mission, null);
   assert.match(result.reply, /reviewed and tested the app and found no problems/);
   assert.equal(responses.length, 0);
 
-  responses = Array.from({ length: 10 }, () => ({ tool_calls: [call('submit_code_review', { acceptable: false, findings: ['Save is incomplete'] })] }));
-  result = await reviewBuild({ files: { 'index.html': html }, prompt: 'Make Save work' });
-  assert.match(result.reply, /Review note: Code review stopped because the reviewer kept rejecting the code without fixing it: Save is incomplete/);
   console.log('testCodeReviewPipeline: ok');
 } finally {
   globalThis.fetch = savedFetch;

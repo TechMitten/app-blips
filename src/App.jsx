@@ -436,6 +436,12 @@ export default function App({ coldStart = false }) {
   // ran after every build. Imported codebases have no review yet.
   const autoReviewRanRef = useRef(false);
   const handleReviewRef = useRef(null);
+  // A review that finds problems hands its report to a normal build in a
+  // fresh chat. The mission waits here until the review has fully wound down;
+  // the ref marks that build so it doesn't earn another automatic review
+  // (a failing fix would otherwise review, fix and fail forever).
+  const [reviewMission, setReviewMission] = useState(null);
+  const reviewFixRef = useRef(false);
   const giveUpAutoFix = useCallback(() => {
     setIsAutoFixing(false);
     isAutoFixingRef.current = false;
@@ -1264,12 +1270,14 @@ export default function App({ coldStart = false }) {
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
+    const isReviewFix = reviewFixRef.current;
+    reviewFixRef.current = false;
     if (!currentPrompt.trim()) return;
 
     if (!isAutoFix) {
       cancelPendingReload();
       // A new request is a new build: it gets its own automatic review.
-      autoReviewRanRef.current = false;
+      if (!isReviewFix) autoReviewRanRef.current = false;
       runtimeErrorRetriesRef.current = 0;
       pendingRuntimeErrorRef.current = null;
       isEvaluatingNewCodeRef.current = false;
@@ -1331,7 +1339,7 @@ export default function App({ coldStart = false }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    const shouldAskClarifyingQuestions = !isAutoFix && !isReviewFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
 
     setGenerationStatus(
       isAutoFix
@@ -1636,10 +1644,12 @@ export default function App({ coldStart = false }) {
 
   handleGenerateRef.current = handleGenerate;
 
-  // Runs the opt-in review offered under a finished build. The result is saved
-  // as its own turn so any fixes it makes can be undone like a normal edit.
-  // `automatic` is the run giveUpAutoFix starts when auto-fix couldn't repair
-  // a build; it doesn't need an offer.
+  // Runs the opt-in review offered under a finished build. The review only
+  // screenshots, tests and reports; its report is saved as its own turn. If it
+  // found problems, the chat is cleared and the report becomes the first
+  // request of a new chat (see reviewMission), so the fix is a normal,
+  // undoable build. `automatic` is the run giveUpAutoFix starts when auto-fix
+  // couldn't repair a build; it doesn't need an offer.
   const handleReview = async (options) => {
     const automatic = options?.automatic === true;
     if (isGeneratingRef.current) return;
@@ -1678,6 +1688,7 @@ export default function App({ coldStart = false }) {
     setGenerationStatus('Starting the review…');
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
+    let mission = null;
     try {
       const review = await reviewBuild({
         files,
@@ -1692,7 +1703,7 @@ export default function App({ coldStart = false }) {
       const newVersion = {
         id: Date.now(),
         prompt: REVIEW_PROMPT,
-        files: review.files,
+        files,
         timestamp: new Date().toLocaleTimeString(),
         editMode: 'review',
         reply: review.reply,
@@ -1701,11 +1712,21 @@ export default function App({ coldStart = false }) {
         sessionId: currentChatSessionId,
       };
       const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, ...(reviewed.reviewOffer ? { reviewOffer: 'done' } : {}) }, newVersion];
-      setFiles(review.files);
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
-      saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
-      if (automatic && review.syntaxErrors?.length) setError(AUTO_FIX_FAILURE);
+      if (review.mission) {
+        // Same as "New chat": the report stays in this session's history and
+        // the fix starts a session that holds nothing but the report.
+        mission = review.mission;
+        const cutoff = finalVersions.length;
+        const nextSessionId = newChatSessionId();
+        setChatContextStartIndex(cutoff);
+        setCurrentChatSessionId(nextSessionId);
+        saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length, chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
+      } else {
+        saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
+        if (automatic && review.qualityReview.warning) setError(AUTO_FIX_FAILURE);
+      }
     } catch (err) {
       // A cancelled review leaves the offer in place so it can be run again.
       if (err.name !== 'AbortError') {
@@ -1727,9 +1748,19 @@ export default function App({ coldStart = false }) {
       setGenerationStatus(null);
       clearStreamingState();
     }
+    if (mission) setReviewMission(mission);
   };
 
   handleReviewRef.current = handleReview;
+
+  // Starts the fix once the review's state has settled, so handleGenerate
+  // sees the new chat session and the review's saved turn.
+  useEffect(() => {
+    if (!reviewMission || isGenerating) return;
+    setReviewMission(null);
+    reviewFixRef.current = true;
+    handleGenerateRef.current?.(null, reviewMission);
+  }, [reviewMission, isGenerating]);
 
   const handleSkipReview = () => {
     const reviewed = versions[currentVersionIndex];

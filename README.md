@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="public/darkthemelog.png" alt="AppBlips — Text to App and Website Generator" width="360" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
+    <img src="docs/logo-light.png" alt="AppBlips — Text to App and Website Generator" width="320" />
+  </picture>
 </p>
 
 <p align="center">

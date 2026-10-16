@@ -166,11 +166,15 @@ If you prefer to just hit go and refine afterward, turn the toggle off.
 
 ## Reviewing a Build
 
-After each build or edit, AppBlips asks whether you want the AI to review it. Choose **Review** and the AI checks the code against your request, clicks through the project in the built-in browser, and fixes problems it finds. Any fixes are saved as a new version, so you can undo them. Choose **Skip** if you're happy with the result.
+After each build or edit, AppBlips asks whether you want the AI to review it. Choose **Review** and the AI opens your project in the built-in browser, takes screenshots at each screen size, clicks through it, and reads the code. It doesn't change anything while it looks. When it's done, it writes a report in the chat listing each problem it found, what it saw and what should change.
+
+If the report lists problems, AppBlips clears the chat and starts a new one with the report as its first message, and the AI fixes those problems as a normal edit. Starting fresh keeps the AI focused on the report instead of everything said before. The earlier chat, with the report, stays in your version history. The fixes are saved as a new version, so you can undo them. If the report finds nothing, nothing else happens.
+
+Choose **Skip** if you're happy with the result.
 
 A review can take many AI requests, so it uses extra tokens. To stop being asked, turn off **Offer a review after each build** in **Settings → AI**.
 
-AppBlips also checks every build for code errors and fixes them on its own. If those quick fixes don't work, it runs one full review automatically, once per build, even when review offers are off.
+AppBlips also checks every build for code errors and fixes them on its own. If those quick fixes don't work, it runs one full review automatically, once per build, even when review offers are off. If that review finds problems, it starts a new chat to fix them as described above.
 
 ## Long Apps
 

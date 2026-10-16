@@ -557,7 +557,7 @@
    glass, a blueprint grid, electric-blue light, and a compact code terminal. */
 .building-overlay {
   --build-ink: #f5f7ff;
-  --build-muted: #95a6d1;
+  --build-muted: #b3c1e4;
   --build-blue: #6ea1ff;
   --build-blue-bright: #a9c6ff;
   --build-panel: #0b1427;
@@ -761,8 +761,8 @@
 
 .building-title {
   color: var(--build-ink) !important;
-  font-size: clamp(20px, 6cqi, 25px) !important;
-  line-height: 1.05;
+  font-size: clamp(26px, 8cqi, 34px) !important;
+  line-height: 1.1;
   letter-spacing: -0.04em;
   font-style: normal;
   text-shadow: 0 2px 18px rgb(77 119 255 / 0.16);
@@ -770,7 +770,7 @@
 
 .building-status {
   color: var(--build-muted) !important;
-  font: 500 clamp(12px, 4cqi, 15px)/1.35 var(--font-control) !important;
+  font: 500 clamp(16px, 5cqi, 19px)/1.4 var(--font-control) !important;
   font-style: normal;
 }
 
@@ -795,9 +795,9 @@
 .building-progress-dots i:nth-child(2) { animation-delay: -0.45s; background: #5289f3; box-shadow: 0 0 10px rgb(81 139 255 / 0.65); }
 
 .building-remaining {
-  margin-top: 11px;
-  color: #8196c5;
-  font: 500 clamp(11px, 3.6cqi, 14px)/1 var(--font-control);
+  margin-top: 12px;
+  color: #a9bbe6;
+  font: 600 clamp(15px, 4.6cqi, 18px)/1.2 var(--font-control);
   font-style: normal;
 }
 
@@ -845,6 +845,20 @@
 }
 
 .live-code-peek-body .line-content { color: #bcd0f9; }
+
+/* The base peek colors are for a white pane; on this always-dark overlay the
+   light theme's dark ink made the model's reasoning nearly invisible, so a
+   long think looked like a stall. */
+.live-code-peek-reasoning {
+  color: #bcd0f9;
+  font-size: clamp(11px, 3.4cqi, 13px);
+  opacity: 1;
+}
+
+.live-code-peek-reasoning-label {
+  color: #8fa6d8;
+  font-size: clamp(9px, 3cqi, 11px);
+}
 .live-code-peek .token-comment { color: #7484a9; }
 .live-code-peek .token-doctype,
 .live-code-peek .token-keyword { color: #d58dff; }

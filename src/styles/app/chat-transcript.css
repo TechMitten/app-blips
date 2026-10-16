@@ -90,6 +90,8 @@
 }
 
 .chat-bubble-user {
+  /* Keeps the line breaks of multi-line prompts, like a review report. */
+  white-space: pre-line;
   background: var(--color-indigo-600);
   border-color: rgb(from var(--color-indigo-500) r g b / 0.4);
   color: #ffffff;

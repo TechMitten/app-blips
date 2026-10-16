@@ -354,7 +354,7 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              <SettingRow id="set-ask-review" title="Offer a review after each build" description="After every build or edit, ask whether the AI should review the code and test it in the browser. A review can use a lot of extra tokens, so it only runs when you say yes. Off skips the question and the review.">
+              <SettingRow id="set-ask-review" title="Offer a review after each build" description="After every build or edit, ask whether the AI should screenshot and test it in the browser and write a report. If the report lists problems, a new chat starts with the report as its task. A review can use a lot of extra tokens, so it only runs when you say yes. Off skips the question and the review.">
                 <Switch checked={askToReview} onChange={onAskToReviewChange} labelledBy="set-ask-review" />
               </SettingRow>
               <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">

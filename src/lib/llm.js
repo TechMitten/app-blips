@@ -3,7 +3,7 @@ import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit } from './config';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
-import { reviewGeneratedCode } from './codeReview';
+import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -1259,35 +1259,26 @@ const generateAppCodeWithSummary = async (...args) => {
 };
 
 // The review is a separate, opt-in step (see "Offer a review" in Settings):
-// it can take dozens of model calls, so builds no longer run it on their own.
-// The reply is a fixed line rather than another model call, so a review costs
-// only its own turns.
+// it can take dozens of model calls, so builds don't run it on their own. It
+// only inspects and reports; when it finds problems, `mission` is the request
+// App sends to a normal build in a fresh chat, so the fix starts with nothing
+// but the report and the code.
 export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
   layoutTarget = 'both', signal, onChunk, browser = null }) => {
   const review = await reviewGeneratedCode({
     files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
     requestModelText, browser,
   });
-  const { files: reviewedFiles, ...qualityReview } = review;
+  const noun = studioNoun(studioMode);
   const checked = browser ? 'reviewed and tested' : 'reviewed';
-  // When the review changed something, say what, from the problems it named
-  // and the edits it made; otherwise a fixed line is enough.
-  let fixedSummary = `I ${checked} the ${studioNoun(studioMode)} and fixed ${review.acceptable ? 'the problems I found' : 'what I could'}.`;
-  if (review.improved) {
-    if (onChunk) onChunk('Writing a summary of the fixes…', 'status');
-    const problems = (review.fixedFindings || []).slice(0, 6).map((item) => `- ${item}`).join('\n');
-    const summary = await generateCompletionReply({
-      prompt: `Check the ${studioNoun(studioMode)} for problems and fix them.`,
-      editMode: 'surgical',
-      studioMode,
-      signal,
-      changes: `${problems ? `Problems found:\n${problems}\n\n` : ''}${describeFileChanges(files, reviewedFiles)}`
-    });
-    fixedSummary = `I ${checked} the ${studioNoun(studioMode)}. ${summary}`;
-  }
-  const reply = review.acceptable
-    ? (review.improved ? fixedSummary : `I ${checked} the ${studioNoun(studioMode)} and found no problems.`)
-    : `${review.improved ? fixedSummary : `I ${checked} the ${studioNoun(studioMode)}.`}\n\nReview note: ${review.warning}`;
-  const syntaxErrors = checkSyntaxFiles(reviewedFiles).errors;
-  return { files: reviewedFiles, qualityReview, reply, ...(syntaxErrors.length ? { syntaxErrors } : {}) };
+  const report = formatReviewReport(review);
+  const mission = review.problems.length
+    ? `Fix the problems a review found in this ${noun}. Change only what these fixes need and keep everything else working as it is.\n\nReview report:\n\n${report}`
+    : null;
+  const reply = mission
+    ? `I ${checked} the ${noun} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}. I'm starting a new chat to fix ${review.problems.length === 1 ? 'it' : 'them'}.\n\n${report}`
+    : review.warning
+      ? `I ${checked} the ${noun} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
+      : `I ${checked} the ${noun} and found no problems.${review.summary ? ` ${review.summary}` : ''}`;
+  return { qualityReview: review, report, mission, reply };
 };
