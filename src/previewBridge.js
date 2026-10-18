@@ -2115,6 +2115,19 @@ const BRIDGE_SOURCE = `(function () {
       }
     }
 
+    // Images and links are natively draggable with a mouse. Once that drag
+    // starts the browser fires pointercancel, which ends the scroll gesture
+    // mid-swipe, so pressing on a picture to scroll barely moves the page.
+    // Touchscreens don't drag images, so neither does the simulation. An
+    // explicit draggable="true" is the app's own drag and drop: left alone.
+    function onDragStart(e) {
+      if (editingActive) return;
+      var t = e.target;
+      if (t && t.nodeType !== 1) t = t.parentElement;
+      if (t && t.closest && t.closest('[draggable="true"]')) return;
+      e.preventDefault();
+    }
+
     function onClick(e) {
       if (editingActive) return;
       if (suppressClick) {
@@ -2131,6 +2144,7 @@ const BRIDGE_SOURCE = `(function () {
     document.addEventListener('pointerup', onPointerUp, opts);
     document.addEventListener('pointercancel', onPointerUp, opts);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('dragstart', onDragStart, true);
 
     document.documentElement.style.cursor = 'grab';
 
@@ -2140,6 +2154,7 @@ const BRIDGE_SOURCE = `(function () {
       document.removeEventListener('pointerup', onPointerUp, opts);
       document.removeEventListener('pointercancel', onPointerUp, opts);
       document.removeEventListener('click', onClick, true);
+      document.removeEventListener('dragstart', onDragStart, true);
       if (momentumId) cancelAnimationFrame(momentumId);
       if (scrollbarStyle.parentNode) scrollbarStyle.parentNode.removeChild(scrollbarStyle);
       if (touchStyle.parentNode) touchStyle.parentNode.removeChild(touchStyle);

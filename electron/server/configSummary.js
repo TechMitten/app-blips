@@ -15,7 +15,7 @@ export const describeConfig = (env) => {
   const builder = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
   if (builder.unconfigured) {
     // A copy can run without one: users pick a provider in the app.
-    lines.push({ level: 'warn', label: 'Builder AI', text: 'No provider in .env. Set one there, or pick one in the app under Settings → AI.' });
+    lines.push({ level: 'warn', label: 'Builder AI', text: 'No provider in .env. Set one there, or pick one in the app under Settings → API.' });
   } else if (builder.error) {
     lines.push({ level: 'error', label: 'Builder AI', text: builder.error });
   } else if (builder.missing.length) {

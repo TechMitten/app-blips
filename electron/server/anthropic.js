@@ -29,9 +29,12 @@ const NO_SAMPLING_MODEL = /^claude-(?:(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[7
 // the same call, so a refusal doesn't end a build.
 const FALLBACK_MODEL = /^claude-(?:opus-5|fable-5-1|sonnet-5-5)(?:$|-)/;
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+// Prompt caching: cached input is billed at a tenth of the normal price or
+// less, and a write costs 1.25x, so a prefix pays for itself on its second use.
+const CACHE = { type: 'ephemeral' };
 
 const FINISH_REASONS = { end_turn: 'stop', stop_sequence: 'stop', tool_use: 'tool_calls', max_tokens: 'length', refusal: 'content_filter' };
-const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → AI.';
+const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → API.';
 
 const nonBlank = (text) => typeof text === 'string' && text.trim() !== '';
 
@@ -152,11 +155,18 @@ export const toAnthropicParams = (body) => {
     messages,
   };
   if (body.max_tokens != null) params.max_tokens = body.max_tokens;
-  if (system) params.system = system;
+  // The system prompt (and the tools before it) is the same for every request
+  // of a kind, e.g. every build turn, so it gets its own cache breakpoint.
+  if (system) params.system = [{ type: 'text', text: system, cache_control: CACHE }];
   const tools = toAnthropicTools(body.tools);
   if (tools.length) {
     params.tools = tools;
     if (body.tool_choice) params.tool_choice = toAnthropicToolChoice(body.tool_choice);
+    // Tool loops resend the whole conversation each turn, so automatic caching
+    // (a breakpoint that follows the end of the conversation) lets each turn
+    // read everything before it from the cache. One-shot requests skip it:
+    // their tail is never sent again, so a write there is pure surcharge.
+    params.cache_control = CACHE;
   }
   if (ADAPTIVE_MODEL.test(model)) {
     // Off already takes Claude's lowest effort, and at that effort adaptive
@@ -197,7 +207,7 @@ const describeContent = (content) => content.map((block) => {
 }).join(', ') || 'none';
 
 const logResult = (message) => {
-  const line = `[anthropic] done: ${message.model} stop=${message.stop_reason} content=[${describeContent(message.content)}] in=${message.usage?.input_tokens ?? '?'} out=${message.usage?.output_tokens ?? '?'}`;
+  const line = `[anthropic] done: ${message.model} stop=${message.stop_reason} content=[${describeContent(message.content)}] in=${message.usage?.input_tokens ?? '?'} cache_read=${message.usage?.cache_read_input_tokens ?? 0} cache_write=${message.usage?.cache_creation_input_tokens ?? 0} out=${message.usage?.output_tokens ?? '?'}`;
   const textOut = message.content.some((block) => (block.type === 'text' && block.text.trim()) || block.type === 'tool_use');
   if (textOut && message.stop_reason !== 'refusal') console.info(line);
   else console.warn(`${line} (no text or tool calls in the reply)`);

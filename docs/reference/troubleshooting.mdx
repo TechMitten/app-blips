@@ -8,13 +8,17 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
 ## Windows installer is blocked
 
+<Tip>
+  The easiest fix for every problem in this section is to install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead. The Store version is signed by Microsoft, so Windows doesn't block it, and the Store installs updates for you.
+</Tip>
+
 <AccordionGroup>
   <Accordion title="Smart App Control blocked the installer">
-    Windows 11's **Smart App Control** blocks apps that aren't code-signed, and it has no "Run anyway" option. AppBlips isn't code-signed yet, so Smart App Control can block the Windows installer or the app itself.
+    Windows 11's **Smart App Control** blocks apps that aren't code-signed, and it has no "Run anyway" option. The installer from GitHub isn't code-signed, so Smart App Control can block it or the app itself.
 
     This only affects machines with Smart App Control turned on — most often fresh Windows 11 installs. If you don't see the block, nothing is wrong.
 
-    **To install AppBlips, turn Smart App Control off:**
+    **Install from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (recommended). If you'd rather use the GitHub installer, **turn Smart App Control off:**
 
     1. Open **Settings → Privacy & security → Windows Security → App & browser control**.
     2. Under **Smart App Control**, select **Smart App Control settings**.
@@ -26,7 +30,7 @@ Most AppBlips issues fall into a handful of categories — installation, running
   </Accordion>
 
   <Accordion title="A new version won't install">
-    If you already run AppBlips on a machine with Smart App Control on, the built-in updater can't install a new version, because the update installer isn't signed either. Install the new version by hand after turning Smart App Control off, as above.
+    If you already run AppBlips from the GitHub installer on a machine with Smart App Control on, the built-in updater can't install a new version, because the update installer isn't signed either. Switch to the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) version, or install the new version by hand after turning Smart App Control off, as above.
   </Accordion>
 </AccordionGroup>
 
@@ -50,6 +54,14 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
   <Accordion title="&quot;This address isn't allowed&quot;">
     AppBlips only answers when you open it as `localhost` or `127.0.0.1`. Open [http://localhost:3000](http://localhost:3000) instead. If you deliberately use another name (for example behind a reverse proxy), add it to `APPBLIPS_ALLOWED_HOSTS` in `.env`. See the [Configuration reference](/self-hosting/configuration#server).
+  </Accordion>
+
+  <Accordion title="&quot;AppBlips isn't set up yet&quot;">
+    No AI provider is set up. Open **Settings → API**, choose a provider, enter your API key and choose a model, then click **Save**. (If you run AppBlips from source or Docker, you can set a provider in `.env` instead; see [Configuration](/self-hosting/configuration).)
+  </Accordion>
+
+  <Accordion title="&quot;Browser storage is full&quot;">
+    The browser version keeps projects in your browser, which has a size limit. Delete apps you no longer need, or use the [desktop app](/quickstart-desktop), which saves projects as folders and has no such limit.
   </Accordion>
 
   <Accordion title="My projects disappeared">
@@ -78,7 +90,7 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
 ---
 
-## Preview Shows a Blank Screen
+## Preview shows a blank screen
 
 <AccordionGroup>
   <Accordion title="The preview is blank after generation">
@@ -104,11 +116,11 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
 ---
 
-## API and Build Errors
+## API and build errors
 
 <AccordionGroup>
-  <Accordion title="I get an API error when building">
-    An API error during a build almost always points to a misconfigured or invalid AI provider connection.
+  <Accordion title="&quot;rejected the API key&quot; or another API error">
+    A message such as "Anthropic rejected the API key in Settings → API" means your AI provider didn't accept the key. Other API errors during a build almost always point to a wrong or invalid provider setting too.
 
     **Open Settings → API and check that:**
 
@@ -120,8 +132,16 @@ Most AppBlips issues fall into a handful of categories — installation, running
     Also confirm that your API key has remaining quota and has not been revoked in your provider's dashboard.
   </Accordion>
 
-  <Accordion title="Build hangs and never completes">
-    If the build spinner keeps going without producing output, the request likely timed out or the AI provider is responding slowly.
+  <Accordion title="&quot;Failed to reach LLM endpoint&quot;">
+    AppBlips couldn't connect to your AI provider at all. Check that:
+
+    - Your computer is online.
+    - If you use **LM Studio** or **Ollama**, its local server is running. Start it again if you closed it.
+    - The **Local server URL** in **Settings → API** is right, or empty to use the usual address.
+  </Accordion>
+
+  <Accordion title="Build hangs, or &quot;Stream stalled&quot;">
+    If the build spinner keeps going without producing output, the request likely timed out or the AI provider is responding slowly. When no data arrives for 3 minutes, AppBlips stops waiting and shows "Stream stalled: no data received for 180s".
 
     **Try the following:**
 
@@ -147,6 +167,10 @@ Most AppBlips issues fall into a handful of categories — installation, running
     - **No credit left** on your provider account. Many providers report this as a rate limit (HTTP 429).
     - **The provider's own rate or concurrency limits.** Wait and try again, or check your plan's limits.
   </Accordion>
+
+  <Accordion title="&quot;Claude declined this request&quot;">
+    Claude's safety checks turned the request down. This sometimes happens by mistake with ordinary requests. Reword your prompt, or choose another model in **Settings → API**.
+  </Accordion>
 </AccordionGroup>
 
 ---
@@ -171,7 +195,7 @@ When something fails without a clear message, AppBlips writes the details to its
     3. Try the action that failed again.
     4. Copy the yellow and red lines that start with `[AppBlips]`.
 
-    Messages from the AI connection appear where AppBlips runs instead: the terminal where you ran `npm start` or `npm run dev`, or `docker compose logs -f` for Docker. Lines starting with `[anthropic]` show what each Claude request asked for and what came back.
+    Messages from the AI connection appear where AppBlips runs instead: the terminal where you ran `npm start` or `npm run dev`, or `docker compose logs -f` for Docker. Lines starting with `[anthropic]` show what each Claude request asked for and what came back. In the `[anthropic] done:` lines, `cache_read` is how many tokens came from Anthropic's prompt cache (billed at a reduced price), and `cache_write` is how many were stored for the next step. During a build, `cache_read` should be above 0 from the second step on.
   </Accordion>
 </AccordionGroup>
 

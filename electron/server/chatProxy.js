@@ -51,7 +51,7 @@ const badRequest = (error, status = 400) => new Response(JSON.stringify({ error 
 // Misconfiguration is the operator's problem, and the operator is also the
 // user of a single-user install, so they get the exact fix.
 const configError = (env, detail) => new Response(
-  JSON.stringify({ error: `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.` }),
+  JSON.stringify({ error: `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → API.` }),
   { status: 500, headers: { 'content-type': 'application/json' } },
 );
 
@@ -140,7 +140,7 @@ export const smallerOutputLimit = (detail, current) => {
 
 // A provider rejecting the user's own key must not reach the client as a 401,
 // which it reads as an expired AppBlips session.
-const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
+const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → API.`);
 
 const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
   (m) => Array.isArray(m?.content) && m.content.some((part) => part?.type === 'image_url'),

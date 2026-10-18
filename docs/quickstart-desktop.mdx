@@ -14,7 +14,15 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 <Tabs>
   <Tab title="Windows">
-    Download `AppBlips-Setup-<version>.exe` from the [Releases page](https://github.com/TechMitten/app-blips/releases) and run it. The installer is not code-signed yet, so Windows SmartScreen may warn you the first time: choose **More info → Run anyway**.
+    **Microsoft Store (recommended):**
+
+    1. Open [AppBlips in the Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k).
+    2. Click **Get** (or **Install**).
+    3. When it finishes, open AppBlips from the Start menu.
+
+    The Store version is signed by Microsoft, so Windows doesn't block it, and the Store keeps it up to date.
+
+    **Or download the installer:** download `AppBlips-Setup-<version>.exe` from the [Releases page](https://github.com/TechMitten/app-blips/releases) and run it. This installer is not code-signed, so Windows SmartScreen may warn you the first time: choose **More info → Run anyway**. If Windows blocks it completely, use the Store version instead (see [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked)).
   </Tab>
   <Tab title="Linux">
     Download either file from the [Releases page](https://github.com/TechMitten/app-blips/releases):
@@ -26,19 +34,34 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 ## Set up your AI provider
 
-The first time you open AppBlips, a short welcome tour ends with three setup steps:
+An API key is a password-like code from your AI provider. It lets AppBlips use the AI on your account, and the provider bills you for what you use.
 
-1. **Pick a provider:** Anthropic (the default), OpenAI, Gemini, DeepSeek, LM Studio, Ollama or OpenRouter.
-2. **Paste your API key.** Create one at [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). LM Studio and Ollama don't need a key: start your local server instead.
-3. **Choose a model** from the live model list, then finish the setup.
+The first time you open AppBlips, a setup screen titled **Choose the AI that builds with you** appears:
 
-To change any of this later, open **Settings → API**. There you can click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**. To see the welcome tour again, open **Settings → Workspace** and click **Replay**.
+1. **Provider:** pick Anthropic (the default), OpenAI, Gemini, DeepSeek, LM Studio, Ollama or OpenRouter.
+2. **API key:** paste your key. Create one at [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). LM Studio and Ollama don't need a key: start your local server instead.
+3. **Model:** choose one from the list.
+4. Click **Start building**. If something is missing, the screen tells you what.
+
+To look around first, click **Skip for now**. You can set up the AI later.
+
+To change any of this later, open **Settings → API**. There you can click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**. To see the setup screen again, open **Settings → Workspace** and click **Replay**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 
 <Note>
   On Linux without a keyring, the app warns that the key is stored with weak encryption. Install GNOME Keyring or KWallet to protect it properly.
 </Note>
+
+## Build your first app
+
+After setup, AppBlips asks what you want to make:
+
+1. Click a studio: **Mobile & Web App**, **Responsive Website** or **Browser Game**. To start from a template instead, click **Quick Start & Library**.
+2. Type what you want in plain English, for example "a habit tracker with checkboxes and a progress bar".
+3. Press Enter. Your app appears in the preview when it's built.
+
+See [Building Apps](/features/building-apps) for tips on writing prompts.
 
 ## Where your projects are saved
 
@@ -49,6 +72,7 @@ Each app you build is a folder in `Documents/AppBlips/Projects/`:
 | `project.json` | The whole project: every version and the chat history |
 | `app-data.json` | What the app itself saved with `localStorage` while you used its preview |
 | `site/` | The current version's pages as plain `.html` files, rewritten on every change |
+| `blobs/` | Imported sites only: the project's files, stored once each so versions stay small |
 
 The `site/` folder is a convenience copy: open or share those files freely, but edits there are not read back into AppBlips. Renaming an app renames its folder, and deleting one moves the folder to your system trash.
 
@@ -65,9 +89,10 @@ An app you already have is only replaced if the backup's copy is newer. Imported
 
 ## Updates
 
-AppBlips checks for new versions when it starts.
+AppBlips checks for new versions when it starts, and again every hour while it's open.
 
-- **Windows and AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
+- **Microsoft Store:** the Store updates AppBlips for you. AppBlips doesn't check GitHub.
+- **Windows installer and AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
 - **.deb:** AppBlips tells you a new version is out and links to the download. Install it the same way as the first time (`sudo apt install ./AppBlips-*.deb`); your projects and settings stay as they are.
 
 To turn the check off, go to **Settings → Workspace → Check for updates**. The check asks GitHub, where releases are published, so GitHub sees your IP address.

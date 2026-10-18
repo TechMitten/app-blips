@@ -172,8 +172,7 @@ export default function DesktopProviderSettings({ guardRef }) {
           <p className="text-xs text-slate-500 leading-snug">
             {local ? 'Start your local server and load a model that supports tool calling. The server URL must include /v1. No API key is required unless your server uses authentication.' : <>{isDesktop
               ? 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
-              : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}
-            Apps you open in a new tab use it too; exported HTML files ask whoever runs them for their own key.</>}
+              : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}</>}
           </p>
           {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <a href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} target="_blank" rel="noopener noreferrer">Create a {providerLabel(draft.id)} API key</a>.

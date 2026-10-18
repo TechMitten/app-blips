@@ -8,7 +8,15 @@ AppBlips is a text-to-app generator built for everyone with an idea, whether or 
 
 ## What You Can Build
 
-When you start a new project, you choose a studio: **App** (interactive single-file tools), **Website** (multi-page sites with navigation), or **Game** (2D and 3D browser games with keyboard and touch controls). You can also start from a template, reopen something you made before, or choose **Import a site** to keep editing a React + Vite project someone built for you (see [Import a React + Vite site](/features/importing-sites)). Here are some popular starting points:
+AppBlips opens on a choice of studios:
+
+- **Mobile & Web App:** interactive tools, dashboards and utilities that work on any device.
+- **Responsive Website:** multi-page sites with navigation that look good on every screen.
+- **Browser Game:** 2D and 3D games with keyboard and touch controls.
+- **Quick Start & Library:** reopen something you made before, or start from a ready-made template.
+- **Import a site:** keep editing a React + Vite project someone built for you (see [Import a React + Vite site](/features/importing-sites)).
+
+Here are some popular starting points:
 
 <CardGroup cols={2}>
   <Card title="Todo list" icon="list-check">
@@ -37,14 +45,14 @@ When you start a new project, you choose a studio: **App** (interactive single-f
   <Step title="Type a prompt describing your app">
     Write a plain-English description of the app you want. Be as specific or as brief as you like — AppBlips works with both. You can also attach a screenshot or reference image for AppBlips to build from.
   </Step>
-  <Step title="AppBlips sends it to an AI model and streams the result">
-    Your prompt is sent to a language model through a local proxy running with the app. The generated code streams back in real time so you can watch progress as it happens.
+  <Step title="AppBlips sends it to your AI provider">
+    Your prompt goes to the AI provider you chose, such as Anthropic or OpenAI. While the AI works, you can watch the code being written in a small peek window.
   </Step>
-  <Step title="A live sandboxed preview appears instantly">
-    The moment generation completes, your app is running in a safe sandboxed preview right next to the prompt. Interact with it immediately — no separate step required.
+  <Step title="Your app appears in a live preview">
+    The moment the build finishes, your app runs in a safe, sandboxed preview right next to the prompt. You can use it immediately, with no separate step.
   </Step>
   <Step title="Refine with follow-up prompts or export">
-    Type another prompt to tweak any detail. Every change is saved as a version you can undo. When you are happy, export your project as a single HTML file or a ZIP of pages.
+    Type another prompt to tweak any detail. Every change is saved as a version you can undo. When you are happy, export your project as a single HTML file, a ZIP of pages, or a React project.
   </Step>
 </Steps>
 
@@ -69,10 +77,10 @@ There is no macOS installer yet: on a Mac, run from source or use Docker.
 ## Key Features
 
 <CardGroup cols={2}>
-  <Card title="Instant live preview" icon="eye">
-    Every generation and every edit renders immediately in a sandboxed preview. What you see is exactly what you will get in the exported file.
+  <Card title="Instant live preview" icon="eye" href="/features/live-preview">
+    Every build and every edit shows up in a sandboxed preview as soon as it's done. What you see is exactly what you will get in the exported file.
   </Card>
-  <Card title="Plain-English editing" icon="pen-to-square">
+  <Card title="Plain-English editing" icon="pen-to-square" href="/features/editing-apps">
     Refine your app by describing changes in ordinary language. No code editing required — just type what you want to change.
   </Card>
   <Card title="Image attachments" icon="image">
@@ -81,8 +89,20 @@ There is no macOS installer yet: on a Mac, run from source or use Docker.
   <Card title="Undo/redo history" icon="clock-rotate-left">
     Every generation and edit is saved as a version. Step back through your entire build history at any time.
   </Card>
-  <Card title="Export to HTML or ZIP" icon="file-code">
+  <Card title="Export to HTML or ZIP" icon="file-code" href="/features/exporting">
     Download any generated app as a single HTML file, a multi-page website as a ZIP of pages, or a React app as a Vite project. No build step and no server needed — host or share it anywhere.
+  </Card>
+  <Card title="Click to edit websites" icon="arrow-pointer" href="/features/editing-apps#visual-element-editor-website-studio">
+    In the Website studio, click text to type over it, swap images, change colours, and drag sections to a new spot. No AI needed for small changes.
+  </Card>
+  <Card title="AI review" icon="magnifying-glass" href="/features/building-apps#reviewing-a-build">
+    After a build, the AI can test your app in a built-in browser and write a report. If it finds problems, AppBlips starts a fix for you.
+  </Card>
+  <Card title="Ask questions" icon="comments" href="/features/building-apps#asking-questions-ask-mode">
+    Ask how something works without changing your project. AppBlips answers questions instead of rebuilding, even in Build mode.
+  </Card>
+  <Card title="Import a site" icon="folder-open" href="/features/importing-sites">
+    Open a React + Vite project from a .zip, edit it with AI, and export it back.
   </Card>
 </CardGroup>
 

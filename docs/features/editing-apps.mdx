@@ -34,13 +34,32 @@ Each follow-up creates a new version in your history, so you can chain as many e
 
 When working in the **Website Studio**, the visual element editor lets you point and click on any element in the live preview to select it and describe a change. This is especially useful when you can see exactly what you want to fix but aren't sure how to describe it in words.
 
-To activate the visual editor, click the **Click-to-edit** key (the pointer icon) in the preview toolbar. The preview switches into selection mode — hover over any element and it will highlight to show you what would be selected. Click the element you want to edit, then describe the change you want in the prompt that appears. AppBlips targets that specific element with your instruction, so the rest of the app stays untouched.
+To activate the visual editor, click the **Click-to-edit** key (the pointer icon) in the preview toolbar. The preview switches into selection mode: hover over any element and it highlights to show you what would be selected. Click the element you want to change. An editor bar appears below the preview with the options for that kind of element.
 
-## Selecting Parent Elements
+## Edit text directly
 
-Sometimes you want to edit a container, section background, or wrapper element rather than the inner content. After clicking an element, you can walk up the DOM tree to select a parent container using the **Select Parent** option that appears in the editor panel. This is useful when you want to change the padding on a section, swap the background of a card wrapper, or adjust a layout region.
+Click any text in the preview, such as a heading, paragraph or button label, and type straight into it. A formatting bar appears while you type:
 
-Keep pressing **Select Parent** to move further up the tree until you've highlighted the element you actually want to edit.
+- **Font**, and the font size (**Smaller**, **Larger**, or type a size in pixels)
+- **Text style** (such as bold and italic) and **Alignment**
+- **Text color**, from a list of colours or a custom colour
+- Its own **Undo** and **Redo** for your typing
+
+Click **Done** (or press Enter) to save the change as a new version. Click **Cancel** (or press Escape) to throw it away. No AI is involved, so the change is instant.
+
+## Change an image
+
+Click an image to change it in the editor bar:
+
+- **Image URL:** paste the web address of another picture.
+- **Upload:** replace it with an image from your computer.
+- **Alt text:** a short description of the picture for people who use screen readers. It also shows if the image can't load.
+
+## Selecting parent elements
+
+Sometimes you want to edit a container, section background or wrapper rather than the content inside it. After clicking an element, click the **Select parent** key in the editor bar (an arrow pointing up to a line; its tooltip says "Select the parent"). This is useful when you want to change a section's background, a card's fill or a page region's layout.
+
+Keep clicking it to move further out until you've highlighted the element you actually want to edit.
 
 ## Arranging Elements
 
@@ -56,7 +75,7 @@ The editor bar has keys to rearrange whatever you have selected. Each one is sav
 
 You can also drag text, images, buttons or whole sections to a new spot. Next to the click-to-edit key is a **Drag mode** key (the move icon). Turn it on (this also turns click-to-edit on), then press on an element in the preview and drag it: a copy of it follows your pointer (large elements shrink so you can still see the page), and a line shows where it will land, before or after the element under your pointer, anywhere on the page. Release to move it, or press Escape to cancel. Hold the pointer near the top or bottom edge of the preview to scroll while you drag.
 
-In drag mode, hovering outlines what a drag would move, and a click selects an element without editing its text. To move a container such as a card or a section, click it (use **Select Parent** if needed), then drag from anywhere inside it. Turn drag mode off to edit text in place again. Words inside a paragraph or heading move with their paragraph. Elements stay in the normal page flow, so the layout still adapts to every screen size. List items can only be moved among list items, and table cells among table cells.
+In drag mode, hovering outlines what a drag would move, and a click selects an element without editing its text. To move a container such as a card or a section, click it (use **Select parent** if needed), then drag from anywhere inside it. Turn drag mode off to edit text in place again. Words inside a paragraph or heading move with their paragraph. Elements stay in the normal page flow, so the layout still adapts to every screen size. List items can only be moved among list items, and table cells among table cells.
 
 If the dragged element or the spot where you drop it can't be found exactly in the page source (for example, because a script added it), nothing moves. The element is selected so you can describe the move to AI instead.
 
@@ -65,7 +84,7 @@ Ctrl+Z (⌘Z on Mac) undoes the last change, even while you're working in the pr
 ## Links, Buttons and Backgrounds
 
 - **Links:** type a web address, or pick one of your site's pages or a `#section` from the suggestions. The arrow key next to the field makes the link open in a new tab.
-- **Fill color:** available for sections, buttons and links. If the element has a gradient, a solid fill replaces it.
+- **Fill:** a colour for sections, buttons and links. If the element has a gradient, a solid fill replaces it.
 - **Wallpaper:** upload an image as a section's background, whether or not the section had one before.
 
 ## Asking AI About One Element
@@ -76,7 +95,7 @@ If a direct edit can't be matched to the page's source, for example because a sc
 
 ## Undo/Redo History
 
-Every edit — whether made through a prompt or the visual editor — saves a version to your history automatically. Use the **Previous version** and **Next version** arrows in the preview toolbar (or Ctrl+Z and Ctrl+Y) to step back and forward. You can move between versions freely at any point without losing your work. To jump straight to an older version, open the [history drawer](/features/live-preview#history-drawer).
+Every edit — whether made through a prompt or the visual editor — saves a version to your history automatically. Use the **Previous version** and **Next version** arrows in the preview toolbar to step back and forward, or press Ctrl+Z to undo and Ctrl+Y or Ctrl+Shift+Z to redo (⌘Z and ⌘⇧Z on Mac). You can move between versions freely at any point without losing your work. To jump straight to an older version, open the [history drawer](/features/live-preview#history-drawer).
 
 <Tip>
   Combine both editing modes for the best results. Use the visual editor to pinpoint a specific element you want to change, then use a follow-up prompt to describe complex behavior changes — like adding new interactivity or restructuring a section. Switching between the two gives you precision on individual elements and flexibility for bigger changes.

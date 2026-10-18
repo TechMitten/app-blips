@@ -1,10 +1,12 @@
 ---
-title: "Live Preview: Interact as It Generates"
+title: "Live Preview: Try Your App Right Away"
 sidebarTitle: "Live Preview"
-description: "AppBlips renders your app in a sandboxed live preview as it generates. Switch desktop and mobile views, zoom in, and interact with your app immediately."
+description: "AppBlips shows your app in a sandboxed live preview as soon as it's built. Watch the code being written, switch desktop and mobile views, and use your app immediately."
 ---
 
-The live preview pane sits right next to your prompt and shows your app the moment AppBlips starts generating it. The preview runs in a fully sandboxed environment, which means your app is completely isolated from the rest of the page and can't interfere with AppBlips itself. As soon as the AI begins writing code, the preview renders and streams the result in real time — and once generation finishes, the app is immediately interactive. Click buttons, fill in forms, and use it just like a real app, right there in the preview.
+The live preview pane sits right next to your prompt. While the AI works, the preview shows a **Building...** screen with a peek at the code being written. As soon as the build finishes, your app appears and is ready to use: click buttons, fill in forms, and use it just like a real app, right there in the preview.
+
+The preview runs in a fully sandboxed environment. That means your app is completely isolated from the rest of AppBlips and can't interfere with it.
 
 ## Desktop and Mobile Views
 
@@ -14,11 +16,23 @@ You can also adjust the zoom from the same toolbar. Zoom out to see the whole la
 
 To try your app in a full browser window, click **Open in a new tab**.
 
-## Live Code Preview
+## Browser bar and pages
 
-While AppBlips is generating your app, a streaming code overlay shows the HTML being written in real time. You can watch the structure take shape line by line as the AI works.
+A browser bar sits above the preview, like the top of a web browser:
 
-If you find the overlay distracting or would rather focus on the rendered result, you can turn it off in **Settings → Workspace** using the **Live code preview** toggle.
+- **Back**, **Forward** and **Reload** keys work inside your app, the same as in a browser.
+- The address box shows which page you're on, for example `appblips.local/index.html`. Type another page's name and press Enter to go there.
+
+When a website has more than one page, a page picker also appears in the preview toolbar. Choose a page from it to open that page. A website can have up to 12 pages.
+
+## Live code preview
+
+While AppBlips is building, a **generating code** card on the Building screen shows the latest lines of code as the AI writes them. It stays visible for the whole build.
+
+- On a multi-page website, the card shows the name of the page being written.
+- When [Reasoning](/reference/settings#reasoning) is on, a **thinking** strip shows what the AI is considering before it writes.
+
+If you'd rather not see the code, turn off **Live code preview** in **Settings → Workspace**.
 
 ## Code View
 
@@ -32,7 +46,9 @@ For an [imported site](/features/importing-sites), this tab is always shown and 
 
 ## Undo and Redo
 
-Every time AppBlips generates or updates your app, the result is saved as a new version in your history. If a change doesn't go the way you expected, click **Previous version** (the left arrow next to the version number in the preview toolbar) to step back. **Next version** moves you forward again. Ctrl+Z and Ctrl+Y (⌘Z and ⌘⇧Z on Mac) do the same.
+Every time AppBlips generates or updates your app, the result is saved as a new version in your history. The preview toolbar shows the version number, such as **v3**, between two curved arrows. If a change doesn't go the way you expected, click **Previous version** (the arrow on the left) to step back. **Next version** (the arrow on the right) moves you forward again.
+
+Keyboard shortcuts do the same: Ctrl+Z to undo, and Ctrl+Y or Ctrl+Shift+Z to redo (⌘Z and ⌘⇧Z on Mac).
 
 You're never locked in to the latest version — undo and redo freely at any point in your session.
 

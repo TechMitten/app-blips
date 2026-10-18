@@ -43,7 +43,7 @@ test('summary never contains secret values', () => {
 test('an empty configuration warns about the missing provider', () => {
   const line = describeConfig({}).find((l) => l.label === 'Builder AI');
   assert.equal(line.level, 'warn');
-  assert.match(line.text, /Settings → AI/);
+  assert.match(line.text, /Settings → API/);
 });
 
 // --- Config errors: detail for the operator ---------------------------------
@@ -59,7 +59,7 @@ test('a config error tells the operator what to fix', async () => {
   const { error } = await response.json();
   assert.match(error, /isn't set up yet/);
   assert.match(error, /OPENAI_API_KEY/);
-  assert.match(error, /Settings → AI/);
+  assert.match(error, /Settings → API/);
 });
 
 test('a real mistake (unknown provider) is still an error', () => {

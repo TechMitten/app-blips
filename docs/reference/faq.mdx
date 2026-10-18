@@ -31,6 +31,31 @@ Here are quick answers to the most common questions about AppBlips — what it c
     In the desktop app, your API key is encrypted with your system keychain and stays on your computer. It is used only by the app's background process when it calls your AI provider. In the browser version (run from source or Docker), AppBlips' own server on your computer saves it in a file only you can read, never in your browser. In every version, it is never embedded in generated app code and never included in any exported HTML file.
   </Accordion>
 
+  <Accordion title="What does AppBlips connect to?">
+    AppBlips has no account and no cloud of its own. It connects to:
+
+    - **Your AI provider** (the one in **Settings → API**): your prompts, your project's code and any images you attach are sent there to build your app. LM Studio and Ollama run on your own computer.
+    - **GitHub:** to check for new versions, when the app starts and every hour while it's open. The desktop app also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Microsoft Store version gets updates from the Store instead.
+    - **Google Fonts:** for the fonts AppBlips itself uses.
+    - **Code libraries (CDNs):** the apps you build, and imported sites, load libraries such as React, Tailwind CSS or game engines from public sites like esm.sh, jsDelivr and cdn.tailwindcss.com. Exported apps load them from there too.
+
+    Each of these services can see your IP address when AppBlips connects. AppBlips sends no analytics or tracking.
+  </Accordion>
+
+  <Accordion title="Does AppBlips use prompt caching to lower my Anthropic bill?">
+    Yes. With the Anthropic provider, AppBlips turns on [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) automatically. You don't need to change any settings.
+
+    A build or review takes several steps, and each step sends the AI's instructions and the conversation so far again. Anthropic stores those repeated parts for a few minutes. When the next step reuses them, it bills them at a small fraction of the normal input price. Storing them costs a little more than normal the first time, so caching pays off from the second step on.
+
+    Single quick replies, such as the short message after a build, aren't cached, because nothing in them is sent again.
+
+    You can see it working in the `[anthropic]` log lines in the terminal, if you run AppBlips from source, Docker or `npm run desktop`. See [Find the error details](/reference/troubleshooting#find-the-error-details). Other providers handle caching their own way, and AppBlips doesn't change it.
+  </Accordion>
+
+  <Accordion title="Windows warns me about the installer or blocks it">
+    The installer on GitHub isn't code-signed, so Windows may warn you or, with Smart App Control, block it. Install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead: it's signed by Microsoft and updates itself. See [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked) for other options.
+  </Accordion>
+
   <Accordion title="Can I use AppBlips on a Mac?">
     There is no macOS installer yet. You can [run AppBlips from source](/quickstart-source) with Node.js and use it in your browser, or run it with [Docker](/self-hosting/docker).
   </Accordion>

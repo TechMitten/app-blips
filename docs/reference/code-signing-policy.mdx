@@ -4,18 +4,23 @@ sidebarTitle: "Code signing policy"
 description: "Whether AppBlips release files are code-signed, and how to check that a download is genuine."
 ---
 
-Code signing adds a digital signature to a program, so Windows can tell who made it. AppBlips release files aren't code-signed yet.
+Code signing adds a digital signature to a program, so Windows can tell who made it. The release files on GitHub aren't code-signed. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) version is signed by Microsoft.
 
 ## What this means for you
 
-- **Windows:** SmartScreen may warn you the first time you run the installer. Choose **More info → Run anyway**. On Windows 11, Smart App Control can block the installer completely; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
+- **Windows, Microsoft Store:** signed, so Windows installs it without warnings. This is the recommended way to install on Windows.
+- **Windows, installer from GitHub:** SmartScreen may warn you the first time you run the installer. Choose **More info → Run anyway**. On Windows 11, Smart App Control can block the installer completely; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
 - **Linux:** the AppImage and `.deb` files aren't affected.
 
 ## How releases are built
 
-Every release is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds release files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
+Every release on GitHub is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds those files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
+
+The Microsoft Store package is built by the project owner from the same source code and uploaded to Microsoft. Microsoft reviews it, signs it, and delivers it and its updates through the Store.
 
 ## Check that your download is genuine
+
+This applies to downloads from GitHub. The Store checks its own package's signature for you.
 
 Each release includes a `SHA256SUMS.txt` file that lists a fingerprint for every download. If your file's fingerprint matches the one in the list, the file is exactly what the workflow built.
 
@@ -35,4 +40,4 @@ Each release includes a `SHA256SUMS.txt` file that lists a fingerprint for every
 
 ## Privacy
 
-AppBlips sends your prompts and projects only to the AI provider you set up in **Settings → API**. It also checks GitHub for new versions, and the desktop app downloads updates from GitHub automatically. See the [FAQ](/reference/faq) for details.
+AppBlips sends your prompts and projects only to the AI provider you set up in **Settings → API**. It also connects to a few other services, for fonts, code libraries and updates. See [What does AppBlips connect to?](/reference/faq) in the FAQ for the full list.

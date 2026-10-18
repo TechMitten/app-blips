@@ -22,12 +22,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      # The API key you enter under Settings → AI (only readable inside
+      # The API key you enter under Settings → API (only readable inside
       # this volume, never stored in the browser).
       - appblips-data:/data
     env_file:
       # Optional: an AI provider for the server. You can instead pick one in
-      # the app under Settings → AI.
+      # the app under Settings → API.
       - path: .env
         required: false
     restart: unless-stopped

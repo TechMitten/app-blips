@@ -16,7 +16,15 @@ AppBlips imports projects that use:
 - npm packages such as shadcn/ui, Radix, Framer Motion and lucide-react, plus packages that only add styles (such as Fontsource fonts or `swiper/css`)
 - Images and fonts in `src/assets` or `public/`
 
-Next.js, Create React App, Vue and monorepos with several packages can't be imported.
+Only React + Vite projects can be imported. Projects built with Next.js, Create React App, Remix, Gatsby, Astro, Vue, Nuxt, Svelte, Angular, Solid or Preact are refused, and so are monorepos with several packages.
+
+A project can be at most:
+
+- **1,000 files**, not counting `node_modules` and build output
+- **8 MB of code** in total
+- **150 MB of images, fonts and other files** in total
+
+Single code files over 1 MB (5 MB for lockfiles such as `package-lock.json`) and single images or other files over 50 MB are skipped, and AppBlips lists what it skipped.
 
 ## For designers: prepare the zip
 

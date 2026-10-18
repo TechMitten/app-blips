@@ -50,7 +50,10 @@ test('requests translate to Messages API params', () => {
       { role: 'user', content: [{ type: 'text', text: 'Look' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }] },
     ],
   });
-  assert.equal(params.system, 'Be brief.');
+  // Prompt caching: a breakpoint on the system prompt, plus automatic caching
+  // of the conversation for tool loops, which resend it every turn.
+  assert.deepEqual(params.system, [{ type: 'text', text: 'Be brief.', cache_control: { type: 'ephemeral' } }]);
+  assert.deepEqual(params.cache_control, { type: 'ephemeral' });
   assert.equal(params.max_tokens, undefined);
   assert.equal(toAnthropicParams({ model: 'claude-opus-5-5', max_tokens: 12000 }).max_tokens, 12000);
   assert.deepEqual(params.thinking, { type: 'adaptive', display: 'summarized' });
@@ -64,6 +67,9 @@ test('requests translate to Messages API params', () => {
   assert.equal(off.thinking, undefined);
   assert.deepEqual(off.output_config, { effort: 'low' });
   assert.equal(off.temperature, undefined);
+  // One-shot requests (no tools) never resend their tail, so no automatic cache.
+  assert.equal(off.cache_control, undefined);
+  assert.equal(off.system, undefined);
   // Low must ask for more than Off, or Claude never thinks at Low.
   const low = toAnthropicParams({ model: 'claude-opus-5-5', reasoning_effort: 'low', messages: [{ role: 'user', content: 'hi' }] });
   assert.deepEqual(low.thinking, { type: 'adaptive', display: 'summarized' });

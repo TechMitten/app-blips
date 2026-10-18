@@ -65,12 +65,12 @@ These settings control how the preview and build experience behaves during and a
 ### Check for updates
 
 <ParamField body="Check for updates" type="toggle" default="On">
-  AppBlips checks GitHub for new versions when it starts and tells you when one is out. The desktop app on Windows and as an AppImage also downloads the update in the background and offers to restart. If you run AppBlips from source or Docker, it links to [how to update](/quickstart-source#updating). GitHub sees your IP address when AppBlips checks. The setting also shows which version you're on, and a change takes effect the next time you open AppBlips.
+  AppBlips checks GitHub for new versions when it starts and tells you when one is out. The desktop app checks again every hour while it's open. The desktop app on Windows and as an AppImage also downloads the update in the background and offers to restart. If you run AppBlips from source or Docker, it links to [how to update](/quickstart-source#updating). GitHub sees your IP address when AppBlips checks. The [Microsoft Store](/quickstart-desktop#install) version doesn't check GitHub, because the Store updates it. The setting also shows which version you're on, and a change takes effect the next time you open AppBlips.
 </ParamField>
 
 ### Replay onboarding
 
-Click **Replay** to walk through the welcome screens and AI setup again. Your current AI setup is kept unless you save a new one, and you can leave at any step.
+Desktop app only. Click **Replay** to see the AI setup screen again. Your current AI setup is kept unless you save a new one, and you can leave without changing anything.
 
 ---
 
@@ -113,7 +113,7 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 ### Offer a review after each build
 
 <ParamField body="Offer a review after each build" type="toggle" default="On">
-  When enabled, AppBlips asks after every build or edit whether you want the AI to review it. A review checks the code against your request, tests the project in the built-in browser, and fixes problems it finds. Choose **Review** to run it or **Skip** to move on. Reviews can use a lot of extra tokens, so they only run when you say yes. Turn this off to skip both the question and the review.
+  When enabled, AppBlips asks after every build or edit whether you want the AI to review it. A review takes screenshots, tests the project in the built-in browser, reads the code, and writes a report. It doesn't change anything itself. If the report lists problems, a new chat starts with the report as its task, and the AI fixes them as a normal edit. Choose **Review** to run it or **Skip** to move on. Reviews can use a lot of extra tokens, so they only run when you say yes. Turn this off to skip both the question and the review.
 </ParamField>
 
 ### Smart game engine
@@ -133,6 +133,8 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 ## API
 
 Choose the AI provider that builds your apps: **Anthropic** (the default), **OpenAI**, **Gemini**, **DeepSeek**, **LM Studio**, **Ollama**, or **OpenRouter**. Your provider is used for building, editing, reviews, and Ask mode.
+
+With **Anthropic**, AppBlips turns on prompt caching automatically, so the repeated parts of a build cost less. See the [FAQ](/reference/faq) for how it works.
 
 <ParamField body="API key" type="string">
   Your key from [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). Local servers only need a key if you turned on authentication.
@@ -158,7 +160,7 @@ Click **Test connection** to check the settings, then **Save**. **Clear** remove
 
 Where projects are stored on your device.
 
-- **Export all apps:** downloads every saved app, its version history and its saved app data as one backup file.
+- **Export all apps:** downloads every saved app, its version history and its saved app data as one backup file. Imported sites aren't included: export each one as a `.zip` instead (see [Export the project](/features/importing-sites#export-the-project)).
 - **Import apps:** adds apps from a backup file. An app you already have is replaced only if the backup's copy is newer.
 - **Projects folder:** desktop app only. Shows where projects are saved. Click **Change…** to pick another folder. The browser version saves projects in your browser instead.
 
@@ -179,4 +181,4 @@ Links to the **Privacy Policy** and the **Terms of Service**.
 </Warning>
 
 - **Delete all saved apps:** removes every saved app with its version history.
-- **Factory Reset:** clears all data, settings, API keys and projects, and returns AppBlips to the state it was in when you first installed it.
+- **Reset app to factory defaults** (the **Factory Reset** button): clears all data, settings, API keys and projects, and returns AppBlips to the state it was in when you first installed it.

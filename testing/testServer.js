@@ -85,7 +85,7 @@ test('/api/chat: POST only, foreign origins refused, unconfigured provider expla
   assert.equal(sandboxed.status, 403);
   const own = await get('/api/chat', { method: 'POST', headers: { origin: `http://localhost:${PORT}`, 'content-type': 'application/json' }, body: '{"messages":[]}' });
   assert.equal(own.status, 500);
-  assert.match(JSON.parse(own.text).error, /Settings → AI/);
+  assert.match(JSON.parse(own.text).error, /Settings → API/);
   assert.equal(own.headers['x-content-type-options'], 'nosniff');
 });
 

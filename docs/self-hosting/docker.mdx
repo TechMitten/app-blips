@@ -40,7 +40,10 @@ It's the same app as the [browser version from source](/quickstart-source#run-it
     Go to [http://localhost:3000](http://localhost:3000) in your browser.
   </Step>
   <Step title="Set up your AI provider">
-    The welcome tour ends by asking for your AI provider, API key and model. You can change them later in **Settings → API**.
+    A setup screen asks for your AI provider, API key and model. Click **Start building** when you're done. You can change them later in **Settings → API**. If your `.env` file already sets a provider, this screen is skipped.
+  </Step>
+  <Step title="Build your first app">
+    Click a studio, such as **Mobile & Web App**, type what you want in plain English, and press Enter. See [Build your first app](/quickstart-desktop#build-your-first-app).
   </Step>
 </Steps>
 
@@ -84,7 +87,7 @@ Projects are saved per address, so moving to a new port starts with an empty pro
 
 ## Give the server an AI provider (optional)
 
-Instead of entering your provider in the app, you can put it in the same `.env` file, for example:
+Instead of entering your provider in the app, you can put it in the same `.env` file. This works with DeepSeek or another OpenAI-compatible service, not Anthropic: for Anthropic, enter your key in the app under **Settings → API**. For example, with a DeepSeek key:
 
 ```bash
 OPENAI_API_KEY=sk-...

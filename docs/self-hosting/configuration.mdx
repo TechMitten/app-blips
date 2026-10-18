@@ -22,6 +22,10 @@ When it starts, AppBlips prints which AI provider it found. It never prints your
 
 These give the server its own provider. It's used whenever **Settings → API** has no provider saved; a provider saved in the app always wins.
 
+<Warning>
+  These settings only work with DeepSeek or a service that speaks the OpenAI chat-completions API (such as OpenRouter or Ollama). An **Anthropic** key doesn't work here. To use Anthropic, the default provider, leave these blank and enter your key in the app under **Settings → API**.
+</Warning>
+
 <ParamField body="OPENAI_API_KEY" type="string">
   Your API key. With `OPENAI_BASE_URL` blank, this is a [DeepSeek](https://platform.deepseek.com/api_keys) key.
 </ParamField>
@@ -69,7 +73,7 @@ These give the server its own provider. It's used whenever **Settings → API** 
 </ParamField>
 
 <ParamField body="APPBLIPS_DATA_DIR" type="string">
-  The folder where the server saves the API key you enter under **Settings → AI** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
+  The folder where the server saves the API key you enter under **Settings → API** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
 </ParamField>
 
 <ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">
