@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="300" height="92"></a>
+  <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="300" height="92"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="300" height="92"></a>
 </p>
 
