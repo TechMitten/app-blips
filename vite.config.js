@@ -8,6 +8,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
+import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
 
 // Vite's connect server does not catch rejections from async middleware; on
 // modern Node that kills the whole dev server, so the proxy goes through this
@@ -85,13 +86,35 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
+// Voice input's Whisper model lives in public/whisper/
+// (gitignored); this fetches them before Vite copies public/ or serves it, so
+// dev, every build and Docker/CI have them without a separate step.
+function whisperAssetsPlugin() {
+  return {
+    name: 'appblips-whisper-assets',
+    async buildStart() {
+      await ensureWhisperAssets()
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   // The app's version, for the update check (src/lib/updates.js).
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode)],
+  plugins: [react(), whisperAssetsPlugin(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode)],
+  // The voice-input worker imports transformers.js, which splits into chunks;
+  // only module workers can load those.
+  worker: {
+    format: 'es',
+  },
+  // Pre-bundling moves onnxruntime-web into .vite/deps, away from the .wasm
+  // file it loads relative to itself.
+  optimizeDeps: {
+    exclude: ['@huggingface/transformers'],
+  },
   server: {
     host: true,
     port: 5175,

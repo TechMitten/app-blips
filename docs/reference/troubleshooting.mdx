@@ -93,6 +93,21 @@ Most AppBlips issues fall into a handful of categories — installation, running
 ## Preview shows a blank screen
 
 <AccordionGroup>
+  <Accordion title="The microphone key says access is blocked">
+    AppBlips needs your permission to use the microphone for voice input.
+
+    **Windows:**
+
+    1. Open **Start → Settings → Privacy & security → Microphone**.
+    2. Turn on **Microphone access** and **Let apps access your microphone**.
+    3. Turn on **Let desktop apps access your microphone** (or, for the Microsoft Store version, the switch next to **AppBlips**).
+    4. Close AppBlips and open it again.
+
+    **Browser version:** click the icon to the left of the address bar, set **Microphone** to **Allow**, then reload the page.
+
+    If it says no microphone was found, check that one is plugged in and selected as the default input in your system's sound settings.
+  </Accordion>
+
   <Accordion title="The preview is blank after generation">
     A blank preview after a successful generation usually means the generated code contains a syntax or runtime error that prevents it from rendering. AppBlips catches most of these and fixes them on its own, and runs a full review if the quick fixes don't work.
 

@@ -41,14 +41,16 @@ export default function PromptInput({
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const canSubmit = !isGenerating && prompt.trim().length > 0;
 
   // Optional microphone dictation (the first-build hero turns it on). Spoken
-  // text is appended after whatever was already typed when listening began.
+  // text is transcribed when the user stops, and appended after whatever was
+  // already typed when listening began.
   const voiceBaseRef = useRef('');
-  const { supported: voiceSupported, listening, error: voiceError, start: startVoice, stop: stopVoice, cancel: cancelVoice } = useSpeechRecognition({
+  const { supported: voiceSupported, listening, transcribing, error: voiceError, start: startVoice, stop: stopVoice, cancel: cancelVoice } = useSpeechRecognition({
     onTranscript: (text) => onPromptChange(voiceBaseRef.current + text.trim()),
   });
+  // Sending mid-transcription would drop what the user just said.
+  const canSubmit = !isGenerating && !transcribing && prompt.trim().length > 0;
   const showVoice = voiceInput && voiceSupported && !isGenerating;
   const toggleVoice = () => {
     if (listening) {
@@ -62,7 +64,7 @@ export default function PromptInput({
   // Anything that rewrites the prompt itself must end dictation first, or a
   // late transcript would overwrite the edit (or resurrect a sent prompt).
   const handleChange = (value) => {
-    if (listening) cancelVoice();
+    if (listening || transcribing) cancelVoice();
     onPromptChange(value);
   };
   const submit = () => {
@@ -306,15 +308,21 @@ export default function PromptInput({
                   Listening…
                 </span>
               )}
+              {transcribing && (
+                <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Transcribing…
+                </span>
+              )}
               <button
                 type="button"
                 onClick={toggleVoice}
+                disabled={transcribing}
                 aria-pressed={listening}
-                aria-label={listening ? 'Stop voice input' : 'Start voice input'}
-                title={listening ? 'Stop voice input' : 'Speak your prompt'}
+                aria-label={listening ? 'Stop voice input' : transcribing ? 'Transcribing voice input' : 'Start voice input'}
+                title={listening ? 'Stop voice input' : transcribing ? 'Transcribing…' : 'Speak your prompt'}
                 className={`composer-key !rounded-full ${listening ? 'composer-key-danger voice-listening' : ''}`}
               >
-                <Mic size={18} aria-hidden="true" />
+                {transcribing ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
               </button>
             </>
           )}

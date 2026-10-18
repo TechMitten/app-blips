@@ -58,6 +58,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 - **Instant live preview** — see exactly what you built, right next to the prompt, with no extra step
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
+- **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere

@@ -54,6 +54,9 @@ appx:
   # default (14316) would offer it to Windows versions it can't run on.
   minVersion: 10.0.17763.0
   maxVersionTested: 10.0.26100.0
+  # Voice input records the microphone; without this Windows blocks it for
+  # Store installs.
+  capabilities: [microphone]
   artifactName: AppBlips-Store-${version}.${ext}
 linux:
   target:

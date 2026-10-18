@@ -295,6 +295,23 @@ function lockDown(contents) {
 // browser; Electron grants everything by default, so only allow harmless ones.
 const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'fullscreen', 'pointerLock']);
 
+// The one exception is the microphone for voice input (Whisper runs locally in
+// the renderer): granted only to the app's own top-level page and only for
+// audio, so generated code in the preview frame still can't listen, and
+// nothing gets the camera.
+const isAppPage = (details) => Boolean(
+  details?.isMainFrame && details.requestingUrl?.startsWith(`${APP_ORIGIN}/`),
+);
+const allowMicRequest = (permission, details) => (
+  permission === 'media'
+  && isAppPage(details)
+  && details.mediaTypes?.length > 0
+  && details.mediaTypes.every((type) => type === 'audio')
+);
+const allowMicCheck = (permission, details) => (
+  permission === 'media' && isAppPage(details) && details.mediaType === 'audio'
+);
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -421,8 +438,12 @@ app.whenReady().then(() => {
   buildMenu();
 
   const allowed = (permission) => ALLOWED_PERMISSIONS.has(permission);
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed(permission)));
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed(permission));
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => (
+    callback(allowed(permission) || allowMicRequest(permission, details))
+  ));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, _origin, details) => (
+    allowed(permission) || allowMicCheck(permission, details)
+  ));
 
   console.log(`AppBlips desktop ${app.getVersion()} — projects in ${projectStore.root}`);
   console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
