@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Master app icon. build/icon.png and build/appx/ are rendered from this by scripts/appx-icons.sh. -->
+  <rect width="512" height="512" rx="110" fill="#0A0A0A"/>
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M214.5 151.5H266L374.75 407H319.25L297.2 353H183.3L161.25 407H105.75ZM240.25 213.2L280.5 312H200Z"/>
+  <circle cx="384.5" cy="143" r="42.75" fill="#EB6150"/>
+</svg>

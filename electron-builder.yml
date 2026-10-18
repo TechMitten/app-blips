@@ -33,8 +33,9 @@ nsis:
 # Microsoft Store package (npm run desktop:store, on a Windows PC). Never part
 # of npm run release or CI: it's built locally and uploaded to Partner Center
 # by hand, and the Store signs it, so it needs no certificate.
-# The tile images are build/appx/*.png, made from build/icon.png by
-# scripts/appx-icons.sh (rerun it after changing the icon). The identity
+# The tile images are build/appx/*.png, made from build/icon.svg (as is
+# build/icon.png) by scripts/appx-icons.sh (rerun it after changing the
+# icon). The identity
 # values come from Partner Center → the app → Product identity and must match
 # it exactly, or the upload is rejected. The package is unsigned (the Store
 # signs it), so Windows won't install the file directly; to test it, turn on
@@ -46,8 +47,8 @@ appx:
   publisherDisplayName: TechMitten           # Package/Properties/PublisherDisplayName
   applicationId: AppBlips
   displayName: AppBlips
-  # The icon's own edge color, so Windows doesn't frame it in the accent color.
-  backgroundColor: "#262630"
+  # The icon's own background color, so Windows doesn't frame it in the accent color.
+  backgroundColor: "#0A0A0A"
   languages: [en-US]
   # Electron needs Windows 10 1809 (build 17763) or later; electron-builder's
   # default (14316) would offer it to Windows versions it can't run on.
