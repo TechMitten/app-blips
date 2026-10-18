@@ -19,3 +19,6 @@ docs
 .claude
 .node
 .opencode
+
+# Fetched in its own Dockerfile layer; a local copy would only bloat the context.
+public/whisper

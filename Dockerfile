@@ -9,6 +9,14 @@ WORKDIR /app
 
 # Electron is only needed for the desktop app; skip its ~100 MB download.
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+
+# Voice input's Whisper model (~76 MB) gets its own layer, before anything
+# that changes with each update, so rebuilding after `git pull` reuses it
+# instead of downloading it again. The script needs only Node's built-ins, and
+# `npm run build` below finds the files already there.
+COPY scripts/fetch-whisper-model.js scripts/
+RUN node scripts/fetch-whisper-model.js
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
