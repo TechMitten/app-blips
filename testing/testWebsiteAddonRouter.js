@@ -32,9 +32,9 @@ assert.match(withLine, /request: a bakery\.\n\nADD-ONS \(chosen for this site\):
 assert.doesNotMatch(buildWebsiteInitialGenerationPrompt('a bakery', ''), /ADD-ONS \(/);
 
 // Every add-on the directive can name has loading instructions in the prompt.
-const system = buildHtmlSystemPrompt('website');
+const systemLines = buildHtmlSystemPrompt('website').split('\n');
 for (const name of ['GSAP + ScrollTrigger', 'AOS', 'Lenis', 'Swiper', 'GLightbox', 'Alpine.js', 'Chart.js', 'Leaflet']) {
-  assert.match(system, new RegExp(`^- ${name.replace(/[.+]/g, '\\$&')}`, 'm'), name);
+  assert.ok(systemLines.some((line) => line.startsWith(`- ${name}`)), name);
 }
 assert.doesNotMatch(buildHtmlSystemPrompt('app'), /ADD-ON LIBRARIES/);
 

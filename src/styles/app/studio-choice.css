@@ -78,9 +78,9 @@
   --sc-card-inset-hover: #ffffff;
   --sc-card-shadow: 0 12px 30px -18px rgb(15 23 42 / 0.25);
   --sc-card-shadow-hover: 0 18px 40px -20px rgb(15 23 42 / 0.32);
-  /* The logo is white and cyan lettering. Inverting turns the white black;
-     the half-turn of hue puts the cyan back (a darker cyan, readable on
-     light). */
+  /* The logo is white lettering with a red dot. Inverting turns the white
+     black, but also turns the red dot cyan; the half-turn of hue puts the red
+     back. */
   --sc-logo-filter: url(#studio-logo-key) invert(1) hue-rotate(180deg);
 }
 
@@ -113,19 +113,22 @@
   background-color: var(--sc-topbar-bg);
 }
 
-/* newlog.webp is lettering on an opaque black field with generous empty
-   margin. Key the black out (#studio-logo-key in StudioChoice.jsx turns
-   brightness into alpha) and crop the margin away. */
+/* blackblipsbg.webp is white lettering (red dot) on an opaque, slightly
+   textured near-black field with generous empty margin. Key the dark field
+   out (#studio-logo-key in StudioChoice.jsx turns brightness into alpha with
+   a threshold, so the texture goes fully transparent) and crop the margin
+   away with object-view-box. */
 .studio-logo-img {
   display: block;
-  width: 7.5rem;
-  aspect-ratio: 3.2 / 1;
-  object-fit: cover;
+  width: 8rem;
+  aspect-ratio: 4.06 / 1;
+  object-view-box: inset(35% 16%);
+  object-fit: fill;
   filter: var(--sc-logo-filter);
 }
 
 @media (min-width: 640px) {
-  .studio-logo-img { width: 9rem; }
+  .studio-logo-img { width: 10rem; }
 }
 
 .studio-nav-link {
