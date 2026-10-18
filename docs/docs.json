@@ -65,6 +65,15 @@
       "href": "https://github.com/TechMitten/app-blips/releases"
     }
   },
+  "seo": {
+    "metatags": {
+      "og:image": "https://docs.appblips.com/images/og-image.jpg",
+      "og:image:width": "1200",
+      "og:image:height": "630",
+      "twitter:card": "summary_large_image",
+      "twitter:image": "https://docs.appblips.com/images/og-image.jpg"
+    }
+  },
   "description": "Documentation for AppBlips, an app that turns plain English into working apps, websites and games, with a live preview and export. Install it on Windows or Linux, or run it from source or Docker.",
   "logo": {
     "light": "/logo-light.png",
