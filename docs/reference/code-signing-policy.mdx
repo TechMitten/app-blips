@@ -4,39 +4,28 @@ sidebarTitle: "Code signing policy"
 description: "Whether AppBlips release files are code-signed, and how to check that a download is genuine."
 ---
 
-Code signing adds a digital signature to a program, so Windows can tell who made it. The release files on GitHub aren't code-signed. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) version is signed by Microsoft.
+Code signing adds a digital signature to a program, so Windows can tell who made it. The Linux release files on GitHub aren't code-signed. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) version, the only way to install AppBlips on Windows, is signed by Microsoft.
 
 ## What this means for you
 
-- **Windows, Microsoft Store:** signed, so Windows installs it without warnings. This is the recommended way to install on Windows.
-- **Windows, installer from GitHub:** SmartScreen may warn you the first time you run the installer. Choose **More info → Run anyway**. On Windows 11, Smart App Control can block the installer completely; see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked).
-- **Linux:** the AppImage and `.deb` files aren't affected.
+- **Windows, Microsoft Store:** signed, so Windows installs it without warnings, and the Store keeps it up to date. This is the only supported way to install AppBlips on Windows.
+- **Linux:** the AppImage and `.deb` files aren't code-signed, but Linux doesn't warn about that the way Windows does.
 
 ## How releases are built
 
-Every release on GitHub is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds those files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
+Every Linux release on GitHub is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds those files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
 
 The Microsoft Store package is built by the project owner from the same source code and uploaded to Microsoft. Microsoft reviews it, signs it, and delivers it and its updates through the Store.
 
 ## Check that your download is genuine
 
-This applies to downloads from GitHub. The Store checks its own package's signature for you.
+This applies to the Linux downloads from GitHub. The Store checks its own package's signature for you.
 
 Each release includes a `SHA256SUMS.txt` file that lists a fingerprint for every download. If your file's fingerprint matches the one in the list, the file is exactly what the workflow built.
 
-<Tabs>
-  <Tab title="Windows">
-    1. Open the folder that holds the file you downloaded.
-    2. Click the address bar, type `powershell`, and press **Enter**.
-    3. Type `Get-FileHash .\AppBlips-Setup-<version>.exe`, replacing `<version>` with the version you downloaded, and press **Enter**.
-    4. Compare the long code under **Hash** with the line for that file in `SHA256SUMS.txt`. Capital letters don't matter.
-  </Tab>
-  <Tab title="Linux">
-    1. Open a terminal in the folder that holds your download.
-    2. Type `sha256sum <file name>` and press **Enter**.
-    3. Compare the long code with the line for that file in `SHA256SUMS.txt`.
-  </Tab>
-</Tabs>
+1. Open a terminal in the folder that holds your download.
+2. Type `sha256sum <file name>` and press **Enter**.
+3. Compare the long code with the line for that file in `SHA256SUMS.txt`.
 
 ## Privacy
 

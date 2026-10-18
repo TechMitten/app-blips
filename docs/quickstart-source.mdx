@@ -115,18 +115,13 @@ This builds AppBlips and opens it in its own window. The first time, set up your
 
 ### Make your own installer
 
-To build installer files like the ones on the Releases page:
+To build the Linux installer files like the ones on the Releases page:
 
 ```bash
 npm run desktop:dist
 ```
 
-When it finishes, the files are in the `dist-desktop` folder:
-
-- **On Linux:** `AppBlips-<version>-x86_64.AppImage` and `AppBlips-<version>-amd64.deb`
-- **On Windows:** `AppBlips-Setup-<version>.exe`
-
-Build each one on the system it's for: the Windows installer needs Windows. Installers you build yourself aren't code-signed, so Windows may warn you the first time you run one (see [Troubleshooting](/reference/troubleshooting#windows-installer-is-blocked)).
+When it finishes, the files are in the `dist-desktop` folder: `AppBlips-<version>-x86_64.AppImage` and `AppBlips-<version>-amd64.deb`. There's no Windows installer to build this way — AppBlips is distributed on Windows only through the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k).
 
 ## Updating
 

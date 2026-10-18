@@ -78,19 +78,16 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 
 ### Desktop app (Windows and Linux)
 
-Download the installer for your system from the **[latest release](https://github.com/TechMitten/app-blips/releases/latest)** (scroll down to **Assets**):
+- **Windows:** install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)**. It's signed by Microsoft (no install warnings) and the Store keeps it up to date for you.
+- **Linux:** download an installer from the **[latest release](https://github.com/TechMitten/app-blips/releases/latest)** (scroll down to **Assets**):
+  - **AppImage:** download `AppBlips-<version>-x86_64.AppImage`. It works on any distribution. Right-click the file → Properties → allow it to run as a program, then double-click it.
+  - **Debian / Ubuntu (.deb):** download `AppBlips-<version>-amd64.deb` and double-click it to install it with your software center.
 
-- **Windows:** download `AppBlips-Setup-<version>.exe`, run it and follow the installer.
-- **Linux (AppImage):** download `AppBlips-<version>-x86_64.AppImage`. It works on any distribution. Right-click the file → Properties → allow it to run as a program, then double-click it.
-- **Debian / Ubuntu (.deb):** download `AppBlips-<version>-amd64.deb` and double-click it to install it with your software center.
-
-All versions and checksums are on the **[Releases](https://github.com/TechMitten/app-blips/releases)** page.
-
-> **Windows 11 note:** Windows 11's Smart App Control can block the installer, because AppBlips isn't code-signed yet. If you see "Smart App Control blocked an app that may be unsafe," see [how to install anyway](https://docs.appblips.com/reference/troubleshooting#windows-installer-is-blocked). The Linux builds aren't affected.
+All Linux versions and checksums are on the **[Releases](https://github.com/TechMitten/app-blips/releases)** page.
 
 The first time you open it, AppBlips asks you to choose an AI provider (Anthropic by default; OpenAI, Gemini, DeepSeek, OpenRouter, or LM Studio/Ollama on your own computer), paste its API key and pick a model. Get an Anthropic key from the [Claude Console](https://platform.claude.com/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
 
-The app tells you when a new version is out. On Windows and with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
+The app tells you when a new version is out. On the Microsoft Store it updates itself through the Store; with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 
 On macOS there is no installer yet: run it from source or with Docker instead (below).
 

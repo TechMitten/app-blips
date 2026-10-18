@@ -8,29 +8,13 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
 ## Windows installer is blocked
 
-<Tip>
-  The easiest fix for every problem in this section is to install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead. The Store version is signed by Microsoft, so Windows doesn't block it, and the Store installs updates for you.
-</Tip>
+AppBlips is distributed on Windows only through the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) now. The Store version is signed by Microsoft, so Windows doesn't block it, and the Store installs updates for you.
 
 <AccordionGroup>
-  <Accordion title="Smart App Control blocked the installer">
-    Windows 11's **Smart App Control** blocks apps that aren't code-signed, and it has no "Run anyway" option. The installer from GitHub isn't code-signed, so Smart App Control can block it or the app itself.
+  <Accordion title="I still have an older copy installed from GitHub">
+    Older versions of AppBlips offered a `.exe` installer on the GitHub Releases page. That installer wasn't code-signed, so Windows 11's **Smart App Control** could block it or its updates, and it no longer receives new versions.
 
-    This only affects machines with Smart App Control turned on — most often fresh Windows 11 installs. If you don't see the block, nothing is wrong.
-
-    **Install from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (recommended). If you'd rather use the GitHub installer, **turn Smart App Control off:**
-
-    1. Open **Settings → Privacy & security → Windows Security → App & browser control**.
-    2. Under **Smart App Control**, select **Smart App Control settings**.
-    3. Set it to **Off**, then open the installer again.
-
-    <Warning>
-      Smart App Control is a security feature, so turn it off only if you understand the tradeoff. On Windows 11 25H2 and later you can turn it back on afterwards; on earlier versions it stays off until you reset Windows.
-    </Warning>
-  </Accordion>
-
-  <Accordion title="A new version won't install">
-    If you already run AppBlips from the GitHub installer on a machine with Smart App Control on, the built-in updater can't install a new version, because the update installer isn't signed either. Switch to the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) version, or install the new version by hand after turning Smart App Control off, as above.
+    **Install [AppBlips from the Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** to get a signed install that keeps itself up to date. Your existing projects aren't affected — they're saved in `Documents/AppBlips/Projects` and the new install picks them up automatically.
   </Accordion>
 </AccordionGroup>
 

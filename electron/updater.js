@@ -1,10 +1,13 @@
 // Desktop updates.
 //
-// Windows (NSIS) and AppImage builds update themselves with electron-updater
-// from the GitHub release the Desktop workflow publishes: when the renderer
-// asks for a check (it owns the "Check for updates" setting), the update
-// downloads in the background, the renderer offers "Restart to update", and an
-// update that was never applied installs when the app quits.
+// AppImage builds update themselves with electron-updater from the GitHub
+// release the Desktop workflow publishes: when the renderer asks for a check
+// (it owns the "Check for updates" setting), the update downloads in the
+// background, the renderer offers "Restart to update", and an update that was
+// never applied installs when the app quits. The win32 branch below only
+// matters for a NSIS installer someone builds and publishes themselves — the
+// Desktop workflow no longer builds or ships one, since Windows is Microsoft
+// Store only now, so a stock win32 install just finds nothing to update.
 //
 // Other installs can't replace themselves without a password prompt (.deb) or
 // aren't installs at all (`npm run desktop`), so check() answers
@@ -12,9 +15,7 @@
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
-// { auto: false, store: true } and the renderer doesn't check at all: an
-// MSIX package can't run the NSIS updater, and a "download the installer"
-// notice would push Store users onto the unsigned GitHub build.
+// { auto: false, store: true } and the renderer doesn't check at all.
 import electronUpdater from 'electron-updater';
 
 const RECHECK_MS = 60 * 60 * 1000;

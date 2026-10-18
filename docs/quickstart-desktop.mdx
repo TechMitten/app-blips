@@ -14,15 +14,11 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
 
 <Tabs>
   <Tab title="Windows">
-    **Microsoft Store (recommended):**
-
     1. Open [AppBlips in the Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k).
     2. Click **Get** (or **Install**).
     3. When it finishes, open AppBlips from the Start menu.
 
-    The Store version is signed by Microsoft, so Windows doesn't block it, and the Store keeps it up to date.
-
-    **Or download the installer:** download `AppBlips-Setup-<version>.exe` from the [Releases page](https://github.com/TechMitten/app-blips/releases) and run it. This installer is not code-signed, so Windows SmartScreen may warn you the first time: choose **More info → Run anyway**. If Windows blocks it completely, use the Store version instead (see [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked)).
+    The Store version is signed by Microsoft, so Windows doesn't block it, and the Store keeps it up to date. This is the only supported way to install AppBlips on Windows.
   </Tab>
   <Tab title="Linux">
     Download either file from the [Releases page](https://github.com/TechMitten/app-blips/releases):
@@ -92,7 +88,7 @@ An app you already have is only replaced if the backup's copy is newer. Imported
 AppBlips checks for new versions when it starts, and again every hour while it's open.
 
 - **Microsoft Store:** the Store updates AppBlips for you. AppBlips doesn't check GitHub.
-- **Windows installer and AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
+- **AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
 - **.deb:** AppBlips tells you a new version is out and links to the download. Install it the same way as the first time (`sudo apt install ./AppBlips-*.deb`); your projects and settings stay as they are.
 
 To turn the check off, go to **Settings → Workspace → Check for updates**. The check asks GitHub, where releases are published, so GitHub sees your IP address.

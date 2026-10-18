@@ -2,7 +2,7 @@
 // latest published release of this repo and compares it with the version baked
 // into the build (__APPBLIPS_VERSION__, from package.json via vite.config.js).
 //
-// The desktop app's Windows and AppImage builds update themselves instead
+// The desktop app's AppImage builds update themselves instead
 // (electron/updater.js); this check covers every other install.
 // Results are cached in localStorage so reloads don't re-ask GitHub, whose
 // unauthenticated API allows 60 requests an hour per IP. No React, so

@@ -1,6 +1,8 @@
-# Desktop installers (npm run desktop:dist). Windows: NSIS installer;
-# Linux: AppImage + .deb. Build Windows on Windows (or the CI workflow in
-# .github/workflows/desktop.yml): cross-building NSIS from Linux needs Wine.
+# Desktop installers (npm run desktop:dist): Linux AppImage + .deb, built by
+# the CI workflow in .github/workflows/desktop.yml. Windows is distributed
+# only through the Microsoft Store (npm run desktop:store, built by hand on a
+# Windows PC, see RELEASING.md); the win: section below exists only to give
+# that package an icon, not to build a Windows installer.
 appId: com.appblips.desktop
 productName: AppBlips
 copyright: Copyright © 2026 TechMitten
@@ -20,16 +22,7 @@ files:
 npmRebuild: false
 nodeGypRebuild: false
 win:
-  target:
-    - target: nsis
-      arch: [x64]
   icon: build/icon.png
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  perMachine: false
-  createDesktopShortcut: true
-  artifactName: AppBlips-Setup-${version}.${ext}
 # Microsoft Store package (npm run desktop:store, on a Windows PC). Never part
 # of npm run release or CI: it's built locally and uploaded to Partner Center
 # by hand, and the Store signs it, so it needs no certificate.

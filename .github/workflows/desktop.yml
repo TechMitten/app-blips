@@ -1,11 +1,12 @@
 name: Desktop
 
-# Builds the desktop installers on each OS natively: Windows NSIS (.exe) on
-# windows-latest, AppImage + .deb on ubuntu-latest. Run it by hand from the
-# Actions tab, or push a tag like v0.1.0 to also collect them into one draft
-# GitHub Release (bump "version" in package.json to match first). Publishing
-# that draft is what rolls the update out: installed apps check the latest
-# published release, using the latest*.yml files uploaded alongside.
+# Builds the Linux desktop installers (AppImage + .deb) on ubuntu-latest. Run
+# it by hand from the Actions tab, or push a tag like v0.1.0 to also publish
+# them as a draft GitHub Release (bump "version" in package.json to match
+# first). Publishing that draft is what rolls the update out: installed
+# AppImage builds check the latest published release, using the latest*.yml
+# file uploaded alongside. Windows is distributed only through the Microsoft
+# Store, built by hand (see RELEASING.md) — this workflow never touches it.
 
 on:
   workflow_dispatch:
@@ -17,11 +18,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,50 +26,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Builds unsigned: Windows releases aren't code-signed yet (see
-      # docs/reference/code-signing-policy.mdx).
       - run: npm run desktop:dist
       - name: Write SHA-256 checksums
-        shell: bash
         run: |
           cd dist-desktop
-          : > "SHA256SUMS-${{ runner.os }}.txt"
-          for f in *.exe *.AppImage *.deb; do
+          : > SHA256SUMS.txt
+          for f in *.AppImage *.deb; do
             [ -e "$f" ] || continue
-            sha256sum "$f" >> "SHA256SUMS-${{ runner.os }}.txt"
+            sha256sum "$f" >> SHA256SUMS.txt
           done
-          cat "SHA256SUMS-${{ runner.os }}.txt"
-      - uses: actions/upload-artifact@v4
+          cat SHA256SUMS.txt
+      - name: Create draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
-          name: appblips-desktop-${{ runner.os }}
-          path: |
-            dist-desktop/*.exe
+          draft: true
+          files: |
             dist-desktop/*.AppImage
             dist-desktop/*.deb
             dist-desktop/*.blockmap
             dist-desktop/latest*.yml
-            dist-desktop/SHA256SUMS-*.txt
-          if-no-files-found: error
-
-  # One job creates the release, so the two builds can't each start their own
-  # draft (the tag lookup doesn't see drafts).
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: release
-          merge-multiple: true
-      - name: Combine checksums
-        shell: bash
-        run: |
-          cd release
-          cat SHA256SUMS-*.txt > SHA256SUMS.txt
-          rm -f SHA256SUMS-*.txt
-          cat SHA256SUMS.txt
-      - uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: release/*
+            dist-desktop/SHA256SUMS.txt
