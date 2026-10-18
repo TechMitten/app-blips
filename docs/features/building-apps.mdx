@@ -54,18 +54,36 @@ You can drop a screenshot, mockup, or reference image directly into the prompt a
 
 To attach an image, drag and drop it onto the build pane or use the image attachment button next to the prompt input. You can also paste a copied image or screenshot straight into the prompt box with Ctrl+V (Cmd+V on a Mac). Once your app is built, the camera key next to it attaches a screenshot of the current preview, which is handy for pointing out what looks wrong. You can combine an image with a written prompt: for example, attach a screenshot of a form and write "build this, but replace the file upload field with a text area."
 
-## Speaking Your Prompt
+## Speaking your prompt
 
-On the start screen, you can say your idea instead of typing it:
+On the start screen of a new project, you can say your idea instead of typing it:
 
-1. Click the microphone key next to the prompt box. The first time, your computer or browser asks whether AppBlips may use the microphone. Click **Allow**.
-2. While the key pulses red and **Listening…** shows, describe what you want to build.
-3. Click the microphone key again to stop. **Transcribing…** shows for a few seconds, then your words appear in the prompt box.
-4. Check the text, fix anything it misheard, and send it as usual.
+1. Click the microphone key next to the prompt box (its tooltip says **Speak your prompt**).
+2. If AppBlips asks to use your microphone, click **Allow**. See [Microphone permission](#microphone-permission) below.
+3. While the key pulses red and **Listening…** shows, describe what you want to build.
+4. Click the microphone key again to stop (its tooltip now says **Stop voice input**). **Transcribing…** shows for a few seconds, then your words appear in the prompt box.
+5. Check the text, fix anything it misheard, and send it as usual.
 
-If you'd already typed something, the spoken words are added after it. Voice input understands most languages; it listens for your computer's language first.
+If you'd already typed something, your spoken words are added after it. Typing in the prompt box while AppBlips is listening or transcribing cancels the recording. A recording stops by itself after 2 minutes.
 
-Your voice is turned into text on your own computer by a speech model called Whisper, which comes built into AppBlips. The recording is never uploaded or saved, and voice input works without an internet connection. The first time you use it after starting AppBlips, it takes a few extra seconds to load the model.
+Voice input understands most languages. It expects your computer's language first, and works out the language itself if that one isn't supported.
+
+### How your voice is turned into text
+
+AppBlips uses Whisper, a speech-recognition model, which comes built into AppBlips. It runs on your own computer:
+
+- Your recording is never uploaded, saved or sent to your AI provider. Only the text you send becomes part of your prompt.
+- Voice input works without an internet connection.
+- The first time you use it after opening AppBlips, it takes a few extra seconds to load the model. After that it's quicker.
+- Transcribing uses your computer's processor, so a long recording on an older computer can take a little while.
+
+### Microphone permission
+
+- **Desktop app (installer from GitHub, or Linux):** AppBlips doesn't ask. Clicking the microphone key is your permission. Windows still needs its microphone privacy switches turned on, which they are by default.
+- **Microsoft Store version:** the first time, Windows asks whether AppBlips may use your microphone. Click **Yes**.
+- **Browser version:** your browser asks the first time. Click **Allow**.
+
+Only AppBlips' own screen can use the microphone. The apps you build, running in the preview, can't. If you see `Microphone access is blocked`, see [Troubleshooting](/reference/troubleshooting#the-microphone-key-says-access-is-blocked).
 
 ## Refining with Follow-up Prompts
 

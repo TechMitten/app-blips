@@ -43,6 +43,13 @@ Generated apps never run directly inside the main AppBlips page. Every generated
 
 This isolation is the main protection against malicious or buggy generated code affecting AppBlips itself.
 
+## Microphone
+
+Voice input records the microphone only while you have it switched on with the microphone key, and turns it into text on your computer. The recording is never uploaded or saved.
+
+- In the desktop app, only AppBlips' own screen may use the microphone, and only for sound. The preview, where generated apps run, is refused, and nothing may use the camera.
+- In the browser version, the preview has no permission to use the microphone either.
+
 ## Opening exported apps
 
 Exported apps are self-contained HTML with full script privileges. Open or host them separately from AppBlips (for example, as a local file or on a different domain) rather than serving them from the same origin as AppBlips, so an app can't read what AppBlips stores in the browser.

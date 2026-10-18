@@ -70,6 +70,8 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
   <Accordion title="npm install or npm start fails">
     Check your Node.js version with `node --version`. AppBlips needs 22.12 or newer; install the **LTS** version from [nodejs.org](https://nodejs.org/). Then delete the `node_modules` folder and run `npm install` again.
+
+    If the error mentions `Could not download` or `does not match its pinned sha256`, the build couldn't fetch the voice-input speech model from Hugging Face. Check your internet connection and run `npm start` again. It only downloads the model once.
   </Accordion>
 
   <Accordion title="npm run desktop on Linux fails with a chrome-sandbox error">
@@ -105,7 +107,17 @@ Most AppBlips issues fall into a handful of categories — installation, running
 
     **Browser version:** click the icon to the left of the address bar, set **Microphone** to **Allow**, then reload the page.
 
-    If it says no microphone was found, check that one is plugged in and selected as the default input in your system's sound settings.
+    If it says `No microphone was found.`, check that one is plugged in and selected as the default input in your system's sound settings. If it says `The microphone is in use by another app.`, close the other app that's recording (such as a video call) and try again.
+  </Accordion>
+
+  <Accordion title="&quot;Voice input could not understand that recording&quot;">
+    AppBlips recorded you but couldn't turn it into text.
+
+    1. Check that the right microphone is the default input in your system's sound settings.
+    2. Speak a little closer to the microphone, and record for at least a second or two.
+    3. Click the microphone key and try again.
+
+    If it keeps failing, close AppBlips and open it again, then see [Find the error details](#find-the-error-details).
   </Accordion>
 
   <Accordion title="The preview is blank after generation">
