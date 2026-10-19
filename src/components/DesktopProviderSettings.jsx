@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
@@ -26,6 +28,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   const [saved, setSaved] = useState(null); // provider.get() result
   const [draft, setDraft] = useState({ id: USER_PROVIDER_OPTIONS[0].id, model: '', baseUrl: '', apiKey: '' });
   const [showKey, setShowKey] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
   const modelList = useProviderModels({
     ...draft,
@@ -116,6 +119,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   };
 
   const onClear = async () => {
+    setConfirmClear(false);
     try {
       const next = await providerApi.clear();
       setSaved((prev) => ({ ...prev, ...next }));
@@ -131,6 +135,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   const busy = status?.kind === 'busy';
 
   return (
+    <>
     <SettingRow
       id="set-desktop-provider"
       title="AI coding provider"
@@ -214,7 +219,7 @@ export default function DesktopProviderSettings({ guardRef }) {
             <button type="button" onClick={onTest} disabled={!complete || busy} className={SECONDARY_BUTTON}>
               Test connection
             </button>
-            <button type="button" onClick={onClear} disabled={!saved?.id || busy} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || busy} className={SECONDARY_BUTTON}>
               Clear
             </button>
             {status && (
@@ -232,5 +237,26 @@ export default function DesktopProviderSettings({ guardRef }) {
         </div>
       )}
     />
+    {/* Portaled out of the settings card: a fixed overlay inside it would be
+        clipped by the card's overflow. */}
+    {confirmClear && createPortal(
+      <ConfirmModal
+        title="Clear AI provider?"
+        subtitle="This removes your saved settings."
+        onClose={() => setConfirmClear(false)}
+        onConfirm={onClear}
+        confirmLabel="Clear"
+        confirmClass="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+      >
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+          <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
+          <span>
+            Your saved provider, model and API key will be removed. You'll need to enter them again before you can build.
+          </span>
+        </div>
+      </ConfirmModal>,
+      document.body,
+    )}
+    </>
   );
 }
