@@ -59,29 +59,32 @@ export default function BuildPanel({
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-end px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
+      <div className="build-panel-header h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
+        <h2 className="build-panel-title text-sm font-semibold text-slate-900 dark:text-white">Build</h2>
         {/* Quick actions */}
-        <button
-          type="button"
-          onClick={onToggleHistory}
-          className={`history-header-toggle mr-2 inline-flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer ${isHistoryOpen ? 'text-indigo-500 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15' : 'text-slate-500 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
-          aria-label={isHistoryOpen ? 'Hide history' : 'Show history'}
-          aria-expanded={isHistoryOpen}
-          title={isHistoryOpen ? 'Hide history' : 'Show history'}
-        >
-          <History size={20} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          data-tour="newchat"
-          onClick={onNewChat}
-          disabled={isGenerating}
-          className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-          aria-label="New chat (keeps version history)"
-          title="New chat (keeps version history)"
-        >
-          <Plus size={20} strokeWidth={3} aria-hidden="true" />
-        </button>
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={onToggleHistory}
+            className={`history-header-toggle mr-2 inline-flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer ${isHistoryOpen ? 'text-indigo-500 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15' : 'text-slate-500 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
+            aria-label={isHistoryOpen ? 'Hide history' : 'Show history'}
+            aria-expanded={isHistoryOpen}
+            title={isHistoryOpen ? 'Hide history' : 'Show history'}
+          >
+            <History size={20} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            data-tour="newchat"
+            onClick={onNewChat}
+            disabled={isGenerating}
+            className="new-chat-btn inline-flex items-center justify-center p-1.5 rounded-lg text-slate-900 dark:text-white hover:text-slate-600 dark:hover:text-white/80 hover:scale-110 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            aria-label="New chat (keeps version history)"
+            title="New chat (keeps version history)"
+          >
+            <Plus size={20} strokeWidth={3} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <div className="build-panel-scroll flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5 md:mr-1.5 flex flex-col relative z-1 chat-scrollbar">
