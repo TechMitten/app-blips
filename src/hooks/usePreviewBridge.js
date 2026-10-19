@@ -234,10 +234,6 @@ export default function usePreviewBridge({
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
       }
-      // TEMP DIAGNOSTIC: see the debug-wheel note in previewBridge.js.
-      else if (data.type === 'debug-wheel') {
-        if (import.meta.env.DEV) console.log('[AppBlips preview] wheel inside the site', data.payload, 'frame on top?', iframe.style.zIndex === '1', 'is live frame?', iframe === iframeRef.current);
-      }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);

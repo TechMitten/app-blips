@@ -2265,30 +2265,6 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
 
-  // TEMP DIAGNOSTIC (scroll freezes after a click-to-edit commit): report
-  // what a wheel scroll finds inside the frame, at most once a second. The
-  // parent only logs it in dev. Remove once the freeze is understood.
-  var lastWheelReport = 0;
-  window.addEventListener('wheel', function (e) {
-    var now = Date.now();
-    if (now - lastWheelReport < 1000) return;
-    lastWheelReport = now;
-    var se = document.scrollingElement || document.documentElement;
-    var y0 = window.pageYOffset || 0;
-    var cs = function (el) { try { var s = getComputedStyle(el); return s.overflowY + '/' + s.height; } catch (x) { return '?'; } };
-    setTimeout(function () {
-      post('debug-wheel', {
-        deltaY: e.deltaY, defaultPrevented: e.defaultPrevented,
-        scrollYBefore: y0, scrollYAfter: window.pageYOffset || 0,
-        scrollHeight: se.scrollHeight, clientHeight: se.clientHeight, innerHeight: window.innerHeight,
-        html: cs(document.documentElement), body: document.body ? cs(document.body) : null,
-        touchSim: !!teardownFn, editing: editingActive, inlineEdit: !!inlineEdit,
-        target: e.target && e.target.tagName,
-        visibility: document.visibilityState,
-      });
-    }, 150);
-  }, { passive: true, capture: true });
-
   // Registered synchronously, before the DOM exists, so no parent message can
   // be missed while the document is still parsing.
   window.addEventListener('message', function (e) {

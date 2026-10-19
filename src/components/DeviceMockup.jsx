@@ -397,7 +397,7 @@ function SystemClock() {
 const COVER_SETTLE_MS = 80;
 const COVER_MAX_MS = 3000;
 
-function useDoubleBufferedDoc(srcDoc, stackRef) {
+function useDoubleBufferedDoc(srcDoc) {
   const [frames, setFrames] = useState(() => ({ docs: [srcDoc, ''], live: 0, covering: false, seen: srcDoc }));
   if (frames.seen !== srcDoc) {
     const docs = [...frames.docs];
@@ -452,66 +452,6 @@ function useDoubleBufferedDoc(srcDoc, stackRef) {
     cancelAnimationFrame(settleRef.current.raf);
   }, []);
 
-  // The swap itself (z-index flip, the old frame emptied) can leave Chromium
-  // showing the old frame's stale surface: no scrollbar (it was scrolling="no"
-  // while covering) and wheel input that visibly does nothing, until a
-  // Code/Preview or device switch forces a relayout. The bridge's repaint
-  // nudge runs on `load`, which is BEFORE this swap, so nudge again here --
-  // the same identity-transform layer promotion, held for one painted frame
-  // (see forceRepaint in usePreviewBridge for why two frames).
-  const wasCoveringRef = useRef(frames.covering);
-  useEffect(() => {
-    const swapped = wasCoveringRef.current && !frames.covering;
-    wasCoveringRef.current = frames.covering;
-    const stack = stackRef.current;
-    if (!swapped || !stack) return undefined;
-    const iframes = [...stack.querySelectorAll('iframe')];
-    iframes.forEach((el) => { el.style.transform = 'translateZ(0)'; });
-    let raf = requestAnimationFrame(() => {
-      raf = requestAnimationFrame(() => {
-        iframes.forEach((el) => { el.style.transform = ''; });
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf);
-      iframes.forEach((el) => { el.style.transform = ''; });
-    };
-  }, [frames.covering, stackRef]);
-
-  // TEMP DIAGNOSTIC (scroll freezes after a click-to-edit commit), dev only:
-  // log each buffer change, and any wheel over the preview area that the
-  // PARENT receives -- a wheel over a visible iframe goes into the frame, so
-  // one landing here means something in the app is covering the preview.
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const stack = stackRef.current;
-    const describe = () => [...(stack?.querySelectorAll('iframe') || [])].map((el, i) => ({
-      slot: i, live: el.dataset.appblipsBrowser === 'true', zIndex: el.style.zIndex, docLength: (el.getAttribute('srcdoc') || '').length,
-      scrolling: el.getAttribute('scrolling'), pointerEventsNone: el.classList.contains('pointer-events-none'), inert: el.inert,
-      transform: el.style.transform, size: `${el.clientWidth}x${el.clientHeight}`,
-    }));
-    console.log('[AppBlips preview] frames', { live: frames.live, covering: frames.covering }, describe());
-  }, [frames, stackRef]);
-  useEffect(() => {
-    if (!import.meta.env.DEV) return undefined;
-    let last = 0;
-    const onWheel = (e) => {
-      const stack = stackRef.current;
-      if (!stack || Date.now() - last < 1000) return;
-      const r = stack.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
-      last = Date.now();
-      const chain = [];
-      for (let el = e.target; el && el !== document.body && chain.length < 6; el = el.parentElement) {
-        chain.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 4).join('.') : ''}`);
-      }
-      const top = document.elementFromPoint(e.clientX, e.clientY);
-      console.log('[AppBlips preview] wheel hit the APP, not the site (something covers the preview?)', { target: chain, elementAtPoint: top && `${top.tagName.toLowerCase()}.${String(top.className).slice(0, 80)}` });
-    };
-    window.addEventListener('wheel', onWheel, { capture: true, passive: true });
-    return () => window.removeEventListener('wheel', onWheel, { capture: true });
-  }, [stackRef]);
-
   return { frames, onLiveLoad };
 }
 
@@ -540,8 +480,7 @@ export default function DeviceMockup({
   isTransitioning = false,
   onCancelGeneration,
 }) {
-  const frameStackRef = useRef(null);
-  const { frames, onLiveLoad } = useDoubleBufferedDoc(srcDoc, frameStackRef);
+  const { frames, onLiveLoad } = useDoubleBufferedDoc(srcDoc);
   const box = fillSize || getEffectivePreviewBox(mode, orientation);
   const isErrorAutoFix = !isBrowserTesting && (isAutoFixing || Boolean(
     generationStatus?.toLowerCase().includes('runtime error') ||
@@ -593,7 +532,7 @@ export default function DeviceMockup({
                 order never changes: moving an iframe in the DOM reloads it.
                 The wrapper's own stacking context keeps the frames' z-index
                 below the overlays that follow. */}
-            <div ref={frameStackRef} className="absolute inset-0 isolate">
+            <div className="absolute inset-0 isolate">
               {[0, 1].map((slot) => {
                 const isLive = slot === frames.live;
                 const onTop = isLive !== frames.covering;
@@ -608,8 +547,15 @@ export default function DeviceMockup({
                     onLoad={isLive ? onLiveLoad : undefined}
                     inert={!isLive}
                     style={{ zIndex: onTop ? 1 : 0 }}
-                    className={`absolute inset-0 w-full h-full border-none ${!isLive || isTransitioning ? 'overflow-hidden pointer-events-none' : ''}`}
-                    scrolling={isLive && !isTransitioning ? 'auto' : 'no'}
+                    className={`absolute inset-0 w-full h-full border-none ${isTransitioning ? 'overflow-hidden pointer-events-none' : !isLive ? 'pointer-events-none' : ''}`}
+                    // Same for both frames, never tied to isLive: a frame
+                    // turns live in the same commit that hands it the new
+                    // srcDoc, and Chromium keeps the `scrolling` value from
+                    // when that navigation started. A back frame held at "no"
+                    // brought every edited page up with no scroll bar and a
+                    // dead wheel until a device switch toggled it again
+                    // (testing/testPreviewFrameSwap.mjs).
+                    scrolling={isTransitioning ? 'no' : 'auto'}
                     sandbox="allow-scripts allow-forms allow-popups"
                     referrerPolicy="no-referrer"
                     allow=""
