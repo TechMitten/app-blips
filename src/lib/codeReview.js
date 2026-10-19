@@ -84,10 +84,13 @@ Finish with submit_review_report. If browser tools are unavailable, this is only
 const isProblem = (item) => item && typeof item === 'object'
   && ['title', 'evidence', 'fix'].every((key) => typeof item[key] === 'string') && item.title.trim();
 
+// `connectors` are the services linked in Settings; the reviewer needs the same
+// directives as the builder, or it flags a Web3Forms form as breaking the
+// "forms have no backend" rule.
 // Kept separate from the transport so the review loop can be tested with
 // scripted model responses, including failures and cancellation.
 export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, chatHistory = [], attachment = null,
-  studioMode = 'app', layoutTarget = 'both', signal, onChunk, requestModelText, browser = null }) {
+  studioMode = 'app', layoutTarget = 'both', signal, onChunk, requestModelText, browser = null, connectors = [] }) {
   let browserErrors = [];
   // Cleared when the model rejects a request carrying a screenshot: not every
   // model can read images, and the app can't tell in advance.
@@ -100,7 +103,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
   const status = (text) => onChunk?.(text, 'status');
   const readTools = getRefinementTools(studioMode).filter((tool) => !EDIT_TOOLS.includes(tool.function.name));
   const messages = [
-    { role: 'system', content: `${buildHtmlSystemPrompt(studioMode)}\n\n${REVIEW_INSTRUCTION}${browser ? '\n\n' + BROWSER_REVIEW_INSTRUCTION : ''}` },
+    { role: 'system', content: `${buildHtmlSystemPrompt(studioMode, connectors)}\n\n${REVIEW_INSTRUCTION}${browser ? '\n\n' + BROWSER_REVIEW_INSTRUCTION : ''}` },
     ...chatHistory,
     { role: 'user', content: `User request: ${prompt}\nLayout target: ${layoutTarget}\n\n${Object.keys(previousFiles).length ? formatFilesForPrompt(previousFiles, 'Project before this edit') : 'This is an initial build.'}\n\n${formatFilesForPrompt(files, 'Finished project to review')}` },
   ];

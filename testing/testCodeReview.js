@@ -31,6 +31,13 @@ assert.match(test.requests[0].messages[0].content, /you cannot edit the code/);
 assert.ok(!toolNames(test.requests[0]).includes('apply_surgical_edits'), 'edit tools are not offered');
 assert.ok(toolNames(test.requests[0]).includes('view_code'), 'read tools are offered');
 
+// Linked connectors reach the reviewer, so it doesn't flag a Web3Forms form as
+// breaking the "forms have no backend" rule.
+test = await run([report()], { studioMode: 'website', connectors: [{ id: 'web3forms', key: '11111111-2222-3333-4444-555555555555' }] });
+assert.match(test.requests[0].messages[0].content, /Web3Forms \(form backend\)/);
+test = await run([report()], { studioMode: 'website' });
+assert.doesNotMatch(test.requests[0].messages[0].content, /Web3Forms/);
+
 // Problems come back as the report; the files are never touched.
 test = await run([report([problem('Save does nothing')])]);
 assert.equal(test.result.acceptable, false);

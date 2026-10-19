@@ -1270,7 +1270,7 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
   layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false }) => {
   const review = await reviewGeneratedCode({
     files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
-    requestModelText, browser,
+    requestModelText, browser, connectors: getActiveConnectors(),
   });
   const noun = studioNoun(studioMode);
   const checked = browser ? 'reviewed and tested' : 'reviewed';
