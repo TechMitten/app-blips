@@ -49,35 +49,40 @@
   font-family: var(--font-sans);
 }
 
+/* Light theme. The ground is a cool slate (not near-white) so the white cards
+   and the dark text have something to stand against; muted text is kept at
+   >= 4.5:1 on it. */
 :root:not(.dark) .studio-choice {
-  --sc-bg: #f6f6f7;
-  --sc-text-strong: #0a0a0a;
-  --sc-text-muted: rgb(10 10 10 / 0.68);
-  --sc-text-soft: rgb(10 10 10 / 0.62);
-  --sc-line: rgb(0 0 0 / 0.1);
-  --sc-line-strong: rgb(0 0 0 / 0.2);
-  --sc-fill: rgb(255 255 255 / 0.7);
+  --sc-bg: #dde3ed;
+  --sc-text-strong: #0b1220;
+  --sc-text-muted: rgb(11 18 32 / 0.78);
+  --sc-text-soft: rgb(11 18 32 / 0.72);
+  --sc-line: rgb(15 23 42 / 0.15);
+  --sc-line-strong: rgb(15 23 42 / 0.28);
+  --sc-fill: rgb(255 255 255 / 0.8);
   --sc-fill-hover: #ffffff;
-  --sc-topbar-bg: rgb(246 246 247 / 0.85);
-  --sc-topbar-line: rgb(0 0 0 / 0.07);
+  --sc-topbar-bg: rgb(232 237 245 / 0.85);
+  --sc-topbar-line: rgb(15 23 42 / 0.12);
   --sc-glow: rgb(255 255 255 / 0.9);
   --sc-dot: rgb(0 0 0 / 0.07);
-  --sc-primary-bg: #0a0a0a;
+  --sc-primary-bg: #0b1220;
   --sc-primary-bg-hover: #27272a;
   --sc-primary-fg: #ffffff;
-  --sc-ring: rgb(10 10 10 / 0.85);
+  --sc-ring: rgb(11 18 32 / 0.85);
   --sc-badge-bg: #ffffff;
-  --sc-card-bg: rgb(255 255 255 / 0.6);
-  --sc-card-bg-hover: rgb(255 255 255 / 0.85);
-  --sc-card-sheen: rgb(255 255 255 / 0.7);
-  --sc-card-line: rgb(0 0 0 / 0.08);
-  --sc-card-line-hover: rgb(0 0 0 / 0.14);
-  --sc-card-top: rgb(255 255 255 / 0.9);
+  --sc-card-bg: rgb(255 255 255 / 0.9);
+  --sc-card-bg-hover: #ffffff;
+  --sc-card-sheen: rgb(255 255 255 / 0.9);
+  --sc-card-line: rgb(15 23 42 / 0.13);
+  --sc-card-line-hover: rgb(15 23 42 / 0.26);
+  --sc-card-top: #ffffff;
   --sc-card-top-hover: #ffffff;
-  --sc-card-inset: rgb(255 255 255 / 0.9);
+  --sc-card-inset: #ffffff;
   --sc-card-inset-hover: #ffffff;
-  --sc-card-shadow: 0 12px 30px -18px rgb(15 23 42 / 0.25);
-  --sc-card-shadow-hover: 0 18px 40px -20px rgb(15 23 42 / 0.32);
+  /* A tight contact shadow plus a long soft one: the cards lift off the
+     ground instead of floating as flat white rectangles. */
+  --sc-card-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 14px 30px -14px rgb(15 23 42 / 0.3);
+  --sc-card-shadow-hover: 0 2px 4px rgb(15 23 42 / 0.1), 0 26px 46px -18px rgb(15 23 42 / 0.42);
   /* The logo is white lettering with a red dot. Inverting turns the white
      black, but also turns the red dot cyan; the half-turn of hue puts the red
      back. */
@@ -170,7 +175,7 @@
   inset: 0;
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    linear-gradient(180deg, rgb(255 255 255 / 0.7) 0%, transparent 40%);
+    linear-gradient(180deg, rgb(255 255 255 / 0.32) 0%, transparent 38%);
 }
 
 :root:not(.dark) .studio-glow::before {
@@ -178,11 +183,11 @@
   position: absolute;
   inset: -15%;
   background:
-    radial-gradient(32% 38% at 18% 22%, rgb(56 189 248 / 0.3), transparent 70%),
-    radial-gradient(30% 34% at 84% 18%, rgb(34 211 238 / 0.24), transparent 70%),
-    radial-gradient(34% 36% at 78% 78%, rgb(253 186 116 / 0.28), transparent 72%),
-    radial-gradient(32% 34% at 16% 82%, rgb(110 231 183 / 0.24), transparent 72%),
-    radial-gradient(40% 30% at 50% 55%, rgb(147 197 253 / 0.18), transparent 70%);
+    radial-gradient(32% 38% at 18% 22%, rgb(56 189 248 / 0.5), transparent 70%),
+    radial-gradient(30% 34% at 84% 18%, rgb(34 211 238 / 0.36), transparent 70%),
+    radial-gradient(30% 32% at 84% 86%, rgb(251 168 90 / 0.44), transparent 72%),
+    radial-gradient(32% 34% at 16% 82%, rgb(52 211 153 / 0.38), transparent 72%),
+    radial-gradient(44% 30% at 50% 50%, rgb(186 230 253 / 0.5), transparent 72%);
   filter: blur(48px);
   animation: studio-mesh-drift 40s ease-in-out infinite alternate;
   will-change: transform;
@@ -196,8 +201,8 @@
 :root:not(.dark) .studio-dots {
   opacity: 1;
   background-image:
-    linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgb(15 23 42 / 0.085) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.085) 1px, transparent 1px);
   background-size: 48px 48px;
   background-position: center top;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
@@ -267,6 +272,40 @@
   background-color: var(--sc-card-bg-hover);
   box-shadow: inset 0 1px 0 var(--sc-card-inset-hover), var(--sc-card-shadow-hover);
   transform: translateY(-2px);
+}
+
+/* Light theme: each card carries one accent (--tint, an RGB triplet set per
+   studio via data-studio): a soft corner wash on the card and a tinted icon
+   tile. Dark keeps the landing page's monochrome look. */
+.studio-card[data-studio="app"]      { --tint: 37 99 235; }
+.studio-card[data-studio="website"]  { --tint: 14 116 144; }
+.studio-card[data-studio="game"]     { --tint: 194 65 12; }
+.studio-card[data-studio="projects"] { --tint: 4 120 87; }
+.studio-card[data-studio="import"]   { --tint: 51 65 85; }
+
+:root:not(.dark) .studio-card {
+  background-image:
+    radial-gradient(130% 90% at 0% 0%, rgb(var(--tint) / 0.11), transparent 58%),
+    linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
+}
+
+:root:not(.dark) .studio-card:hover,
+:root:not(.dark) .studio-card:focus-visible {
+  background-image:
+    radial-gradient(130% 90% at 0% 0%, rgb(var(--tint) / 0.18), transparent 62%),
+    linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
+  border-color: rgb(var(--tint) / 0.42);
+}
+
+:root:not(.dark) .studio-card .studio-icon-tile {
+  border-color: rgb(var(--tint) / 0.3);
+  background-color: rgb(var(--tint) / 0.13);
+  color: rgb(var(--tint));
+}
+
+/* The call to action picks up the card's accent (all five clear 4.5:1 on white). */
+:root:not(.dark) .studio-card .studio-card-cta {
+  color: rgb(var(--tint));
 }
 
 .studio-icon-tile {

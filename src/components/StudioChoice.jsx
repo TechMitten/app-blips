@@ -190,6 +190,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       type="button"
                       onClick={isProjects ? handleOpenProjects : () => onSelectStudio(key)}
                       aria-label={`${cta}: ${title}`}
+                      data-studio={key}
                       className={`studio-card group flex items-start gap-4 rounded-2xl p-5 text-left sm:flex-col sm:gap-0 sm:p-6 ${FOCUS_RING}`}
                     >
                       <span className="studio-icon-tile relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:mb-5 sm:h-12 sm:w-12">
@@ -204,7 +205,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       <span className="flex min-w-0 flex-1 flex-col self-stretch">
                         <span className="block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
                         <span className="mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
-                        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
+                        <span className="studio-card-cta mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
                           {cta}
                           <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                         </span>
@@ -221,6 +222,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   type="button"
                   onClick={onImportSite}
                   aria-label="Import a site: open a React + Vite project from a .zip"
+                  data-studio="import"
                   className={`studio-card group mt-4 flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:mt-5 sm:px-6 ${FOCUS_RING}`}
                 >
                   <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
@@ -232,7 +234,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       Got a React + Vite project from your web designer? Open its .zip and keep editing it with AI.
                     </span>
                   </span>
-                  <span className="hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
+                  <span className="studio-card-cta hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
                     Import .zip
                     <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
