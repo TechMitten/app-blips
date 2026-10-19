@@ -231,7 +231,7 @@ export default function PromptInput({
                       ? "e.g. Make the background dark, add a reset button..."
                       : "e.g. A minimalist task manager with categories...")
           }
-          className={`prompt-input-field w-full min-h-[56px] sm:min-h-[66px] max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
+          className={`prompt-input-field w-full min-h-14 sm:min-h-16.5 max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
           disabled={isGenerating}
         />
       </div>
@@ -252,20 +252,22 @@ export default function PromptInput({
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Attach an image from your device"
                   title="Attach an image from your device"
-                  className="chat-mode-option !min-w-[var(--composer-key-size)] !p-0"
+                  className="chat-mode-option min-w-(--composer-key-size)! p-0!"
                 >
                   <Paperclip size={18} aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  onClick={onAttachScreenshot}
-                  disabled={!hasCode || isCapturingScreenshot}
-                  aria-label={isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview'}
-                  title={!hasCode ? 'Build an app first to screenshot the preview' : (isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview')}
-                  className="chat-mode-option !min-w-[var(--composer-key-size)] !p-0"
-                >
-                  {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
-                </button>
+                {hasCode && (
+                  <button
+                    type="button"
+                    onClick={onAttachScreenshot}
+                    disabled={isCapturingScreenshot}
+                    aria-label={isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview'}
+                    title={isCapturingScreenshot ? 'Capturing preview screenshot...' : 'Attach a screenshot of the preview'}
+                    className="chat-mode-option min-w-(--composer-key-size)! p-0!"
+                  >
+                    {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -294,7 +296,7 @@ export default function PromptInput({
           {isGenerating && (
             <button
               onClick={onCancelGeneration}
-              className="prompt-input-cancel composer-key composer-key-danger !rounded-full"
+              className="prompt-input-cancel composer-key composer-key-danger rounded-full!"
               aria-label="Cancel"
               title="Cancel"
             >
@@ -320,7 +322,7 @@ export default function PromptInput({
                 aria-pressed={listening}
                 aria-label={listening ? 'Stop voice input' : transcribing ? 'Transcribing voice input' : 'Start voice input'}
                 title={listening ? 'Stop voice input' : transcribing ? 'Transcribing…' : 'Speak your prompt'}
-                className={`composer-key !rounded-full ${listening ? 'composer-key-danger voice-listening' : ''}`}
+                className={`composer-key rounded-full! ${listening ? 'composer-key-danger voice-listening' : ''}`}
               >
                 {transcribing ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
               </button>
@@ -331,7 +333,7 @@ export default function PromptInput({
             disabled={!canSubmit}
             aria-label={submitLabel}
             title={submitLabel}
-            className="prompt-input-action composer-key prompt-input-send !rounded-full"
+            className="prompt-input-action composer-key prompt-input-send rounded-full!"
           >
             {isGenerating ? (
               <Loader2 className="animate-spin" size={18} />

@@ -58,7 +58,7 @@ export default function SplashScreen({ skip = false }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex h-dvh items-center justify-center overflow-hidden bg-black transition-opacity ease-in-out ${
+      className={`fixed inset-0 z-100 flex h-dvh items-center justify-center overflow-hidden bg-black transition-opacity ease-in-out ${
         isFading ? 'opacity-0' : 'opacity-100'
       }`}
       style={{ transitionDuration: `${fadeOutMs ?? 0}ms` }}

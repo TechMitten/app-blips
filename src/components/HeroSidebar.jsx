@@ -49,16 +49,12 @@ export default function HeroSidebar({
 
   return (
     <aside
-      className={`hero-rail shrink-0 flex flex-row lg:flex-col items-center lg:items-stretch gap-1 px-2 py-2 lg:px-2.5 lg:py-3 ${collapsed ? 'lg:w-[3.75rem]' : 'lg:w-56'}`}
+      className={`hero-rail shrink-0 flex flex-row lg:flex-col items-center lg:items-stretch gap-1 px-2 py-2 lg:px-2.5 lg:py-3 ${collapsed ? 'lg:w-15' : 'lg:w-56'}`}
       aria-label="Studio navigation"
     >
       <div className={`hero-rail-brand flex items-center gap-2 px-1.5 lg:pb-2 ${collapsed ? 'lg:flex-col lg:gap-3' : 'lg:justify-between'}`}>
         <span className="flex items-center gap-2 min-w-0">
-          <span className="hero-blips" aria-hidden="true">
-            <span className="hero-blip hero-blip-cyan" />
-            <span className="hero-blip hero-blip-brand" />
-            <span className="hero-blip hero-blip-coral" />
-          </span>
+          <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
           <span className={`hero-rail-wordmark hidden ${collapsed ? '' : 'lg:inline'}`}>AppBlips</span>
         </span>
         <button
