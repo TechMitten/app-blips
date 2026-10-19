@@ -555,11 +555,35 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 - Initial generation: output only index.html. If the request needs other pages, link to them from the navigation by filename; they are created in a follow-up step.
 - Editing: use list_pages to see the pages, and pass file to view_code, list_sections and apply_surgical_edits to target a page (omit it for index.html). Use create_page for a new page and delete_page to remove one, then fix any links that pointed at it.`;
 
-export const buildHtmlSystemPrompt = (studioMode = "app") => (studioMode === "website"
-  ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
-  : studioMode === "game"
-    ? GAME_HTML_SYSTEM_PROMPT
-    : HTML_SYSTEM_PROMPT);
+// Instructions for the services linked in Settings → Connectors (see
+// connectors.js). `connectors` is [{ id, key }], already validated. Games have
+// no forms to wire up. The text says it replaces the website prompt's "forms
+// have no backend" rule, since the model otherwise follows that rule.
+const CONNECTOR_DIRECTIVES = {
+  web3forms: (key) => `- Web3Forms (form backend), access key ${key}. Every form that sends a message to the site owner (contact, enquiry, feedback, newsletter signup, RSVP, booking request) MUST submit through Web3Forms, replacing any rule above that says forms have no backend:
+  1. Inside the <form> add <input type="hidden" name="access_key" value="${key}">, <input type="hidden" name="subject" value="New message from the website">, and a spam honeypot <input type="checkbox" name="botcheck" tabindex="-1" autocomplete="off" style="display:none">. Give every visible field a name attribute (name, email, message...).
+  2. Handle submit in JavaScript: preventDefault, disable the button and show "Sending...", then fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) }) and read the JSON reply.
+  3. If the reply's success is true, show an inline thank-you message and reset the form. Otherwise, and on a network error, show the reply's message (or a short retry hint) inline and re-enable the button. Never fake success, never use alert(), confirm() or prompt(), and never invent another backend.
+  4. If a form in the current code already has a different access_key, change it to ${key}.`,
+};
+
+export const buildConnectorDirective = (connectors, studioMode = 'app') => {
+  if (studioMode === 'game') return '';
+  const lines = (connectors || []).map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
+  return lines.length
+    ? `CONNECTORS (the user linked these services in Settings; use them wherever they fit):\n${lines.join('\n')}`
+    : '';
+};
+
+export const buildHtmlSystemPrompt = (studioMode = "app", connectors = []) => {
+  const base = studioMode === "website"
+    ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
+    : studioMode === "game"
+      ? GAME_HTML_SYSTEM_PROMPT
+      : HTML_SYSTEM_PROMPT;
+  const directive = buildConnectorDirective(connectors, studioMode);
+  return directive ? base + "\n\n" + directive : base;
+};
 
 export const getSafeAreaInstruction = (layoutTarget) => {
   if (layoutTarget === 'desktop') return '';

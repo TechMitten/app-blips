@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **API**, **Data**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **API**, **Data**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -127,6 +127,28 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 <ParamField body="Smart website add-ons" type="toggle" default="On">
   Applies in the Website studio. Before building a new website, the AI picks ready-made libraries that suit it: **Swiper** for carousels, **GLightbox** for full-screen photos, **GSAP** or **AOS** for scroll animations, **Lenis** for smooth scrolling, **Alpine.js** for tabs and toggles, **Chart.js** for charts and **Leaflet** for maps. Simple sites get none, so they load faster. If you name a library in your prompt, your choice always wins. The chat shows which add-ons were picked, right after the AI's first sentence. Turn it off to build new websites with plain JavaScript only. See [Website add-ons](/features/building-apps#website-add-ons).
 </ParamField>
+
+---
+
+## Connectors
+
+Connectors link outside services to your projects. The tab shows a grid of cards. Click a card to set that service up, and click **Connectors** at the top to come back to the grid. Each card shows **Connected**, **Needs key** or **Not connected**. Changes save as you type.
+
+### Web3Forms
+
+Web3Forms sends the entries from your forms to your email, so a contact form on your website works without you building a server. Web3Forms is a separate service with its own free plan.
+
+<ParamField body="Enable Web3Forms" type="toggle" default="Off">
+  Turn it on, then enter your access key in the **Access key** field. The key is a 36-character code that Web3Forms emails to you when you sign up at [web3forms.com](https://web3forms.com). The card shows **Connected** once the key looks right.
+</ParamField>
+
+Once Web3Forms is **Connected**, every Responsive Website or Mobile & Web App that the AI builds or edits uses it for forms that send a message to you, such as contact, signup and booking forms. The form shows a message on the page when the entry is sent, or when something goes wrong. The Browser Game studio doesn't use it.
+
+Projects you built before you connected Web3Forms don't change on their own. Ask the AI to "make the contact form use Web3Forms" and it adds your key. If you change your key later, ask the same way to update an existing project.
+
+<Note>
+  Your access key is made to sit in a website's code, and it can only send email to your own inbox. AppBlips saves it on your device and writes it into the forms it builds, so it is also in any HTML you export. Don't enter a key you want to keep private.
+</Note>
 
 ---
 

@@ -1,6 +1,7 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, invalidArgumentsError } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit } from './config';
+import { getActiveConnectors } from './connectors';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
@@ -682,7 +683,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
         if (attempt > 0 && onChunk) onChunk('', 'page_stream_reset');
         const message = await requestFullText({
           messages: [
-            { role: 'system', content: buildHtmlSystemPrompt('website') },
+            { role: 'system', content: buildHtmlSystemPrompt('website', getActiveConnectors()) },
             { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files), projectName }) }
           ],
           onChunk: forwardLive,
@@ -868,7 +869,7 @@ const generateAppCodeCore = async (
     });
 
     const messages = [
-      { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
+      { role: 'system', content: buildHtmlSystemPrompt(studioMode, getActiveConnectors()) },
       ...formattedChatHistory,
       {
         role: 'user',
@@ -923,7 +924,7 @@ const generateAppCodeCore = async (
     const syntaxAutoFixAttempted = check.errors.length > 0;
     if (check.errors.length) {
       let repairMessages = [
-        { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
+        { role: 'system', content: buildHtmlSystemPrompt(studioMode, getActiveConnectors()) },
         { role: 'user', content: `Current ${noun} Code:\n\`\`\`html\n${code}\n\`\`\`\n\nTask: ${buildSyntaxRepairInstruction(check.errors, studioMode)}` }
       ];
 
@@ -1000,7 +1001,7 @@ const generateAppCodeCore = async (
   });
 
   const messages = [
-    { role: 'system', content: buildHtmlSystemPrompt(studioMode) },
+    { role: 'system', content: buildHtmlSystemPrompt(studioMode, getActiveConnectors()) },
     ...formattedChatHistory,
     {
       role: 'user',

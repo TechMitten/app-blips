@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, RotateCcw } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
+import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
@@ -17,7 +18,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (reasoning, clarifying questions, review offers) and Data (project backup and
+// AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects) and Data (project backup and
 // the desktop projects folder). AppBlips is a desktop, single-user app, so
 // there is no account or billing tab.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  { id: 'connectors', label: 'Connectors', Icon: Plug },
   { id: 'api', label: 'API', Icon: Network },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'legal', label: 'Legal', Icon: FileText },
@@ -365,6 +367,8 @@ export default function SettingsModal({
               </SettingRow>
             </>
           )}
+
+          {tab === 'connectors' && <ConnectorsSettings />}
 
           {tab === 'api' && (
             <DesktopProviderSettings guardRef={providerGuardRef} />
