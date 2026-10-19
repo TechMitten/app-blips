@@ -1,23 +1,13 @@
-import { useState } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, Globe, Loader2, Square } from 'lucide-react';
-import { resolvePageLink } from '../lib/pages';
 
-function BrowserAddress({ activePage, pages, onSelectPage, disabled }) {
-  const [error, setError] = useState('');
+// The project's name where a web address would be. Pages are switched with
+// the page picker in the preview toolbar, so there is nothing to type here.
+function BrowserTitle({ title }) {
   return (
-    <form className="browser-address" onSubmit={(event) => {
-      event.preventDefault();
-      const address = new FormData(event.currentTarget).get('address').trim();
-      const path = address.replace(/^(?:https?:\/\/)?appblips\.local\/?/i, '');
-      const page = resolvePageLink(path || 'index.html');
-      if (!page || !pages.includes(page)) { setError('Enter a page from this project.'); return; }
-      setError('');
-      onSelectPage(page);
-    }}>
+    <div className="browser-address browser-title" title={title}>
       <Globe size={14} aria-hidden="true" />
-      <input name="address" aria-label="Project page address" defaultValue={`appblips.local/${activePage}`} disabled={disabled} autoComplete="off" spellCheck="false" onChange={() => setError('')} />
-      {error && <span className="browser-address-error" role="alert">{error}</span>}
-    </form>
+      <span>{title}</span>
+    </div>
   );
 }
 
@@ -38,7 +28,7 @@ function RouteAddress({ route, onNavigateRoute, disabled }) {
   );
 }
 
-export default function BrowserBar({ activePage, pages, onSelectPage, hasCode, navState, onBack, onForward,
+export default function BrowserBar({ title, hasCode, navState, onBack, onForward,
   onReload, isTesting, status, onStop, route = null, onNavigateRoute = null }) {
   return (
     <div className="embedded-browser-bar" aria-label="Browser navigation">
@@ -49,7 +39,7 @@ export default function BrowserBar({ activePage, pages, onSelectPage, hasCode, n
       </div>
       {onNavigateRoute
         ? <RouteAddress key={route} route={route || '/'} onNavigateRoute={onNavigateRoute} disabled={!hasCode || isTesting} />
-        : <BrowserAddress key={activePage} {...{ activePage, pages, onSelectPage }} disabled={!hasCode || isTesting} />}
+        : <BrowserTitle title={title} />}
       {isTesting && (
         <div className="browser-testing-status" role="status">
           <Loader2 size={14} className="animate-spin" />

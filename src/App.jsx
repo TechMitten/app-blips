@@ -2401,7 +2401,6 @@ export default function App({ coldStart = false }) {
       <SplashScreen skip={skipSplash} />
       {!showHero && !isResumingProject && (
       <Header
-        projectName={projectName}
         onNewApp={handleNewApp}
         onExit={() => setIsExitConfirmOpen(true)}
         savedAppsCount={myProjects.length}
@@ -2413,7 +2412,6 @@ export default function App({ coldStart = false }) {
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onStartTour={startTour}
-        studioMode={studioMode}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
         onNewChat={handleStartNewChat}

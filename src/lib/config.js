@@ -71,13 +71,13 @@ export const ASK_TO_REVIEW_KEY = 'orion-ask-to-review';
 
 // Boolean: whether each finished build or edit offers an AI review (code check
 // plus browser test). A review can take dozens of model calls, so it only runs
-// when the user says yes; off means no offer and no review. On by default;
-// only an explicit 'false' turns it off.
+// when the user says yes; off means no offer and no review. Off by default (it
+// is a beta feature); only an explicit 'true' turns it on.
 export const loadAskToReview = () => {
   try {
-    return safeStorage('local')?.getItem(ASK_TO_REVIEW_KEY) !== 'false';
+    return safeStorage('local')?.getItem(ASK_TO_REVIEW_KEY) === 'true';
   } catch {
-    return true;
+    return false;
   }
 };
 

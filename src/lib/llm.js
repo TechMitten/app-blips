@@ -1257,7 +1257,7 @@ const generateAppCodeWithSummary = async (...args) => {
   return result;
 };
 
-// The review is a separate, opt-in step (see "Offer a review" in Settings):
+// The review is a separate, opt-in step (see "Code Review" in Settings):
 // it can take dozens of model calls, so builds don't run it on their own. It
 // only inspects and reports; when it finds problems, `mission` is the request
 // App sends to a normal build in a fresh chat, so the fix starts with nothing

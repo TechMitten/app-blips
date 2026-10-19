@@ -110,10 +110,10 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
   When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
 </ParamField>
 
-### Offer a review after each build
+### Code Review (beta)
 
-<ParamField body="Offer a review after each build" type="toggle" default="On">
-  When enabled, AppBlips asks after every build or edit whether you want the AI to review it. A review takes screenshots, tests the project in the built-in browser, reads the code, and writes a report. It doesn't change anything itself. If the report lists problems, a new chat starts with the report as its task, and the AI fixes them as a normal edit. Choose **Review** to run it or **Skip** to move on. Reviews can use a lot of extra tokens, so they only run when you say yes. Turn this off to skip both the question and the review.
+<ParamField body="Code Review" type="toggle" default="Off">
+  Code Review is a beta feature, so it is off by default. When enabled, AppBlips asks after every build or edit whether you want the AI to review it. A review takes screenshots, tests the project in the built-in browser, reads the code, and writes a report. It doesn't change anything itself. If the report lists problems, a new chat starts with the report as its task, and the AI fixes them as a normal edit. Choose **Review** to run it or **Skip** to move on. Reviews can use a lot of extra tokens, so they only run when you say yes. Leave this off to skip both the question and the review.
 </ParamField>
 
 ### Smart game engine

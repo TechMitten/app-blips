@@ -4,17 +4,15 @@ import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, CircleHelp, Compass, Menu, X, Power
 } from 'lucide-react';
-import { STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 
 
 
-// Top bar: brand + current-app pill on the left; studio switch, New App /
+// Top bar: brand icon on the left; New App /
 // Apps / History / Settings / Help / auth / theme on the right.
 export default function Header({
-  projectName,
   onNewApp,
   onExit,
   savedAppsCount,
@@ -26,7 +24,6 @@ export default function Header({
   onToggleTheme,
   onOpenSettings,
   onStartTour,
-  studioMode = 'app',
   mobileView,
   onMobileViewChange,
   onNewChat,
@@ -75,33 +72,11 @@ export default function Header({
     action?.();
   };
 
-  const hasProjectName = Boolean(projectName && projectName !== 'Untitled App' && projectName !== 'Untitled Website');
-  const untitledName = STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
-  const displayName = hasProjectName ? projectName : untitledName;
-  const article = STUDIO_MODES[studioMode]?.article || 'app';
-
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
-      {/* Left: Brand lockup, then the current-app nameplate */}
-      <div className="flex items-center gap-2.5 min-w-0">
-        <button
-          type="button"
-          onClick={onNewApp}
-          className="header-logo-btn shrink-0 flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
-          data-tip="Back to the studio picker"
-          aria-label="Back to the studio picker"
-        >
-          <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" className="header-logo-icon" />
-          <span className="header-logo-wordmark">AppBlips</span>
-        </button>
-        <span className="chrome-divider" aria-hidden="true" />
-        <div
-          className={`nav-nameplate max-w-40 xl:max-w-75 2xl:max-w-105 ${hasProjectName ? 'text-slate-900' : 'text-slate-500'}`}
-          data-tip={hasProjectName ? `Current ${article}: ${projectName}` : untitledName}
-        >
-          {hasProjectName && <span className="nav-nameplate-dot" aria-hidden="true" />}
-          <span className="truncate">{displayName}</span>
-        </div>
+      {/* Left: brand icon. The project name lives in the preview's browser bar. */}
+      <div className="flex items-center min-w-0">
+        <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" className="header-logo-icon shrink-0" />
       </div>
 
       {/* Below lg the workspace is one pane at a time, so the Chat/Preview

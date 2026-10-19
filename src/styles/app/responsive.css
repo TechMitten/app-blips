@@ -243,8 +243,6 @@
      Controls that read fine under a mouse are too small under a thumb. These
      grow the hit area without redrawing the glyph, matching the apron trick
      .nav-btn-icon already uses. */
-  .header-logo-btn { min-height: 44px; }
-
   /* The preview toolbar's keys are sized by a container query on the pane,
      which also fires on a narrow desktop pane -- so the touch bump belongs
      here, keyed on the viewport, rather than in that query. min-width beats

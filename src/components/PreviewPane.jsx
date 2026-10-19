@@ -10,7 +10,7 @@ import BrowserBar from './BrowserBar';
 import PagePicker from './PagePicker';
 import ElementToolbar from './ElementToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
-import { PREVIEW_MODES } from '../lib/constants';
+import { PREVIEW_MODES, STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 
 // Icon-only in the bar; PREVIEW_MODES supplies the name and the viewport
@@ -128,6 +128,7 @@ export default function PreviewPane({
 
   const { isTransitioning } = transitionState;
 
+  const browserTitle = projectName?.trim() || STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
   const rotateLabel = `Rotate to ${previewOrientation === 'portrait' ? 'landscape' : 'portrait'}`;
   const zoomPercent = Math.round(zoomLevel * 100);
 
@@ -425,7 +426,7 @@ export default function PreviewPane({
       )}
 
       {activeTab === 'preview' && (
-        <BrowserBar {...{ activePage, pages, onSelectPage, hasCode, navState, route, onNavigateRoute }}
+        <BrowserBar {...{ hasCode, navState, route, onNavigateRoute }} title={browserTitle}
           onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview}
           isTesting={isBrowserTesting} status={generationStatus} onStop={onCancelGeneration} />
       )}

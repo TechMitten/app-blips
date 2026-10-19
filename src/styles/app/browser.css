@@ -21,6 +21,7 @@
   color: var(--color-slate-500, #64748b);
 }
 .browser-address input { width: 100%; min-width: 0; background: transparent; color: inherit; border: none; outline: none; font-size: 12px; }
+.browser-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .browser-address:focus-within { border-color: #8b5cf6; }
 .browser-address-error { position: absolute; top: 100%; left: 0; z-index: 20; padding: 8px; background: var(--color-surface, #fff); color: #dc2626; border-radius: 6px; font-size: 12px; }
 .browser-testing-status { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 45%; font-size: 12px; color: var(--color-slate-500, #64748b); }
