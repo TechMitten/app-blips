@@ -506,7 +506,7 @@ export default function DeviceMockup({
         onAnimationEnd={onFlipAnimationEnd}
       >
         {/* Screen */}
-        <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
+        <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} select-text transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
           <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
             {/* Always mounted (even before the first generation) so the very
                 first real `srcDoc` assignment is an attribute update on an

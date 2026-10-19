@@ -134,7 +134,7 @@ export default function BuildPanel({
           {(versions.length > 0 || pendingPrompt) && (
             <>
               {interruptedJob && (
-                <div role="alert" className="bg-amber-50/90 border border-amber-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
+                <div role="alert" className="select-text bg-amber-50/90 border border-amber-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
                   <div className="flex items-start gap-2.5">
                     <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 border border-amber-200/80 shrink-0 mt-0.5 shadow-2xs">
                       <TriangleAlert size={14} />
@@ -186,7 +186,7 @@ export default function BuildPanel({
           )}
 
           {error && (
-            <div role="alert" className="bg-rose-50/90 border border-rose-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
+            <div role="alert" className="select-text bg-rose-50/90 border border-rose-200 p-3.5 rounded-2xl shadow-xs backdrop-blur-sm animate-fade-in">
               <div className="flex items-start gap-2.5">
                 <div className="p-1.5 bg-rose-100 rounded-xl text-rose-700 border border-rose-200/80 shrink-0 shadow-2xs">
                   <TriangleAlert size={14} />

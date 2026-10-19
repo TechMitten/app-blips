@@ -122,7 +122,7 @@ export default function ChatTranscript({
 }) {
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   return (
-    <div className="chat-log space-y-4 pb-1" role="log" aria-label="Build conversation">
+    <div className="chat-log select-text space-y-4 pb-1" role="log" aria-label="Build conversation">
       {startIndex > 0 && (
         <div
           className="flex items-center gap-3 pt-1"

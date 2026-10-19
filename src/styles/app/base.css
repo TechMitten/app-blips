@@ -5,6 +5,19 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* Desktop-app feel: interface chrome isn't highlightable. Content people
+     copy from (chat log, build-pane alerts, device mockup) opts back in with
+     select-text; the preview iframe is its own document and is unaffected. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Fields stay selectable whatever their container says, or editing breaks. */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Shared brand fill. Paired with text-white in the JSX, so it must stay
