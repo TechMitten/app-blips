@@ -12,14 +12,14 @@
 // narrow IPC surface in preload.cjs.
 import { app, BrowserWindow, Menu, dialog, ipcMain, protocol, safeStorage, session, shell } from 'electron';
 import { readFile, stat } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './server/chatProxy.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './server/staticFiles.js';
 import { describeConfig, formatConfigSummary } from './server/configSummary.js';
 import { resolveProvider } from './server/providers.js';
-import { createProjectStore, isValidProjectId, writeFileAtomic } from './projectStore.js';
+import { createProjectStore, isValidProjectId, writeFileAtomic, PROJECT_FILE } from './projectStore.js';
 import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
 import { withSavedProvider } from './server/savedProvider.js';
@@ -52,7 +52,32 @@ let flushed = false;
 
 // ---- Settings (projects folder location) -----------------------------------
 const settingsFile = () => join(app.getPath('userData'), 'settings.json');
-const defaultProjectsRoot = () => join(app.getPath('documents'), 'AppBlips', 'Projects');
+// New installs keep projects in the app's own data folder, where nobody tidying
+// Documents deletes them by accident. Updates keep it, but uninstalling or
+// resetting the Microsoft Store version deletes it (Windows removes a packaged
+// app's AppData), so Settings → Data still offers Export and another folder.
+const defaultProjectsRoot = () => join(app.getPath('userData'), 'Projects');
+// Where versions before 0.1.9 put them. An install with projects there keeps it.
+const legacyProjectsRoot = () => join(app.getPath('documents'), 'AppBlips', 'Projects');
+
+function hasProjects(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .some((entry) => entry.isDirectory() && existsSync(join(dir, entry.name, PROJECT_FILE)));
+  } catch {
+    return false; // no such folder
+  }
+}
+
+// Saved once chosen, so the folder never changes under the user later (e.g.
+// after they delete every project in the old one).
+function resolveProjectsRoot() {
+  const saved = readSettings().projectsRoot;
+  if (saved) return saved;
+  const root = hasProjects(legacyProjectsRoot()) ? legacyProjectsRoot() : defaultProjectsRoot();
+  writeSettings({ projectsRoot: root }).catch((err) => console.warn('[main] could not save the projects folder', err));
+  return root;
+}
 
 function readSettings() {
   try {
@@ -412,7 +437,7 @@ app.on('web-contents-created', (_event, contents) => lockDown(contents));
 
 app.whenReady().then(() => {
   projectStore = createProjectStore({
-    root: readSettings().projectsRoot || defaultProjectsRoot(),
+    root: resolveProjectsRoot(),
     orphanDir: join(app.getPath('userData'), 'app-data'),
     trash: (dir) => shell.trashItem(dir),
   });

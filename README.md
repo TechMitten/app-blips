@@ -87,7 +87,7 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 
 All Linux versions and checksums are on the **[Releases](https://github.com/TechMitten/app-blips/releases)** page.
 
-The first time you open it, AppBlips asks you to choose an AI provider (Anthropic by default; OpenAI, Gemini, DeepSeek, OpenRouter, or LM Studio/Ollama on your own computer), paste its API key and pick a model. Get an Anthropic key from the [Claude Console](https://platform.claude.com/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in `Documents/AppBlips/Projects`. See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
+The first time you open it, AppBlips asks you to choose an AI provider (Anthropic by default; OpenAI, Gemini, DeepSeek, OpenRouter, or LM Studio/Ollama on your own computer), paste its API key and pick a model. Get an Anthropic key from the [Claude Console](https://platform.claude.com/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in AppBlips' own data folder (open it from Settings → Data). See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
 
 The app tells you when a new version is out. On the Microsoft Store it updates itself through the Store; with the AppImage it downloads the update itself and offers to restart; you can turn the check off in Settings → Workspace.
 

@@ -61,7 +61,18 @@ See [Building Apps](/features/building-apps) for tips on writing prompts.
 
 ## Where your projects are saved
 
-Each app you build is a folder in `Documents/AppBlips/Projects/`:
+Each app you build is a folder in AppBlips' own data folder, out of the way so it isn't deleted by accident:
+
+- **Windows:** `C:\Users\<your name>\AppData\Roaming\AppBlips\Projects`
+- **Linux:** `~/.config/AppBlips/Projects`
+
+`AppData` is a hidden folder. The easiest way to get there is **Settings → Data → Projects folder → Open**. If you used AppBlips before version 0.1.9 and have projects in `Documents/AppBlips/Projects`, AppBlips keeps using that folder instead.
+
+<Warning>
+  If you installed AppBlips from the Microsoft Store, uninstalling it or clicking **Reset** in Windows Settings → Apps deletes this folder and every project in it. Updates don't. Before uninstalling, use **Export all apps** (below) or pick a folder of your own with **Change…**.
+</Warning>
+
+Inside each app's folder:
 
 | File | What it is |
 | --- | --- |
