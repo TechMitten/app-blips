@@ -1,6 +1,7 @@
 // Docs site, opened from the Help key and the "?" shortcut.
 export const DOCS_URL = 'https://docs.appblips.com/';
 export const GITHUB_URL = 'https://github.com/TechMitten/app-blips';
+export const DISCORD_URL = 'https://discord.gg/a7QfqbvaF9';
 
 import {
   Wand2, Smartphone, Code2, Layout, 

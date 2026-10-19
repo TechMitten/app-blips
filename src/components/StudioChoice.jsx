@@ -3,7 +3,17 @@ import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, MonitorSmartphone,
   Settings, Smartphone, X,
 } from 'lucide-react';
-import { DOCS_URL, GITHUB_URL } from '../lib/constants';
+import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
+
+// Lucide has no Discord mark, so this is the brand's own glyph (official
+// invite/widget assets), drawn to match the lucide icons' ~17px box.
+function DiscordIcon({ size = 17, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.07.07 0 0 0-.075.035c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.036 19.74 19.74 0 0 0-4.885 1.516.07.07 0 0 0-.032.027C.533 9.045-.32 13.579.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.041.107c.36.698.772 1.364 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.673-3.549-13.66a.061.061 0 0 0-.031-.028M8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.418 0 1.334-.955 2.419-2.157 2.419m7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.419-2.157 2.419" />
+    </svg>
+  );
+}
 
 // Studio choice screen. Two lives:
 //   1. Forced gate -- a fresh session with nothing to resume must pick a
@@ -103,6 +113,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   className={`${GHOST_BTN} h-9 w-9`}
                 >
                   <Github size={17} aria-hidden="true" />
+                </a>
+                <a
+                  href={DISCORD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Join the AppBlips Discord"
+                  title="Join the AppBlips Discord"
+                  className={`${GHOST_BTN} h-9 w-9`}
+                >
+                  <DiscordIcon size={17} />
                 </a>
                 <a
                   href={DOCS_URL}
@@ -233,6 +253,17 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               >
                 <Github size={17} aria-hidden="true" />
                 <span>GitHub</span>
+              </a>
+              <a
+                href={DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Join the AppBlips Discord"
+                title="Join the AppBlips Discord"
+                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+              >
+                <DiscordIcon size={17} />
+                <span>Discord</span>
               </a>
               <a
                 href="https://www.appblips.com/privacy"

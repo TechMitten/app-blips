@@ -57,12 +57,22 @@
       {
         "label": "GitHub",
         "href": "https://github.com/techmitten/app-blips"
+      },
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/a7QfqbvaF9"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Download",
       "href": "https://github.com/TechMitten/app-blips/releases"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/techmitten/app-blips",
+      "discord": "https://discord.gg/a7QfqbvaF9"
     }
   },
   "seo": {
