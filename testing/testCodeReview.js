@@ -122,6 +122,20 @@ test = await run([...Array.from({ length: LOOP_REPEAT_TURNS + 1 }, () => inspect
 assert.deepEqual(toolNames(test.requests.at(-1)), ['submit_review_report']);
 assert.equal(test.result.problems[0].title, 'Overlap');
 
+// Scrolling by the same amount down a long page is progress, not a repeat.
+let scrolled = 0;
+const scrollBrowser = {
+  async open() { return { elements: [], errors: [], viewport: { scrollY: 0 } }; },
+  async execute(args) {
+    if (args.action === 'scroll') scrolled += args.y;
+    return { page: 'index.html', screen: 'desktop', observation: { errors: [], viewport: { width: 1280, height: 800, scrollY: scrolled } } };
+  },
+};
+const scrollDown = { tool_calls: [call('browser_action', { action: 'scroll', target: null, y: 700 })] };
+test = await run([...Array.from({ length: LOOP_REPEAT_TURNS + 2 }, () => scrollDown), report()], { browser: scrollBrowser });
+assert.ok(test.requests.at(-1).tools.length > 1, 'scrolling to new positions keeps testing open');
+assert.equal(scrolled, 700 * (LOOP_REPEAT_TURNS + 2));
+
 // New calls every turn run until the backstop, whose last turn only takes a report.
 test = await run(Array.from({ length: MAX_REVIEW_TURNS }, (_, i) => ({ tool_calls: [call('view_code', { file: `page${i}.html` })] })));
 assert.equal(test.requests.length, MAX_REVIEW_TURNS);

@@ -25,6 +25,29 @@ export function createBrowserRuntime() {
     cursor.style.left = x + 'px';
     cursor.style.top = y + 'px';
   };
+  // What "the page" scrolls. Generated app layouts often lock the window
+  // (h-screen, overflow-hidden) and scroll an inner container instead, so
+  // window.scrollBy would do nothing and every screenshot would show the top.
+  const root = () => document.scrollingElement || document.documentElement;
+  const scroller = () => {
+    if (root().scrollHeight > innerHeight + 1 && getComputedStyle(root()).overflowY !== 'hidden') return root();
+    let best = null;
+    let room = 1;
+    for (const el of Array.from(document.body?.querySelectorAll('*') || []).slice(0, 3000)) {
+      if (el.scrollHeight - el.clientHeight <= room || !/(auto|scroll)/.test(getComputedStyle(el).overflowY) || !visible(el)) continue;
+      best = el;
+      room = el.scrollHeight - el.clientHeight;
+    }
+    return best || root();
+  };
+  const scrollTop = (el) => (el === root() ? scrollY : el.scrollTop);
+  // pageHeight and atBottom tell the reviewer how many more screens a long page has.
+  const scrollInfo = () => {
+    const el = scroller();
+    const top = scrollTop(el);
+    const shown = el === root() ? innerHeight : el.clientHeight;
+    return { width: innerWidth, height: innerHeight, scrollX, scrollY: Math.round(top), pageHeight: el.scrollHeight, atBottom: top + shown >= el.scrollHeight - 1 };
+  };
   const inspect = () => {
     for (const [id, el] of nodes) if (!el.isConnected) nodes.delete(id);
     const elements = [];
@@ -45,7 +68,7 @@ export function createBrowserRuntime() {
     }
     return { title: document.title, readyState: document.readyState, focusedElement: ids.get(document.activeElement) || document.activeElement?.tagName,
       text: (document.body?.innerText || '').slice(0, 12000), elements,
-      viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY }, errors: errors.slice(), layoutIssues: layoutIssues(elements) };
+      viewport: scrollInfo(), errors: errors.slice(), layoutIssues: layoutIssues(elements) };
   };
   // Visual problems a text observation can't show, measured from layout so
   // models that can't read screenshots still catch them.
@@ -89,8 +112,16 @@ export function createBrowserRuntime() {
     if (args.action === 'scroll') {
       const amount = Number(args.y);
       if (!Number.isFinite(amount) || Math.abs(amount) > 5000) throw new Error('Scroll amount must be between -5000 and 5000.');
-      window.scrollBy(0, amount);
-      return { success: true };
+      const el = scroller();
+      const before = scrollTop(el);
+      // Instant: pages with scroll-behavior: smooth would otherwise still be
+      // moving when the next screenshot is taken.
+      const previous = el.style.scrollBehavior;
+      el.style.scrollBehavior = 'auto';
+      if (el === root()) window.scrollBy({ top: amount, behavior: 'instant' });
+      else el.scrollTop += amount;
+      el.style.scrollBehavior = previous;
+      return { success: true, scrolledBy: Math.round(scrollTop(el) - before) };
     }
     if (args.action === 'point') {
       if (![args.x, args.y].every(Number.isFinite) || args.x < 0 || args.y < 0 || args.x >= innerWidth || args.y >= innerHeight) throw new Error('Point must be inside the browser viewport.');

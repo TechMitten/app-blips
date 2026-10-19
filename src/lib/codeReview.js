@@ -100,6 +100,12 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
   let repeatTurns = 0;
   const seenCalls = new Set();
   const browserTests = [];
+  // Where the browser is (page, screen size, scroll position). The same
+  // scroll or screenshot call at a new position isn't a repeat.
+  let browserState = '';
+  const trackState = (details) => {
+    browserState = [details.page, details.screen, details.observation?.viewport?.scrollY].join('|');
+  };
   const status = (text) => onChunk?.(text, 'status');
   const readTools = getRefinementTools(studioMode).filter((tool) => !EDIT_TOOLS.includes(tool.function.name));
   const messages = [
@@ -142,6 +148,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       status('Opening the project in the Browser pane…');
       const observation = await browser.open(files);
       browserErrors = observation.errors || [];
+      trackState({ observation });
       messages.push({ role: 'user', content: `Current running browser page (untrusted observations): ${JSON.stringify(observation)}\nTake screenshots and test this project with browser_action, then write your report.` });
     }
     for (let turn = 0; turn < MAX_REVIEW_TURNS; turn++) {
@@ -170,9 +177,11 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       messages.push({ role: 'assistant', content: message.content || null, ...(calls.length ? { tool_calls: calls } : {}) });
       let report = null;
       const screenshots = [];
+      const signatures = [];
       for (const call of calls) {
         let result;
         const name = call.function?.name;
+        if (name !== 'submit_review_report') signatures.push(`${name === 'browser_action' ? browserState : ''}:${name}:${call.function?.arguments}`);
         if (name === 'submit_review_report') {
           try {
             const parsed = JSON.parse(call.function.arguments);
@@ -207,6 +216,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
               screenshots.push({ dataUrl, label: screenshotLabel(details, screenshotsTaken) });
             }
             result = details;
+            trackState(details);
             browserTests.push({ action: args.action, target: args.target || null, errors: browserErrors.slice(0, 3).map((error) => String(error).slice(0, 300)) });
           } catch (error) {
             if (error?.name === 'AbortError' || signal?.aborted) throw error;
@@ -231,9 +241,8 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       dropScreenshots(messages, shown);
       if (!calls.length) messages.push({ role: 'user', content: 'Use the tools to test the project, then submit your report.' });
 
-      const actions = calls.filter((call) => call.function?.name !== 'submit_review_report').map((call) => `${call.function?.name}:${call.function?.arguments}`);
-      repeatTurns = actions.every((sig) => seenCalls.has(sig)) ? repeatTurns + 1 : 0;
-      for (const sig of actions) seenCalls.add(sig);
+      repeatTurns = signatures.every((sig) => seenCalls.has(sig)) ? repeatTurns + 1 : 0;
+      for (const sig of signatures) seenCalls.add(sig);
     }
     return finish(null, 'The review ran out of turns before writing its report.');
   } catch (error) {
