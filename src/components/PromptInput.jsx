@@ -9,9 +9,11 @@ const MODE_SEQUENCE = ['build', 'ask'];
 const STOPS = MODE_SEQUENCE.length;
 const MODE_LABELS = { build: 'Build', ask: 'Ask' };
 const MODE_INDEX = Object.fromEntries(MODE_SEQUENCE.map((mode, index) => [mode, index]));
-// Extra items added to every spin: a whole number of turns, so it lands back
-// on the same stop.
-const REEL_EXTRA_ITEMS = Math.ceil(3 / STOPS) * STOPS;
+// No extra full turns: with only two stops, spinning past the target before
+// landing on it just made the other label flash by on the way, which read as
+// the reel overshooting its own selection. Moving straight to the next stop
+// keeps the slide but drops the detour.
+const REEL_EXTRA_ITEMS = 0;
 const REEL_NORMALIZE_AT = 30;  // a multiple of the stop count; rewind here to keep it finite
 const REEL_ITEM_COUNT = 40;
 const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % STOPS]);

@@ -87,15 +87,16 @@ export default function Header({
         <button
           type="button"
           onClick={onNewApp}
-          className="header-logo-btn shrink-0 flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+          className="header-logo-btn shrink-0 flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
           data-tip="Back to the studio picker"
           aria-label="Back to the studio picker"
         >
-          <img src="/newlog.webp" alt="AppBlips" className="header-logo-img" />
+          <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" className="header-logo-icon" />
+          <span className="header-logo-wordmark">AppBlips</span>
         </button>
         <span className="chrome-divider" aria-hidden="true" />
         <div
-          className={`nav-nameplate max-w-[160px] xl:max-w-[300px] 2xl:max-w-[420px] ${hasProjectName ? 'text-slate-900' : 'text-slate-500'}`}
+          className={`nav-nameplate max-w-40 xl:max-w-75 2xl:max-w-105 ${hasProjectName ? 'text-slate-900' : 'text-slate-500'}`}
           data-tip={hasProjectName ? `Current ${article}: ${projectName}` : untitledName}
         >
           {hasProjectName && <span className="nav-nameplate-dot" aria-hidden="true" />}

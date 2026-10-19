@@ -1,38 +1,37 @@
 /* First-build hero (HeroLanding.jsx / HeroSidebar.jsx): the screen shown after
    the studio pick until the first prompt is submitted. It is always dark,
    whatever the app theme (the theme toggle lives in the workspace header,
-   which takes over after the first build). Colours grow out of the brand
-   palette -- teal #3081a6 and cyan #22d3ee, plus emerald and indigo accents. */
+   which takes over after the first build). Near-black canvas (matching the
+   app's own dark-theme ground, --color-slate-50) with the coral from the app
+   icon (#eb6150) as the one accent colour -- a quiet SaaS backdrop rather
+   than a multicolour gradient. */
 
-/* A midnight-to-teal aurora, pinned dark in both app themes (the root also
-   carries `dark force-dark`, so the composer and chips take their dark
-   styles). Light comes from the top-right (indigo) and pools bottom-left (emerald) and bottom-right (cyan), so the
-   colour travels on a diagonal instead of rising in a single dome. Brand teal
-   (#3081a6) is the through-line. */
+/* Mostly flat black, with two faint coral blooms (top-left, bottom-right) so
+   the colour travels on a diagonal instead of sitting dead-centre. Pinned
+   dark in both app themes (the root also carries `dark force-dark`, so the
+   composer and chips take their dark styles). */
 .hero-landing {
   background: var(--hero-ground);
-  --hero-ground: #0b0d14;
+  --hero-ground: #080808;
   --hero-title: #fff;
-  --hero-title-shadow: 0 2px 24px rgb(4 12 20 / 0.5);
-  --hero-subtitle: rgb(255 255 255 / 0.82);
-  --hero-subtitle-shadow: 0 1px 12px rgb(4 12 20 / 0.55);
+  --hero-title-shadow: 0 2px 24px rgb(0 0 0 / 0.6);
+  --hero-subtitle: rgb(255 255 255 / 0.78);
+  --hero-subtitle-shadow: 0 1px 12px rgb(0 0 0 / 0.6);
   --hero-stage-edge: rgb(255 255 255 / 0.06);
-  --hero-drift: rgb(48 129 166 / 0.35);
+  --hero-drift: rgb(235 97 80 / 0.22);
   --hero-stage-bg:
-    radial-gradient(55% 50% at 90% 6%, rgb(129 140 248 / 0.4), transparent 70%),
-    radial-gradient(62% 56% at 4% 96%, rgb(16 185 129 / 0.6), transparent 70%),
-    radial-gradient(55% 46% at 72% 100%, rgb(34 211 238 / 0.42), transparent 72%),
-    radial-gradient(70% 60% at 28% 30%, rgb(20 120 140 / 0.38), transparent 70%),
-    linear-gradient(155deg, #07121d 0%, #0a2a3a 44%, #0b4652 74%, #0e6a5b 100%);
+    radial-gradient(48% 42% at 88% 96%, rgb(235 97 80 / 0.16), transparent 70%),
+    radial-gradient(42% 38% at 8% 4%, rgb(235 97 80 / 0.09), transparent 70%),
+    linear-gradient(165deg, #0c0a0a 0%, #0a0909 45%, #070707 100%);
   --hero-rail-fg: rgb(255 255 255 / 0.72);
   --hero-rail-fg-strong: #fff;
   --hero-rail-hover: rgb(255 255 255 / 0.08);
-  --hero-rail-primary: rgb(255 255 255 / 0.1);
+  --hero-rail-primary: rgb(235 97 80 / 0.16);
   --hero-rail-muted: rgb(255 255 255 / 0.5);
-  --hero-chip-bg: rgb(6 14 22 / 0.42);
-  --hero-chip-bg-hover: rgb(6 14 22 / 0.64);
-  --hero-chip-border: rgb(255 255 255 / 0.16);
-  --hero-chip-border-hover: rgb(255 255 255 / 0.34);
+  --hero-chip-bg: rgb(10 8 8 / 0.5);
+  --hero-chip-bg-hover: rgb(10 8 8 / 0.72);
+  --hero-chip-border: rgb(255 255 255 / 0.14);
+  --hero-chip-border-hover: rgb(235 97 80 / 0.4);
   --hero-chip-fg: rgb(255 255 255 / 0.9);
 }
 
