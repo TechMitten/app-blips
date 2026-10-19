@@ -355,7 +355,7 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
 
       <div className="element-bar-actions">
         <span className="element-bar-keys" aria-hidden="true">
-          <kbd>Enter</kbd> save<span className="element-bar-keys-sep" /><kbd>Esc</kbd> options
+          <kbd>{SHORTCUT_HINTS.saveText}</kbd> save<span className="element-bar-keys-sep" /><kbd>Esc</kbd> options
         </span>
         <button
           type="button"

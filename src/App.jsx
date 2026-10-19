@@ -311,6 +311,13 @@ export default function App({ coldStart = false }) {
 
   const chatBottomRef = useRef(null);
   const iframeRef = useRef(null);
+  // Mirrors iframeRef in state so the preview bridge re-attaches when the
+  // live frame element appears or changes (see usePreviewBridge).
+  const [previewFrame, setPreviewFrame] = useState(null);
+  const setPreviewFrameRef = useCallback((el) => {
+    iframeRef.current = el;
+    setPreviewFrame(el);
+  }, []);
   const browserLockRef = useRef(null);
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
@@ -658,6 +665,9 @@ export default function App({ coldStart = false }) {
       activeCode
         ? injectPreviewBridge(activeCode, {
             projectMode: studioModeRef.current === 'codebase',
+            // Click-to-edit (Website Studio only) finds elements by the
+            // source numbers this adds to the preview copy.
+            sourcePositions: studioModeRef.current === 'website',
             initialStorage: browserReviewRef.current?.storage || loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
@@ -756,7 +766,7 @@ export default function App({ coldStart = false }) {
     previewSrcDoc,
     previewToken,
     previewMode,
-    frameMounted: activeTab === 'preview',
+    frameElement: activeTab === 'preview' ? previewFrame : null,
     onRuntimeError: handleRuntimeError,
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
@@ -2665,7 +2675,7 @@ export default function App({ coldStart = false }) {
               exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
               onExportReactProject={canExportReactProject ? handleExportReactProject : null}
               containerRef={previewContainerRef}
-              iframeRef={iframeRef}
+              iframeRef={setPreviewFrameRef}
               browserLockRef={browserLockRef}
               shutterCount={shutterCount}
               previewSrcDoc={previewSrcDoc}

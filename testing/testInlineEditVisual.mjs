@@ -71,6 +71,7 @@ const FIXTURE = `<!DOCTYPE html>
     </pre>
     <p id="preserve" class="preserve">  spaced   out  </p>
     <span id="brand" style="white-space:nowrap">Ray's <span style="color:#c33">Dental Clinic</span></span>
+    <h2 id="twoline">Justice is not a right.<br><span style="display:block">It's a promise.</span></h2>
     <div style="position:relative;padding:1rem">
       <div style="position:absolute;inset:0;background:#0f172a"></div>
       <p id="overlay" style="position:relative;color:#fff;margin:0">White text on a sibling-painted dark layer</p>
@@ -118,7 +119,9 @@ let frame = await fresh();
 const rect = (sel) => frame.evaluate((s) => {
   const el = document.querySelector(s);
   const r = el.getBoundingClientRect();
-  return { x: +r.x.toFixed(2), y: +r.y.toFixed(2), w: +r.width.toFixed(2), h: +r.height.toFixed(2), html: el.innerHTML, text: el.innerText };
+  // Page coordinates: clicking an element below the fold scrolls it into
+  // view, which is not the layout shift these checks look for.
+  return { x: +(r.x + scrollX).toFixed(2), y: +(r.y + scrollY).toFixed(2), w: +r.width.toFixed(2), h: +r.height.toFixed(2), html: el.innerHTML, text: el.innerText };
 }, sel);
 
 const enable = () => page.evaluate(() => {
@@ -211,20 +214,51 @@ await enable();
 }
 
 // --- commit: payload carries the PRE-edit anchor and the typed text ---
-console.log('\n--- commit round trip (type + Enter) ---');
+// Plain Enter adds a line break inside the text; Ctrl+Enter saves. The
+// click puts the caret where it lands (no select-all), so the typing goes
+// into the middle of the existing text.
+console.log('\n--- commit round trip (type, Enter for a new line, Ctrl+Enter) ---');
 frame = await fresh();
 await enable();
 await page.evaluate(() => { window.__commits = []; });
 await frame.locator('#hero').click();
 await page.keyboard.type('Warm rolls');
 await page.keyboard.press('Enter');
+await page.keyboard.type('daily');
+await page.waitForTimeout(100);
+{
+  const commits = await page.evaluate(() => window.__commits);
+  const ok = commits.length === 0;
+  if (!ok) failures++;
+  console.log(ok ? 'plain Enter did not commit' : `Enter committed early: ${JSON.stringify(commits[0])}`);
+}
+await page.keyboard.press('Control+Enter');
 await page.waitForTimeout(200);
 {
   const commits = await page.evaluate(() => window.__commits);
   const c = commits[0];
-  const ok = c && c.text === 'Fresh bread, every morning' && c.newText === 'Warm rolls' && typeof c.editId === 'number';
+  const ok = c && c.text === 'Fresh bread, every morning' && c.newText.includes('Warm rolls\ndaily') && typeof c.editId === 'number';
   if (!ok) failures++;
   console.log(ok ? `anchor/newText/editId ok: ${JSON.stringify(c.text)} -> ${JSON.stringify(c.newText)}` : `BAD payload: ${JSON.stringify(c)}`);
+}
+
+// Line breaks that come from the layout (an existing <br>, a block child)
+// read as "\n" in innerText but are already in the source; only typed ones
+// may be reported, or every save would add a stray <br>.
+console.log('\n--- layout line breaks are not reported as typed ---');
+frame = await fresh();
+await enable();
+await page.evaluate(() => { window.__commits = []; });
+await frame.locator('#twoline').click({ position: { x: 5, y: 10 } });
+await page.keyboard.press('Home');
+await page.keyboard.type('So ');
+await page.keyboard.press('Control+Enter');
+await page.waitForTimeout(200);
+{
+  const c = (await page.evaluate(() => window.__commits))[0];
+  const ok = c && c.newText === "So Justice is not a right. It's a promise.";
+  if (!ok) failures++;
+  console.log(ok ? `layout breaks collapsed: ${JSON.stringify(c.newText)}` : `BAD payload: ${JSON.stringify(c && c.newText)}`);
 }
 
 // --- toolbar formatting: live preview, reported on commit, undone on cancel ---
@@ -286,10 +320,13 @@ const heroState = () => frame.evaluate(() => { const e = document.querySelector(
   await page.waitForTimeout(100);
   const d = await heroState();
   const hist = await page.evaluate(() => window.__hist[window.__hist.length - 1]);
-  const ok = a.text === 'Warm rolls' && a.size === '50px'
-    && b.text === 'Warm rolls' && b.size === ''
+  // The click places the caret where it lands (no select-all), so the
+  // typing goes into the existing text rather than replacing it.
+  const typed = a.text;
+  const ok = typed.includes('Warm rolls') && a.size === '50px'
+    && b.text === typed && b.size === ''
     && c.text === 'Fresh bread, every morning' && c.size === ''
-    && d.text === 'Warm rolls' && d.size === '50px'
+    && d.text === typed && d.size === '50px'
     && hist && hist.canUndo && !hist.canRedo;
   if (!ok) failures++;
   console.log(ok ? 'format undo, typing undo, redo x2 all ok' : `BAD ${JSON.stringify({ a, b, c, d, hist })}`);
@@ -306,7 +343,7 @@ await page.evaluate(() => { window.__commits = []; window.__replyOk = false; });
   const before = await rect('#hero');
   await frame.locator('#hero').click();
   await page.keyboard.type('Should revert');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Control+Enter');
   await page.waitForTimeout(250);
   const after = await rect('#hero');
   const st = await editState('#hero');

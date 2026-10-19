@@ -24,11 +24,16 @@
 
 import { countExactOccurrences, findFuzzyMatches } from './edits.js';
 import { findFontByStack, insertFontLinks } from './fonts.js';
+import { maskNonMarkup, OPEN_TAG_RE, sourceElementStarts, sourceFingerprint } from './sourcePositions.js';
 
 const escapeHtmlText = (str) => String(str)
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;');
+
+// Text typed in place may hold line breaks (Enter in click-to-edit); they
+// go back into the source as <br>, the only markup new text may carry.
+const escapeTextWithBreaks = (str) => escapeHtmlText(str).replace(/\r\n?|\n/g, '<br>');
 
 // Full attribute-value escaping (adds quotes), for src/href/alt injection.
 const escapeAttrValue = (str) => escapeHtmlText(str).replace(/"/g, '&quot;');
@@ -121,16 +126,6 @@ const openTagRe = (tag) => new RegExp(
   `<${tag}(?=[\\s>/])(?:\\s+[^\\s"'>/=]+(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s"'>]+))?)*\\s*\\/?>`,
   'gi',
 );
-
-// Same-length copy of the source with comments and <script>/<style>/
-// <textarea> bodies blanked out, so tag scans never match markup that only
-// appears inside a string or a comment. Offsets stay valid for `code`.
-const maskNonMarkup = (code) => code
-  .replace(/<!--[\s\S]*?-->/g, (m) => ' '.repeat(m.length))
-  .replace(
-    /(<(script|style|textarea)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi,
-    (_m, open, _tag, body, close) => open + body.replace(/[^\n]/g, ' ') + close,
-  );
 
 // End of the element whose opening tag ends at `innerStart` (depth-tracked
 // over same-name tags). Scans the masked source.
@@ -282,7 +277,7 @@ const spliceVisibleText = (fragment, prevText, nextText) => {
     && prevText[prevText.length - 1 - suffix] === nextText[nextText.length - 1 - suffix]
   ) suffix += 1;
   const removed = chars.slice(prefix, chars.length - suffix);
-  const inserted = escapeHtmlText(nextText.slice(prefix, nextText.length - suffix));
+  const inserted = escapeTextWithBreaks(nextText.slice(prefix, nextText.length - suffix));
 
   if (!removed.length) {
     // Pure insertion: stay in the text run before the caret when there is one.
@@ -304,9 +299,9 @@ const spliceVisibleText = (fragment, prevText, nextText) => {
   return out;
 };
 
-const applyTextByScan = (code, element, prevText, nextText, styles) => {
-  const candidate = pickTextCandidate(findElementsByText(code, element.tag, prevText), element);
-  if (!candidate) return null;
+// Rewrite one located element: `candidate` is { open, innerStart, innerEnd,
+// inner } as findElementsByText returns it.
+const applyTextToCandidate = (code, candidate, prevText, nextText, styles) => {
   let nextOpen = candidate.open;
   if (styles) {
     nextOpen = mergeStylesIntoOpenTag(candidate.open, styles);
@@ -314,7 +309,7 @@ const applyTextByScan = (code, element, prevText, nextText, styles) => {
   }
   let nextInner = candidate.inner;
   if (nextText !== prevText) {
-    const escapedNext = escapeHtmlText(nextText);
+    const escapedNext = escapeTextWithBreaks(nextText);
     if (!candidate.inner.includes('<')) {
       // Plain-text element: replace the text, keep the source's padding.
       const lead = /^\s*/.exec(candidate.inner)[0];
@@ -333,6 +328,26 @@ const applyTextByScan = (code, element, prevText, nextText, styles) => {
     ok: true,
     code: code.slice(0, openStart) + nextOpen + nextInner + code.slice(candidate.innerEnd),
   };
+};
+
+const applyTextByScan = (code, element, prevText, nextText, styles) => {
+  const candidate = pickTextCandidate(findElementsByText(code, element.tag, prevText), element);
+  return candidate ? applyTextToCandidate(code, candidate, prevText, nextText, styles) : null;
+};
+
+// The element at its reported source position, when its source text still
+// reads `prevText` (a script may have rewritten the live text).
+const applyTextBySourceId = (code, element, prevText, nextText, styles) => {
+  const masked = maskNonMarkup(code);
+  const range = locateBySourceId(code, masked, String(element.tag || '').toLowerCase(), element);
+  if (!range || range.end === range.openEnd) return null;
+  if (comparableText(masked.slice(range.openEnd, range.closeStart)) !== comparableText(prevText)) return null;
+  return applyTextToCandidate(code, {
+    open: range.open,
+    innerStart: range.openEnd,
+    innerEnd: range.closeStart,
+    inner: code.slice(range.openEnd, range.closeStart),
+  }, prevText, nextText, styles);
 };
 
 
@@ -408,8 +423,6 @@ const cssUrl = (url) => {
 const isCssUrl = (value) => /^url\('[^'"()\\<>\r\n]*'\)$/.test(String(value ?? ''));
 const cleanStyleFor = (prop, value) => (prop === 'backgroundImage' && isCssUrl(value) ? value : cleanStyleValue(value));
 
-const OPEN_TAG_RE = /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*\s*\/?>/;
-
 // Merge `styles` ({ fontSize: '32px', ... }) into the first tag of `html`.
 // Returns the new html, or null when `html` does not start with a tag.
 const mergeStylesIntoOpenTag = (html, styles) => {
@@ -458,15 +471,20 @@ const applyTextChange = (code, element, nextTextRaw, styleChanges = null) => {
   if (!textChanged && !styles) return { ok: false, reason: 'no-op' };
   if (!prevText) return { ok: false, reason: 'element-has-no-text' };
   if (element.textTruncated) return { ok: false, reason: 'text-too-long' };
-  const escapedNext = escapeHtmlText(nextText);
+  const escapedNext = escapeTextWithBreaks(nextText);
   const summary = [
     textChanged ? `changed text to "${truncate(nextText, 60)}"` : null,
     styles ? summarizeStyles(styles) : null,
   ].filter(Boolean).join(' and ');
 
-  // Preferred path: locate the element's own serialized markup and rewrite
-  // it (style on the opening tag, text inside). Matching the whole element
-  // (not just the string) proves we're editing the right occurrence.
+  // Preferred path: the element's own source position, reported by the
+  // preview (see sourcePositions.js).
+  const bySourceId = applyTextBySourceId(code, element, prevText, nextText, styles);
+  if (bySourceId) return { ...bySourceId, summary };
+
+  // Next: locate the element's own serialized markup and rewrite it (style
+  // on the opening tag, text inside). Matching the whole element (not just
+  // the string) proves we're editing the right occurrence.
   const outer = element.outerHTML;
   if (outer && !element.outerHTMLTruncated) {
     let nextOuter = styles ? mergeStylesIntoOpenTag(outer, styles) : outer;
@@ -523,9 +541,9 @@ const rangeAt = (code, masked, tag, start) => {
   if (!m) return null;
   if (/^<([a-zA-Z][a-zA-Z0-9-]*)/.exec(m[0])[1].toLowerCase() !== tag) return null;
   const openEnd = start + m[0].length;
-  if (VOID_TAGS.has(tag) || m[0].endsWith('/>')) return { start, openEnd, end: openEnd, open: m[0], tag };
+  if (VOID_TAGS.has(tag) || m[0].endsWith('/>')) return { start, openEnd, closeStart: openEnd, end: openEnd, open: m[0], tag };
   const close = findCloseTag(masked, tag, openEnd);
-  return close ? { start, openEnd, end: close.closeEnd, open: m[0], tag } : null;
+  return close ? { start, openEnd, closeStart: close.closeStart, end: close.closeEnd, open: m[0], tag } : null;
 };
 
 const squashText = (str) => String(str ?? '').replace(/\s+/g, '').toLowerCase();
@@ -543,6 +561,19 @@ const ordinalPlausible = (masked, range, element) => {
   return tokens.every((tok) => live.has(tok));
 };
 
+// The range at the element's reported source position (sourcePositions.js).
+// Only trusted when the preview was built from exactly this source, the
+// number was unique in the live page (a script may clone numbered markup),
+// and the tag there matches and plausibly holds the same content.
+const locateBySourceId = (code, masked, tag, element) => {
+  const id = element?.srcId;
+  if (!Number.isInteger(id) || id < 0 || element.srcFingerprint !== sourceFingerprint(code)) return null;
+  const start = sourceElementStarts(code, masked)[id];
+  if (start == null) return null;
+  const range = rangeAt(code, masked, tag, start);
+  return range && ordinalPlausible(masked, range, element) ? range : null;
+};
+
 /**
  * Find the clicked element's full range in the source.
  *
@@ -555,6 +586,10 @@ export const locateElement = (code, element) => {
   const masked = maskNonMarkup(code);
   const found = (range, strategy) => ({ ok: true, ...range, strategy });
   let ambiguous = false;
+
+  // 0. The source position the preview reported.
+  const bySourceId = locateBySourceId(code, masked, tag, element);
+  if (bySourceId) return found(bySourceId, 'source');
 
   // 1. The element's serialized markup: exact, then whitespace-tolerant.
   const outer = element.outerHTML;

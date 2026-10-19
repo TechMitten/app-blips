@@ -16,10 +16,14 @@ export default function usePreviewBridge({
   previewSrcDoc,
   previewToken,
   previewMode,
-  // True while the iframe element is mounted. The Code tab unmounts it, and
-  // switching back mounts a NEW element, so the handshake effect must re-run
-  // to bind its listeners to that element's contentWindow.
-  frameMounted = true,
+  // The live iframe element (null while none is mounted), kept in state by
+  // the parent's callback ref. The handshake effect bails while there is no
+  // frame and must re-run whenever a NEW element appears to bind its
+  // listeners to that element's contentWindow: the Code tab remounts it, and
+  // after a reload the frame mounts a commit or more after the preview
+  // document exists. Keying on a boolean like "preview tab open" missed that
+  // second case and left click-to-edit unattached until a Code/Preview toggle.
+  frameElement = null,
   onRuntimeError,
   onReady,
   onStorageChange,
@@ -135,7 +139,7 @@ export default function usePreviewBridge({
 
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!frameMounted || !iframe || !previewSrcDoc) return;
+    if (!frameElement || !iframe || !previewSrcDoc) return;
 
     const send = (type, payload, token = currentTokenRef.current) => {
       try {
@@ -230,6 +234,10 @@ export default function usePreviewBridge({
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
       }
+      // TEMP DIAGNOSTIC: see the debug-wheel note in previewBridge.js.
+      else if (data.type === 'debug-wheel') {
+        if (import.meta.env.DEV) console.log('[AppBlips preview] wheel inside the site', data.payload, 'frame on top?', iframe.style.zIndex === '1', 'is live frame?', iframe === iframeRef.current);
+      }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
@@ -314,7 +322,7 @@ export default function usePreviewBridge({
       send('configure', { enabled: false });
       send('set-editing', { enabled: false });
     };
-  }, [previewSrcDoc, previewToken, previewMode, frameMounted, iframeRef]);
+  }, [previewSrcDoc, previewToken, previewMode, frameElement, iframeRef]);
 
   // Editing toggles are delivered as their own push so flipping the picker on
   // or off does not re-run (and thus does not disturb) the main handshake

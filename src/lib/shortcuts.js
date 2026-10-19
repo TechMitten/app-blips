@@ -14,6 +14,9 @@ export const SHORTCUT_HINTS = {
   redo: isApple ? '⇧⌘Z' : 'Ctrl+⇧Z',
   apps: isApple ? '⌘K' : 'Ctrl+K',
   help: '?',
+  // Saves in-place text editing; plain Enter adds a line break there
+  // (src/previewBridge.js, editOnKeyDown).
+  saveText: isApple ? '⌘Enter' : 'Ctrl+Enter',
 };
 
 // Click-to-edit structure keys for the selected element. The preview frame

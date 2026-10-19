@@ -1,5 +1,6 @@
 import { injectLoopProtection } from './lib/loopProtection.js';
 import { compileJsxScripts } from './lib/jsxCompile.js';
+import { sourceFingerprint, stampSourcePositions } from './lib/sourcePositions.js';
 import { BROWSER_RUNTIME_SOURCE } from './lib/browserRuntime.js';
 
 /**
@@ -438,6 +439,31 @@ const BRIDGE_SOURCE = `(function () {
     return attributes;
   }
 
+  // Website Studio previews number every source tag (lib/sourcePositions.js);
+  // SOURCE_FP fingerprints the source those numbers belong to, null when the
+  // page is not numbered.
+  var SOURCE_FP = __ORION_SOURCE_FP__;
+
+  // The element's source number, or null when it has none or a script has
+  // copied it onto other elements too (the number no longer says which).
+  function sourceIdOf(el) {
+    if (!SOURCE_FP) return null;
+    var value = null;
+    try { value = el.getAttribute('data-ab-src'); } catch (srcAttrErr) { value = null; }
+    if (value == null || !/^\\d+$/.test(value)) return null;
+    try {
+      if (document.querySelectorAll('[data-ab-src="' + value + '"]').length !== 1) return null;
+    } catch (srcQueryErr) { return null; }
+    return parseInt(value, 10);
+  }
+
+  // Serialized markup as the source has it: without the preview's numbers.
+  function sourceOuterHTML(el) {
+    var html = '';
+    try { html = el.outerHTML || ''; } catch (outerErr) { html = ''; }
+    return SOURCE_FP ? html.replace(/ data-ab-src="\\d+"/g, '') : html;
+  }
+
   function fullTextOf(el) {
     try { return String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(); } catch (textErr) { return ''; }
   }
@@ -491,12 +517,13 @@ const BRIDGE_SOURCE = `(function () {
   function describeLite(el) {
     return withOriginalStyleAttrs(el, function () {
       var fullText = fullTextOf(el);
-      var outerFull = '';
-      try { outerFull = el.outerHTML || ''; } catch (outerErr) { outerFull = ''; }
+      var outerFull = sourceOuterHTML(el);
       var tr = textRank(el, fullText);
       var gr = tagRank(el);
       return {
         tag: el.tagName.toLowerCase(),
+        srcId: sourceIdOf(el),
+        srcFingerprint: SOURCE_FP,
         role: detectRole(el),
         text: capString(fullText, 600),
         textTruncated: fullText.length > 600,
@@ -538,8 +565,7 @@ const BRIDGE_SOURCE = `(function () {
 
     var fullText = fullTextOf(el);
 
-    var outerFull = '';
-    try { outerFull = el.outerHTML || ''; } catch (outerErr) { outerFull = ''; }
+    var outerFull = sourceOuterHTML(el);
 
     var parent = el.parentElement || null;
     var parentSelectable = false;
@@ -566,6 +592,8 @@ const BRIDGE_SOURCE = `(function () {
 
     var payload = {
       tag: tag,
+      srcId: sourceIdOf(el),
+      srcFingerprint: SOURCE_FP,
       role: detectRole(el),
       textOrdinal: tr.ordinal,
       textCount: tr.count,
@@ -748,6 +776,41 @@ const BRIDGE_SOURCE = `(function () {
     restoreInlineEntry(entry);
   }
 
+  // An inline edit's text, with the user's typed line breaks kept as single
+  // "\\n"s (blank lines too, capped at one) so the parent can write them back
+  // as <br>. Only "\\n" characters inside text nodes count: that is what
+  // Enter inserts in a plaintext-only host. Layout breaks (an existing <br>,
+  // a block-level child) also show up as "\\n" in innerText but are already in
+  // the source, so they collapse to spaces like any other whitespace, as
+  // before; keeping them would add a stray <br> on every save. The typed ones
+  // are swapped for a private-use sentinel while innerText is read.
+  function inlineEditText(el) {
+    var SENTINEL = '\\uE000';
+    var touched = [];
+    try {
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (var node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (/[\\r\\n]/.test(node.nodeValue)) {
+          touched.push({ node: node, value: node.nodeValue });
+          node.nodeValue = node.nodeValue.replace(/\\r\\n?|\\n/g, SENTINEL);
+        }
+      }
+      return String(el.innerText || el.textContent || '')
+        .replace(/\\s+/g, ' ')
+        .split(SENTINEL)
+        .map(function (line) { return line.trim(); })
+        .join('\\n')
+        .replace(/\\n{3,}/g, '\\n\\n')
+        .trim();
+    } catch (tErr) {
+      return '';
+    } finally {
+      for (var i = 0; i < touched.length; i++) {
+        try { touched[i].node.nodeValue = touched[i].value; } catch (rErr) { /* node gone */ }
+      }
+    }
+  }
+
   // commit=true sends the change to the parent; false cancels (restore) and,
   // with openPanel, reports the element as selected so the parent's panel
   // (select-parent, Edit-with-AI) is reachable from a text element.
@@ -761,14 +824,14 @@ const BRIDGE_SOURCE = `(function () {
       else restoreOutline(entry.el);
       return;
     }
-    var newText = '';
-    try {
-      newText = String(entry.el.innerText || entry.el.textContent || '').replace(/\\s+/g, ' ').trim();
-    } catch (tErr) { newText = ''; }
+    var newText = inlineEditText(entry.el);
     teardownInline(entry);
     var hasFormat = Object.keys(entry.formatStyles).length > 0;
     if (!newText) { restoreInlineEntry(entry); restoreOutline(entry.el); return; }
-    if (newText === entry.snapshot.text && !hasFormat) { restoreOutline(entry.el); return; }
+    // Against the text as it was when editing began (same normalization),
+    // not the fully collapsed snapshot, so adding or removing just a line
+    // break still counts as a change.
+    if (newText === entry.startText && !hasFormat) { restoreOutline(entry.el); return; }
 
     var editId = ++inlineEditSequence;
     var pending = { id: editId, el: entry.el, origHtml: entry.origHtml, origInline: entry.origInline, timer: null };
@@ -979,6 +1042,7 @@ const BRIDGE_SOURCE = `(function () {
     var entry = {
       el: el,
       snapshot: snapshot,
+      startText: '',
       origHtml: el.innerHTML,
       origContentEditable: el.getAttribute('contenteditable'),
       origSpellcheck: el.getAttribute('spellcheck'),
@@ -1006,6 +1070,9 @@ const BRIDGE_SOURCE = `(function () {
     // Before focusing: the caret and hint chip should be placed against the
     // stabilized layout, not the pre-edit one.
     stabilizeInlineHost(el, hostWhiteSpace, editTextNodes);
+    // After stabilizing: that collapses source newlines in normal-flow text
+    // nodes, which inlineEditText would otherwise count as typed breaks.
+    entry.startText = inlineEditText(el);
     var caretColor = chooseCaretColor(el);
     if (caretColor) el.style.caretColor = caretColor;
     try {
@@ -1188,7 +1255,10 @@ const BRIDGE_SOURCE = `(function () {
         finishInlineEdit(false, true);
         return;
       }
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // Plain Enter starts a new line (the host is plaintext-only, so the
+      // browser inserts "\\n" and the commit turns it into <br>); Ctrl/Cmd+Enter
+      // saves, as do Done and clicking elsewhere.
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         e.stopPropagation();
         finishInlineEdit(true, false);
@@ -2195,6 +2265,30 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
 
+  // TEMP DIAGNOSTIC (scroll freezes after a click-to-edit commit): report
+  // what a wheel scroll finds inside the frame, at most once a second. The
+  // parent only logs it in dev. Remove once the freeze is understood.
+  var lastWheelReport = 0;
+  window.addEventListener('wheel', function (e) {
+    var now = Date.now();
+    if (now - lastWheelReport < 1000) return;
+    lastWheelReport = now;
+    var se = document.scrollingElement || document.documentElement;
+    var y0 = window.pageYOffset || 0;
+    var cs = function (el) { try { var s = getComputedStyle(el); return s.overflowY + '/' + s.height; } catch (x) { return '?'; } };
+    setTimeout(function () {
+      post('debug-wheel', {
+        deltaY: e.deltaY, defaultPrevented: e.defaultPrevented,
+        scrollYBefore: y0, scrollYAfter: window.pageYOffset || 0,
+        scrollHeight: se.scrollHeight, clientHeight: se.clientHeight, innerHeight: window.innerHeight,
+        html: cs(document.documentElement), body: document.body ? cs(document.body) : null,
+        touchSim: !!teardownFn, editing: editingActive, inlineEdit: !!inlineEdit,
+        target: e.target && e.target.tagName,
+        visibility: document.visibilityState,
+      });
+    }, 150);
+  }, { passive: true, capture: true });
+
   // Registered synchronously, before the DOM exists, so no parent message can
   // be missed while the document is still parsing.
   window.addEventListener('message', function (e) {
@@ -2604,7 +2698,7 @@ const SCRIPT_OPEN = '<script data-orion-bridge="true">';
 // Assembled so this module's own source never contains the literal sequence.
 const SCRIPT_CLOSE = '</' + 'script>';
 
-const buildTag = (token, initialStorage, touchEnabled, projectMode) => {
+const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) => {
   const safeData = JSON.stringify(
     initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
   ).replace(/</g, '\\u003c');
@@ -2613,7 +2707,8 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode) => {
     .replace('__ORION_TOKEN__', token)
     .replace('__ORION_INITIAL_STORAGE__', safeData)
     .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false')
-    .replace('__ORION_PROJECT_MODE__', projectMode ? 'true' : 'false');
+    .replace('__ORION_PROJECT_MODE__', projectMode ? 'true' : 'false')
+    .replace('__ORION_SOURCE_FP__', sourceFp ? JSON.stringify(sourceFp) : 'null');
 
   if (source.indexOf('</') !== -1) {
     throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');
@@ -2632,7 +2727,8 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode) => {
  * anything touches `localStorage`.
  *
  * @param {string} code
- * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, projectMode?: boolean }} [options]
+ * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, projectMode?: boolean,
+ *   sourcePositions?: boolean }} [options]
  *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
  *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
  *   initial state, so the touch-scroll simulation and scrollbar hiding are
@@ -2640,6 +2736,8 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode) => {
  *   message that can lose the load race on srcdoc documents.
  *   `projectMode` is for imported codebases: relative links are left to the
  *   app's router and route changes are posted as 'route-changed'.
+ *   `sourcePositions` numbers the page's tags for click-to-edit
+ *   (lib/sourcePositions.js); preview only, like everything injected here.
  * @returns {{ srcDoc: string, token: string }}
  */
 export const injectPreviewBridge = (code, options = {}) => {
@@ -2649,10 +2747,13 @@ export const injectPreviewBridge = (code, options = {}) => {
     return { srcDoc: '', token };
   }
 
+  // Numbered against the stored source, before anything else rewrites it.
+  const sourceFp = options?.sourcePositions === true ? sourceFingerprint(code) : null;
+  if (sourceFp) code = stampSourcePositions(code);
   code = injectLoopProtection(compileJsxScripts(code));
 
   const initialStorage = options?.initialStorage;
-  const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true);
+  const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true, sourceFp);
   const insertAt = (index, payload) => code.slice(0, index) + payload + code.slice(index);
 
   // A leading <!DOCTYPE html> needs no special case -- it falls out of this

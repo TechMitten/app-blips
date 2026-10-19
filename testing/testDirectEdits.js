@@ -238,7 +238,7 @@ check('style change on repeated markup uses the ordinal (attribute drift)', () =
 // In-place editing commits the element snapshot captured BEFORE the typing
 // (original text = anchor) plus the new text as `changes.text` -- exactly
 // the shape App.jsx's handleElementTextCommitted forwards.
-check('in-place commit: multiline text (Shift+Enter) applies to the anchor', () => {
+check('in-place commit: multiline text (Enter) applies to the anchor as <br>', () => {
   const element = el({
     tag: 'h1',
     role: 'heading',
@@ -247,7 +247,7 @@ check('in-place commit: multiline text (Shift+Enter) applies to the anchor', () 
   });
   const result = applyDirectEdit(FIXTURE, element, { text: 'Fresh bread,\nbaked every night' });
   assert.ok(result.ok, `expected ok, got: ${result.reason}`);
-  assert.match(result.code, /Fresh bread,\nbaked every night/);
+  assert.match(result.code, /Fresh bread,<br>baked every night/);
 });
 
 check('text change handles entity-encoded source text', () => {
