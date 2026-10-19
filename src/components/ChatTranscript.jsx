@@ -1,10 +1,11 @@
-import { Brain, Loader2, RotateCcw, ShieldCheck, User } from 'lucide-react';
-import { useState } from 'react';
+import { Brain, Loader2, RotateCcw, ShieldCheck, User, Wrench } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
 import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
+import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -79,7 +80,7 @@ function ReviewOffer({ onReview, onSkip }) {
       <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
         <p className="flex items-start gap-2 text-[length:var(--chat-label-text)] text-slate-600 dark:text-white/70 leading-relaxed">
           <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Want the AI to screenshot and test this in the browser, then write a report? If it finds problems, a new chat starts to fix them. Uses extra tokens.</span>
+          <span>Want the AI to screenshot and test this in the browser, then write a report? If it finds problems, you choose whether to fix them. Uses extra tokens.</span>
         </p>
         <div className="flex gap-2">
           <button
@@ -95,6 +96,96 @@ function ReviewOffer({ onReview, onSkip }) {
             className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-[length:var(--chat-label-text)] font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             Skip
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The screenshot each problem in a review report cites, as proof of the
+// claim. Photos missing from storage (a project restored from a backup) are
+// left out.
+function ReviewEvidence({ problems, projectId }) {
+  const [urls, setUrls] = useState({});
+  const [open, setOpen] = useState(null);
+  const hashes = [...new Set(problems.map((item) => item.photo).filter(Boolean))];
+  const key = hashes.join(',');
+  useEffect(() => {
+    let cancelled = false;
+    let loaded = {};
+    loadReviewPhotoUrls(projectId, key ? key.split(',') : [])
+      .then((result) => {
+        loaded = result;
+        if (cancelled) Object.values(result).forEach((url) => URL.revokeObjectURL(url));
+        else setUrls(result);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      Object.values(loaded).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [projectId, key]);
+  const shown = problems.map((item, i) => ({ ...item, number: i + 1 })).filter((item) => urls[item.photo]);
+  if (!shown.length) return null;
+  return (
+    <div className="pl-[3.25rem] animate-fade-in">
+      <p className="text-[length:var(--chat-label-text)] font-semibold text-slate-600 dark:text-white/70 mb-1.5">Screenshot evidence</p>
+      <div className="grid grid-cols-2 gap-2">
+        {shown.map((item) => (
+          <button
+            key={item.number}
+            type="button"
+            onClick={() => setOpen(item)}
+            title={item.seenIn ? `Open full size: ${item.seenIn}` : 'Open full size'}
+            className="text-left rounded-lg border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 p-1.5 cursor-zoom-in hover:border-brand transition-colors"
+          >
+            <img
+              src={urls[item.photo]}
+              alt={`Screenshot showing problem ${item.number}: ${item.title}`}
+              className="w-full h-24 object-cover object-top rounded"
+            />
+            <span className="block mt-1 text-[length:var(--chat-label-text)] leading-snug text-slate-700 dark:text-white/80 line-clamp-2">
+              {item.number}. {item.title}
+            </span>
+          </button>
+        ))}
+      </div>
+      {open && (
+        <ImageLightbox
+          src={urls[open.photo]}
+          alt={`Screenshot showing problem ${open.number}: ${open.title}`}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Shown under a review report that found problems. Nothing is changed until
+// the user says so; fixing starts a new chat whose only request is the report.
+function FixOffer({ onFix, onSkip }) {
+  return (
+    <div className="pl-[3.25rem] animate-fade-in">
+      <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
+        <p className="flex items-start gap-2 text-[length:var(--chat-label-text)] text-slate-600 dark:text-white/70 leading-relaxed">
+          <Wrench size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
+          <span>Want the AI to fix these problems? A new chat starts with this report as its task, and the fixes are saved as a new version you can undo.</span>
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onFix}
+            className="brand-fill-text rounded-lg px-3 py-1.5 bg-brand text-white text-[length:var(--chat-label-text)] font-semibold hover:bg-brand-hover transition-colors"
+          >
+            Fix problems
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-[length:var(--chat-label-text)] font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            Not now
           </button>
         </div>
       </div>
@@ -119,6 +210,10 @@ export default function ChatTranscript({
   canOfferReview = false,
   onReview,
   onSkipReview,
+  canOfferFix = false,
+  onFixReview,
+  onSkipFix,
+  projectId = null,
 }) {
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
   return (
@@ -149,8 +244,14 @@ export default function ChatTranscript({
                 <Markdown text={displayBuildReply(ver)} />
               </ReplyRow>
             )}
+            {ver.editMode === 'review' && ver.qualityReview?.problems?.some((item) => item.photo) && (
+              <ReviewEvidence problems={ver.qualityReview.problems} projectId={projectId} />
+            )}
             {canOfferReview && ver.reviewOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
               <ReviewOffer onReview={onReview} onSkip={onSkipReview} />
+            )}
+            {canOfferFix && ver.fixOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
+              <FixOffer onFix={onFixReview} onSkip={onSkipFix} />
             )}
           </div>
         );

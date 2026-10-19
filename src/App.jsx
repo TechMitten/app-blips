@@ -26,6 +26,7 @@ import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
 import { compressImageDataUrl } from './lib/attachments';
+import { storeReviewPhotos } from './lib/reviewPhotos';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import { applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure } from './lib/directEdits';
@@ -445,10 +446,10 @@ export default function App({ coldStart = false }) {
   // ran after every build. Imported codebases have no review yet.
   const autoReviewRanRef = useRef(false);
   const handleReviewRef = useRef(null);
-  // A review that finds problems hands its report to a normal build in a
-  // fresh chat. The mission waits here until the review has fully wound down;
-  // the ref marks that build so it doesn't earn another automatic review
-  // (a failing fix would otherwise review, fix and fail forever).
+  // A review that finds problems offers to hand its report to a normal build
+  // in a fresh chat. Once the user accepts, the mission waits here until state
+  // has settled; the ref marks that build so it doesn't earn another automatic
+  // review (a failing fix would otherwise review, fix and fail forever).
   const [reviewMission, setReviewMission] = useState(null);
   const reviewFixRef = useRef(false);
   const giveUpAutoFix = useCallback(() => {
@@ -1670,10 +1671,10 @@ export default function App({ coldStart = false }) {
 
   // Runs the opt-in review offered under a finished build. The review only
   // screenshots, tests and reports; its report is saved as its own turn. If it
-  // found problems, the chat is cleared and the report becomes the first
-  // request of a new chat (see reviewMission), so the fix is a normal,
-  // undoable build. `automatic` is the run giveUpAutoFix starts when auto-fix
-  // couldn't repair a build; it doesn't need an offer.
+  // found problems, the user is asked before anything changes (fixOffer, see
+  // handleFixReview), so fixes the user doesn't want never spend tokens.
+  // `automatic` is the run giveUpAutoFix starts when auto-fix couldn't repair
+  // a build; it doesn't need an offer.
   const handleReview = async (options) => {
     const automatic = options?.automatic === true;
     if (isGeneratingRef.current) return;
@@ -1712,7 +1713,6 @@ export default function App({ coldStart = false }) {
     setGenerationStatus('Starting the review…');
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
-    let mission = null;
     try {
       const review = await reviewBuild({
         files,
@@ -1725,6 +1725,13 @@ export default function App({ coldStart = false }) {
         onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
         browser: createReviewBrowser(signal),
       });
+      // The screenshots each problem cites are kept as evidence for the user.
+      let { problems } = review.qualityReview;
+      try {
+        problems = await storeReviewPhotos(currentProjectId, problems, review.photos);
+      } catch (err) {
+        logWarn('Could not save the review screenshots', err);
+      }
       const newVersion = {
         id: Date.now(),
         prompt: REVIEW_PROMPT,
@@ -1732,26 +1739,18 @@ export default function App({ coldStart = false }) {
         timestamp: new Date().toLocaleTimeString(),
         editMode: 'review',
         reply: review.reply,
-        qualityReview: review.qualityReview,
+        qualityReview: { ...review.qualityReview, problems },
         chatMode: 'build',
         sessionId: currentChatSessionId,
+        // The fix request is saved with the report, so the offer survives
+        // reopening the project.
+        ...(review.mission ? { fixOffer: 'pending', fixMission: review.mission } : {}),
       };
       const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, ...(reviewed.reviewOffer ? { reviewOffer: 'done' } : {}) }, newVersion];
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
-      if (review.mission) {
-        // Same as "New chat": the report stays in this session's history and
-        // the fix starts a session that holds nothing but the report.
-        mission = review.mission;
-        const cutoff = finalVersions.length;
-        const nextSessionId = newChatSessionId();
-        setChatContextStartIndex(cutoff);
-        setCurrentChatSessionId(nextSessionId);
-        saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length, chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
-      } else {
-        saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
-        if (automatic && review.qualityReview.warning) setError(AUTO_FIX_FAILURE);
-      }
+      saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
+      if (automatic && !review.mission && review.qualityReview.warning) setError(AUTO_FIX_FAILURE);
     } catch (err) {
       // A cancelled review leaves the offer in place so it can be run again.
       if (err.name !== 'AbortError') {
@@ -1773,7 +1772,6 @@ export default function App({ coldStart = false }) {
       setGenerationStatus(null);
       clearStreamingState();
     }
-    if (mission) setReviewMission(mission);
   };
 
   handleReviewRef.current = handleReview;
@@ -1786,6 +1784,30 @@ export default function App({ coldStart = false }) {
     reviewFixRef.current = true;
     handleGenerateRef.current?.(null, reviewMission);
   }, [reviewMission, isGenerating]);
+
+  // The user accepted a review's offer to fix what it found. Same as "New
+  // chat": the report stays in this session's history and the fix starts a
+  // session that holds nothing but the report.
+  const handleFixReview = () => {
+    const report = versions[currentVersionIndex];
+    if (isGeneratingRef.current || report?.fixOffer !== 'pending' || !report.fixMission) return;
+    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, fixOffer: 'accepted' } : v));
+    const cutoff = currentVersionIndex + 1;
+    const nextSessionId = newChatSessionId();
+    setVersions(finalVersions);
+    setChatContextStartIndex(cutoff);
+    setCurrentChatSessionId(nextSessionId);
+    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex, chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
+    setReviewMission(report.fixMission);
+  };
+
+  const handleSkipFix = () => {
+    const report = versions[currentVersionIndex];
+    if (report?.fixOffer !== 'pending') return;
+    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, fixOffer: 'skipped' } : v));
+    setVersions(finalVersions);
+    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex });
+  };
 
   const handleSkipReview = () => {
     const reviewed = versions[currentVersionIndex];
@@ -2599,6 +2621,10 @@ export default function App({ coldStart = false }) {
               canOfferReview={askToReview && chatMode === 'build'}
               onReview={handleReview}
               onSkipReview={handleSkipReview}
+              canOfferFix={chatMode === 'build'}
+              onFixReview={handleFixReview}
+              onSkipFix={handleSkipFix}
+              projectId={currentProjectId}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}
               starterIdeas={

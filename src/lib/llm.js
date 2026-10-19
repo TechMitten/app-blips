@@ -1261,14 +1261,16 @@ const generateAppCodeWithSummary = async (...args) => {
 // The review is a separate, opt-in step (see "Code Review" in Settings):
 // it can take dozens of model calls, so builds don't run it on their own. It
 // only inspects and reports; when it finds problems, `mission` is the request
-// App sends to a normal build in a fresh chat, so the fix starts with nothing
-// but the report and the code.
+// App sends to a normal build in a fresh chat if the user accepts the fix, so
+// the fix starts with nothing but the report and the code.
 // `fixCheck` is a review of the build an earlier review's report started. Its
 // request is that report, so the reviewer's summary talks about "the fix";
 // a plain "found no problems" before it read as if nothing had been wrong.
 export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
   layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false }) => {
-  const review = await reviewGeneratedCode({
+  // The cited screenshots come back beside the review: the caller stores
+  // them as files, since qualityReview is saved with the version.
+  const { photos = {}, ...review } = await reviewGeneratedCode({
     files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
     requestModelText, browser, connectors: getActiveConnectors(),
   });
@@ -1280,7 +1282,7 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
     ? `Fix the problems a review found in this ${noun}. Change only what these fixes need and keep everything else working as it is.\n\nReview report:\n\n${report}`
     : null;
   const reply = mission
-    ? `I ${checked} ${subject} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}${fixCheck ? ' still to fix' : ''}. I'm starting a new chat to fix ${review.problems.length === 1 ? 'it' : 'them'}.\n\n${report}`
+    ? `I ${checked} ${subject} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}${fixCheck ? ' still to fix' : ''}.\n\n${report}`
     : review.warning
       ? `I ${checked} ${subject} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
       : `${fixCheck ? `I ${checked} the fixes and the ${noun} works now.` : `I ${checked} the ${noun} and found no problems.`}${review.summary ? ` ${review.summary}` : ''}`;
@@ -1293,5 +1295,9 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
       : shots
         ? `I looked at ${shots === 1 ? 'one screenshot' : `${shots} screenshots`} of it.`
         : 'I didn\'t take any screenshots, so I checked the page\'s text and layout without seeing it.';
-  return { qualityReview: review, report, mission, reply: seen ? `${reply}\n\n${seen}` : reply };
+  const dropped = review.unshownDropped
+    ? `I left out ${review.unshownDropped === 1 ? 'one problem' : `${review.unshownDropped} problems`} I couldn't show in a screenshot.`
+    : '';
+  const notes = [seen, dropped].filter(Boolean).join(' ');
+  return { qualityReview: review, photos, report, mission, reply: notes ? `${reply}\n\n${notes}` : reply };
 };

@@ -23,6 +23,7 @@ try {
     assert.equal(view.scrollY, 0, name);
     assert.equal(view.pageHeight, 3000, name);
     assert.equal(view.atBottom, false, name);
+    assert.equal(view.visibleHeight, 600, `${name} reports one screen of the part that scrolls`);
     const result = await act({ action: 'scroll', y: 500 });
     assert.equal(result.scrolledBy, 500, `${name} scrolls right away`);
     view = await viewport();

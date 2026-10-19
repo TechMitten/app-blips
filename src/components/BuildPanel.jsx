@@ -38,6 +38,10 @@ export default function BuildPanel({
   canOfferReview = false,
   onReview,
   onSkipReview,
+  canOfferFix = false,
+  onFixReview,
+  onSkipFix,
+  projectId = null,
   chatBottomRef,
   interruptedJob = null,
   onRetryInterruptedJob,
@@ -184,6 +188,10 @@ export default function BuildPanel({
                 canOfferReview={canOfferReview}
                 onReview={onReview}
                 onSkipReview={onSkipReview}
+                canOfferFix={canOfferFix}
+                onFixReview={onFixReview}
+                onSkipFix={onSkipFix}
+                projectId={projectId}
               />
             </>
           )}

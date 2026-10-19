@@ -38,7 +38,7 @@ try {
   assert.equal(result.editMode, 'ask');
   assert.equal(requests.length, 1, 'questions do not start a code review');
 
-  // The review only reports. Problems become a mission for a fresh chat.
+  // The review only reports. Problems become a mission the user can send to a fresh chat.
   const reportCall = (problems) => ({ tool_calls: [call('submit_review_report', { summary: 'Checked.', problems })] });
   requests = [];
   responses = [reportCall([{ title: 'Save does nothing', evidence: 'Clicked Save, nothing was stored.', fix: 'Add a click handler.' }])];
@@ -47,7 +47,8 @@ try {
   assert.equal(result.files, undefined, 'a review never edits');
   assert.match(result.mission, /^Fix the problems a review found in this app\./);
   assert.match(result.mission, /1\. Save does nothing: Clicked Save/);
-  assert.match(result.reply, /found one problem\. I'm starting a new chat/);
+  assert.match(result.reply, /found one problem\.\n\nChecked\./);
+  assert.doesNotMatch(result.reply, /starting a new chat/, 'fixing waits for the user');
   assert.ok(requests[0].messages.some((msg) => typeof msg.content === 'string' && msg.content.includes('Project before this edit')));
   assert.equal(responses.length, 0, 'a review makes no extra summary call');
 

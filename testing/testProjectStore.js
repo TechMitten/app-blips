@@ -286,3 +286,32 @@ test('codebase blob GC deletes only old unreferenced blobs', () => withStore(asy
   assert.ok(existsSync(join(blobs, sha(fresh))), 'young unreferenced blob kept (its row may not be saved yet)');
   assert.ok(!existsSync(join(blobs, sha(old))));
 }));
+
+// --- Code review evidence: screenshots any project's review cites ---
+test('review photos: orphan blobs move into an app project; GC keeps cited ones', () => withStore(async (store, dir) => {
+  const photo = 'jpeg bytes';
+  await store.putBlobs('55', [blob(photo)]);
+  const row = { id: '55', name: 'Reviewed App', updatedAt: new Date().toISOString(), data: {
+    versions: [{ files: { 'index.html': '<h1>x</h1>' } }, { files: { 'index.html': '<h1>x</h1>' }, editMode: 'review',
+      qualityReview: { problems: [{ title: 'Overlap', evidence: 'e', fix: 'f', screenshot: 1, photo: sha(photo) }] } }],
+    currentVersionIndex: 1,
+  } };
+  await store.save(row);
+  const blobs = join(store.root, 'Reviewed App', 'blobs');
+  assert.ok(existsSync(join(blobs, sha(photo))), 'adopted on first save');
+  assert.ok(!existsSync(join(dir, 'app-data', 'blobs', '55')));
+  assert.equal((await store.readBlob('55', sha(photo))).toString(), photo);
+
+  // A codebase's GC must not delete a photo its versions cite.
+  const tree = 'tree';
+  await store.save(codebaseRow('56', 'Reviewed Codebase', [{ 'a.txt': sha(tree) }]));
+  await store.putBlobs('56', [blob(tree), blob(photo)]);
+  const codebaseBlobs = join(store.root, 'Reviewed Codebase', 'blobs');
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  await utimes(join(codebaseBlobs, sha(photo)), twoHoursAgo, twoHoursAgo);
+  const cited = codebaseRow('56', 'Reviewed Codebase', [{ 'a.txt': sha(tree) }]);
+  cited.data.versions[0].qualityReview = { problems: [{ photo: sha(photo) }] };
+  const again = createProjectStore({ root: store.root, orphanDir: join(dir, 'app-data') });
+  await again.save(cited);
+  assert.ok(existsSync(join(codebaseBlobs, sha(photo))));
+}));

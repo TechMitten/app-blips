@@ -41,12 +41,13 @@ export function createBrowserRuntime() {
     return best || root();
   };
   const scrollTop = (el) => (el === root() ? scrollY : el.scrollTop);
-  // pageHeight and atBottom tell the reviewer how many more screens a long page has.
+  // pageHeight and atBottom tell the reviewer how many more screens a long page has;
+  // visibleHeight is one screen of the part that scrolls, the step for a full-page screenshot.
   const scrollInfo = () => {
     const el = scroller();
     const top = scrollTop(el);
     const shown = el === root() ? innerHeight : el.clientHeight;
-    return { width: innerWidth, height: innerHeight, scrollX, scrollY: Math.round(top), pageHeight: el.scrollHeight, atBottom: top + shown >= el.scrollHeight - 1 };
+    return { width: innerWidth, height: innerHeight, scrollX, scrollY: Math.round(top), pageHeight: el.scrollHeight, visibleHeight: shown, atBottom: top + shown >= el.scrollHeight - 1 };
   };
   const inspect = () => {
     for (const [id, el] of nodes) if (!el.isConnected) nodes.delete(id);

@@ -2459,6 +2459,27 @@ const BRIDGE_SOURCE = `(function () {
         cloneEls[i].setAttribute('style', (prior ? prior + ';' : '') + frozen);
       }
 
+      // A clone keeps no scroll offsets. The window's is applied by the
+      // parent, but app layouts usually scroll an inner panel instead, which
+      // would always capture at its top. Shift that panel's children by its
+      // offset with the translate property, which composes with the frozen
+      // transform above rather than replacing it. Fixed and sticky children
+      // stay put, as they do on screen.
+      var scrollingEl = document.scrollingElement || document.documentElement;
+      for (i = 0; i < liveEls.length && i < cloneEls.length; i++) {
+        var scrolledEl = liveEls[i];
+        if (scrolledEl === scrollingEl || (!scrolledEl.scrollTop && !scrolledEl.scrollLeft)) continue;
+        var liveKids = scrolledEl.children;
+        var cloneKids = cloneEls[i].children;
+        for (var ki = 0; ki < liveKids.length && ki < cloneKids.length; ki++) {
+          var kidPosition = window.getComputedStyle(liveKids[ki]).position;
+          if (kidPosition === 'fixed' || kidPosition === 'sticky') continue;
+          var kidStyle = cloneKids[ki].getAttribute('style');
+          cloneKids[ki].setAttribute('style', (kidStyle ? kidStyle + ';' : '') +
+            'translate:' + -scrolledEl.scrollLeft + 'px ' + -scrolledEl.scrollTop + 'px !important;');
+        }
+      }
+
       // <head> holds nothing renderable -- its stylesheet text is collected
       // below instead -- and skipping it keeps the payload small.
       var clonedHead = clone.querySelector('head');

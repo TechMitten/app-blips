@@ -9,9 +9,11 @@
 //     app-data.json  the generated app's own localStorage (lib/previewStorage.js)
 //     site/*.html    the current version's pages, rewritten on every save. A
 //                    read-only convenience copy: project.json is the source of truth.
-//     blobs/<sha256> imported codebases only (studioMode 'codebase'): file contents,
+//     blobs/<sha256> imported codebases (studioMode 'codebase'): file contents,
 //                    stored once each; versions in project.json reference them by
 //                    hash. site/ then holds the whole project tree instead of pages.
+//                    Any project: the screenshots a code review cites as evidence
+//                    (qualityReview.problems[].photo, lib/reviewPhotos.js).
 //
 // The renderer only ever names a project by id; folder names are derived here
 // from the project name and never accepted from IPC. App data for an id with no
@@ -96,7 +98,8 @@ const isCodebaseRow = (row) => row?.data?.studioMode === 'codebase';
 function referencedBlobs(row) {
   const hashes = new Set();
   for (const version of Array.isArray(row?.data?.versions) ? row.data.versions : []) {
-    for (const map of [version?.tree, version?.assets]) {
+    const photos = Array.isArray(version?.qualityReview?.problems) ? version.qualityReview.problems.map((item) => item?.photo) : [];
+    for (const map of [version?.tree, version?.assets, photos]) {
       if (!map || typeof map !== 'object') continue;
       for (const hash of Object.values(map)) if (typeof hash === 'string' && HASH_RE.test(hash)) hashes.add(hash);
     }
@@ -378,7 +381,8 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         if (!current && existsSync(orphanPath(row.id))) {
           await rename(orphanPath(row.id), join(dir, APP_DATA_FILE)).catch((err) => console.warn('[projectStore] could not move draft app data into', dir, err));
         }
-        if (isCodebaseRow(row)) await adoptOrphanBlobs(row.id, dir);
+        // Review screenshots can be written before any project has a folder.
+        await adoptOrphanBlobs(row.id, dir);
         await writeSiteMirror(dir, row);
         if (isCodebaseRow(row)) await collectBlobs(dir, row);
       });
