@@ -30,8 +30,11 @@ const COPY = {
 // first prompt is submitted. It owns no generation state -- the prompt,
 // attachment and mode state all live in App and are shared with the composer
 // the workspace uses later, so nothing typed here is lost in the hand-off.
+// `theme` is the app's resolved theme: dark keeps the near-black coral look,
+// light mirrors the studio picker (see hero-landing.css).
 export default function HeroLanding({
   studioMode = 'app',
+  theme = 'dark',
   chatMode,
   onChatModeChange,
   prompt,
@@ -64,7 +67,7 @@ export default function HeroLanding({
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
 
   return (
-    <div className="hero-landing dark force-dark flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row">
+    <div className={`hero-landing${theme === 'light' ? '' : ' dark force-dark'} flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row`}>
       <HeroSidebar
         collapsed={railCollapsed}
         onToggleCollapsed={toggleRail}

@@ -1,15 +1,18 @@
 /* First-build hero (HeroLanding.jsx / HeroSidebar.jsx): the screen shown after
-   the studio pick until the first prompt is submitted. It is always dark,
-   whatever the app theme (the theme toggle lives in the workspace header,
-   which takes over after the first build). Near-black canvas (matching the
-   app's own dark-theme ground, --color-slate-50) with the coral from the app
-   icon (#eb6150) as the one accent colour -- a quiet SaaS backdrop rather
-   than a multicolour gradient. */
+   the studio pick until the first prompt is submitted. It follows the app
+   theme. Dark: near-black canvas (matching the app's own dark-theme ground,
+   --color-slate-50) with the coral from the app icon (#eb6150) as the one
+   accent colour -- a quiet SaaS backdrop rather than a multicolour gradient.
+   Light: the studio picker's look (studio-choice.css) so the jump from one to
+   the other feels continuous -- slate ground, pastel colour blobs under a
+   fine grid, solid white surfaces with layered shadows. The light overrides
+   are the `:not(.dark)` blocks below; HeroLanding only adds `dark force-dark`
+   when the theme is dark. */
 
-/* Mostly flat black, with two faint coral blooms (top-left, bottom-right) so
-   the colour travels on a diagonal instead of sitting dead-centre. Pinned
-   dark in both app themes (the root also carries `dark force-dark`, so the
-   composer and chips take their dark styles). */
+/* Dark values: mostly flat black, with two faint coral blooms (top-left,
+   bottom-right) so the colour travels on a diagonal instead of sitting
+   dead-centre. In dark the root also carries `dark force-dark`, so the
+   composer and chips take their dark styles. */
 .hero-landing {
   background: var(--hero-ground);
   --hero-ground: #080808;
@@ -241,4 +244,94 @@
     justify-content: center;
     padding: 0.5rem;
   }
+}
+
+/* ===== Light theme ===== */
+
+.hero-landing:not(.dark) {
+  /* A cool slate rather than near-white, as on the picker, so the white
+     surfaces and dark text have something to stand against. */
+  --hero-ground: #dde3ed;
+  --hero-title: #0b1220;
+  --hero-title-shadow: none;
+  --hero-subtitle: rgb(11 18 32 / 0.74);
+  --hero-subtitle-shadow: none;
+  --hero-stage-edge: rgb(15 23 42 / 0.13);
+  --hero-drift: rgb(125 211 252 / 0.4);
+  /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand),
+     static here; the ::before bloom below supplies the movement. */
+  --hero-stage-bg:
+    radial-gradient(44% 50% at 12% 10%, rgb(56 189 248 / 0.5), transparent 72%),
+    radial-gradient(40% 46% at 90% 8%, rgb(34 211 238 / 0.36), transparent 72%),
+    radial-gradient(42% 46% at 90% 94%, rgb(251 168 90 / 0.44), transparent 74%),
+    radial-gradient(44% 46% at 8% 92%, rgb(52 211 153 / 0.38), transparent 74%),
+    radial-gradient(54% 36% at 50% 50%, rgb(186 230 253 / 0.55), transparent 74%),
+    #e4eaf3;
+  --hero-rail-fg: rgb(11 18 32 / 0.76);
+  --hero-rail-fg-strong: #0b1220;
+  --hero-rail-hover: rgb(15 23 42 / 0.08);
+  --hero-rail-primary: #ffffff;
+  --hero-rail-muted: rgb(11 18 32 / 0.6);
+  --hero-chip-bg: rgb(255 255 255 / 0.9);
+  --hero-chip-bg-hover: #ffffff;
+  --hero-chip-border: rgb(15 23 42 / 0.14);
+  --hero-chip-border-hover: rgb(15 23 42 / 0.3);
+  --hero-chip-fg: #0b1220;
+}
+
+/* The picker's fine line grid, fading out towards the edges. */
+.hero-landing:not(.dark) .hero-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
+}
+
+/* Composer: a solid white card with the picker's layered shadow (a tight
+   contact shadow plus a long soft one), and a soft blue halo while typing. */
+.hero-landing:not(.dark) .hero-composer .prompt-input-dock {
+  border: 1px solid rgb(15 23 42 / 0.14);
+  background: rgb(255 255 255 / 0.94);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgb(15 23 42 / 0.08),
+    0 18px 38px -16px rgb(15 23 42 / 0.32);
+}
+
+.hero-landing:not(.dark) .hero-composer .prompt-input-dock:focus-within {
+  border-color: rgb(14 116 144 / 0.5);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 0 0 4px rgb(56 189 248 / 0.22),
+    0 2px 4px rgb(15 23 42 / 0.1),
+    0 24px 46px -16px rgb(15 23 42 / 0.4);
+}
+
+.hero-landing:not(.dark) .starter-chip {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 16px -10px rgb(15 23 42 / 0.25);
+}
+
+.hero-landing:not(.dark) .starter-chip:hover {
+  box-shadow: 0 2px 4px rgb(15 23 42 / 0.1), 0 14px 22px -12px rgb(15 23 42 / 0.35);
+  transform: translateY(-1px);
+}
+
+/* The rail's primary key becomes a white card, like the picker's. */
+.hero-landing:not(.dark) .hero-rail-item-primary {
+  border: 1px solid rgb(15 23 42 / 0.13);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 16px -10px rgb(15 23 42 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-landing:not(.dark) .starter-chip:hover { transform: none; }
 }

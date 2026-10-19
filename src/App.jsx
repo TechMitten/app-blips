@@ -2535,6 +2535,7 @@ export default function App({ coldStart = false }) {
       {isResumingProject ? null : showHero ? (
         <HeroLanding
           studioMode={studioMode}
+          theme={resolvedTheme}
           chatMode={chatMode}
           onChatModeChange={setChatMode}
           prompt={prompt}
