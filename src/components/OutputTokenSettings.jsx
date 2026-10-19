@@ -56,8 +56,8 @@ function OutputTokenLimit({ askMode = false, title, description }) {
 export default function OutputTokenSettings() {
   return (
     <>
-      <OutputTokenLimit title="Output tokens: building" description={`Maximum tokens per response when building, editing, reviewing, or fixing code. Leave empty for the default of ${DEFAULT_BUILD_MAX_TOKENS.toLocaleString('en-US')}, enough for a large app. Thinking also uses this allowance.`} />
-      <OutputTokenLimit askMode title="Output tokens: Ask" description="Maximum tokens per Ask response. Leave empty to let your AI provider choose. Changes are saved automatically." />
+      <OutputTokenLimit title="Output tokens: building" description={`Maximum tokens per response when building, editing or fixing code, including thinking. Leave empty for the default of ${DEFAULT_BUILD_MAX_TOKENS.toLocaleString('en-US')}.`} />
+      <OutputTokenLimit askMode title="Output tokens: Ask" description="Maximum tokens per Ask response. Leave empty to let your AI provider choose." />
     </>
   );
 }

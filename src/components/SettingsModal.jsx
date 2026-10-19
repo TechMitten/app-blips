@@ -342,7 +342,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-reasoning-build"
                 title="Reasoning"
-                description="Let the AI reason before it writes code, both when building a new app and when changing or fixing one. Low by default. Low is faster and cheaper; High thinks harder for complex apps."
+                description="Let the AI think before it writes code, whether building, editing or fixing. Low is faster and cheaper; High suits complex apps."
               >
                 <Segmented
                   label="Reasoning"
@@ -351,16 +351,16 @@ export default function SettingsModal({
                   options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
                 />
               </SettingRow>
-              <SettingRow id="set-clarify" title="Clarifying questions" description="Allow the AI to ask helpful clarifying questions about your prompt before generating the code.">
+              <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              <SettingRow id="set-ask-review" title={<>Code Review <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span></>} description="After every build or edit, ask whether the AI should screenshot and test it in the browser and write a report. If the report lists problems, a new chat starts with the report as its task. A review can use a lot of extra tokens, so it only runs when you say yes. Off by default. Turn it off to skip the question and the review.">
+              <SettingRow id="set-ask-review" title={<>Code Review <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span></>} description="After each build or edit, ask whether the AI should test it in the browser and report problems. Problems found start a new chat to fix them. Reviews use extra tokens, so one only runs when you say yes.">
                 <Switch checked={askToReview} onChange={onAskToReviewChange} labelledBy="set-ask-review" />
               </SettingRow>
-              <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a new game, the AI picks the best engine for it: Phaser for platformers, shooters and RPGs, Three.js for 3D, and no engine (faster to load) for simple arcade, puzzle and card games. Naming an engine in your prompt always wins. Off lets the builder choose as it writes.">
+              <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a game, the AI picks the best engine: Phaser for platformers, shooters and RPGs, Three.js for 3D, or none for simple games. Naming an engine in your prompt always wins. Off lets the builder choose.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />
               </SettingRow>
-              <SettingRow id="set-addon-router" title="Smart website add-ons" description="Before building a new website, the AI picks ready-made libraries that suit it: Swiper for carousels, GLightbox for full-screen photos, GSAP or AOS for scroll animations, Lenis for smooth scrolling, Alpine.js for tabs and toggles, Chart.js for charts and Leaflet for maps. Simple sites get none, so they load faster. Naming a library in your prompt always wins. Off builds new websites with plain JavaScript only.">
+              <SettingRow id="set-addon-router" title="Smart website add-ons" description="Before building a website, the AI picks suitable libraries, such as Swiper, GSAP, Chart.js or Leaflet. Simple sites get none. Naming a library in your prompt always wins. Off uses plain JavaScript only.">
                 <Switch checked={websiteAddonRouter} onChange={onWebsiteAddonRouterChange} labelledBy="set-addon-router" />
               </SettingRow>
             </>
