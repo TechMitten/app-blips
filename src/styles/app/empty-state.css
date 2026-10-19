@@ -595,21 +595,67 @@
 /* ===== Phone build state ====================================================
    The generating state is deliberately a self-contained visual system. It
    sits above the real preview iframe, so the phone remains useful while code
-   is arriving, but the state feels like a native creation surface: midnight
-   glass, a blueprint grid, electric-blue light, and a compact code terminal. */
+   is arriving, but the state feels like a native creation surface: a blueprint
+   grid, electric-blue light, and a compact code terminal.
+
+   Every color below is a --build-* / --peek-* variable. The defaults are the
+   light theme (frosted paper with blue ink); the dark block at the end of the
+   file swaps in the midnight-glass palette. The device bezel and notch stay
+   black in both themes, like the hardware they imitate. */
 .building-overlay {
-  --build-ink: #f5f7ff;
-  --build-muted: #b3c1e4;
-  --build-blue: #6ea1ff;
-  --build-blue-bright: #a9c6ff;
-  --build-panel: #0b1427;
+  /* Light palette */
+  --build-ink: #0f1a33;
+  --build-muted: #46567a;
+  --build-blue: #2f61e8;
+  --build-blue-bright: #2f61e8;
+  --build-status-ink: #1b2742;
+  --build-bg:
+    radial-gradient(90% 42% at 50% 22%, rgb(79 124 255 / 0.16), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(99 102 241 / 0.12), transparent 74%),
+    linear-gradient(180deg, #f7faff 0%, #ecf1fc 54%, #e4ebf9 100%);
+  --build-grid: rgb(59 100 220 / 0.09);
+  --build-vignette:
+    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(120 140 200 / 0.14) 100%);
+  --build-title-glow: none;
+  --build-remaining: #5a6b91;
+  --build-spinner-glow: drop-shadow(0 0 14px rgb(59 100 240 / 0.16));
+  --build-core-bg: radial-gradient(circle at 38% 28%, rgb(79 124 255 / 0.14), transparent 55%), #ffffff;
+  --build-core-border: rgb(79 120 240 / 0.45);
+  --build-core-shadow: inset 0 0 18px rgb(79 124 255 / 0.14), 0 4px 16px rgb(59 100 230 / 0.2);
+  --build-tick: rgb(59 107 240 / 0.6);
+  --build-sweep: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(59 107 240 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg);
+  --build-glyph: #2f61e8;
+  --build-glyph-glow: drop-shadow(0 0 6px rgb(59 100 240 / 0.3));
+  --build-dot: #b4c4ea;
+  --build-dot-ring: rgb(59 100 220 / 0.1);
+  --build-dot-1: #3b6fe8;
+  --build-dot-1-glow: 0 0 8px rgb(59 111 232 / 0.55);
+  --build-dot-2: #6d93ee;
+  --build-dot-2-glow: 0 0 8px rgb(59 111 232 / 0.35);
+
+  --peek-bg: linear-gradient(180deg, #ffffff, #f2f6fd);
+  --peek-border: rgb(79 120 240 / 0.5);
+  --peek-shadow:
+    0 0 0 1px rgb(79 120 240 / 0.12),
+    0 12px 32px -12px rgb(40 70 160 / 0.3),
+    inset 0 1px 0 #ffffff;
+  --peek-bar-bg: linear-gradient(180deg, rgb(79 120 240 / 0.11), rgb(79 120 240 / 0.05));
+  --peek-bar-line: rgb(79 120 240 / 0.2);
+  --peek-bar-dot: #3b6fe8;
+  --peek-bar-dot-glow: 0 0 8px rgb(59 111 232 / 0.5);
+  --peek-bar-label: #4a5d8a;
+  --peek-text: #24292f;
+  --peek-thinking: #334155;
+  --peek-thinking-label: #64748b;
+  --peek-footer: #55688f;
+  --peek-footer-line: rgb(79 120 240 / 0.2);
+  --peek-activity: #3b6fe8;
+  --peek-activity-glow: 0 0 4px rgb(59 111 232 / 0.5);
+
   container-type: inline-size;
   isolation: isolate;
   overflow: hidden;
-  background:
-    radial-gradient(90% 42% at 50% 22%, rgb(41 82 177 / 0.28), transparent 72%),
-    radial-gradient(70% 35% at 50% 100%, rgb(26 67 152 / 0.22), transparent 74%),
-    linear-gradient(180deg, #101a31 0%, #080e1d 54%, #060b16 100%);
+  background: var(--build-bg);
 }
 
 .building-overlay::before {
@@ -619,8 +665,8 @@
   z-index: -1;
   pointer-events: none;
   background-image:
-    linear-gradient(rgb(112 157 255 / 0.075) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(112 157 255 / 0.075) 1px, transparent 1px);
+    linear-gradient(var(--build-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--build-grid) 1px, transparent 1px);
   background-size: 30px 30px;
   mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.9), transparent 92%);
 }
@@ -631,9 +677,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(2 7 19 / 0.42) 100%),
-    linear-gradient(90deg, rgb(1 5 14 / 0.28), transparent 24%, transparent 76%, rgb(1 5 14 / 0.34));
+  background: var(--build-vignette);
 }
 
 .building-device-status {
@@ -645,7 +689,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #edf3ff;
+  color: var(--build-status-ink);
   font: 500 clamp(12px, 4cqi, 16px)/1 var(--font-control);
   letter-spacing: -0.03em;
 }
@@ -765,7 +809,7 @@
   width: clamp(92px, 28cqi, 112px) !important;
   height: clamp(92px, 28cqi, 112px) !important;
   margin-bottom: clamp(12px, 3.5cqi, 16px) !important;
-  filter: drop-shadow(0 0 17px rgb(65 113 255 / 0.22));
+  filter: var(--build-spinner-glow);
 }
 
 .building-spinner::after {
@@ -773,21 +817,21 @@
   position: absolute;
   inset: 22%;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 28%, rgb(69 110 255 / 0.25), transparent 49%), #101b40;
-  border: 1px solid rgb(111 141 255 / 0.7);
-  box-shadow: inset 0 0 20px rgb(43 81 210 / 0.45), 0 0 20px rgb(49 92 228 / 0.26);
+  background: var(--build-core-bg);
+  border: 1px solid var(--build-core-border);
+  box-shadow: var(--build-core-shadow);
 }
 
 .building-spinner-track {
   border-color: transparent !important;
-  background: repeating-conic-gradient(from -4deg, rgb(90 139 255 / 0.9) 0deg 1.2deg, transparent 1.2deg 9deg) !important;
+  background: repeating-conic-gradient(from -4deg, var(--build-tick) 0deg 1.2deg, transparent 1.2deg 9deg) !important;
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
 }
 
 .building-spinner-ring {
   border-color: transparent !important;
-  background: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(82 128 255 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg) !important;
+  background: var(--build-sweep) !important;
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
   animation: build-sweep 1.8s linear infinite;
@@ -797,8 +841,8 @@
   z-index: 1;
   width: clamp(36px, 10.5cqi, 44px);
   height: clamp(36px, 10.5cqi, 44px);
-  color: #b4c9ff !important;
-  filter: drop-shadow(0 0 8px rgb(92 137 255 / 0.9));
+  color: var(--build-glyph) !important;
+  filter: var(--build-glyph-glow);
 }
 
 .building-title {
@@ -807,7 +851,7 @@
   line-height: 1.1;
   letter-spacing: -0.04em;
   font-style: normal;
-  text-shadow: 0 2px 18px rgb(77 119 255 / 0.16);
+  text-shadow: var(--build-title-glow);
 }
 
 .building-status {
@@ -828,17 +872,17 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2b4d9d;
-  box-shadow: 0 0 0 1px rgb(111 151 255 / 0.06);
+  background: var(--build-dot);
+  box-shadow: 0 0 0 1px var(--build-dot-ring);
   animation: build-dot-pulse 1.35s ease-in-out infinite;
 }
 
-.building-progress-dots i:nth-child(1) { animation-delay: -0.9s; background: #79aeff; box-shadow: 0 0 10px rgb(81 139 255 / 0.85); }
-.building-progress-dots i:nth-child(2) { animation-delay: -0.45s; background: #5289f3; box-shadow: 0 0 10px rgb(81 139 255 / 0.65); }
+.building-progress-dots i:nth-child(1) { animation-delay: -0.9s; background: var(--build-dot-1); box-shadow: var(--build-dot-1-glow); }
+.building-progress-dots i:nth-child(2) { animation-delay: -0.45s; background: var(--build-dot-2); box-shadow: var(--build-dot-2-glow); }
 
 .building-remaining {
   margin-top: 12px;
-  color: #a9bbe6;
+  color: var(--build-remaining);
   font: 600 clamp(15px, 4.6cqi, 18px)/1.2 var(--font-control);
   font-style: normal;
 }
@@ -847,30 +891,27 @@
   width: min(600px, 98%);
   min-height: clamp(260px, 45%, 520px);
   border-radius: 23px;
-  background: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
-  border: 1px solid rgb(95 142 255 / 0.95);
-  box-shadow:
-    0 0 0 1px rgb(47 94 212 / 0.35),
-    0 0 24px rgb(42 97 255 / 0.24),
-    inset 0 1px 0 rgb(177 204 255 / 0.2);
+  background: var(--peek-bg);
+  border: 1px solid var(--peek-border);
+  box-shadow: var(--peek-shadow);
 }
 
 .live-code-peek-bar {
   min-height: 52px;
   padding: 0 18px;
-  border-bottom: 1px solid rgb(98 142 234 / 0.35);
-  background: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
+  border-bottom: 1px solid var(--peek-bar-line);
+  background: var(--peek-bar-bg);
 }
 
 .live-code-peek-dot {
   width: 15px;
   height: 15px;
-  background: #5b97ff;
-  box-shadow: 0 0 12px rgb(82 143 255 / 0.9);
+  background: var(--peek-bar-dot);
+  box-shadow: var(--peek-bar-dot-glow);
 }
 
 .live-code-peek-label {
-  color: #b9cdf6;
+  color: var(--peek-bar-label);
   font-size: clamp(9px, 3cqi, 12px);
   letter-spacing: 0.09em;
   white-space: nowrap;
@@ -881,32 +922,25 @@
 
 .live-code-peek-body {
   padding: 16px 14px 12px;
-  color: #bcd0f9;
+  color: var(--peek-text);
   font-size: clamp(9px, 3.2cqi, 12px);
   line-height: 1.72;
 }
 
-.live-code-peek-body .line-content { color: #bcd0f9; }
+.live-code-peek-body .line-content { color: var(--peek-text); }
 
-/* The base peek colors are for a white pane; on this always-dark overlay the
-   light theme's dark ink made the model's reasoning nearly invisible, so a
-   long think looked like a stall. */
+/* The model's reasoning shares the card with the code; it needs its own ink
+   so a long think never fades into the pane and looks like a stall. */
 .live-code-peek-reasoning {
-  color: #bcd0f9;
+  color: var(--peek-thinking);
   font-size: clamp(11px, 3.4cqi, 13px);
   opacity: 1;
 }
 
 .live-code-peek-reasoning-label {
-  color: #8fa6d8;
+  color: var(--peek-thinking-label);
   font-size: clamp(9px, 3cqi, 11px);
 }
-.live-code-peek .token-comment { color: #7484a9; }
-.live-code-peek .token-doctype,
-.live-code-peek .token-keyword { color: #d58dff; }
-.live-code-peek .token-tag-name { color: #6cc9ff; }
-.live-code-peek .token-attr-name { color: #75e0dd; }
-.live-code-peek .token-string { color: #ffc35a; }
 
 .live-code-peek-footer {
   display: flex;
@@ -914,8 +948,8 @@
   gap: clamp(9px, 2.4vw, 16px);
   min-height: 61px;
   padding: 0 18px;
-  border-top: 1px solid rgb(98 142 234 / 0.3);
-  color: #9bb1dd;
+  border-top: 1px solid var(--peek-footer-line);
+  color: var(--peek-footer);
   font: 500 clamp(9px, 3.2cqi, 12px)/1 var(--font-control);
   font-style: normal;
 }
@@ -935,8 +969,8 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #609cff;
-  box-shadow: 0 0 5px rgb(86 145 255 / 0.9);
+  background: var(--peek-activity);
+  box-shadow: var(--peek-activity-glow);
 }
 
 .live-code-peek-activity i:nth-child(1) { transform: translateY(-10px); opacity: 1; }
@@ -970,15 +1004,81 @@
   .building-progress-dots i { animation: none; }
 }
 
-/* Dark mode historically gave the build overlay a higher-specificity
-   "all direct children are in the instrument layer" rule. Repeat the few
-   positioning and surface rules here so the reference phone treatment wins
-   in the normal dark application theme too. */
+/* Dark theme: midnight glass. This block sits last and repeats a few
+   positioning rules because the earlier "plotter at night" dark rules have
+   higher specificity than the plain classes above (they would otherwise win
+   and put the status bar and notch back in the flow). */
 :is(html.dark, .force-dark) .building-overlay {
-  background:
+  --build-ink: #f5f7ff;
+  --build-muted: #b3c1e4;
+  --build-blue: #6ea1ff;
+  --build-blue-bright: #a9c6ff;
+  --build-status-ink: #edf3ff;
+  --build-bg:
     radial-gradient(90% 42% at 50% 22%, rgb(41 82 177 / 0.28), transparent 72%),
     radial-gradient(70% 35% at 50% 100%, rgb(26 67 152 / 0.22), transparent 74%),
     linear-gradient(180deg, #101a31 0%, #080e1d 54%, #060b16 100%);
+  --build-grid: rgb(112 157 255 / 0.075);
+  --build-vignette:
+    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(2 7 19 / 0.42) 100%),
+    linear-gradient(90deg, rgb(1 5 14 / 0.28), transparent 24%, transparent 76%, rgb(1 5 14 / 0.34));
+  --build-title-glow: 0 2px 18px rgb(77 119 255 / 0.16);
+  --build-remaining: #a9bbe6;
+  --build-spinner-glow: drop-shadow(0 0 17px rgb(65 113 255 / 0.22));
+  --build-core-bg: radial-gradient(circle at 38% 28%, rgb(69 110 255 / 0.25), transparent 49%), #101b40;
+  --build-core-border: rgb(111 141 255 / 0.7);
+  --build-core-shadow: inset 0 0 20px rgb(43 81 210 / 0.45), 0 0 20px rgb(49 92 228 / 0.26);
+  --build-tick: rgb(90 139 255 / 0.9);
+  --build-sweep: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(82 128 255 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg);
+  --build-glyph: #c1d2ff;
+  --build-glyph-glow: drop-shadow(0 0 10px rgb(92 137 255 / 0.95));
+  --build-dot: #2b4d9d;
+  --build-dot-ring: rgb(111 151 255 / 0.06);
+  --build-dot-1: #79aeff;
+  --build-dot-1-glow: 0 0 10px rgb(81 139 255 / 0.85);
+  --build-dot-2: #5289f3;
+  --build-dot-2-glow: 0 0 10px rgb(81 139 255 / 0.65);
+
+  --peek-bg: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
+  --peek-border: rgb(95 142 255 / 0.95);
+  --peek-shadow:
+    0 0 0 1px rgb(47 94 212 / 0.35),
+    0 0 24px rgb(42 97 255 / 0.24),
+    inset 0 1px 0 rgb(177 204 255 / 0.2);
+  --peek-bar-bg: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
+  --peek-bar-line: rgb(98 142 234 / 0.35);
+  --peek-bar-dot: #5b97ff;
+  --peek-bar-dot-glow: 0 0 12px rgb(82 143 255 / 0.9);
+  --peek-bar-label: #b9cdf6;
+  --peek-text: #bcd0f9;
+  --peek-thinking: #bcd0f9;
+  --peek-thinking-label: #8fa6d8;
+  --peek-footer: #9bb1dd;
+  --peek-footer-line: rgb(98 142 234 / 0.3);
+  --peek-activity: #609cff;
+  --peek-activity-glow: 0 0 5px rgb(86 145 255 / 0.9);
+}
+
+:is(html.dark, .force-dark) .live-code-peek {
+  --peek-fg: #bcd0f9;
+  --peek-label: #8b93a8;
+  --peek-accent: #7c89ff;
+  --peek-comment: #7484a9;
+  --peek-doctype: #d58dff;
+  --peek-tag: #6cc9ff;
+  --peek-attr: #75e0dd;
+  --peek-string: #ffc35a;
+  --peek-keyword: #d58dff;
+  min-height: clamp(260px, 45%, 520px);
+  background: var(--peek-bg);
+  border-color: var(--peek-border);
+  box-shadow: var(--peek-shadow);
+}
+
+:is(html.dark, .force-dark) .live-code-peek-bar {
+  min-height: 52px;
+  border-bottom-color: var(--peek-bar-line);
+  background: var(--peek-bar-bg);
 }
 
 :is(html.dark, .force-dark) .building-overlay > .building-device-status {
@@ -997,21 +1097,10 @@
 }
 
 :is(html.dark, .force-dark) .building-spinner-glyph {
-  color: #c1d2ff !important;
-  filter: drop-shadow(0 0 10px rgb(92 137 255 / 0.95));
+  color: var(--build-glyph) !important;
+  filter: var(--build-glyph-glow);
 }
 
-:is(html.dark, .force-dark) .live-code-peek {
-  min-height: clamp(260px, 45%, 520px);
-  background: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
-  border-color: rgb(95 142 255 / 0.95);
-  box-shadow:
-    0 0 0 1px rgb(47 94 212 / 0.35),
-    0 0 24px rgb(42 97 255 / 0.24),
-    inset 0 1px 0 rgb(177 204 255 / 0.2);
-}
-
-:is(html.dark, .force-dark) .live-code-peek-bar {
-  min-height: 52px;
-  background: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
+:is(html.dark, .force-dark) .building-overlay {
+  background: var(--build-bg);
 }
