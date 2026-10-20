@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
-  Sparkles, Zap, ShieldAlert, Layers, X, Brain
+  Sparkles, Zap, ShieldAlert, Layers, X, Brain, Loader2
 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
 import { PREVIEW_MODES, PREVIEW_SHUTTER_MS } from '../lib/constants';
@@ -243,10 +243,10 @@ function BuildingStatusMessage() {
 // rather than rendering them as they land it reveals the text on animation
 // frames at a steady pace that speeds up in proportion to the backlog -- it
 // types, rather than flickers.
-// Most lines kept from the stream: enough to fill the tallest card (520px,
-// about 18 lines). How many are shown is measured from the card (see
+// Most lines kept from the stream: enough to fill the tallest card (640px,
+// about 27 lines). How many are shown is measured from the card (see
 // `capacity` in LiveCodePeek).
-const PEEK_LINES = 22;
+const PEEK_LINES = 34;
 
 // One highlighted line. Memoized on its text so lines that have finished
 // streaming are never touched again -- only the line being written re-renders.
@@ -295,10 +295,9 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
   }, [hasLines]);
 
   useEffect(() => {
-    if (!hasLines) return undefined;
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
-  }, [hasLines]);
+  }, []);
 
   useEffect(() => {
     let raf = 0;
@@ -328,12 +327,11 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
     return () => cancelAnimationFrame(raf);
   }, [codeRef]);
 
-  if (!hasLines && !reasoning) return null;
   return (
     <div className={`live-code-peek w-[min(600px,92%)] text-left ${(reasoning || entered) ? 'is-visible' : ''} ${className}`}>
       <div className="live-code-peek-bar">
-        <span className="live-code-peek-dot" />
-        <span className="live-code-peek-label">generating code</span>
+        <Loader2 className="live-code-peek-spinner animate-spin motion-reduce:animate-none" size={13} aria-hidden="true" />
+        <span className="live-code-peek-label">Building</span>
         {page?.page && <span key={page.page} className="live-code-peek-page">{page.page}</span>}
       </div>
       {hasLines && (
@@ -488,6 +486,10 @@ export default function DeviceMockup({
   ));
   // Reasoning is on and the model hasn't produced output yet.
   const isThinking = Boolean(thinkingSince) && !isErrorAutoFix;
+  // Normal builds lead with the code window alone (see LiveCodePeek). Keep the
+  // status block for repairs, where the error and cancel control matter, and
+  // when live code preview is off and there is no window to lead with.
+  const showBuildStatus = isErrorAutoFix || !liveCodeRef;
 
   return (
     <div
@@ -656,66 +658,73 @@ export default function DeviceMockup({
               {mode !== 'desktop' && (
                 <div className="building-device-notch" aria-hidden="true"><span /></div>
               )}
-              <div className="building-main flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
-                <div className="building-spinner relative w-16 h-16 mb-6">
-                  <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                  <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+              {showBuildStatus && (
+                <div className="building-main flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                  <div className="building-spinner relative w-16 h-16 mb-6">
+                    <div className="building-spinner-track absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                    <div className="building-spinner-ring absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                    {isThinking ? (
+                      <Brain className="building-spinner-glyph absolute inset-0 m-auto text-blue-500 animate-pulse" size={22} />
+                    ) : (
+                      <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
+                    )}
+                  </div>
+                  <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
+                    {isErrorAutoFix || generationStatus?.includes('Syntax errors found')
+                      ? 'Auto Error Checking'
+                      : isThinking
+                        ? 'Thinking...'
+                      : generationStatus?.startsWith('Analyzing') 
+                        ? 'Planning...'
+                        : 'Building...'}
+                  </h3>
                   {isThinking ? (
-                    <Brain className="building-spinner-glyph absolute inset-0 m-auto text-blue-500 animate-pulse" size={22} />
+                    <>
+                      <p role="status" className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                        Reasoning through your request
+                      </p>
+                      <span className="building-progress-dots" aria-hidden="true"><i /><i /><i /></span>
+                      <p className="building-remaining"><ThinkingElapsed since={thinkingSince} /> elapsed</p>
+                    </>
+                  ) : isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
+                    <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                      {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
+                        ? generationStatus
+                        : 'Verifying code...'}
+                    </p>
+                  ) : generationStatus && generationStatus !== 'Synthesizing your app from your prompt.' ? (
+                    <p key={generationStatus} className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
+                      {generationStatus}
+                    </p>
                   ) : (
-                    <Sparkles className="building-spinner-glyph absolute inset-0 m-auto text-blue-500" size={22} />
+                    <BuildingStatusMessage />
+                  )}
+                  {/* Auto-fix can run past the chat panel's cancel control -- it
+                      stays active through the preview settlement window, and the
+                      panel is hidden on mobile once the preview takes over. Give
+                      the overlay its own stop control so a repair loop is always
+                      escapable. */}
+                  {isErrorAutoFix && onCancelGeneration && (
+                    <button
+                      type="button"
+                      onClick={onCancelGeneration}
+                      className="building-cancel mt-5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
+                      aria-label="Cancel"
+                      title="Cancel"
+                    >
+                      <X size={13} strokeWidth={2.75} aria-hidden="true" />
+                      <span>Cancel</span>
+                    </button>
                   )}
                 </div>
-                <h3 className="building-title text-sm sm:text-base font-semibold text-slate-900 mb-1">
-                  {isErrorAutoFix || generationStatus?.includes('Syntax errors found')
-                    ? 'Auto Error Checking'
-                    : isThinking
-                      ? 'Thinking...'
-                    : generationStatus?.startsWith('Analyzing') 
-                      ? 'Planning...'
-                      : 'Building...'}
-                </h3>
-                {isThinking ? (
-                  <>
-                    <p role="status" className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                      Reasoning through your request
-                    </p>
-                    <span className="building-progress-dots" aria-hidden="true"><i /><i /><i /></span>
-                    <p className="building-remaining"><ThinkingElapsed since={thinkingSince} /> elapsed</p>
-                  </>
-                ) : isErrorAutoFix || generationStatus?.includes('Syntax errors found') || generationStatus?.startsWith('Analyzing') ? (
-                  <p className="building-status text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                    {generationStatus && !generationStatus.toLowerCase().includes('error') && generationStatus !== 'Synthesizing your app from your prompt.'
-                      ? generationStatus
-                      : 'Verifying code...'}
-                  </p>
-                ) : generationStatus && generationStatus !== 'Synthesizing your app from your prompt.' ? (
-                  <p key={generationStatus} className="building-status building-status-live text-xs sm:text-sm text-slate-600 font-medium animate-fade-in-up">
-                    {generationStatus}
-                  </p>
-                ) : (
-                  <BuildingStatusMessage />
-                )}
-                {/* Auto-fix can run past the chat panel's cancel control -- it
-                    stays active through the preview settlement window, and the
-                    panel is hidden on mobile once the preview takes over. Give
-                    the overlay its own stop control so a repair loop is always
-                    escapable. */}
-                {isErrorAutoFix && onCancelGeneration && (
-                  <button
-                    type="button"
-                    onClick={onCancelGeneration}
-                    className="building-cancel mt-5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
-                    aria-label="Cancel"
-                    title="Cancel"
-                  >
-                    <X size={13} strokeWidth={2.75} aria-hidden="true" />
-                    <span>Cancel</span>
-                  </button>
-                )}
-              </div>
+              )}
               {(isGenerating || isErrorAutoFix) && liveCodeRef && (
-                <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} reasoning={streamingReasoning} className="mt-6" />
+                <LiveCodePeek
+                  codeRef={liveCodeRef}
+                  page={liveCodePage}
+                  reasoning={streamingReasoning}
+                  className={showBuildStatus ? 'mt-6' : ''}
+                />
               )}
             </div>
           )}
