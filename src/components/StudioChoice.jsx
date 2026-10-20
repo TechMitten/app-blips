@@ -244,46 +244,49 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
           </div>
 
           <footer className="studio-footer relative shrink-0">
-            <nav aria-label="Footer links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap px-4 py-3 sm:gap-x-6 sm:py-4 sm:px-6 md:px-10">
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="AppBlips on GitHub"
-                title="AppBlips on GitHub"
-                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
-              >
-                <Github size={17} aria-hidden="true" />
-                <span>GitHub</span>
-              </a>
-              <a
-                href={DISCORD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Join the AppBlips Discord"
-                title="Join the AppBlips Discord"
-                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
-              >
-                <DiscordIcon size={17} />
-                <span>Discord</span>
-              </a>
-              <a
-                href="https://www.appblips.com/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${NAV_LINK} inline-flex min-h-9 items-center`}
-              >
-                Privacy Policy
-              </a>
-              <a
-                href="https://www.appblips.com/terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${NAV_LINK} inline-flex min-h-9 items-center`}
-              >
-                Terms of Service
-              </a>
-            </nav>
+            <div className="flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
+              <nav aria-label="Footer links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap sm:gap-x-6">
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="AppBlips on GitHub"
+                  title="AppBlips on GitHub"
+                  className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+                >
+                  <Github size={17} aria-hidden="true" />
+                  <span>GitHub</span>
+                </a>
+                <a
+                  href={DISCORD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Join the AppBlips Discord"
+                  title="Join the AppBlips Discord"
+                  className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+                >
+                  <DiscordIcon size={17} />
+                  <span>Discord</span>
+                </a>
+                <a
+                  href="https://www.appblips.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${NAV_LINK} inline-flex min-h-9 items-center`}
+                >
+                  Privacy Policy
+                </a>
+                <a
+                  href="https://www.appblips.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${NAV_LINK} inline-flex min-h-9 items-center`}
+                >
+                  Terms of Service
+                </a>
+              </nav>
+              <p className="studio-text-soft pb-1 text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
+            </div>
           </footer>
         </div>
       </div>
