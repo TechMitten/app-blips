@@ -320,6 +320,20 @@
   color: var(--sc-text-muted);
 }
 
+/* Beta marker on the Import a site row. Monochrome like the rest of the dark
+   picker; in light mode it picks up the row's own accent (--tint). */
+.studio-beta-badge {
+  border: 1px solid var(--sc-line-strong);
+  background-color: var(--sc-fill);
+  color: var(--sc-text-muted);
+}
+
+:root:not(.dark) .studio-beta-badge {
+  border-color: rgb(var(--tint) / 0.3);
+  background-color: rgb(var(--tint) / 0.1);
+  color: rgb(var(--tint));
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not(.dark) .studio-glow::before { animation: none; }
   .studio-choice .animate-stagger-1,
