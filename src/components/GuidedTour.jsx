@@ -24,13 +24,49 @@ function useMediaQuery(query) {
 }
 
 // First-visit offer. Floats over the workspace instead of pushing it down, and
-// never returns once the tour has been started, finished, or dismissed.
+// never returns once the tour has been started, finished, or dismissed. If it
+// is ignored it fades away after a while; that counts as dismissed too, so it
+// does not keep reappearing on every visit (Help > Take the tour stays open).
+const INVITE_TIMEOUT_MS = 20000;
+// Must match the .tour-invite.is-leaving animation duration in tour.css.
+const INVITE_FADE_MS = 400;
+
 export function TourInvitation({ onStart }) {
   const [visible, setVisible] = useState(() => getTourState() == null);
+  const [leaving, setLeaving] = useState(false);
+  // Hovering or focusing the toast pauses the countdown, so it cannot vanish
+  // from under someone who is reading or about to click it.
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (!visible || paused || leaving) return;
+    const timer = setTimeout(() => setLeaving(true), INVITE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [visible, paused, leaving]);
+
+  // Unmount after the fade. A timer rather than animationend so it still
+  // finishes when reduced-motion turns the animation off.
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTourState('dismissed');
+    }, INVITE_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
+
   if (!visible) return null;
   const dismiss = () => { setVisible(false); setTourState('dismissed'); };
   return (
-    <aside className="tour-invite bg-surface text-slate-900" aria-label="Welcome to AppBlips">
+    <aside
+      className={`tour-invite bg-surface text-slate-900${leaving ? ' is-leaving' : ''}`}
+      aria-label="Welcome to AppBlips"
+      inert={leaving || undefined}
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}
+    >
       <span className="tour-invite-icon" aria-hidden="true"><Compass size={18} /></span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold leading-tight">New here?</p>

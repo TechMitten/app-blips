@@ -157,9 +157,14 @@
 }
 @keyframes tour-invite-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes tour-invite-drop { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+/* Ignored invitations fade out in place (see INVITE_FADE_MS) instead of
+   disappearing abruptly mid-read. */
+.tour-invite.is-leaving { animation: tour-invite-out 0.4s ease forwards; pointer-events: none; }
+@keyframes tour-invite-out { from { opacity: 1; } to { opacity: 0; transform: translateY(8px); } }
 
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight, .tour-card, .tour-dot-mark, .tour-button { transition: none; }
   .tour-spotlight::after { animation: none; }
   .tour-card, .tour-card-sheet, .tour-step-body, .tour-card-shake, .tour-invite { animation: none; }
+  .tour-invite.is-leaving { animation: none; opacity: 0; }
 }
