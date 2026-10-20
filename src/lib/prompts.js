@@ -591,13 +591,15 @@ export const getSafeAreaInstruction = (layoutTarget) => {
   return ' Respect modern phone safe areas: include a viewport meta tag with viewport-fit=cover and pad edge-aligned headers, footers, and fixed controls with env(safe-area-inset-top/right/bottom/left) so nothing is hidden by a notch or home indicator.';
 };
 
-// The user names the project before the first build. Anchor the generated
-// title/branding to that name so the model doesn't invent one of its own; an
-// explicit name in the request itself still wins.
+// The user names the project before the first build. That name is a label,
+// not a brief: people often pick something unrelated to what they are
+// building, so it must never steer the build. Use it only for the <title>
+// and the visible name; what the project contains comes from the request.
+// An explicit name in the request itself still wins.
 const buildProjectNameInstruction = (projectName, noun) => {
   const name = String(projectName || '').trim();
   if (!name || /^untitled\b/i.test(name)) return '';
-  return ` Use "${name}" as the ${noun} name: set the <title> to it (a short suffix describing what it does is fine) and use it for any visible name or branding. Only use a different name if the user's request explicitly specifies one -- never invent an unrelated name of your own.`;
+  return ` The ${noun} is named "${name}". This name is only a label: use it for the <title> and for the visible ${noun} name where the design shows one. Do NOT read the name as a description of the ${noun} and do NOT infer its purpose, features, content, sections, audience, theme, colours or imagery from it -- everything it contains and does must come from the request above, even if the name seems to suggest otherwise. If the request itself names the ${noun} differently, use that name instead.`;
 };
 
 export const buildInitialGenerationPrompt = (prompt, layoutTarget, projectName) => {
