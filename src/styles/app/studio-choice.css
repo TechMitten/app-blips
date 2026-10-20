@@ -125,7 +125,7 @@
    away with object-view-box. */
 .studio-logo-img {
   display: block;
-  width: 8rem;
+  width: 6.5rem;
   aspect-ratio: 4.06 / 1;
   object-view-box: inset(35% 16%);
   object-fit: fill;
@@ -133,7 +133,7 @@
 }
 
 @media (min-width: 640px) {
-  .studio-logo-img { width: 10rem; }
+  .studio-logo-img { width: 8rem; }
 }
 
 .studio-nav-link {
