@@ -10,7 +10,9 @@ globalThis.window = { localStorage: {
   setItem: (k, v) => { data.set(k, String(v)); },
 } };
 
-const { loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY } = await import('../src/lib/connectors.js');
+const {
+  loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
+} = await import('../src/lib/connectors.js');
 const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
@@ -56,5 +58,13 @@ assert.match(buildHtmlSystemPrompt('app', active), /access_key/);
 assert.equal(buildHtmlSystemPrompt('game', active), buildHtmlSystemPrompt('game'));
 assert.equal(buildHtmlSystemPrompt('website', []), buildHtmlSystemPrompt('website'));
 assert.equal(buildConnectorDirective([{ id: 'unknown', key: 'x' }]), '');
+
+// Every connector carries the text its "How it works" dialog shows.
+for (const id of CONNECTOR_IDS) {
+  const { about } = CONNECTOR_DEFINITIONS[id];
+  assert.ok(typeof about?.what === 'string' && about.what, `${id}: about.what`);
+  assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
+  assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);
+}
 
 console.log('ok');

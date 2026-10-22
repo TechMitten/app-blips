@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Mail } from 'lucide-react';
+import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, Mail } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
+import ConnectorInfoModal from './ConnectorInfoModal';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
@@ -8,8 +9,9 @@ import {
 // Settings → Connectors: a grid of services the AI can wire into new projects.
 // A card opens that service's page (switch, key, help). Changes save as you
 // type; llm.js reads the saved state when it builds, so there is no Save step.
-// To add a service: add its definition in lib/connectors.js, its instructions
-// in prompts.js (CONNECTOR_DIRECTIVES), and its icon and page below.
+// To add a service: add its definition in lib/connectors.js (with the `about`
+// text the "How it works" dialog shows), its instructions in prompts.js
+// (CONNECTOR_DIRECTIVES), and its icon and page below.
 const ICONS = { web3forms: Mail };
 
 const STATUS_BADGE = {
@@ -100,6 +102,7 @@ const PAGES = { web3forms: Web3FormsPage };
 export default function ConnectorsSettings() {
   const [connectors, setConnectors] = useState(loadConnectors);
   const [openId, setOpenId] = useState(null);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const update = (id, fields) => {
     setConnectors((current) => {
@@ -127,14 +130,23 @@ export default function ConnectorsSettings() {
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600">
             <Icon size={22} aria-hidden="true" />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h3 className="text-base font-bold text-slate-900">{name}</h3>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">{description}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          >
+            <Info size={14} aria-hidden="true" />
+            How it works
+          </button>
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
           <Page state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
         </div>
+        {infoOpen && <ConnectorInfoModal id={openId} onClose={() => setInfoOpen(false)} />}
       </div>
     );
   }

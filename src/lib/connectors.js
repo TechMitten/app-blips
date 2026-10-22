@@ -23,6 +23,24 @@ export const CONNECTOR_DEFINITIONS = {
     keyPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     keyUrl: 'https://web3forms.com',
     isValidKey: (key) => WEB3FORMS_KEY_RE.test(key),
+    // Shown by the "How it works" dialog on the connector's settings page.
+    // Every connector needs one; keep it plain-language and in step with docs.
+    about: {
+      what: 'Web3Forms lets the forms in your websites and apps email their entries to you, so a contact form works without you building or paying for a server.',
+      steps: [
+        'Sign up for free at web3forms.com with the email address you want entries sent to. Web3Forms emails you an access key.',
+        'Turn on Web3Forms here and paste the access key into the Access key box.',
+        'From then on, when the AI builds or edits a Responsive Website or a Mobile & Web App, it sets up contact, signup and booking forms to use your key.',
+        'When someone fills in one of those forms and presses send, the entry goes to Web3Forms, which emails it to you. The form shows a message on the page saying it was sent, or what went wrong.',
+      ],
+      notes: [
+        'Forms send real emails from the preview too, so a test entry there lands in your inbox.',
+        'Your access key is written into the code of your forms and any HTML you export. That is how Web3Forms is designed: the key can only send email to your own inbox.',
+        'Projects built before you connected don’t change on their own. Ask the AI to “make the contact form use Web3Forms”.',
+        'The Browser Game studio doesn’t use it.',
+        'Web3Forms is a separate service with its own free plan and limits.',
+      ],
+    },
   },
 };
 
