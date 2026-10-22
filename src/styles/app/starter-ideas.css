@@ -1,4 +1,4 @@
-/* Starter idea cards — a short, curated gallery of seed prompts. Static and
+/* Starter idea cards — a paged, slidable gallery of seed prompts. Static and
    quiet: hairline border and a flat surface, with feedback on hover only. The
    empty state's single accent surface is the composer, so these sit below it
    in weight rather than competing. */
@@ -76,4 +76,48 @@
 .starter-chip:focus-visible {
   outline: 2px solid var(--color-indigo-500);
   outline-offset: 2px;
+}
+
+/* Sliding rows. Touch and trackpads scroll natively; StarterIdeas adds mouse
+   drag. The scrollbar is hidden because the arrows (and, for chips, the edge
+   fades) already show there is more. Snapping is switched off mid-drag, or the
+   browser fights the pointer and the row stutters. */
+.starter-scroller {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.starter-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.starter-scroller[data-dragging] {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.starter-pages {
+  scroll-snap-type: x mandatory;
+}
+
+.starter-pages > * {
+  scroll-snap-align: start;
+}
+
+.starter-chip-row[data-fade-start] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem);
+  mask-image: linear-gradient(to right, transparent, #000 2rem);
+}
+
+.starter-chip-row[data-fade-end] {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 2rem);
+  mask-image: linear-gradient(to left, transparent, #000 2rem);
+}
+
+.starter-chip-row[data-fade-start][data-fade-end] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
 }

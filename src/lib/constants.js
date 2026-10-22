@@ -351,6 +351,202 @@ export const STARTER_PRESETS = [
     category: "Business",
     icon: Receipt,
     color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Mood Journal",
+    prompt: "A private daily mood journal with a one-tap mood picker, optional notes and tags, a calendar heatmap of moods across the month, weekly trend charts, and a streak counter.",
+    category: "Wellbeing",
+    icon: Heart,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Grocery List",
+    prompt: "A smart grocery list that groups items by store aisle, lets you check things off with a satisfying strike-through, remembers frequent items for quick re-adding, and shares an estimated total.",
+    category: "Shopping",
+    icon: ListChecks,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Plant Care",
+    prompt: "A houseplant care tracker with a card for each plant, watering and feeding schedules, a today's-tasks list, overdue reminders, light-level notes, and a growth photo log.",
+    category: "Home",
+    icon: Sprout,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Reading Tracker",
+    prompt: "A reading tracker with a bookshelf of current, finished and want-to-read books, page progress bars, a yearly reading goal ring, star ratings, and favourite quotes.",
+    category: "Books",
+    icon: BookOpen,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Movie Watchlist",
+    prompt: "A movie and TV watchlist with poster-style cards, genre filters, watched/unwatched toggles, personal ratings and reviews, and a random 'pick tonight's movie' button.",
+    category: "Entertainment",
+    icon: Film,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Metronome",
+    prompt: "A musician's metronome with a big tempo dial, tap-tempo, time signatures, accented downbeats, a visual pendulum, and saved presets for practice songs.",
+    category: "Music",
+    icon: Music,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Tip Calculator",
+    prompt: "A tip and bill splitter with a large bill input, quick tip percentage buttons, a people counter, rounding options, and a clear per-person breakdown.",
+    category: "Finance",
+    icon: Calculator,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Mortgage Calculator",
+    prompt: "A mortgage and loan calculator with sliders for price, deposit, rate and term, a monthly payment summary, an amortization chart, and a full year-by-year schedule table.",
+    category: "Finance",
+    icon: Landmark,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Meal Planner",
+    prompt: "A weekly meal planner with a drag-and-drop calendar of breakfasts, lunches and dinners, a saved recipe box, and an automatic shopping list built from the week's meals.",
+    category: "Cooking",
+    icon: UtensilsCrossed,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Packing List",
+    prompt: "A travel packing checklist that builds a list from trip length, weather and activities, groups items by bag, tracks what's packed, and saves templates for future trips.",
+    category: "Travel",
+    icon: Plane,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Pet Care Log",
+    prompt: "A pet care log with profiles for each pet, feeding and walk tracking, vet visits and vaccine reminders, weight charts, and a cute daily summary card.",
+    category: "Pets",
+    icon: PawPrint,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Baby Tracker",
+    prompt: "A gentle baby tracker for feeds, sleeps and nappy changes with big one-tap buttons, timers, a daily timeline, and simple totals for the last 24 hours.",
+    category: "Family",
+    icon: Baby,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Chore Chart",
+    prompt: "A family chore chart with a weekly grid of chores per person, tick-off stars, points that add up to rewards, rotating assignments, and a leaderboard.",
+    category: "Family",
+    icon: CalendarCheck,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Savings Goals",
+    prompt: "A savings goal tracker with jars for each goal, deposit logging, animated fill progress, target dates with suggested weekly amounts, and a celebration when a goal is reached.",
+    category: "Finance",
+    icon: PiggyBank,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Stopwatch & Laps",
+    prompt: "A precise stopwatch with lap and split times, best and worst lap highlighting, a countdown timer mode, and exportable lap history.",
+    category: "Utility",
+    icon: Timer,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "World Clock",
+    prompt: "A world clock dashboard with city cards showing local time, day/night shading, time-difference labels, and a meeting planner slider that finds overlapping working hours.",
+    category: "Utility",
+    icon: Globe,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Regex Tester",
+    prompt: "A regular expression tester with live match highlighting, capture group breakdown, flag toggles, a replace preview, and a cheat sheet of common patterns.",
+    category: "Developer",
+    icon: Regex,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "JSON Formatter",
+    prompt: "A JSON formatter and viewer that pretty-prints and validates pasted JSON, shows a collapsible tree view, highlights errors with line numbers, and can minify or copy the result.",
+    category: "Developer",
+    icon: Braces,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Pixel Art Editor",
+    prompt: "A pixel art editor with a zoomable grid canvas, colour palette, pencil, fill and eraser tools, mirror drawing, undo/redo, and PNG export.",
+    category: "Creative",
+    icon: Palette,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Drawing Pad",
+    prompt: "A smooth sketching app with pressure-style brush strokes, colour and size pickers, layers, an eraser, undo/redo, and save-as-image.",
+    category: "Creative",
+    icon: Paintbrush,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Breathing Coach",
+    prompt: "A calming breathing exercise app with an expanding and contracting circle guide, box breathing and 4-7-8 patterns, session length options, and gentle sound cues.",
+    category: "Wellbeing",
+    icon: Waves,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Running Log",
+    prompt: "A running log for recording runs with distance, time and auto-calculated pace, weekly mileage charts, personal bests, and shoe mileage tracking.",
+    category: "Fitness",
+    icon: Footprints,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Tournament Bracket",
+    prompt: "A tournament bracket maker that seeds players or teams into single-elimination rounds, lets you click winners to advance them, and crowns a champion with confetti.",
+    category: "Sports",
+    icon: Trophy,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Decision Wheel",
+    prompt: "A spin-the-wheel decision maker with editable options, a satisfying spinning animation, a coin flip mode, and a history of past picks.",
+    category: "Fun",
+    icon: Coins,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Coffee Brew Timer",
+    prompt: "A coffee brewing companion with recipes for pour-over, French press and AeroPress, a step-by-step brew timer, coffee-to-water ratio calculator, and tasting notes.",
+    category: "Food & Drink",
+    icon: Coffee,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Car Maintenance",
+    prompt: "A car maintenance log with service history, upcoming reminders by date or mileage, fuel fill-ups with cost per mile, and a summary of yearly running costs.",
+    category: "Vehicles",
+    icon: Car,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Moon Phases",
+    prompt: "A moon phase calendar showing tonight's moon with illumination percentage, a month grid of phases, next full and new moon dates, and sunrise/sunset times.",
+    category: "Science",
+    icon: Moon,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Bug Tracker",
+    prompt: "A lightweight bug tracker with issues, priorities, labels and assignees, status columns, search and filters, and a simple activity history per issue.",
+    category: "Productivity",
+    icon: Bug,
+    color: "text-rose-600 bg-rose-50"
   }
 ];
 
@@ -1037,13 +1233,166 @@ export const GAME_STARTER_PRESETS = [
     category: "Exploration",
     icon: Waves,
     color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Checkers",
+    prompt: "A checkers game on an 8x8 board versus a computer opponent with selectable difficulty, highlighted legal moves, forced jumps and multi-jump chains, kinging, and an undo button.",
+    category: "Board",
+    icon: Crown,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Simon Says",
+    prompt: "A Simon-style memory game with four glowing colour pads and tones, a sequence that grows by one each round, speed that increases over time, strict mode, and a best-streak record.",
+    category: "Memory",
+    icon: CircleDot,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Dots and Boxes",
+    prompt: "A dots and boxes game where players take turns drawing lines, completing a box scores a point and grants another turn, with a computer opponent, board size options, and a final score screen.",
+    category: "Board",
+    icon: Grid3x3,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Lights Out",
+    prompt: "A Lights Out puzzle where tapping a light toggles it and its neighbours, the goal is to switch every light off, with handcrafted levels, a move counter, star ratings, and a hint button.",
+    category: "Puzzle",
+    icon: Lightbulb,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Jigsaw Puzzle",
+    prompt: "A jigsaw puzzle game that cuts a generated picture into draggable interlocking pieces, snaps them together when close, offers piece-count options, an edge-pieces filter, and a completion timer.",
+    category: "Puzzle",
+    icon: Puzzle,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Texas Hold'em",
+    prompt: "A Texas Hold'em poker table against three computer players with blinds, betting rounds, fold/call/raise controls, hand ranking at showdown, chip stacks, and elimination until one winner remains.",
+    category: "Cards",
+    icon: Spade,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Dice Poker",
+    prompt: "A Yahtzee-style dice game with five dice, up to three rolls per turn, tap to hold dice, a full scorecard with upper bonus, and a high-score table.",
+    category: "Dice",
+    icon: Dices,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Drift Kart",
+    prompt: "A top-down kart racing game with drifting that builds a speed boost, three AI rivals, item boxes with banana peels and rockets, three laps per track, and a podium finish screen.",
+    category: "Racing",
+    icon: Car,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Heli Rescue",
+    prompt: "A side-scrolling helicopter rescue game where the player flies through hazards to pick up stranded people, carries them back to base with limited fuel, and dodges enemy fire.",
+    category: "Action",
+    icon: Helicopter,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Wall Jumper",
+    prompt: "A vertical ninja climber where the player bounces between two walls with one-tap jumps, dodges spikes and falling shurikens, collects coins, and climbs as high as possible.",
+    category: "Arcade",
+    icon: Footprints,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Lava Rise",
+    prompt: "A vertical platformer where lava rises steadily from below, the player jumps up crumbling platforms, grabs speed boots and double-jump power-ups, and the score is the height reached.",
+    category: "Platformer",
+    icon: Flame,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Snowball Fight",
+    prompt: "A top-down snowball fight arena where the player hides behind snow forts, charges throws for distance, dodges AI kids' snowballs, and wins rounds by tagging the whole opposing team.",
+    category: "Action",
+    icon: Snowflake,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Hidden Objects",
+    prompt: "A hidden object game with detailed illustrated scenes, a list of items to find, a hint that sparkles near one item, a time bonus, wrong-click penalties, and several scenes to unlock.",
+    category: "Puzzle",
+    icon: Eye,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Spot the Difference",
+    prompt: "A spot-the-difference game with two side-by-side generated scenes, tap to circle differences, a countdown timer, limited hints, and levels that hide more and subtler changes.",
+    category: "Puzzle",
+    icon: Search,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Air Traffic Control",
+    prompt: "An air traffic control game where planes arrive from the edges, the player draws flight paths to the matching runways, collisions end the game, and traffic gets heavier over time.",
+    category: "Strategy",
+    icon: Plane,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Bee Garden",
+    prompt: "A relaxing bee game where the player flies a bee between flowers to collect pollen, delivers it to the hive to make honey, avoids wasps, and spends honey to grow new flowers.",
+    category: "Casual",
+    icon: Flower2,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Sheep Herder",
+    prompt: "A sheepdog herding game where the player steers a dog to nudge a flock of sheep with simple flocking behaviour into the pen before time runs out, with wolves and obstacles on later levels.",
+    category: "Casual",
+    icon: Rabbit,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Drill Down",
+    prompt: "A digging game where the player pilots a drill pod down through dirt and rock, mines ore and gems, returns to the surface to sell and upgrade fuel, hull and drill, and goes ever deeper.",
+    category: "Adventure",
+    icon: Pickaxe,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Balloon Pop",
+    prompt: "A balloon-popping dart game where balloons float up in patterns, the player aims and throws darts with a charge meter, special balloons bring bonuses or bombs, and levels have target scores.",
+    category: "Arcade",
+    icon: Target,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Paper Plane",
+    prompt: "A paper plane glider game where the player launches a plane with a drag-and-release throw, rides updrafts, steers around obstacles, collects stars, and tries to beat the longest flight.",
+    category: "Casual",
+    icon: Feather,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Lemonade Stand",
+    prompt: "A lemonade stand business sim where the player buys lemons, sugar and ice, sets a recipe and price, reacts to the daily weather forecast, serves customers, and grows profit over 30 days.",
+    category: "Simulation",
+    icon: Sun,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Sumo Push",
+    prompt: "A physics sumo game where two round wrestlers charge and bump each other on a circular ring, the first one pushed out loses, with a dash move, AI opponent, and best-of-five matches.",
+    category: "Party",
+    icon: Users,
+    color: "text-rose-600 bg-rose-50"
   }
 ];
 
-// How many ideas each studio samples from its pool on every launch. Ask mode
-// has no sample size (it shows a fixed set). App's larger pool is sampled the
-// same way websites and games already are, so the empty state rotates between
-// visits.
+// Ideas per page of each studio's starter gallery. The whole pool is shuffled
+// on every launch, so the first page rotates between visits, and the rest can
+// be slid through. Ask mode has no page size (it shows one fixed set).
 export const STARTER_SAMPLE_SIZE = {
   app: 6,
   website: 4,
@@ -1340,6 +1689,202 @@ export const WEBSITE_STARTER_PRESETS = [
     category: "Nonprofit",
     icon: Sprout,
     color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Plumber & Handyman",
+    prompt: "A trustworthy home services website for a plumber and handyman with an emergency call banner, service cards with starting prices, service area map, before/after photos, reviews, and a quote request form.",
+    category: "Services",
+    icon: Hammer,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Gym & Fitness Club",
+    prompt: "An energetic gym website with a bold video-style hero, class timetable, membership plans with a comparison table, trainer profiles, facility gallery, and a free trial pass signup.",
+    category: "Fitness",
+    icon: Dumbbell,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Craft Brewery",
+    prompt: "A craft brewery and taproom website with a beer list showing style and ABV, taproom hours, food truck schedule, events calendar, brewery tour booking, and an age-check welcome.",
+    category: "Food & Drink",
+    icon: Wine,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Bookstore",
+    prompt: "A cosy independent bookstore website with staff picks, new arrivals carousel, book club details, author events calendar, gift card section, and store hours and location.",
+    category: "Retail",
+    icon: BookOpen,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Tattoo Studio",
+    prompt: "A moody tattoo studio website with artist portfolios, style filters, a booking consultation form, aftercare guide, pricing guidance, and an FAQ.",
+    category: "Art",
+    icon: Paintbrush,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Veterinary Clinic",
+    prompt: "A caring veterinary clinic website with services, meet-the-vets profiles, new client registration, emergency contact banner, pet health tips, and online appointment requests.",
+    category: "Health",
+    icon: Stethoscope,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Mobile App Launch",
+    prompt: "A sleek mobile app launch page with phone mockups, animated feature highlights, screenshots carousel, App Store and Google Play badges, user testimonials, and an email waitlist.",
+    category: "Marketing",
+    icon: Smartphone,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Newsletter",
+    prompt: "A newsletter homepage with a clear value promise, subscribe form, past issues archive with search, subscriber count, sample issue preview, and a meet-the-writer section.",
+    category: "Publishing",
+    icon: Newspaper,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Online Resume",
+    prompt: "A clean one-page online resume with a summary, skills chips, experience timeline, education, project highlights, downloadable CV button, and contact links.",
+    category: "Personal",
+    icon: GraduationCap,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Food Truck",
+    prompt: "A fun food truck website with a bold menu board, today's location and schedule, catering inquiry form, Instagram-style photo grid, and a follow-us section.",
+    category: "Food",
+    icon: Pizza,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Farmers Market",
+    prompt: "A farmers market website with a seasonal produce guide, vendor directory with categories, market days and map, upcoming events, and a become-a-vendor application.",
+    category: "Community",
+    icon: Cherry,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Hiking Tours",
+    prompt: "An adventure hiking tour company website with tour cards by difficulty and length, a trip detail page with itinerary, gear list, guide profiles, reviews, and a booking form.",
+    category: "Travel",
+    icon: Mountain,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Ski Resort",
+    prompt: "A ski resort website with live-style snow report, lift and trail status, lift ticket and rental pricing, lessons, lodging options, and a trail map section.",
+    category: "Travel",
+    icon: MountainSnow,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Sailing Charters",
+    prompt: "A sailing charter website with a fleet gallery, half and full-day trips, sunset cruises, captain profiles, what-to-bring tips, and a date-picker booking request.",
+    category: "Travel",
+    icon: Sailboat,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Escape Room Venue",
+    prompt: "An escape room venue website with themed room cards showing difficulty and group size, a booking calendar, party packages, leaderboard of fastest escapes, and FAQ.",
+    category: "Entertainment",
+    icon: Key,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Indie Game Studio",
+    prompt: "An indie game studio website with a featured game hero, trailer section, game library cards, devlog posts, press kit page, and a newsletter signup.",
+    category: "Gaming",
+    icon: Gamepad2,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Recipe Blog",
+    prompt: "A recipe blog with a featured recipe hero, category filters, recipe pages with jump-to-recipe, ingredient checklist, printable cards, ratings, and an about-the-cook section.",
+    category: "Food",
+    icon: ChefHat,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Science Museum",
+    prompt: "A family-friendly science museum website with current exhibits, ticket prices, plan-your-visit info, school group bookings, events calendar, and membership tiers.",
+    category: "Culture",
+    icon: FlaskConical,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Astronomy Club",
+    prompt: "An astronomy club website with upcoming stargazing nights, a sky-this-month guide, member photo gallery, telescope loan program, and a join-the-club form.",
+    category: "Community",
+    icon: Telescope,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "AI Startup",
+    prompt: "A modern AI startup website with an animated hero, product demo section, use-case cards, integrations grid, security and privacy section, pricing, and a book-a-demo form.",
+    category: "Tech",
+    icon: Bot,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Cybersecurity Firm",
+    prompt: "A professional cybersecurity firm website with services, threat statistics, case studies, certifications, a team section, and a free security assessment request form.",
+    category: "Business",
+    icon: Shield,
+    color: "text-blue-600 bg-blue-50"
+  },
+  {
+    title: "Accountant",
+    prompt: "A friendly accounting and tax practice website with services for individuals and small businesses, tax deadline reminders, pricing packages, client testimonials, and a consultation booking form.",
+    category: "Business",
+    icon: Calculator,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Moving Company",
+    prompt: "A moving company website with services, an instant quote estimator by home size and distance, packing tips, coverage area, reviews, and a booking form.",
+    category: "Services",
+    icon: Package,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Coworking Space",
+    prompt: "A coworking space website with desk and office membership plans, an amenities grid, space photo gallery, community events, meeting room booking, and a tour request form.",
+    category: "Business",
+    icon: Building2,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Kids Coding Camp",
+    prompt: "A bright kids coding camp website with age-group programs, weekly schedule, what kids will build, instructor bios, parent FAQ, pricing, and an enrolment form.",
+    category: "Education",
+    icon: Code2,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Tutoring Service",
+    prompt: "A tutoring service website with subjects and grade levels, tutor profiles, how-it-works steps, results and testimonials, pricing packages, and a free first lesson signup.",
+    category: "Education",
+    icon: GraduationCap,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Landscaping",
+    prompt: "A landscaping and garden design website with services, before/after project gallery, seasonal maintenance plans, service area, reviews, and a free estimate request form.",
+    category: "Services",
+    icon: Tractor,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Counselling Practice",
+    prompt: "A calm counselling and therapy practice website with approach and specialties, therapist profiles, session fees and insurance info, a gentle FAQ, and a confidential contact form.",
+    category: "Health",
+    icon: Heart,
+    color: "text-teal-600 bg-teal-50"
   }
 ];
 
