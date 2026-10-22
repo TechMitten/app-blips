@@ -162,6 +162,10 @@ test('provider store encrypts the key and never describes it', async () => {
 
     await reloaded.clear();
     assert.equal(reloaded.describe().onboardingComplete, true);
+    // Settings → Reset replays first-run setup, also after a restart.
+    await reloaded.clear({ resetOnboarding: true });
+    assert.equal(reloaded.describe().onboardingComplete, false);
+    assert.equal(createProviderStore({ file, crypto: fakeCrypto() }).describe().onboardingComplete, false);
     assert.equal(reloaded.active(), null);
 
     const weak = createProviderStore({ file: join(dir, 'p2.json'), crypto: fakeCrypto(false) });

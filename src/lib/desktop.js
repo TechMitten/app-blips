@@ -207,12 +207,12 @@ export const webProviderStore = {
     });
     return this.get();
   },
-  async clear() {
+  async clear({ resetOnboarding = false } = {}) {
     // Keep the onboarding flag, as the desktop store does, so clearing a
-    // provider doesn't replay setup.
+    // provider doesn't replay setup (unless this is Settings → Reset).
     const previous = readWebProvider();
     await providerRequest('/api/provider', 'DELETE');
-    if (previous.onboardingComplete) writeWebProvider({ enabled: false, onboardingComplete: true });
+    if (previous.onboardingComplete && !resetOnboarding) writeWebProvider({ enabled: false, onboardingComplete: true });
     else localStorage.removeItem(WEB_PROVIDER_KEY);
     return {};
   }

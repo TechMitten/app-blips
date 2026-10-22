@@ -102,8 +102,11 @@ export function createProviderStore({ file, crypto }) {
       return this.describe();
     },
 
-    async clear() {
-      state = { enabled: false, id: '', model: '', baseUrl: '', key: null, onboardingComplete: state.onboardingComplete };
+    // Settings → Reset passes resetOnboarding so the next launch starts at
+    // first-run setup again; a plain clear keeps the flag.
+    async clear({ resetOnboarding = false } = {}) {
+      const onboardingComplete = resetOnboarding !== true && state.onboardingComplete;
+      state = { enabled: false, id: '', model: '', baseUrl: '', key: null, onboardingComplete };
       await persist();
       return this.describe();
     },

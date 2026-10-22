@@ -2311,8 +2311,10 @@ export default function App({ coldStart = false }) {
     await deleteAllProjects();
     // Both versions keep the key outside the page (desktop: keychain; browser:
     // AppBlips' server), so clearing localStorage alone would leave it behind.
+    // The desktop store also holds the onboarding flag, which must go too or
+    // the reloaded app skips first-run setup.
     try {
-      await providerApi.clear();
+      await providerApi.clear({ resetOnboarding: true });
     } catch (err) {
       logError('Could not clear the saved AI provider during reset', err);
     }
