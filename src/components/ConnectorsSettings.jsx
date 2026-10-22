@@ -53,7 +53,7 @@ function ConnectorCard({ id, status, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(id)}
-      className="group flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-[0_1px_2px_rgb(15_23_42/0.06),0_4px_12px_-2px_rgb(15_23_42/0.10)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:scale-[0.98] active:shadow-[0_1px_2px_rgb(15_23_42/0.08)] dark:border-white/10 dark:bg-[#1f1f1f] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_8px_20px_-6px_rgb(0_0_0/0.8)] dark:active:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_2px_6px_-2px_rgb(0_0_0/0.8)] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
       <span className="flex w-full items-start justify-between gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
@@ -245,14 +245,17 @@ export default function ConnectorsSettings() {
       <p className="mb-4 text-xs leading-snug text-slate-600">
         Connect services and the AI will wire them into your projects. Pick one to set it up.
       </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* The cards and the modal are both bg-surface, so they sit on a recessed
+          tray to read as separate, raised tiles. On dark, shadows barely show
+          and surface equals the modal, so the cards also get a lighter fill. */}
+      <div className="grid grid-cols-1 gap-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200/70 sm:grid-cols-2 sm:p-4">
         {CONNECTOR_IDS.map((id) => (
           <ConnectorCard key={id} id={id} status={connectorStatus(id, connectors)} onOpen={setOpenId} />
         ))}
         <button
           type="button"
           onClick={() => setRequestOpen(true)}
-          className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4 text-left transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+          className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4 text-left transition-transform duration-100 active:translate-y-px active:scale-[0.98] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
             <Plus size={20} aria-hidden="true" />
