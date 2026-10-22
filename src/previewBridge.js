@@ -542,12 +542,19 @@ const BRIDGE_SOURCE = `(function () {
   var NON_SIBLING_TAGS = { SCRIPT: 1, STYLE: 1, TEMPLATE: 1, LINK: 1, META: 1, NOSCRIPT: 1 };
 
   // Nearest element sibling in direction dir that is real page content.
-  function contentSibling(el, dir) {
+  // With skipHidden, elements collapsed out of layout (display:none -- the
+  // dragged element while it is being lifted) are passed over too, so row
+  // detection still works when the only other item in a row is hidden.
+  function contentSibling(el, dir, skipHidden) {
     var node = dir < 0 ? el.previousElementSibling : el.nextElementSibling;
-    while (node && (NON_SIBLING_TAGS[node.tagName] || isBridgeNode(node))) {
+    while (node && (NON_SIBLING_TAGS[node.tagName] || isBridgeNode(node) || (skipHidden && isHiddenNode(node)))) {
       node = dir < 0 ? node.previousElementSibling : node.nextElementSibling;
     }
     return node || null;
+  }
+
+  function isHiddenNode(node) {
+    try { return window.getComputedStyle(node).display === 'none'; } catch (hErr) { return false; }
   }
 
   function buildElementDescriptionRaw(el) {
@@ -1304,6 +1311,15 @@ const BRIDGE_SOURCE = `(function () {
   // snapshot plus a lite snapshot of the drop target, and the parent moves
   // the source. Pressing inside the selected element drags the selection,
   // which is how a container reached with select-parent gets moved.
+  //
+  // While a drag is live the dragged element is collapsed out of layout
+  // (display:none). The move removes it from its source position first, so
+  // the page the drop will actually produce is the page with the element
+  // gone: in a grid or flex row, removing the element shifts everything
+  // after it, and a line drawn against the un-collapsed layout would point
+  // at the wrong spot (the element would land a row or column off). The
+  // lifted copy still shows the element under the pointer; collapsing only
+  // affects layout, and the element is put back exactly if the drag cancels.
 
   var DRAG_THRESHOLD = 6;
   var DRAG_EDGE = 48;
@@ -1398,7 +1414,7 @@ const BRIDGE_SOURCE = `(function () {
   // split left/right; everything else splits top/bottom.
   function sideBySide(el) {
     var box = el.getBoundingClientRect();
-    var sibs = [contentSibling(el, -1), contentSibling(el, 1)];
+    var sibs = [contentSibling(el, -1, true), contentSibling(el, 1, true)];
     for (var i = 0; i < sibs.length; i++) {
       if (!sibs[i]) continue;
       var other = sibs[i].getBoundingClientRect();
@@ -1453,6 +1469,21 @@ const BRIDGE_SOURCE = `(function () {
     var position = horizontal
       ? (x < r.left + r.width / 2 ? 'before' : 'after')
       : (y < r.top + r.height / 2 ? 'before' : 'after');
+    // In a grid or wrapping row, dropping "after" the last item of a row
+    // wraps the element to the start of the NEXT row (there is no slot to its
+    // right), so the insertion line -- and the drop itself -- must point at
+    // that next row's first item instead. "Before" the first item of a row
+    // already lands exactly where the line is drawn.
+    if (position === 'after' && horizontal) {
+      var next = contentSibling(el, 1, true);
+      if (next && validDropTarget(next, dragged)) {
+        var nb = next.getBoundingClientRect();
+        if (nb.top > r.top + r.height / 2) {
+          el = next;
+          position = 'before';
+        }
+      }
+    }
     if (contentSibling(el, position === 'before' ? -1 : 1) === dragged) return null;
     return { el: el, position: position, horizontal: horizontal };
   }
@@ -1574,8 +1605,6 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   function paintDrag(scrolled) {
-    var b = drag.el.getBoundingClientRect();
-    placeBox(drag.ghost, b.left, b.top, b.width, b.height);
     placeLift(drag, !drag.still);
     var t = drag.target;
     if (!t) { drag.line.style.display = 'none'; return; }
@@ -1652,7 +1681,6 @@ const BRIDGE_SOURCE = `(function () {
     if (editStyleEl) editStyleEl.textContent = editCursorCss() + DRAG_CSS;
     var rect = drag.el.getBoundingClientRect();
     drag.still = reducedMotion();
-    drag.ghost = dragChrome('z-index:2147483646;background:rgba(57,135,208,0.14);border:2px dashed rgba(57,135,208,0.9);border-radius:4px;', 'ghost');
     drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);', 'line');
     var lift = makeLift(drag.el, rect);
     drag.lift = lift.node;
@@ -1663,6 +1691,12 @@ const BRIDGE_SOURCE = `(function () {
     drag.grabY = (drag.startY - rect.top) * (lift.h / (rect.height || lift.h));
     drag.scale = 1;
     drag.scaleTarget = Math.min(1, DRAG_LIFT_MAX_W / (lift.w || 1), DRAG_LIFT_MAX_H / (lift.h || 1));
+    // Collapse the element out of layout for the rest of the drag so the
+    // insertion line is drawn against the layout the move will actually
+    // produce (see the "Drag to move" note above). The exact style is put
+    // back on cancel; on commit the parent reloads the page from the move.
+    drag.elStyle = drag.el.getAttribute('style');
+    drag.el.style.display = 'none';
     drag.moved = true;
     dragFrame();
   }
@@ -1671,7 +1705,7 @@ const BRIDGE_SOURCE = `(function () {
   // fades, rather than vanishing. The parent reloads the page from the moved
   // source meanwhile, and keeps this document on screen until the new one
   // has painted, so the move reads as one motion.
-  function settleLift(d, target) {
+  function settleLift(d, settle) {
     var lift = d.lift;
     if (!lift) return;
     var remove = function () { if (lift.parentNode) lift.parentNode.removeChild(lift); };
@@ -1679,8 +1713,8 @@ const BRIDGE_SOURCE = `(function () {
     var s;
     var x;
     var y;
-    if (target) {
-      var lr = lineRect(target);
+    if (settle) {
+      var lr = settle.rect;
       s = d.scale * 0.85;
       x = lr.left + lr.width / 2 - (d.w * s) / 2;
       y = lr.top + lr.height / 2 - (d.h * s) / 2;
@@ -1702,16 +1736,23 @@ const BRIDGE_SOURCE = `(function () {
     if (!d || !d.active) return;
     if (d.raf) cancelAnimationFrame(d.raf);
     try { document.documentElement.releasePointerCapture(d.pointerId); } catch (relErr) { /* already released */ }
-    if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
     if (d.line && d.line.parentNode) d.line.parentNode.removeChild(d.line);
+    var dropping = commit && d.target && editingActive;
+    // Capture where the lift should settle while the element is still
+    // collapsed (the layout the move will actually produce). The element is
+    // put back below so the reported snapshot matches the source exactly.
+    var settle = dropping ? { rect: lineRect(d.target) } : null;
+    if (d.el) {
+      if (d.elStyle == null) d.el.removeAttribute('style');
+      else d.el.setAttribute('style', d.elStyle);
+    }
     if (editStyleEl) editStyleEl.textContent = editCursorCss();
     // The click that follows the release must not select what is under it.
     // It is dispatched in the same task as pointerup, so clear the flag in
     // the next one in case no click comes.
     dragSuppressClick = true;
     setTimeout(function () { dragSuppressClick = false; }, 0);
-    var dropping = commit && d.target && editingActive;
-    settleLift(d, dropping ? d.target : null);
+    settleLift(d, settle);
     if (!dropping) return;
     post('element-drop', {
       element: buildElementDescription(d.el),
@@ -1730,7 +1771,7 @@ const BRIDGE_SOURCE = `(function () {
     if (!el) return;
     drag = {
       el: el, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
-      active: false, target: null, raf: 0, ghost: null, line: null, lift: null, moved: false
+      active: false, target: null, raf: 0, line: null, lift: null, elStyle: null, moved: false
     };
   }
 

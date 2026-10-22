@@ -25,6 +25,8 @@ const FIXTURE = `<!DOCTYPE html>
     .cards { display: flex; gap: 2rem; }
     .card { padding: 1rem; border: 1px solid #ccc; width: 10rem; }
     img { display: block; width: 120px; height: 80px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .cell { padding: 1rem; border: 1px solid #ccc; }
     .tall { height: 1600px; }
   </style>
 </head>
@@ -49,6 +51,19 @@ const FIXTURE = `<!DOCTYPE html>
   <section id="pricing">
     <h2>Pricing</h2>
     <p>One plan.</p>
+  </section>
+
+  <!-- @section: gallery -->
+  <section id="gallery">
+    <h2>Gallery</h2>
+    <div class="grid">
+      <div class="cell">A1</div>
+      <div class="cell">A2</div>
+      <div class="cell">A3</div>
+      <div class="cell">B1</div>
+      <div class="cell">B2</div>
+      <div class="cell">B3</div>
+    </div>
   </section>
 
   <div class="tall"></div>
@@ -145,8 +160,8 @@ await fresh();
     { during: chrome },
   );
   const line = seen?.find((c) => c.role === 'line' && c.display === 'block');
-  check('drag shows a ghost, a floating copy and an insertion line',
-    seen?.length === 3 && seen.some((c) => c.role === 'ghost') && !!line, JSON.stringify(seen));
+  check('drag shows a floating copy and an insertion line',
+    seen?.length === 2 && seen.some((c) => c.role === 'lift') && !!line, JSON.stringify(seen));
   check('the floating copy is the card', /^Fast/.test(seen?.find((c) => c.role === 'lift')?.text || ''), JSON.stringify(seen));
   check('row layout gets a vertical line', line && line.height > line.width, JSON.stringify(line));
   check('one drop is reported', drops.length === 1, `${drops.length}`);
@@ -181,6 +196,38 @@ await fresh();
   check('image drop applies', result?.ok, result?.reason || result?.summary);
   check('image now precedes the heading, re-indented',
     result?.ok && /<section id="features">\n {4}<img src="https:\/\/example\.test\/photo\.jpg" class="shot" alt="Shot">\n {4}<h2>Features<\/h2>/.test(result.code));
+}
+
+// --- grid row boundary: "after" the last cell of a row wraps to the next row -
+await fresh();
+{
+  await frame.evaluate(() => document.getElementById('gallery').scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(50);
+  // A1 is the first cell of row 1, A3 the last. Dragging A1 onto A3's right
+  // half means "after A3", but a grid has no slot to A3's right: the element
+  // wraps to the start of the next row. While the drag is live the element is
+  // collapsed, so the next row already starts at B2 (B1 slid up to fill A1's
+  // row). The drop must retarget to B2, before it, so the line and the landing
+  // agree instead of the element jumping a row away from the pointer.
+  const a1 = await rectOf('.cell:nth-child(1)');
+  const a3 = await rectOf('.cell:nth-child(3)');
+  const { seen, drops } = await dragBetween(
+    { x: a1.left + 4, y: a1.top + 4 },
+    { x: a3.right - 8, y: a3.top + a3.height / 2 },
+    { during: chrome },
+  );
+  const line = seen?.find((c) => c.role === 'line' && c.display === 'block');
+  const drop = drops[0];
+  check('last-cell drop retargets to the next row start',
+    drop?.element?.tag === 'div' && /^A1/.test(drop?.element?.text || '') &&
+    drop?.target?.tag === 'div' && /^B2/.test(drop?.target?.text || '') && drop?.position === 'before',
+    `${drop?.element?.text} -> ${drop?.target?.text} ${drop?.position}`);
+  check('the retargeted line is vertical', line && line.height > line.width, JSON.stringify(line));
+  const result = drop && applyDirectEdit(FIXTURE, drop.element, { moveTo: { target: drop.target, position: drop.position } });
+  check('grid move applies', result?.ok, result?.reason || result?.summary);
+  check('the cell lands at the start of the next row in source',
+    result?.ok && /<div class="cell">A2<\/div>\n {6}<div class="cell">A3<\/div>\n {6}<div class="cell">B1<\/div>\n {6}<div class="cell">A1<\/div>\n {6}<div class="cell">B2<\/div>/.test(result.code),
+    result?.reason || '');
 }
 
 // --- an image can be dropped into a card nested in its sibling row ---------
@@ -278,7 +325,10 @@ await fresh();
   const safe = await rectOf('.card:nth-child(2)');
   const self = await dragBetween({ x: fast.left + 4, y: fast.top + 4 }, { x: fast.left + 30, y: fast.top + 30 });
   check('dropping on itself reports nothing', self.drops.length === 0);
-  const beside = await dragBetween({ x: fast.left + 4, y: fast.top + 4 }, { x: safe.left + 5, y: safe.top + safe.height / 2 });
+  // While a drag is live the element is collapsed out of layout, so "before
+  // the card that followed it" is where the first card used to be (the next
+  // card has slid into its slot). Dropping there is still a no-op.
+  const beside = await dragBetween({ x: fast.left + 4, y: fast.top + 4 }, { x: fast.left + 8, y: fast.top + fast.height / 2 });
   check('dropping where it already is reports nothing', beside.drops.length === 0, JSON.stringify(beside.drops[0]?.position));
 
   const esc = await dragBetween(
