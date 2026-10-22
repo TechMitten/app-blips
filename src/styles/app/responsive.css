@@ -253,7 +253,8 @@
   .preview-actions summary,
   .preview-tabs summary,
   .preview-tools-menu .nav-segmented-btn { min-width: 44px; min-height: 44px; }
-  .chat-rewind-btn { min-width: 44px; min-height: 44px; }
+  .chat-rewind-btn,
+  .chat-copy-btn { min-width: 44px; min-height: 44px; }
   .history-sidebar .history-icon-btn { min-width: 44px; min-height: 44px; }
   .new-chat-btn { min-width: 44px; min-height: 44px; }
 

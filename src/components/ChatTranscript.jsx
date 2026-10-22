@@ -1,4 +1,4 @@
-import { Brain, Loader2, RotateCcw, ShieldCheck, User, Wrench } from 'lucide-react';
+import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, User, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
@@ -35,7 +35,52 @@ function BotAvatar({ title }) {
   );
 }
 
-function PromptRow({ children, className = '', onRewind }) {
+// Colours for the copy key on each bubble: the user's bubble is solid indigo
+// (dark slate in dark mode), so its key is a light tint rather than the slate
+// used on the pale reply bubble.
+const COPY_TONES = {
+  user: 'text-white/70 hover:text-white hover:bg-white/15',
+  bot: 'text-slate-500 hover:text-slate-900 hover:bg-slate-900/5 dark:text-white/55 dark:hover:text-white dark:hover:bg-white/10',
+};
+
+// Copies the message as written (a reply keeps its Markdown). The tick shows
+// for a moment so the click has visible feedback; if the clipboard is blocked
+// the tooltip says so, and the bubble text stays selectable as a fallback.
+// It sits in the bubble's bottom-right corner; the negative margins pull it
+// into the padding so it doesn't add a full line under short messages.
+function CopyMessageButton({ text, tone }) {
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    if (!state) return undefined;
+    const timer = setTimeout(() => setState(null), 2000);
+    return () => clearTimeout(timer);
+  }, [state]);
+  if (!text) return null;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setState('copied');
+    } catch {
+      setState('failed');
+    }
+  };
+  const label = state === 'copied' ? 'Copied' : state === 'failed' ? 'Couldn’t copy. Select the text and copy it yourself.' : 'Copy message';
+  return (
+    <div className="flex justify-end -mr-2.5 -mb-2 mt-1">
+      <button
+        type="button"
+        onClick={copy}
+        className={`chat-copy-btn inline-flex items-center justify-center p-1 rounded-md transition-colors cursor-pointer ${COPY_TONES[tone]}`}
+        aria-label={label}
+        title={label}
+      >
+        {state === 'copied' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
+
+function PromptRow({ children, className = '', onRewind, copyText }) {
   return (
     <div className="group flex items-start justify-end gap-2.5">
       {onRewind && (
@@ -53,13 +98,14 @@ function PromptRow({ children, className = '', onRewind }) {
         className={`${BUBBLE_MAX} chat-bubble chat-bubble-user rounded-2xl px-4 py-3 text-[length:var(--chat-prompt-text)] font-medium ${className}`}
       >
         {children}
+        <CopyMessageButton text={copyText} tone="user" />
       </div>
       <UserAvatar />
     </div>
   );
 }
 
-function ReplyRow({ title, className = '', children }) {
+function ReplyRow({ title, className = '', copyText, children }) {
   return (
     <div className="flex items-start justify-start gap-2.5">
       <BotAvatar title={title} />
@@ -67,6 +113,7 @@ function ReplyRow({ title, className = '', children }) {
         className={`${BUBBLE_MAX} chat-bubble chat-bubble-bot rounded-2xl px-4 py-3 text-[length:var(--chat-text)] leading-relaxed ${className}`}
       >
         {children}
+        <CopyMessageButton text={copyText} tone="bot" />
       </div>
     </div>
   );
@@ -238,9 +285,9 @@ export default function ChatTranscript({
         const canRewind = onRewind && !isGenerating && versionIndex < currentVersionIndex;
         return (
           <div key={ver.id} className="space-y-2.5">
-            <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined}>{displayBuildPrompt(ver)}</PromptRow>
+            <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined} copyText={displayBuildPrompt(ver)}>{displayBuildPrompt(ver)}</PromptRow>
             {ver.reply && (
-              <ReplyRow title={`Version ${versionNumber}`}>
+              <ReplyRow title={`Version ${versionNumber}`} copyText={displayBuildReply(ver)}>
                 <Markdown text={displayBuildReply(ver)} />
               </ReplyRow>
             )}
@@ -282,7 +329,7 @@ export default function ChatTranscript({
               )}
             </div>
           )}
-          <PromptRow className="animate-fade-in">{pendingPrompt}</PromptRow>
+          <PromptRow className="animate-fade-in" copyText={pendingPrompt}>{pendingPrompt}</PromptRow>
           {streamingReply ? (
             <ReplyRow className="animate-fade-in">
               <Markdown text={streamingReply} />
