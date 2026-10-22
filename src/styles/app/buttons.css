@@ -411,6 +411,19 @@ html:not(.dark) .preview-pane-header .nav-segmented-btn-active:hover {
   color: var(--color-brand) !important;
 }
 
+/* The selected device icon takes the red of the logo's dot, in both themes.
+   The html prefix matches the light rule above so this one, coming later,
+   wins its !important tie. */
+html .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active,
+html .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active:hover {
+  color: #ec6452 !important;
+}
+
+html:not(.dark) .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active,
+html:not(.dark) .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active:hover {
+  background: rgb(236 100 82 / 0.1) !important;
+}
+
 html:not(.dark) .preview-pane-header .nav-ghost:not(.nav-ghost-active) {
   background: #ffffff;
   border-color: var(--color-slate-200);
