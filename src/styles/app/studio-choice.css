@@ -26,6 +26,9 @@
   --sc-primary-fg: #000000;
   --sc-ring: rgb(255 255 255 / 0.9);
   --sc-badge-bg: #111111;
+  /* The wordmark's dot, as on the onboarding page (--ob-red). Kept to a few
+     small marks so it reads as the brand and not as an error. */
+  --sc-red: #ec6452;
   /* Cards: light glass. */
   --sc-card-bg: rgb(255 255 255 / 0.03);
   --sc-card-bg-hover: rgb(255 255 255 / 0.06);
@@ -69,6 +72,8 @@
   --sc-primary-fg: #ffffff;
   --sc-ring: rgb(11 18 32 / 0.85);
   --sc-badge-bg: #ffffff;
+  /* Darker so the dot still stands out on the pale slate ground. */
+  --sc-red: #d9472f;
   --sc-card-bg: rgb(255 255 255 / 0.9);
   --sc-card-bg-hover: #ffffff;
   --sc-card-sheen: rgb(255 255 255 / 0.9);
@@ -208,9 +213,10 @@
   color: var(--sc-text-muted);
 }
 
-/* The landing page's one accent: a royal-blue dot in the eyebrow pill. */
+/* The brand-red dot in the eyebrow pill, with a faint halo. */
 .studio-eyebrow-dot {
-  background-color: #4169e1;
+  background-color: var(--sc-red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-red) 22%, transparent);
 }
 
 .studio-ghost-btn {
@@ -306,6 +312,11 @@
   background-color: var(--sc-fill);
   color: var(--sc-text-strong);
 }
+
+/* Dark theme: the card icons and CTA arrows take the brand red, like the
+   onboarding page's icons. Light mode keeps each card's own --tint instead. */
+.dark .studio-card .studio-icon-tile { color: var(--sc-red); }
+.dark .studio-card .studio-card-cta svg { color: var(--sc-red); }
 
 .studio-saved-badge {
   border: 1px solid var(--sc-line-strong);
