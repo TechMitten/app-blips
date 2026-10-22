@@ -14,11 +14,17 @@ const shortPage = '<body style="margin:0"><p>short</p></body>';
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
-  const act = (args) => page.evaluate(`(() => { ${BROWSER_RUNTIME_SOURCE}; return browserRuntime.act(${JSON.stringify(args)}); })()`);
+  // The runtime goes in as its own script and args cross as evaluate's argument,
+  // so no test data is ever spliced into code (CodeQL js/bad-code-sanitization).
+  const load = async (html) => {
+    await page.setContent(html);
+    await page.addScriptTag({ content: BROWSER_RUNTIME_SOURCE });
+  };
+  const act = (args) => page.evaluate((a) => window.browserRuntime.act(a), args);
   const viewport = async () => (await act({ action: 'inspect' })).viewport;
 
   for (const [name, html] of [['long page', longPage], ['inner scroller', appLayout]]) {
-    await page.setContent(html);
+    await load(html);
     let view = await viewport();
     assert.equal(view.scrollY, 0, name);
     assert.equal(view.pageHeight, 3000, name);
@@ -36,7 +42,7 @@ try {
     assert.equal((await viewport()).scrollY, 0, `${name} scrolls back up`);
   }
 
-  await page.setContent(shortPage);
+  await load(shortPage);
   const view = await viewport();
   assert.equal(view.atBottom, true, 'a page that fits is already at its end');
   assert.equal((await act({ action: 'scroll', y: 300 })).scrolledBy, 0);
