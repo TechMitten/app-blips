@@ -50,9 +50,7 @@
   background: radial-gradient(circle at 50% 30%, rgb(99 102 241 / 0.22), transparent 62%);
 }
 
-/* Logo lockup. Both files carry generous empty margin, so the box is cropped
-   to the lettering's proportions (cover trims top/bottom; the sides keep a
-   little air). */
+/* Logo lockup. Both files are cropped tight to the lettering. */
 .preview-empty-logo {
   aspect-ratio: 3.2 / 1;
 }
@@ -60,7 +58,7 @@
 .preview-empty-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   filter: drop-shadow(0 4px 10px rgb(15 23 42 / 0.10));
 }
@@ -71,9 +69,6 @@
 
 :is(html.dark, .force-dark) .preview-empty-logo-dark {
   display: block;
-  /* Its lettering fills ~85% of the file's width against ~73% for the light
-     one, so at the same box size it renders ~16% wider. */
-  transform: scale(0.88);
 }
 
 /* Headline */

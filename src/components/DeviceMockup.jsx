@@ -602,17 +602,17 @@ export default function DeviceMockup({
                 <div className="preview-empty-glow absolute inset-0 pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
-                  {/* Two lockups, one visible per theme: the light PNG has dark
-                      lettering that would vanish on the dark screen. */}
+                  {/* Two cut-outs of the logo (public/blackblipsbg.webp), one per
+                      theme: dark lettering for light, white for dark. */}
                   <div className="preview-empty-logo relative mb-4 w-64 sm:w-80">
                     <img
-                      src="/AppBlips-compressed.png"
+                      src="/appblips-logo-dark-text.webp"
                       alt="AppBlips"
                       className="preview-empty-logo-img preview-empty-logo-light select-none"
                       draggable={false}
                     />
                     <img
-                      src="/darkthemelog.png"
+                      src="/appblips-logo.webp"
                       alt=""
                       aria-hidden="true"
                       className="preview-empty-logo-img preview-empty-logo-dark select-none"

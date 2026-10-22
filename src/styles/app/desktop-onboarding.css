@@ -95,10 +95,8 @@
 }
 
 .onboarding-topbar img {
-  width: 140px;
-  height: 37px;
-  object-fit: cover;
-  filter: url(#onboarding-logo-key);
+  width: 120px;
+  height: auto;
 }
 
 .onboarding-topbar span {
@@ -349,7 +347,7 @@
 }
 
 @media (max-width: 560px) {
-  .onboarding-topbar { height: 58px; }.onboarding-topbar img { width: 108px; }
+  .onboarding-topbar { height: 58px; }.onboarding-topbar img { width: 96px; }
   .onboarding-stage, .desktop-onboarding-card.is-setup .onboarding-stage { padding: 1.15rem; }
   .onboarding-copy > p { margin-top: .8rem; line-height: 1.55; }
   .onboarding-footer { min-height: 70px; }.onboarding-error { position: absolute; left: 1.2rem; bottom: 4.4rem; padding: .5rem; border-radius: 8px; background: #1f1620; }

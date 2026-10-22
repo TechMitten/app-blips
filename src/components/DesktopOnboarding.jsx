@@ -173,15 +173,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
-      <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
-        <filter id="onboarding-logo-key" colorInterpolationFilters="sRGB">
-          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  3 3 3 0 0" />
-        </filter>
-      </svg>
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
       <main className="desktop-onboarding-card is-setup">
         <header className="onboarding-topbar">
-          <img src="/newlog.webp" alt="AppBlips" />
+          <img src="/appblips-logo.webp" alt="AppBlips" />
           {onExit ? (
             <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
               Exit setup <X size={15} />
