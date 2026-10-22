@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, ChartColumn, ChartLine, CircleCheck, CircleAlert, ExternalLink, Info, Mail } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import {
@@ -12,7 +13,20 @@ import {
 // To add a service: add its definition in lib/connectors.js (with the `page`
 // wording and the `about` text the "How it works" dialog shows), its
 // instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
-const ICONS = { web3forms: Mail, umami: ChartColumn, plausible: ChartLine };
+// Service logos are used as masks so they take the text colour like the
+// lucide icons beside them, and stay visible in both themes.
+const logoIcon = (src) => function LogoIcon({ size }) {
+  const mask = `url(${src}) center / contain no-repeat`;
+  return <span aria-hidden="true" className="inline-block bg-current" style={{ width: size, height: size, mask, WebkitMask: mask }} />;
+};
+
+// Web3Forms' cube relies on its shaded faces, which a mask would flatten, so it
+// keeps its own colours (a blue close to the indigo of the others).
+function Web3FormsIcon({ size }) {
+  return <img src="/web3forms-logo.png" alt="" aria-hidden="true" width={size} height={size} />;
+}
+
+const ICONS = { web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg') };
 
 const STATUS_BADGE = {
   connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
@@ -115,7 +129,7 @@ export default function ConnectorsSettings() {
   };
 
   if (openId) {
-    const { name, description } = CONNECTOR_DEFINITIONS[openId];
+    const { name, description, homeUrl, homeLinkLabel } = CONNECTOR_DEFINITIONS[openId];
     const Icon = ICONS[openId];
     return (
       <div>
@@ -134,6 +148,11 @@ export default function ConnectorsSettings() {
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-bold text-slate-900">{name}</h3>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">{description}</p>
+            {homeUrl && (
+              <a href={homeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+                {homeLinkLabel}<ExternalLink size={11} aria-hidden="true" />
+              </a>
+            )}
           </div>
           <button
             type="button"
@@ -147,7 +166,12 @@ export default function ConnectorsSettings() {
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
           <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
         </div>
-        {infoOpen && <ConnectorInfoModal id={openId} onClose={() => setInfoOpen(false)} />}
+        {/* Portaled out of the settings card: a fixed overlay inside it would be
+            clipped by the card's overflow. */}
+        {infoOpen && createPortal(
+          <ConnectorInfoModal id={openId} onClose={() => setInfoOpen(false)} />,
+          document.body,
+        )}
       </div>
     );
   }

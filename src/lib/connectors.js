@@ -89,6 +89,8 @@ export const CONNECTOR_DEFINITIONS = {
     keyLabel: 'Access key',
     keyPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     keyUrl: 'https://web3forms.com',
+    homeUrl: 'https://web3forms.com/',
+    homeLinkLabel: 'Visit the Web3Forms website',
     isValidKey: (key) => UUID_RE.test(key),
     // Text for the settings page (ConnectorsSettings.jsx).
     page: {
@@ -126,6 +128,8 @@ export const CONNECTOR_DEFINITIONS = {
     keyLabel: 'Tracking code or website ID',
     keyPlaceholder: '<script defer src="https://cloud.umami.is/script.js" data-website-id="…"></script>',
     keyUrl: 'https://umami.is',
+    homeUrl: 'https://github.com/umami-software/umami',
+    homeLinkLabel: 'Umami on GitHub (free to self-host)',
     multiline: true,
     isValidKey: (key) => umamiSnippet(key) !== null,
     page: {
@@ -156,6 +160,8 @@ export const CONNECTOR_DEFINITIONS = {
     keyLabel: 'Tracking code',
     keyPlaceholder: '<script async src="https://plausible.io/js/pa-….js"></script>',
     keyUrl: 'https://plausible.io',
+    homeUrl: 'https://github.com/plausible/community-edition',
+    homeLinkLabel: 'Plausible Community Edition on GitHub (free to self-host)',
     multiline: true,
     isValidKey: (key) => plausibleSnippet(key) !== null,
     page: {
