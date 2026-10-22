@@ -176,7 +176,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
       <main className="desktop-onboarding-card is-setup">
         <header className="onboarding-topbar">
-          <img src="/appblips-logo.webp" alt="AppBlips" />
+          <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
           {onExit ? (
             <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
               Exit setup <X size={15} />

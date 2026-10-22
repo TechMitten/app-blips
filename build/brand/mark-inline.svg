@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="97 90 350 326" width="350" height="326" role="img" aria-label="AppBlips">
+  <title>AppBlips</title>
+  <style>
+    .ink{fill:var(--ab-ink, currentColor)} .dot{fill:var(--ab-dot, #E9604F)}
+  </style>
+  <path class="ink" d="M155.62 406L107 406L221.30 152L267.75 152L382.41 406L333.06 406L307.66 347.22L180.66 347.22L155.62 406M196.63 310.21L292.06 310.21L244.16 199.17"/>
+  <circle class="dot" cx="384.5" cy="143" r="42.5"/>
+</svg>

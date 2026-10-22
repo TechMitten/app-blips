@@ -50,9 +50,9 @@
   background: radial-gradient(circle at 50% 30%, rgb(99 102 241 / 0.22), transparent 62%);
 }
 
-/* Logo lockup. Both files are cropped tight to the lettering. */
+/* Logo lockup, the wordmark SVGs' own proportions. */
 .preview-empty-logo {
-  aspect-ratio: 3.2 / 1;
+  aspect-ratio: 1203 / 276;
 }
 
 .preview-empty-logo-img {

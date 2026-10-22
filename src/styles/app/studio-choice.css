@@ -38,7 +38,6 @@
   --sc-card-inset-hover: rgb(255 255 255 / 0.1);
   --sc-card-shadow: 0 16px 36px -24px rgb(0 0 0 / 0.9);
   --sc-card-shadow-hover: 0 22px 44px -26px rgb(0 0 0 / 0.95);
-  --sc-logo-filter: url(#studio-logo-key);
 
   background-color: var(--sc-bg);
   color: var(--sc-text-strong);
@@ -83,10 +82,6 @@
      ground instead of floating as flat white rectangles. */
   --sc-card-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 14px 30px -14px rgb(15 23 42 / 0.3);
   --sc-card-shadow-hover: 0 2px 4px rgb(15 23 42 / 0.1), 0 26px 46px -18px rgb(15 23 42 / 0.42);
-  /* The logo is white lettering with a red dot. Inverting turns the white
-     black, but also turns the red dot cyan; the half-turn of hue puts the red
-     back. */
-  --sc-logo-filter: url(#studio-logo-key) invert(1) hue-rotate(180deg);
 }
 
 .studio-choice h1 {
@@ -118,19 +113,17 @@
   background-color: var(--sc-topbar-bg);
 }
 
-/* blackblipsbg.webp is white lettering (red dot) on an opaque, slightly
-   textured near-black field with generous empty margin. Key the dark field
-   out (#studio-logo-key in StudioChoice.jsx turns brightness into alpha with
-   a threshold, so the texture goes fully transparent) and crop the margin
-   away with object-view-box. */
+/* Two wordmarks, one visible per theme: white lettering on the dark picker,
+   dark lettering on the light one. */
 .studio-logo-img {
   display: block;
   width: 6.5rem;
-  aspect-ratio: 4.06 / 1;
-  object-view-box: inset(35% 16%);
-  object-fit: fill;
-  filter: var(--sc-logo-filter);
+  height: auto;
 }
+
+.studio-logo-light { display: none; }
+:root:not(.dark) .studio-logo-dark { display: none; }
+:root:not(.dark) .studio-logo-light { display: block; }
 
 @media (min-width: 640px) {
   .studio-logo-img { width: 8rem; }

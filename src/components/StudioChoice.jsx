@@ -82,21 +82,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
   return (
     <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
-      {/* Zero-size defs for the logo: alpha = 2.5*(R+G+B) - 1.2, so the mark's
-          opaque dark field becomes transparent (see studio-choice.css). */}
-      <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
-        <filter id="studio-logo-key" colorInterpolationFilters="sRGB">
-          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  2.5 2.5 2.5 0 -1.2" />
-        </filter>
-      </svg>
-
       <div className="relative h-full overflow-y-auto">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
               (md+), GitHub and settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
             <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
-              <img src="/blackblipsbg.webp" alt="AppBlips" className="studio-logo-img mr-auto" />
+              <span className="mr-auto">
+                <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="studio-logo-img studio-logo-dark" />
+                <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className="studio-logo-img studio-logo-light" />
+              </span>
 
               <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
                 <button type="button" onClick={handleOpenProjects} className={NAV_LINK}>My projects</button>
