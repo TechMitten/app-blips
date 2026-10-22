@@ -1193,24 +1193,51 @@ export const describeFileChanges = (before = {}, after = {}, budget = 6000) => {
   return clip(parts.join('\n\n'), budget);
 };
 
+// Placeholders the model leaves for the user to fill in (an API key, an
+// account id, a Vite env variable). describeFileChanges clips long files, so
+// a key placeholder near the end of a fresh build would never reach the
+// closing message; this scans every changed file in full. Only lines new in
+// this turn count, so later edits don't repeat setup steps already given.
+const SETUP_HINT_RE = /\b(?:YOUR|ENTER|INSERT|REPLACE|ADD)[_-](?:[A-Z0-9]+[_-])*?(?:API[_-]?)?(?:KEY|TOKEN|SECRET|ID|URL|EMAIL|PASSWORD|ENDPOINT|DOMAIN)(?:[_-]HERE)?\b|\bimport\.meta\.env\.VITE_\w+|\bprocess\.env\.(?!NODE_ENV\b)[A-Z]\w+/i;
+
+export const findSetupHints = (before = {}, after = {}, max = 8) => {
+  const hints = [];
+  for (const [path, text] of Object.entries(after)) {
+    if (typeof text !== 'string' || text === before[path]) continue;
+    const old = new Set(String(before[path] ?? '').split('\n').map((line) => line.trim()));
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (old.has(line) || !SETUP_HINT_RE.test(line)) continue;
+      hints.push(line.length > 200 ? `${line.slice(0, 200)}…` : line);
+      if (hints.length >= max) return hints;
+    }
+  }
+  return hints;
+};
+
 // Closing chat message for every finished build/edit. The pre-build
 // acknowledgement (generateChatReply) only says what is ABOUT to happen and is
 // a separate, non-fatal call, so on its own the chat goes quiet once the work
 // completes. This asks for a short past-tense summary of the finished work; if
 // that call fails too, a fixed line is used so the turn always ends with a
 // message.
-export const generateCompletionReply = async ({ prompt, editMode, studioMode, signal, changes = '' }) => {
+// When the work left something only the user can supply (see findSetupHints),
+// the message ends with numbered steps, since otherwise the user is never told
+// why that part of the project does nothing.
+export const generateCompletionReply = async ({ prompt, editMode, studioMode, signal, changes = '', setupHints = [] }) => {
   const noun = studioNoun(studioMode);
   const verb = editMode === 'full-generation' ? 'built' : 'updated';
   const fallback = `Done — I've ${verb} your ${noun}.`;
+  const hints = setupHints.length ? `\n\nNew lines that may need something from the user:\n${setupHints.join('\n')}` : '';
   try {
     const message = await requestModelText({
       messages: [
         {
           role: 'system',
-          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Explain to the user what you did, in the past tense and the first person, in one to three short, friendly sentences (roughly 60 words or fewer). Base it on the changes listed: name the specific things you added, changed or removed as the user would see them on screen (a new button, a darker header, a score counter), not how the code does it. The user is not a developer, so never mention file names, code, tags, functions, CSS or line numbers. Plain text only: no markdown, no lists, no quotation marks, and no questions.`
+          content: `You are the assistant in a ${noun}-building chat. You have just finished ${verb === 'built' ? 'building' : 'updating'} the user's ${noun} in response to their request. Explain to the user what you did, in the past tense and the first person, in one to three short, friendly sentences (roughly 60 words or fewer). Base it on the changes listed: name the specific things you added, changed or removed as the user would see them on screen (a new button, a darker header, a score counter), not how the code does it. The user is not a developer, so never mention file names, code, tags, functions, CSS or line numbers. Plain text, no quotation marks, and no questions.
+SETUP STEPS: if the changes leave something only the user can supply before part of the ${noun} works (an API key or token, an account with an outside service, a placeholder value to replace, an environment variable), add a blank line after the sentences, then the line "To finish setting it up:" and a short numbered markdown list (1. 2. 3.) of beginner-friendly steps, one action per step: which service to sign up at and where to find the value, then how to put it in (for example, by pasting it into this chat and asking you to add it). Say once that a key placed in the ${noun} is visible to anyone who opens it, so they should use a free or restricted key. Only add steps for something the changes actually need; never invent setup, and leave the list out when nothing is needed. Apart from that list, use no markdown.`
         },
-        { role: 'user', content: changes ? `Request: ${prompt}\n\nChanges made:\n${changes}` : `Request: ${prompt}` }
+        { role: 'user', content: `Request: ${prompt}${changes ? `\n\nChanges made:\n${changes}` : ''}${hints}` }
       ],
       reasoningEffort: CHAT_REASONING_EFFORT,
       signal
@@ -1235,12 +1262,14 @@ const generateAppCodeWithSummary = async (...args) => {
   if (isBuildResult && !isAutoFix) {
     if (onChunk) onChunk('Writing a summary of the changes…', 'status');
     const before = currentFiles && Object.keys(currentFiles).length ? currentFiles : currentCode ? makeFiles(currentCode) : {};
+    const after = result.files || makeFiles(result.code);
     const completion = await generateCompletionReply({
       prompt,
       editMode: result.editMode,
       studioMode,
       signal,
-      changes: describeFileChanges(before, result.files || makeFiles(result.code))
+      changes: describeFileChanges(before, after),
+      setupHints: findSetupHints(before, after)
     });
     const separator = result.reply ? '\n\n' : '';
     // Surface it in the live transcript right away, then persist it with the

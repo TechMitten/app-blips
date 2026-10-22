@@ -2,7 +2,7 @@
 // ../llm.js (tool calls against an in-memory copy, bounded turns) but with
 // codebase tools, and after every turn that changed files it runs a real
 // build check (the preview bundler) and feeds errors back for repair.
-import { asRoutedAnswerChunks, describeFileChanges, generateChatReply, generateCompletionReply, isQuestionOnly, requestModelText } from '../llm.js';
+import { asRoutedAnswerChunks, describeFileChanges, findSetupHints, generateChatReply, generateCompletionReply, isQuestionOnly, requestModelText } from '../llm.js';
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
@@ -299,10 +299,13 @@ async function runCodebaseEdit({
   }
 
   let reply = [intro, completionText].filter(Boolean).join('\n\n');
-  if (!isAutoFix && !completionText) {
+  // The model's own closing line is one sentence, so when the changes left
+  // something for the user to fill in, the summary call writes the setup steps.
+  const setupHints = isAutoFix ? [] : findSetupHints(files, state.files);
+  if (!isAutoFix && (!completionText || setupHints.length)) {
     status('Writing a summary of the changes…');
     const completion = await generateCompletionReply({
-      prompt, editMode: 'surgical', studioMode: 'codebase', signal, changes: describeFileChanges(files, state.files),
+      prompt, editMode: 'surgical', studioMode: 'codebase', signal, changes: describeFileChanges(files, state.files), setupHints,
     });
     onChunk?.(`${intro ? '\n\n' : ''}${completion}`, 'reply');
     reply = [intro, completion].filter(Boolean).join('\n\n');
