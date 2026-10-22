@@ -199,8 +199,6 @@
     padding-top: max(10px, env(safe-area-inset-top));
   }
   .app-header .nav-btn-icon { min-width: 44px; min-height: 44px; }
-  .build-panel { --bezel: 0px; }
-  .build-panel::after { display: none; }
   .build-panel-scroll { margin-right: 0; padding-inline: 16px; }
   .build-panel-stage { min-width: 0; overflow-wrap: anywhere; }
   .build-panel-composer {

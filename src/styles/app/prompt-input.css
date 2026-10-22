@@ -28,8 +28,11 @@
    extrusion that fought the flat outlined keys now sitting inside it. One
    hairline rim and a wide soft drop reads as a single surface instead. */
 :is(html.dark, .force-dark) .prompt-input-dock {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #12151e;
+  /* A clear step ABOVE the #141414 composer band. At #121212 it sank into
+     the band and the box read as a faint outline with no surface. */
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #1f1f1f;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow:
@@ -39,7 +42,9 @@
 }
 
 :is(html.dark, .force-dark) .prompt-input-dock:focus-within {
+  border-color: rgba(255, 255, 255, 0.32);
   box-shadow:
+    0 0 0 3px rgb(255 255 255 / 0.06),
     0 22px 48px -4px rgba(0, 0, 0, 0.95),
     0 8px 18px -2px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -89,7 +94,7 @@
 }
 
 :is(html.dark, .force-dark) .prompt-input-field::placeholder {
-  color: rgb(255 255 255 / 0.45);
+  color: rgb(255 255 255 / 0.55);
 }
 
 .prompt-input-footer {
@@ -297,13 +302,25 @@
   color: #ffffff;
 }
 
-/* The sent plane is pure white in dark, where it sits on the dark dock. */
-:is(html.dark, .force-dark) .prompt-input-send,
-:is(html.dark, .force-dark) .prompt-input-send:hover:not(:disabled) {
+/* Send mirrors light's filled key in negative: a white disc (the Publish
+   key's fill) once there is something to send, a bare plane until then. */
+:is(html.dark, .force-dark) .prompt-input-send {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
   color: #ffffff;
+}
+
+:is(html.dark, .force-dark) .prompt-input-send:not(:disabled) {
+  background: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
+  color: #080808;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.95), 0 2px 6px rgb(0 0 0 / 0.5);
+}
+
+:is(html.dark, .force-dark) .prompt-input-send:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffffff 0%, #e3e3e3 100%);
+  border-color: transparent;
+  color: #080808;
 }
 
 :is(html.dark, .force-dark) .composer-key-danger,
@@ -346,8 +363,16 @@
 }
 
 :is(html.dark, .force-dark) .chat-mode-reel {
-  border-color: rgb(255 255 255 / 0.14);
-  color: #e2e8f0;
+  /* slate-50 is the #080808 void in dark, which punched a black hole in the
+     dock; a translucent white chip sits on it instead. */
+  border-color: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.08);
+  color: #f0f0f0;
+}
+
+:is(html.dark, .force-dark) .chat-mode-reel:hover {
+  border-color: rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.12);
 }
 
 .chat-mode-reel:active {

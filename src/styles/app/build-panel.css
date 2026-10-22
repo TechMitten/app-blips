@@ -26,11 +26,10 @@
   background-image:
     radial-gradient(38% 30% at 20% 42%, rgba(125, 211, 252, 0.14), transparent 74%),
     radial-gradient(34% 28% at 84% 66%, rgba(253, 186, 140, 0.10), transparent 74%);
-  /* The pane is seated in a chassis: content is inset by --bezel and the
-     reserved strip is painted as a machined rail (::after). The rail is a
-     cross-section — seam, specular highlight, body falloff, outer seam —
-     read left-to-right across its thickness, not a stripe running down it. */
-  --bezel: 10px;
+  /* --bezel is the strip reserved for the machined rail (::after) between
+     this pane and the preview. The rail is hidden, so it reserves nothing;
+     set it back to 10px (and drop the display: none below) to restore it. */
+  --bezel: 0px;
   border: 0;
   box-shadow: 5px 0 18px -7px rgba(15, 23, 42, 0.35);
 }
@@ -60,6 +59,7 @@
   bottom: 0;
   right: 0;
   width: var(--bezel);
+  display: none;
   pointer-events: none;
   z-index: 41;
   background-image:
@@ -194,7 +194,7 @@
 
 /* Dark mode overrides — high contrast, refined borders & depth */
 :is(html.dark, .force-dark) .build-panel {
-  background: #0f1117;
+  background: #0f0f0f;
   border: 0;
   box-shadow: 7px 0 24px -8px rgba(0, 0, 0, 0.85);
 }
@@ -219,11 +219,11 @@
       to right,
       rgba(0, 0, 0, 0.75) 0 1px,
       rgba(255, 255, 255, 0.22) 1px 2px,
-      #454d5c 2px,
-      #363d4a 5px,
-      #272d38 8px,
-      #1a1f27 10px,
-      #12151b 11px,
+      #4a4a4a 2px,
+      #3a3a3a 5px,
+      #2b2b2b 8px,
+      #1d1d1d 10px,
+      #141414 11px,
       rgba(0, 0, 0, 0.85) 11px 12px
     );
 }
@@ -245,11 +245,11 @@
         to bottom,
         rgba(0, 0, 0, 0.75) 0 1px,
         rgba(255, 255, 255, 0.22) 1px 2px,
-        #454d5c 2px,
-        #363d4a 5px,
-        #272d38 8px,
-        #1a1f27 10px,
-        #12151b 11px,
+        #4a4a4a 2px,
+        #3a3a3a 5px,
+        #2b2b2b 8px,
+        #1d1d1d 10px,
+        #141414 11px,
         rgba(0, 0, 0, 0.85) 11px 12px
       );
   }
@@ -281,7 +281,7 @@
 }
 
 :is(html.dark, .force-dark) .build-panel-composer {
-  background: #14161f;
+  background: #141414;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-top: 2px solid rgba(255, 255, 255, 0.10);
@@ -291,7 +291,7 @@
 }
 
 :is(html.dark, .force-dark) .build-panel-scroll {
-  background: #0b0d13;
+  background: #0b0b0b;
   box-shadow: inset 0 3px 12px -2px rgba(0, 0, 0, 0.6);
 }
 

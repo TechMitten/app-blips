@@ -70,7 +70,7 @@ export default function BuildPanel({
           <button
             type="button"
             onClick={onToggleHistory}
-            className={`history-header-toggle mr-2 inline-flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer ${isHistoryOpen ? 'text-indigo-500 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15' : 'text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
+            className={`history-header-toggle mr-2 inline-flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer ${isHistoryOpen ? 'text-indigo-500 dark:text-white bg-indigo-50 dark:bg-white/15' : 'text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}
             aria-label={isHistoryOpen ? 'Hide history' : 'Show history'}
             aria-expanded={isHistoryOpen}
             title={isHistoryOpen ? 'Hide history' : 'Show history'}

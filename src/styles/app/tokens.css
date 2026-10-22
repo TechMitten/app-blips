@@ -148,7 +148,7 @@
      #12141d the toolbar dissolved into the canvas and stopped reading as its
      own section; lifting the bars (not sinking the stage) keeps the margins
      around the device matching the chrome family while the row stays defined. */
-  --pane-header-bg: #1b1e2b;
+  --pane-header-bg: #1b1b1b;
   --stage-inset:
     inset 0 1px 0 0 rgb(0 0 0 / 0.45),
     inset 0 14px 30px -20px rgb(0 0 0 / 0.55);
