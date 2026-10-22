@@ -143,7 +143,20 @@ electron/            # Desktop app: main process, preload, on-disk project store
 server.js            # Browser version (npm start, Docker): serves dist/ and /api/chat
 Dockerfile           # Container image for the browser version (docker-compose.yml)
 testing/             # Standalone Node scripts for exercising the proxy and preview
+scripts/             # Build helpers, including fetch-whisper-model.js for voice input
 ```
+
+### Voice input (Whisper)
+
+Voice input turns speech into text entirely on the user's computer. Nothing is uploaded, and it works the same in the desktop app and the browser version.
+
+- **Model:** OpenAI's [Whisper base](https://huggingface.co/openai/whisper-base) (multilingual), using the 8-bit quantized ONNX conversion from [`onnx-community/whisper-base`](https://huggingface.co/onnx-community/whisper-base). It's about 76 MB.
+- **Runtime:** [transformers.js](https://github.com/huggingface/transformers.js) (`@huggingface/transformers`) running on ONNX Runtime's WebAssembly backend, single-threaded, inside a Web Worker (`src/lib/whisperWorker.js`), so the UI stays responsive.
+- **Recording:** `src/hooks/useSpeechRecognition.js` records the microphone with `MediaRecorder` (up to 2 minutes), decodes it to 16 kHz mono, and sends it to the worker. The worker loads the model the first time the mic is used and keeps it for the session. Whisper is given the system language first and detects the language itself if that one isn't supported.
+- **Bundled, not downloaded at runtime:** `scripts/fetch-whisper-model.js` downloads the model files into `public/whisper/` (gitignored), from one pinned Hugging Face revision, and checks each file's SHA-256. A mismatch fails the build. It runs automatically when Vite starts (`npm run dev` or any build) and does nothing if the files are already there. Run `node scripts/fetch-whisper-model.js` to fetch them ahead of time, for example before an offline build. Vite copies them into `dist/`, so the desktop app, `npm start` and Docker all ship the model. The Dockerfile fetches it in its own layer, so rebuilding after `git pull` doesn't download it again.
+- **No network at runtime:** the worker turns off remote model loading and the browser cache, and loads ONNX Runtime's `.wasm` from the app bundle instead of a CDN.
+- **Microphone permission:** in the desktop app, `electron/main.js` grants the `media` permission only for audio and only to the app's own top-level page. The sandboxed preview, where generated apps run, can't use the microphone, and nothing can use the camera. The Microsoft Store package declares the `microphone` capability.
+- **Test:** after `npm run build`, `node testing/testVoiceInput.mjs` (Playwright) plays a speech clip through a fake microphone and checks both the transcript and that no request left the app's own server.
 
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 

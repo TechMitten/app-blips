@@ -50,6 +50,15 @@ Voice input records the microphone only while you have it switched on with the m
 - In the desktop app, only AppBlips' own screen may use the microphone, and only for sound. The preview, where generated apps run, is refused, and nothing may use the camera.
 - In the browser version, the preview has no permission to use the microphone either.
 
+### The speech model
+
+The speech model (OpenAI's Whisper base) is part of AppBlips itself, not something it fetches while running:
+
+- The desktop app includes it in the installer.
+- When you build from source or with Docker, the build downloads it once from Hugging Face. It always downloads one fixed version and checks each file against a fingerprint (a SHA-256 hash) stored in AppBlips' code. If a file has been changed, the build stops with `does not match its pinned sha256` instead of using it.
+- While AppBlips runs, it is set to load the model only from its own files. If they are missing, voice input shows an error rather than downloading a model from the internet.
+- The model and the code that runs it come from AppBlips' own server or app files, not from a CDN (a public site that hosts code), so using voice input makes no network requests.
+
 ## Opening exported apps
 
 Exported apps are self-contained HTML with full script privileges. Open or host them separately from AppBlips (for example, as a local file or on a different domain) rather than serving them from the same origin as AppBlips, so an app can't read what AppBlips stores in the browser.

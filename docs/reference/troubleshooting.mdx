@@ -56,6 +56,8 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
     Check your Node.js version with `node --version`. AppBlips needs 22.12 or newer; install the **LTS** version from [nodejs.org](https://nodejs.org/). Then delete the `node_modules` folder and run `npm install` again.
 
     If the error mentions `Could not download` or `does not match its pinned sha256`, the build couldn't fetch the voice-input speech model from Hugging Face. Check your internet connection and run `npm start` again. It only downloads the model once.
+
+    To get the model on its own, for example before building on a computer that will be offline, run `node scripts/fetch-whisper-model.js` in the AppBlips folder. It saves the model in `public/whisper/`, and later builds use that copy.
   </Accordion>
 
   <Accordion title="npm run desktop on Linux fails with a chrome-sandbox error">

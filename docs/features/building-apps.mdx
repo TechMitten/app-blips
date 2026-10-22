@@ -70,12 +70,15 @@ Voice input understands most languages. It expects your computer's language firs
 
 ### How your voice is turned into text
 
-AppBlips uses Whisper, a speech-recognition model, which comes built into AppBlips. It runs on your own computer:
+AppBlips uses Whisper, a speech-recognition model, which comes built into AppBlips. A model is the trained "brain" that turns sound into words. AppBlips includes the **base** size of Whisper (about 76 MB), made by OpenAI and released as open source. It runs on your own computer:
 
 - Your recording is never uploaded, saved or sent to your AI provider. Only the text you send becomes part of your prompt.
-- Voice input works without an internet connection.
+- Voice input works without an internet connection. AppBlips never downloads a speech model while it runs.
 - The first time you use it after opening AppBlips, it takes a few extra seconds to load the model. After that it's quicker.
 - Transcribing uses your computer's processor, so a long recording on an older computer can take a little while.
+- The base model is small enough to run on most computers, but it can mishear unusual names, brand names and technical words. Check the text before you send it.
+
+Whisper's license is listed in **Settings → Licenses**, under **Other credits**.
 
 ### Microphone permission
 
