@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search } from 'lucide-react';
-
-const MAX_LIST_HEIGHT = 320;
-const EDGE_GAP = 12;
-const LIST_GAP = 4;
+import useAnchoredList from '../hooks/useAnchoredList';
 
 // Every whitespace-separated term must appear in the model's name or id,
 // so "claude sonnet" or "gpt mini" narrow things down naturally.
@@ -17,15 +14,17 @@ function filterModels(models, query) {
   });
 }
 
-export default function ModelCombobox({ value, onChange, models, loading = false, allowCustom = false, placeholder = 'Select a model…' }) {
+// `canOpen`, when given, is asked before the list opens; returning false keeps
+// it closed (the caller explains why, e.g. no API key yet).
+export default function ModelCombobox({ value, onChange, models, loading = false, allowCustom = false, placeholder = 'Select a model…', canOpen }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const [position, setPosition] = useState(null);
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const listId = useId();
+  const [position, place] = useAnchoredList(wrapRef, listRef, open);
 
   const selected = models.find((m) => m.id === value);
   const results = useMemo(() => {
@@ -36,33 +35,8 @@ export default function ModelCombobox({ value, onChange, models, loading = false
       : matches;
   }, [models, query, allowCustom]);
 
-  const place = useCallback(() => {
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const viewport = window.visualViewport;
-    const viewportTop = viewport?.offsetTop || 0;
-    const viewportLeft = viewport?.offsetLeft || 0;
-    const viewportHeight = viewport?.height || window.innerHeight;
-    const viewportWidth = viewport?.width || window.innerWidth;
-    const topEdge = viewportTop + EDGE_GAP;
-    const bottomEdge = viewportTop + viewportHeight - EDGE_GAP;
-    const belowTop = Math.min(bottomEdge, Math.max(topEdge, rect.bottom + LIST_GAP));
-    const aboveBottom = Math.max(topEdge, Math.min(bottomEdge, rect.top - LIST_GAP));
-    const below = Math.max(0, bottomEdge - belowTop);
-    const above = Math.max(0, aboveBottom - topEdge);
-    const openUp = below < MAX_LIST_HEIGHT && above > below;
-    const width = Math.min(rect.width, Math.max(0, viewportWidth - EDGE_GAP * 2));
-    setPosition({
-      left: Math.max(viewportLeft + EDGE_GAP, Math.min(rect.left, viewportLeft + viewportWidth - EDGE_GAP - width)),
-      width,
-      maxHeight: Math.min(MAX_LIST_HEIGHT, openUp ? above : below),
-      boxSizing: 'border-box',
-      ...(openUp ? { bottom: window.innerHeight - aboveBottom } : { top: belowTop }),
-    });
-  }, []);
-
   const openList = () => {
-    if (open) return;
+    if (open || canOpen?.() === false) return;
     place();
     setQuery('');
     setActive(Math.max(0, models.findIndex((m) => m.id === value)));
@@ -78,21 +52,6 @@ export default function ModelCombobox({ value, onChange, models, loading = false
     onChange(model.id);
     close();
   };
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onScroll = (e) => { if (!listRef.current?.contains(e.target)) place(); };
-    window.addEventListener('resize', place);
-    window.visualViewport?.addEventListener('resize', place);
-    window.visualViewport?.addEventListener('scroll', place);
-    window.addEventListener('scroll', onScroll, true);
-    return () => {
-      window.removeEventListener('resize', place);
-      window.visualViewport?.removeEventListener('resize', place);
-      window.visualViewport?.removeEventListener('scroll', place);
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [open, place]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -148,7 +107,7 @@ export default function ModelCombobox({ value, onChange, models, loading = false
         aria-activedescendant={open && results[active] ? `${listId}-${active}` : undefined}
         value={inputValue}
         placeholder={inputPlaceholder}
-        onChange={(e) => { if (!open) { place(); setOpen(true); } setQuery(e.target.value); setActive(0); }}
+        onChange={(e) => { if (!open) { if (canOpen?.() === false) return; place(); setOpen(true); } setQuery(e.target.value); setActive(0); }}
         onFocus={openList}
         onClick={openList}
         onKeyDown={onKeyDown}

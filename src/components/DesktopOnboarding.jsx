@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
-  KeyRound, Laptop, Loader2, Sparkles, X, Zap,
+  Info, KeyRound, Laptop, Loader2, Sparkles, X, Zap,
 } from 'lucide-react';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
+import Modal from './Modal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
+import useAnchoredList from '../hooks/useAnchoredList';
 
 const defaultProvider = USER_PROVIDER_OPTIONS[0];
 
@@ -35,20 +38,151 @@ function ProviderGlyph({ id }) {
   );
 }
 
+// A native <select> here let some phone browsers open their picker at the top
+// of the screen, nowhere near the field (the page scrolls inside a fixed
+// layer), so this is a small listbox placed the same way as the model list.
+function ProviderSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
+  const [position, place] = useAnchoredList(wrapRef, listRef, open);
+  const selected = USER_PROVIDER_OPTIONS.find((option) => option.id === value) || defaultProvider;
+
+  const openList = () => {
+    place();
+    setActive(Math.max(0, USER_PROVIDER_OPTIONS.findIndex((option) => option.id === value)));
+    setOpen(true);
+  };
+  const choose = (option) => {
+    if (option.id !== value) onChange(option.id);
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (wrapRef.current?.contains(event.target) || listRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  const onKeyDown = (event) => {
+    const last = USER_PROVIDER_OPTIONS.length - 1;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) return openList();
+      setActive((index) => (event.key === 'ArrowDown' ? Math.min(last, index + 1) : Math.max(0, index - 1)));
+    } else if (open && (event.key === 'Home' || event.key === 'End')) {
+      event.preventDefault();
+      setActive(event.key === 'Home' ? 0 : last);
+    } else if (open && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      choose(USER_PROVIDER_OPTIONS[active]);
+    } else if (open && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    } else if (event.key === 'Tab') {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <span ref={wrapRef} className="onboarding-select-wrap">
+      <ProviderGlyph id={selected.id} />
+      <button
+        ref={buttonRef}
+        type="button"
+        className="onboarding-select"
+        role="combobox"
+        aria-label="AI provider"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+      >
+        {selected.label}
+      </button>
+      <ChevronDown size={18} />
+      {open && position && createPortal(
+        <ul ref={listRef} id={listId} role="listbox" aria-label="AI provider" className="model-combobox-list" style={{ position: 'fixed', ...position }} onMouseDown={(event) => event.preventDefault() /* keep focus on the button */}>
+          {USER_PROVIDER_OPTIONS.map((option, index) => (
+            <li
+              key={option.id}
+              id={`${listId}-${index}`}
+              role="option"
+              aria-selected={option.id === value}
+              className={`model-combobox-option onboarding-provider-option${index === active ? ' is-active' : ''}${option.id === value ? ' is-selected' : ''}`}
+              onMouseMove={() => { if (index !== active) setActive(index); }}
+              onClick={() => choose(option)}
+            >
+              <span className="model-combobox-text"><span className="model-combobox-label">{option.label}</span></span>
+              {option.id === value && <Check size={14} className="model-combobox-check" />}
+            </li>
+          ))}
+        </ul>,
+        document.body,
+      )}
+    </span>
+  );
+}
+
+// Shown when the model list is opened before a key is entered: the list comes
+// from the provider, so it can't load without one. Portaled to <body> because
+// the setup card's backdrop-filter would otherwise trap a fixed overlay inside
+// it; force-dark keeps it in the page's look even when the app theme is light.
+function NeedKeyModal({ providerLabel, onClose }) {
+  return createPortal(
+    <Modal
+      zIndex={1200}
+      scrimClass="force-dark fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4"
+      cardClass="onboarding-info-modal animate-scale-in"
+      cardProps={{
+        role: 'alertdialog',
+        'aria-modal': true,
+        'aria-labelledby': 'onboarding-need-key-title',
+        'aria-describedby': 'onboarding-need-key-text',
+        onKeyDown: (event) => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } },
+      }}
+    >
+      <span className="onboarding-info-icon"><Info size={22} /></span>
+      <h2 id="onboarding-need-key-title">Add your API key first</h2>
+      <p id="onboarding-need-key-text">
+        AppBlips gets the list of models from {providerLabel}, so it needs your {providerLabel} API key before you can choose one. Paste your key in the API key box, then pick a model.
+      </p>
+      <button type="button" className="onboarding-next" onClick={onClose} autoFocus>Add my key</button>
+    </Modal>,
+    document.body,
+  );
+}
+
 function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
+  const [needKey, setNeedKey] = useState(false);
+  // Local servers (LM Studio, Ollama) list models without a key.
+  const canOpenModels = () => {
+    if (provider.local || apiKey.trim()) return true;
+    setNeedKey(true);
+    return false;
+  };
+  const closeNeedKey = () => {
+    setNeedKey(false);
+    formRef.current?.querySelector('[data-field="key"]')?.focus();
+  };
   const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : provider.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://openrouter.ai/settings/keys';
 
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Provider">
-        <span className="onboarding-select-wrap">
-          <ProviderGlyph id={provider.id} />
-          <select value={provider.id} onChange={(event) => setProviderId(event.target.value)} className="onboarding-select" aria-label="AI provider">
-            {USER_PROVIDER_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-          </select>
-          <ChevronDown size={18} />
-        </span>
+        <ProviderSelect value={provider.id} onChange={setProviderId} />
         {provider.local && (
           <>
             <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={provider.baseUrl} className="onboarding-select onboarding-url" aria-label="Local server URL" />
@@ -96,10 +230,12 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
             loading={modelList.loading}
             allowCustom
             placeholder="Select a model or enter its ID…"
+            canOpen={canOpenModels}
           />
         </div>
         {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
       </SetupField>
+      {needKey && <NeedKeyModal providerLabel={provider.label} onClose={closeNeedKey} />}
     </form>
   );
 }
