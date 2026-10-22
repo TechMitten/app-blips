@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, MonitorSmartphone,
-  Settings, Smartphone, X,
+  Moon, Settings, Smartphone, Sun, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 
@@ -63,7 +63,7 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, resolvedTheme, onToggleTheme = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -85,7 +85,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       <div className="relative h-full overflow-y-auto">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
-              (md+), GitHub and settings on the right. */}
+              (md+), GitHub, theme and settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
             <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
               <span className="mr-auto">
@@ -129,6 +129,17 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
+                {onToggleTheme && (
+                  <button
+                    type="button"
+                    onClick={onToggleTheme}
+                    aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                    title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                    className={`${GHOST_BTN} h-9 w-9`}
+                  >
+                    {resolvedTheme === 'dark' ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
+                  </button>
+                )}
                 {onOpenSettings && (
                   <button
                     type="button"

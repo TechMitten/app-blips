@@ -2402,6 +2402,8 @@ export default function App({ coldStart = false }) {
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          resolvedTheme={resolvedTheme}
+          onToggleTheme={handleToggleTheme}
         />
         {settingsModal}
         {isDesktop && <DesktopStorageNotice />}
