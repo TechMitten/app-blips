@@ -52,7 +52,6 @@ USAGE_TRACKING.md
 .mcp.json
 
 # Local-only docs, kept out of the repo
-CLAUDE.md
 RELEASING.md
 
 # Whisper voice model, fetched at build time (scripts/fetch-whisper-model.js)
