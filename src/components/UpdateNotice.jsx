@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop, desktopBridge } from '../lib/desktop';
-import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
+import { checkForUpdate, CHECK_INTERVAL_MS, STORE_URL, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 
 // "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
-//   - Microsoft Store installs are updated by the Store: no notice at all.
+//   - Microsoft Store installs are updated by the Store, but the Store can take
+//     days to get round to it, so they get the release notice with a link to
+//     the Store page instead of GitHub.
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions.
@@ -17,7 +19,7 @@ import { logError, logWarn } from '../lib/errorLog';
 // downloaded desktop update only hides it until next launch (it installs
 // when the app quits anyway).
 export default function UpdateNotice() {
-  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url? }
+  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, store? }
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
 
@@ -27,8 +29,9 @@ export default function UpdateNotice() {
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });
     };
-    const checkReleases = () => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
-      if (!cancelled && release && release.version !== loadDismissedUpdate()) setUpdate({ kind: 'notify', ...release });
+    const checkReleases = (store = false) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
+      if (cancelled || !release || release.version === loadDismissedUpdate()) return;
+      setUpdate(store ? { kind: 'notify', version: release.version, url: STORE_URL, store } : { kind: 'notify', ...release });
     });
     const run = async () => {
       if (isDesktop) {
@@ -36,7 +39,10 @@ export default function UpdateNotice() {
           logWarn('Desktop update check failed; checking GitHub releases instead', err);
           return null;
         });
-        if (result?.store) return;
+        if (result?.store) {
+          checkReleases(true);
+          return;
+        }
         if (result?.auto) {
           fromDesktop(result.state);
           return;
@@ -88,9 +94,11 @@ export default function UpdateNotice() {
           <p className="mt-0.5 text-xs text-slate-600 leading-snug">
             {ready
               ? `AppBlips ${update.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`
-              : isDesktop
-                ? 'Download the new installer and install it over this version. Your projects stay where they are.'
-                : 'See what changed, and how to update your copy.'}
+              : update.store
+                ? 'Open the Microsoft Store to update. A new version can take a day or two to appear there. Your projects stay where they are.'
+                : isDesktop
+                  ? 'Download the new installer and install it over this version. Your projects stay where they are.'
+                  : 'See what changed, and how to update your copy.'}
           </p>
           {installFailed && (
             <p className="mt-1.5 text-xs text-red-600 leading-snug">
@@ -108,7 +116,7 @@ export default function UpdateNotice() {
             ) : (
               <>
                 <a href={update.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
-                  {isDesktop ? 'Download' : "What's new"}
+                  {update.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}
                 </a>
                 {!isDesktop && (
                   <a href={UPDATE_GUIDE_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>

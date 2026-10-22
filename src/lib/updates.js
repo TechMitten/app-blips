@@ -3,7 +3,8 @@
 // into the build (__APPBLIPS_VERSION__, from package.json via vite.config.js).
 //
 // The desktop app's AppImage builds update themselves instead
-// (electron/updater.js); this check covers every other install.
+// (electron/updater.js); this check covers every other install, including
+// Microsoft Store ones, whose notice links to the Store.
 // Results are cached in localStorage so reloads don't re-ask GitHub, whose
 // unauthenticated API allows 60 requests an hour per IP. No React, so
 // testing/testUpdates.js can load it in node.
@@ -15,6 +16,8 @@ export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
 // Only the browser version (from source or Docker) links here; the desktop
 // app updates itself or links to the installer.
 export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#updating';
+// Microsoft Store installs link to their Store page instead of the release.
+export const STORE_URL = 'https://apps.microsoft.com/detail/9nk9ss4v2n1k';
 export const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 export const CHECK_CACHE_KEY = 'orion-update-check';
 

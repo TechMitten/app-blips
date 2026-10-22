@@ -15,7 +15,8 @@
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
-// { auto: false, store: true } and the renderer doesn't check at all.
+// { auto: false, store: true }: the renderer still runs the GitHub check, but
+// its notice links to the Store page instead of the release.
 import electronUpdater from 'electron-updater';
 
 const RECHECK_MS = 60 * 60 * 1000;
