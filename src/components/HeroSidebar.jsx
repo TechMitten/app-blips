@@ -23,7 +23,7 @@ function RailItem({ icon: Icon, label, collapsed, onClick, href, badge = null, p
   const tip = { 'data-tip': label, 'data-tip-side': 'right' };
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={className} aria-label={label} {...tip}>
+      <a href={href} draggable={false} target="_blank" rel="noopener noreferrer" className={className} aria-label={label} {...tip}>
         {content}
       </a>
     );

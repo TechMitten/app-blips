@@ -189,6 +189,7 @@ export default function Header({
           <a
             data-tour="help"
             href={DOCS_URL}
+            draggable={false}
             target="_blank"
             rel="noopener noreferrer"
             className="nav-btn nav-ghost nav-btn-icon"
@@ -342,6 +343,7 @@ export default function Header({
               <a
                 data-tour="help"
                 href={DOCS_URL}
+                draggable={false}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => runMobileAction()}

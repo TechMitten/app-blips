@@ -101,6 +101,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               <div className="flex items-center gap-2">
                 <a
                   href={GITHUB_URL}
+                  draggable={false}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="AppBlips on GitHub"
@@ -111,6 +112,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </a>
                 <a
                   href={DISCORD_URL}
+                  draggable={false}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Join the AppBlips Discord"
@@ -121,6 +123,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </a>
                 <a
                   href={DOCS_URL}
+                  draggable={false}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Help and documentation"
