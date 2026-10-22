@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, MessagesSquare, Plus } from 'lucide-react';
+import {
+  ArrowLeft, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Info, MessagesSquare, Plus,
+} from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
@@ -12,7 +14,8 @@ import {
 // A card opens that service's page (switch, key, help). Changes save as you
 // type; llm.js reads the saved state when it builds, so there is no Save step.
 // To add a service: add its definition in lib/connectors.js (with the `page`
-// wording and the `about` text the "How it works" dialog shows), its
+// wording, the `prompts` users copy into the builder chat and the `about`
+// text the "How it works" dialog shows), its
 // instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
@@ -29,6 +32,7 @@ function Web3FormsIcon({ size }) {
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
+  square: CreditCard,
 };
 
 const STATUS_BADGE = {
@@ -108,13 +112,68 @@ function ConnectorPage({ id, state, onChange }) {
             role={keyBad ? 'alert' : 'status'}
             className={`inline-flex items-start gap-1.5 text-xs ${keyBad ? 'text-red-600' : status === 'connected' ? 'text-emerald-600' : 'text-slate-600'}`}
           >
-            {keyBad && <><CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />{page.invalid}</>}
+            {keyBad && <><CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />{def.looksSecret?.(key) ? page.secret : page.invalid}</>}
             {!keyBad && status === 'connected' && <><CircleCheck size={14} className="mt-px shrink-0" aria-hidden="true" />{page.connected}</>}
             {!keyBad && status === 'needs-key' && page.needsKey}
           </p>
         </div>
       )}
     </>
+  );
+}
+
+// Ready-made requests (the definition's `prompts`) to paste into the builder
+// chat. The text is selectable too, for when the clipboard is blocked.
+function ConnectorPrompts({ id, connected }) {
+  const { name, prompts } = CONNECTOR_DEFINITIONS[id];
+  const [copied, setCopied] = useState(null);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  useEffect(() => {
+    if (copied === null) return undefined;
+    const timer = setTimeout(() => setCopied(null), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = async (index) => {
+    try {
+      await navigator.clipboard.writeText(prompts[index]);
+      setCopyFailed(false);
+      setCopied(index);
+    } catch {
+      setCopyFailed(true);
+    }
+  };
+
+  return (
+    <div className="py-4 space-y-2">
+      <h4 className="text-sm font-semibold text-slate-900">Prompts to try</h4>
+      <p className="text-xs leading-snug text-slate-600">
+        Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
+        {!connected && ` They work once ${name} is connected.`}
+      </p>
+      <ul className="space-y-2">
+        {prompts.map((prompt, index) => (
+          <li key={prompt} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <p className="min-w-0 flex-1 select-all text-xs leading-snug text-slate-800">{prompt}</p>
+            <button
+              type="button"
+              onClick={() => copy(index)}
+              aria-label={copied === index ? 'Copied' : `Copy prompt: ${prompt}`}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                copied === index ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'text-indigo-600 hover:bg-indigo-500/10'
+              }`}
+            >
+              {copied === index ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+              {copied === index ? 'Copied' : 'Copy'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {copyFailed && (
+        <p role="alert" className="text-xs text-red-600">Couldn’t copy. Click the prompt to select it, then copy it yourself.</p>
+      )}
+    </div>
   );
 }
 
@@ -169,6 +228,7 @@ export default function ConnectorsSettings() {
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
           <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+          <ConnectorPrompts key={`${openId}-prompts`} id={openId} connected={connectorStatus(openId, connectors) === 'connected'} />
         </div>
         {/* Portaled out of the settings card: a fixed overlay inside it would be
             clipped by the card's overflow. */}

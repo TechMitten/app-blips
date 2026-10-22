@@ -1,5 +1,5 @@
 import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
-import { embedSnippet } from './connectors.js';
+import { embedSnippet, squareLinks } from './connectors.js';
 
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
@@ -558,8 +558,8 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 
 // Instructions for the services linked in Settings → Connectors (see
 // connectors.js). `connectors` is [{ id, key }], already validated. Games have
-// no forms to wire up and a chat bubble would cover play, but they still get
-// analytics. The Web3Forms text says it
+// no forms to wire up, a chat bubble would cover play and they sell nothing,
+// but they still get analytics. The Web3Forms text says it
 // replaces the website prompt's "forms have no backend" rule, since the model
 // otherwise follows that rule.
 const analyticsDirective = (name, snippet) => `- ${name} (visitor analytics). Put this exact tracking code in the <head> of EVERY HTML page, once, character for character:
@@ -572,6 +572,9 @@ const CONNECTOR_DIRECTIVES = {
   tawkto: (key) => `- tawk.to (live chat with the site owner). Put this exact widget code just before </body> of EVERY HTML page, once, character for character:
 ${embedSnippet('tawkto', key)}
   If a page already has tawk.to code that differs, replace it with this. tawk.to draws its own chat bubble in the bottom-right corner: don't build a chat widget, chat button or chatbot of your own, remove any placeholder one, and keep the bottom-right corner free of other floating buttons (put a back-to-top button bottom-left). Don't customize it through Tawk_API. Messages sent through it are real, so never type into it or send a message when testing.`,
+  square: (key) => `- Square (online payments). The owner's Square Payment Links:
+${squareLinks(key).map(({ name, url }) => `  - ${name ? `${name}: ` : ''}${url}`).join('\n')}
+  Every buy, order, pay, book-and-pay or donate button or link MUST open one of these: a clearly labelled <a> (such as "Buy now" or "Pay now") whose href is the link exactly as written, with target="_blank" rel="noopener". Match links to products by their names; when it isn't clear which fits, use the first one and say which you used in your reply. Square shows the price and takes the payment on its own checkout page, so never build a cart, checkout or card form, never ask for card details, and don't show a price the user didn't give you. Don't add payment buttons where nothing is for sale. Payments are real, so never click these links when testing.`,
   web3forms: (key) => `- Web3Forms (form backend), access key ${key}. Every form that sends a message to the site owner (contact, enquiry, feedback, newsletter signup, RSVP, booking request) MUST submit through Web3Forms, replacing any rule above that says forms have no backend:
   1. Inside the <form> add <input type="hidden" name="access_key" value="${key}">, <input type="hidden" name="subject" value="New message from the website">, and a spam honeypot <input type="checkbox" name="botcheck" tabindex="-1" autocomplete="off" style="display:none">. Give every visible field a name attribute (name, email, message...).
   2. Handle submit in JavaScript: preventDefault, disable the button and show "Sending...", then fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) }) and read the JSON reply.
@@ -581,7 +584,7 @@ ${embedSnippet('tawkto', key)}
 
 export const buildConnectorDirective = (connectors, studioMode = 'app') => {
   const lines = (connectors || [])
-    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto')))
+    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square')))
     .map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
   return lines.length
     ? `CONNECTORS (the user linked these services in Settings; use them wherever they fit):\n${lines.join('\n')}`

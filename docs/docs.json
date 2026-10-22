@@ -28,6 +28,7 @@
               "features/building-apps",
               "features/live-preview",
               "features/editing-apps",
+              "features/connectors",
               "features/exporting",
               "features/importing-sites"
             ]

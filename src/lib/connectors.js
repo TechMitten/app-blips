@@ -3,9 +3,10 @@
 // generation time; the settings UI reads and writes it).
 //
 // Only public values live here. Web3Forms' access key is designed to sit in a
-// page's HTML (it can only deliver mail to its owner's inbox), and analytics
-// tracking code can only add visits, so they are kept in localStorage like the
-// other settings and written into the generated code.
+// page's HTML (it can only deliver mail to its owner's inbox), analytics
+// tracking code can only add visits, and a Square Payment Link only lets people
+// pay its owner, so they are kept in localStorage like the other settings and
+// written into the generated code.
 // Anything secret would need the main-process store the AI provider key uses.
 import { safeStorage } from './config.js';
 
@@ -88,6 +89,32 @@ s0.parentNode.insertBefore(s1,s0);
 <!--End of Tawk.to Script-->`;
 };
 
+// Square Payment Links: https://square.link/u/<id>, or the older long form
+// https://checkout.square.site/merchant/<id>/checkout/<id>. Each line holds one
+// link, optionally after the name of what it sells ("T-shirt https://…"), and
+// links are also found inside Square's button code. Query strings (the button
+// code adds ?src=embed) are dropped. Names can't hold markup, quotes or
+// another address, since they go into the AI's instructions.
+const SQUARE_URL_RE = /https:\/\/(?:square\.link\/u\/[A-Za-z0-9]{4,40}|checkout\.square\.site\/merchant\/[A-Za-z0-9]{4,40}\/checkout\/[A-Za-z0-9]{4,40})(?![\w-])/g;
+const MAX_SQUARE_LINKS = 20;
+export const squareLinks = (input) => {
+  const links = [];
+  for (const line of input.split('\n')) {
+    for (const match of line.matchAll(SQUARE_URL_RE)) {
+      if (links.length === MAX_SQUARE_LINKS || links.some((link) => link.url === match[0])) continue;
+      const before = line.slice(0, match.index);
+      const name = /[<>"'`]|:\/\//.test(before) ? '' : before.replace(/[\s:|=,–—-]+$/, '').trim().slice(0, 60);
+      links.push({ name, url: match[0] });
+    }
+  }
+  return links;
+};
+
+// Square's secret credentials: access tokens (EAAA…, or sq0atp- on old
+// accounts) and application secrets (sq0csp-). Pasting one is refused with its
+// own warning, since it would end up in every page.
+const looksLikeSquareSecret = (input) => /\bEAAA[\w-]{20,}|\bsq0(?:atp|csp)-/.test(input);
+
 // The code to put in every page for an analytics or chat connector, or null.
 export const embedSnippet = (id, key) => {
   if (id === 'umami') return umamiSnippet(key);
@@ -96,10 +123,15 @@ export const embedSnippet = (id, key) => {
   return null;
 };
 
+const ANALYTICS_PROMPTS = (name) => [
+  `Add my connected ${name} analytics to every page.`,
+  `Update the ${name} tracking code on every page to match my connected ${name} account.`,
+];
+
 const ANALYTICS_NOTES = (name) => [
   'Visits from the AppBlips preview, including the AI’s own testing, are not counted. Your exported pages count every visitor once they are online.',
   'The tracking code is written into every page and any HTML you export. That is how it is designed: anyone who sees it can only add visits to your stats, not read them.',
-  `Projects built before you connected don’t change on their own. Ask the AI to “add ${name} analytics to every page”.`,
+  `Projects built before you connected don’t change on their own. Copy a prompt from this page into the builder chat to add ${name} to one.`,
   `${name} uses no cookies, so the AI doesn’t add a cookie banner for it. Check the privacy rules where you live if you are unsure.`,
   `${name} is a separate service with its own plans and limits.`,
 ];
@@ -127,6 +159,13 @@ export const CONNECTOR_DEFINITIONS = {
     },
     // Shown by the "How it works" dialog on the connector's settings page.
     // Every connector needs one; keep it plain-language and in step with docs.
+    // Ready-made requests the user copies into the builder chat (shown on the
+    // settings page). They only work once the connector is connected.
+    prompts: [
+      'Make the contact form send its entries to my email using my connected Web3Forms account.',
+      'Add a contact page with a form that emails me through my connected Web3Forms account.',
+      'Add a newsletter signup form that sends each new signup to my email with Web3Forms.',
+    ],
     about: {
       what: 'Web3Forms lets the forms in your websites and apps email their entries to you, so a contact form works without you building or paying for a server.',
       steps: [
@@ -138,7 +177,7 @@ export const CONNECTOR_DEFINITIONS = {
       notes: [
         'Forms send real emails from the preview too, so a test entry there lands in your inbox.',
         'Your access key is written into the code of your forms and any HTML you export. That is how Web3Forms is designed: the key can only send email to your own inbox.',
-        'Projects built before you connected don’t change on their own. Ask the AI to “make the contact form use Web3Forms”.',
+        'Projects built before you connected don’t change on their own. Copy a prompt from this page into the builder chat to add Web3Forms to one.',
         'The Browser Game studio doesn’t use it.',
         'Web3Forms is a separate service with its own free plan and limits.',
       ],
@@ -164,6 +203,7 @@ export const CONNECTOR_DEFINITIONS = {
       connected: 'Connected. Websites, apps and games you build or edit from now on will include your tracking code.',
       needsKey: 'Add your tracking code to finish setting up.',
     },
+    prompts: ANALYTICS_PROMPTS('Umami'),
     about: {
       what: 'Umami counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and which sites and countries they came from. It doesn’t use cookies or collect personal data.',
       steps: [
@@ -196,6 +236,7 @@ export const CONNECTOR_DEFINITIONS = {
       connected: 'Connected. Websites, apps and games you build or edit from now on will include your tracking code.',
       needsKey: 'Add your tracking code to finish setting up.',
     },
+    prompts: ANALYTICS_PROMPTS('Plausible'),
     about: {
       what: 'Plausible counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and which sites and countries they came from. It doesn’t use cookies or collect personal data.',
       steps: [
@@ -226,6 +267,11 @@ export const CONNECTOR_DEFINITIONS = {
       connected: 'Connected. Websites and apps you build or edit from now on will show your chat bubble.',
       needsKey: 'Add your widget code to finish setting up.',
     },
+    prompts: [
+      'Add my connected tawk.to chat bubble to every page.',
+      'Add a “Chat with us” button that opens my tawk.to chat.',
+      'Move anything in the bottom-right corner so it doesn’t cover the tawk.to chat bubble.',
+    ],
     about: {
       what: 'tawk.to adds a chat bubble to the corner of your websites and apps. Visitors click it to message you, and you answer them live from the tawk.to dashboard or its phone app. When you are away, their messages wait for you there.',
       steps: [
@@ -238,10 +284,57 @@ export const CONNECTOR_DEFINITIONS = {
       notes: [
         'The chat bubble works in the preview too, so a message you send there reaches your tawk.to dashboard, and preview visits show up there as visitors.',
         'Your widget code is written into every page and any HTML you export. That is how tawk.to is designed: it only lets people chat with you.',
-        'Projects built before you connected don’t change on their own. Ask the AI to “add the tawk.to chat to every page”.',
+        'Projects built before you connected don’t change on their own. Copy a prompt from this page into the builder chat to add tawk.to to one.',
         'tawk.to uses cookies to remember chats, so where the law requires it, your site may need a cookie notice.',
         'The Browser Game studio doesn’t use it.',
         'tawk.to is a separate service, free to use, with optional paid extras.',
+      ],
+    },
+  },
+  square: {
+    id: 'square',
+    name: 'Square',
+    tagline: 'Take payments',
+    description: 'Online payments. Buy, order and donate buttons in your websites and apps open your Square checkout, where people pay you by card, Apple Pay or Google Pay.',
+    keyLabel: 'Payment links',
+    keyPlaceholder: 'T-shirt https://square.link/u/AbC123xy\nMug https://square.link/u/DeF456zw',
+    keyUrl: 'https://squareup.com/payment-links',
+    multiline: true,
+    isValidKey: (key) => !looksLikeSquareSecret(key) && squareLinks(key).length > 0,
+    // Shown instead of `page.invalid` when the paste looks like a secret.
+    looksSecret: looksLikeSquareSecret,
+    page: {
+      enableDescription: 'Buy and pay buttons in websites and apps the AI builds will open your Square checkout.',
+      keyHelp: 'In the Square Dashboard, create a payment link, click Copy link and paste it here. To sell several things, put each one on its own line with its name before the link, like “T-shirt https://square.link/u/…”.',
+      keyLinkLabel: 'Learn about Square Payment Links',
+      invalid: 'That doesn’t look like a Square payment link. It starts with https://square.link/u/. Copy it from Payment links in the Square Dashboard.',
+      secret: 'That looks like a secret Square access token. Never paste it here or anywhere public. AppBlips only needs your payment links, which start with https://square.link/u/. If you shared the token anywhere, replace it in the Square Developer Console.',
+      connected: 'Connected. Buy and pay buttons in websites and apps you build or edit from now on will open your Square checkout.',
+      needsKey: 'Add a payment link to finish setting up.',
+    },
+    prompts: [
+      'Add a “Pay now” button to accept payments through my connected Square account.',
+      'Add a “Buy now” button that takes people to my Square checkout.',
+      'Add a shop section with a “Buy” button for each of my Square payment links.',
+      'Add a “Donate” button that uses my Square payment link.',
+    ],
+    about: {
+      what: 'Square takes payments for you. You create a payment link in Square for each thing you sell, and the buttons in your websites and apps open it. People pay on Square’s own checkout page by card, Apple Pay or Google Pay, and the money goes to your Square account.',
+      steps: [
+        'Sign up at squareup.com, or sign in to the Square Dashboard if you already use Square.',
+        'Open Payment links in the Square Dashboard (type “payment links” in its search box if you can’t see it) and create a link: a payment, an item, a donation or an event. Square asks for the name and price there.',
+        'Click Copy link.',
+        'Turn on Square here and paste the link into the box. To sell several things, add one link per line, each with its name in front.',
+        'From then on, when the AI builds or edits a Responsive Website or a Mobile & Web App, its buy, order, pay and donate buttons open your Square checkout.',
+      ],
+      notes: [
+        'Payments are real, including from the preview. In the desktop app, the checkout opens in your normal web browser.',
+        'Prices are set in Square. To change one, edit the payment link in Square; your website doesn’t need to change.',
+        'Your payment links are written into your pages and any HTML you export. That is how they are designed: a link only lets people pay you.',
+        'AppBlips never needs your Square access token or any other secret. Don’t paste one here.',
+        'Projects built before you connected don’t change on their own. Copy a prompt from this page into the builder chat to add Square to one.',
+        'The Browser Game studio doesn’t use it.',
+        'Square is a separate service. It charges a fee on each payment.',
       ],
     },
   },

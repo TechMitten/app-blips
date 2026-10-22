@@ -11,12 +11,12 @@ globalThis.window = { localStorage: {
 } };
 
 const {
-  loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
+  squareLinks, loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
 } = await import('../src/lib/connectors.js');
 const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -134,10 +134,44 @@ assert.ok(buildHtmlSystemPrompt('website', chat).includes(`just before </body> o
 assert.match(buildHtmlSystemPrompt('app', chat), /embed\.tawk\.to/);
 assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'));  // a chat bubble would cover play
 
-// Every connector carries the text its "How it works" dialog shows, and its
-// settings page wording.
+// Square: payment links, one per line with an optional name, also found in
+// Square's button code. Secrets are refused even next to a valid link.
+{
+  const square = CONNECTOR_DEFINITIONS.square;
+  const LINK = 'https://square.link/u/AbC123xy';
+  assert.deepEqual(squareLinks(LINK), [{ name: '', url: LINK }]);
+  assert.deepEqual(
+    squareLinks(`T-shirt - ${LINK}\nMug: https://square.link/u/DeF456zw?src=embed\n${LINK}`),
+    [{ name: 'T-shirt', url: LINK }, { name: 'Mug', url: 'https://square.link/u/DeF456zw' }],
+  );
+  assert.deepEqual(squareLinks(`<a target="_blank" href="${LINK}?src=embed">Buy now</a>`), [{ name: '', url: LINK }]);
+  assert.deepEqual(squareLinks(`https://example.com ${LINK}`), [{ name: '', url: LINK }]);
+  const longForm = 'https://checkout.square.site/merchant/ML123ABC/checkout/XYZ789AB';
+  assert.deepEqual(squareLinks(longForm), [{ name: '', url: longForm }]);
+  for (const bad of ['http://square.link/u/AbC123xy', `${LINK}-x`, 'https://square.link.evil.com/u/AbC123xy', 'https://evil.com/?square.link/u/AbC123xy', 'buy my shirt']) {
+    assert.equal(square.isValidKey(bad), false, bad);
+  }
+  assert.ok(square.isValidKey(LINK));
+  for (const secret of ['EAAAl1234567890abcdefghijklmnopqrstu', 'sq0csp-abc123', 'sq0atp-abc123']) {
+    assert.equal(square.isValidKey(`${secret}\n${LINK}`), false, secret);
+    assert.ok(square.looksSecret(secret), secret);
+  }
+  assert.equal(square.looksSecret(LINK), false);
+  assert.equal(squareLinks(Array.from({ length: 25 }, (_, i) => `https://square.link/u/Link${String(i).padStart(4, '0')}`).join('\n')).length, 20);
+
+  const directive = buildConnectorDirective([{ id: 'square', key: `T-shirt ${LINK}` }], 'website');
+  assert.match(directive, /T-shirt: https:\/\/square\.link\/u\/AbC123xy/);
+  assert.match(directive, /target="_blank"/);
+  assert.equal(buildConnectorDirective([{ id: 'square', key: LINK }], 'game'), '');
+}
+
+// Every connector carries the text its "How it works" dialog shows, its
+// settings page wording and at least one prompt to copy into the chat.
 for (const id of CONNECTOR_IDS) {
-  const { about, page } = CONNECTOR_DEFINITIONS[id];
+  const { about, page, prompts } = CONNECTOR_DEFINITIONS[id];
+  assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
+  for (const prompt of prompts) assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: prompt text`);
+  assert.equal(new Set(prompts).size, prompts.length, `${id}: prompts are unique (they are React keys)`);
   for (const field of ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey']) {
     assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
   }

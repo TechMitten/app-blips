@@ -1,0 +1,142 @@
+---
+title: "Connectors"
+sidebarTitle: "Connectors"
+description: "Link Web3Forms, Umami, Plausible, tawk.to or Square so the AI wires them into the websites and apps you build."
+---
+
+Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments.
+
+Every connector only asks for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them.
+
+<Note>
+  AppBlips has no partnership, sponsorship or affiliate arrangement with any of these services or the companies and developers behind them. They are offered because they work without a server or a secret key. Each one is a separate service with its own terms, prices and privacy policy, and questions about your account with it go to that service. Their names and logos belong to their owners.
+</Note>
+
+## Set up a connector
+
+<Steps>
+  <Step title="Open Connectors">
+    Click **Settings**, then the **Connectors** tab. You see a card for each service.
+  </Step>
+  <Step title="Pick a service">
+    Click its card. Click **How it works** at the top if you'd like an explanation of the service before you start.
+  </Step>
+  <Step title="Turn it on">
+    Click the switch next to **Enable** and the service name, for example **Enable Square**.
+  </Step>
+  <Step title="Paste what the service gives you">
+    Paste the key, code or link into the box. The sections below say where to find it for each service. A green **Connected.** message appears when it looks right.
+  </Step>
+</Steps>
+
+Changes save as you type, so there is no Save button. Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
+
+## Use a connector in a project
+
+You don't have to mention a connected service in your requests. If Web3Forms is connected and you ask for "a contact form", the AI sets it up to email you. If Square is connected and you ask for "a buy button", it opens your Square checkout.
+
+Projects you built before you connected a service don't change on their own. To add the service to one:
+
+1. Open the project.
+2. Click **Settings**, then **Connectors**, then the service's card.
+3. Under **Prompts to try**, click **Copy** next to the request you want.
+4. Close Settings and paste the request into the builder chat.
+5. Send it.
+
+If you change your key or link later, use a prompt the same way to update a project you already built.
+
+The Browser Game studio only uses the connectors that count visitors. Forms, chat and payments are for the Responsive Website and Mobile & Web App studios.
+
+## Web3Forms
+
+Web3Forms sends the entries from your forms to your email, so a contact form works without you building or paying for a server. It is a separate service with its own free plan.
+
+1. Go to [web3forms.com](https://web3forms.com) and enter the email address you want entries sent to.
+2. Web3Forms emails you an **access key**: a 36-character code like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
+3. In AppBlips, turn on Web3Forms and paste the key into the **Access key** box.
+
+The AI then uses it for every form that sends a message to you, such as contact, signup and booking forms. The form shows a message on the page when the entry is sent, or what went wrong. Forms send real emails from the preview too, so a test entry there lands in your inbox.
+
+<Note>
+  The access key is made to sit in a website's code. It can only send email to your own inbox, so it is safe in the pages and any HTML you export.
+</Note>
+
+## Umami
+
+Umami counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and where they came from. It doesn't use cookies, so the AI doesn't add a cookie banner for it. Umami has a free plan, and you can also run it on your own server: see [Umami on GitHub](https://github.com/umami-software/umami).
+
+1. Sign up at [umami.is](https://umami.is) and add your website.
+2. Open the website's settings in Umami and copy its tracking code.
+3. In AppBlips, turn on Umami and paste the code into the **Tracking code or website ID** box. On Umami Cloud you can paste just the 36-character website ID instead.
+
+The AI then adds the tracking code to every page, in every studio. Visits from the AppBlips preview, including the AI's own testing, aren't counted. Your stats start once you put the exported project online.
+
+<Note>
+  AppBlips only keeps the parts of the tracking code it needs (the script address and your website ID). Anyone who sees the code can only add visits to your stats, not read them.
+</Note>
+
+## Plausible
+
+Plausible counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and where they came from. It doesn't use cookies, so the AI doesn't add a cookie banner for it. Plausible is paid, with a free trial, and you can also run it on your own server: see the [Plausible Community Edition on GitHub](https://github.com/plausible/community-edition).
+
+1. Sign up at [plausible.io](https://plausible.io) and add your site, using the web address it will have once it is online.
+2. Open the site's settings in Plausible and copy everything in the **Site installation** section.
+3. In AppBlips, turn on Plausible and paste it into the **Tracking code** box.
+
+The AI then adds the tracking code to every page, in every studio. Visits from the AppBlips preview, including the AI's own testing, aren't counted. Your stats start once you put the exported project online at the address you gave Plausible.
+
+<Note>
+  AppBlips only keeps the parts of the tracking code it needs (the script address and your site ID). Anyone who sees the code can only add visits to your stats, not read them.
+</Note>
+
+## tawk.to
+
+tawk.to adds a live chat bubble to the corner of your websites and apps. Visitors click it to message you, and you reply from the tawk.to dashboard or its phone app. It is free, with optional paid extras.
+
+1. Sign up at [tawk.to](https://www.tawk.to) and create a property for your website.
+2. In tawk.to, open **Administration**, then **Chat Widget**.
+3. Copy everything in the **Widget Code** box, from `<!--Start of Tawk.to Script-->` to `<!--End of Tawk.to Script-->`.
+4. In AppBlips, turn on tawk.to and paste it into the **Widget code** box.
+
+The AI then adds the chat bubble to every page and keeps the bottom-right corner free for it. The chat works in the preview too, so a message you send there reaches your tawk.to dashboard. tawk.to uses cookies to remember chats, so where the law requires it, your site may need a cookie notice.
+
+## Square
+
+Square takes payments for you. You create a **payment link** in Square for each thing you sell: a web address that opens Square's checkout page for it. The buy, order, pay and donate buttons in your websites and apps open that link, people pay by card, Apple Pay or Google Pay, and the money goes to your Square account. Square charges a fee on each payment.
+
+1. Sign up at [squareup.com](https://squareup.com/payment-links), or sign in to the Square Dashboard if you already use Square.
+2. Open **Payment links**. If you can't see it, type "payment links" in the Dashboard's search box.
+3. Create a link. Square asks what it is for (a payment, an item, a donation or an event), its name and its price.
+4. Click **Copy link**. The link starts with `https://square.link/u/`.
+5. In AppBlips, turn on Square and paste the link into the **Payment links** box.
+
+To sell several things, put each link on its own line with the name of what it sells in front:
+
+```text
+T-shirt https://square.link/u/AbC123xy
+Mug https://square.link/u/DeF456zw
+```
+
+The AI uses the names to match each link to the right button. Square's button code works too: paste it and AppBlips keeps only the link.
+
+Prices are set in Square, so to change one, edit the payment link in Square; your website doesn't need to change. Payments are real, including from the preview. In the desktop app, the checkout opens in your normal web browser.
+
+<Warning>
+  Only paste payment links. AppBlips never needs your Square access token or any other secret, and refuses one if you paste it. If you have shared a token anywhere, replace it in the Square Developer Console.
+</Warning>
+
+## Request a connector
+
+Missing a service?
+
+1. Click **Settings**, then **Connectors**.
+2. Click **Request a connector** at the end of the cards.
+3. Enter the service and what you'd like it to do.
+4. Add your email only if you'd like a reply.
+5. Click **Send request**.
+
+Your request goes to the AppBlips team through Web3Forms. Nothing about your projects is sent.
+
+## Privacy
+
+AppBlips saves your connector settings on your computer. It never contacts these services itself, except Web3Forms when you send a connector request. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
