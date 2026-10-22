@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, Mail } from 'lucide-react';
+import { ArrowLeft, ChartColumn, ChartLine, CircleCheck, CircleAlert, ExternalLink, Info, Mail } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import {
@@ -9,10 +9,10 @@ import {
 // Settings → Connectors: a grid of services the AI can wire into new projects.
 // A card opens that service's page (switch, key, help). Changes save as you
 // type; llm.js reads the saved state when it builds, so there is no Save step.
-// To add a service: add its definition in lib/connectors.js (with the `about`
-// text the "How it works" dialog shows), its instructions in prompts.js
-// (CONNECTOR_DIRECTIVES), and its icon and page below.
-const ICONS = { web3forms: Mail };
+// To add a service: add its definition in lib/connectors.js (with the `page`
+// wording and the `about` text the "How it works" dialog shows), its
+// instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
+const ICONS = { web3forms: Mail, umami: ChartColumn, plausible: ChartLine };
 
 const STATUS_BADGE = {
   connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
@@ -48,56 +48,58 @@ function ConnectorCard({ id, status, onOpen }) {
   );
 }
 
-function Web3FormsPage({ state, onChange }) {
-  const def = CONNECTOR_DEFINITIONS.web3forms;
+// One page for every connector: an on/off switch and the key (or, for
+// analytics, the tracking code), with its wording from the definition's `page`.
+function ConnectorPage({ id, state, onChange }) {
+  const def = CONNECTOR_DEFINITIONS[id];
+  const { page } = def;
   const key = state.key.trim();
   const keyBad = state.enabled && key !== '' && !def.isValidKey(key);
-  const status = connectorStatus('web3forms', { web3forms: state });
+  const status = connectorStatus(id, { [id]: state });
+  const Field = def.multiline ? 'textarea' : 'input';
   return (
     <>
       <SettingRow
-        id="set-web3forms"
-        title="Enable Web3Forms"
-        description="Forms the AI builds will send their entries to your email through Web3Forms."
+        id={`set-${id}`}
+        title={`Enable ${def.name}`}
+        description={page.enableDescription}
       >
-        <Switch checked={state.enabled} onChange={(enabled) => onChange({ enabled })} labelledBy="set-web3forms" />
+        <Switch checked={state.enabled} onChange={(enabled) => onChange({ enabled })} labelledBy={`set-${id}`} />
       </SettingRow>
       {state.enabled && (
         <div className="py-4 space-y-2">
-          <label htmlFor="set-web3forms-key" className="block text-sm font-semibold text-slate-900">{def.keyLabel}</label>
-          <input
-            id="set-web3forms-key"
-            type="text"
+          <label htmlFor={`set-${id}-key`} className="block text-sm font-semibold text-slate-900">{def.keyLabel}</label>
+          <Field
+            id={`set-${id}-key`}
+            {...(def.multiline ? { rows: 4 } : { type: 'text' })}
             value={state.key}
             onChange={(event) => onChange({ key: event.target.value })}
             placeholder={def.keyPlaceholder}
             autoComplete="off"
             spellCheck={false}
             aria-invalid={keyBad}
-            aria-describedby="set-web3forms-help"
-            className={`${FIELD_CLASS} font-mono`}
+            aria-describedby={`set-${id}-help`}
+            className={`${FIELD_CLASS} font-mono${def.multiline ? ' resize-y text-xs' : ''}`}
           />
-          <p id="set-web3forms-help" className="text-xs leading-snug text-slate-600">
-            Enter your public access key. It is meant to sit in a website&rsquo;s code and only sends mail to your inbox, so it is safe to share.{' '}
+          <p id={`set-${id}-help`} className="text-xs leading-snug text-slate-600">
+            {page.keyHelp}{' '}
             <a href={def.keyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
-              Get a free key<ExternalLink size={11} aria-hidden="true" />
+              {page.keyLinkLabel}<ExternalLink size={11} aria-hidden="true" />
             </a>
           </p>
           <p
             role={keyBad ? 'alert' : 'status'}
             className={`inline-flex items-start gap-1.5 text-xs ${keyBad ? 'text-red-600' : status === 'connected' ? 'text-emerald-600' : 'text-slate-600'}`}
           >
-            {keyBad && <><CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />That doesn&rsquo;t look like an access key. It has 36 characters, in the form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.</>}
-            {!keyBad && status === 'connected' && <><CircleCheck size={14} className="mt-px shrink-0" aria-hidden="true" />Connected. Websites and apps you build or edit from now on will use it for their forms.</>}
-            {!keyBad && status === 'needs-key' && 'Add your key to finish setting up.'}
+            {keyBad && <><CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />{page.invalid}</>}
+            {!keyBad && status === 'connected' && <><CircleCheck size={14} className="mt-px shrink-0" aria-hidden="true" />{page.connected}</>}
+            {!keyBad && status === 'needs-key' && page.needsKey}
           </p>
         </div>
       )}
     </>
   );
 }
-
-const PAGES = { web3forms: Web3FormsPage };
 
 export default function ConnectorsSettings() {
   const [connectors, setConnectors] = useState(loadConnectors);
@@ -115,7 +117,6 @@ export default function ConnectorsSettings() {
   if (openId) {
     const { name, description } = CONNECTOR_DEFINITIONS[openId];
     const Icon = ICONS[openId];
-    const Page = PAGES[openId];
     return (
       <div>
         <button
@@ -144,7 +145,7 @@ export default function ConnectorsSettings() {
           </button>
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
-          <Page state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+          <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
         </div>
         {infoOpen && <ConnectorInfoModal id={openId} onClose={() => setInfoOpen(false)} />}
       </div>

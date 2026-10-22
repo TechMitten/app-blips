@@ -3,15 +3,82 @@
 // generation time; the settings UI reads and writes it).
 //
 // Only public values live here. Web3Forms' access key is designed to sit in a
-// page's HTML (it can only deliver mail to its owner's inbox), so it is kept in
-// localStorage like the other settings and written into the generated code.
+// page's HTML (it can only deliver mail to its owner's inbox), and analytics
+// tracking code can only add visits, so they are kept in localStorage like the
+// other settings and written into the generated code.
 // Anything secret would need the main-process store the AI provider key uses.
 import { safeStorage } from './config.js';
 
 export const CONNECTORS_KEY = 'orion-connectors';
 
-// The key Web3Forms emails to the user: a UUID.
-const WEB3FORMS_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// The key Web3Forms emails to the user, and an Umami website ID: both UUIDs.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// A comma-separated list of hostnames (Plausible's data-domain, Umami's data-domains).
+const DOMAINS_RE = /^[a-z0-9.-]+(,[a-z0-9.-]+)*$/i;
+
+// The <script> tags in a pasted snippet, as lowercase-named attribute maps.
+const scriptTags = (html) => [...html.matchAll(/<script\b([^>]*)>/gi)].map(([, attrs]) => Object.fromEntries(
+  [...attrs.matchAll(/([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g)]
+    .map(([, name, dq, sq, bare]) => [name.toLowerCase(), (dq ?? sq ?? bare).trim()]),
+));
+
+// An https URL safe to write back into an attribute, or null. The URL parser
+// percent-encodes quotes and angle brackets; the final check is a backstop.
+const safeHttpsUrl = (value) => {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    return /["'<>\s`]/.test(url.href) ? null : url.href;
+  } catch { return null; }
+};
+
+// The analytics snippets are rebuilt from the few values they need instead of
+// passing the paste on, so nothing else the user pasted reaches the AI or the
+// generated code. Both accept self-hosted servers. null when unusable.
+const umamiSnippet = (input) => {
+  if (UUID_RE.test(input)) return `<script defer src="https://cloud.umami.is/script.js" data-website-id="${input.toLowerCase()}"></script>`;
+  const tag = scriptTags(input).find((attrs) => attrs['data-website-id']);
+  const src = tag && safeHttpsUrl(tag.src || '');
+  if (!src || !UUID_RE.test(tag['data-website-id'])) return null;
+  let extra = '';
+  const hostUrl = tag['data-host-url'] && safeHttpsUrl(tag['data-host-url']);
+  if (hostUrl) extra += ` data-host-url="${hostUrl.replace(/\/$/, '')}"`;
+  if (DOMAINS_RE.test(tag['data-domains'] || '')) extra += ` data-domains="${tag['data-domains']}"`;
+  return `<script defer src="${src}" data-website-id="${tag['data-website-id'].toLowerCase()}"${extra}></script>`;
+};
+
+// Plausible's current snippet is a per-site script (/js/pa-<id>.js) plus an
+// init stub (the stub is Plausible's own, from its web-snippet.js). The older
+// one is any script with data-domain. Init options in a pasted snippet are
+// dropped: the defaults suit generated sites.
+const PLAUSIBLE_INIT = '<script>window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()</script>';
+const isPlausibleSiteScript = (url) => /\/js\/pa-[\w-]+\.js$/.test(new URL(url).pathname);
+const plausibleSnippet = (input) => {
+  const bare = safeHttpsUrl(input);
+  if (bare) return isPlausibleSiteScript(bare) ? `<script async src="${bare}"></script>\n${PLAUSIBLE_INIT}` : null;
+  for (const tag of scriptTags(input)) {
+    const src = safeHttpsUrl(tag.src || '');
+    if (!src) continue;
+    if (isPlausibleSiteScript(src)) return `<script async src="${src}"></script>\n${PLAUSIBLE_INIT}`;
+    if (DOMAINS_RE.test(tag['data-domain'] || '')) return `<script defer data-domain="${tag['data-domain']}" src="${src}"></script>`;
+  }
+  return null;
+};
+
+// The tag(s) to put in every page for an analytics connector, or null.
+export const trackingSnippet = (id, key) => {
+  if (id === 'umami') return umamiSnippet(key);
+  if (id === 'plausible') return plausibleSnippet(key);
+  return null;
+};
+
+const ANALYTICS_NOTES = (name) => [
+  'Visits from the AppBlips preview, including the AI’s own testing, are not counted. Your exported pages count every visitor once they are online.',
+  'The tracking code is written into every page and any HTML you export. That is how it is designed: anyone who sees it can only add visits to your stats, not read them.',
+  `Projects built before you connected don’t change on their own. Ask the AI to “add ${name} analytics to every page”.`,
+  `${name} uses no cookies, so the AI doesn’t add a cookie banner for it. Check the privacy rules where you live if you are unsure.`,
+  `${name} is a separate service with its own plans and limits.`,
+];
 
 export const CONNECTOR_DEFINITIONS = {
   web3forms: {
@@ -22,7 +89,16 @@ export const CONNECTOR_DEFINITIONS = {
     keyLabel: 'Access key',
     keyPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     keyUrl: 'https://web3forms.com',
-    isValidKey: (key) => WEB3FORMS_KEY_RE.test(key),
+    isValidKey: (key) => UUID_RE.test(key),
+    // Text for the settings page (ConnectorsSettings.jsx).
+    page: {
+      enableDescription: 'Forms the AI builds will send their entries to your email through Web3Forms.',
+      keyHelp: 'Enter your public access key. It is meant to sit in a website’s code and only sends mail to your inbox, so it is safe to share.',
+      keyLinkLabel: 'Get a free key',
+      invalid: 'That doesn’t look like an access key. It has 36 characters, in the form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.',
+      connected: 'Connected. Websites and apps you build or edit from now on will use it for their forms.',
+      needsKey: 'Add your key to finish setting up.',
+    },
     // Shown by the "How it works" dialog on the connector's settings page.
     // Every connector needs one; keep it plain-language and in step with docs.
     about: {
@@ -40,6 +116,66 @@ export const CONNECTOR_DEFINITIONS = {
         'The Browser Game studio doesn’t use it.',
         'Web3Forms is a separate service with its own free plan and limits.',
       ],
+    },
+  },
+  umami: {
+    id: 'umami',
+    name: 'Umami',
+    tagline: 'Count visitors to your sites',
+    description: 'Privacy-friendly visitor stats. See how many people visit your websites and apps, which pages they view and where they come from.',
+    keyLabel: 'Tracking code or website ID',
+    keyPlaceholder: '<script defer src="https://cloud.umami.is/script.js" data-website-id="…"></script>',
+    keyUrl: 'https://umami.is',
+    multiline: true,
+    isValidKey: (key) => umamiSnippet(key) !== null,
+    page: {
+      enableDescription: 'Websites, apps and games the AI builds will report their visits to your Umami dashboard.',
+      keyHelp: 'In Umami, open your website’s settings, copy the tracking code and paste it here. Umami Cloud users can paste just the website ID. Self-hosted Umami works too.',
+      keyLinkLabel: 'Sign up for Umami',
+      invalid: 'That doesn’t look like Umami tracking code. Paste the whole <script> tag from your website’s settings in Umami, or its 36-character website ID.',
+      connected: 'Connected. Websites, apps and games you build or edit from now on will include your tracking code.',
+      needsKey: 'Add your tracking code to finish setting up.',
+    },
+    about: {
+      what: 'Umami counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and which sites and countries they came from. It doesn’t use cookies or collect personal data.',
+      steps: [
+        'Sign up at umami.is (it has a free plan) or use your own Umami server, and add your website there.',
+        'Open the website’s settings in Umami and copy its tracking code.',
+        'Turn on Umami here and paste the tracking code into the box.',
+        'From then on, when the AI builds or edits a project in any studio, it adds the tracking code to every page.',
+        'Put your project online. Each visit then shows up on your Umami dashboard.',
+      ],
+      notes: ANALYTICS_NOTES('Umami'),
+    },
+  },
+  plausible: {
+    id: 'plausible',
+    name: 'Plausible',
+    tagline: 'Count visitors to your sites',
+    description: 'Privacy-friendly visitor stats. See how many people visit your websites and apps, which pages they view and where they come from.',
+    keyLabel: 'Tracking code',
+    keyPlaceholder: '<script async src="https://plausible.io/js/pa-….js"></script>',
+    keyUrl: 'https://plausible.io',
+    multiline: true,
+    isValidKey: (key) => plausibleSnippet(key) !== null,
+    page: {
+      enableDescription: 'Websites, apps and games the AI builds will report their visits to your Plausible dashboard.',
+      keyHelp: 'In Plausible, open your site’s settings, copy the tracking code from the Site installation section and paste all of it here. Self-hosted Plausible works too.',
+      keyLinkLabel: 'Sign up for Plausible',
+      invalid: 'That doesn’t look like Plausible tracking code. Paste everything from the Site installation section of your site’s settings in Plausible.',
+      connected: 'Connected. Websites, apps and games you build or edit from now on will include your tracking code.',
+      needsKey: 'Add your tracking code to finish setting up.',
+    },
+    about: {
+      what: 'Plausible counts the visitors to your websites, apps and games and shows them on a dashboard: how many people came, which pages they viewed, and which sites and countries they came from. It doesn’t use cookies or collect personal data.',
+      steps: [
+        'Sign up at plausible.io (a paid service with a free trial) or use your own Plausible server, and add your site there, using the web address it will have once it is online.',
+        'Open the site’s settings in Plausible and copy the tracking code from the Site installation section.',
+        'Turn on Plausible here and paste the tracking code into the box.',
+        'From then on, when the AI builds or edits a project in any studio, it adds the tracking code to every page.',
+        'Put your project online at that address. Each visit then shows up on your Plausible dashboard.',
+      ],
+      notes: ANALYTICS_NOTES('Plausible'),
     },
   },
 };

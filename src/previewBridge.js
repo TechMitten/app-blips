@@ -180,6 +180,19 @@ const BRIDGE_SOURCE = `(function () {
     Object.defineProperty(api, 'length', {
       get: function () { return Object.keys(m).length; }
     });
+    if (isPersistent) {
+      // The Umami and Plausible connectors put analytics in generated pages.
+      // Their trackers skip sending when these "exclude my visits" flags are
+      // set, so previews and the AI's test runs don't count as visits. Kept
+      // out of m so they survive clear(), never sync to the parent, and
+      // never appear in keys or length. Exports have no bridge and count
+      // normally. Plausible reads its flag as a property, Umami via getItem.
+      var getStored = api.getItem;
+      api.getItem = function (k) {
+        return String(k) === 'umami.disabled' ? '1' : getStored(k);
+      };
+      Object.defineProperty(api, 'plausible_ignore', { value: 'true' });
+    }
     return api;
   }
 

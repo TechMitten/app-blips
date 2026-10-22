@@ -39,6 +39,7 @@ Here are quick answers to the most common questions about AppBlips — what it c
     - **Google Fonts:** for the fonts AppBlips itself uses.
     - **Hugging Face:** only when you build AppBlips from source or with Docker, to download the voice-input speech model once. The desktop app already includes it.
     - **Web3Forms:** only if you turn on the Web3Forms connector in **Settings → Connectors**. AppBlips itself never contacts it. The websites and apps you build send their form entries there, whenever someone submits a form, including in the preview.
+    - **Umami and Plausible:** only if you turn on one of these connectors in **Settings → Connectors**. AppBlips itself never contacts them. The pages you build load their tracking script, including in the preview, but visits from the preview aren't counted. Once your pages are online, they report each visit to your Umami or Plausible dashboard.
     - **Code libraries (CDNs):** the apps you build, and imported sites, load libraries such as React, Tailwind CSS or game engines from public sites like esm.sh, jsDelivr and cdn.tailwindcss.com. Exported apps load them from there too.
 
     Each of these services can see your IP address when AppBlips connects. AppBlips sends no analytics or tracking.

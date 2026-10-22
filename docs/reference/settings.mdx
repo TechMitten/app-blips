@@ -150,6 +150,26 @@ Projects you built before you connected Web3Forms don't change on their own. Ask
   Your access key is made to sit in a website's code, and it can only send email to your own inbox. AppBlips saves it on your device and writes it into the forms it builds, so it is also in any HTML you export. Don't enter a key you want to keep private.
 </Note>
 
+### Umami and Plausible
+
+Umami and Plausible count the visitors to your websites, apps and games and show them on a dashboard: how many people came, which pages they viewed, and where they came from. Neither uses cookies. Both are separate services: Umami has a free plan, and Plausible is paid with a free trial. Both also work with your own self-hosted server. Turn on the one you use (or both).
+
+<ParamField body="Enable Umami" type="toggle" default="Off">
+  Turn it on, then paste your tracking code into the **Tracking code or website ID** box. To find it, open your website's settings in Umami and copy the tracking code. If you use Umami Cloud, you can paste just the 36-character website ID instead.
+</ParamField>
+
+<ParamField body="Enable Plausible" type="toggle" default="Off">
+  Turn it on, then paste your tracking code into the **Tracking code** box. To find it, open your site's settings in Plausible and copy everything from the **Site installation** section.
+</ParamField>
+
+Once one is **Connected**, every project the AI builds or edits, in any studio, gets your tracking code on every page. Projects you built before you connected don't change on their own. Ask the AI to "add Umami analytics to every page" (or Plausible).
+
+Visits from the AppBlips preview, including the AI's own testing, aren't counted. Your stats start once you put the exported project online at the address you gave Umami or Plausible.
+
+<Note>
+  AppBlips only keeps the parts of the tracking code it needs (the script address and your site ID) and writes them into every page, so they are also in any HTML you export. That is how these services are designed: anyone who sees the code can only add visits to your stats, not read them.
+</Note>
+
 ---
 
 ## API

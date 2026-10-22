@@ -16,9 +16,10 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
-assert.deepEqual(loadConnectors(), { web3forms: { enabled: false, key: '' } });
+assert.deepEqual(loadConnectors(), NOTHING);
 assert.equal(connectorStatus('web3forms'), 'off');
 assert.deepEqual(getActiveConnectors(), []);
 
@@ -43,7 +44,7 @@ assert.equal(loadConnectors().web3forms.key, KEY);
 // Corrupt or hostile storage never throws and reads as nothing connected.
 for (const raw of ['{', 'null', '[]', '"x"', '{"web3forms":{"enabled":"yes","key":5}}']) {
   data.set(CONNECTORS_KEY, raw);
-  assert.deepEqual(loadConnectors(), { web3forms: { enabled: false, key: '' } }, raw);
+  assert.deepEqual(loadConnectors(), NOTHING, raw);
 }
 
 // Prompt: the directive carries the key, replaces the "no backend" rule, and
@@ -55,13 +56,62 @@ assert.match(website, /CONNECTORS/);
 assert.match(website, new RegExp(`name="access_key" value="${KEY}"`));
 assert.match(website, /api\.web3forms\.com\/submit/);
 assert.match(buildHtmlSystemPrompt('app', active), /access_key/);
-assert.equal(buildHtmlSystemPrompt('game', active), buildHtmlSystemPrompt('game'));
+assert.equal(buildHtmlSystemPrompt('game', active), buildHtmlSystemPrompt('game'));  // games have no forms
 assert.equal(buildHtmlSystemPrompt('website', []), buildHtmlSystemPrompt('website'));
 assert.equal(buildConnectorDirective([{ id: 'unknown', key: 'x' }]), '');
 
-// Every connector carries the text its "How it works" dialog shows.
+// Analytics: the pasted tracking code is rebuilt from the values it needs.
+const { trackingSnippet } = await import('../src/lib/connectors.js');
+const SITE = '9b1c2d3e-4f5a-4b6c-8d7e-0f1a2b3c4d5e';
+const UMAMI_CLOUD = `<script defer src="https://cloud.umami.is/script.js" data-website-id="${SITE}"></script>`;
+assert.equal(trackingSnippet('umami', SITE), UMAMI_CLOUD);  // bare website ID: Umami Cloud
+assert.equal(trackingSnippet('umami', SITE.toUpperCase()), UMAMI_CLOUD);
+assert.equal(trackingSnippet('umami', UMAMI_CLOUD), UMAMI_CLOUD);
+assert.equal(
+  trackingSnippet('umami', `<script data-website-id='${SITE}' defer src="https://stats.example.com/u.js" data-host-url="https://api.example.com/" data-domains="example.com,www.example.com" onload="alert(1)"></script>`),
+  `<script defer src="https://stats.example.com/u.js" data-website-id="${SITE}" data-host-url="https://api.example.com" data-domains="example.com,www.example.com"></script>`,
+);
+for (const bad of ['', 'abc', `<script src="http://x.com/s.js" data-website-id="${SITE}"></script>`,
+  `<script src="javascript:alert(1)" data-website-id="${SITE}"></script>`, '<script src="https://cloud.umami.is/script.js" data-website-id="nope"></script>']) {
+  assert.equal(trackingSnippet('umami', bad), null, bad);
+}
+
+const PA = 'https://plausible.io/js/pa-AbC_12-xyz.js';
+const newSnippet = trackingSnippet('plausible', `<!-- Privacy-friendly analytics by Plausible -->\n<script async src="${PA}"></script>\n<script>\n  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};\n  plausible.init({ fetch: () => alert(1) })\n</script>`);
+assert.ok(newSnippet.startsWith(`<script async src="${PA}"></script>\n<script>window.plausible=`), newSnippet);
+assert.ok(newSnippet.endsWith('plausible.init()</script>') && !newSnippet.includes('alert'));
+assert.equal(trackingSnippet('plausible', PA), newSnippet);  // just the script URL
+assert.equal(
+  trackingSnippet('plausible', '<script defer data-domain="example.com" src="https://plausible.io/js/script.outbound-links.js"></script>'),
+  '<script defer data-domain="example.com" src="https://plausible.io/js/script.outbound-links.js"></script>',
+);
+for (const bad of ['', SITE, 'https://plausible.io/js/script.js', '<script defer src="https://plausible.io/js/script.js"></script>',
+  '<script defer data-domain="a.com&quot;><img" src="https://plausible.io/js/script.js"></script>', `<script async src="${PA.replace('https', 'http')}"></script>`]) {
+  assert.equal(trackingSnippet('plausible', bad), null, bad);
+}
+// Quotes and angle brackets can't escape the rebuilt attribute.
+assert.ok(trackingSnippet('plausible', 'https://plausible.io/js/pa-x.js?a="><b>').startsWith('<script async src="https://plausible.io/js/pa-x.js?a=%22%3E%3Cb%3E"></script>'));
+
+saveConnectors({ ...NOTHING, umami: { enabled: true, key: ` ${UMAMI_CLOUD}\n` }, plausible: { enabled: true, key: 'not code' } });
+assert.equal(connectorStatus('umami'), 'connected');
+assert.equal(connectorStatus('plausible'), 'needs-key');
+const analytics = getActiveConnectors();
+assert.deepEqual(analytics, [{ id: 'umami', key: UMAMI_CLOUD }]);
+// Unlike Web3Forms, analytics also goes into games.
+for (const mode of ['website', 'app', 'game']) {
+  const prompt = buildHtmlSystemPrompt(mode, analytics);
+  assert.ok(prompt.includes(`EVERY HTML page, once, character for character:\n${UMAMI_CLOUD}\n`), mode);
+}
+assert.ok(buildHtmlSystemPrompt('game', [...analytics, ...active]).includes('Umami'));
+assert.ok(!buildHtmlSystemPrompt('game', [...analytics, ...active]).includes('access_key'));
+
+// Every connector carries the text its "How it works" dialog shows, and its
+// settings page wording.
 for (const id of CONNECTOR_IDS) {
-  const { about } = CONNECTOR_DEFINITIONS[id];
+  const { about, page } = CONNECTOR_DEFINITIONS[id];
+  for (const field of ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey']) {
+    assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
+  }
   assert.ok(typeof about?.what === 'string' && about.what, `${id}: about.what`);
   assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
   assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);

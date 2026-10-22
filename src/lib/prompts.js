@@ -1,4 +1,5 @@
 import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
+import { trackingSnippet } from './connectors.js';
 
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
@@ -557,9 +558,16 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 
 // Instructions for the services linked in Settings → Connectors (see
 // connectors.js). `connectors` is [{ id, key }], already validated. Games have
-// no forms to wire up. The text says it replaces the website prompt's "forms
-// have no backend" rule, since the model otherwise follows that rule.
+// no forms to wire up, but still get analytics. The Web3Forms text says it
+// replaces the website prompt's "forms have no backend" rule, since the model
+// otherwise follows that rule.
+const analyticsDirective = (name, snippet) => `- ${name} (visitor analytics). Put this exact tracking code in the <head> of EVERY HTML page, once, character for character:
+${snippet}
+  If a page already has ${name} tracking code that differs, replace it with this. Don't add a cookie banner or consent popup for it (${name} uses no cookies), and don't write any tracking code of your own.`;
+
 const CONNECTOR_DIRECTIVES = {
+  umami: (key) => analyticsDirective('Umami', trackingSnippet('umami', key)),
+  plausible: (key) => analyticsDirective('Plausible', trackingSnippet('plausible', key)),
   web3forms: (key) => `- Web3Forms (form backend), access key ${key}. Every form that sends a message to the site owner (contact, enquiry, feedback, newsletter signup, RSVP, booking request) MUST submit through Web3Forms, replacing any rule above that says forms have no backend:
   1. Inside the <form> add <input type="hidden" name="access_key" value="${key}">, <input type="hidden" name="subject" value="New message from the website">, and a spam honeypot <input type="checkbox" name="botcheck" tabindex="-1" autocomplete="off" style="display:none">. Give every visible field a name attribute (name, email, message...).
   2. Handle submit in JavaScript: preventDefault, disable the button and show "Sending...", then fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) }) and read the JSON reply.
@@ -568,8 +576,9 @@ const CONNECTOR_DIRECTIVES = {
 };
 
 export const buildConnectorDirective = (connectors, studioMode = 'app') => {
-  if (studioMode === 'game') return '';
-  const lines = (connectors || []).map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
+  const lines = (connectors || [])
+    .filter(({ id }) => !(studioMode === 'game' && id === 'web3forms'))
+    .map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
   return lines.length
     ? `CONNECTORS (the user linked these services in Settings; use them wherever they fit):\n${lines.join('\n')}`
     : '';
