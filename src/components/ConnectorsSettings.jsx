@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, MessagesSquare } from 'lucide-react';
+import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, MessagesSquare, Plus } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
+import ConnectorRequestModal from './ConnectorRequestModal';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
@@ -121,6 +122,7 @@ export default function ConnectorsSettings() {
   const [connectors, setConnectors] = useState(loadConnectors);
   const [openId, setOpenId] = useState(null);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
 
   const update = (id, fields) => {
     setConnectors((current) => {
@@ -187,7 +189,24 @@ export default function ConnectorsSettings() {
         {CONNECTOR_IDS.map((id) => (
           <ConnectorCard key={id} id={id} status={connectorStatus(id, connectors)} onOpen={setOpenId} />
         ))}
+        <button
+          type="button"
+          onClick={() => setRequestOpen(true)}
+          className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4 text-left transition-colors hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
+            <Plus size={20} aria-hidden="true" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-slate-900">Request a connector</span>
+            <span className="mt-0.5 block text-xs leading-snug text-slate-600">Missing a service? Tell us which one.</span>
+          </span>
+        </button>
       </div>
+      {requestOpen && createPortal(
+        <ConnectorRequestModal onClose={() => setRequestOpen(false)} />,
+        document.body,
+      )}
     </div>
   );
 }
