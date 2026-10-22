@@ -61,7 +61,11 @@ linux:
   # Add a contact address ("Name <email>") before publishing .deb packages.
   maintainer: TechMitten
   syncDesktopName: true
-  icon: build/icon.png
+  # One PNG per size (build/icons/NxN.png, made by scripts/appx-icons.sh). The
+  # .deb installs each into /usr/share/icons/hicolor/NxN/apps/; given only the
+  # 1024px icon it installs just a 1024x1024 one, a size the hicolor theme
+  # doesn't have, so the launcher and taskbar fall back to a generic icon.
+  icon: build/icons
   synopsis: Turn a text prompt into a working app, website or game.
   artifactName: AppBlips-${version}-${arch}.${ext}
 # Where electron-updater looks for new versions (Windows and AppImage builds

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Makes build/icon.png, the Microsoft Store tile images in build/appx/ and the
-# Partner Center listing images in build/store-listing/ from build/icon.svg
+# Makes build/icon.png, the Linux icon sizes in build/icons/, the Microsoft
+# Store tile images in build/appx/ and the Partner Center listing images in
+# build/store-listing/ from build/icon.svg
 # (needs rsvg-convert and ImageMagick: apt install librsvg2-bin imagemagick).
 # Rerun after changing the icon, then commit the PNGs.
 #
@@ -27,6 +28,13 @@ render() { # size file
 }
 
 render 1024 build/icon.png
+
+# Linux (.deb/AppImage): the standard hicolor icon theme sizes, up to 512.
+rm -f build/icons/*.png
+mkdir -p build/icons
+for size in 16 24 32 48 64 128 256 512; do
+  render "$size" "build/icons/${size}x${size}.png"
+done
 
 square() { # name base-size
   for scale in 100 125 150 200 400; do
