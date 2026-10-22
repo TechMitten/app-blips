@@ -3,7 +3,7 @@ import { parseInlineMarkdown, parseMarkdownBlocks } from '../lib/markdown';
 // Renders assistant chat replies (markdown) inside the transcript bubbles.
 // Plain React text nodes throughout — LLM output is never treated as HTML.
 const INLINE_CODE_CLS =
-  'font-mono text-[length:var(--chat-code-text)] px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-white/10 text-slate-800 dark:text-white border border-slate-300/40 dark:border-white/10 break-words';
+  'font-mono text-[length:var(--chat-code-text)] px-1.5 py-0.5 rounded-md bg-slate-200/80 dark:bg-white/10 text-slate-800 dark:text-white border border-slate-300/40 dark:border-white/10 wrap-break-word';
 
 const renderInline = (tokens, keyPrefix) =>
   tokens.map((tok, i) => {

@@ -29,7 +29,7 @@ function LicenseText({ text, license }) {
     );
   }
   return (
-    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700 custom-scrollbar">
+    <pre className="max-h-64 overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-slate-700 custom-scrollbar">
       {text}
     </pre>
   );

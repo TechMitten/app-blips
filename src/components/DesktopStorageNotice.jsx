@@ -18,7 +18,7 @@ export default function DesktopStorageNotice() {
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[95] w-[calc(100%-2rem)] max-w-lg flex items-start gap-3 rounded-xl border border-red-200 bg-surface px-4 py-3 shadow-xl text-sm text-slate-700"
     >
       <CircleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
-      <span className="flex-1 min-w-0 break-words">
+      <span className="flex-1 min-w-0 wrap-break-word">
         {message}. Your latest changes may not be saved to disk; check that the projects folder (Settings → Data) is writable.
       </span>
       <button
