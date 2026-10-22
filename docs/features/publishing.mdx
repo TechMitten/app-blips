@@ -1,0 +1,73 @@
+---
+title: "Publish to the web"
+sidebarTitle: "Publishing"
+description: "Put your app, website or game online at a free surge.sh address with HTTPS, in one click."
+---
+
+AppBlips can put your project online for you. It uses [Surge](https://surge.sh), a free hosting service. Your project gets its own web address, such as `https://my-bakery-x7k2.surge.sh`, that anyone can open. The address uses HTTPS, the padlock in the address bar that keeps the connection secure.
+
+Publishing works for apps, websites and games. Imported sites can't be published yet. Download them with [Export](/features/importing-sites#export-the-project) instead.
+
+## Publish for the first time
+
+You need a free Surge account. AppBlips creates one for you the first time you sign in.
+
+<Steps>
+  <Step title="Open the Publish window">
+    In the preview toolbar, click **Publish** (the globe button near the right end).
+  </Step>
+  <Step title="Sign in to Surge">
+    - **New to Surge:** click **Create an account**. Type your email, choose a password, type it again in **Type the password again**, then click **Create account**.
+    - **Already have a Surge account:** leave **I have an account** selected, type your email and password, then click **Sign in**.
+  </Step>
+  <Step title="Choose the web address">
+    Under **Web address**, AppBlips suggests a name based on your project. Keep it or type your own. Use only lowercase letters, numbers and dashes.
+  </Step>
+  <Step title="Publish">
+    Click **Publish**. After a few seconds, the window shows **Your site is live** and the link. Click **Copy** to copy the link, or **Open site** to visit it.
+  </Step>
+  <Step title="Share it (optional)">
+    Under **Share it**, click **Email**, **X**, **Facebook**, **LinkedIn**, **Reddit**, **Bluesky** or **WhatsApp**. Your browser opens that service's share page (or your email app) with the link filled in. Nothing is posted until you post it there.
+  </Step>
+</Steps>
+
+<Note>
+  Anyone with the link can see your published site. Don't publish anything private.
+</Note>
+
+## Update a published site
+
+After you change your project, click **Publish** in the preview toolbar again. For a project that's already online, the window shows **This project is online** and its address.
+
+- **Update site:** replaces what's online with your latest version, at the same address.
+- **Unpublish:** takes the site offline. See [Remove a published site](#remove-a-published-site).
+- **Publish to a different address:** puts a second copy online at a new address. The old address stays online until you unpublish it.
+
+## If the address is taken
+
+Surge addresses are first come, first served. If someone else already uses the name, the window says it belongs to another Surge account. Type a different name and click **Publish** again.
+
+## Your Surge sign-in
+
+- Your password goes to Surge once and is never saved. AppBlips keeps only the sign-in that Surge sends back.
+  - In the desktop app, that sign-in is encrypted with your computer's keychain.
+  - In the browser version, it's saved on your computer in a file only your user account can read. It's never saved in the browser.
+- To sign out, open **Settings → Connectors** and click **Sign out** under **Publishing (Surge)**. You can also click **Sign out** in the Publish window.
+- Surge sends a confirmation email when you create an account. You can publish without confirming it, but confirmed accounts can publish more often.
+- If you forget your password, reset it at [surge.sh](https://surge.sh).
+
+## Remove a published site
+
+1. Open the project and click **Publish** in the preview toolbar.
+2. Click **Unpublish**.
+3. Click **Unpublish** again to confirm.
+
+The site goes offline and the link stops working. Your project stays in AppBlips, so you can click **Publish again** later. Someone else could take the address in the meantime.
+
+AppBlips only remembers the last address you published each project to. To remove an older address, install [Node.js](https://nodejs.org), open a terminal, type `npx surge teardown old-name.surge.sh` (using your own address) and press Enter, then sign in with your Surge email and password.
+
+## Limits
+
+- Surge's free plan includes HTTPS on every `surge.sh` address. Custom domains, such as `www.mybakery.com`, aren't supported in AppBlips yet.
+- Surge limits how often you can publish in a short time. If you see a "rate limited" message, wait 15 minutes and try again.
+- Surge's [terms](https://surge.sh/terms) apply to what you publish.

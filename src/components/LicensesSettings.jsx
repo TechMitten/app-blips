@@ -140,6 +140,22 @@ export default function LicensesSettings() {
               </p>
             </div>
           )}
+          {/* A service, not shipped code: Publish talks to Surge's API with
+              AppBlips' own client (electron/server/surgeApi.js). */}
+          <div className="py-2.5">
+            <p className="text-sm font-semibold text-slate-900">Surge</p>
+            <p className="mt-0.5 text-xs leading-snug text-slate-600">
+              Publish puts your sites online with Surge, a hosting service. No Surge code is included in AppBlips. Surge&rsquo;s own terms apply to what you publish.
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+              <a href="https://surge.sh" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+                surge.sh<ExternalLink size={11} aria-hidden="true" />
+              </a>
+              <a href="https://surge.sh/terms" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+                Surge terms<ExternalLink size={11} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
           <div className="py-2.5">
             <p className="text-sm font-semibold text-slate-900">Fonts</p>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">

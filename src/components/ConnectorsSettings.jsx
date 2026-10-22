@@ -6,6 +6,7 @@ import {
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
+import SurgeAccountSettings from './SurgeAccountSettings';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
@@ -266,6 +267,7 @@ export default function ConnectorsSettings() {
           </span>
         </button>
       </div>
+      <SurgeAccountSettings />
       {requestOpen && createPortal(
         <ConnectorRequestModal onClose={() => setRequestOpen(false)} />,
         document.body,

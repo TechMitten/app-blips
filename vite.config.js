@@ -6,6 +6,7 @@ import { describeConfig, formatConfigSummary } from './electron/server/configSum
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js'
 import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
+import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -81,6 +82,17 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleProviderApi(await toFetchRequest(req), env, keys)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // Publish to Surge, with the Surge token kept server-side the same way.
+      const surgeTokens = createKeyFile({ file: defaultKeyFile(env, 'surge-token.json') })
+      server.middlewares.use('/api/surge', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Publishing is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleSurgeApi(await toFetchRequest(req), env, surgeTokens)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },

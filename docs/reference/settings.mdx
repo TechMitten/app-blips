@@ -134,6 +134,8 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 
 Connectors link outside services to your projects, so the AI wires them into what it builds. Click a card to set that service up. Each service's page has an **Enable** switch, a box for its key, code or link, a **How it works** button, and **Prompts to try**: ready-made requests to copy into the builder chat. Changes save as you type. See [Connectors](/features/connectors) for step-by-step setup of each service.
 
+When you're signed in to Surge for [Publish to the web](/features/publishing), a **Publishing (Surge)** row below the cards shows your Surge email. Click **Sign out** to forget the sign-in.
+
 <ParamField body="Enable Web3Forms" type="toggle" default="Off">
   Emails your form entries to you. Needs your Web3Forms access key. See [Web3Forms](/features/connectors#web3forms).
 </ParamField>
@@ -208,7 +210,7 @@ Credits for the open source code inside AppBlips.
 
 - **AppBlips:** AppBlips itself is open source under the MIT License. Click **Show license** to read it, or **Source code** to open the project on GitHub.
 - **Open source packages:** every open source package that ships inside AppBlips, with its version and license. Click a package to read its full license text and open its website. Type in **Search packages** to find one by name, license or author.
-- **Other credits:** the Whisper speech model that voice input uses, the fonts in the interface, and, in the desktop app, Chromium. Chromium's own list of licenses is in the file `LICENSES.chromium.html` in the AppBlips install folder.
+- **Other credits:** the Whisper speech model that voice input uses, the fonts in the interface, Surge (the hosting service **Publish** uses; no Surge code is included), and, in the desktop app, Chromium. Chromium's own list of licenses is in the file `LICENSES.chromium.html` in the AppBlips install folder.
 
 ---
 
@@ -219,4 +221,4 @@ Credits for the open source code inside AppBlips.
 </Warning>
 
 - **Delete all saved apps:** removes every saved app with its version history.
-- **Reset app to factory defaults** (the **Factory Reset** button): clears all data, settings, API keys and projects, and returns AppBlips to the state it was in when you first installed it.
+- **Reset app to factory defaults** (the **Factory Reset** button): clears all data, settings, API keys and projects, signs you out of Surge, and returns AppBlips to the state it was in when you first installed it.

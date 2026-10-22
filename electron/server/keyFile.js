@@ -13,8 +13,9 @@ import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
-// APPBLIPS_DATA_DIR moves it (the Docker image points it at a volume).
-export const defaultKeyFile = (env = process.env) => join(env.APPBLIPS_DATA_DIR || join(homedir(), '.appblips'), 'provider-key.json');
+// APPBLIPS_DATA_DIR moves it (the Docker image points it at a volume). The
+// Surge token (surgeApi.js) is kept the same way, in surge-token.json.
+export const defaultKeyFile = (env = process.env, name = 'provider-key.json') => join(env.APPBLIPS_DATA_DIR || join(homedir(), '.appblips'), name);
 
 export function createKeyFile({ file }) {
   let state = { id: '', key: '' };

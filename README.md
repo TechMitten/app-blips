@@ -64,6 +64,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
+- **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)
 
 
 ## Documentation
@@ -75,6 +76,7 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 - **[Run from source](https://docs.appblips.com/quickstart-source)** — run it in your browser with Node.js, or build the desktop app yourself
 - **[Docker](https://docs.appblips.com/self-hosting/docker)** — run it in a container with one command
 - **[Feature guides](https://docs.appblips.com/features/building-apps)** — deep dives into the App, Website, and Game studios
+- **[Publish to the web](https://docs.appblips.com/features/publishing)** — put a project online at a free `surge.sh` address
 
 ## Quick start
 
@@ -158,6 +160,17 @@ Voice input turns speech into text entirely on the user's computer. Nothing is u
 - **Microphone permission:** in the desktop app, `electron/main.js` grants the `media` permission only for audio and only to the app's own top-level page. The sandboxed preview, where generated apps run, can't use the microphone, and nothing can use the camera. The Microsoft Store package declares the `microphone` capability.
 - **Test:** after `npm run build`, `node testing/testVoiceInput.mjs` (Playwright) plays a speech clip through a fake microphone and checks both the transcript and that no request left the app's own server.
 
+### Publishing with Surge
+
+**Publish** (the globe button in the preview toolbar) puts an app, website or game online with [Surge](https://surge.sh), free static hosting with HTTPS on every `<name>.surge.sh` address. Imported codebases can't be published yet.
+
+- **Accounts:** each person uses their own free Surge account. The Publish window offers **I have an account** or **Create an account** (password typed twice). Surge creates an account for any email it hasn't seen, so there's no separate sign-up step.
+- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
+- **Where it runs:** the upload happens in AppBlips' own server code (`electron/server/surgeApi.js`), not in the page, because Surge's API doesn't accept requests from web pages. It's the same handler in the desktop app, `npm start`/Docker and `npm run dev`.
+- **Sign-in storage:** the password goes to Surge once and is never saved. The token Surge returns is kept like the AI key: encrypted with the system keychain on desktop (`electron/surgeStore.js`), or in `surge-token.json` next to `provider-key.json` (mode 0600) in the browser version. The page only ever sees the account email. Sign out from the Publish window, **Settings → Connectors**, or **Factory Reset**.
+- **Limits:** only `*.surge.sh` addresses for now (no custom domains). Surge rate-limits publishing, and its [terms](https://surge.sh/terms) apply to what you publish. For an older address AppBlips no longer remembers, run `npx surge teardown <name>.surge.sh`.
+- **Test:** `node testing/testSurgeApi.js` (no network; Surge is stubbed).
+
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 
 ## Security notes
@@ -165,6 +178,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
 - The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved by the server in a file only you can read (`~/.appblips`, or the `appblips-data` volume in Docker), never in your browser.
+- **Publish** sends your project's pages to Surge only when you click it. Your Surge password isn't saved, and the token Surge returns stays outside the page, like the AI key.
 - Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and how to check a download.
 
 ## License

@@ -22,6 +22,8 @@ import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
+import PublishDialog from './components/PublishDialog';
+import { surgeSignOut } from './lib/surge';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
@@ -157,6 +159,7 @@ export default function App({ coldStart = false }) {
   const isCodebase = studioMode === 'codebase';
   const [codebaseMeta, setCodebaseMeta] = useState(null);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
   // The route the preview is on (reported by the router shim). Read by the
   // next rebuild, so edits don't throw the user back to the home page.
   const codebaseRouteRef = useRef('/');
@@ -2318,6 +2321,9 @@ export default function App({ coldStart = false }) {
     } catch (err) {
       logError('Could not clear the saved AI provider during reset', err);
     }
+    // The Surge sign-in for Publish is kept outside the page the same way.
+    const surge = await surgeSignOut();
+    if (surge.error) logError('Could not sign out of Surge during reset', surge.error);
     localStorage.clear();
     window.location.reload();
   };
@@ -2555,6 +2561,16 @@ export default function App({ coldStart = false }) {
         />
       )}
 
+      {/* Publishes the same pages Export downloads (buildExportFiles). */}
+      {isPublishOpen && (
+        <PublishDialog
+          projectId={currentProjectId}
+          projectName={projectName}
+          buildFiles={buildExportFiles}
+          onClose={() => setIsPublishOpen(false)}
+        />
+      )}
+
       <UpdateNotice />
       {isDesktop && <DesktopStorageNotice />}
 
@@ -2705,6 +2721,7 @@ export default function App({ coldStart = false }) {
               onExportHtml={isCodebase ? handleExportCodebase : handleExportHtml}
               exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
               onExportReactProject={canExportReactProject ? handleExportReactProject : null}
+              onPublish={isCodebase ? null : () => setIsPublishOpen(true)}
               containerRef={previewContainerRef}
               iframeRef={setPreviewFrameRef}
               browserLockRef={browserLockRef}

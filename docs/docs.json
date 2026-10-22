@@ -30,6 +30,7 @@
               "features/editing-apps",
               "features/connectors",
               "features/exporting",
+              "features/publishing",
               "features/importing-sites"
             ]
           },

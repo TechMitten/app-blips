@@ -22,6 +22,7 @@ import { describeConfig, formatConfigSummary } from './electron/server/configSum
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
 import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
+import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
@@ -40,6 +41,7 @@ const INDEX_FILE = join(DIST_DIR, 'index.html');
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const keys = createKeyFile({ file: defaultKeyFile() });
+const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-token.json') });
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -121,6 +123,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
     toFetchRequest(req)
       .then((request) => handleProviderApi(request, process.env, keys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/surge' || req.url.startsWith('/api/surge/')) {
+    toFetchRequest(req)
+      .then((request) => handleSurgeApi(request, process.env, surgeTokens))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

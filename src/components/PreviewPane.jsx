@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, MousePointerClick, Move
+  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -49,6 +49,7 @@ export default function PreviewPane({
   onOpenNewTab,
   onExportHtml,
   onExportReactProject = null,
+  onPublish = null,
   containerRef,
   iframeRef,
   browserLockRef,
@@ -369,19 +370,38 @@ export default function PreviewPane({
             </button>
           )}
 
-          {/* Export the HTML file (also carries the tour anchor). */}
+          {/* Puts the site online at a free surge.sh address (PublishDialog).
+              The filled key when offered; Export steps down to an icon. */}
+          {hasSavedCode && onPublish && (
+            <button
+              onClick={onPublish}
+              disabled={isBrowserTesting}
+              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
+              aria-label="Publish to the web"
+              data-tip="Publish to the web (free surge.sh address)"
+              data-tip-align="end"
+            >
+              <Globe size={16} />
+              <span className="preview-key-label">Publish</span>
+            </button>
+          )}
+
+          {/* Export the HTML file (also carries the tour anchor). Imported
+              sites can't publish, so there it stays the filled key. */}
           {hasSavedCode && (
             <button
               data-tour="share"
               onClick={onExportHtml}
               disabled={isBrowserTesting}
-              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
+              className={onPublish
+                ? 'nav-btn nav-ghost nav-btn-icon'
+                : 'nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs'}
               aria-label="Export app"
               data-tip={exportTip || 'Download this app as an HTML file'}
               data-tip-align="end"
             >
               <Download size={16} />
-              <span className="preview-key-label">Export</span>
+              {!onPublish && <span className="preview-key-label">Export</span>}
             </button>
           )}
         </div>
