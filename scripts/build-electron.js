@@ -5,12 +5,15 @@
 // the runtime. Run by the npm desktop scripts before Electron starts.
 // The desktop app is single-user, so nothing about a hosted backend is baked in.
 import { rolldown } from 'rolldown';
+import { licensePlugin } from './licenses.js';
 
 const bundle = await rolldown({
   input: 'electron/main.js',
   platform: 'node',
   external: ['electron'],
   logLevel: 'warn',
+  // Checks the Settings → Licenses list covers what was bundled.
+  plugins: [licensePlugin('desktop')],
 });
 // codeSplitting: false keeps it one file even though dependencies (the
 // Anthropic SDK) contain dynamic imports.

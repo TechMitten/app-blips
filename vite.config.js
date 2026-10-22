@@ -9,6 +9,7 @@ import { handleProviderApi } from './electron/server/providerApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
+import { licensePlugin } from './scripts/licenses.js'
 
 // Vite's connect server does not catch rejections from async middleware; on
 // modern Node that kills the whole dev server, so the proxy goes through this
@@ -98,17 +99,26 @@ function whisperAssetsPlugin() {
   }
 }
 
+// Packages bundled into the app and its voice-input worker, for Settings →
+// Licenses. The worker is a separate build that finishes before the app's, so
+// both feed one collection and the app's plugin checks it (scripts/licenses.js).
+const appLicenseModules = new Set()
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   // The app's version, for the update check (src/lib/updates.js).
   define: {
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
-  plugins: [react(), whisperAssetsPlugin(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode)],
+  plugins: [
+    react(), whisperAssetsPlugin(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode),
+    licensePlugin('app', { collected: appLicenseModules }),
+  ],
   // The voice-input worker imports transformers.js, which splits into chunks;
   // only module workers can load those.
   worker: {
     format: 'es',
+    plugins: () => [licensePlugin('app', { collected: appLicenseModules, finish: false })],
   },
   // Pre-bundling moves onnxruntime-web into .vite/deps, away from the .wasm
   // file it loads relative to itself.

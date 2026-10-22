@@ -22,6 +22,7 @@
     "preview": "vite preview",
     "start": "vite build --mode desktop && node server.js",
     "build:server": "node scripts/build-server.js",
+    "licenses": "node scripts/update-licenses.js",
     "desktop": "vite build --mode desktop && node scripts/build-electron.js && electron .",
     "desktop:start": "electron .",
     "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",

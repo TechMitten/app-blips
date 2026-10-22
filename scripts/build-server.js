@@ -4,11 +4,14 @@
 // Runs from the repo root; the bundle expects dist/ next to it, which is how
 // the Dockerfile lays out /app.
 import { rolldown } from 'rolldown';
+import { licensePlugin } from './licenses.js';
 
 const bundle = await rolldown({
   input: 'server.js',
   platform: 'node',
   logLevel: 'warn',
+  // Checks the Settings → Licenses list covers what was bundled.
+  plugins: [licensePlugin('server')],
 });
 // codeSplitting: false keeps it one file even though dependencies (the
 // Anthropic SDK) contain dynamic imports.

@@ -156,4 +156,4 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE). The open source projects AppBlips includes, and their licenses, are listed in the app under **Settings → Licenses**.
