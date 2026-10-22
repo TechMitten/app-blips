@@ -65,10 +65,34 @@ const plausibleSnippet = (input) => {
   return null;
 };
 
-// The tag(s) to put in every page for an analytics connector, or null.
-export const trackingSnippet = (id, key) => {
+// tawk.to's widget code loads https://embed.tawk.to/<property ID>/<widget ID>
+// (the widget ID is often "default"). The IDs are all the paste is used for;
+// the rest is tawk.to's standard loader. The IDs can't contain a quote, so
+// they're safe inside its single-quoted string.
+const TAWK_URL_RE = /https:\/\/embed\.tawk\.to\/([A-Za-z0-9]{8,40})\/([A-Za-z0-9_-]{1,40})(?![\w/-])/;
+const tawkSnippet = (input) => {
+  const match = input.match(TAWK_URL_RE);
+  if (!match) return null;
+  return `<!--Start of Tawk.to Script-->
+<script>
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/${match[1]}/${match[2]}';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->`;
+};
+
+// The code to put in every page for an analytics or chat connector, or null.
+export const embedSnippet = (id, key) => {
   if (id === 'umami') return umamiSnippet(key);
   if (id === 'plausible') return plausibleSnippet(key);
+  if (id === 'tawkto') return tawkSnippet(key);
   return null;
 };
 
@@ -182,6 +206,43 @@ export const CONNECTOR_DEFINITIONS = {
         'Put your project online at that address. Each visit then shows up on your Plausible dashboard.',
       ],
       notes: ANALYTICS_NOTES('Plausible'),
+    },
+  },
+  tawkto: {
+    id: 'tawkto',
+    name: 'tawk.to',
+    tagline: 'Live chat with your visitors',
+    description: 'A free live chat bubble. Visitors to your websites and apps can message you, and you reply from the tawk.to dashboard or app.',
+    keyLabel: 'Widget code',
+    keyPlaceholder: '<!--Start of Tawk.to Script--> … <!--End of Tawk.to Script-->',
+    keyUrl: 'https://www.tawk.to',
+    multiline: true,
+    isValidKey: (key) => tawkSnippet(key) !== null,
+    page: {
+      enableDescription: 'Websites and apps the AI builds will show a tawk.to chat bubble so visitors can message you.',
+      keyHelp: 'In tawk.to, open Administration, then Chat Widget, copy the Widget Code and paste all of it here.',
+      keyLinkLabel: 'Sign up for tawk.to',
+      invalid: 'That doesn’t look like tawk.to widget code. Paste everything from the Widget Code box in tawk.to, from <!--Start of Tawk.to Script--> to <!--End of Tawk.to Script-->.',
+      connected: 'Connected. Websites and apps you build or edit from now on will show your chat bubble.',
+      needsKey: 'Add your widget code to finish setting up.',
+    },
+    about: {
+      what: 'tawk.to adds a chat bubble to the corner of your websites and apps. Visitors click it to message you, and you answer them live from the tawk.to dashboard or its phone app. When you are away, their messages wait for you there.',
+      steps: [
+        'Sign up for free at tawk.to and create a property for your website.',
+        'In tawk.to, open Administration, then Chat Widget, and copy the Widget Code.',
+        'Turn on tawk.to here and paste the widget code into the box.',
+        'From then on, when the AI builds or edits a Responsive Website or a Mobile & Web App, it adds the chat bubble to every page and keeps the bottom-right corner free for it.',
+        'When a visitor sends a message, it appears in your tawk.to dashboard and app, where you can reply.',
+      ],
+      notes: [
+        'The chat bubble works in the preview too, so a message you send there reaches your tawk.to dashboard, and preview visits show up there as visitors.',
+        'Your widget code is written into every page and any HTML you export. That is how tawk.to is designed: it only lets people chat with you.',
+        'Projects built before you connected don’t change on their own. Ask the AI to “add the tawk.to chat to every page”.',
+        'tawk.to uses cookies to remember chats, so where the law requires it, your site may need a cookie notice.',
+        'The Browser Game studio doesn’t use it.',
+        'tawk.to is a separate service, free to use, with optional paid extras.',
+      ],
     },
   },
 };

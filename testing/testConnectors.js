@@ -16,7 +16,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -61,36 +61,36 @@ assert.equal(buildHtmlSystemPrompt('website', []), buildHtmlSystemPrompt('websit
 assert.equal(buildConnectorDirective([{ id: 'unknown', key: 'x' }]), '');
 
 // Analytics: the pasted tracking code is rebuilt from the values it needs.
-const { trackingSnippet } = await import('../src/lib/connectors.js');
+const { embedSnippet } = await import('../src/lib/connectors.js');
 const SITE = '9b1c2d3e-4f5a-4b6c-8d7e-0f1a2b3c4d5e';
 const UMAMI_CLOUD = `<script defer src="https://cloud.umami.is/script.js" data-website-id="${SITE}"></script>`;
-assert.equal(trackingSnippet('umami', SITE), UMAMI_CLOUD);  // bare website ID: Umami Cloud
-assert.equal(trackingSnippet('umami', SITE.toUpperCase()), UMAMI_CLOUD);
-assert.equal(trackingSnippet('umami', UMAMI_CLOUD), UMAMI_CLOUD);
+assert.equal(embedSnippet('umami', SITE), UMAMI_CLOUD);  // bare website ID: Umami Cloud
+assert.equal(embedSnippet('umami', SITE.toUpperCase()), UMAMI_CLOUD);
+assert.equal(embedSnippet('umami', UMAMI_CLOUD), UMAMI_CLOUD);
 assert.equal(
-  trackingSnippet('umami', `<script data-website-id='${SITE}' defer src="https://stats.example.com/u.js" data-host-url="https://api.example.com/" data-domains="example.com,www.example.com" onload="alert(1)"></script>`),
+  embedSnippet('umami', `<script data-website-id='${SITE}' defer src="https://stats.example.com/u.js" data-host-url="https://api.example.com/" data-domains="example.com,www.example.com" onload="alert(1)"></script>`),
   `<script defer src="https://stats.example.com/u.js" data-website-id="${SITE}" data-host-url="https://api.example.com" data-domains="example.com,www.example.com"></script>`,
 );
 for (const bad of ['', 'abc', `<script src="http://x.com/s.js" data-website-id="${SITE}"></script>`,
   `<script src="javascript:alert(1)" data-website-id="${SITE}"></script>`, '<script src="https://cloud.umami.is/script.js" data-website-id="nope"></script>']) {
-  assert.equal(trackingSnippet('umami', bad), null, bad);
+  assert.equal(embedSnippet('umami', bad), null, bad);
 }
 
 const PA = 'https://plausible.io/js/pa-AbC_12-xyz.js';
-const newSnippet = trackingSnippet('plausible', `<!-- Privacy-friendly analytics by Plausible -->\n<script async src="${PA}"></script>\n<script>\n  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};\n  plausible.init({ fetch: () => alert(1) })\n</script>`);
+const newSnippet = embedSnippet('plausible', `<!-- Privacy-friendly analytics by Plausible -->\n<script async src="${PA}"></script>\n<script>\n  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};\n  plausible.init({ fetch: () => alert(1) })\n</script>`);
 assert.ok(newSnippet.startsWith(`<script async src="${PA}"></script>\n<script>window.plausible=`), newSnippet);
 assert.ok(newSnippet.endsWith('plausible.init()</script>') && !newSnippet.includes('alert'));
-assert.equal(trackingSnippet('plausible', PA), newSnippet);  // just the script URL
+assert.equal(embedSnippet('plausible', PA), newSnippet);  // just the script URL
 assert.equal(
-  trackingSnippet('plausible', '<script defer data-domain="example.com" src="https://plausible.io/js/script.outbound-links.js"></script>'),
+  embedSnippet('plausible', '<script defer data-domain="example.com" src="https://plausible.io/js/script.outbound-links.js"></script>'),
   '<script defer data-domain="example.com" src="https://plausible.io/js/script.outbound-links.js"></script>',
 );
 for (const bad of ['', SITE, 'https://plausible.io/js/script.js', '<script defer src="https://plausible.io/js/script.js"></script>',
   '<script defer data-domain="a.com&quot;><img" src="https://plausible.io/js/script.js"></script>', `<script async src="${PA.replace('https', 'http')}"></script>`]) {
-  assert.equal(trackingSnippet('plausible', bad), null, bad);
+  assert.equal(embedSnippet('plausible', bad), null, bad);
 }
 // Quotes and angle brackets can't escape the rebuilt attribute.
-assert.ok(trackingSnippet('plausible', 'https://plausible.io/js/pa-x.js?a="><b>').startsWith('<script async src="https://plausible.io/js/pa-x.js?a=%22%3E%3Cb%3E"></script>'));
+assert.ok(embedSnippet('plausible', 'https://plausible.io/js/pa-x.js?a="><b>').startsWith('<script async src="https://plausible.io/js/pa-x.js?a=%22%3E%3Cb%3E"></script>'));
 
 saveConnectors({ ...NOTHING, umami: { enabled: true, key: ` ${UMAMI_CLOUD}\n` }, plausible: { enabled: true, key: 'not code' } });
 assert.equal(connectorStatus('umami'), 'connected');
@@ -104,6 +104,35 @@ for (const mode of ['website', 'app', 'game']) {
 }
 assert.ok(buildHtmlSystemPrompt('game', [...analytics, ...active]).includes('Umami'));
 assert.ok(!buildHtmlSystemPrompt('game', [...analytics, ...active]).includes('access_key'));
+
+// tawk.to: the widget code as its dashboard shows it; only the two IDs are kept.
+const TAWK = `<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/64f1a2b3c4d5e6f708192a3b/1habc2def';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->`;
+const tawk = embedSnippet('tawkto', TAWK);
+assert.ok(tawk.includes("s1.src='https://embed.tawk.to/64f1a2b3c4d5e6f708192a3b/1habc2def';"), tawk);
+assert.ok(tawk.startsWith('<!--Start of Tawk.to Script-->\n<script>') && tawk.endsWith('<!--End of Tawk.to Script-->'));
+assert.equal(embedSnippet('tawkto', TAWK.replace('</script>', 'alert(1)</script>')), tawk);  // extra code is dropped
+assert.equal(embedSnippet('tawkto', 'https://embed.tawk.to/64f1a2b3c4d5e6f708192a3b/default'), tawk.replace('1habc2def', 'default'));
+assert.ok(!embedSnippet('tawkto', "https://embed.tawk.to/64f1a2b3c4d5e6f708192a3b/x';alert(1);//").includes('alert'));
+for (const bad of ['', SITE, 'https://embed.tawk.to/64f1a2b3c4d5e6f708192a3b',
+  'http://embed.tawk.to/64f1a2b3c4d5e6f708192a3b/default', 'https://embed.tawk.to.evil.com/64f1a2b3c4d5e6f708192a3b/default']) {
+  assert.equal(embedSnippet('tawkto', bad), null, bad);
+}
+const chat = [{ id: 'tawkto', key: TAWK }];
+assert.ok(buildHtmlSystemPrompt('website', chat).includes(`just before </body> of EVERY HTML page, once, character for character:\n${tawk}\n`));
+assert.match(buildHtmlSystemPrompt('app', chat), /embed\.tawk\.to/);
+assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'));  // a chat bubble would cover play
 
 // Every connector carries the text its "How it works" dialog shows, and its
 // settings page wording.

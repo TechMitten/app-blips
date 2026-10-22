@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info } from 'lucide-react';
+import { ArrowLeft, CircleCheck, CircleAlert, ExternalLink, Info, MessagesSquare } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import {
@@ -26,7 +26,9 @@ function Web3FormsIcon({ size }) {
   return <img src="/web3forms-logo.png" alt="" aria-hidden="true" width={size} height={size} />;
 }
 
-const ICONS = { web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg') };
+const ICONS = {
+  web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
+};
 
 const STATUS_BADGE = {
   connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },

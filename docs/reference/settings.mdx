@@ -170,6 +170,22 @@ Visits from the AppBlips preview, including the AI's own testing, aren't counted
   AppBlips only keeps the parts of the tracking code it needs (the script address and your site ID) and writes them into every page, so they are also in any HTML you export. That is how these services are designed: anyone who sees the code can only add visits to your stats, not read them.
 </Note>
 
+### tawk.to
+
+tawk.to adds a live chat bubble to the corner of your websites and apps. Visitors click it to message you, and you reply from the tawk.to dashboard or its phone app. tawk.to is a separate service, free to use, with optional paid extras.
+
+<ParamField body="Enable tawk.to" type="toggle" default="Off">
+  Turn it on, then paste your widget code into the **Widget code** box. To find it, open **Administration**, then **Chat Widget** in tawk.to, and copy everything in the **Widget Code** box, from `<!--Start of Tawk.to Script-->` to `<!--End of Tawk.to Script-->`.
+</ParamField>
+
+Once tawk.to is **Connected**, every Responsive Website or Mobile & Web App that the AI builds or edits shows your chat bubble on every page, and the AI keeps the bottom-right corner free for it. The Browser Game studio doesn't use it. Projects you built before you connected don't change on their own. Ask the AI to "add the tawk.to chat to every page".
+
+The chat works in the preview too, so a message you send there reaches your tawk.to dashboard, and preview visits show up there as visitors. tawk.to uses cookies to remember chats, so where the law requires it, your site may need a cookie notice.
+
+<Note>
+  AppBlips only keeps the two IDs in your widget code (your property and widget) and writes tawk.to's standard code into every page, so it is also in any HTML you export. That is how tawk.to is designed: the code only lets people chat with you.
+</Note>
+
 ---
 
 ## API
