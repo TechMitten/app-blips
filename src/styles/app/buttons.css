@@ -252,11 +252,11 @@
    dense strip rather than two halves of a bar. display is owned here, not by
    a Tailwind utility: this sheet is unlayered and would outrank
    `hidden md:block` anyway. */
-/* App icon only, same mark as the studio-picker rail (HeroSidebar.jsx): the
-   icon art is the brand now, not the old gradient lettering image. The header is always dark (force-dark). */
-.app-header .header-logo-icon {
-  height: 1.375rem;
-  width: 1.375rem;
+/* The full wordmark, same art as the studio picker's top bar. Only the
+   light-lettering file is needed: the header is always dark (force-dark). */
+.app-header .header-logo {
+  height: 1.25rem;
+  width: auto;
 }
 
 .app-header .chrome-divider {

@@ -74,9 +74,9 @@ export default function Header({
 
   return (
     <header className="app-header dark force-dark shrink-0 bg-surface/95 backdrop-blur-md border-b border-slate-200 header-shadow px-3 sm:px-5 2xl:px-8 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-40 transition-colors">
-      {/* Left: brand icon. The project name lives in the preview's browser bar. */}
+      {/* Left: brand wordmark. The project name lives in the preview's browser bar. */}
       <div className="flex items-center min-w-0">
-        <img src="/android-chrome-192x192.png" alt="" aria-hidden="true" className="header-logo-icon shrink-0" />
+        <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="header-logo shrink-0" />
       </div>
 
       {/* Below lg the workspace is one pane at a time, so the Chat/Preview
