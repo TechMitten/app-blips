@@ -58,11 +58,11 @@ function llmProxyDevMiddleware(mode) {
     name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
-      // The Settings → AI key, kept server-side as server.js does. `host: true`
-      // puts this server on the network, and these routes run before Vite's
-      // own host check, so the saved key is used only from this computer (or a
-      // host in APPBLIPS_ALLOWED_HOSTS), never by another device or a
-      // DNS-rebinding page.
+      // The Settings → AI key, kept server-side as server.js does. These routes
+      // run before Vite's own host check, so even when the server is put on the
+      // network (`npm run dev -- --host`) the saved key is used only from this
+      // computer (or a host in APPBLIPS_ALLOWED_HOSTS), never by another device
+      // or a DNS-rebinding page.
       const keys = createKeyFile({ file: defaultKeyFile(env) })
       const noKeys = { keyFor: () => '' }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
@@ -138,7 +138,11 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@huggingface/transformers'],
   },
   server: {
-    host: true,
+    // Loopback only, like server.js: `true` (0.0.0.0) also answered on every
+    // other interface, including a Tailscale or LAN address. SSH/VS Code port
+    // forwarding still works, since it connects to localhost on this machine.
+    // `npm run dev -- --host` opts back in for a one-off phone test.
+    host: '127.0.0.1',
     port: 5175,
     // Browser mode keeps the AI provider choice in this origin's localStorage;
     // a silent hop to 5176 when 5175 is busy is a new origin with none saved.
