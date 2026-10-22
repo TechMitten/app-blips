@@ -273,7 +273,7 @@ export default function SettingsModal({
                 <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
               </SettingRow>
               {onRestartOnboarding && (
-                <SettingRow id="set-onboarding" title="Replay onboarding" description="Walk through the welcome introduction and AI setup again. Your current AI setup is kept unless you save a new one.">
+                <SettingRow id="set-onboarding" title="Replay onboarding" description="Walk through the welcome introduction (name, avatar and projects folder) and AI setup again. Your current AI setup is kept unless you save a new one.">
                   <button
                     type="button"
                     onClick={() => leaveAfterCheck(onRestartOnboarding)}

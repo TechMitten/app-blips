@@ -322,6 +322,26 @@
 .onboarding-key-help a svg { flex: none; }
 .onboarding-key-warning { color: #fcd34d; }
 
+/* About-you step (ProfileForm). The name field reuses the key field's frame
+   without its monospace font. */
+.onboarding-key-input input.onboarding-name-input { font-family: inherit; font-size: 1.04rem; }
+.onboarding-avatar-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.onboarding-avatar { width: 100%; max-width: 64px; justify-self: center; aspect-ratio: 1; display: grid; place-items: center; padding: 5px; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: border-color .18s ease, transform .18s ease; }
+.onboarding-avatar .profile-avatar { width: 100%; height: 100%; display: grid; place-items: center; border-radius: 50%; color: #ffffff; background: var(--avatar-color); opacity: .72; transition: opacity .18s ease; }
+.onboarding-avatar:hover .profile-avatar, .onboarding-avatar.is-selected .profile-avatar { opacity: 1; }
+.onboarding-avatar:hover { transform: scale(1.06); }
+.onboarding-avatar.is-selected { border-color: #ffffff; }
+.onboarding-avatar:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.onboarding-folder { height: 52px; display: flex; align-items: center; gap: 14px; margin-top: 12px; padding-left: 18px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 10px; color: #c7c7c7; background: rgb(0 0 0 / 0.35); }
+.onboarding-folder > svg { flex: none; }
+.onboarding-folder-path { min-width: 0; flex: 1; overflow: hidden; color: #f5f5f5; font: 500 0.9rem/1 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.onboarding-folder button { height: 100%; flex: none; padding: 0 18px; border-left: 1px solid rgb(255 255 255 / 0.12); color: #f5f5f5; font-weight: 600; cursor: pointer; }
+.onboarding-folder button:hover { background: var(--ob-soft); }
+.onboarding-folder button:focus-visible { outline: 2px solid #ffffff; outline-offset: -2px; }
+.onboarding-key-help.is-error { color: #fca5a5; }
+.onboarding-footer-start { display: flex; align-items: center; gap: 6px; }
+.onboarding-footer-start .onboarding-skip { display: inline-flex; align-items: center; gap: 6px; }
+
 .onboarding-footer { position: relative; z-index: 1; min-height: 100px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 clamp(1.25rem, 3.2vw, 2.75rem) 0 clamp(1.25rem, 4.4vw, 3.75rem); border-top: 1px solid var(--ob-line); background: rgb(8 8 8 / 0.35); }
 .onboarding-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 18px; }
 .onboarding-next { height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; font-size: 1rem; font-weight: 600; letter-spacing: -0.005em; cursor: pointer; transition: transform .18s ease, background .18s ease, opacity .18s ease, box-shadow .18s ease; }
@@ -371,6 +391,7 @@
   .onboarding-footer { min-height: 70px; }.onboarding-error { position: absolute; left: 1.2rem; bottom: 4.4rem; padding: .5rem; border-radius: 8px; background: #1c1414; }
   .onboarding-model-copy small, .onboarding-recommended { display: none; }
   .desktop-onboarding-setup { padding: 1.1rem; }
+  .onboarding-avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .onboarding-footer { padding-inline: 1rem; }
   .onboarding-actions { gap: 10px; }
   .onboarding-next { min-width: 0; height: 46px; gap: 8px; padding: 0 14px; font-size: 0.95rem; }
@@ -390,7 +411,8 @@
   .desktop-onboarding-setup { padding: 1.1rem 1.5rem 1.1rem; }
   .onboarding-field-label { font-size: 0.98rem; }
   .onboarding-key-help { font-size: 0.82rem; }
-  .onboarding-select, .desktop-onboarding-setup .model-combobox, .onboarding-key-input { height: 46px; }
+  .onboarding-select, .desktop-onboarding-setup .model-combobox, .onboarding-key-input, .onboarding-folder { height: 46px; }
+  .onboarding-avatar { max-width: 52px; }
   .onboarding-select-wrap, .desktop-onboarding-setup .model-combobox, .onboarding-key-input { margin-top: 9px; }
   .onboarding-key-help { margin-top: 9px; }
   .onboarding-footer { min-height: 72px; }

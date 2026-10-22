@@ -142,3 +142,20 @@
   background: var(--color-slate-400);
   background-clip: padding-box;
 }
+
+/* A chosen onboarding avatar (ProfileAvatar) fills the circle with its colour. */
+.profile-avatar {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: var(--avatar-color);
+}
+
+.chat-avatar-user.has-profile,
+:is(html.dark, .force-dark) .chat-avatar-user.has-profile {
+  border-color: transparent;
+  background: var(--color-surface);
+}

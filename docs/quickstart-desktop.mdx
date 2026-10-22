@@ -28,20 +28,29 @@ The desktop app is the easiest way to run your own copy of AppBlips. It installs
   </Tab>
 </Tabs>
 
+## Tell AppBlips about you
+
+The first time you open AppBlips, a screen titled **First, tell us about you** appears:
+
+1. **Your name:** type your name or a nickname.
+2. **Your avatar:** click a picture. It appears next to your messages in the chat.
+3. **Save projects in:** this shows the folder where AppBlips keeps your projects. To use a different one, click **Change** and pick a folder. You can also change it later in **Settings → Data**.
+4. Click **Continue**.
+
 ## Set up your AI provider
 
 An API key is a password-like code from your AI provider. It lets AppBlips use the AI on your account, and the provider bills you for what you use.
 
-The first time you open AppBlips, a setup screen titled **Choose the AI that builds with you** appears:
+Next, a setup screen titled **Choose the AI that builds with you** appears:
 
 1. **Provider:** pick Anthropic (the default), OpenAI, Gemini, DeepSeek, LM Studio, Ollama or OpenRouter.
 2. **API key:** paste your key. Create one at [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). LM Studio and Ollama don't need a key: start your local server instead.
 3. **Model:** choose one from the list. The list comes from your provider, so add your API key first; if you open the list without one, AppBlips reminds you.
-4. Click **Start building**. If something is missing, the screen tells you what.
+4. Click **Start building**. If something is missing, the screen tells you what. To go back to your name and avatar, click **Back**.
 
-To look around first, click **Skip for now**. You can set up the AI later.
+To look around first, click **Skip for now** on either screen. You can set up the AI later.
 
-To change any of this later, open **Settings → API**. There you can click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**. To see the setup screen again, open **Settings → Workspace** and click **Replay**.
+To change any of this later, open **Settings → API**. There you can click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, choose a model that supports tool calling through Chat Completions. Click **Test connection**, then **Save**. To see the setup screens again (for example, to change your name or avatar), open **Settings → Workspace** and click **Replay**.
 
 Your key is encrypted with your system keychain (Windows Data Protection, or GNOME Keyring/KWallet on Linux) and is only used by the app's background process. The app's own web page, your projects and the apps you build never see it.
 

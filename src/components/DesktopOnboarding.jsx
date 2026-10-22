@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
-  Info, KeyRound, Laptop, Loader2, Sparkles, X, Zap,
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X, Zap,
 } from 'lucide-react';
-import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
+import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
+import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import Modal from './Modal';
+import ProfileAvatar from './ProfileAvatar';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
@@ -240,11 +242,98 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
   );
 }
 
+// First slide: the user's name, their chat avatar and (desktop only) where
+// projects are saved. The folder picker is the same one as Settings → Data,
+// so the main process still decides whether existing projects move.
+function ProfileForm({ formRef, onSubmit, name, setName, avatar, setAvatar, folder, onChooseFolder, folderStatus, errors }) {
+  const pickAvatar = (event, index) => {
+    // Arrow keys move through the grid like a radio group.
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = AVATAR_IDS[(index + step + AVATAR_IDS.length) % AVATAR_IDS.length];
+    setAvatar(next);
+    formRef.current?.querySelector(`[data-avatar="${next}"]`)?.focus();
+  };
+
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <SetupField title="Your name" error={errors.name}>
+        <span className="onboarding-key-input">
+          <UserRound size={19} />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="What should we call you?"
+            aria-label="Your name"
+            aria-invalid={Boolean(errors.name)}
+            data-field="name"
+            maxLength={MAX_NAME_LENGTH}
+            autoComplete="given-name"
+            className="onboarding-name-input"
+            autoFocus
+          />
+        </span>
+      </SetupField>
+
+      <SetupField title="Your avatar">
+        <div className="onboarding-avatar-grid" role="radiogroup" aria-label="Your avatar">
+          {AVATAR_IDS.map((id, index) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={avatar === id}
+              aria-label={AVATAR_LABELS[id]}
+              title={AVATAR_LABELS[id]}
+              tabIndex={avatar === id ? 0 : -1}
+              data-avatar={id}
+              className={`onboarding-avatar ${avatar === id ? 'is-selected' : ''}`}
+              onClick={() => setAvatar(id)}
+              onKeyDown={(event) => pickAvatar(event, index)}
+            >
+              <ProfileAvatar avatar={id} size={22} />
+            </button>
+          ))}
+        </div>
+        <p className="onboarding-key-help">Shown next to your messages in the chat.</p>
+      </SetupField>
+
+      {isDesktop && (
+        <SetupField title="Save projects in">
+          <span className="onboarding-folder">
+            <FolderOpen size={19} />
+            <span className="onboarding-folder-path" title={folder || ''}>{folder || '…'}</span>
+            <button type="button" onClick={onChooseFolder}>Change</button>
+          </span>
+          <p className={`onboarding-key-help ${folderStatus?.kind === 'error' ? 'is-error' : ''}`} role={folderStatus ? 'status' : undefined}>
+            {folderStatus?.text || 'Each project gets its own folder here.'}
+          </p>
+        </SetupField>
+      )}
+    </form>
+  );
+}
+
 // `onExit` is only passed when onboarding is replayed from Settings: the user
 // already has (or deliberately skipped) a setup, so they may leave without
 // re-entering a key. A first run offers "Skip for now" instead, which saves
 // that onboarding is done so it doesn't come back on the next launch.
-export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) {
+export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup }) {
+  const [step, setStep] = useState('profile');
+  const [profile] = useState(loadProfile);
+  const [name, setName] = useState(profile.name);
+  const [avatar, setAvatar] = useState(profile.avatar || AVATAR_IDS[0]);
+  const [profileAttempted, setProfileAttempted] = useState(false);
+  const [folder, setFolder] = useState(null);
+  const [folderStatus, setFolderStatus] = useState(null);
+  // The renderer's copy of the projects was read from the old folder, so a
+  // change reloads the app once setup is over (it won't show again then: the
+  // AI setup or the skip is saved first).
+  const [folderChanged, setFolderChanged] = useState(false);
+  const leave = (done) => (folderChanged ? () => window.location.reload() : done);
+  const onComplete = leave(finishSetup);
+  const onExit = exitSetup && leave(exitSetup);
   const [providerId, setProviderId] = useState(providerInfo?.id || defaultProvider.id);
   const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === providerId) || defaultProvider;
   const [baseUrl, setBaseUrl] = useState(providerInfo?.baseUrl || '');
@@ -261,7 +350,40 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
   const titleRef = useRef(null);
   const formRef = useRef(null);
 
-  useEffect(() => { titleRef.current?.focus(); }, []);
+  useEffect(() => { titleRef.current?.focus(); }, [step]);
+  useEffect(() => {
+    if (isDesktop) desktopBridge.folder.get().then(setFolder).catch((err) => logWarn('Could not read the projects folder location', err));
+  }, []);
+
+  const chooseFolder = async () => {
+    try {
+      const result = await desktopBridge.folder.choose();
+      if (!result.changed) return;
+      setFolder(result.root);
+      setFolderChanged(true);
+      setFolderStatus({ kind: 'ok', text: result.moved ? `Folder changed. Moved ${result.moved} ${result.moved === 1 ? 'project' : 'projects'}.` : 'Folder changed.' });
+    } catch (err) {
+      logError('Could not change the projects folder during setup', err);
+      setFolderStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not change the folder.' });
+    }
+  };
+
+  const needsName = !cleanName(name);
+  const profileErrors = profileAttempted && needsName ? { name: 'Type your name, or a nickname.' } : {};
+  const continueToAi = () => {
+    if (needsName) {
+      setProfileAttempted(true);
+      formRef.current?.querySelector('[data-field="name"]')?.focus();
+      return;
+    }
+    try {
+      saveProfile({ name, avatar });
+    } catch (err) {
+      // Only the chat avatar is lost; setup itself can go on.
+      logWarn('Could not save the name and avatar', err);
+    }
+    setStep('ai');
+  };
 
   const needsKey = !provider.local && !apiKey.trim();
   const needsModel = !model.trim();
@@ -303,9 +425,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
 
   // Tell the user exactly what is still missing, so "Start building" never
   // looks like a dead end.
-  const missing = needsModel && needsKey ? 'Connect a provider to continue.'
-    : needsModel ? 'Choose a model to continue.'
-      : needsKey ? 'Paste your API key to continue.' : '';
+  const isProfile = step === 'profile';
+  const missing = isProfile ? (needsName ? 'Tell us your name to continue.' : '')
+    : needsModel && needsKey ? 'Connect a provider to continue.'
+      : needsModel ? 'Choose a model to continue.'
+        : needsKey ? 'Paste your API key to continue.' : '';
+  const showMissing = isProfile ? profileAttempted : attempted;
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -322,32 +447,59 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
           )}
         </header>
 
-        <div className="onboarding-stage">
+        <div className="onboarding-stage" key={step}>
           <section className="onboarding-copy">
-            <span className="onboarding-eyebrow"><Sparkles size={14} /> Welcome to AppBlips</span>
-            <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-              Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
-            </h1>
-            <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
-            <div className={`onboarding-your-turn ${attempted && missing ? 'is-invalid' : ''}`} aria-live="polite">
+            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isProfile ? 'Welcome to AppBlips' : `Step 2 of 2${cleanName(name) ? ` · Hi, ${cleanName(name)}` : ''}`}</span>
+            {isProfile ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                First, tell us <span className="onboarding-title-accent">about you.</span>
+              </h1>
+            ) : (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
+              </h1>
+            )}
+            {isProfile ? (
+              <p>{isDesktop
+                ? 'Pick a name and a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
+                : 'Pick a name and a fun avatar for your chat messages.'}</p>
+            ) : (
+              <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
+            )}
+            <div className={`onboarding-your-turn ${showMissing && missing ? 'is-invalid' : ''}`} aria-live="polite">
               <span className="onboarding-your-turn-icon">{missing ? <Zap size={24} /> : <Check size={24} />}</span>
-              <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || 'Click Start building to begin.'}</span>
+              <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || (isProfile ? 'Click Continue for the AI setup.' : 'Click Start building to begin.')}</span>
             </div>
           </section>
           <section className="onboarding-visual-wrap">
-            <SetupForm
-              formRef={formRef}
-              onSubmit={save}
-              provider={provider}
-              setProviderId={changeProvider}
-              {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}
-              weakEncryption={providerInfo?.weakEncryption}
-            />
+            {isProfile ? (
+              <ProfileForm
+                formRef={formRef}
+                onSubmit={continueToAi}
+                {...{ name, setName, avatar, setAvatar, folder, folderStatus }}
+                onChooseFolder={chooseFolder}
+                errors={profileErrors}
+              />
+            ) : (
+              <SetupForm
+                formRef={formRef}
+                onSubmit={save}
+                provider={provider}
+                setProviderId={changeProvider}
+                {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}
+                weakEncryption={providerInfo?.weakEncryption}
+              />
+            )}
           </section>
         </div>
 
         <footer className="onboarding-footer">
-          <div>
+          <div className="onboarding-footer-start">
+            {!isProfile && (
+              <button type="button" className="onboarding-skip" onClick={() => setStep('profile')} disabled={busy}>
+                <ArrowLeft size={16} /> Back
+              </button>
+            )}
             {!onExit && (
               <button type="button" className="onboarding-skip" onClick={skip} disabled={busy}>
                 Skip for now
@@ -355,16 +507,22 @@ export default function DesktopOnboarding({ providerInfo, onComplete, onExit }) 
             )}
           </div>
           <div className="onboarding-actions">
-            {status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
-            <button
-              type="button"
-              className="onboarding-next"
-              onClick={save}
-              disabled={busy}
-            >
-              {status?.kind === 'busy' ? <Loader2 className="animate-spin" size={18} /> : status?.kind === 'ok' && <Check size={18} />}
-              {busy ? status.text : <>Start building <ArrowRight size={18} /></>}
-            </button>
+            {!isProfile && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
+            {isProfile ? (
+              <button type="button" className="onboarding-next" onClick={continueToAi}>
+                Continue <ArrowRight size={18} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="onboarding-next"
+                onClick={save}
+                disabled={busy}
+              >
+                {status?.kind === 'busy' ? <Loader2 className="animate-spin" size={18} /> : status?.kind === 'ok' && <Check size={18} />}
+                {busy ? status.text : <>Start building <ArrowRight size={18} /></>}
+              </button>
+            )}
           </div>
         </footer>
       </main>

@@ -1,11 +1,13 @@
-import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, User, Wrench } from 'lucide-react';
+import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
+import ProfileAvatar from './ProfileAvatar';
 import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
 import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
+import { loadProfile } from '../lib/profile';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -19,10 +21,13 @@ import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
 
 const BUBBLE_MAX = 'max-w-[calc(100%-3.25rem)]';
 
+// The avatar picked in onboarding. Read on mount: the workspace (and this
+// transcript) unmounts while onboarding is replayed, so a new choice shows.
 function UserAvatar() {
+  const [{ name, avatar }] = useState(loadProfile);
   return (
-    <span className="chat-avatar chat-avatar-user" aria-hidden="true">
-      <User size={18} />
+    <span className={`chat-avatar chat-avatar-user ${avatar ? 'has-profile' : ''}`} title={name || undefined} aria-hidden="true">
+      <ProfileAvatar avatar={avatar} />
     </span>
   );
 }
