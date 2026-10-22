@@ -279,7 +279,7 @@
 .element-bar .nav-ghost {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--color-slate-500);
+  color: var(--ghost-ink);
   box-shadow: none;
 }
 .element-bar .nav-ghost:hover {

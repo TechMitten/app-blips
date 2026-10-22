@@ -272,27 +272,37 @@
 /* Quiet control, toolbar edition. Same voice as the header's .nav-ghost below,
    but the toolbar follows the theme instead of being force-dark, so it needs
    both branches. Open / Reload / Edit wear this so the utility keys recede and
-   Export/Deploy are the only lit things in the rank. */
-.preview-pane-header .nav-ghost {
+   Export/Deploy are the only lit things in the rank. The embedded browser's
+   back/forward/reload keys sit right under the toolbar and share the voice.
+   Ink comes from --ghost-ink (tokens.css) so light can run darker than the
+   header without a dark-only rule outranking .nav-ghost-active. */
+:is(.preview-pane-header, .embedded-browser-bar) .nav-ghost {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--color-slate-500);
+  color: var(--ghost-ink);
   box-shadow: none;
 }
 
-.preview-pane-header .nav-ghost:hover {
+:is(.preview-pane-header, .embedded-browser-bar) .nav-ghost:hover {
   background: rgb(15 23 42 / 0.05);
   color: var(--color-slate-900);
   box-shadow: none;
 }
 
-:is(html.dark, .force-dark) .preview-pane-header .nav-ghost:hover {
+:is(html.dark, .force-dark) :is(.preview-pane-header, .embedded-browser-bar) .nav-ghost:hover {
   background: rgb(255 255 255 / 0.07);
+}
+
+/* .nav-btn has no disabled look of its own, so an unavailable Back key used
+   to read exactly like an available one. */
+:is(.preview-pane-header, .embedded-browser-bar) .nav-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Same restore as the header ghost: the `box-shadow: none` above ties with
    .nav-btn:focus-visible on specificity and wins on order. */
-.preview-pane-header .nav-ghost:focus-visible {
+:is(.preview-pane-header, .embedded-browser-bar) .nav-ghost:focus-visible {
   box-shadow:
     0 0 0 2px var(--focus-halo),
     0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
@@ -557,16 +567,19 @@
     inset 0 0 0 1px rgb(255 255 255 / 0.06);
 }
 
+/* slate-300 at 50% on the slate-200 track was nearly invisible in light;
+   slate-400 still reads as "off" but shows the key is there. */
 .nav-segmented-btn:disabled {
-  color: var(--color-slate-300);
+  color: var(--color-slate-400);
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 /* slate-300 at 50% opacity is #404040-flavored -- unreadable on the dark
    well, so disabled segments lift to a muted but present gray. */
 :is(html.dark, .force-dark) .nav-segmented-btn:disabled {
   color: var(--color-slate-500);
+  opacity: 0.5;
 }
 
 .nav-segmented-btn-icon {
