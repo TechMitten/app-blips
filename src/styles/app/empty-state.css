@@ -619,9 +619,9 @@
   --build-blue-bright: #e9604f;
   --build-status-ink: #1b2742;
   --build-bg:
-    radial-gradient(90% 42% at 50% 22%, rgb(233 96 79 / 0.16), transparent 72%),
-    radial-gradient(70% 35% at 50% 100%, rgb(233 96 79 / 0.12), transparent 74%),
-    linear-gradient(180deg, #fdf9f8 0%, #f8f0ee 54%, #f3e9e7 100%);
+    radial-gradient(90% 42% at 50% 22%, rgb(233 96 79 / 0.10), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(233 96 79 / 0.08), transparent 74%),
+    linear-gradient(180deg, #f4eeec 0%, #ebe2df 54%, #e3d8d5 100%);
   --build-grid: rgb(233 96 79 / 0.09);
   --build-vignette:
     radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(150 120 116 / 0.14) 100%);
@@ -642,21 +642,24 @@
   --build-dot-2: #f0907f;
   --build-dot-2-glow: 0 0 8px rgb(233 96 79 / 0.35);
 
-  --peek-bg: linear-gradient(180deg, #ffffff, #f2f6fd);
-  --peek-border: rgb(233 96 79 / 0.5);
+  /* The card is the only white on a warm-grey screen, so it reads as the
+     thing to look at; a bluish or pinkish white melted into the screen. */
+  --peek-bg: linear-gradient(180deg, #ffffff, #fdfbfa);
+  --peek-border: rgb(233 96 79 / 0.55);
   --peek-shadow:
     0 0 0 1px rgb(233 96 79 / 0.12),
-    0 12px 32px -12px rgb(140 50 40 / 0.3),
+    0 2px 6px rgb(60 30 25 / 0.08),
+    0 16px 36px -12px rgb(90 40 32 / 0.38),
     inset 0 1px 0 #ffffff;
   --peek-bar-bg: linear-gradient(180deg, rgb(233 96 79 / 0.11), rgb(233 96 79 / 0.05));
   --peek-bar-line: rgb(233 96 79 / 0.2);
   --peek-bar-dot: #e9604f;
   --peek-bar-dot-glow: 0 0 8px rgb(233 96 79 / 0.5);
-  --peek-bar-label: #4a5d8a;
+  --peek-bar-label: #334155;
   --peek-text: #24292f;
   --peek-thinking: #334155;
-  --peek-thinking-label: #64748b;
-  --peek-footer: #55688f;
+  --peek-thinking-label: #52607a;
+  --peek-footer: #3d4760;
   --peek-footer-line: rgb(233 96 79 / 0.2);
   --peek-activity: #e9604f;
   --peek-activity-glow: 0 0 4px rgb(233 96 79 / 0.5);
@@ -938,6 +941,13 @@
 }
 
 .live-code-peek-body .line-content { color: var(--peek-text); }
+
+/* The phone's card is short, so the base fade (fully transparent to 45%)
+   hid half of it. Older lines only dim here, and only near the top. */
+.building-overlay .live-code-peek-body.is-scrolled {
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.25) 0, #000 28%);
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.25) 0, #000 28%);
+}
 
 /* The model's reasoning shares the card with the code; it needs its own ink
    so a long think never fades into the pane and looks like a stall. */
