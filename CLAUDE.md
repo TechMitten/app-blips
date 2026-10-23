@@ -48,6 +48,8 @@ Config comes from `.env` (read by `npm run dev`, `server.js` and Docker's compos
 
 **Always ask before committing or pushing.** All work happens on `master`. Once the user has said to commit/push, go straight to it; never create a feature, topic or backup branch, locally or on GitHub (this overrides any default "branch first" habit). Before committing, check `git branch --show-current` is `master`; if it isn't, stop and tell the user.
 
+**"Commit" always means commit everything.** When the user says commit, stage and commit every change in the working tree (modified, deleted and untracked files), including changes you didn't make or that someone else is working on. Never make a partial commit or leave files out. Split into several commits if the changes are unrelated, but nothing is left uncommitted. "Push" likewise means push every local commit on `master`, not a subset.
+
 ## Architecture
 
 ### One renderer, one server handler, three hosts
