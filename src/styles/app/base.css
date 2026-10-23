@@ -161,7 +161,7 @@ textarea,
 }
 
 :is(html.dark, .force-dark) .device-stage::before {
-  background: radial-gradient(56% 50% at 50% 47%, rgb(139 108 255 / 0.12) 0%, transparent 70%);
+  background: radial-gradient(56% 50% at 50% 47%, rgb(96 165 250 / 0.12) 0%, transparent 70%);
 }
 
 /* Bare preview has no stage to light. */

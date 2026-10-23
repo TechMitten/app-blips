@@ -139,9 +139,10 @@
   --edge-top: inset 0 1px 0 rgb(255 255 255 / 0.055);
   --edge-ring: inset 0 0 0 1px rgb(255 255 255 / 0.035);
   /* Preview stage, night variant. A black ground with a SaaS-style aurora:
-     a soft indigo/violet wash spilling down from above the visible area, a
+     a soft blue wash spilling down from above the visible area, a
      faint neutral key light behind the device, a black floor pool and a
-     deeper vignette. The old blue key light tinted the whole stage navy. */
+     deeper vignette. The blue stays up top: the old centered blue key light
+     tinted the whole stage navy. */
   --stage-bg: #050505;
   /* The tool rows sit one step above the stage they float over. With both at
      #12141d the toolbar dissolved into the canvas and stopped reading as its
@@ -152,9 +153,9 @@
     inset 0 1px 0 0 rgb(0 0 0 / 0.45),
     inset 0 14px 30px -20px rgb(0 0 0 / 0.55);
   --ambient:
-    radial-gradient(70% 46% at 50% -10%, rgb(124 92 255 / 0.22) 0%, transparent 70%),
-    radial-gradient(42% 34% at 18% 4%, rgb(79 70 229 / 0.14) 0%, transparent 72%),
-    radial-gradient(42% 34% at 84% 8%, rgb(192 86 255 / 0.10) 0%, transparent 72%),
+    radial-gradient(70% 46% at 50% -10%, rgb(59 130 246 / 0.22) 0%, transparent 70%),
+    radial-gradient(42% 34% at 18% 4%, rgb(37 99 235 / 0.14) 0%, transparent 72%),
+    radial-gradient(42% 34% at 84% 8%, rgb(56 189 248 / 0.10) 0%, transparent 72%),
     radial-gradient(60% 50% at 50% 45%, rgb(255 255 255 / 0.035) 0%, transparent 66%),
     radial-gradient(54% 22% at 50% 94%, rgb(0 0 0 / 0.5) 0%, transparent 72%),
     radial-gradient(122% 100% at 50% 46%, transparent 48%, rgb(0 0 0 / 0.5) 100%);
