@@ -52,6 +52,43 @@ Under the hood, AppBlips is a React app that sends your build prompt to an AI mo
 
 AppBlips runs on your computer, powered by your own AI provider key. No account, no cloud sync. Install the **desktop app** (Windows and Linux), or **run it from source** or with **Docker** on any system and use it in your browser. See [Quick start](#quick-start) below.
 
+## What's new
+
+### 0.1.13
+
+**New: Pollinations connector for AI images and AI features.** Connect your [Pollinations](https://github.com/pollinations/pollinations) account in **Settings → Connectors → Pollinations** and ask the AI for:
+
+- **Generated images:** custom pictures instead of stock photos. AppBlips makes them with your account. When you publish or export, the images are copied into your site, so they stay online with it.
+- **AI features:** chatbots, writing helpers, image generators and more, inside the websites and apps you build. You choose who pays when visitors use them:
+  - **Visitors use their own Pollen (safer, default):** visitors click a **Connect Pollinations** button and use their own account.
+  - **My key pays:** your own budget-capped key goes into your site's code, so visitors don't need an account. AppBlips scrambles the key and explains plainly what that does and doesn't protect.
+
+The AI only uses Pollinations when you ask for images or AI features. Your sign-in stays inside AppBlips and is never written into your projects. Using Pollinations through AppBlips costs 25% more than using it directly, and the extra supports AppBlips. This is shown in Settings and next to the Connect button.
+
+**New: token usage in the chat.** Each reply now shows how many tokens it used, and a live counter counts up while the AI works. Both are marked "(estimate)", since AI providers count tokens differently.
+
+**Improved**
+
+- **Surge in Connectors:** a Surge tile in **Settings → Connectors** lets you sign in, create an account or sign out without publishing anything.
+- **Sharing a published site:** the share buttons in the Publish window now show each service's logo.
+- **Onboarding:** setup is split into three short steps: your name, your chat avatar, then your AI provider.
+- **Code tab:** it's now shown by default.
+- **Chat bubbles:** the rewind button sits inside your message, next to copy. The copy button is easier to see in the dark theme.
+- **Renamed button:** "Browser view" is now **Preview**.
+
+**Look and feel**
+
+- **New app icon:** the wave-and-blip icon now appears next to the AppBlips name throughout the app.
+- **Preview background:** refreshed in dark mode.
+- **Building screen:** easier to read in the light theme.
+- **Connector icons:** no longer sit on a coloured square.
+
+**For developers**
+
+- `npm run dev` now only answers on your own computer (localhost). Use `npm run dev -- --host` to open it to your network again.
+
+Older releases: see [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
+
 ## Features
 
 - **One simple prompt box** — describe your idea in plain English and get a working app, game, or website back
@@ -66,6 +103,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
 - **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)
+- **Connectors** — link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations in **Settings → Connectors**, and the AI wires them into what it builds: forms that email you, visitor stats, live chat, payments, AI-generated images and AI features
 
 
 ## Documentation
