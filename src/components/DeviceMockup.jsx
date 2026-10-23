@@ -662,7 +662,7 @@ export default function DeviceMockup({
                   <span className="building-battery"><i /></span>
                 </span>
               </div>
-              {mode !== 'desktop' && (
+              {PREVIEW_MODES[mode].isTouchChrome && (
                 <div className="building-device-notch" aria-hidden="true"><span /></div>
               )}
               {showBuildStatus && (

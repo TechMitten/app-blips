@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move, Loader2, Square
+  ZoomIn, ZoomOut, Expand, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move, Loader2, Square, RotateCw
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -20,6 +20,11 @@ const DEVICE_PRESETS = [
   { mode: 'tablet', Icon: Tablet },
   { mode: 'desktop', Icon: Monitor },
 ];
+
+// Full size is a variant of Desktop (a toggle beside the presets, like
+// Rotate for the touch devices), so the Desktop key stays lit while it's on.
+const isPresetActive = (mode, previewMode) =>
+  previewMode === mode || (mode === 'desktop' && PREVIEW_MODES[previewMode].isFill);
 
 // Right-hand canvas studio: toolbar (tabs, device presets, undo/redo, zoom,
 // open/export) and the preview surface or code view below it.
@@ -130,6 +135,7 @@ export default function PreviewPane({
   const { isTransitioning } = transitionState;
 
   const browserTitle = projectName?.trim() || STUDIO_MODES[studioMode]?.untitledName || 'Untitled App';
+  const isFillMode = Boolean(PREVIEW_MODES[previewMode].isFill);
   const rotateLabel = `Rotate to ${previewOrientation === 'portrait' ? 'landscape' : 'portrait'}`;
   const zoomPercent = Math.round(zoomLevel * 100);
 
@@ -246,9 +252,9 @@ export default function PreviewPane({
                     key={mode}
                     onClick={() => onPreviewModeChange(mode)}
                     aria-label={PREVIEW_MODES[mode].label}
-                    aria-pressed={previewMode === mode}
+                    aria-pressed={isPresetActive(mode, previewMode)}
                     data-tip={`${PREVIEW_MODES[mode].label} \u2014 ${PREVIEW_MODES[mode].width} \u00d7 ${PREVIEW_MODES[mode].height}`}
-                    className={`nav-segmented-btn nav-segmented-btn-icon ${previewMode === mode ? 'nav-segmented-btn-active' : ''}`}
+                    className={`nav-segmented-btn nav-segmented-btn-icon ${isPresetActive(mode, previewMode) ? 'nav-segmented-btn-active' : ''}`}
                   >
                     <Icon size={16} />
                   </button>
@@ -256,21 +262,46 @@ export default function PreviewPane({
               </div>
               {/* Device presets are shared across studios -- the studio
                   personality lives in the default (App -> Smartphone,
-                  Website -> Desktop), not in a restricted picker. */}
-              {PREVIEW_MODES[previewMode].isTouchChrome && (
-                <button
-                  onClick={onToggleOrientation}
-                  className="preview-fold-device nav-btn nav-ghost nav-btn-icon"
-                  aria-label={rotateLabel}
-                  data-tip={rotateLabel}
-                >
-                  <RotateCcwSquare
-                    size={16}
-                    className={previewOrientation === 'landscape' ? '-rotate-90' : ''}
-                    style={{ transition: 'transform 0.2s ease' }}
-                  />
-                </button>
-              )}
+                  Website -> Desktop), not in a restricted picker.
+                  Rotate, Full size and Reload are always drawn, and only
+                  disabled where they don't apply, so switching devices never
+                  shifts the keys around. */}
+              <button
+                onClick={onToggleOrientation}
+                disabled={!PREVIEW_MODES[previewMode].isTouchChrome}
+                className="preview-fold-device nav-btn nav-ghost nav-btn-icon"
+                aria-label={rotateLabel}
+                data-tip={rotateLabel}
+              >
+                <RotateCcwSquare
+                  size={16}
+                  className={previewOrientation === 'landscape' ? '-rotate-90' : ''}
+                  style={{ transition: 'transform 0.2s ease' }}
+                />
+              </button>
+              <button
+                onClick={() => onPreviewModeChange(isFillMode ? 'desktop' : 'fill')}
+                disabled={PREVIEW_MODES[previewMode].isTouchChrome}
+                aria-pressed={isFillMode}
+                className={`preview-fold-device nav-btn nav-ghost nav-btn-icon ${isFillMode ? 'nav-ghost-active' : ''}`}
+                aria-label="Full size"
+                data-tip={isFillMode ? 'Back to the desktop window' : 'Full size \u2014 fills the preview area'}
+              >
+                <Expand size={16} />
+              </button>
+              {/* The phone and tablet mockups have no browser bar, so this is
+                  their only Reload key (desktop has a second one in its bar).
+                  Not folded into the tools menu on narrow panes: reloading is
+                  too common to bury. */}
+              <button
+                onClick={onReloadPreview}
+                disabled={!hasCode || isBrowserTesting}
+                className="nav-btn nav-ghost nav-btn-icon"
+                aria-label="Reload preview"
+                data-tip="Reload"
+              >
+                <RotateCw size={15} />
+              </button>
             </>
           )}
         </div>
@@ -283,11 +314,13 @@ export default function PreviewPane({
           <span className="chrome-divider preview-header-divider" aria-hidden="true" />
           <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
 
+          {/* Full size always shows the page at its real size, so there is
+              nothing to zoom. The keys stay (disabled) so the bar doesn't shift. */}
           {activeTab === 'preview' && (
             <div className="preview-fold-zoom nav-segmented-group" role="group" aria-label="Zoom">
               <button
                 onClick={() => onZoomOut(-0.1)}
-                disabled={zoomLevel <= 0.2}
+                disabled={isFillMode || zoomLevel <= 0.2}
                 className="nav-segmented-btn nav-segmented-btn-icon"
                 aria-label="Zoom out"
                 data-tip="Zoom out"
@@ -298,6 +331,7 @@ export default function PreviewPane({
                   the number was previously only reachable through a title. */}
               <button
                 onClick={onResetZoom}
+                disabled={isFillMode}
                 aria-pressed={isAutoZoom}
                 aria-label={isAutoZoom ? 'Zoom: fit to pane' : `Zoom: ${zoomPercent}%. Reset to fit`}
                 data-tip={isAutoZoom ? 'Fitting to the pane' : 'Reset to fit'}
@@ -307,7 +341,7 @@ export default function PreviewPane({
               </button>
               <button
                 onClick={() => onZoomIn(0.1)}
-                disabled={zoomLevel >= 3}
+                disabled={isFillMode || zoomLevel >= 3}
                 className="nav-segmented-btn nav-segmented-btn-icon"
                 aria-label="Zoom in"
                 data-tip="Zoom in"

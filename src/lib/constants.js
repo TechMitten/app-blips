@@ -1982,6 +1982,18 @@ export const PREVIEW_MODES = {
     deviceClass: 'device-desktop',
     isTouchChrome: false,
     zoomPadding: { h: 72, v: 54 }
+  },
+  // A desktop browser without the mockup: the page takes the whole preview
+  // area at its real pixel size. width/height are only the fallback box
+  // before the first measurement (see usePreviewViewport).
+  fill: {
+    label: 'Full size',
+    width: 1468,
+    height: 1022,
+    deviceClass: 'device-desktop',
+    isTouchChrome: false,
+    isFill: true,
+    zoomPadding: { h: 0, v: 0 }
   }
 };
 

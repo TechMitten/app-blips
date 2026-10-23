@@ -752,8 +752,9 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
    touch-chrome behaviour and the sizing hooks the bridge reads).
 
    Applied by DeviceMockup only when usePreviewViewport reports isBareFill --
-   i.e. below lg on the default phone preset. Choosing Tablet or Desktop keeps
-   the full mockup, since those really are a different viewport.
+   i.e. below lg on the default phone preset, or the Full size preset at any
+   width. Choosing Tablet or Desktop keeps the full mockup, since those really
+   are a different viewport.
    --------------------------------------------------------------------------- */
 .device-smartphone.device-bare {
   --device-safe-area-top: 0px;
@@ -805,6 +806,25 @@ button.device-browser-navbtn:not(:disabled):hover { background: rgb(71 85 105 / 
 }
 
 .device-bare .device-preview-surface-mobile {
+  border-radius: 0;
+}
+
+/* Full size: the desktop window loses its shell the same way. Its size comes
+   from the measured preview area (DeviceMockup's inline width/height). */
+.device-desktop.device-bare {
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .device-desktop.device-bare::before {
+  content: none;
+}
+
+/* Outranks browser.css's rounded desktop screen. */
+.device-desktop.device-bare.device-embedded-browser .device-screen,
+.device-desktop.device-bare .device-preview-surface {
   border-radius: 0;
 }
 

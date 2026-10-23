@@ -44,9 +44,11 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
   // because those are genuinely a different viewport from the one in hand.
   const isNarrowViewport = useSyncExternalStore(subscribeNarrow, getNarrowSnapshot, getNarrowServerSnapshot);
 
-  // Bare only for the phone preset: Tablet/Desktop stay framed so the user can
-  // still see what those viewports look like from a phone.
-  const isBareFill = isNarrowViewport && previewMode === 'mobile';
+  // Bare for the phone preset: Tablet/Desktop stay framed so the user can
+  // still see what those viewports look like from a phone. Full size is bare
+  // at every width -- dropping the frame is the point of it.
+  const isFillMode = Boolean(PREVIEW_MODES[previewMode].isFill);
+  const isBareFill = (isNarrowViewport && previewMode === 'mobile') || isFillMode;
 
   const [orientationFlipClass, setOrientationFlipClass] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -72,9 +74,12 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
   useEffect(() => {
     if (!containerNode) return;
 
+    // Full size always measures: a manual zoom left over from another
+    // preset would otherwise drop it back to the fixed desktop box.
+    const autoZoom = isAutoZoom || isFillMode;
     const calculateZoom = () => {
-      if (!isAutoZoom) setFillSize(null);
-      if (!isAutoZoom || activeTab !== 'preview') return;
+      if (!autoZoom) setFillSize(null);
+      if (!autoZoom || activeTab !== 'preview') return;
 
       const el = containerNode;
       // Zoom fits inside the container's *content* box. clientWidth/Height
@@ -145,7 +150,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', calculateZoom);
     };
-  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode, fillDesktop, isBareFill]);
+  }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode, fillDesktop, isBareFill, isFillMode]);
 
   const handleManualZoom = (multiplier) => {
     setIsAutoZoom(false);

@@ -148,7 +148,8 @@
    Deliberately NOT inside a container query: a landscape phone's preview pane
    is wider than the 580px toolbar fold, so keying this on pane width would
    leave a 24px frame around the app at 667x375. .device-bare is only ever
-   rendered below lg, so its presence is the correct condition. */
+   rendered below lg or for the Full size preset, so its presence is the
+   correct condition. */
 .preview-canvas:has(.device-bare) {
   padding: 0;
   background-image: none;

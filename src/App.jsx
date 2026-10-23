@@ -408,10 +408,11 @@ export default function App({ coldStart = false }) {
   // a project loads so opening a website project reasserts it. App and game
   // studios offer no desktop preset (they are touch-device mockups), so a
   // desktop choice persisted from a website workspace snaps back to mobile.
-  // Imported codebases are websites too.
+  // Imported codebases are websites too. Full size is a desktop view the user
+  // picked on purpose, so it is kept everywhere.
   useEffect(() => {
     if (studioMode === 'website' || studioMode === 'codebase') {
-      setPreviewMode('desktop');
+      setPreviewMode((mode) => (mode === 'fill' ? mode : 'desktop'));
     } else if (studioMode) {
       setPreviewMode((mode) => (mode === 'desktop' ? 'mobile' : mode));
     }
