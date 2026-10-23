@@ -604,7 +604,7 @@ export default function DeviceMockup({
                 <div className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                   {/* The app icon, then two wordmarks, one visible per theme:
                       dark lettering for light, white for dark. */}
-                  <div className="preview-empty-logo relative mb-4 w-72 sm:w-[23rem]">
+                  <div className="preview-empty-logo relative mb-4 w-72 sm:w-92">
                     <img
                       src="/favicon.svg"
                       alt=""

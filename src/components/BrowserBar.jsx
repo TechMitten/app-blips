@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, RotateCw, Globe, Loader2, Square } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCw, Globe } from 'lucide-react';
 
 // The project's name where a web address would be. Pages are switched with
 // the page picker in the preview toolbar, so there is nothing to type here.
@@ -29,7 +29,7 @@ function RouteAddress({ route, onNavigateRoute, disabled }) {
 }
 
 export default function BrowserBar({ title, hasCode, navState, onBack, onForward,
-  onReload, isTesting, status, onStop, route = null, onNavigateRoute = null }) {
+  onReload, isTesting, route = null, onNavigateRoute = null }) {
   return (
     <div className="embedded-browser-bar" aria-label="Browser navigation">
       <div className="browser-navigation">
@@ -40,13 +40,6 @@ export default function BrowserBar({ title, hasCode, navState, onBack, onForward
       {onNavigateRoute
         ? <RouteAddress key={route} route={route || '/'} onNavigateRoute={onNavigateRoute} disabled={!hasCode || isTesting} />
         : <BrowserTitle title={title} />}
-      {isTesting && (
-        <div className="browser-testing-status" role="status">
-          <Loader2 size={14} className="animate-spin" />
-          <span>{status || 'Testing in browser…'}</span>
-          <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Stop browser testing" onClick={onStop}><Square size={13} /></button>
-        </div>
-      )}
     </div>
   );
 }

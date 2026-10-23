@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move
+  ZoomIn, ZoomOut, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move, Loader2, Square
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -220,6 +220,17 @@ export default function PreviewPane({
               its own file tabs. */}
           {pages.length > 1 && activeTab === 'preview' && !isBrowserTesting && (
             <PagePicker pages={pages} activePage={activePage} onSelectPage={onSelectPage} />
+          )}
+
+          {/* Lives here rather than in the browser bar, which the phone and
+              tablet mockups don't show: the stop control must always be
+              reachable. It takes the page picker's place while a test runs. */}
+          {isBrowserTesting && (
+            <div className="browser-testing-status" role="status">
+              <Loader2 size={14} className="animate-spin" />
+              <span>{generationStatus || 'Testing in browser…'}</span>
+              <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Stop browser testing" data-tip="Stop testing" onClick={onCancelGeneration}><Square size={13} /></button>
+            </div>
           )}
         </div>
 
@@ -445,10 +456,12 @@ export default function PreviewPane({
         </div>
       )}
 
-      {activeTab === 'preview' && (
+      {/* A real phone or tablet has no desktop-style browser bar, so the
+          touch mockups leave it out. */}
+      {activeTab === 'preview' && !PREVIEW_MODES[previewMode].isTouchChrome && (
         <BrowserBar {...{ hasCode, navState, route, onNavigateRoute }} title={browserTitle}
           onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview}
-          isTesting={isBrowserTesting} status={generationStatus} onStop={onCancelGeneration} />
+          isTesting={isBrowserTesting} />
       )}
 
       {/* Container for Device or Code */}
