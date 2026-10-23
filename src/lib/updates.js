@@ -74,14 +74,17 @@ const readCache = (storage) => {
 
 // A newer release than `current`, or null. Uses the cached answer while it
 // is younger than CHECK_INTERVAL_MS; network errors are treated as "no update".
+// `force` (Settings → "Check now") skips the cache and throws on failure, so
+// the user is never told "up to date" when GitHub couldn't be reached.
 export async function checkForUpdate({
   current = CURRENT_VERSION,
   storage = null,
   fetchImpl = fetch,
   now = Date.now(),
+  force = false,
 } = {}) {
   let release;
-  const cached = readCache(storage);
+  const cached = force ? null : readCache(storage);
   if (cached && now - cached.checkedAt < CHECK_INTERVAL_MS) {
     release = cached.release;
   } else {
@@ -89,6 +92,7 @@ export async function checkForUpdate({
       release = await fetchLatestRelease(fetchImpl);
     } catch (err) {
       logWarn('Update check failed', err);
+      if (force) throw err;
       return null;
     }
     try { storage?.setItem(CHECK_CACHE_KEY, JSON.stringify({ checkedAt: now, release })); } catch { /* storage unavailable */ }

@@ -52,15 +52,21 @@ export function createUpdater({ app, send, beforeInstall }) {
 
   return {
     // Returns { auto, version, state }. Checks at most hourly, and never while
-    // an update is downloading or waiting for a restart.
-    async check() {
+    // an update is downloading or waiting for a restart. `force` (Settings →
+    // "Check now") skips the hourly limit and waits for GitHub's answer, so
+    // the returned state already says whether an update is downloading; a
+    // failed forced check throws instead of looking like "up to date".
+    async check(options) {
+      const force = options?.force === true;
       const result = { auto, version: app.getVersion() };
       if (process.windowsStore) return { ...result, store: true };
       if (!auto) return result;
       const busy = state.status === 'downloading' || state.status === 'ready';
-      if (!busy && Date.now() - lastCheck > RECHECK_MS) {
+      if (!busy && (force || Date.now() - lastCheck > RECHECK_MS)) {
         lastCheck = Date.now();
-        autoUpdater.checkForUpdates().catch((err) => console.warn('[updater] check failed:', err));
+        const checking = autoUpdater.checkForUpdates();
+        if (force) await checking;
+        else checking.catch((err) => console.warn('[updater] check failed:', err));
       }
       return { ...result, state };
     },

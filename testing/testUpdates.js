@@ -64,3 +64,15 @@ test('answers are cached for the check interval, then refreshed', async () => {
   assert.equal(refreshed.version, '0.3.0');
   assert.ok(JSON.parse(storage.map.get(CHECK_CACHE_KEY)).checkedAt > now);
 });
+
+test('a forced check (Settings → Check now) skips the cache and reports failures', async () => {
+  const storage = memoryStorage();
+  const calls = [];
+  const now = 1_000_000;
+  await checkForUpdate({ current: '0.1.0', storage, now, fetchImpl: github(200, release('v0.2.0'), calls) });
+  const forced = await checkForUpdate({ current: '0.1.0', storage, now: now + 1000, force: true, fetchImpl: github(200, release('v0.3.0'), calls) });
+  assert.equal(calls.length, 2);
+  assert.equal(forced.version, '0.3.0');
+  await assert.rejects(checkForUpdate({ current: '0.1.0', storage, force: true, fetchImpl: github(403, { message: 'rate limited' }) }));
+  assert.equal(await checkForUpdate({ current: '0.1.0', force: true, fetchImpl: github(404, { message: 'Not Found' }) }), null);
+});

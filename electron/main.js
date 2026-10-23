@@ -251,7 +251,7 @@ function registerIpc() {
   handle('desktop:provider:clear', (options) => providerStore.clear({ resetOnboarding: options?.resetOnboarding === true }));
   handle('desktop:provider:models', (input) => providerStore.listModels(input));
 
-  handle('desktop:update:check', () => updater.check());
+  handle('desktop:update:check', (options) => updater.check({ force: options?.force === true }));
   // A failed install leaves the app running: take back what beforeInstall gave up.
   handle('desktop:update:install', () => updater.install().catch((err) => {
     flushed = false;

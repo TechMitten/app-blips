@@ -6,6 +6,8 @@ import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
 import LicensesSettings from './LicensesSettings';
 import AboutSettings from './AboutSettings';
+import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
+import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import {
@@ -116,6 +118,7 @@ export default function SettingsModal({
     setCheckUpdates(enabled);
     saveCheckUpdates(enabled);
   };
+  const updateCheck = useUpdateCheck();
   // The AI tab's provider panel reports unsaved edits here. Leaving the tab or
   // closing Settings with any asks first (Save / Discard / Keep editing), so
   // details typed in aren't silently lost by clicking Done.
@@ -271,9 +274,13 @@ export default function SettingsModal({
               <SettingRow
                 id="set-updates"
                 title="Check for updates"
-                description={`You're on AppBlips ${CURRENT_VERSION}. When on, AppBlips asks GitHub about new versions${isDesktop ? ' and downloads them in the background where it can' : ''}. GitHub sees your IP address. Takes effect on the next launch.`}
+                description={`You're on AppBlips ${CURRENT_VERSION}. When on, AppBlips asks GitHub about new versions${isDesktop ? ' and downloads them in the background where it can' : ''}. GitHub sees your IP address. Takes effect on the next launch. Check now asks once, even with this off.`}
+                details={updateCheck.result && updateCheck.result.status !== 'checking' ? <UpdateCheckResult result={updateCheck.result} /> : null}
               >
-                <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
+                <div className="flex items-center gap-3">
+                  <UpdateCheckButton checking={updateCheck.result?.status === 'checking'} onCheck={updateCheck.check} />
+                  <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
+                </div>
               </SettingRow>
               {onRestartOnboarding && (
                 <SettingRow id="set-onboarding" title="Replay onboarding" description="Walk through the welcome introduction (name, avatar and projects folder) and AI setup again. Your current AI setup is kept unless you save a new one.">
