@@ -155,7 +155,7 @@ function LiveTokenUsage() {
   const approx = usage.estimating ? '~' : '';
   return (
     <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60 tabular-nums" title={LIVE_USAGE_HINT} aria-live="off">
-      {approx}{formatTokenCount(usage.input + usage.output)} tokens so far
+      {approx}{formatTokenCount(usage.input + usage.output)} tokens (estimate) so far
     </p>
   );
 }
