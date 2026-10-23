@@ -13,8 +13,15 @@
   --tour-ring: rgb(255 255 255 / 0.9);
   --tour-ring-glow: rgb(255 255 255 / 0.22);
   --tour-scrim: rgb(0 0 0 / 0.7);
-  --tour-card-border: rgb(255 255 255 / 0.1);
+  --tour-card-border: rgb(255 255 255 / 0.22);
+  /* Lifted above --color-surface (#141414): behind the card sits a black
+     scrim over a near-black workspace, so a surface-coloured card lost its
+     edges entirely. */
+  --tour-card-bg: #222;
 }
+/* Unlayered, so this beats the bg-surface utility on the same elements. */
+:is(html.dark, .force-dark) :is(.tour-card, .tour-arrow, .tour-invite) { background-color: var(--tour-card-bg); }
+:is(html.dark, .force-dark) .tour-tips { background: rgb(255 255 255 / 0.06); color: rgb(255 255 255 / 0.78); }
 
 .tour-layer { position: fixed; inset: 0; z-index: 90; isolation: isolate; }
 /* Catches scrim taps (the spotlight itself is pointer-events: none). */
