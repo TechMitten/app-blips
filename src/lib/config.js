@@ -45,13 +45,14 @@ export const loadChatFont = () => {
 
 export const SHOW_CODE_VIEW_KEY = 'orion-show-code-view';
 
-// Boolean: whether the Code tab is offered in the preview toolbar. Off by
-// default, so casual users never see the raw generated HTML.
+// Boolean: whether the Code tab is offered in the preview toolbar. On by
+// default; an explicitly saved user choice is preserved.
 export const loadShowCodeView = () => {
   try {
-    return safeStorage('local')?.getItem(SHOW_CODE_VIEW_KEY) === 'true';
+    const stored = safeStorage('local')?.getItem(SHOW_CODE_VIEW_KEY);
+    return stored === null || stored === undefined ? true : stored === 'true';
   } catch {
-    return false;
+    return true;
   }
 };
 
