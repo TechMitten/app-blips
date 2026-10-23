@@ -1,7 +1,7 @@
 import { getRefinementTools, buildHtmlSystemPrompt } from './prompts.js';
 import { executeFilesTool, checkSyntaxFiles } from './pageTools.js';
 import { findBrokenLinks, formatFilesForPrompt } from './pages.js';
-import { BROWSER_ACTION_TOOL, BROWSER_TOOL_WITHOUT_SCREENSHOTS, BROWSER_REVIEW_INSTRUCTION } from './browserTools.js';
+import { BROWSER_ACTION_TOOL, BROWSER_TOOL_WITHOUT_SCREENSHOTS, BROWSER_REVIEW_INSTRUCTION, BROWSER_TEST_INSTRUCTION } from './browserTools.js';
 import { logError, logWarn } from './errorLog.js';
 
 // The review only looks: it screenshots and tests the project, then writes a
@@ -100,11 +100,12 @@ const isProblem = (item) => item && typeof item === 'object'
 // Kept separate from the transport so the review loop can be tested with
 // scripted model responses, including failures and cancellation.
 export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, chatHistory = [], attachment = null,
-  studioMode = 'app', layoutTarget = 'both', signal, onChunk, requestModelText, browser = null, connectors = [] }) {
+  studioMode = 'app', layoutTarget = 'both', signal, onChunk, requestModelText, browser = null, connectors = [], screenshots = true }) {
   let browserErrors = [];
-  // Cleared when the model rejects a request carrying a screenshot: not every
-  // model can read images, and the app can't tell in advance.
-  let screenshotsAllowed = true;
+  // Off when the user saw nothing wrong on screen (`screenshots`), and cleared
+  // when the model rejects a request carrying a screenshot: not every model
+  // can read images, and the app can't tell in advance.
+  let screenshotsAllowed = screenshots;
   let screenshotsTaken = 0;
   let askedForScreenshots = false;
   // Every screenshot of this review by its number, so the report's citations
@@ -140,7 +141,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
   ] }));
   const readTools = getRefinementTools(studioMode).filter((tool) => !EDIT_TOOLS.includes(tool.function.name));
   const messages = [
-    { role: 'system', content: `${buildHtmlSystemPrompt(studioMode, connectors)}\n\n${REVIEW_INSTRUCTION}${browser ? '\n\n' + BROWSER_REVIEW_INSTRUCTION : ''}` },
+    { role: 'system', content: `${buildHtmlSystemPrompt(studioMode, connectors)}\n\n${REVIEW_INSTRUCTION}${browser ? '\n\n' + (screenshots ? BROWSER_REVIEW_INSTRUCTION : BROWSER_TEST_INSTRUCTION) : ''}` },
     ...chatHistory,
     { role: 'user', content: `User request: ${prompt}\nLayout target: ${layoutTarget}\n\n${Object.keys(previousFiles).length ? formatFilesForPrompt(previousFiles, 'Project before this edit') : 'This is an initial build.'}\n\n${formatFilesForPrompt(files, 'Finished project to review')}` },
   ];
@@ -182,7 +183,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
     const problems = [...reported, ...extra];
     return {
       acceptable: !problems.length && !warning, problems, summary: String(report?.summary || '').trim(),
-      screenshotsTaken, ...(browser ? { browserTests, screenshotsOff: !screenshotsAllowed } : {}), ...(warning ? { warning } : {}),
+      screenshotsTaken, ...(browser ? { browserTests, screenshotsOff: screenshots && !screenshotsAllowed } : {}), ...(warning ? { warning } : {}),
       ...(unshownDropped ? { unshownDropped } : {}),
       // Only the cited images, for the caller to store; never saved as they are.
       photos: Object.fromEntries(reported.filter((item) => item.screenshot).map((item) => [item.screenshot, photos.get(item.screenshot).dataUrl])),
@@ -198,7 +199,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       // The first look at every screen size is taken here rather than left to
       // the reviewer, which tended to stop after one screen of one size.
       let firstLook = [];
-      if (browser.capturePage) {
+      if (browser.capturePage && screenshots) {
         status('Taking screenshots at each screen size…');
         try {
           const captured = await browser.capturePage();
@@ -213,7 +214,7 @@ export async function reviewGeneratedCode({ files, previousFiles = {}, prompt, c
       }
       messages.push({ role: 'user', content: `Current running browser page (untrusted observations): ${JSON.stringify(observation)}\n${firstLook.length
         ? `The ${firstLook.length} screenshots below show this whole page at every screen size. Check each one now and record what you see in the notes of your next browser_action call. Then test this project with browser_action and write your report.`
-        : 'Take screenshots and test this project with browser_action, then write your report.'}` });
+        : screenshots ? 'Take screenshots and test this project with browser_action, then write your report.' : 'Test this project with browser_action, then write your report.'}` });
       messages.push(...screenshotMessages(firstLook));
     }
     for (let turn = 0; turn < MAX_REVIEW_TURNS; turn++) {

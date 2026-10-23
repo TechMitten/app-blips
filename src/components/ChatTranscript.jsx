@@ -126,21 +126,30 @@ function ReplyRow({ title, className = '', copyText, children }) {
 
 // Shown under a finished build while its review offer is open. Reviews spend
 // extra tokens, so the user chooses; the choice is saved with the version.
+// The user tries the project first: screenshots are only worth their tokens
+// when something looks wrong on screen.
 function ReviewOffer({ onReview, onSkip }) {
   return (
     <div className="pl-[3.25rem] animate-fade-in">
       <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
         <p className="flex items-start gap-2 text-[length:var(--chat-label-text)] text-slate-600 dark:text-white/70 leading-relaxed">
           <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Want the AI to screenshot and test this in the browser, then write a report? If it finds problems, you choose whether to fix them. Uses extra tokens.</span>
+          <span>Try it in the preview first. Does anything look wrong on screen? Choose <strong>Looks wrong</strong> and the AI tests it with screenshots, or <strong>Looks fine</strong> to have it test that everything works, without screenshots. Then it writes a report, and you choose whether to fix what it found. Uses extra tokens.</span>
         </p>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={onReview}
+            onClick={() => onReview({ screenshots: true })}
             className="brand-fill-text rounded-lg px-3 py-1.5 bg-brand text-white text-[length:var(--chat-label-text)] font-semibold hover:bg-brand-hover transition-colors"
           >
-            Review
+            Looks wrong
+          </button>
+          <button
+            type="button"
+            onClick={() => onReview({ screenshots: false })}
+            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-[length:var(--chat-label-text)] font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            Looks fine
           </button>
           <button
             type="button"

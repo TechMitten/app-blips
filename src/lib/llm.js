@@ -1296,12 +1296,12 @@ const generateAppCodeWithSummary = async (...args) => {
 // request is that report, so the reviewer's summary talks about "the fix";
 // a plain "found no problems" before it read as if nothing had been wrong.
 export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
-  layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false }) => {
+  layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false, screenshots = true }) => {
   // The cited screenshots come back beside the review: the caller stores
   // them as files, since qualityReview is saved with the version.
   const { photos = {}, ...review } = await reviewGeneratedCode({
     files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
-    requestModelText, browser, connectors: getActiveConnectors(),
+    requestModelText, browser, connectors: getActiveConnectors(), screenshots,
   });
   const noun = studioNoun(studioMode);
   const checked = browser ? 'reviewed and tested' : 'reviewed';
@@ -1318,7 +1318,7 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
   // A review can quietly end up without seeing the page at all (a text-only
   // model rejects the first image), so the user is told what it looked at.
   const shots = review.screenshotsTaken;
-  const seen = !browser ? ''
+  const seen = !browser || !screenshots ? ''
     : review.screenshotsOff
       ? 'Screenshots didn\'t work with this AI model, so I checked the page\'s text and layout without seeing it.'
       : shots

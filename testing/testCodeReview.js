@@ -85,6 +85,17 @@ assert.equal(test.result.problems[0].title, 'Runtime error');
 assert.match(test.requests[0].messages[0].content, /Take screenshots/);
 assert.equal(test.result.screenshotsOff, false);
 
+// Without screenshots (the user saw nothing wrong): no first look, no
+// screenshot action, no nudge to take any, and no "screenshots failed" note.
+let captured = false;
+test = await run([report()], { browser: { ...shotBrowser, async capturePage() { captured = true; return { dataUrl: 'data:image/png;base64,x' }; } }, screenshots: false });
+assert.equal(captured, false, 'no first look without screenshots');
+assert.equal(test.requests.length, 1, 'the report is accepted without screenshots');
+assert.deepEqual(images(test.requests[0]), []);
+assert.ok(!test.requests[0].tools.find((tool) => tool.function.name === 'browser_action').function.parameters.properties.action.enum.includes('screenshot'));
+assert.match(test.requests[0].messages[0].content, /Screenshots are off for this review/);
+assert.equal(test.result.screenshotsOff, false);
+
 // A batch taken in one turn is shown together, each labelled with its page
 // and screen size; next turn they become lines naming what they showed.
 const labelledBrowser = {

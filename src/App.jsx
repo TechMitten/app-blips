@@ -446,8 +446,12 @@ export default function App({ coldStart = false }) {
   // Auto-fix attempts are spent. Before reporting failure, run the full
   // review once per build: it has many more turns, browser testing, and the
   // whole project in view, which is what used to repair these builds when it
-  // ran after every build. Imported codebases have no review yet.
+  // ran after every build. Only when Code Review is on: the review takes
+  // screenshots and spends tokens the user opted out of. Imported codebases
+  // have no review yet.
   const autoReviewRanRef = useRef(false);
+  const askToReviewRef = useRef(askToReview);
+  askToReviewRef.current = askToReview;
   const handleReviewRef = useRef(null);
   // A review that finds problems offers to hand its report to a normal build
   // in a fresh chat. Once the user accepts, the mission waits here until state
@@ -459,7 +463,7 @@ export default function App({ coldStart = false }) {
     setIsAutoFixing(false);
     isAutoFixingRef.current = false;
     setAutoFixMessage(null);
-    if (!autoReviewRanRef.current && studioModeRef.current !== 'codebase' && handleReviewRef.current) {
+    if (askToReviewRef.current && !autoReviewRanRef.current && studioModeRef.current !== 'codebase' && handleReviewRef.current) {
       autoReviewRanRef.current = true;
       setTimeout(() => handleReviewRef.current?.({ automatic: true }), 0);
       return;
@@ -1677,9 +1681,13 @@ export default function App({ coldStart = false }) {
   // found problems, the user is asked before anything changes (fixOffer, see
   // handleFixReview), so fixes the user doesn't want never spend tokens.
   // `automatic` is the run giveUpAutoFix starts when auto-fix couldn't repair
-  // a build; it doesn't need an offer.
+  // a build; it doesn't need an offer. Screenshots are taken only when the
+  // user said something looks wrong: they cost many images' worth of tokens
+  // and add nothing to a problem that isn't visual, like an auto-fix's
+  // code errors.
   const handleReview = async (options) => {
     const automatic = options?.automatic === true;
+    const screenshots = options?.screenshots === true;
     if (isGeneratingRef.current) return;
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const reviewed = updatedVersions[updatedVersions.length - 1];
@@ -1727,6 +1735,7 @@ export default function App({ coldStart = false }) {
         signal,
         onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
         browser: createReviewBrowser(signal),
+        screenshots,
       });
       // The screenshots each problem cites are kept as evidence for the user.
       let { problems } = review.qualityReview;
