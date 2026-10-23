@@ -14,7 +14,7 @@ It's the same app as the [browser version from source](/quickstart-source#run-it
 
 ## Before you start
 
-- Install **Docker**. On Windows and macOS, install [Docker Desktop](https://docs.docker.com/get-docker/) and open it. On Linux, install [Docker Engine](https://docs.docker.com/engine/install/) with the Compose plugin.
+- Install **Docker**. On Windows and macOS, install [Docker Desktop](https://docs.docker.com/get-docker/) and open it. On Linux, install [Docker Engine](https://docs.docker.com/engine/install/) with the Compose plugin. On Ubuntu that's `sudo apt install docker.io docker-compose-v2`; don't install the package called just `docker-compose`, which is an old version that no longer works.
 - Get the AppBlips code. With Git:
 
   ```bash
@@ -46,6 +46,10 @@ It's the same app as the [browser version from source](/quickstart-source#run-it
     Click a studio, such as **Mobile & Web App**, type what you want in plain English, and press Enter. See [Build your first app](/quickstart-desktop#build-your-first-app).
   </Step>
 </Steps>
+
+<Warning>
+  Type `docker compose`, with a space. `docker-compose` with a hyphen is an old, retired tool: on newer Linux systems it fails with `No module named 'distutils'`, and it can't read AppBlips' `docker-compose.yml`. If `docker compose` says it's an unknown command, install the Compose plugin (on Ubuntu: `sudo apt install docker-compose-v2`).
+</Warning>
 
 To see what AppBlips is printing (for example, if the page doesn't load), run `docker compose logs -f`. Press `Ctrl+C` to stop watching; AppBlips keeps running.
 
