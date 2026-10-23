@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
 import LicensesSettings from './LicensesSettings';
+import AboutSettings from './AboutSettings';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import {
@@ -20,7 +21,8 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
 // AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects), Data (project backup and
-// the desktop projects folder), Legal and Licenses (open source credits). AppBlips is a desktop, single-user app, so
+// the desktop projects folder), Legal, Licenses (open source credits) and About (logo,
+// version, copyright). AppBlips is a desktop, single-user app, so
 // there is no account or billing tab.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
@@ -36,6 +38,7 @@ const TABS = [
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'legal', label: 'Legal', Icon: FileText },
   { id: 'licenses', label: 'Licenses', Icon: Scale },
+  { id: 'about', label: 'About', Icon: Info },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
@@ -304,6 +307,8 @@ export default function SettingsModal({
           )}
 
           {tab === 'licenses' && <LicensesSettings />}
+
+          {tab === 'about' && <AboutSettings />}
 
           {tab === 'danger' && (
             <>
