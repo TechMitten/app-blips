@@ -1,7 +1,7 @@
 {
   "name": "appblips",
   "description": "Turn a text prompt into a working single-file app or website, with a live sandboxed preview.",
-  "author": "TechMitten",
+  "author": "Tech Mitten",
   "homepage": "https://appblips.com",
   "private": true,
   "version": "0.1.12",

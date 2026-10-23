@@ -259,6 +259,12 @@
   width: auto;
 }
 
+/* The app icon in front of the wordmark, as tall as the lettering. */
+.app-header .header-logo-icon {
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
 .app-header .chrome-divider {
   display: none;
   height: 1.25rem;

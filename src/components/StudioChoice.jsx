@@ -88,7 +88,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               (md+), GitHub, theme and settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
             <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
-              <span className="mr-auto">
+              <span className="studio-logo mr-auto">
+                <img src="/favicon.svg" alt="" aria-hidden="true" className="studio-logo-icon" />
                 <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="studio-logo-img studio-logo-dark" />
                 <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className="studio-logo-img studio-logo-light" />
               </span>
@@ -297,7 +298,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   Terms of Service
                 </a>
               </nav>
-              <p className="studio-text-soft pb-1 text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
+              <p className="studio-text-soft pb-1 text-xs">© 2026 Tech Mitten LLC. All rights reserved.</p>
             </div>
           </footer>
         </div>

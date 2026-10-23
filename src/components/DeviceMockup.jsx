@@ -602,9 +602,16 @@ export default function DeviceMockup({
                 <div className="preview-empty-glow absolute inset-0 pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col items-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
-                  {/* Two wordmarks, one visible per theme: dark lettering for
-                      light, white for dark. */}
-                  <div className="preview-empty-logo relative mb-4 w-64 sm:w-80">
+                  {/* The app icon, then two wordmarks, one visible per theme:
+                      dark lettering for light, white for dark. */}
+                  <div className="preview-empty-logo relative mb-4 w-72 sm:w-[23rem]">
+                    <img
+                      src="/favicon.svg"
+                      alt=""
+                      aria-hidden="true"
+                      className="preview-empty-logo-icon select-none"
+                      draggable={false}
+                    />
                     <img
                       src="/appblips-wordmark-light.svg"
                       alt="AppBlips"

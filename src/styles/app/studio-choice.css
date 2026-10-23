@@ -126,12 +126,26 @@
   height: auto;
 }
 
+/* The app icon in front of the wordmark, as tall as the lettering (the
+   wordmark's height is its width x 276/1203). */
+.studio-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.studio-logo-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .studio-logo-light { display: none; }
 :root:not(.dark) .studio-logo-dark { display: none; }
 :root:not(.dark) .studio-logo-light { display: block; }
 
 @media (min-width: 640px) {
   .studio-logo-img { width: 8rem; }
+  .studio-logo-icon { width: 1.85rem; height: 1.85rem; }
 }
 
 .studio-nav-link {

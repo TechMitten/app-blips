@@ -14,9 +14,9 @@ Typeface reference: Montserrat SemiBold.
 | File | Use |
 |------|-----|
 | `wordmark-*.svg` | "AppBlips" logotype — site header, docs, footer |
-| `mark-*.svg` | "A + blip" with no tile — small spaces, inline UI |
-| `app-icon.svg` | Rounded black tile (the original icon) — works on light *and* dark backgrounds |
-| `app-icon-inverted.svg` | White tile, black A — for dark pages where you want the tile to stand out |
+| `mark-*.svg` | The wave and blip (red dot) with no tile — small spaces, inline UI |
+| `app-icon.svg` | Rounded black tile with the white wave and blip — works on light *and* dark backgrounds |
+| `app-icon-inverted.svg` | White tile, black wave — for dark pages where you want the tile to stand out |
 | `app-icon-square.svg` | Full-bleed square — source for iOS / App Store (they round it themselves) |
 | `app-icon-maskable.svg` | Android / PWA maskable icon (art inside the safe zone) |
 | `favicon.svg` | Same as app-icon |

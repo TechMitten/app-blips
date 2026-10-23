@@ -456,7 +456,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
       <main className="desktop-onboarding-card is-setup">
         <header className="onboarding-topbar">
-          <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
+          <div className="onboarding-brand">
+            <img src="/favicon.svg" alt="" aria-hidden="true" className="onboarding-brand-icon" />
+            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
+          </div>
           {onExit ? (
             <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
               Exit setup <X size={15} />

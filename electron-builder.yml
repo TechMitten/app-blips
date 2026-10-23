@@ -5,7 +5,7 @@
 # that package an icon, not to build a Windows installer.
 appId: com.appblips.desktop
 productName: AppBlips
-copyright: Copyright © 2026 TechMitten
+copyright: Copyright © 2026 Tech Mitten
 directories:
   output: dist-desktop
   buildResources: build
@@ -59,7 +59,7 @@ linux:
       arch: [x64]
   category: Development
   # Add a contact address ("Name <email>") before publishing .deb packages.
-  maintainer: TechMitten
+  maintainer: Tech Mitten
   syncDesktopName: true
   # One PNG per size (build/icons/NxN.png, made by scripts/appx-icons.sh). The
   # .deb installs each into /usr/share/icons/hicolor/NxN/apps/; given only the

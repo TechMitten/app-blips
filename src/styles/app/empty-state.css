@@ -54,13 +54,25 @@
   background: radial-gradient(circle at 50% 30%, rgb(99 102 241 / 0.22), transparent 62%);
 }
 
-/* Logo lockup, the wordmark SVGs' own proportions. */
+/* Logo lockup: the app icon, a gap, then the wordmark. The icon is a square
+   as tall as the wordmark, so the whole row is (276 + gap + 1203) / 276. */
 .preview-empty-logo {
-  aspect-ratio: 1203 / 276;
+  display: flex;
+  align-items: center;
+  gap: 4%;
+  aspect-ratio: 1546 / 276;
+}
+
+.preview-empty-logo-icon {
+  height: 100%;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgb(15 23 42 / 0.10));
 }
 
 .preview-empty-logo-img {
-  width: 100%;
+  min-width: 0;
+  flex: 1;
   height: 100%;
   object-fit: contain;
   object-position: center;
@@ -143,8 +155,8 @@
 :is(html.dark, .force-dark) .building-overlay {
   --build-void: #0b0d16;
   --build-void-deep: #090a11;
-  --build-rule: rgb(148 163 255 / 0.07);
-  --build-worklight: #7c89ff;
+  --build-rule: rgb(196 181 255 / 0.05);
+  --build-worklight: #a48bff;
   --build-beam: #cdd5ff;
   --build-ink: #e9ecf6;
   --build-muted: #8b93a8;
@@ -1006,63 +1018,76 @@
 /* Dark theme: midnight glass. This block sits last and repeats a few
    positioning rules because the earlier "plotter at night" dark rules have
    higher specificity than the plain classes above (they would otherwise win
-   and put the status bar and notch back in the flow). */
+   and put the status bar and notch back in the flow). The screen is
+   near-black with the stage's indigo/violet as the only color, so the phone
+   reads as part of the black stage instead of a navy panel set into it. */
 :is(html.dark, .force-dark) .building-overlay {
-  --build-ink: #f5f7ff;
-  --build-muted: #b3c1e4;
-  --build-blue: #6ea1ff;
-  --build-blue-bright: #a9c6ff;
-  --build-status-ink: #edf3ff;
+  --build-ink: #f5f5f7;
+  --build-muted: #a7a3b8;
+  --build-blue: #8b6cff;
+  --build-blue-bright: #c4b5ff;
+  --build-status-ink: #f2f0f8;
   --build-bg:
-    radial-gradient(90% 42% at 50% 22%, rgb(41 82 177 / 0.28), transparent 72%),
-    radial-gradient(70% 35% at 50% 100%, rgb(26 67 152 / 0.22), transparent 74%),
-    linear-gradient(180deg, #101a31 0%, #080e1d 54%, #060b16 100%);
-  --build-grid: rgb(112 157 255 / 0.075);
+    radial-gradient(90% 42% at 50% 22%, rgb(124 92 255 / 0.13), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(79 70 229 / 0.07), transparent 74%),
+    linear-gradient(180deg, #08070b 0%, #040405 54%, #020202 100%);
+  --build-grid: rgb(196 181 255 / 0.05);
   --build-vignette:
-    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(2 7 19 / 0.42) 100%),
-    linear-gradient(90deg, rgb(1 5 14 / 0.28), transparent 24%, transparent 76%, rgb(1 5 14 / 0.34));
-  --build-title-glow: 0 2px 18px rgb(77 119 255 / 0.16);
-  --build-remaining: #a9bbe6;
-  --build-spinner-glow: drop-shadow(0 0 17px rgb(65 113 255 / 0.22));
-  --build-core-bg: radial-gradient(circle at 38% 28%, rgb(69 110 255 / 0.25), transparent 49%), #101b40;
-  --build-core-border: rgb(111 141 255 / 0.7);
-  --build-core-shadow: inset 0 0 20px rgb(43 81 210 / 0.45), 0 0 20px rgb(49 92 228 / 0.26);
-  --build-tick: rgb(90 139 255 / 0.9);
-  --build-sweep: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(82 128 255 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg);
-  --build-glyph: #c1d2ff;
-  --build-glyph-glow: drop-shadow(0 0 10px rgb(92 137 255 / 0.95));
-  --build-dot: #2b4d9d;
-  --build-dot-ring: rgb(111 151 255 / 0.06);
-  --build-dot-1: #79aeff;
-  --build-dot-1-glow: 0 0 10px rgb(81 139 255 / 0.85);
-  --build-dot-2: #5289f3;
-  --build-dot-2-glow: 0 0 10px rgb(81 139 255 / 0.65);
+    radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(0 0 0 / 0.45) 100%),
+    linear-gradient(90deg, rgb(0 0 0 / 0.3), transparent 24%, transparent 76%, rgb(0 0 0 / 0.36));
+  --build-title-glow: 0 2px 18px rgb(124 92 255 / 0.14);
+  --build-remaining: #b4adc9;
+  --build-spinner-glow: drop-shadow(0 0 17px rgb(124 92 255 / 0.2));
+  --build-core-bg: radial-gradient(circle at 38% 28%, rgb(124 92 255 / 0.22), transparent 49%), #0d0a16;
+  --build-core-border: rgb(150 125 255 / 0.55);
+  --build-core-shadow: inset 0 0 20px rgb(98 70 220 / 0.35), 0 0 20px rgb(110 80 240 / 0.2);
+  --build-tick: rgb(150 125 255 / 0.75);
+  --build-sweep: conic-gradient(from 0deg, transparent 0deg 224deg, rgb(139 108 255 / 0.3) 292deg, var(--build-blue-bright) 350deg, transparent 360deg);
+  --build-glyph: #d6ccff;
+  --build-glyph-glow: drop-shadow(0 0 10px rgb(139 108 255 / 0.9));
+  --build-dot: #3a2d6b;
+  --build-dot-ring: rgb(150 125 255 / 0.06);
+  --build-dot-1: #a48bff;
+  --build-dot-1-glow: 0 0 10px rgb(139 108 255 / 0.8);
+  --build-dot-2: #7c5cf0;
+  --build-dot-2-glow: 0 0 10px rgb(139 108 255 / 0.6);
 
-  --peek-bg: linear-gradient(180deg, rgb(15 30 61 / 0.98), rgb(6 15 31 / 0.98));
-  --peek-border: rgb(95 142 255 / 0.95);
+  --peek-bg: linear-gradient(180deg, rgb(14 13 20 / 0.98), rgb(6 6 9 / 0.98));
+  --peek-border: rgb(150 125 255 / 0.55);
   --peek-shadow:
-    0 0 0 1px rgb(47 94 212 / 0.35),
-    0 0 24px rgb(42 97 255 / 0.24),
-    inset 0 1px 0 rgb(177 204 255 / 0.2);
-  --peek-bar-bg: linear-gradient(180deg, rgb(30 55 107 / 0.72), rgb(18 36 76 / 0.58));
-  --peek-bar-line: rgb(98 142 234 / 0.35);
-  --peek-bar-dot: #5b97ff;
-  --peek-bar-dot-glow: 0 0 12px rgb(82 143 255 / 0.9);
-  --peek-bar-label: #b9cdf6;
-  --peek-text: #bcd0f9;
-  --peek-thinking: #bcd0f9;
-  --peek-thinking-label: #8fa6d8;
-  --peek-footer: #9bb1dd;
-  --peek-footer-line: rgb(98 142 234 / 0.3);
-  --peek-activity: #609cff;
-  --peek-activity-glow: 0 0 5px rgb(86 145 255 / 0.9);
+    0 0 0 1px rgb(110 80 240 / 0.25),
+    0 0 24px rgb(124 92 255 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  --peek-bar-bg: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
+  --peek-bar-line: rgb(255 255 255 / 0.08);
+  --peek-bar-dot: #a48bff;
+  --peek-bar-dot-glow: 0 0 12px rgb(139 108 255 / 0.85);
+  --peek-bar-label: #c9c4d8;
+  --peek-text: #d4d0e0;
+  --peek-thinking: #d4d0e0;
+  --peek-thinking-label: #9993ad;
+  --peek-footer: #a7a3b8;
+  --peek-footer-line: rgb(255 255 255 / 0.08);
+  --peek-activity: #a48bff;
+  --peek-activity-glow: 0 0 5px rgb(139 108 255 / 0.85);
+}
+
+/* The camera lens and peek spinner carry a blue glint in light; on the black
+   screen it was the last spot of blue. */
+:is(html.dark, .force-dark) .building-device-notch span {
+  background: radial-gradient(circle at 35% 35%, #4a4458, #050407 65%);
+  box-shadow: 0 0 5px rgb(124 92 255 / 0.35);
+}
+
+:is(html.dark, .force-dark) .live-code-peek-spinner {
+  filter: drop-shadow(0 0 4px rgb(139 108 255 / 0.45));
 }
 
 :is(html.dark, .force-dark) .live-code-peek {
-  --peek-fg: #bcd0f9;
-  --peek-label: #8b93a8;
-  --peek-accent: #7c89ff;
-  --peek-comment: #7484a9;
+  --peek-fg: #d4d0e0;
+  --peek-label: #9993ad;
+  --peek-accent: #a48bff;
+  --peek-comment: #7f7a92;
   --peek-doctype: #d58dff;
   --peek-tag: #6cc9ff;
   --peek-attr: #75e0dd;
