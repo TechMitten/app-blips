@@ -7,7 +7,7 @@
 // the mobile pane before the step is measured; `placement` is the preferred
 // side for the card.
 
-import { SHORTCUT_HINTS } from './shortcuts';
+import { SHORTCUT_HINTS } from './shortcuts.js';
 
 // Bumped from v1 when the tour was rewritten, so people who dismissed the old
 // eight-step tour are offered the new one once.
@@ -26,8 +26,10 @@ export function setTourState(state) {
 export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }) {
   const site = studioMode === 'website';
   const game = studioMode === 'game';
-  const noun = site ? 'site' : game ? 'game' : 'app';
-  const aNoun = site ? 'a site' : game ? 'a game' : 'an app';
+  // An imported React + Vite project: no page strip, no Publish or Open, and
+  // Export hands back the whole project as a .zip.
+  const codebase = studioMode === 'codebase';
+  const noun = site || codebase ? 'site' : game ? 'game' : 'app';
   const steps = [];
 
   steps.push({
@@ -37,9 +39,11 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     view: 'chat',
     placement: 'top',
     title: 'Describe what you want',
-    body: site
-      ? 'Tell AppBlips who the site is for, the pages it needs, and how it should feel. Follow-up messages refine it in place.'
-      : 'Tell AppBlips who the app is for and what it should do. Follow-up messages refine it in place, one change at a time.',
+    body: codebase
+      ? 'Tell AppBlips what to change in your imported site. It reads and edits the project\'s real files, one change at a time.'
+      : site
+        ? 'Tell AppBlips who the site is for, the pages it needs, and how it should feel. Follow-up messages refine it in place.'
+        : `Tell AppBlips who the ${noun} is for and what it should do. Follow-up messages refine it in place, one change at a time.`,
     tips: [
       'Attach an image or a screenshot of the preview to show what you mean.',
       'Enter sends, Shift + Enter adds a new line.',
@@ -52,12 +56,11 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     target: ['mode', 'prompt'],
     view: 'chat',
     placement: 'top',
-    title: 'Build, Ask, or AI',
+    title: 'Build or Ask',
     body: 'Tap the mode key to switch what your message does.',
     tips: [
       `Build creates or changes your ${noun}.`,
-      `Ask answers questions about it without changing anything.`,
-      `AI builds ${aNoun} that can use AI itself, like a chatbot, writer, or summarizer.`,
+      'Ask answers questions about it without changing anything.',
     ],
   });
 
@@ -68,7 +71,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     view: 'preview',
     placement: 'left',
     title: `Try it live`,
-    body: `Preview runs your ${noun} for real, so you can click, type, and test as you go.${site ? ' Links between pages work, and the page strip jumps between them.' : ''}${showCodeView ? ' The Code tab shows the generated HTML.' : ''}`,
+    body: `Preview runs your ${noun} for real, so you can click, type, and test as you go.${site ? ' Links between pages work, and the page menu jumps between them.' : ''}${codebase ? ' The Files tab shows the project\'s files.' : showCodeView ? ' The Code tab shows the generated HTML.' : ''}`,
     tips: wideScreen ? undefined : ['Use Chat and Preview at the top to switch panels.'],
   });
 
@@ -80,8 +83,8 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     placement: 'bottom',
     title: 'Check every screen size',
     body: wideScreen
-      ? 'Switch between phone, tablet, and desktop frames. Preview tools add rotation and zoom, so you can see exactly how it fits.'
-      : 'Preview tools switch between phone, tablet, and desktop frames, and add rotation and zoom.',
+      ? 'Switch between phone, tablet, and desktop frames. Beside them, rotate a phone or tablet, use Full size to fill the whole preview area, or reload. Zoom sits on the right.'
+      : 'Preview tools switch between phone, tablet, and desktop frames, and add rotation, Full size, and zoom.',
   });
 
   if (site && hasCode) {
@@ -108,15 +111,30 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       : 'Preview tools step back and forward through versions. History in the menu lists every checkpoint, grouped by chat session.',
   });
 
-  steps.push({
-    id: 'share',
-    icon: 'share',
-    target: ['share', 'preview'],
-    view: 'preview',
-    placement: 'bottom',
-    title: 'Take it with you',
-    body: `Export downloads your ${noun}${site ? ' as a ZIP of pages' : ' as a single HTML file'}. Open launches it in a new browser tab.`,
-  });
+  steps.push(codebase
+    ? {
+      id: 'share',
+      icon: 'share',
+      target: ['share', 'preview'],
+      view: 'preview',
+      placement: 'bottom',
+      title: 'Take it with you',
+      body: 'Export downloads the whole project as a .zip, ready for npm install. Files you did not change come back exactly as they were.',
+    }
+    : {
+      id: 'share',
+      icon: 'share',
+      target: ['publish', 'share', 'preview'],
+      view: 'preview',
+      placement: 'bottom',
+      title: 'Share it or take it with you',
+      body: `Publish puts your ${noun} online at a free surge.sh address you can send to anyone.`,
+      tips: [
+        `Export (the download key) saves it${site ? ' as a ZIP of pages' : ' as a single HTML file'}.`,
+        ...(studioMode === 'app' ? ['React apps can also download as a React project to keep building with npm.'] : []),
+        'Open in a new tab runs it in your browser.',
+      ],
+    });
 
   steps.push({
     id: 'chats',
@@ -136,7 +154,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         target: ['apps'],
         placement: 'bottom',
         title: 'All your projects',
-        body: `Work saves automatically. Apps (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio.`,
+        body: `Work saves automatically. Apps (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio, or imports a site from a .zip.`,
       },
       {
         id: 'finish',
@@ -144,9 +162,10 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         target: ['tour', 'help'],
         placement: 'bottom',
         title: 'You are ready',
-        body: `Try describing one small, useful ${noun}. You can replay this tour here any time.`,
+        body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`}. You can replay this tour here any time.`,
         tips: [
-          'Settings: theme, chat font, Code tab, reasoning effort.',
+          'Settings: theme, chat font, Code tab, AI provider and reasoning.',
+          'Settings → Connectors adds services like contact forms, payments, analytics, live chat, and AI images.',
           `Help (${SHORTCUT_HINTS.help}) opens the full docs.`,
         ],
       },
@@ -160,10 +179,10 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       target: ['menu'],
       placement: 'bottom',
       title: 'Everything else is in the menu',
-      body: `Try describing one small, useful ${noun} to begin.`,
+      body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`} to begin.`,
       tips: [
         'Apps: reopen, rename, or delete saved projects.',
-        'History, Settings, and Help live here too.',
+        'History, Settings (including Connectors), and Help live here too.',
         'Take the tour replays this walkthrough.',
       ],
     });

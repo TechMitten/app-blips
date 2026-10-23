@@ -419,6 +419,7 @@ export default function PreviewPane({
               The filled key when offered; Export steps down to an icon. */}
           {hasSavedCode && onPublish && (
             <button
+              data-tour="publish"
               onClick={onPublish}
               disabled={isBrowserTesting}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
