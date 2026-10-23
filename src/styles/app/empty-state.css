@@ -1063,10 +1063,10 @@
   --build-dot-2-glow: 0 0 10px rgb(233 96 79 / 0.6);
 
   --peek-bg: linear-gradient(180deg, rgb(14 13 20 / 0.98), rgb(6 6 9 / 0.98));
-  --peek-border: rgb(240 128 112 / 0.55);
+  --peek-border: rgb(255 255 255 / 0.55);
   --peek-shadow:
-    0 0 0 1px rgb(233 96 79 / 0.25),
-    0 0 24px rgb(233 96 79 / 0.16),
+    0 0 0 1px rgb(255 255 255 / 0.12),
+    0 0 24px rgb(255 255 255 / 0.06),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
   --peek-bar-bg: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
   --peek-bar-line: rgb(255 255 255 / 0.08);
