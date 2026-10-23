@@ -54,38 +54,24 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 
 ## What's new
 
-### 0.1.13
+### 0.1.14
 
-**New: Pollinations connector for AI images and AI features.** Connect your [Pollinations](https://github.com/pollinations/pollinations) account in **Settings → Connectors → Pollinations** and ask the AI for:
+**New: Full size preview.** A **Full size** button next to the device sizes drops the window frame and shows your page at its real size, filling the whole preview area. It works in every studio.
 
-- **Generated images:** custom pictures instead of stock photos. AppBlips makes them with your account. When you publish or export, the images are copied into your site, so they stay online with it.
-- **AI features:** chatbots, writing helpers, image generators and more, inside the websites and apps you build. You choose who pays when visitors use them:
-  - **Visitors use their own Pollen (safer, default):** visitors click a **Connect Pollinations** button and use their own account.
-  - **My key pays:** your own budget-capped key goes into your site's code, so visitors don't need an account. AppBlips scrambles the key and explains plainly what that does and doesn't protect.
-
-The AI only uses Pollinations when you ask for images or AI features. Your sign-in stays inside AppBlips and is never written into your projects. Using Pollinations through AppBlips costs 25% more than using it directly, and the extra supports AppBlips. This is shown in Settings and next to the Connect button.
-
-**New: token usage in the chat.** Each reply now shows how many tokens it used, and a live counter counts up while the AI works. Both are marked "(estimate)", since AI providers count tokens differently.
+**New: About tab in Settings.** **Settings → About** shows the AppBlips version you're running (desktop app or browser version), links to the website and source code, and a **Report a bug** link that opens a new issue on GitHub.
 
 **Improved**
 
-- **Surge in Connectors:** a Surge tile in **Settings → Connectors** lets you sign in, create an account or sign out without publishing anything.
-- **Sharing a published site:** the share buttons in the Publish window now show each service's logo.
-- **Onboarding:** setup is split into three short steps: your name, your chat avatar, then your AI provider.
-- **Code tab:** it's now shown by default.
-- **Chat bubbles:** the rewind button sits inside your message, next to copy. The copy button is easier to see in the dark theme.
-- **Renamed button:** "Browser view" is now **Preview**.
+- **Preview toolbar:** Rotate, Full size and a new **Reload** button are always in the same place, so the toolbar no longer shifts when you switch devices. Buttons that don't apply to the current view are greyed out.
+- **Phone and tablet previews:** they no longer show a desktop-style browser bar, just like a real phone or tablet. While the AI is testing your page, its status and **Stop** button appear in the preview toolbar instead.
+- **Images in games:** the Game Studio can now use Pollinations to make title art, backgrounds and sprites.
+- **Questions about connectors:** in Ask mode, the AI now knows which services you've connected, instead of wrongly saying it can't use them.
+- **Guided tour:** updated for recent features: Publish, Full size, Reload, importing a site and Settings → Connectors. Imported sites get their own steps.
 
 **Look and feel**
 
-- **New app icon:** the wave-and-blip icon now appears next to the AppBlips name throughout the app.
-- **Preview background:** refreshed in dark mode.
-- **Building screen:** easier to read in the light theme.
-- **Connector icons:** no longer sit on a coloured square.
-
-**For developers**
-
-- `npm run dev` now only answers on your own computer (localhost). Use `npm run dev -- --host` to open it to your network again.
+- **Building screen:** in the dark theme, the live code card has a soft white border instead of a red one.
+- **Guided tour:** the tour cards stand out clearly against the dark theme.
 
 Older releases: see the [changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
