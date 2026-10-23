@@ -36,7 +36,11 @@
 }
 
 :is(html.dark, .force-dark) .preview-empty-backdrop {
-  background: linear-gradient(160deg, #111827 0%, #0f172a 55%, #0c1120 100%);
+  background:
+    radial-gradient(70% 46% at 50% -10%, rgb(124 92 255 / 0.20) 0%, transparent 70%),
+    radial-gradient(42% 34% at 18% 4%, rgb(79 70 229 / 0.12) 0%, transparent 72%),
+    radial-gradient(42% 34% at 84% 8%, rgb(192 86 255 / 0.09) 0%, transparent 72%),
+    #050505;
 }
 
 /* Ambient glow blob — softened for high legibility */
