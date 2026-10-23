@@ -130,10 +130,11 @@ if (SHELL_SOURCE.indexOf('</') !== -1 || SHELL_SOURCE.indexOf('${') !== -1) {
  *   files: Record<string, string>,   // page filename -> HTML, as stored in versions
  *   title?: string,
  *   initialStorage?: Record<string, string>,
+ *   pollinations?: { siteKey: string, visitors: boolean },  // see injectPreviewBridge
  * }} options
  * @returns {string}
  */
-export function buildNewTabShell({ files, title = 'Preview', initialStorage = {} }) {
+export function buildNewTabShell({ files, title = 'Preview', initialStorage = {}, pollinations }) {
   // The storage seed is substituted when each page loads, so a page opened
   // later sees what earlier pages saved. A random marker stands in for it;
   // generated code cannot know it in advance, so it cannot collide.
@@ -143,6 +144,7 @@ export function buildNewTabShell({ files, title = 'Preview', initialStorage = {}
     if (typeof html !== 'string' || !html) continue;
     const { srcDoc, token } = injectPreviewBridge(html, {
       initialStorage: { [marker]: '' },
+      pollinations,
     });
     // injectPreviewBridge serialized the seed as {"<marker>":""}; turn that
     // whole object into the marker the shell replaces.

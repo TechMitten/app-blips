@@ -7,6 +7,7 @@ import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/serve
 import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
 import { handleSurgeApi } from './electron/server/surgeApi.js'
+import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -93,6 +94,17 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleSurgeApi(await toFetchRequest(req), env, surgeTokens)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The Pollinations connector's sign-in, with its key kept the same way.
+      const pollinationsKeys = createKeyFile({ file: defaultKeyFile(env, 'pollinations-key.json') })
+      server.middlewares.use('/api/pollinations', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Pollinations sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handlePollinationsApi(await toFetchRequest(req), env, pollinationsKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },

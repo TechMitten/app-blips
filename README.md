@@ -166,11 +166,20 @@ Voice input turns speech into text entirely on the user's computer. Nothing is u
 **Publish** (the globe button in the preview toolbar) puts an app, website or game online with [Surge](https://surge.sh), free static hosting with HTTPS on every `<name>.surge.sh` address. Imported codebases can't be published yet.
 
 - **Accounts:** each person uses their own free Surge account. The Publish window offers **I have an account** or **Create an account** (password typed twice). Surge creates an account for any email it hasn't seen, so there's no separate sign-up step.
-- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
+- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), plus copies of any Pollinations images they use under `images/` (`src/lib/siteImages.js`), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
 - **Where it runs:** the upload happens in AppBlips' own server code (`electron/server/surgeApi.js`), not in the page, because Surge's API doesn't accept requests from web pages. It's the same handler in the desktop app, `npm start`/Docker and `npm run dev`.
 - **Sign-in storage:** the password goes to Surge once and is never saved. The token Surge returns is kept like the AI key: encrypted with the system keychain on desktop (`electron/surgeStore.js`), or in `surge-token.json` next to `provider-key.json` (mode 0600) in the browser version. The page only ever sees the account email. Sign in or out from the Publish window or the **Surge** card in **Settings → Connectors** (the same window with nothing to publish); **Factory Reset** also signs out.
 - **Limits:** only `*.surge.sh` addresses for now (no custom domains). Surge rate-limits publishing, and its [terms](https://surge.sh/terms) apply to what you publish. For an older address AppBlips no longer remembers, run `npx surge teardown <name>.surge.sh`.
 - **Test:** `node testing/testSurgeApi.js` (no network; Surge is stubbed).
+
+### Pollinations connector
+
+**Settings → Connectors → Pollinations** lets the AI make images and add AI features with [Pollinations](https://github.com/pollinations/pollinations), but only when the user asks for them.
+
+- **Sign-in:** Pollinations' device flow with AppBlips' publishable App Key (`src/lib/pollinationsApp.js`), run server-side in `electron/server/pollinationsApi.js` (same handler in all three hosts). The user key it returns is stored like the Surge token: keychain-encrypted on desktop, `pollinations-key.json` (mode 0600) in the browser version. The page only sees the account name. **Factory Reset** signs out.
+- **Images:** the AI writes keyless `https://gen.pollinations.ai/image/...` URLs; after the build, `resolveImages` (`src/lib/pollinations.js`) has the server generate each one with the user's key and swaps in the stored copy's public `media.pollinations.ai` address. Publish and Export copy those images into the site.
+- **AI features in built apps:** the AI only calls `window.Pollinations` (`chat`, `image`, `mountConnect`), which `src/lib/pollinationsHelper.js` adds at preview/export time, like loop protection. The user picks who pays (`aiPayer`): visitors (default; a Connect button runs the device flow with AppBlips' App Key and each visitor spends their own Pollen) or a budget-capped site key shared by all their sites (no visitor sign-in; scrambled in the page but not secret, which Settings says plainly; keys without a budget or with account permissions are refused). The AI's instructions follow the choice.
+- **Test:** `node testing/testPollinations.js` (no network; Pollinations is stubbed).
 
 For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 

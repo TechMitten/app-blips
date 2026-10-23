@@ -1,5 +1,6 @@
 import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
 import { embedSnippet, squareLinks } from './connectors.js';
+import { MAX_IMAGES_PER_BUILD, POLLINATIONS_IMAGE_MODEL } from './pollinationsApp.js';
 
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
@@ -566,7 +567,32 @@ const analyticsDirective = (name, snippet) => `- ${name} (visitor analytics). Pu
 ${snippet}
   If a page already has ${name} tracking code that differs, replace it with this. Don't add a cookie banner or consent popup for it (${name} uses no cookies), and don't write any tracking code of your own.`;
 
+// Pollinations (pollinationsHelper.js, pollinations.js). Images: the AI writes
+// a keyless gen.pollinations.ai/image URL and AppBlips generates it with the
+// user's sign-in after the build, swapping in the stored copy's address.
+// AI features: the AI only calls window.Pollinations, which AppBlips adds to
+// the page at preview/export time. `mode` is the user's choice of who pays
+// (getActiveConnectors): 'visitors' (a Connect button, their own Pollen),
+// 'site' (the user's site key, no button), or 'none' (site key chosen but
+// not added: no AI features, and the reply says how to add it). Only on
+// request, since every image and every AI answer spends someone's Pollen.
+const POLLINATIONS_AI_API = `Never write your own Pollinations or AI API code, never put a key or token in the code, and never load another AI service. Use only:
+    await Pollinations.chat(messages) -> the reply text, where messages is [{ role: 'system' | 'user' | 'assistant', content: '...' }] (keep earlier turns for a conversation; start with a system message describing the assistant's job)
+    await Pollinations.image(prompt, { width, height }) -> an object URL for an <img src>
+  Both calls can throw an Error with a friendly .message: catch it and show that message inline next to the feature (never alert()). While waiting, show a loading state and disable the button. An AI feature is the one place visible content may be created in JavaScript. Calls spend real Pollen, so never send a chat message, generate an image or press Connect Pollinations when testing.`;
+
+const POLLINATIONS_AI_FEATURES = {
+  visitors: `  AI FEATURES: AppBlips adds a ready-made window.Pollinations object to the page. Each visitor uses their own Pollinations account: next to every AI feature put an empty <div> and call Pollinations.mountConnect(thatDiv) once the page has loaded. It draws a "Connect Pollinations" button and the sign-in steps; don't build your own. Disable the feature's controls until Pollinations.isConnected() is true, and re-check in Pollinations.onChange(fn). ${POLLINATIONS_AI_API}`,
+  site: `  AI FEATURES: AppBlips adds a ready-made window.Pollinations object to the page, paid for by the site owner, so visitors never sign in: don't add a sign-in or connect button, and don't call mountConnect. ${POLLINATIONS_AI_API}`,
+  none: `  AI FEATURES are not set up yet: the user chose to pay with their own site key but hasn't added it. If the user asks for one, do NOT build it, fake it or use another AI service. Build the rest of the request, and in your reply tell the user to add the key in Settings, under Connectors, Pollinations, "AI features in your sites", or to choose "Visitors use their own Pollen" there, then ask again.`,
+};
+
+const pollinationsDirective = (mode) => `- Pollinations (AI images and AI features). Use it ONLY when the user asks for generated, AI or custom images, for an AI feature (chatbot, AI writing or answers, AI image generator), or mentions Pollinations. Otherwise follow the rules above as if it weren't connected.
+  IMAGES: write each image as a complete literal URL in quotes, in an <img src>, a CSS url() or a JavaScript string: https://gen.pollinations.ai/image/{prompt}?model=${POLLINATIONS_IMAGE_MODEL}&width={w}&height={h}&seed={n}, where {prompt} is a detailed description of the picture, URL-encoded with %20 for spaces (no other spaces, quotes, parentheses or braces), {w} and {h} suit the layout (at most 1920), and {n} is any whole number. Never add a key parameter and never build these URLs in code at run time. After you finish, AppBlips generates each image and replaces the URL with a permanent https://media.pollinations.ai/... address. Keep those addresses exactly as they are; to change a picture, write a new gen.pollinations.ai URL in its place. At most ${MAX_IMAGES_PER_BUILD} new images per request. Give every image meaningful alt text.
+${POLLINATIONS_AI_FEATURES[mode] || POLLINATIONS_AI_FEATURES.visitors}`;
+
 const CONNECTOR_DIRECTIVES = {
+  pollinations: pollinationsDirective,
   umami: (key) => analyticsDirective('Umami', embedSnippet('umami', key)),
   plausible: (key) => analyticsDirective('Plausible', embedSnippet('plausible', key)),
   tawkto: (key) => `- tawk.to (live chat with the site owner). Put this exact widget code just before </body> of EVERY HTML page, once, character for character:
@@ -584,7 +610,7 @@ ${squareLinks(key).map(({ name, url }) => `  - ${name ? `${name}: ` : ''}${url}`
 
 export const buildConnectorDirective = (connectors, studioMode = 'app') => {
   const lines = (connectors || [])
-    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square')))
+    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square' || id === 'pollinations')))
     .map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
   return lines.length
     ? `CONNECTORS (the user linked these services in Settings; use them wherever they fit):\n${lines.join('\n')}`

@@ -1,7 +1,9 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, invalidArgumentsError } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit } from './config';
-import { getActiveConnectors } from './connectors';
+import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
+import { findImageRequests, resolveImages } from './pollinations';
+import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
@@ -1266,10 +1268,35 @@ SETUP STEPS: if the changes leave something only the user can supply before part
 
 export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
 
+// Images the AI asked Pollinations for (see the Pollinations directive in
+// prompts.js) are made with the user's sign-in once the code is final, and
+// their addresses swapped for the stored copies, which need no key. Returns a
+// note for the reply when some couldn't be made, or ''.
+const resolvePollinationsImages = async (result, { onChunk, signal }) => {
+  const files = result.files || makeFiles(result.code);
+  const wanted = findImageRequests(files).length;
+  if (!wanted) return '';
+  if (connectorStatus('pollinations') !== 'connected') {
+    return `Note: ${wanted === 1 ? 'an image' : `${wanted} images`} in this build use Pollinations, which isn't connected, so they can't be made. Sign in to Pollinations in Settings → Connectors, then ask again.`;
+  }
+  const progress = (done, total) => onChunk?.(`Making images with Pollinations (${done} of ${total})…`, 'status');
+  progress(0, Math.min(wanted, MAX_IMAGES_PER_BUILD));
+  const resolved = await resolveImages(files, { signal, onProgress: progress });
+  // Single-page results may carry only `code`; keep that shape.
+  if (result.files) result.files = resolved.files;
+  result.code = getLanding(resolved.files);
+  if (resolved.generated) reportChangedPages(onChunk, files, resolved.files);
+  if (resolved.signedOut) savePollinationsAccount('');
+  if (!resolved.failed) return '';
+  const count = resolved.failed === 1 ? '1 image' : `${resolved.failed} images`;
+  return `Note: ${count} couldn't be made with Pollinations, so ${resolved.failed === 1 ? 'it shows' : 'they show'} as broken. ${resolved.error}`;
+};
+
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
   const [prompt, currentCode, , onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
+  const imageNote = isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : '';
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {
@@ -1289,6 +1316,10 @@ const generateAppCodeWithSummary = async (...args) => {
     // version (appended to the opening acknowledgement when there is one).
     if (onChunk) onChunk(`${separator}${completion}`, 'reply');
     result.reply = `${result.reply || ''}${separator}${completion}`;
+  }
+  if (imageNote) {
+    if (onChunk) onChunk(`\n\n${imageNote}`, 'reply');
+    result.reply = `${result.reply || ''}\n\n${imageNote}`.trim();
   }
   // Without this the user only sees errors the auto-fix can't clear, with no
   // hint that the code itself is incomplete.

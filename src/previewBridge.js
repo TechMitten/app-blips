@@ -1,5 +1,6 @@
 import { injectLoopProtection } from './lib/loopProtection.js';
 import { compileJsxScripts } from './lib/jsxCompile.js';
+import { injectPollinationsHelper } from './lib/pollinationsHelper.js';
 import { sourceFingerprint, stampSourcePositions } from './lib/sourcePositions.js';
 import { BROWSER_RUNTIME_SOURCE } from './lib/browserRuntime.js';
 
@@ -2779,7 +2780,7 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
  *
  * @param {string} code
  * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, projectMode?: boolean,
- *   sourcePositions?: boolean }} [options]
+ *   sourcePositions?: boolean, pollinations?: { siteKey: string, visitors: boolean } }} [options]
  *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
  *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
  *   initial state, so the touch-scroll simulation and scrollbar hiding are
@@ -2789,6 +2790,8 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
  *   app's router and route changes are posted as 'route-changed'.
  *   `sourcePositions` numbers the page's tags for click-to-edit
  *   (lib/sourcePositions.js); preview only, like everything injected here.
+ *   `pollinations` says how the Pollinations helper pays for AI features
+ *   (lib/pollinationsHelper.js, getPollinationsHelperOptions in connectors.js).
  * @returns {{ srcDoc: string, token: string }}
  */
 export const injectPreviewBridge = (code, options = {}) => {
@@ -2801,7 +2804,10 @@ export const injectPreviewBridge = (code, options = {}) => {
   // Numbered against the stored source, before anything else rewrites it.
   const sourceFp = options?.sourcePositions === true ? sourceFingerprint(code) : null;
   if (sourceFp) code = stampSourcePositions(code);
-  code = injectLoopProtection(compileJsxScripts(code));
+  // The Pollinations helper is AppBlips' own code, so it goes in after loop
+  // protection, which only guards the app's loops. The bridge tag below lands
+  // ahead of it, so the storage shim is ready when it reads sessionStorage.
+  code = injectPollinationsHelper(injectLoopProtection(compileJsxScripts(code)), options?.pollinations);
 
   const initialStorage = options?.initialStorage;
   const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true, sourceFp);

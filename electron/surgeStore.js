@@ -5,11 +5,13 @@
 //
 // Same shape as keyFile.js ({ describe, keyFor, save, clear }), so
 // surgeApi.js works with either. Plain Node apart from the injected `crypto`.
+// The Pollinations sign-in (pollinationsApi.js) is stored the same way, with
+// the account name as the id; `label` names the service in log messages.
 import { readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { writeFileAtomic } from './projectStore.js';
 
-export function createSurgeStore({ file, crypto }) {
+export function createSurgeStore({ file, crypto, label = 'Surge' }) {
   let state = { email: '', token: null }; // token: { cipher } | { plain }
   try {
     const saved = JSON.parse(readFileSync(file, 'utf8'));
@@ -26,7 +28,7 @@ export function createSurgeStore({ file, crypto }) {
       if (typeof state.token?.cipher === 'string') return crypto.decryptString(Buffer.from(state.token.cipher, 'base64'));
       if (typeof state.token?.plain === 'string') return state.token.plain;
     } catch (err) {
-      console.warn('[surgeStore] could not decrypt the saved Surge token:', err);
+      console.warn(`[surgeStore] could not decrypt the saved ${label} token:`, err);
     }
     return '';
   };

@@ -6,6 +6,7 @@ import {
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
+import PollinationsConnector from './PollinationsConnector';
 import PublishDialog from './PublishDialog';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
@@ -19,6 +20,8 @@ import { surgeStatus } from '../lib/surge';
 // wording, the `prompts` users copy into the builder chat and the `about`
 // text the "How it works" dialog shows), its
 // instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
+// Pollinations signs in instead of taking a key, so it has its own page
+// (PollinationsConnector.jsx).
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -37,12 +40,13 @@ const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard,
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'),
 };
 
 const STATUS_BADGE = {
   connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
   'needs-key': { label: 'Needs key', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  'needs-sign-in': { label: 'Needs sign-in', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
   off: { label: 'Not connected', className: 'bg-slate-500/10 text-slate-600' },
 };
 
@@ -60,7 +64,7 @@ function ConnectorCard({ name, tagline, Icon, status, onClick }) {
       className="group flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-[0_1px_2px_rgb(15_23_42/0.06),0_4px_12px_-2px_rgb(15_23_42/0.10)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:scale-[0.98] active:shadow-[0_1px_2px_rgb(15_23_42/0.08)] dark:border-white/10 dark:bg-[#1f1f1f] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_8px_20px_-6px_rgb(0_0_0/0.8)] dark:active:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_2px_6px_-2px_rgb(0_0_0/0.8)] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
       <span className="flex w-full items-start justify-between gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg text-indigo-600">
           <Icon size={20} aria-hidden="true" />
         </span>
         <StatusBadge status={status} />
@@ -222,7 +226,7 @@ export default function ConnectorsSettings() {
           Connectors
         </button>
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-indigo-600">
             <Icon size={22} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
@@ -244,7 +248,9 @@ export default function ConnectorsSettings() {
           </button>
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
-          <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+          {CONNECTOR_DEFINITIONS[openId].signIn
+            ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+            : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
           <ConnectorPrompts key={`${openId}-prompts`} id={openId} connected={connectorStatus(openId, connectors) === 'connected'} />
         </div>
         {/* Portaled out of the settings card: a fixed overlay inside it would be
@@ -288,7 +294,7 @@ export default function ConnectorsSettings() {
           onClick={() => setRequestOpen(true)}
           className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4 text-left transition-transform duration-100 active:translate-y-px active:scale-[0.98] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
             <Plus size={20} aria-hidden="true" />
           </span>
           <span>

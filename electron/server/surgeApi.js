@@ -10,8 +10,11 @@
 //   POST   /api/surge/login    -> { email, password } signs in (a new email
 //                                 creates a free account); only the token is kept
 //   DELETE /api/surge          -> sign out
-//   POST   /api/surge/publish  -> { domain, files: { 'index.html': html } }
+//   POST   /api/surge/publish  -> { domain, files: { 'index.html': html },
+//                                   images?: { 'images/<name>.jpg': base64 } }
 //                                 -> { url } or { error, signedOut? }
+//                                 (images: Pollinations images copied into the
+//                                 site, see src/lib/siteImages.js)
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
 //
@@ -20,6 +23,7 @@
 import { isForeignOrigin } from './chatProxy.js';
 import { createTar, gzip } from './tar.js';
 import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/pages.js';
+import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
 export const SURGE_SUFFIX = '.surge.sh';
@@ -111,7 +115,28 @@ async function login({ email, password }, tokens, fetchImpl) {
   return json({ email: savedEmail, signedIn: true });
 }
 
-async function publish({ domain, files }, tokens, fetchImpl) {
+// { path: base64 } -> [{ name, data: Uint8Array }], or an error message.
+const decodeImages = (images) => {
+  if (images === undefined) return [];
+  if (!images || typeof images !== 'object' || Array.isArray(images)) return 'This project has images that can’t be published.';
+  const entries = [];
+  let size = 0;
+  for (const [path, base64] of Object.entries(images)) {
+    if (!SITE_IMAGE_PATH_RE.test(path) || typeof base64 !== 'string') return 'This project has an image that can’t be published.';
+    let binary;
+    try {
+      binary = atob(base64);
+    } catch {
+      return 'This project has an image that can’t be published.';
+    }
+    size += binary.length;
+    if (size > MAX_SITE_IMAGES_BYTES) return 'This project’s images are too big to publish.';
+    entries.push({ name: `site/${path}`, data: Uint8Array.from(binary, (char) => char.charCodeAt(0)) });
+  }
+  return entries;
+};
+
+async function publish({ domain, files, images }, tokens, fetchImpl) {
   const { id: email, hasKey } = tokens.describe();
   const token = hasKey ? tokens.keyFor(email) : '';
   if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
@@ -122,9 +147,12 @@ async function publish({ domain, files }, tokens, fetchImpl) {
   const problem = checkFiles(files);
   if (problem) return json({ error: problem }, 400);
 
+  const imageEntries = decodeImages(images);
+  if (typeof imageEntries === 'string') return json({ error: imageEntries }, 400);
+
   // Surge drops the first folder of every path, so pages go in as site/<name>.
-  const entries = Object.entries(files).map(([name, html]) => ({ name: `site/${name}`, data: html }));
-  const projectSize = entries.reduce((sum, { data }) => sum + new TextEncoder().encode(data).length, 0);
+  const entries = [...Object.entries(files).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...imageEntries];
+  const projectSize = entries.reduce((sum, { data }) => sum + (typeof data === 'string' ? new TextEncoder().encode(data).length : data.length), 0);
   const body = await gzip(createTar(entries));
 
   let response;

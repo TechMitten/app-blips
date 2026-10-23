@@ -7,6 +7,7 @@ import {
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { shareLinks } from '../lib/share';
+import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
 import ShareIcon from './ShareIcons';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
@@ -16,6 +17,8 @@ const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
 // <name>.surge.sh address with HTTPS. The first time it asks for a Surge sign-in
 // (a new email creates the account); the server keeps the token
 // (lib/surge.js). `buildFiles` returns the same pages Export downloads.
+// Images made with Pollinations are copied into the site (lib/siteImages.js)
+// so they stay online as long as it does.
 // A project that is already online opens on 'manage' instead: update the
 // site, unpublish it, or publish to a different address.
 // `connectOnly` (Settings → Connectors) is the same window with nothing to
@@ -102,7 +105,13 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
     setBusy(true);
     setError('');
     if (from === 'ready') setStep('publishing');
-    const result = await surgePublish(clean, buildFiles());
+    const pages = buildFiles();
+    const { images } = await collectSiteImages(pages);
+    const result = await surgePublish(
+      clean,
+      pointAtCopies(pages, images),
+      images.length ? Object.fromEntries(images.map(({ path, bytes }) => [path, bytesToBase64(bytes)])) : undefined,
+    );
     if (!mounted.current) return;
     setBusy(false);
     if (result.error) {

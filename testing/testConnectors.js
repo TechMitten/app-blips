@@ -12,11 +12,12 @@ globalThis.window = { localStorage: {
 
 const {
   squareLinks, loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
+  savePollinationsAccount,
 } = await import('../src/lib/connectors.js');
 const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -165,6 +166,18 @@ assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'))
   assert.equal(buildConnectorDirective([{ id: 'square', key: LINK }], 'game'), '');
 }
 
+// Pollinations: losing the sign-in (sign-out, expiry) also switches it off.
+{
+  saveConnectors({ pollinations: { enabled: true, account: 'octo' } });
+  assert.equal(connectorStatus('pollinations'), 'connected');
+  savePollinationsAccount('');
+  assert.equal(loadConnectors().pollinations.enabled, false);
+  assert.equal(connectorStatus('pollinations'), 'off');
+  savePollinationsAccount('octo');
+  assert.equal(connectorStatus('pollinations'), 'off', 'signing in again doesn’t switch it on by itself');
+  saveConnectors({});
+}
+
 // Every connector carries the text its "How it works" dialog shows, its
 // settings page wording and at least one prompt to copy into the chat.
 for (const id of CONNECTOR_IDS) {
@@ -172,7 +185,11 @@ for (const id of CONNECTOR_IDS) {
   assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
   for (const prompt of prompts) assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: prompt text`);
   assert.equal(new Set(prompts).size, prompts.length, `${id}: prompts are unique (they are React keys)`);
-  for (const field of ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey']) {
+  // Sign-in connectors (Pollinations) have no key box, so no key wording.
+  const fields = CONNECTOR_DEFINITIONS[id].signIn
+    ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
+    : ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey'];
+  for (const field of fields) {
     assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
   }
   assert.ok(typeof about?.what === 'string' && about.what, `${id}: about.what`);

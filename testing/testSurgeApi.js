@@ -115,6 +115,32 @@ test('publish uploads site/<page> to the address and returns the https link', as
   assert.deepEqual(names, ['site/about.html', 'site/index.html']);
 });
 
+test('publish uploads copied Pollinations images next to the pages, and refuses other paths', async () => {
+  let seen;
+  const fetch = async (url, init) => {
+    seen = init;
+    return new Response('{"type":"info"}\n', { status: 200 });
+  };
+  const images = { 'images/abc123.jpg': btoa('JPEG') };
+  const ok = await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': '<img src="images/abc123.jpg">' }, images } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch },
+  );
+  assert.equal(ok.status, 200);
+  const files = readTar(gunzipSync(seen.body));
+  assert.deepEqual(files.map((f) => f.name).sort(), ['site/images/abc123.jpg', 'site/index.html']);
+  assert.equal(files.find((f) => f.name === 'site/images/abc123.jpg').text, 'JPEG');
+  assert.equal(seen.headers['file-count'], '2');
+
+  for (const bad of [{ '../x.jpg': 'AA==' }, { 'images/x.exe': 'AA==' }, { 'images/x.jpg': 'not base64!' }, ['x']]) {
+    const response = await handleSurgeApi(
+      request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': 'x' }, images: bad } }),
+      {}, memoryTokens('a@b.co', 'tok'), { fetch: () => assert.fail('no upload') },
+    );
+    assert.equal(response.status, 400, JSON.stringify(bad));
+  }
+});
+
 test('publish without signing in asks for a sign-in', async () => {
   const response = await handleSurgeApi(publishRequest(), {}, memoryTokens(), { fetch: () => assert.fail('no upload') });
   assert.equal(response.status, 401);

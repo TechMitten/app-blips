@@ -24,6 +24,7 @@ import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import PublishDialog from './components/PublishDialog';
 import { surgeSignOut } from './lib/surge';
+import { pollinationsSignOut } from './lib/pollinations';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
@@ -64,6 +65,9 @@ import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
+import { injectPollinationsHelper } from './lib/pollinationsHelper';
+import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
+import { getPollinationsHelperOptions } from './lib/connectors';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
@@ -686,6 +690,9 @@ export default function App({ coldStart = false }) {
             // frame unconfigured -- visible scrollbar, dead touch controls --
             // until a manual reload.
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
+            // Read here rather than as a dependency: a changed Pollinations
+            // choice reaches the preview on its next reload.
+            pollinations: getPollinationsHelperOptions(),
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -1890,8 +1897,12 @@ export default function App({ coldStart = false }) {
   };
 
   // Pages as they leave the app in an export: JSX is compiled and loop
-  // protection added per page here, never stored in `files`.
-  const buildExportFiles = () => mapPages(files, (html) => injectLoopProtection(compileJsxScripts(html)));
+  // protection (and, for pages with AI features, the Pollinations helper)
+  // added per page here, never stored in `files`.
+  const buildExportFiles = () => {
+    const pollinations = getPollinationsHelperOptions();
+    return mapPages(files, (html) => injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations));
+  };
 
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
@@ -1904,6 +1915,7 @@ export default function App({ coldStart = false }) {
       files,
       title: projectName || 'Preview',
       initialStorage: { ...previewStorageRef.current },
+      pollinations: getPollinationsHelperOptions(),
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -1911,13 +1923,20 @@ export default function App({ coldStart = false }) {
 
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
   // one file per page (links like about.html keep working when unzipped).
-  const handleExportHtml = () => {
+  // Images made with Pollinations come along (lib/siteImages.js): as files in
+  // images/ in a .zip, built into the page in a single file.
+  const handleExportHtml = async () => {
     if (!generatedCode) return;
-    const outputFiles = buildExportFiles();
+    const pages = buildExportFiles();
+    const { images } = await collectSiteImages(pages);
     const baseName = slugifyName(projectName) || 'app';
-    const names = pageNames(outputFiles);
+    const names = pageNames(pages);
+    const outputFiles = names.length > 1 ? pointAtCopies(pages, images) : inlineImages(pages, images);
     const blob = names.length > 1
-      ? createZip(names.map((name) => ({ name, data: outputFiles[name] })))
+      ? createZip([
+        ...names.map((name) => ({ name, data: outputFiles[name] })),
+        ...images.map(({ path, bytes }) => ({ name: path, data: bytes })),
+      ])
       : new Blob([getLanding(outputFiles)], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1934,7 +1953,8 @@ export default function App({ coldStart = false }) {
   const canExportReactProject = studioMode === 'app' && hasJsxScripts(generatedCode);
   const handleExportReactProject = () => {
     const baseName = slugifyName(projectName) || 'app';
-    const entries = buildViteProject(generatedCode, { name: baseName, title: projectName || 'My App' });
+    // The Pollinations helper stays in index.html like the rest of the page.
+    const entries = buildViteProject(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), { name: baseName, title: projectName || 'My App' });
     if (!entries) return;
     const url = URL.createObjectURL(createZip(entries));
     const link = document.createElement('a');
@@ -2341,6 +2361,9 @@ export default function App({ coldStart = false }) {
     // The Surge sign-in for Publish is kept outside the page the same way.
     const surge = await surgeSignOut();
     if (surge.error) logError('Could not sign out of Surge during reset', surge.error);
+    // And the Pollinations connector's sign-in.
+    const pollinations = await pollinationsSignOut();
+    if (pollinations.error) logError('Could not sign out of Pollinations during reset', pollinations.error);
     localStorage.clear();
     window.location.reload();
   };

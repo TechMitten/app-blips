@@ -24,6 +24,7 @@ import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
 import { createSurgeStore } from './surgeStore.js';
 import { handleSurgeApi } from './server/surgeApi.js';
+import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
@@ -49,6 +50,7 @@ let mainWindow = null;
 let projectStore;
 let providerStore;
 let surgeStore;
+let pollinationsStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
@@ -99,7 +101,8 @@ async function writeSettings(patch) {
 // The one /api/chat handler answers in-process. The desktop app is single-user,
 // so the provider saved in Settings → AI travels with each request (see
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
-// /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way.
+// /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
+// and /api/pollinations/* the Pollinations key.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -192,6 +195,11 @@ async function handleAppRequest(request) {
       case '/api/surge/publish':
       case '/api/surge/unpublish':
         return withSecurityHeaders(await handleSurgeApi(request, process.env, surgeStore));
+      case '/api/pollinations':
+      case '/api/pollinations/login':
+      case '/api/pollinations/login/check':
+      case '/api/pollinations/image':
+        return withSecurityHeaders(await handlePollinationsApi(request, process.env, pollinationsStore));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });
@@ -459,6 +467,11 @@ app.whenReady().then(() => {
   surgeStore = createSurgeStore({
     file: join(app.getPath('userData'), 'surge.json'),
     crypto: safeStorage,
+  });
+  pollinationsStore = createSurgeStore({
+    file: join(app.getPath('userData'), 'pollinations.json'),
+    crypto: safeStorage,
+    label: 'Pollinations',
   });
 
   updater = createUpdater({
