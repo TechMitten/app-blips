@@ -119,6 +119,8 @@ You can chain as many refinements as you like. Each one picks up from the curren
 
 To copy a message, yours or the AI's, click the copy button in the bottom-right corner of its bubble. It turns into a tick once the text is on your clipboard. The AI's replies are copied as plain text with their Markdown formatting (like `**bold**`).
 
+To take your project back to how it was at one of your earlier messages, click the rewind button (the curved arrow) just left of the copy button in that message's bubble. It only appears on messages that came before the current version.
+
 To start a fresh conversation without losing anything, click **New chat** in the header. Your versions stay in the history.
 
 ## Finishing Setup
@@ -155,7 +157,7 @@ While the AI is working, a live counter under its reply shows how many tokens th
 The live counter can start in the thousands straight away, before the AI has written anything. That's normal: your app's code, the conversation and AppBlips' instructions are all sent with the first request. While it shows **~**, treat the number as a rough guide that may be noticeably off; only the final total under the reply comes from your provider.
 </Note>
 
-When the turn is done, the line under the reply shows the final total, for example **12.4k tokens**. It covers both directions:
+When the turn is done, the line under the reply shows the final total, for example **12.4k tokens (estimate)**. It still says **(estimate)**: this number comes from your AI provider, but providers count tokens in different ways, so it may not match another provider's count for the same work. It covers both directions:
 
 - Everything sent to the AI: your message, your app's code, the conversation so far and AppBlips' instructions. This is usually most of the total, and it grows as your app grows.
 - Everything the AI wrote back, including any thinking it did (see [Reasoning](#reasoning)).

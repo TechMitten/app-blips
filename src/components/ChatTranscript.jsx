@@ -45,7 +45,9 @@ function BotAvatar({ title }) {
 // (dark slate in dark mode), so its key is a light tint rather than the slate
 // used on the pale reply bubble.
 const COPY_TONES = {
-  user: 'text-white/70 hover:text-white hover:bg-white/15',
+  // Dark theme turns the person's bubble white (chat-transcript.css), so the
+  // icon flips to black there.
+  user: 'text-white/70 hover:text-white hover:bg-white/15 dark:text-black/60 dark:hover:text-black dark:hover:bg-black/10',
   bot: 'text-slate-500 hover:text-slate-900 hover:bg-slate-900/5 dark:text-white/55 dark:hover:text-white dark:hover:bg-white/10',
 };
 
@@ -54,14 +56,15 @@ const COPY_TONES = {
 // the tooltip says so, and the bubble text stays selectable as a fallback.
 // It sits in the bubble's bottom-right corner; the negative margins pull it
 // into the padding so it doesn't add a full line under short messages.
-function CopyMessageButton({ text, tone }) {
+// `children` are other actions shown to its left, in the same tone.
+function CopyMessageButton({ text, tone, children }) {
   const [state, setState] = useState(null);
   useEffect(() => {
     if (!state) return undefined;
     const timer = setTimeout(() => setState(null), 2000);
     return () => clearTimeout(timer);
   }, [state]);
-  if (!text) return null;
+  if (!text && !children) return null;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -72,8 +75,9 @@ function CopyMessageButton({ text, tone }) {
   };
   const label = state === 'copied' ? 'Copied' : state === 'failed' ? 'Couldn’t copy. Select the text and copy it yourself.' : 'Copy message';
   return (
-    <div className="flex justify-end -mr-2.5 -mb-2 mt-1">
-      <button
+    <div className="flex justify-end gap-0.5 -mr-2.5 -mb-2 mt-1">
+      {children}
+      {text && <button
         type="button"
         onClick={copy}
         className={`chat-copy-btn inline-flex items-center justify-center p-1 rounded-md transition-colors cursor-pointer ${COPY_TONES[tone]}`}
@@ -81,30 +85,31 @@ function CopyMessageButton({ text, tone }) {
         title={label}
       >
         {state === 'copied' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-      </button>
+      </button>}
     </div>
   );
 }
 
 function PromptRow({ children, className = '', onRewind, copyText }) {
   return (
-    <div className="group flex items-start justify-end gap-2.5">
-      {onRewind && (
-        <button
-          type="button"
-          onClick={onRewind}
-          className="chat-rewind-btn self-center p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-200/70 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
-          aria-label="Rewind project to this message"
-          title="Rewind project to this message"
-        >
-          <RotateCcw size={14} aria-hidden="true" />
-        </button>
-      )}
+    <div className="flex items-start justify-end gap-2.5">
       <div
         className={`${BUBBLE_MAX} chat-bubble chat-bubble-user rounded-2xl px-4 py-3 text-(length:--chat-prompt-text) font-medium ${className}`}
       >
         {children}
-        <CopyMessageButton text={copyText} tone="user" />
+        <CopyMessageButton text={copyText} tone="user">
+          {onRewind && (
+            <button
+              type="button"
+              onClick={onRewind}
+              className={`chat-rewind-btn inline-flex items-center justify-center p-1 rounded-md transition-colors cursor-pointer ${COPY_TONES.user}`}
+              aria-label="Rewind project to this message"
+              title="Rewind project to this message"
+            >
+              <RotateCcw size={14} aria-hidden="true" />
+            </button>
+          )}
+        </CopyMessageButton>
       </div>
       <UserAvatar />
     </div>
@@ -133,7 +138,7 @@ function TokenUsageNote({ usage }) {
   if (!usage?.calls) return null;
   const total = usage.input + usage.output;
   const text = usage.reported
-    ? `${formatTokenCount(total)} tokens${usage.reported < usage.calls ? ' (some steps not reported)' : ''}`
+    ? `${formatTokenCount(total)} tokens (estimate)${usage.reported < usage.calls ? ' (some steps not reported)' : ''}`
     : "Token usage isn't reported by this AI provider.";
   return (
     <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60" title={TOKEN_USAGE_HINT}>
