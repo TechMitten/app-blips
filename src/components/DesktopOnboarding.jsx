@@ -242,20 +242,8 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
   );
 }
 
-// First slide: the user's name, their chat avatar and (desktop only) where
-// projects are saved. The folder picker is the same one as Settings → Data,
-// so the main process still decides whether existing projects move.
-function ProfileForm({ formRef, onSubmit, name, setName, avatar, setAvatar, folder, onChooseFolder, folderStatus, errors }) {
-  const pickAvatar = (event, index) => {
-    // Arrow keys move through the grid like a radio group.
-    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const next = AVATAR_IDS[(index + step + AVATAR_IDS.length) % AVATAR_IDS.length];
-    setAvatar(next);
-    formRef.current?.querySelector(`[data-avatar="${next}"]`)?.focus();
-  };
-
+// First slide: only the user's name, so the opening question is a single box.
+function NameForm({ formRef, onSubmit, name, setName, errors }) {
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Your name" error={errors.name}>
@@ -275,7 +263,26 @@ function ProfileForm({ formRef, onSubmit, name, setName, avatar, setAvatar, fold
           />
         </span>
       </SetupField>
+    </form>
+  );
+}
 
+// Second slide: the chat avatar and (desktop only) where projects are saved.
+// The folder picker is the same one as Settings → Data, so the main process
+// still decides whether existing projects move.
+function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFolder, folderStatus }) {
+  const pickAvatar = (event, index) => {
+    // Arrow keys move through the grid like a radio group.
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = AVATAR_IDS[(index + step + AVATAR_IDS.length) % AVATAR_IDS.length];
+    setAvatar(next);
+    formRef.current?.querySelector(`[data-avatar="${next}"]`)?.focus();
+  };
+
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Your avatar">
         <div className="onboarding-avatar-grid" role="radiogroup" aria-label="Your avatar">
           {AVATAR_IDS.map((id, index) => (
@@ -320,7 +327,7 @@ function ProfileForm({ formRef, onSubmit, name, setName, avatar, setAvatar, fold
 // re-entering a key. A first run offers "Skip for now" instead, which saves
 // that onboarding is done so it doesn't come back on the next launch.
 export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup }) {
-  const [step, setStep] = useState('profile');
+  const [step, setStep] = useState('name');
   const [profile] = useState(loadProfile);
   const [name, setName] = useState(profile.name);
   const [avatar, setAvatar] = useState(profile.avatar || AVATAR_IDS[0]);
@@ -370,18 +377,26 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
   const needsName = !cleanName(name);
   const profileErrors = profileAttempted && needsName ? { name: 'Type your name, or a nickname.' } : {};
-  const continueToAi = () => {
+  // Saved as each slide is left, so a skip on a later slide keeps the name.
+  const keepProfile = () => {
+    try {
+      saveProfile({ name, avatar });
+    } catch (err) {
+      // Only the chat name and avatar are lost; setup itself can go on.
+      logWarn('Could not save the name and avatar', err);
+    }
+  };
+  const continueToAvatar = () => {
     if (needsName) {
       setProfileAttempted(true);
       formRef.current?.querySelector('[data-field="name"]')?.focus();
       return;
     }
-    try {
-      saveProfile({ name, avatar });
-    } catch (err) {
-      // Only the chat avatar is lost; setup itself can go on.
-      logWarn('Could not save the name and avatar', err);
-    }
+    keepProfile();
+    setStep('avatar');
+  };
+  const continueToAi = () => {
+    keepProfile();
     setStep('ai');
   };
 
@@ -425,12 +440,16 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
   // Tell the user exactly what is still missing, so "Start building" never
   // looks like a dead end.
-  const isProfile = step === 'profile';
-  const missing = isProfile ? (needsName ? 'Tell us your name to continue.' : '')
-    : needsModel && needsKey ? 'Connect a provider to continue.'
-      : needsModel ? 'Choose a model to continue.'
-        : needsKey ? 'Paste your API key to continue.' : '';
-  const showMissing = isProfile ? profileAttempted : attempted;
+  const isName = step === 'name';
+  const isAvatar = step === 'avatar';
+  const isAi = step === 'ai';
+  const missing = isName ? (needsName ? 'Tell us your name to continue.' : '')
+    : isAvatar ? ''
+      : needsModel && needsKey ? 'Connect a provider to continue.'
+        : needsModel ? 'Choose a model to continue.'
+          : needsKey ? 'Paste your API key to continue.' : '';
+  const showMissing = isName ? profileAttempted : attempted;
+  const allSet = isName ? 'Click Continue to pick your avatar.' : isAvatar ? 'Click Continue for the AI setup.' : 'Click Start building to begin.';
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -448,37 +467,50 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
         </header>
 
         <div className="onboarding-stage" key={step}>
-          <section className="onboarding-copy">
-            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isProfile ? 'Welcome to AppBlips' : `Step 2 of 2${cleanName(name) ? ` · Hi, ${cleanName(name)}` : ''}`}</span>
-            {isProfile ? (
+          <section className="onboarding-copy has-panel">
+            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${isAvatar ? 2 : 3} of 3`}</span>
+            {!isName && cleanName(name) && (
+              <div className="onboarding-greeting">
+                <ProfileAvatar avatar={avatar} size={22} />
+                <span>Hi, {cleanName(name)}</span>
+              </div>
+            )}
+            {isName ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                First, tell us <span className="onboarding-title-accent">about you.</span>
+                First, what should <span className="onboarding-title-accent">we call you?</span>
+              </h1>
+            ) : isAvatar ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Now pick <span className="onboarding-title-accent">your avatar.</span>
               </h1>
             ) : (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
               </h1>
             )}
-            {isProfile ? (
+            {isName ? (
+              <p>Type your name or a nickname. It appears next to your messages in the chat.</p>
+            ) : isAvatar ? (
               <p>{isDesktop
-                ? 'Pick a name and a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
-                : 'Pick a name and a fun avatar for your chat messages.'}</p>
+                ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
+                : 'Pick a fun avatar for your chat messages.'}</p>
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
             )}
             <div className={`onboarding-your-turn ${showMissing && missing ? 'is-invalid' : ''}`} aria-live="polite">
               <span className="onboarding-your-turn-icon">{missing ? <Zap size={24} /> : <Check size={24} />}</span>
-              <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || (isProfile ? 'Click Continue for the AI setup.' : 'Click Start building to begin.')}</span>
+              <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || allSet}</span>
             </div>
           </section>
           <section className="onboarding-visual-wrap">
-            {isProfile ? (
-              <ProfileForm
+            {isName ? (
+              <NameForm formRef={formRef} onSubmit={continueToAvatar} {...{ name, setName }} errors={profileErrors} />
+            ) : isAvatar ? (
+              <AvatarForm
                 formRef={formRef}
                 onSubmit={continueToAi}
-                {...{ name, setName, avatar, setAvatar, folder, folderStatus }}
+                {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
-                errors={profileErrors}
               />
             ) : (
               <SetupForm
@@ -495,8 +527,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
         <footer className="onboarding-footer">
           <div className="onboarding-footer-start">
-            {!isProfile && (
-              <button type="button" className="onboarding-skip" onClick={() => setStep('profile')} disabled={busy}>
+            {!isName && (
+              <button type="button" className="onboarding-skip" onClick={() => setStep(isAvatar ? 'name' : 'avatar')} disabled={busy}>
                 <ArrowLeft size={16} /> Back
               </button>
             )}
@@ -507,9 +539,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             )}
           </div>
           <div className="onboarding-actions">
-            {!isProfile && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
-            {isProfile ? (
-              <button type="button" className="onboarding-next" onClick={continueToAi}>
+            {isAi && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
+            {!isAi ? (
+              <button type="button" className="onboarding-next" onClick={isName ? continueToAvatar : continueToAi}>
                 Continue <ArrowRight size={18} />
               </button>
             ) : (

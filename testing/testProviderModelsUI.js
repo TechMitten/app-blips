@@ -46,7 +46,9 @@ try {
   await onboarding.addInitScript(() => localStorage.setItem('orion-skip-splash', 'true'));
   await onboarding.route(/\/api\/provider\/models$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'onboarding-coder', label: 'Onboarding Model' }]) }));
   await onboarding.goto(process.env.MODEL_TEST_URL || 'http://127.0.0.1:5182');
-  for (let step = 0; step < 2; step++) await onboarding.getByRole('button', { name: 'Next', exact: true }).click();
+  await onboarding.getByRole('textbox', { name: 'Your name' }).fill('Tester');
+  // Name slide, then avatar slide, then the AI setup.
+  for (let step = 0; step < 2; step++) await onboarding.getByRole('button', { name: 'Continue', exact: true }).click();
   await onboarding.getByRole('combobox', { name: 'AI provider' }).click();
   await onboarding.getByRole('option', { name: 'Gemini' }).click();
   await onboarding.locator('input[type="password"]').fill('test-key');
