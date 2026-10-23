@@ -157,7 +157,7 @@ export default function PreviewPane({
           <div className="nav-segmented-group" role="group" aria-label="View">
             <button
               onClick={() => onTabChange('preview')}
-              aria-label="Browser"
+              aria-label="Preview"
               aria-pressed={activeTab === 'preview'}
               data-tip="Run the app"
               className={`nav-segmented-btn px-3.5 py-1.5 text-xs sm:text-sm font-semibold ${
@@ -165,7 +165,7 @@ export default function PreviewPane({
               }`}
             >
               <Play size={16} />
-              <span>Browser</span>
+              <span>Preview</span>
             </button>
             {showCodeView && (
               <button

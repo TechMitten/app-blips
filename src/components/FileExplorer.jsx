@@ -7,7 +7,7 @@ import { buildFileTree, describeFile, describeFolder, parentFolders } from '../l
 import { extensionOf, isLockfile } from '../lib/codebase/paths';
 
 // Which folders are open, per project. Module-level so switching between the
-// Browser and Code tabs (which remounts the code view) keeps the tree as the
+// Preview and Code tabs (which remounts the code view) keeps the tree as the
 // user left it.
 const expandedByProject = new Map();
 

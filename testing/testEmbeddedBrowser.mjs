@@ -95,7 +95,7 @@ try {
   await page.goto(url);
   await page.getByRole('button', { name: 'My projects', exact: true }).click();
   await page.getByRole('button', { name: /^Browser test/ }).click();
-  await expect(page.getByRole('button', { name: 'Browser', exact: true }).last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Preview', exact: true }).last()).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Project page address' })).toHaveValue('appblips.local/index.html');
   await page.getByRole('textbox', { name: 'Project page address' }).fill('appblips.local/about.html');
   await page.getByRole('textbox', { name: 'Project page address' }).press('Enter');
@@ -121,7 +121,7 @@ try {
   assert.ok(latest.files['index.html'].includes(fixedHandler));
   assert.ok(!latest.files['index.html'].includes('data-orion-browser-cursor'), 'browser tooling is never saved into code');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Browser', exact: true }).click();
+  await page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Project page address' })).toBeVisible();
   const bar = await page.locator('.embedded-browser-bar').boundingBox();
   assert.ok(bar.width <= 390, 'browser navigation fits on phones');
