@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { Bug, ExternalLink } from 'lucide-react';
 import { SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 import { CURRENT_VERSION } from '../lib/updates';
@@ -8,6 +8,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 const COPYRIGHT = '© 2026 Tech Mitten LLC';
 const WEBSITE_URL = 'https://www.appblips.com';
 const REPO_URL = 'https://github.com/TechMitten/app-blips';
+const BUG_REPORT_URL = `${REPO_URL}/issues/new`;
 
 export default function AboutSettings() {
   return (
@@ -31,6 +32,10 @@ export default function AboutSettings() {
         <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
           <ExternalLink size={14} aria-hidden="true" />
           Source code
+        </a>
+        <a href={BUG_REPORT_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+          <Bug size={14} aria-hidden="true" />
+          Report a bug
         </a>
       </div>
       <p className="mt-6 text-xs text-slate-500">
