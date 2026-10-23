@@ -318,5 +318,6 @@ test('connector state: sign-in status, the site key only once accepted, and what
   assert.match(withKey, /Pollinations\.chat/);
   assert.match(withKey, /don't add a sign-in or connect button/);
   for (const directive of [noKey, withKey, visitors]) assert.ok(!directive.includes('sk_') && !directive.includes(POLLINATIONS_APP_KEY));
-  assert.equal(buildConnectorDirective([{ id: 'pollinations', key: 'none' }], 'game'), '');
+  // Games get it too, with an exception to their no-external-images rule.
+  assert.match(buildConnectorDirective([{ id: 'pollinations', key: 'none' }], 'game'), /one exception to the "no external image assets" rule/);
 });

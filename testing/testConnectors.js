@@ -14,7 +14,7 @@ const {
   squareLinks, loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
   savePollinationsAccount,
 } = await import('../src/lib/connectors.js');
-const { buildHtmlSystemPrompt, buildConnectorDirective, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
+const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
 const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false } };
@@ -176,6 +176,28 @@ assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'))
   savePollinationsAccount('octo');
   assert.equal(connectorStatus('pollinations'), 'off', 'signing in again doesn’t switch it on by itself');
   saveConnectors({});
+}
+
+// Games get Pollinations too, with an exception to their "no external images"
+// rule, or the model keeps drawing the picture in code.
+{
+  const pollinations = [{ id: 'pollinations', key: 'visitors' }];
+  assert.match(buildHtmlSystemPrompt('game', pollinations), /gen\.pollinations\.ai\/image/);
+  assert.match(buildConnectorDirective(pollinations, 'game'), /one exception to the "no external image assets" rule/);
+  assert.doesNotMatch(buildConnectorDirective(pollinations, 'website'), /no external image assets/);
+}
+
+// Questions are answered without the build prompt, so they get a note saying
+// which connectors are on, or the model claims it can't use Pollinations.
+{
+  assert.equal(buildAskConnectorNote([], 'app'), '');
+  assert.equal(buildAskConnectorNote([{ id: 'square', key: 'x' }], 'game'), '');
+  const ask = buildAskConnectorNote([{ id: 'pollinations', key: 'visitors' }], 'website');
+  assert.match(ask, /Pollinations/);
+  assert.match(ask, /Never say Pollinations can't be used/);
+  assert.match(ask, /switch to Build mode/);
+  assert.match(buildAskConnectorNote([{ id: 'pollinations', key: 'visitors' }], 'app', true), /offer to do it/);
+  assert.doesNotMatch(buildAskConnectorNote([{ id: 'umami', key: KEY }], 'app'), /Pollinations/);
 }
 
 // Every connector carries the text its "How it works" dialog shows, its

@@ -14,6 +14,7 @@ import {
 } from './pages';
 import {
   buildHtmlSystemPrompt,
+  buildAskConnectorNote,
   
   REFINEMENT_TOOLS,
   getRefinementTools,
@@ -767,11 +768,12 @@ const generateAppCodeCore = async (
     const messages = [
       {
         role: 'system',
-        content: routedFromBuild
+        content: (routedFromBuild
           ? `You are a helpful assistant inside a no-code ${noun} builder. The user asked a question in Build mode, so answer it directly and concisely in plain, friendly language. Do NOT generate or output any HTML/${noun} code. If the answer points to a change they might want, end by offering to make it: they can just say yes.`
           : currentCode
             ? 'You are a helpful coding assistant. The user is asking a question about their current app code. Answer the question directly and concisely. Do NOT generate or output the full HTML code. Provide a plain-text or markdown answer.'
-            : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.'
+            : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.')
+          + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
       },
       ...chatHistory,
       {

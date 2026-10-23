@@ -587,8 +587,13 @@ const POLLINATIONS_AI_FEATURES = {
   none: `  AI FEATURES are not set up yet: the user chose to pay with their own site key but hasn't added it. If the user asks for one, do NOT build it, fake it or use another AI service. Build the rest of the request, and in your reply tell the user to add the key in Settings, under Connectors, Pollinations, "AI features in your sites", or to choose "Visitors use their own Pollen" there, then ask again.`,
 };
 
-const pollinationsDirective = (mode) => `- Pollinations (AI images and AI features). Use it ONLY when the user asks for generated, AI or custom images, for an AI feature (chatbot, AI writing or answers, AI image generator), or mentions Pollinations. Otherwise follow the rules above as if it weren't connected.
-  IMAGES: write each image as a complete literal URL in quotes, in an <img src>, a CSS url() or a JavaScript string: https://gen.pollinations.ai/image/{prompt}?model=${POLLINATIONS_IMAGE_MODEL}&width={w}&height={h}&seed={n}, where {prompt} is a detailed description of the picture, URL-encoded with %20 for spaces (no other spaces, quotes, parentheses or braces), {w} and {h} suit the layout (at most 1920), and {n} is any whole number. Never add a key parameter and never build these URLs in code at run time. After you finish, AppBlips generates each image and replaces the URL with a permanent https://media.pollinations.ai/... address. Keep those addresses exactly as they are; to change a picture, write a new gen.pollinations.ai URL in its place. At most ${MAX_IMAGES_PER_BUILD} new images per request. Give every image meaningful alt text.
+// Games otherwise draw every sprite in code (rule 13 of the game prompt), so
+// they get an explicit exception, or the model keeps drawing SVGs instead.
+const POLLINATIONS_GAME_EXCEPTION = `
+  In this game, these Pollinations images are the one exception to the "no external image assets" rule: use them for splash, title and menu art, backgrounds and, when asked, sprites (in Phaser, this.load.image with the URL; media.pollinations.ai allows cross-origin loading). Everything else stays drawn in code.`;
+
+const pollinationsDirective = (mode, studioMode) => `- Pollinations (AI images and AI features). Use it ONLY when the user asks for generated, AI or custom images, for an AI feature (chatbot, AI writing or answers, AI image generator), or mentions Pollinations. Otherwise follow the rules above as if it weren't connected.
+  IMAGES: write each image as a complete literal URL in quotes, in an <img src>, a CSS url() or a JavaScript string: https://gen.pollinations.ai/image/{prompt}?model=${POLLINATIONS_IMAGE_MODEL}&width={w}&height={h}&seed={n}, where {prompt} is a detailed description of the picture, URL-encoded with %20 for spaces (no other spaces, quotes, parentheses or braces), {w} and {h} suit the layout (at most 1920), and {n} is any whole number. Never add a key parameter and never build these URLs in code at run time. After you finish, AppBlips generates each image and replaces the URL with a permanent https://media.pollinations.ai/... address. Keep those addresses exactly as they are; to change a picture, write a new gen.pollinations.ai URL in its place. At most ${MAX_IMAGES_PER_BUILD} new images per request. Give every image meaningful alt text.${studioMode === 'game' ? POLLINATIONS_GAME_EXCEPTION : ''}
 ${POLLINATIONS_AI_FEATURES[mode] || POLLINATIONS_AI_FEATURES.visitors}`;
 
 const CONNECTOR_DIRECTIVES = {
@@ -610,11 +615,30 @@ ${squareLinks(key).map(({ name, url }) => `  - ${name ? `${name}: ` : ''}${url}`
 
 export const buildConnectorDirective = (connectors, studioMode = 'app') => {
   const lines = (connectors || [])
-    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square' || id === 'pollinations')))
-    .map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key)).filter(Boolean);
+    .filter(({ id }) => !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square')))
+    .map(({ id, key }) => CONNECTOR_DIRECTIVES[id]?.(key, studioMode)).filter(Boolean);
   return lines.length
     ? `CONNECTORS (the user linked these services in Settings; use them wherever they fit):\n${lines.join('\n')}`
     : '';
+};
+
+// Questions (Ask mode, or a question routed out of Build mode) are answered
+// without the build prompt, so without this the model doesn't know about the
+// user's connectors and tells them, wrongly, that it can't use Pollinations.
+const CONNECTOR_NAMES = { pollinations: 'Pollinations', umami: 'Umami', plausible: 'Plausible', tawkto: 'tawk.to', square: 'Square', web3forms: 'Web3Forms' };
+
+export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBuild = false) => {
+  const ids = (connectors || []).map(({ id }) => id)
+    .filter((id) => CONNECTOR_NAMES[id] && !(studioMode === 'game' && (id === 'web3forms' || id === 'tawkto' || id === 'square')));
+  if (!ids.length) return '';
+  const noun = studioMode === 'website' || studioMode === 'game' ? studioMode : 'app';
+  const next = canOfferBuild
+    ? 'offer to do it: they can just say yes'
+    : 'tell them to switch to Build mode and ask for it there';
+  const pollinations = ids.includes('pollinations')
+    ? ` With Pollinations connected, a build can add AI-generated images (AppBlips makes them with the user's Pollinations account after the build, so they appear in the ${noun} automatically) and AI features such as a chatbot. Never say Pollinations can't be used, and never ask the user to paste image URLs or code in by hand.`
+    : '';
+  return `\n\nThe user has connected these services in Settings → Connectors, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
 };
 
 export const buildHtmlSystemPrompt = (studioMode = "app", connectors = []) => {
