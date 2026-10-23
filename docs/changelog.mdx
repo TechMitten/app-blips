@@ -1,0 +1,200 @@
+---
+title: "Changelog"
+description: "What changed in each AppBlips release, newest first."
+rss: true
+---
+
+Each entry lists what changed in that version of AppBlips, newest first. To get the latest version, see [Install the desktop app](/quickstart-desktop) or [Run from source](/quickstart-source). Downloads for every release are on [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
+
+<Update label="0.1.13" description="October 23, 2026" tags={["New", "Improved", "Look and feel", "For developers"]}>
+  ## New
+
+  - **Pollinations connector for AI images and AI features.** Connect your [Pollinations](https://github.com/pollinations/pollinations) account in **Settings → Connectors → Pollinations**, then ask the AI for:
+    - **Generated images:** custom pictures instead of stock photos. When you publish or export, the images are copied into your site, so they stay online with it.
+    - **AI features:** chatbots, writing helpers, image generators and more, inside the websites and apps you build. You choose who pays when visitors use them: **Visitors use their own Pollen** (the default) or **My key pays**.
+
+    The AI only uses Pollinations when you ask for images or AI features. Your sign-in stays inside AppBlips and is never written into your projects. Using Pollinations through AppBlips costs 25% more than using it directly, and the extra supports AppBlips. See [Connectors](/features/connectors).
+  - **Token usage in the chat.** Each reply shows how many tokens it used, and a live counter counts up while the AI works. Both are marked "(estimate)", because AI providers count tokens differently.
+
+  ## Improved
+
+  - **Surge in Connectors:** a Surge tile in **Settings → Connectors** lets you sign in, create an account or sign out without publishing anything.
+  - **Sharing a published site:** the share buttons in the **Publish** window show each service's logo.
+  - **Onboarding:** setup is split into three short steps: your name, your chat avatar, then your AI provider.
+  - **Code tab:** shown by default.
+  - **Chat bubbles:** the rewind button sits inside your message, next to copy. The copy button is easier to see in the dark theme.
+  - **Renamed button:** "Browser view" is now **Preview**.
+
+  ## Look and feel
+
+  - New wave-and-blip app icon, shown next to the AppBlips name throughout the app.
+  - Refreshed preview background in dark mode.
+  - The building screen is easier to read in the light theme.
+  - Connector icons no longer sit on a coloured square.
+
+  ## For developers
+
+  - `npm run dev` only answers on your own computer (localhost). Use `npm run dev -- --host` to open it to your network.
+</Update>
+
+<Update label="0.1.12" description="October 22, 2026" tags={["Improved", "Look and feel"]}>
+  ## Improved
+
+  - **Updates for the Microsoft Store version:** AppBlips now tells you when a new version is out and links to its Store page, since the Store can take a few days to install it on its own.
+
+  ## Look and feel
+
+  - The build pane uses neutral greys in the dark theme. Your messages and the AI's replies are easier to tell apart.
+  - The message box has more contrast in the dark theme, and **Send** lights up when there is text to send.
+</Update>
+
+<Update label="0.1.11" description="October 22, 2026" tags={["New", "Improved", "Look and feel"]}>
+  ## New
+
+  - **Publish to the web with Surge.** One click puts an app, website or game online at a free `<name>.surge.sh` address with HTTPS. Sign in to (or create) your own Surge account in the **Publish** window. A project that's already online shows **Update site** and **Unpublish**. See [Publishing](/features/publishing).
+  - **More connectors:** Square (payment links for buy, pay and donate buttons), tawk.to (live chat), and Umami and Plausible (visitor analytics).
+  - **Prompts to try:** every connector page has ready-made requests with **Copy** buttons.
+  - **Request a connector:** a form at the end of **Settings → Connectors** sends your suggestion to the AppBlips team.
+
+  ## Improved
+
+  - **Starter ideas:** each studio has dozens of ideas, shuffled every launch. Browse them with the arrow keys or by swiping.
+  - **Copy buttons** in every chat bubble.
+  - **Onboarding** asks for your name and a chat avatar.
+  - **Factory reset** now replays first-run setup.
+  - **Theme toggle** (sun and moon) on the studio picker.
+
+  ## Look and feel
+
+  - Restyled preview toolbar, with readable buttons in the light theme.
+  - Connector cards show each service's logo and link to its website.
+  - Brand-red accents on the studio picker and the selected preview device.
+</Update>
+
+<Update label="0.1.10" description="October 22, 2026" tags={["New", "Improved", "Look and feel", "Security"]}>
+  ## New
+
+  - **Connectors.** A new **Settings → Connectors** tab lists services the AI can wire into your projects, starting with Web3Forms: with it turned on, forms in your sites send their entries to you. Each connector has a **How it works** dialog.
+  - **Licenses** tab in Settings, listing the open source software AppBlips includes.
+  - **Setup steps after a build.** When a project needs something only you can supply, such as an API key, the AI's last message ends with numbered steps.
+
+  ## Improved
+
+  - **Code Review** asks **Fix problems** or **Not now** before fixing anything. Its screenshots cover whole pages, and every problem it reports must point to a screenshot that shows it.
+  - Settings asks you to confirm before clearing your saved AI provider.
+  - The first-visit tour invitation goes away on its own.
+  - The project name is treated as a name, not as instructions for the AI.
+  - Fixed: the Linux `.deb` package showed a generic icon in the launcher.
+  - A security issue was fixed.
+
+  ## Look and feel
+
+  - Light themes for the studio picker, the first-build screen and the building phone.
+  - New AppBlips wordmark on the studio picker, setup and empty preview screens.
+  - The setup screen has a monochrome look and works properly on phones.
+  - Interface text can no longer be highlighted by accident. Chat messages and fields can still be selected and copied.
+</Update>
+
+<Update label="0.1.9" description="October 19, 2026" tags={["Improved"]}>
+  ## Improved
+
+  - **Windows:** AppBlips for Windows now comes only from the Microsoft Store, which is signed and updates itself. GitHub releases no longer include a Windows installer.
+  - **Projects folder:** new installs save projects in AppData instead of Documents. Existing installs keep their folder.
+  - **Code Review** is marked beta and is off by default for new installs.
+  - The preview's address bar shows your project name.
+  - A Discord link was added to the studio picker.
+  - Fixed: the preview lost its scroll bar after applying a click-to-edit change.
+  - Docker: the voice input model is no longer downloaded again on every rebuild.
+</Update>
+
+<Update label="0.1.8" description="October 18, 2026" tags={["New", "Improved"]}>
+  ## New
+
+  - **Microsoft Store version** for Windows 10 (version 1809) and later.
+  - **Voice input.** Speak your prompt into the microphone. Speech is turned into text on your own computer, so no audio leaves it.
+  - **Paste screenshots** straight into the message box.
+
+  ## Improved
+
+  - **Anthropic** is the default AI provider, and prompt caching makes repeat requests to it cheaper.
+  - **Build mode** answers questions instead of changing your project when you only ask something.
+  - **Drag to move** is smoother, and the preview no longer flashes when it updates.
+  - The live code window stays visible for the whole build.
+  - Updates install quietly and restart AppBlips.
+  - New app icon.
+</Update>
+
+<Update label="0.1.7" description="October 11, 2026" tags={["Improved"]}>
+  ## Improved
+
+  - The **Reasoning** setting (previously "Reasoning: building") also applies to edits and automatic repairs.
+  - More safety checks when importing a site from a `.zip`.
+  - A legal footer was added to the studio picker.
+</Update>
+
+<Update label="0.1.6" description="October 10, 2026" tags={["New", "Improved", "Security"]}>
+  ## New
+
+  - **Browser version.** Run AppBlips from source or with Docker and use it in your browser. See [Run from source](/quickstart-source) and [Docker](/self-hosting/docker).
+
+  ## Improved
+
+  - **Review** checks your app at mobile, tablet and desktop sizes and reports layout problems such as sideways scrolling, broken images and missing labels.
+  - **Reasoning** for builds defaults to Low.
+  - Fixed: click-to-edit failed on text that contained styled words.
+  - Security fixes found by code scanning.
+</Update>
+
+<Update label="0.1.5" description="October 10, 2026" tags={["New", "Improved", "For developers"]}>
+  ## New
+
+  - **Import a site.** Open your own React + Vite project from a `.zip`, edit it with the AI and export it again. A **Files** tab lets you browse and preview its files. See [Importing sites](/features/importing-sites).
+  - **Anthropic** as an AI provider.
+  - **Output tokens** setting under **Settings → AI**.
+
+  ## Improved
+
+  - Long builds no longer get cut off halfway: AppBlips asks for more room and continues replies that stop early.
+  - Clearer messages when error checking finds a problem.
+  - Fixed: a false "unsaved changes" warning.
+
+  ## For developers
+
+  - <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> opens the developer tools in the desktop app.
+</Update>
+
+<Update label="0.1.4" description="October 10, 2026" tags={["New", "Improved"]}>
+  ## New
+
+  - **React apps.** The App studio builds apps with React.
+
+  ## Improved
+
+  - Better review after each build.
+</Update>
+
+<Update label="0.1.3" description="October 7, 2026" tags={["New", "Improved"]}>
+  ## New
+
+  - **More AI providers:** connect directly to OpenAI, Gemini or DeepSeek, alongside OpenRouter, or use a model on your own computer with LM Studio or Ollama.
+  - **Model lists:** load and refresh the models your provider offers, or type a model ID yourself.
+
+  ## Improved
+
+  - Device previews show your computer's current time.
+  - Each release includes a `SHA256SUMS.txt` file so you can check your download. See [Code signing policy](/reference/code-signing-policy).
+</Update>
+
+<Update label="0.1.2" description="October 7, 2026" tags={["Improved"]}>
+  ## Improved
+
+  - **Desktop only.** AppBlips became a single-user desktop app. The online studio, with its accounts and paid plans, was removed, and **Export** became the way to take your app out of AppBlips.
+  - A first-run setup screen helps you connect your own AI key.
+  - Fixed: some generated apps crashed because two copies of Preact loaded.
+</Update>
+
+<Update label="0.1.1" description="October 7, 2026" tags={["New"]}>
+  ## New
+
+  - First tagged release. It included the App, Website and Game studios, a live preview with phone, tablet and desktop frames, click-to-edit and drag to move, Build and Ask modes, version history, and export to HTML or ZIP.
+</Update>

@@ -87,7 +87,7 @@ The AI only uses Pollinations when you ask for images or AI features. Your sign-
 
 - `npm run dev` now only answers on your own computer (localhost). Use `npm run dev -- --host` to open it to your network again.
 
-Older releases: see [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
+Older releases: see the [changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
 ## Features
 

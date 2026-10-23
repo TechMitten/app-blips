@@ -46,7 +46,7 @@ if [ -n "$last_tag" ]; then
   git log --oneline --no-merges "$last_tag"..HEAD -- . ':!docs' | sed 's/^/  /'
   docs_changes="$(git diff --stat "$last_tag"..HEAD -- docs | tail -1)"
   echo "  docs/: ${docs_changes:-no changes}"
-  ask "Are the docs up to date with these changes?" || fail "Update docs/ first (ask Claude to check them against $last_tag), then run this again."
+  ask "Are the docs up to date with these changes, including the new version in docs/changelog.mdx?" || fail "Update docs/ and docs/changelog.mdx first (ask Claude to check them against $last_tag), then run this again."
 fi
 
 say "Ready to release $current -> $next"
