@@ -6,10 +6,11 @@ import {
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
-import SurgeAccountSettings from './SurgeAccountSettings';
+import PublishDialog from './PublishDialog';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
+import { surgeStatus } from '../lib/surge';
 
 // Settings → Connectors: a grid of services the AI can wire into new projects.
 // A card opens that service's page (switch, key, help). Changes save as you
@@ -26,10 +27,13 @@ const logoIcon = (src) => function LogoIcon({ size }) {
 };
 
 // Web3Forms' cube relies on its shaded faces, which a mask would flatten, so it
-// keeps its own colours (a blue close to the indigo of the others).
-function Web3FormsIcon({ size }) {
-  return <img src="/web3forms-logo.png" alt="" aria-hidden="true" width={size} height={size} />;
-}
+// keeps its own colours (a blue close to the indigo of the others). Surge's
+// multi-coloured mascot is the same.
+const colourIcon = (src) => function ColourIcon({ size }) {
+  return <img src={src} alt="" aria-hidden="true" width={size} height={size} />;
+};
+const Web3FormsIcon = colourIcon('/web3forms-logo.png');
+const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
@@ -43,17 +47,16 @@ const STATUS_BADGE = {
 };
 
 function StatusBadge({ status }) {
+  if (!status) return null;
   const { label, className } = STATUS_BADGE[status];
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
 }
 
-function ConnectorCard({ id, status, onOpen }) {
-  const { name, tagline } = CONNECTOR_DEFINITIONS[id];
-  const Icon = ICONS[id];
+function ConnectorCard({ name, tagline, Icon, status, onClick }) {
   return (
     <button
       type="button"
-      onClick={() => onOpen(id)}
+      onClick={onClick}
       className="group flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-[0_1px_2px_rgb(15_23_42/0.06),0_4px_12px_-2px_rgb(15_23_42/0.10)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:scale-[0.98] active:shadow-[0_1px_2px_rgb(15_23_42/0.08)] dark:border-white/10 dark:bg-[#1f1f1f] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_8px_20px_-6px_rgb(0_0_0/0.8)] dark:active:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_2px_6px_-2px_rgb(0_0_0/0.8)] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
       <span className="flex w-full items-start justify-between gap-2">
@@ -183,6 +186,19 @@ export default function ConnectorsSettings() {
   const [openId, setOpenId] = useState(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
+  // Surge isn't an AI connector: it's the account Publish uses, so its card
+  // opens the Publish window's sign-in instead of a connector page. null
+  // until the server answers (no badge rather than a wrong one).
+  const [surgeOpen, setSurgeOpen] = useState(false);
+  const [surgeConnected, setSurgeConnected] = useState(null);
+
+  // Re-checked whenever the Surge window closes, since it can sign in or out.
+  useEffect(() => {
+    if (surgeOpen) return undefined;
+    let live = true;
+    surgeStatus().then((status) => live && setSurgeConnected(Boolean(status.signedIn)));
+    return () => { live = false; };
+  }, [surgeOpen]);
 
   const update = (id, fields) => {
     setConnectors((current) => {
@@ -251,8 +267,22 @@ export default function ConnectorsSettings() {
           and surface equals the modal, so the cards also get a lighter fill. */}
       <div className="grid grid-cols-1 gap-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200/70 sm:grid-cols-2 sm:p-4">
         {CONNECTOR_IDS.map((id) => (
-          <ConnectorCard key={id} id={id} status={connectorStatus(id, connectors)} onOpen={setOpenId} />
+          <ConnectorCard
+            key={id}
+            name={CONNECTOR_DEFINITIONS[id].name}
+            tagline={CONNECTOR_DEFINITIONS[id].tagline}
+            Icon={ICONS[id]}
+            status={connectorStatus(id, connectors)}
+            onClick={() => setOpenId(id)}
+          />
         ))}
+        <ConnectorCard
+          name="Surge"
+          tagline="Free hosting that Publish uses to put your sites online."
+          Icon={SurgeIcon}
+          status={surgeConnected === null ? null : surgeConnected ? 'connected' : 'off'}
+          onClick={() => setSurgeOpen(true)}
+        />
         <button
           type="button"
           onClick={() => setRequestOpen(true)}
@@ -267,7 +297,10 @@ export default function ConnectorsSettings() {
           </span>
         </button>
       </div>
-      <SurgeAccountSettings />
+      {surgeOpen && createPortal(
+        <PublishDialog connectOnly onClose={() => setSurgeOpen(false)} />,
+        document.body,
+      )}
       {requestOpen && createPortal(
         <ConnectorRequestModal onClose={() => setRequestOpen(false)} />,
         document.body,

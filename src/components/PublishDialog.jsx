@@ -18,8 +18,10 @@ const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
 // (lib/surge.js). `buildFiles` returns the same pages Export downloads.
 // A project that is already online opens on 'manage' instead: update the
 // site, unpublish it, or publish to a different address.
-export default function PublishDialog({ projectId, projectName, buildFiles, onClose }) {
-  // loading | signin | manage | unpublish | removed | ready | publishing | done
+// `connectOnly` (Settings → Connectors) is the same window with nothing to
+// publish: it signs in or out of Surge and stops at 'account'.
+export default function PublishDialog({ projectId, projectName, buildFiles, onClose, connectOnly = false }) {
+  // loading | signin | account | manage | unpublish | removed | ready | publishing | done
   const [step, setStep] = useState('loading');
   // The address this project is live at (without .surge.sh), or ''.
   const [published, setPublished] = useState(() => loadPublishedName(projectId));
@@ -36,7 +38,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
   const [url, setUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const mounted = useRef(true);
-  const signedInStep = published ? 'manage' : 'ready';
+  const signedInStep = connectOnly ? 'account' : published ? 'manage' : 'ready';
 
   useEffect(() => {
     mounted.current = true;
@@ -159,7 +161,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
       <div className="shrink-0 px-6 py-5 border-b border-slate-100 flex items-center justify-between">
         <h2 id="publish-title" className="flex items-center gap-2 text-base 2xl:text-lg font-semibold text-slate-900">
           <Globe size={18} aria-hidden="true" />
-          Publish to the web
+          {connectOnly ? 'Surge' : 'Publish to the web'}
         </h2>
         <ModalCloseButton onClick={onClose} disabled={busy} />
       </div>
@@ -249,6 +251,24 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
             </button>
           </div>
         </form>
+      )}
+
+      {step === 'account' && (
+        <>
+          <div className="p-6 space-y-3 text-sm text-slate-700">
+            <p role="status" className="flex items-center gap-2 font-semibold text-emerald-600">
+              <Check size={18} aria-hidden="true" />Connected to Surge
+            </p>
+            <p className="text-xs leading-snug text-slate-600">
+              Signed in as <strong className="text-slate-700">{account}</strong>. To put a project online, open it and
+              click <strong className="text-slate-800">Publish</strong> above the preview.
+            </p>
+          </div>
+          <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">
+            <button type="button" onClick={signOut} className={SECONDARY_BUTTON}>Sign out</button>
+            <button type="button" onClick={onClose} autoFocus className={PRIMARY_BUTTON}>Done</button>
+          </div>
+        </>
       )}
 
       {step === 'manage' && (
