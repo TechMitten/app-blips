@@ -145,6 +145,29 @@ AppBlips can let the AI think before it writes code. In **Settings → AI** you 
 
 It defaults to Low. Choose Off for the fastest builds, or High for building apps with intricate logic or multi-step flows. Higher reasoning takes longer and uses more tokens, on every build and edit.
 
+## How many tokens did that use?
+
+AI providers measure and bill your use in **tokens**. A token is a small piece of text, roughly three-quarters of a word.
+
+While the AI is working, a live counter under its reply shows how many tokens the build, edit, answer or review has used so far, for example **~8.6k tokens so far**. It counts up as the AI writes. The **~** means part of the number is an estimate: your AI provider only reports the exact count when each request finishes, and AppBlips swaps in the exact number as soon as it arrives.
+
+<Note>
+The live counter can start in the thousands straight away, before the AI has written anything. That's normal: your app's code, the conversation and AppBlips' instructions are all sent with the first request. While it shows **~**, treat the number as a rough guide that may be noticeably off; only the final total under the reply comes from your provider.
+</Note>
+
+When the turn is done, the line under the reply shows the final total, for example **12.4k tokens**. It covers both directions:
+
+- Everything sent to the AI: your message, your app's code, the conversation so far and AppBlips' instructions. This is usually most of the total, and it grows as your app grows.
+- Everything the AI wrote back, including any thinking it did (see [Reasoning](#reasoning)).
+
+One build is often several AI requests (planning, editing, fixing errors, writing the reply), so the number is the total for all of them, as reported by your AI provider. Point at the line to see a short explanation.
+
+A few things to know:
+
+- AppBlips shows tokens, not money, because prices differ between providers and models. To see what you've spent, open the billing or usage page on your AI provider's website.
+- LM Studio and Ollama run on your computer and cost nothing, so they don't report tokens. The live counter still shows an estimate while the AI works, and the line afterwards says usage isn't reported.
+- A build you cancel isn't counted, and versions made before this feature have no token line.
+
 ## Game engines
 
 In the Game studio, AppBlips picks an engine for each new game before it starts building. A quick extra request asks the AI which engine suits your idea:

@@ -4,6 +4,7 @@ import { loadOutputTokenLimit } from './config';
 import { getActiveConnectors } from './connectors';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
+import { trackRequest } from './tokenUsage';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
@@ -316,6 +317,8 @@ export const requestModelText = async ({
   retry = true
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
+  // Feeds the live token counter; a retry is tracked as its own request.
+  let usageTracker = null;
   try {
     // AppBlips is single-user: the proxy needs no auth token.
     const headers = {
@@ -346,6 +349,7 @@ export const requestModelText = async ({
     // server attaches it (withSavedProvider).
     let provider = userProvider ?? null;
     if (!isDesktop) provider = webProviderStore.forRequest(provider);
+    usageTracker = trackRequest(bodyObj);
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers,
@@ -392,6 +396,7 @@ export const requestModelText = async ({
 
     if (!onChunk) {
       const data = await response.json();
+      usageTracker.finish(data.usage);
       const finishReason = data.choices[0].finish_reason || null;
       logModelReply(data.choices[0].message, finishReason);
       return finishReason ? { ...data.choices[0].message, finishReason } : data.choices[0].message;
@@ -407,6 +412,8 @@ export const requestModelText = async ({
     // 'length' means the provider stopped at its output limit: the text or
     // tool-call arguments are cut off mid-way (see requestFullText).
     let finishReason = null;
+    // Token counts arrive on the last chunk, often one with no choices.
+    let usage = null;
 
     // With reasoning on, the model thinks silently (or streams hidden
     // reasoning_content) before any output. Bracket that window so the UI can
@@ -462,12 +469,14 @@ export const requestModelText = async ({
           }
           try {
             const json = JSON.parse(data);
-            const delta = json.choices[0]?.delta;
-            if (json.choices[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
+            if (json.usage) usage = json.usage;
+            const delta = json.choices?.[0]?.delta;
+            if (json.choices?.[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
             
             if (delta?.content) {
               endThinking();
               text += delta.content;
+              usageTracker.streamed(delta.content.length);
               onChunk(delta.content, 'content');
             }
 
@@ -486,6 +495,7 @@ export const requestModelText = async ({
               mergeReasoningDetails(echoed.reasoning_details ??= [], delta.reasoning_details);
             }
             if (reasoningDelta) {
+              usageTracker.streamed(reasoningDelta.length);
               onChunk(reasoningDelta, 'reasoning');
             }
 
@@ -501,6 +511,7 @@ export const requestModelText = async ({
                 }
                 if (tc.function?.arguments) {
                   toolCallsBuffer[idx].function.arguments += tc.function.arguments;
+                  usageTracker.streamed(tc.function.arguments.length);
                   // Surgical-edit arguments are the only "code being written"
                   // on the refinement path; surface them for the live peek.
                   const streamedName = toolCallsBuffer[idx].function.name;
@@ -533,9 +544,11 @@ export const requestModelText = async ({
     }
 
     endThinking();
+    usageTracker.finish(usage);
     logModelReply({ content: text, tool_calls: toolCallsBuffer.filter(Boolean) }, finishReason);
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
+    usageTracker?.cancel();
     if (onChunk) onChunk('', 'thinking_end');
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');

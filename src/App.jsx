@@ -27,6 +27,7 @@ import { surgeSignOut } from './lib/surge';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
+import { startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
 import { storeReviewPhotos } from './lib/reviewPhotos';
 import { slugifyName } from './lib/helpers';
@@ -1399,6 +1400,8 @@ export default function App({ coldStart = false }) {
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
 
+    // Every AI request this turn makes, shown under its reply.
+    const usageMeter = startUsageMeter();
     try {
       const handleChunk = (chunk, kind = 'content') => {
         // Repair details and model explanations remain internal. Code stream
@@ -1573,6 +1576,7 @@ export default function App({ coldStart = false }) {
         // Marks the build a review's report started, so reviewing it again is
         // worded as checking those fixes (see reviewBuild).
         ...(isReviewFix ? { reviewFix: true } : {}),
+        usage: usageMeter.stop(),
       };
       if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};
       // Offer a review of a finished build or edit. An auto-fix keeps the
@@ -1651,6 +1655,7 @@ export default function App({ coldStart = false }) {
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
     } finally {
+      usageMeter.stop();
       setIsGenerating(false);
       isGeneratingRef.current = false;
       isEvaluatingNewCodeRef.current = false;
@@ -1724,6 +1729,7 @@ export default function App({ coldStart = false }) {
     setGenerationStatus('Starting the review…');
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
+    const usageMeter = startUsageMeter();
     try {
       const review = await reviewBuild({
         files,
@@ -1757,6 +1763,7 @@ export default function App({ coldStart = false }) {
         // The fix request is saved with the report, so the offer survives
         // reopening the project.
         ...(review.mission ? { fixOffer: 'pending', fixMission: review.mission } : {}),
+        usage: usageMeter.stop(),
       };
       const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, ...(reviewed.reviewOffer ? { reviewOffer: 'done' } : {}) }, newVersion];
       setVersions(finalVersions);
@@ -1770,6 +1777,7 @@ export default function App({ coldStart = false }) {
         setError(err.message);
       }
     } finally {
+      usageMeter.stop();
       const reviewSession = browserReviewRef.current;
       if (reviewSession) {
         setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);

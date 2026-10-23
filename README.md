@@ -62,6 +62,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
+- **Token usage** — a live counter shows the tokens a build is using as it runs, and each AI reply keeps its total, as reported by your AI provider
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
 - **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)

@@ -61,6 +61,12 @@ Here are quick answers to the most common questions about AppBlips — what it c
     You can see it working in the `[anthropic]` log lines in the terminal, if you run AppBlips from source, Docker or `npm run desktop`. See [Find the error details](/reference/troubleshooting#find-the-error-details). Other providers handle caching their own way, and AppBlips doesn't change it.
   </Accordion>
 
+  <Accordion title="How can I see how many tokens I'm using?">
+    Look under the AI's reply in the chat: a live counter shows the tokens used so far while it works, and the total for that build, edit, answer or review stays under the reply afterwards. See [How many tokens did that use?](/features/building-apps#how-many-tokens-did-that-use).
+
+    The count includes tokens your provider bills at a lower price, such as Anthropic's cached input (see the question above), so it can't be turned into a cost directly. Your provider's billing page shows what you actually spent.
+  </Accordion>
+
   <Accordion title="Windows warns me about the installer or blocks it">
     This can happen with an older copy of AppBlips installed from GitHub; that installer wasn't code-signed, so Windows could warn you or, with Smart App Control, block it. Install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead: it's the only way to install on Windows now, it's signed by Microsoft, and it updates itself. See [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked) for details.
   </Accordion>
