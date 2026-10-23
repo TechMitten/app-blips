@@ -1,7 +1,8 @@
 // Share links for a published site (PublishDialog). Each service's own
 // "share" page, prefilled; nothing is sent until the person posts it there.
-// No service scripts or logos: plain links that open in the browser (the
-// desktop app hands http(s) and mailto: links to the system, electron/main.js).
+// No service scripts: plain links that open in the browser (the desktop app
+// hands http(s) and mailto: links to the system, electron/main.js). The logos
+// are inline SVGs in components/ShareIcons.jsx.
 export function shareLinks(url, name) {
   const title = (name || '').trim() || 'my site';
   const text = `Check out ${title}`;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CircleAlert, Copy, ExternalLink, Globe, Loader2, Mail, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, Copy, ExternalLink, Globe, Loader2, RefreshCw, Share2, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
@@ -7,6 +7,7 @@ import {
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { shareLinks } from '../lib/share';
+import ShareIcon from './ShareIcons';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
 const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
@@ -416,10 +417,10 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={id === 'email' ? 'Share by email' : `Share on ${label}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                    title={id === 'email' ? 'Email' : label}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
                   >
-                    {id === 'email' && <Mail size={13} aria-hidden="true" />}
-                    {label}
+                    <ShareIcon id={id} />
                   </a>
                 ))}
               </div>
