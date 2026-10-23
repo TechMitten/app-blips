@@ -176,10 +176,15 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Vite's dynamic-import helper otherwise lands in whichever chunk
+          // first needs it (vendor_android), which every page then preloads.
+          if (id.includes('vite/preload-helper')) return 'vendor';
           if (id.includes('node_modules')) {
             // Only imported codebases use these, through dynamic import(), so
             // keep them out of the eager vendor chunk.
             if (id.includes('esbuild-wasm') || id.includes('fflate')) return 'vendor_codebase';
+            // Only the Android app loads these (src/lib/android.js).
+            if (id.includes('@capacitor') || id.includes('capacitor-secure-storage-plugin') || id.includes('@anthropic-ai')) return 'vendor_android';
             if (id.includes('lucide-react')) return 'vendor_icons';
             if (id.includes('react')) return 'vendor_react';
             return 'vendor';

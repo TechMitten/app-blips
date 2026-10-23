@@ -1,0 +1,8 @@
+{
+  "appId": "com.appblips.app",
+  "appName": "AppBlips",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

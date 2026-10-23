@@ -27,13 +27,19 @@
     "desktop:start": "electron .",
     "desktop:dist": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --publish never",
     "desktop:store": "vite build --mode desktop && node scripts/build-electron.js && electron-builder --win appx --publish never",
+    "android:sync": "vite build --mode desktop && cap sync android",
+    "android:release": "vite build --mode desktop && cap sync android && cd android && ./gradlew bundleRelease",
+    "android:apk": "vite build --mode desktop && cap sync android && cd android && ./gradlew assembleRelease",
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@huggingface/transformers": "^3.8.1",
     "acorn": "^8.18.0",
     "acorn-jsx": "^5.3.2",
+    "capacitor-secure-storage-plugin": "^0.13.0",
     "esbuild-wasm": "^0.28.2",
     "fflate": "^0.8.3",
     "lucide-react": "^0.577.0",
@@ -42,6 +48,7 @@
     "sucrase": "^3.35.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.2.2",

@@ -358,6 +358,10 @@ export async function callAnthropic(body, provider, { fetchImpl = globalThis.fet
     // The renderer owns retries (llm.js backoff), as with every provider.
     maxRetries: 0,
     fetch: fetchImpl,
+    // The Android app runs this proxy inside its own WebView (src/lib/android.js),
+    // where the SDK would otherwise refuse to start. The key there is the
+    // user's own, held by the app; Node and Electron ignore the flag.
+    dangerouslyAllowBrowser: true,
   });
   let source;
   try {
@@ -396,6 +400,7 @@ export async function listAnthropicModels(apiKey, baseUrl, { fetchImpl = globalT
     maxRetries: 0,
     timeout: 15000,
     fetch: fetchImpl,
+    dangerouslyAllowBrowser: true,
   });
   const models = [];
   for await (const model of client.models.list({ limit: 100 })) {

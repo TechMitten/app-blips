@@ -20,5 +20,10 @@ docs
 .node
 .opencode
 
+# The Android project isn't part of the browser version, and it holds Gradle
+# build output and keystore.properties (signing passwords).
+android
+capacitor.config.json
+
 # Fetched in its own Dockerfile layer; a local copy would only bloat the context.
 public/whisper

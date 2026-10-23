@@ -29,6 +29,7 @@ npm run licenses         # rebuild everything and regenerate src/lib/thirdPartyL
 docker compose up -d     # browser version in a container, published on 127.0.0.1:3000
 npm run desktop          # vite build --mode desktop + bundle Electron main + launch Electron
 npm run desktop:dist     # installers into dist-desktop/ (see RELEASING.md)
+npm run android:release # vite build + cap sync + signed Play bundle -> android/app/build/outputs/bundle/release/app-release.aab (android:apk for a sideloadable APK)
 npm run release [patch|minor|major]  # scripts/release.sh: lint, bump, commit+tag+push, wait for CI, publish draft
 ```
 
@@ -60,6 +61,9 @@ The main product is the Electron desktop app. The renderer is the normal `dist/`
 `server.js` is the **browser version** (`npm start`, Docker): plain `node:http`, serves `dist/` and POST `/api/chat`. It listens on `127.0.0.1` unless `HOST` is set (the Dockerfile sets `0.0.0.0`; `docker-compose.yml` publishes on `127.0.0.1` only), and rejects any `Host` that isn't localhost or listed in `APPBLIPS_ALLOWED_HOSTS` (DNS rebinding, since rebinding makes Origin match Host). In the browser, `isDesktop` is false: projects live in localStorage/IndexedDB and the provider choice (id, model, URL, never the key) in localStorage (`webProviderStore` in `desktop.js`), sent per request as `user_provider`. The key goes once to `/api/provider` (`providerApi.js`), is kept server-side in `$APPBLIPS_DATA_DIR/provider-key.json` (`keyFile.js`, mode 0600; Docker: the `appblips-data` volume) and attached to `/api/chat` by `withSavedProvider` (`savedProvider.js`, shared with main.js). Keys saved in localStorage by older versions are moved to the server on first load. The Docker image runs `dist-server/server.mjs` (Rolldown bundle via `scripts/build-server.js`, no node_modules). `APPBLIPS_LOCAL_AI_HOST` (set by compose to `host.docker.internal`) rewrites localhost for LM Studio/Ollama server-side (`localServerUrl` in chatProxy.js).
 
 Every host is single-user: `/api/chat` performs no authentication, and a browser may call it only from the app's own origin (`isForeignOrigin` in chatProxy.js). In the desktop app, provider secrets live only in the main process, never in the renderer bundle.
+
+### Android (Capacitor, not yet released)
+`android/` is the Capacitor 8 project (app id `com.appblips.app`; needs JDK 21 and the Android SDK). The app is the normal `dist/` build in a WebView at `https://localhost`, with **no server**: `main.jsx` lazy-loads `src/lib/android.js`, which wraps `window.fetch` and answers same-origin `/api/*` with the same handlers as `server.js` (chat, provider, surge, pollinations). Saved keys live in the Android Keystore (`capacitor-secure-storage-plugin`) behind keyFile.js's interface. AI requests go straight from the WebView (the cloud presets allow CORS, so replies stream); Surge and Pollinations go through `CapacitorHttp` (no CORS / hidden headers). Sandboxed preview frames keep their own unwrapped `fetch`, so they never reach a handler. `isDesktop` is false there, so storage and Settings → AI use the browser-version paths. versionCode is derived from package.json (`major*10000+minor*100+patch`). Release signing reads `android/keystore.properties` (gitignored, points at a keystore outside the repo). Test: `node testing/testAndroidApi.js`.
 
 ### Generation pipeline (client)
 `src/App.jsx` (~2.3k lines) is the composition root: workspace state, undo/redo, versions. Logic is split as:
