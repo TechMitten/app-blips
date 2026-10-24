@@ -46,7 +46,7 @@ export const FREE_TRIAL_PACK = {
   trialDays: 3,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: '100 free AI Credits for 3 days, enough to build your first 1–2 apps or websites. A card is needed to start. After 3 days you move to the Starter plan ($10/month, plus taxes) unless you cancel first.',
+  description: 'Start your 3-day free trial with 100 AI credits. Valid payment method required. After your 3-day trial ends, your subscription will automatically convert to the Starter Plan at $10/month (plus applicable taxes). Cancel anytime in your account settings before your trial expires to avoid being charged. Unused trial credits do not roll over.',
 };
 
 export const CREDIT_PACKS = [
@@ -59,7 +59,7 @@ export const CREDIT_PACKS = [
     bonusCredits: 0,
     productId: STARTER_PRODUCT_ID,
     benefitId: '5b523124-e43c-4917-88cb-6d64625b829c',
-    description: 'Great for building 3–5 complete websites, games, or apps with dozens of follow-up edits every month. Credits reset each month; unused credits do not roll over.',
+    description: 'Start your Starter Plan with 1,000 AI credits every month. Valid payment method required. Your subscription will automatically renew at $10/month (plus applicable taxes). Cancel anytime in your account settings before your next billing date to avoid being charged. Credits reset each month; unused credits do not roll over.',
   },
   {
     id: 'builder',
@@ -71,7 +71,7 @@ export const CREDIT_PACKS = [
     badge: 'Most Popular',
     productId: '0da84082-4c8e-420a-8b6d-701010c906fa',
     benefitId: 'cd0ea202-c732-448e-9311-cefc1b16c2a7',
-    description: 'Includes 250 bonus credits a month (10% extra). Enough to build and refine 10–15 full apps, dashboards, or multi-page websites every month.',
+    description: 'Start your Builder Plan with 2,750 AI credits every month, including 250 bonus credits. Valid payment method required. Your subscription will automatically renew at $25/month (plus applicable taxes). Cancel anytime in your account settings before your next billing date to avoid being charged. Credits reset each month; unused credits do not roll over.',
   },
   {
     id: 'studio',
@@ -83,7 +83,7 @@ export const CREDIT_PACKS = [
     badge: 'Best Value',
     productId: 'aa311937-6a99-41cd-879d-85916787a898',
     benefitId: '3de567a6-9234-4c39-8161-15b4d438a30d',
-    description: 'Includes 1,000 bonus credits a month (20% extra). Built for heavy creators and agencies creating dozens of apps and websites.',
+    description: 'Start your Studio Plan with 6,000 AI credits every month, including 1,000 bonus credits. Valid payment method required. Your subscription will automatically renew at $50/month (plus applicable taxes). Cancel anytime in your account settings before your next billing date to avoid being charged. Credits reset each month; unused credits do not roll over.',
   },
 ];
 

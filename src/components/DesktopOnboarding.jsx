@@ -170,7 +170,7 @@ function NeedKeyModal({ providerLabel, onClose }) {
   );
 }
 
-// Asked before "I'm new to AI Credits" leaves the app for the website, so the
+// Asked before "Purchase AI Credits" leaves the app for the website, so the
 // browser opening isn't a surprise. Portaled like NeedKeyModal.
 function OpenWebsiteModal({ onOpen, onClose }) {
   return createPortal(
@@ -279,11 +279,11 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 
 const PLAN_OPTIONS = [
   { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
-  { id: 'credits', Icon: Coins, title: 'Use AppBlips AI Credits', text: 'No API key or AI account needed. Connect the credits you already have, or start a free trial or choose a plan next.' },
+  { id: 'credits', Icon: Coins, title: 'Purchase AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Start a 3-day free trial with 100 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
 ];
 
 const CREDITS_OPTIONS = [
-  { id: 'new', Icon: Sparkles, title: 'I’m new to AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or choose a monthly plan.' },
+  { id: 'new', Icon: Sparkles, title: 'Purchase AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or choose a monthly plan.' },
   { id: 'existing', Icon: Mail, title: 'I already have AI Credits', text: 'You started a trial or subscribed to a plan. Connect it with the email you used at checkout.' },
 ];
 

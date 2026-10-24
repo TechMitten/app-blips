@@ -26,6 +26,7 @@ import ShowcaseModal from './components/ShowcaseModal';
 import PublishDialog from './components/PublishDialog';
 import { surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
+import { creditsSignOut } from './lib/credits';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
@@ -2409,6 +2410,11 @@ export default function App({ coldStart = false }) {
     // And the Pollinations connector's sign-in.
     const pollinations = await pollinationsSignOut();
     if (pollinations.error) logError('Could not sign out of Pollinations during reset', pollinations.error);
+    // And the AppBlips AI Credits account. Saved credits count as a configured
+    // provider (envProviderConfigured in main.js), so leaving them would also
+    // skip first-run setup after the reload.
+    const credits = await creditsSignOut();
+    if (credits.error) logError('Could not sign out of AppBlips AI Credits during reset', credits.error);
     localStorage.clear();
     window.location.reload();
   };

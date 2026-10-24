@@ -45,7 +45,7 @@ test('credit packs are distinct monthly plans with the current prices', () => {
 
   assert.equal(FREE_TRIAL_PACK.isTrial, true);
   assert.equal(FREE_TRIAL_PACK.priceUsd, 0);
-  assert.ok(FREE_TRIAL_PACK.description.includes('Starter plan'));
+  assert.ok(FREE_TRIAL_PACK.description.includes('Starter Plan'));
   assert.match(CREDIT_PACKS[0].description, /reset each month/);
   assert.match(CREDIT_PACKS[0].description, /do not roll over/);
   assert.ok(productIds.has(STARTER_PRODUCT_ID));
