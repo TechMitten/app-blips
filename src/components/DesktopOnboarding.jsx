@@ -12,6 +12,8 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import Modal from './Modal';
 import ProfileAvatar from './ProfileAvatar';
 import ModelCombobox from './ModelCombobox';
+import CodeInput from './CodeInput';
+import { CODE_LENGTH, codeValue, isCodeComplete } from '../lib/signInCode';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
 
@@ -360,22 +362,17 @@ function ConnectCreditsForm({ formRef, onSubmit, email, setEmail, error, codeSen
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       {codeSentTo && (
         <SetupField title="Code from the email" error={codeError}>
-          <span className="onboarding-key-input">
-            <KeyRound size={19} />
-            <input
+          <div data-field="code">
+            <CodeInput
               value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder="Paste the code"
-              aria-label="Code from the email"
-              aria-invalid={Boolean(codeError)}
-              data-field="code"
-              autoComplete="one-time-code"
-              autoCapitalize="characters"
-              spellCheck={false}
-              maxLength={32}
+              onChange={setCode}
+              label="Code from the email"
+              invalid={Boolean(codeError)}
+              disabled={busy}
+              className="onboarding-code"
               autoFocus
             />
-          </span>
+          </div>
           <p className="onboarding-key-help" role="status">
             We sent a sign-in code to <strong>{codeSentTo}</strong>. It comes from Polar, our payment service, and can take a minute to arrive.
           </p>
@@ -671,18 +668,18 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const connectCredits = async () => {
     if (busy) return;
     if (!codeSentTo) return sendCreditsCode();
-    if (!creditsCode.trim()) {
-      setCodeError('Paste the code from the email.');
-      formRef.current?.querySelector('[data-field="code"]')?.focus();
+    if (!isCodeComplete(creditsCode)) {
+      setCodeError(`Enter all ${CODE_LENGTH} characters of the code from the email.`);
+      formRef.current?.querySelector('[data-field="code"] input')?.focus();
       return;
     }
     setCodeError('');
     setStatus({ kind: 'busy', text: 'Connecting your credits…' });
-    const res = await creditsVerify(codeSentTo, creditsCode);
+    const res = await creditsVerify(codeSentTo, codeValue(creditsCode));
     if (res.error) {
       setStatus(null);
       setCodeError(res.error);
-      formRef.current?.querySelector('[data-field="code"]')?.focus();
+      formRef.current?.querySelector('[data-field="code"] input')?.focus();
       return;
     }
     return finishCredits();

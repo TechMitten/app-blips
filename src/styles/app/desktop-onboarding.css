@@ -386,6 +386,13 @@
 .onboarding-plan-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .onboarding-plan-copy strong { color: #f5f5f5; font-size: 1rem; font-weight: 650; }
 .onboarding-plan-copy small { color: #b5b5b5; font-size: 0.86rem; line-height: 1.4; }
+/* Emailed sign-in code (CodeInput): one box per character (CODE_LENGTH). */
+.onboarding-code { display: grid; grid-template-columns: repeat(6, minmax(0, 56px)); gap: 10px; margin-top: 12px; }
+.onboarding-code input { width: 100%; height: 60px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 10px; color: #f5f5f5; background: rgb(0 0 0 / 0.35); font: 600 1.5rem/1 var(--font-mono); text-align: center; text-transform: uppercase; outline: 0; caret-color: var(--ob-red); transition: border-color .18s ease, box-shadow .18s ease; }
+.onboarding-code input:focus { border-color: #a3a3a3; box-shadow: 0 0 0 3px rgb(255 255 255 / 0.1); }
+.onboarding-code input:disabled { opacity: .6; }
+.onboarding-field.is-invalid .onboarding-code input { border-color: #f87171; }
+@media (max-width: 560px) { .onboarding-code { gap: 6px; } .onboarding-code input { height: 52px; font-size: 1.25rem; } }
 .onboarding-inline-actions { display: flex; flex-wrap: wrap; gap: 18px; }
 .onboarding-inline-actions button { color: #ffffff; text-decoration: underline; text-decoration-color: var(--ob-red); text-underline-offset: 3px; cursor: pointer; }
 .onboarding-inline-actions button:disabled { cursor: not-allowed; opacity: .6; }

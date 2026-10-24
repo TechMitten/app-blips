@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert, ExternalLink, Sparkles } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
+import CodeInput from './CodeInput';
+import { CODE_LENGTH, codeValue, isCodeComplete } from '../lib/signInCode';
 import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
@@ -84,13 +86,13 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   };
 
   const verifyCode = async () => {
-    if (!code.trim()) {
-      setMessage({ kind: 'error', text: 'Paste the code from the email.' });
+    if (!isCodeComplete(code)) {
+      setMessage({ kind: 'error', text: `Enter all ${CODE_LENGTH} characters of the code from the email.` });
       return;
     }
     setBusy('connecting');
     setMessage(null);
-    const res = await creditsVerify(codeSentTo, code);
+    const res = await creditsVerify(codeSentTo, codeValue(code));
     if (!mounted.current) return;
     setBusy('');
     if (res.error) {
@@ -181,25 +183,23 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
             <div className="space-y-2">
               {codeSentTo ? (
                 <>
-                  <label className="block text-sm text-slate-600">
+                  <div className="text-sm text-slate-600">
                     Code from the email sent to {codeSentTo}
-                    <div className="mt-1.5 flex flex-wrap sm:flex-nowrap gap-2">
-                      <input
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2" onKeyDown={(e) => { if (e.key === 'Enter' && !busy) verifyCode(); }}>
+                      <CodeInput
                         value={code}
-                        onChange={(e) => { setCode(e.target.value); setMessage(null); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !busy) verifyCode(); }}
-                        placeholder="Paste the code"
-                        autoComplete="one-time-code"
-                        autoCapitalize="characters"
-                        spellCheck={false}
-                        maxLength={32}
-                        className={`${FIELD_CLASS} font-mono`}
+                        onChange={(next) => { setCode(next); setMessage(null); }}
+                        label="Code from the email"
+                        disabled={Boolean(busy)}
+                        className="flex gap-1.5"
+                        boxClassName="h-10 w-10 rounded-lg border border-slate-300 bg-surface text-center font-mono text-base font-semibold uppercase text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-400/30 disabled:opacity-60"
+                        autoFocus
                       />
-                      <button type="button" onClick={verifyCode} disabled={Boolean(busy) || !code.trim()} className={`${PRIMARY_BUTTON} shrink-0`}>
+                      <button type="button" onClick={verifyCode} disabled={Boolean(busy) || !isCodeComplete(code)} className={`${PRIMARY_BUTTON} shrink-0`}>
                         {busy === 'connecting' ? 'Connecting…' : 'Connect Credits'}
                       </button>
                     </div>
-                  </label>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button type="button" onClick={sendCode} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
                       {busy === 'sending' ? 'Sending…' : 'Send a new code'}
