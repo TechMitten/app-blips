@@ -1,3 +1,4 @@
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -112,9 +113,9 @@ function ConnectorPage({ id, state, onChange }) {
           />
           <p id={`set-${id}-help`} className="text-xs leading-snug text-slate-600">
             {page.keyHelp}{' '}
-            <a href={def.keyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
+            <ConfirmedLink href={def.keyUrl} why={`To create or copy the key that lets AppBlips connect to ${def.name}. Keys are made on the service's own website.`} className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
               {page.keyLinkLabel}<ExternalLink size={11} aria-hidden="true" />
-            </a>
+            </ConfirmedLink>
           </p>
           <p
             role={keyBad ? 'alert' : 'status'}
@@ -233,9 +234,9 @@ export default function ConnectorsSettings() {
             <h3 className="text-base font-bold text-slate-900">{name}</h3>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">{description}</p>
             {homeUrl && (
-              <a href={homeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
+              <ConfirmedLink href={homeUrl} why={`To read about ${name} on its own website.`} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
                 {homeLinkLabel}<ExternalLink size={11} aria-hidden="true" />
-              </a>
+              </ConfirmedLink>
             )}
           </div>
           <button

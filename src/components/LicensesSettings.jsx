@@ -1,3 +1,4 @@
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ExternalLink, Search } from 'lucide-react';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
@@ -51,9 +52,9 @@ function LicenseEntry({ name, version, license, author, homepage, text }) {
       </summary>
       <div className="mt-2 space-y-2">
         {homepage && (
-          <a href={homepage} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+          <ConfirmedLink href={homepage} why="To read about this open-source package on its own website." className={LINK_CLASS}>
             Project website<ExternalLink size={11} aria-hidden="true" />
-          </a>
+          </ConfirmedLink>
         )}
         <LicenseText text={text} license={license} />
       </div>
@@ -94,10 +95,10 @@ export default function LicensesSettings() {
           </details>
         )}
       >
-        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+        <ConfirmedLink href={REPO_URL} why="To show you the AppBlips source code, which is public on GitHub." className={SECONDARY_BUTTON}>
           <ExternalLink size={14} />
           Source code
-        </a>
+        </ConfirmedLink>
       </SettingRow>
 
       <div className="py-4">
@@ -148,12 +149,12 @@ export default function LicensesSettings() {
               Publish puts your sites online with Surge, a hosting service. No Surge code is included in AppBlips. Surge&rsquo;s own terms apply to what you publish.
             </p>
             <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-              <a href="https://surge.sh" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+              <ConfirmedLink href="https://surge.sh" why="To read about Surge, the hosting service Publish uses." className={LINK_CLASS}>
                 surge.sh<ExternalLink size={11} aria-hidden="true" />
-              </a>
-              <a href="https://surge.sh/terms" target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+              </ConfirmedLink>
+              <ConfirmedLink href="https://surge.sh/terms" why="Surge's own terms apply to what you publish, and they are hosted by Surge." className={LINK_CLASS}>
                 Surge terms<ExternalLink size={11} aria-hidden="true" />
-              </a>
+              </ConfirmedLink>
             </div>
           </div>
           <div className="py-2.5">
@@ -164,9 +165,9 @@ export default function LicensesSettings() {
             <ul className="mt-1.5 space-y-1">
               {FONTS.map(({ name, author, href }) => (
                 <li key={name} className="text-xs text-slate-700">
-                  <a href={href} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+                  <ConfirmedLink href={href} why="To see this font and its license on Google Fonts." className={LINK_CLASS}>
                     {name}<ExternalLink size={11} aria-hidden="true" />
-                  </a>
+                  </ConfirmedLink>
                   <span className="text-slate-500"> by {author}</span>
                 </li>
               ))}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { ConfirmedLink } from './ExternalLinkConfirm';
+import { useExternalConfirm } from '../hooks/useExternalConfirm';
 import { CircleCheck, CircleAlert, ExternalLink, Sparkles } from 'lucide-react';
 import CodeInput from './CodeInput';
 import { CODE_LENGTH, codeValue, isCodeComplete } from '../lib/signInCode';
@@ -18,6 +20,7 @@ const POLAR_PORTAL_URL = 'https://polar.sh/techmitten-llc/portal';
 function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   const [info, setInfo] = useState(null); // { signedIn, email, remaining, totalGranted, totalUsed }
   const [email, setEmail] = useState('');
+  const { ask, dialog } = useExternalConfirm();
   const [busy, setBusy] = useState(''); // '' | 'sending' | 'connecting' | 'checking' | packId
   const [waitingPack, setWaitingPack] = useState(null);
   const [message, setMessage] = useState(null); // { kind: 'ok' | 'error', text }
@@ -121,6 +124,8 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
       : 'Build without an API key. Buy a pay-as-you-go credit pack or connect with your checkout email.';
 
   return (
+    <>
+    {dialog}
     <SettingRow
       id="set-appblips-credits"
       title="AppBlips AI Credits (No API key required)"
@@ -166,9 +171,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
                 <button type="button" onClick={signOut} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
                   Disconnect
                 </button>
-                <a href={POLAR_PORTAL_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                <ConfirmedLink href={POLAR_PORTAL_URL} site="Polar" why="To cancel your subscription in the Polar customer portal, where billing is managed." className={SECONDARY_BUTTON}>
                   Cancel subscription <ExternalLink size={12} />
-                </a>
+                </ConfirmedLink>
               </div>
             </div>
           ) : (
@@ -240,7 +245,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
               </div>
               <button
                 type="button"
-                onClick={() => startPackCheckout(FREE_TRIAL_PACK)}
+                onClick={() => ask({ site: 'Polar', url: 'https://polar.sh', why: 'To pay securely on Polar, our payment provider. AppBlips never sees your card details. Come back here once you have checked out.' }, () => startPackCheckout(FREE_TRIAL_PACK))}
                 disabled={Boolean(busy)}
                 className={PRIMARY_BUTTON}
               >
@@ -258,7 +263,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
                 <button
                   key={pack.id}
                   type="button"
-                  onClick={() => startPackCheckout(pack)}
+                  onClick={() => ask({ site: 'Polar', url: 'https://polar.sh', why: 'To pay securely on Polar, our payment provider. AppBlips never sees your card details. Come back here once you have checked out.' }, () => startPackCheckout(pack))}
                   disabled={Boolean(busy)}
                   className="rounded-xl border border-slate-200 hover:border-slate-400 bg-surface p-3 text-left transition-colors flex flex-col justify-between gap-1"
                 >
@@ -302,6 +307,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
         </div>
       )}
     />
+    </>
   );
 }
 

@@ -99,7 +99,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 {onOpenShowcase && (
                   <button type="button" onClick={onOpenShowcase} className={NAV_LINK}>Showcase</button>
                 )}
-                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Docs</a>
+                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Help</a>
               </div>
 
               <div className="flex items-center gap-2">

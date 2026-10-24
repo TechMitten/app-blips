@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info, UserRound } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
 import LicensesSettings from './LicensesSettings';
@@ -78,8 +79,8 @@ function Segmented({ label, value, options, onChange, renderOption }) {
 }
 
 const LEGAL_LINKS = [
-  { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', href: 'https://www.appblips.com/privacy' },
-  { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', href: 'https://www.appblips.com/terms' },
+  { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', why: 'The Privacy Policy is published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/privacy' },
+  { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', why: 'The Terms of Service are published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/terms' },
 ];
 
 export default function SettingsModal({
@@ -305,12 +306,12 @@ export default function SettingsModal({
 
           {tab === 'legal' && (
             <>
-              {LEGAL_LINKS.map(({ id, title, description, href }) => (
+              {LEGAL_LINKS.map(({ id, title, description, href, why }) => (
                 <SettingRow key={id} id={id} title={title} description={description}>
-                  <a href={href} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                  <ConfirmedLink href={href} why={why} className={SECONDARY_BUTTON}>
                     <ExternalLink size={14} />
                     View
-                  </a>
+                  </ConfirmedLink>
                 </SettingRow>
               ))}
             </>

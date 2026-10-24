@@ -1,3 +1,4 @@
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { SECONDARY_BUTTON } from './SettingControls';
@@ -58,13 +59,13 @@ export function UpdateCheckResult({ result }) {
       )}
       {result.status === 'available' && (
         <div className="mt-2 flex flex-wrap gap-2">
-          <a href={result.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+          <ConfirmedLink href={result.url} why={result.store ? 'To get the update from the Microsoft Store.' : isDesktop ? 'To download the newer version of AppBlips from the AppBlips release page.' : 'To read what changed in the newest version of AppBlips.'} className={SECONDARY_BUTTON}>
             {result.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}
-          </a>
+          </ConfirmedLink>
           {!isDesktop && (
-            <a href={UPDATE_GUIDE_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+            <ConfirmedLink href={UPDATE_GUIDE_URL} why="To read step-by-step instructions for updating the browser version." className={SECONDARY_BUTTON}>
               How to update
-            </a>
+            </ConfirmedLink>
           )}
         </div>
       )}

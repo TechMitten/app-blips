@@ -1,4 +1,5 @@
 import { Bug, ExternalLink } from 'lucide-react';
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import { SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 import { CURRENT_VERSION } from '../lib/updates';
@@ -25,18 +26,18 @@ export default function AboutSettings() {
         Turn a plain-English prompt into a working app, website or game.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        <a href={WEBSITE_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+        <ConfirmedLink href={WEBSITE_URL} why="To visit the AppBlips website for news, pricing and help." className={SECONDARY_BUTTON}>
           <ExternalLink size={14} aria-hidden="true" />
           Website
-        </a>
-        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+        </ConfirmedLink>
+        <ConfirmedLink href={REPO_URL} why="To show you AppBlips&rsquo;s source code, which is public on GitHub." className={SECONDARY_BUTTON}>
           <ExternalLink size={14} aria-hidden="true" />
           Source code
-        </a>
-        <a href={BUG_REPORT_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+        </ConfirmedLink>
+        <ConfirmedLink href={BUG_REPORT_URL} why="Bug reports are filed on GitHub, so you need to describe the problem on that page." className={SECONDARY_BUTTON}>
           <Bug size={14} aria-hidden="true" />
           Report a bug
-        </a>
+        </ConfirmedLink>
       </div>
       <p className="mt-6 text-xs text-slate-500">
         {COPYRIGHT}

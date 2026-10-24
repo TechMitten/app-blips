@@ -1,3 +1,5 @@
+import { ConfirmedLink } from './ExternalLinkConfirm';
+import { useExternalConfirm } from '../hooks/useExternalConfirm';
 import { useEffect, useRef, useState } from 'react';
 import { CircleAlert, CircleCheck, ExternalLink, TriangleAlert } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
@@ -19,6 +21,7 @@ const formatPollen = (value) => (typeof value === 'number' ? `${Math.round(value
 
 function SignIn({ account, onAccount }) {
   const { page } = CONNECTOR_DEFINITIONS.pollinations;
+  const { ask, dialog } = useExternalConfirm();
   // checking | signed-out | starting | waiting | signed-in
   const [step, setStep] = useState(account ? 'signed-in' : 'checking');
   const [balance, setBalance] = useState(null);
@@ -105,6 +108,7 @@ function SignIn({ account, onAccount }) {
 
   return (
     <div className="py-4 space-y-2">
+      {dialog}
       <h4 className="text-sm font-semibold text-slate-900">Your Pollinations account</h4>
       {step === 'checking' && <p className="text-xs text-slate-600">Checking your sign-in…</p>}
       {step === 'signed-in' && (
@@ -119,7 +123,7 @@ function SignIn({ account, onAccount }) {
       {(step === 'signed-out' || step === 'starting') && (
         <>
           <p className="text-xs leading-snug text-slate-600">{page.signInHelp}</p>
-          <button type="button" onClick={start} disabled={step === 'starting'} className={PRIMARY_BUTTON}>
+          <button type="button" onClick={() => ask({ site: 'Pollinations', url: 'https://enter.pollinations.ai', why: 'To sign in to your Pollinations account and approve AppBlips. Pollinations hosts the sign-in, so AppBlips never sees your password.' }, start)} disabled={step === 'starting'} className={PRIMARY_BUTTON}>
             {step === 'starting' ? 'Starting…' : 'Sign in with Pollinations'}
           </button>
         </>
@@ -128,9 +132,9 @@ function SignIn({ account, onAccount }) {
         <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs leading-snug text-slate-800">
             Approve AppBlips on the Pollinations page that opened in your browser. If no page opened,{' '}
-            <a href={code.verificationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
+            <ConfirmedLink href={code.verificationUrl} site="Pollinations" why="To approve AppBlips on your Pollinations account." className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
               open it here<ExternalLink size={11} aria-hidden="true" />
-            </a>.
+            </ConfirmedLink>.
           </p>
           <p className="text-xs text-slate-800">
             If Pollinations asks for a code, enter: <span className="select-all font-mono text-sm font-bold tracking-wider">{code.userCode}</span>
@@ -176,9 +180,9 @@ function SiteKey({ state, onChange }) {
         <ol className="mt-2 list-decimal space-y-1 pl-5">
           <li>
             Go to{' '}
-            <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
+            <ConfirmedLink href="https://enter.pollinations.ai/keys" why="To sign in to Pollinations and create a key with a spending limit. Keys can only be made on their website." className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline">
               enter.pollinations.ai/keys<ExternalLink size={11} aria-hidden="true" />
-            </a>{' '}
+            </ConfirmedLink>{' '}
             and sign in.
           </li>
           <li>Create a new secret key. Name it something like “My AppBlips sites”.</li>

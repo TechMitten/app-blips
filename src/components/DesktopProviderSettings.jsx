@@ -1,3 +1,4 @@
+import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
@@ -179,7 +180,7 @@ export default function DesktopProviderSettings({ guardRef }) {
               : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}</>}
           </p>
           {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
-            <a href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} target="_blank" rel="noopener noreferrer">Create a {providerLabel(draft.id)} API key</a>.
+            <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
           </p>}
           {!local && saved?.weakEncryption && (
             <p className="flex items-start gap-1.5 text-xs text-amber-600 leading-snug">
