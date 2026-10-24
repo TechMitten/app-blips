@@ -108,6 +108,13 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
     setWaitingPack(pack);
   };
 
+  // A connected customer already has a subscription (the trial is one too),
+  // and Polar turns down a second checkout, so plan changes switch the
+  // existing subscription on Polar's customer page instead.
+  const openPortal = () => {
+    try { window.open(POLAR_PORTAL_URL, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
+  };
+
   const signOut = async () => {
     setWaitingPack(null);
     const res = await creditsSignOut();
@@ -261,12 +268,19 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
         <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
           {signedIn ? 'Change AI Credits plan' : 'Choose an AI Credits plan'}
         </span>
+        {signedIn && (
+          <p className="text-xs text-slate-500 leading-snug">
+            Plan changes happen on your Polar customer page: sign in with your checkout email, change your plan there, then click <strong>Refresh balance</strong>. Changing plan during the free trial ends the trial and starts the new plan.
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {CREDIT_PACKS.map((pack) => (
             <button
               key={pack.id}
               type="button"
-              onClick={() => ask({ site: 'Polar', url: 'https://polar.sh', why: 'To pay securely on Polar, our payment provider. AppBlips never sees your card details. Come back here once you have checked out.' }, () => startPackCheckout(pack))}
+              onClick={() => (signedIn
+                ? ask({ site: 'Polar', url: POLAR_PORTAL_URL, why: 'To switch your current plan (or your free trial) on your Polar customer page. A new checkout would be turned down, because Polar allows one plan at a time.' }, openPortal)
+                : ask({ site: 'Polar', url: 'https://polar.sh', why: 'To pay securely on Polar, our payment provider. AppBlips never sees your card details. Come back here once you have checked out.' }, () => startPackCheckout(pack)))}
               disabled={Boolean(busy)}
               className="rounded-xl border border-slate-200 hover:border-slate-400 bg-surface p-3 text-left transition-colors flex flex-col justify-between gap-1"
             >
@@ -278,7 +292,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
                 {pack.credits.toLocaleString()} Credits
               </span>
               <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 mt-1">
-                {busy === pack.id ? 'Opening…' : <>Choose plan <ExternalLink size={10} /></>}
+                {busy === pack.id ? 'Opening…' : <>{signedIn ? 'Switch on Polar' : 'Choose plan'} <ExternalLink size={10} /></>}
               </span>
             </button>
           ))}
