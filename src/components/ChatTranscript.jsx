@@ -1,5 +1,5 @@
 import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
@@ -8,7 +8,6 @@ import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
 import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
 import { loadProfile } from '../lib/profile';
-import { formatTokenCount, subscribeLiveUsage, getLiveUsage } from '../lib/tokenUsage';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -127,41 +126,6 @@ function ReplyRow({ title, className = '', copyText, children }) {
         <CopyMessageButton text={copyText} tone="bot" />
       </div>
     </div>
-  );
-}
-
-// The tokens every AI request in this turn used (routing, edits, repairs, the
-// reply), as the provider reported them. Local servers report none.
-const TOKEN_USAGE_HINT = 'Tokens are how AI providers measure and bill usage. This counts both your request (with the code and instructions sent along) and everything the AI wrote, including any thinking.';
-
-function TokenUsageNote({ usage }) {
-  if (!usage?.calls) return null;
-  const total = usage.input + usage.output;
-  const text = usage.reported
-    ? `${formatTokenCount(total)} tokens (estimate)`
-    : "Token usage isn't reported by this AI provider.";
-  return (
-    <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60" title={TOKEN_USAGE_HINT}>
-      {text}
-    </p>
-  );
-}
-
-// The same line while the turn is still running, so the cost is visible as it
-// grows rather than only afterwards. "~" marks it as partly estimated: the
-// provider's own counts replace each request's estimate when it finishes.
-// Its own component (subscribed to the meter directly) so the frequent
-// updates re-render only this line.
-const LIVE_USAGE_HINT = `${TOKEN_USAGE_HINT} It can start in the thousands, because your code and AppBlips' instructions go with the very first request. While the AI is working, "~" means the count is a rough estimate and may be off; the exact number replaces it as the provider reports it.`;
-
-function LiveTokenUsage() {
-  const usage = useSyncExternalStore(subscribeLiveUsage, getLiveUsage);
-  if (!usage || (!usage.estimating && !usage.calls)) return null;
-  const approx = usage.estimating ? '~' : '';
-  return (
-    <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60 tabular-nums" title={LIVE_USAGE_HINT} aria-live="off">
-      {approx}{formatTokenCount(usage.input + usage.output)} tokens (estimate)
-    </p>
   );
 }
 
@@ -346,7 +310,6 @@ export default function ChatTranscript({
                 <Markdown text={displayBuildReply(ver)} />
               </ReplyRow>
             )}
-            <TokenUsageNote usage={ver.usage} />
             {ver.editMode === 'review' && ver.qualityReview?.problems?.some((item) => item.photo) && (
               <ReviewEvidence problems={ver.qualityReview.problems} projectId={projectId} />
             )}
@@ -425,7 +388,6 @@ export default function ChatTranscript({
               <span>{generationStatus}</span>
             </div>
           )}
-          {isGenerating && <LiveTokenUsage />}
         </div>
       )}
       <div ref={chatBottomRef} />

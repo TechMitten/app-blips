@@ -96,7 +96,6 @@ Older releases: see the [changelog](https://docs.appblips.com/changelog) or [Git
 - **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, valid payment method required, then the Starter Plan at $10/month plus applicable taxes unless you cancel from **Settings → Account** before the trial expires) or subscribe to a monthly plan in **Settings → Account**; your plan's credits pay for every build until you switch to your own provider
 - **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
-- **Token usage** — a live counter shows the tokens a build is using as it runs, and each AI reply keeps its total, as reported by your AI provider
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
 - **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)
