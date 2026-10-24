@@ -367,3 +367,58 @@
     transform: none;
   }
 }
+
+/* Fit the whole picker in the window without scrolling once the four studios
+   sit on one row (the desktop app's smallest window is 960 x 600). Spacing and
+   the heading follow the window height instead of fixed steps, and the
+   shortest windows also drop the eyebrow pill and then the intro line. These override the Tailwind
+   spacing on the same elements (this file is unlayered, so it wins); below
+   900px wide the cards stack and the page scrolls as before. */
+@media (min-width: 900px) {
+  .studio-main { padding-block: clamp(0.75rem, 3.5vh, 3.5rem); }
+  .studio-title {
+    margin-top: clamp(0.75rem, 2.4vh, 1.5rem);
+    font-size: clamp(2.25rem, 6.5vh, 3.75rem);
+  }
+  .studio-lead { margin-top: clamp(0.5rem, 2vh, 1.25rem); }
+  /* Set here rather than with a min-[900px]: class, which Tailwind sorts
+     before sm: so the two-column rule would win. */
+  .studio-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: clamp(1.25rem, 4vh, 3rem);
+  }
+  .studio-grid .studio-card { padding: clamp(0.875rem, 2.4vh, 1.5rem); }
+  .studio-grid .studio-icon-tile { margin-bottom: clamp(0.625rem, 2vh, 1.25rem); }
+  .studio-grid .studio-card-cta { padding-top: clamp(0.75rem, 2.4vh, 1.5rem); }
+  .studio-extra-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: clamp(0.75rem, 2vh, 1.25rem);
+  }
+}
+
+/* Narrower wide windows: the cards are only ~200px across, so win back width
+   before height. The rows' own "Import .zip" / "Explore" labels repeat what
+   the whole row already does. */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .studio-main { padding-inline: 1.5rem; }
+  .studio-grid .studio-card-title { font-size: 1rem; }
+  .studio-extra-rows .studio-card-cta { display: none; }
+}
+
+@media (min-width: 900px) and (max-height: 820px) {
+  .studio-topbar-inner { height: 4rem; }
+  .studio-footer-inner { padding-block: 0.375rem; }
+}
+
+@media (min-width: 900px) and (max-height: 700px) {
+  .studio-choice .studio-pill { display: none; }
+  .studio-title { margin-top: 0; }
+  .studio-lead { font-size: 1rem; }
+  .studio-grid .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
+}
+
+/* The desktop app's smallest window: the cards explain themselves, so the
+   intro line goes too. */
+@media (min-width: 900px) and (max-height: 620px) {
+  .studio-lead { display: none; }
+}

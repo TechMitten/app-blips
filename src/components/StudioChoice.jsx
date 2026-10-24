@@ -87,7 +87,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
           {/* Top bar, like the landing page's: mark left, quick links centred
               (md+), GitHub, theme and settings on the right. */}
           <nav className="studio-topbar sticky top-0 z-20 shrink-0">
-            <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
+            <div className="studio-topbar-inner relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
               <span className="studio-logo mr-auto">
                 <img src="/favicon.svg" alt="" aria-hidden="true" className="studio-logo-icon" />
                 <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="studio-logo-img studio-logo-dark" />
@@ -177,24 +177,24 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
             <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true" />
 
-            <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
+            <div className="studio-main relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
                 <span className="studio-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium">
                   <span className="studio-eyebrow-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
                   Describe it. Watch it build.
                 </span>
 
-                <h1 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:mt-6 sm:text-5xl md:text-6xl">
+                <h1 className="studio-title mt-5 text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:mt-6 sm:text-5xl md:text-6xl">
                   What will you build?
                 </h1>
-                <p className="mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
+                <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
                   Describe what you want in plain English. AppBlips builds a working app,
                   website or game you can preview and refine.
                 </p>
 
               </header>
 
-              <div className="mt-10 grid grid-cols-1 gap-4 animate-stagger-3 sm:mt-12 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+              <div className="studio-grid mt-10 grid grid-cols-1 gap-4 animate-stagger-3 sm:mt-12 sm:grid-cols-2 sm:gap-5">
                 {STUDIOS.map(({ key, Icon, title, description, cta }) => {
                   const isProjects = key === 'projects';
                   return (
@@ -216,7 +216,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       </span>
 
                       <span className="flex min-w-0 flex-1 flex-col self-stretch">
-                        <span className="block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
+                        <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
                         <span className="mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
                         <span className="studio-card-cta mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
                           {cta}
@@ -228,15 +228,18 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 })}
               </div>
 
-              {/* Importing an existing React + Vite project is the less common
-                  path, so it sits under the studios as one wide row. */}
+              {/* Importing an existing React + Vite project and the Showcase are
+                  the less common paths, so they sit under the studios as wide
+                  rows, side by side once the studios fit on one line. */}
+              {(onImportSite || onOpenShowcase) && (
+              <div className="studio-extra-rows mt-4 grid grid-cols-1 gap-4 sm:mt-5 sm:gap-5">
               {onImportSite && (
                 <button
                   type="button"
                   onClick={onImportSite}
                   aria-label="Import a site: open a React + Vite project from a .zip"
                   data-studio="import"
-                  className={`studio-card group mt-4 flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:mt-5 sm:px-6 ${FOCUS_RING}`}
+                  className={`studio-card group flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:px-6 ${FOCUS_RING}`}
                 >
                   <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
                     <FolderUp className="h-5 w-5" aria-hidden="true" />
@@ -263,7 +266,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   onClick={onOpenShowcase}
                   aria-label="Showcase: see what people have built with AppBlips"
                   data-studio="showcase"
-                  className={`studio-card group mt-4 flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:mt-5 sm:px-6 ${FOCUS_RING}`}
+                  className={`studio-card group flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:px-6 ${FOCUS_RING}`}
                 >
                   <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
                     <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -280,11 +283,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   </span>
                 </button>
               )}
+              </div>
+              )}
             </div>
           </div>
 
           <footer className="studio-footer relative shrink-0">
-            <div className="flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
+            <div className="studio-footer-inner flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
               <nav aria-label="Footer links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap sm:gap-x-6">
                 <a
                   href={GITHUB_URL}
