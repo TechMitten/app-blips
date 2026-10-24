@@ -194,6 +194,7 @@ async function handleAppRequest(request) {
         return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env, creditsStore));
       case '/api/credits':
       case '/api/credits/connect':
+      case '/api/credits/verify':
       case '/api/credits/checkout':
         return withSecurityHeaders(await handleCreditsApi(request, process.env, creditsStore));
       case '/api/surge':

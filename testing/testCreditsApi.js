@@ -39,6 +39,34 @@ const req = (path, { method = 'GET', body, origin = ORIGIN } = {}) => new Reques
   ...(body ? { body: JSON.stringify(body) } : {}),
 });
 
+// Polar's emailed sign-in code (customer-portal sessions). `sent` collects
+// each code request; the only valid code is GOOD42.
+const polarSignIn = (customer, sent = []) => (u, init = {}) => {
+  if (u.includes('/v1/products/')) return jsonResponse({ organization_id: 'org_1' });
+  if (u.endsWith('/customer-portal/customer-session/request')) {
+    sent.push(JSON.parse(init.body));
+    return new Response(null, { status: 202 });
+  }
+  if (u.endsWith('/customer-portal/customer-session/authenticate')) {
+    return JSON.parse(init.body).code === 'GOOD42'
+      ? jsonResponse({ token: 'polar_cst_test' })
+      : jsonResponse({ detail: 'This customer session code is invalid or has expired.' }, 401);
+  }
+  if (u.endsWith('/customer-portal/customer-session/user')) {
+    assert.equal(init.headers.Authorization, 'Bearer polar_cst_test');
+    return jsonResponse({ type: 'customer', customer_id: customer.id, email: customer.email });
+  }
+  return null;
+};
+
+const connectWithCode = async (email, env, tokens, mockFetch) => {
+  const sendRes = await handleCreditsApi(req('/api/credits/connect', { method: 'POST', body: { email } }), env, tokens, { fetch: mockFetch });
+  assert.equal(sendRes.status, 200);
+  assert.equal((await sendRes.json()).codeSent, true);
+  assert.equal(tokens.describe().hasKey, false, 'an email alone must not connect');
+  return handleCreditsApi(req('/api/credits/verify', { method: 'POST', body: { email, code: ' good42 ' } }), env, tokens, { fetch: mockFetch });
+};
+
 test('createCreditToken and verifyCreditToken sign and validate customer sessions', async () => {
   const token = await createCreditToken('polar_secret', 'cust_123', 'Builder@Example.com');
   assert.ok(token.startsWith('ab_cred_'));
@@ -60,9 +88,13 @@ test('connect, status, chat deduction, and sign-out work end to end against Pola
   const env = { POLAR_TOKEN: 'polar_test_token', DEEPSEEK_API_KEY: 'ds_test_key' };
   const ingestedEvents = [];
   let usedSoFar = 150;
+  const codeRequests = [];
+  const signIn = polarSignIn({ id: 'cust_abc', email: 'alice@example.com' }, codeRequests);
 
   const mockFetch = async (url, init = {}) => {
     const u = String(url);
+    const signInRes = signIn(u, init);
+    if (signInRes) return signInRes;
     if (u.includes('/v1/benefit-grants')) {
       return jsonResponse({
         items: [
@@ -95,14 +127,20 @@ test('connect, status, chat deduction, and sign-out work end to end against Pola
     return assert.fail(`Unexpected fetch URL: ${u}`);
   };
 
-  // 1. Connect by checkout email
-  const connectRes = await handleCreditsApi(
-    req('/api/credits/connect', { method: 'POST', body: { email: 'Alice@Example.com' } }),
+  // 1. Connect: checkout email, then the code Polar emailed to it
+  const wrongRes = await handleCreditsApi(
+    req('/api/credits/verify', { method: 'POST', body: { email: 'alice@example.com', code: 'NOPE00' } }),
     env,
     tokens,
     { fetch: mockFetch },
   );
+  assert.equal(wrongRes.status, 401);
+  assert.equal((await wrongRes.json()).invalidCode, true);
+  assert.equal(tokens.describe().hasKey, false);
+
+  const connectRes = await connectWithCode('Alice@Example.com', env, tokens, mockFetch);
   assert.equal(connectRes.status, 200);
+  assert.deepEqual(codeRequests, [{ email: 'alice@example.com', organization_id: 'org_1', customer_id: 'cust_abc' }]);
   const connected = await connectRes.json();
   assert.equal(connected.signedIn, true);
   assert.equal(connected.email, 'alice@example.com');
@@ -160,8 +198,11 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
   const env = { POLAR_TOKEN: 'polar_test_token', DEEPSEEK_API_KEY: 'ds_test_key' };
   let grantCreatedAt = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(); // 1 day ago (active)
 
-  const mockFetch = async (url) => {
+  const signIn = polarSignIn({ id: 'cust_trial', email: 'trial@example.com' });
+  const mockFetch = async (url, init) => {
     const u = String(url);
+    const signInRes = signIn(u, init);
+    if (signInRes) return signInRes;
     if (u.includes('/v1/benefit-grants')) {
       return jsonResponse({
         items: [
@@ -184,12 +225,7 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
   };
 
   // Active trial (1 day old): 100 granted, 10 used -> 90 remaining
-  const activeRes = await handleCreditsApi(
-    req('/api/credits/connect', { method: 'POST', body: { email: 'trial@example.com' } }),
-    env,
-    tokens,
-    { fetch: mockFetch },
-  );
+  const activeRes = await connectWithCode('trial@example.com', env, tokens, mockFetch);
   assert.equal(activeRes.status, 200);
   const activeBody = await activeRes.json();
   assert.equal(activeBody.trialActive, true);
@@ -224,4 +260,43 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
   assert.equal(expiredChat.status, 429);
   const expiredChatBody = await expiredChat.json();
   assert.match(expiredChatBody.error, /3-day free trial has expired/);
+});
+
+test('connecting through the AppBlips credits server needs the emailed code', async () => {
+  const tokens = memoryTokens();
+  const calls = [];
+  const mockFetch = async (url, init = {}) => {
+    const u = String(url);
+    calls.push({ url: u, body: init.body ? JSON.parse(init.body) : null });
+    if (u === 'https://appblips.com/api/credits/connect') return jsonResponse({ ok: true, codeSent: true, email: 'bob@example.com' });
+    if (u === 'https://appblips.com/api/credits/verify') {
+      return JSON.parse(init.body).code === 'GOOD42'
+        ? jsonResponse({ ok: true, token: 'ab_cred_relay', email: 'bob@example.com', remaining: 500, totalGranted: 1000, totalUsed: 500 })
+        : jsonResponse({ ok: false, error: 'bad code' }, 401);
+    }
+    return assert.fail(`Unexpected fetch URL: ${u}`);
+  };
+
+  const sendRes = await handleCreditsApi(req('/api/credits/connect', { method: 'POST', body: { email: 'bob@example.com' } }), {}, tokens, { fetch: mockFetch });
+  assert.deepEqual(await sendRes.json(), { codeSent: true, email: 'bob@example.com' });
+  assert.equal(tokens.describe().hasKey, false);
+
+  const wrongRes = await handleCreditsApi(req('/api/credits/verify', { method: 'POST', body: { email: 'bob@example.com', code: 'bad' } }), {}, tokens, { fetch: mockFetch });
+  assert.equal(wrongRes.status, 401);
+  assert.equal(tokens.describe().hasKey, false);
+
+  const okRes = await handleCreditsApi(req('/api/credits/verify', { method: 'POST', body: { email: 'bob@example.com', code: 'good-42' } }), {}, tokens, { fetch: mockFetch });
+  assert.equal(okRes.status, 200);
+  assert.equal((await okRes.json()).remaining, 500);
+  assert.equal(tokens.keyFor('bob@example.com'), 'ab_cred_relay');
+  assert.equal(calls.at(-1).body.code, 'GOOD42', 'the code is sent cleaned up');
+});
+
+test('a credits server without sign-in codes still connects (until it is updated)', async () => {
+  const tokens = memoryTokens();
+  const mockFetch = async () => jsonResponse({ ok: true, token: 'ab_cred_legacy', email: 'carol@example.com', remaining: 10 });
+  const res = await handleCreditsApi(req('/api/credits/connect', { method: 'POST', body: { email: 'carol@example.com' } }), {}, tokens, { fetch: mockFetch });
+  const body = await res.json();
+  assert.equal(body.signedIn, true);
+  assert.equal(tokens.keyFor('carol@example.com'), 'ab_cred_legacy');
 });

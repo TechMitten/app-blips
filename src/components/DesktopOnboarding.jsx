@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
-  FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X,
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Coins, Cpu, Eye, EyeOff,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, Mail, Sparkles, UserRound, X,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
-import { creditsConnect, creditsCheckout, FREE_TRIAL_PACK } from '../lib/credits';
+import { creditsConnect, creditsVerify } from '../lib/credits';
 import { logError, logWarn } from '../lib/errorLog';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -16,6 +16,7 @@ import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
 
 const defaultProvider = USER_PROVIDER_OPTIONS[0];
+const PRICING_URL = 'https://appblips.com/#pricing';
 
 // One labelled field. `error` appears only after the user has tried to
 // continue, so an untouched form doesn't open covered in red.
@@ -167,42 +168,39 @@ function NeedKeyModal({ providerLabel, onClose }) {
   );
 }
 
-function SetupForm({ formRef, onSubmit, onCreditsConnected, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
+// Asked before "I'm new to AI Credits" leaves the app for the website, so the
+// browser opening isn't a surprise. Portaled like NeedKeyModal.
+function OpenWebsiteModal({ onOpen, onClose }) {
+  return createPortal(
+    <Modal
+      zIndex={1200}
+      scrimClass="force-dark fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4"
+      cardClass="onboarding-info-modal animate-scale-in"
+      cardProps={{
+        role: 'alertdialog',
+        'aria-modal': true,
+        'aria-labelledby': 'onboarding-open-site-title',
+        'aria-describedby': 'onboarding-open-site-text',
+        onKeyDown: (event) => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } },
+      }}
+    >
+      <span className="onboarding-info-icon"><ArrowUpRight size={22} /></span>
+      <h2 id="onboarding-open-site-title">Open the AppBlips website?</h2>
+      <p id="onboarding-open-site-text">
+        To see pricing and sign up, AppBlips will open appblips.com in your web browser. When you’ve finished, come back here and choose I already have AI Credits.
+      </p>
+      <div className="onboarding-info-actions">
+        <button type="button" className="onboarding-skip" onClick={onClose}>Not now</button>
+        <button type="button" className="onboarding-next" onClick={onOpen} autoFocus>Open website <ArrowUpRight size={18} /></button>
+      </div>
+    </Modal>,
+    document.body,
+  );
+}
+
+function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
   const [needKey, setNeedKey] = useState(false);
-  const [creditsEmail, setCreditsEmail] = useState('');
-  const [creditsBusy, setCreditsBusy] = useState(false);
-  const [trialBusy, setTrialBusy] = useState(false);
-  const [creditsError, setCreditsError] = useState('');
-
-  const handleConnectCredits = async () => {
-    const trimmed = creditsEmail.trim();
-    if (!trimmed) {
-      setCreditsError('Enter the email address you used at checkout.');
-      return;
-    }
-    setCreditsBusy(true);
-    setCreditsError('');
-    const res = await creditsConnect(trimmed);
-    setCreditsBusy(false);
-    if (res.error) {
-      setCreditsError(res.error);
-      return;
-    }
-    onCreditsConnected?.();
-  };
-
-  const handleStartFreeTrial = async () => {
-    setTrialBusy(true);
-    setCreditsError('');
-    const res = await creditsCheckout(FREE_TRIAL_PACK.id, creditsEmail.trim());
-    setTrialBusy(false);
-    if (res.error || !res.checkoutUrl) {
-      setCreditsError(res.error || 'Could not open the free trial checkout.');
-      return;
-    }
-    try { window.open(res.checkoutUrl, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
-  };
 
   // Local servers (LM Studio, Ollama) list models without a key.
   const canOpenModels = () => {
@@ -218,42 +216,6 @@ function SetupForm({ formRef, onSubmit, onCreditsConnected, provider, setProvide
 
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <SetupField title="AppBlips AI Credits (No API key needed)" optional error={creditsError}>
-        <div className="flex gap-2">
-          <input
-            type="email"
-            value={creditsEmail}
-            onChange={(event) => { setCreditsEmail(event.target.value); setCreditsError(''); }}
-            placeholder="Checkout email (if you bought AI Credits)"
-            aria-label="AppBlips AI Credits email"
-            className="onboarding-select flex-1"
-          />
-          <button
-            type="button"
-            onClick={handleConnectCredits}
-            disabled={creditsBusy || !creditsEmail.trim()}
-            className="onboarding-next"
-          >
-            {creditsBusy ? 'Connecting…' : 'Use Credits'}
-          </button>
-        </div>
-        <p className="onboarding-key-help">
-          New here?{' '}
-          <button
-            type="button"
-            onClick={handleStartFreeTrial}
-            disabled={trialBusy || creditsBusy}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
-          >
-            {trialBusy ? 'Opening Free Trial…' : 'Start a 3-Day Free Trial (100 Credits)'}
-          </button>
-          {' '}or grab a credit pack at{' '}
-          <a href="https://appblips.com/#pricing" target="_blank" rel="noopener noreferrer">
-            appblips.com/#pricing <ArrowUpRight size={15} />
-          </a>
-        </p>
-      </SetupField>
-
       <SetupField title="Provider">
         <ProviderSelect value={provider.id} onChange={setProviderId} />
         {provider.local && (
@@ -309,6 +271,147 @@ function SetupForm({ formRef, onSubmit, onCreditsConnected, provider, setProvide
         {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
       </SetupField>
       {needKey && <NeedKeyModal providerLabel={provider.label} onClose={closeNeedKey} />}
+    </form>
+  );
+}
+
+const PLAN_OPTIONS = [
+  { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
+  { id: 'credits', Icon: Coins, title: 'Use AppBlips AI Credits', text: 'No API key or AI account needed. Connect the credits you already have, or start a free trial or buy a pack next.' },
+];
+
+const CREDITS_OPTIONS = [
+  { id: 'new', Icon: Sparkles, title: 'I’m new to AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or buy a credit pack.' },
+  { id: 'existing', Icon: Mail, title: 'I already have AI Credits', text: 'You started a trial or bought a pack. Connect it with the email you used at checkout.' },
+];
+
+// A radio group drawn as cards; arrow keys move through it like the avatar grid.
+function ChoiceCards({ formRef, label, options, value, onChange }) {
+  const pick = (event, index) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = options[(index + step + options.length) % options.length].id;
+    onChange(next);
+    formRef.current?.querySelector(`[data-choice="${next}"]`)?.focus();
+  };
+
+  return (
+    <div className="onboarding-plan-list" role="radiogroup" aria-label={label}>
+      {options.map(({ id, Icon, title, text }, index) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={value === id}
+          tabIndex={value === id ? 0 : -1}
+          data-choice={id}
+          className={`onboarding-plan ${value === id ? 'is-selected' : ''}`}
+          onClick={() => onChange(id)}
+          onKeyDown={(event) => pick(event, index)}
+          autoFocus={value === id}
+        >
+          <span className="onboarding-plan-icon"><Icon size={20} /></span>
+          <span className="onboarding-plan-copy"><strong>{title}</strong><small>{text}</small></span>
+          <span className="onboarding-model-radio">{value === id && <Check size={12} strokeWidth={3} />}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Third slide: how the AI is paid for. It only picks which form comes next;
+// nothing is saved until that form is finished.
+function PlanForm({ formRef, onSubmit, plan, setPlan }) {
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <SetupField title="Make a selection:">
+        <ChoiceCards formRef={formRef} label="How do you want to use AI?" options={PLAN_OPTIONS} value={plan} onChange={setPlan} />
+        <p className="onboarding-key-help">You can switch any time in Settings → API.</p>
+      </SetupField>
+    </form>
+  );
+}
+
+// Fourth slide when credits were chosen: new customers go to the website to
+// sign up and pay (Polar checkout); existing ones go on to ConnectCreditsForm.
+function CreditsForm({ formRef, onSubmit, choice, setChoice, openedPricing }) {
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <SetupField title="Make a selection:">
+        <ChoiceCards formRef={formRef} label="Do you already have AI Credits?" options={CREDITS_OPTIONS} value={choice} onChange={setChoice} />
+        {choice === 'new' && (
+          <p className="onboarding-key-help" role={openedPricing ? 'status' : undefined}>
+            {openedPricing
+              ? 'The plans opened in your web browser. When you’ve finished checkout, choose I already have AI Credits.'
+              : 'Click Continue to see pricing and sign up on our website.'}
+          </p>
+        )}
+      </SetupField>
+    </form>
+  );
+}
+
+// Last slide for existing credits customers. Connecting takes the checkout
+// email plus the code then sent to it, so knowing someone's email isn't
+// enough to spend their credits.
+function ConnectCreditsForm({ formRef, onSubmit, email, setEmail, error, codeSentTo, code, setCode, codeError, onResend, onChangeEmail, busy }) {
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      {codeSentTo && (
+        <SetupField title="Code from the email" error={codeError}>
+          <span className="onboarding-key-input">
+            <KeyRound size={19} />
+            <input
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="Paste the code"
+              aria-label="Code from the email"
+              aria-invalid={Boolean(codeError)}
+              data-field="code"
+              autoComplete="one-time-code"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={32}
+              autoFocus
+            />
+          </span>
+          <p className="onboarding-key-help" role="status">
+            We sent a sign-in code to <strong>{codeSentTo}</strong>. It comes from Polar, our payment service, and can take a minute to arrive.
+          </p>
+          <p className="onboarding-key-help onboarding-inline-actions">
+            <button type="button" onClick={onResend} disabled={busy}>Send a new code</button>
+            <button type="button" onClick={onChangeEmail} disabled={busy}>Use a different email</button>
+          </p>
+        </SetupField>
+      )}
+
+      {!codeSentTo && (
+        <SetupField title="Checkout email" error={error}>
+          <span className="onboarding-key-input">
+            <Mail size={19} />
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="The email you used at checkout"
+              aria-label="Checkout email"
+              aria-invalid={Boolean(error)}
+              data-field="email"
+              autoComplete="email"
+              spellCheck={false}
+              className="onboarding-name-input"
+              autoFocus
+            />
+          </span>
+          <p className="onboarding-key-help">We’ll email you a code to prove it’s you.</p>
+        </SetupField>
+      )}
+
+      <p className="onboarding-key-help">
+        Having trouble connecting?
+        <a href="mailto:support@appblips.com" target="_blank" rel="noopener noreferrer">support@appblips.com <Mail size={15} /></a>
+      </p>
     </form>
   );
 }
@@ -421,6 +524,16 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   );
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [plan, setPlan] = useState('key');
+  const [creditsChoice, setCreditsChoice] = useState('new');
+  const [openedPricing, setOpenedPricing] = useState(false);
+  const [confirmWebsite, setConfirmWebsite] = useState(false);
+  const [creditsEmail, setCreditsEmail] = useState('');
+  const [creditsError, setCreditsError] = useState('');
+  // The email the sign-in code went to; empty until one is sent.
+  const [codeSentTo, setCodeSentTo] = useState('');
+  const [creditsCode, setCreditsCode] = useState('');
+  const [codeError, setCodeError] = useState('');
   const [status, setStatus] = useState(null);
   // Set when "Start building" is pressed with fields missing; from then on the
   // missing fields stay marked until they are filled in.
@@ -466,10 +579,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  const continueToAi = () => {
+  const continueToPlan = () => {
     keepProfile();
-    setStep('ai');
+    setStep('plan');
   };
+  const continueFromPlan = () => setStep(plan === 'credits' ? 'credits' : 'ai');
 
   const needsKey = !provider.local && !apiKey.trim();
   const needsModel = !model.trim();
@@ -498,20 +612,93 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     }
   };
 
-  const skip = async () => {
-    if (busy) return;
+  const markOnboarded = async () => {
     try {
       await providerApi.set({ onboardingComplete: true });
     } catch (err) {
-      // Not remembering the skip only means setup shows again next launch.
-      logWarn('Could not remember that AI setup was skipped', err);
+      // Not remembering this only means setup shows again next launch.
+      logWarn('Could not remember that AI setup was done', err);
     }
+  };
+
+  const skip = async () => {
+    if (busy) return;
+    await markOnboarded();
     onComplete();
+  };
+
+  // Credits need no provider entry: the chat proxy uses them whenever no
+  // provider of the user's own is set (handleChatProxy in chatProxy.js).
+  const openPricing = () => {
+    try { window.open(PRICING_URL, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
+    setOpenedPricing(true);
+  };
+
+  const finishCredits = async () => {
+    await markOnboarded();
+    setStatus({ kind: 'ok', text: 'You’re ready.' });
+    window.setTimeout(onComplete, 350);
+  };
+
+  const sendCreditsCode = async () => {
+    const email = creditsEmail.trim();
+    if (!email) {
+      setCreditsError('Enter the email address you used at checkout.');
+      formRef.current?.querySelector('[data-field="email"]')?.focus();
+      return;
+    }
+    setCreditsError('');
+    setCodeError('');
+    setStatus({ kind: 'busy', text: 'Sending your code…' });
+    const res = await creditsConnect(email);
+    if (res.error) {
+      setStatus(null);
+      if (codeSentTo) setCodeError(res.error);
+      else setCreditsError(res.error);
+      return;
+    }
+    if (res.signedIn) return finishCredits();
+    setStatus(null);
+    setCreditsCode('');
+    setCodeSentTo(res.email || email);
+  };
+
+  const continueFromCredits = () => {
+    if (creditsChoice === 'new') setConfirmWebsite(true);
+    else setStep('connect');
+  };
+
+  const connectCredits = async () => {
+    if (busy) return;
+    if (!codeSentTo) return sendCreditsCode();
+    if (!creditsCode.trim()) {
+      setCodeError('Paste the code from the email.');
+      formRef.current?.querySelector('[data-field="code"]')?.focus();
+      return;
+    }
+    setCodeError('');
+    setStatus({ kind: 'busy', text: 'Connecting your credits…' });
+    const res = await creditsVerify(codeSentTo, creditsCode);
+    if (res.error) {
+      setStatus(null);
+      setCodeError(res.error);
+      formRef.current?.querySelector('[data-field="code"]')?.focus();
+      return;
+    }
+    return finishCredits();
   };
 
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
+  const isPlan = step === 'plan';
   const isAi = step === 'ai';
+  const isCredits = step === 'credits';
+  const isConnect = step === 'connect';
+  const isLast = isAi || isConnect;
+  const back = { avatar: 'name', plan: 'avatar', ai: 'plan', credits: 'plan', connect: 'credits' }[step];
+  // The credits path has one more slide than the own-key path.
+  const stepCount = plan === 'credits' ? 5 : 4;
+  const stepNumber = { avatar: 2, plan: 3, ai: 4, credits: 4, connect: 5 }[step];
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -533,7 +720,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
         <div className="onboarding-stage" key={step}>
           <section className="onboarding-copy has-panel">
-            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${isAvatar ? 2 : 3} of 3`}</span>
+            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
             {!isName && cleanName(name) && (
               <div className="onboarding-greeting">
                 <ProfileAvatar avatar={avatar} size={22} />
@@ -548,6 +735,18 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Now pick <span className="onboarding-title-accent">your avatar.</span>
               </h1>
+            ) : isPlan ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                How do you want to <span className="onboarding-title-accent">power AppBlips?</span>
+              </h1>
+            ) : isCredits ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Build with <span className="onboarding-title-accent">AppBlips AI Credits.</span>
+              </h1>
+            ) : isConnect ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Connect your <span className="onboarding-title-accent">AI Credits.</span>
+              </h1>
             ) : (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
@@ -559,6 +758,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <p>{isDesktop
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
+            ) : isPlan ? (
+              <p>AppBlips needs an AI to build with. Use your own API key from an AI provider, or use AppBlips AI Credits instead of a key.</p>
+            ) : isCredits ? (
+              <p>New here? See the plans and sign up on our website. Already signed up? Connect the credits you bought on the next screen.</p>
+            ) : isConnect ? (
+              <p>Enter the email you used at checkout. We’ll email you a code to prove it’s you, so nobody else can use your credits.</p>
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
             )}
@@ -569,15 +774,39 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             ) : isAvatar ? (
               <AvatarForm
                 formRef={formRef}
-                onSubmit={continueToAi}
+                onSubmit={continueToPlan}
                 {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
+              />
+            ) : isPlan ? (
+              <PlanForm formRef={formRef} onSubmit={continueFromPlan} {...{ plan, setPlan }} />
+            ) : isCredits ? (
+              <CreditsForm
+                formRef={formRef}
+                onSubmit={continueFromCredits}
+                choice={creditsChoice}
+                setChoice={setCreditsChoice}
+                openedPricing={openedPricing}
+              />
+            ) : isConnect ? (
+              <ConnectCreditsForm
+                formRef={formRef}
+                onSubmit={connectCredits}
+                codeSentTo={codeSentTo}
+                code={creditsCode}
+                setCode={(value) => { setCreditsCode(value); setCodeError(''); }}
+                codeError={codeError}
+                onResend={sendCreditsCode}
+                onChangeEmail={() => { setCodeSentTo(''); setCreditsCode(''); setCodeError(''); }}
+                busy={busy}
+                email={creditsEmail}
+                setEmail={(value) => { setCreditsEmail(value); setCreditsError(''); }}
+                error={creditsError}
               />
             ) : (
               <SetupForm
                 formRef={formRef}
                 onSubmit={save}
-                onCreditsConnected={skip}
                 provider={provider}
                 setProviderId={changeProvider}
                 {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}
@@ -589,8 +818,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
         <footer className="onboarding-footer">
           <div className="onboarding-footer-start">
-            {!isName && (
-              <button type="button" className="onboarding-skip" onClick={() => setStep(isAvatar ? 'name' : 'avatar')} disabled={busy}>
+            {back && (
+              <button type="button" className="onboarding-skip" onClick={() => { setStatus(null); setStep(back); }} disabled={busy}>
                 <ArrowLeft size={16} /> Back
               </button>
             )}
@@ -601,25 +830,31 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             )}
           </div>
           <div className="onboarding-actions">
-            {isAi && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
-            {!isAi ? (
-              <button type="button" className="onboarding-next" onClick={isName ? continueToAvatar : continueToAi}>
+            {isLast && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
+            {!isLast ? (
+              <button type="button" className="onboarding-next" onClick={isName ? continueToAvatar : isAvatar ? continueToPlan : isPlan ? continueFromPlan : continueFromCredits}>
                 Continue <ArrowRight size={18} />
               </button>
             ) : (
               <button
                 type="button"
                 className="onboarding-next"
-                onClick={save}
+                onClick={isConnect ? connectCredits : save}
                 disabled={busy}
               >
                 {status?.kind === 'busy' ? <Loader2 className="animate-spin" size={18} /> : status?.kind === 'ok' && <Check size={18} />}
-                {busy ? status.text : <>Start building <ArrowRight size={18} /></>}
+                {busy ? status.text : <>{!isConnect ? 'Start building' : codeSentTo ? 'Use my credits' : 'Email me a code'} <ArrowRight size={18} /></>}
               </button>
             )}
           </div>
         </footer>
       </main>
+      {confirmWebsite && (
+        <OpenWebsiteModal
+          onOpen={() => { setConfirmWebsite(false); openPricing(); }}
+          onClose={() => setConfirmWebsite(false)}
+        />
+      )}
     </div>
   );
 }

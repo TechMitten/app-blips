@@ -66,6 +66,10 @@ Most people never set these. They let a server you run bill AppBlips AI Credits 
   Optional. A ready-made Polar checkout link for a pack, instead of creating one. `POLAR_CHECKOUT_URL_BUILDER` and `POLAR_CHECKOUT_URL_STUDIO` work the same way.
 </ParamField>
 
+<ParamField body="POLAR_ORGANIZATION_ID" type="string">
+  Optional. Your Polar organization ID, used to email the sign-in code people enter when they connect credits. When blank, AppBlips looks it up from the trial product, which needs the token to be able to read products.
+</ParamField>
+
 <ParamField body="APPBLIPS_CREDITS_ORIGIN" type="string">
   Where to relay credit requests when `POLAR_TOKEN` isn't set. Blank means `https://appblips.com`.
 </ParamField>

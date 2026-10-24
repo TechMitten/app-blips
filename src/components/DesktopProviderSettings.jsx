@@ -6,7 +6,7 @@ import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
-import { creditsStatus, creditsConnect, creditsCheckout, creditsSignOut, CREDIT_PACKS, FREE_TRIAL_PACK } from '../lib/credits';
+import { creditsStatus, creditsConnect, creditsVerify, creditsCheckout, creditsSignOut, CREDIT_PACKS, FREE_TRIAL_PACK } from '../lib/credits';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { logError } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -27,10 +27,13 @@ const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.la
 function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   const [info, setInfo] = useState(null); // { signedIn, email, remaining, totalGranted, totalUsed }
   const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(''); // '' | 'connecting' | 'checking' | packId
+  const [busy, setBusy] = useState(''); // '' | 'sending' | 'connecting' | 'checking' | packId
   const [waitingPack, setWaitingPack] = useState(null);
   const [message, setMessage] = useState(null); // { kind: 'ok' | 'error', text }
-  const pollTimer = useRef(null);
+  // The email a sign-in code went to; connecting needs that code, so knowing
+  // a customer's email isn't enough to spend their credits.
+  const [codeSentTo, setCodeSentTo] = useState('');
+  const [code, setCode] = useState('');
   const mounted = useRef(true);
 
   const loadStatus = async (silent = false) => {
@@ -47,42 +50,60 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   useEffect(() => {
     mounted.current = true;
     loadStatus(true);
-    return () => {
-      mounted.current = false;
-      clearTimeout(pollTimer.current);
-    };
+    return () => { mounted.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const connectEmail = async (targetEmail = email, silentNotFound = false) => {
-    const trimmed = String(targetEmail || '').trim();
-    if (!trimmed) {
-      if (!silentNotFound) setMessage({ kind: 'error', text: 'Enter the email address you used at checkout.' });
-      return false;
-    }
-    if (!silentNotFound) {
-      setBusy('connecting');
-      setMessage(null);
-    }
-    const res = await creditsConnect(trimmed);
-    if (!mounted.current) return false;
-    if (!silentNotFound) setBusy('');
-    if (res.error) {
-      if (!silentNotFound) setMessage({ kind: 'error', text: res.error });
-      return false;
-    }
-    clearTimeout(pollTimer.current);
+  const connected = (res) => {
     setWaitingPack(null);
+    setCodeSentTo('');
+    setCode('');
     setInfo(res);
     setMessage({ kind: 'ok', text: `Connected! ${typeof res.remaining === 'number' ? `${res.remaining.toLocaleString()} AI Credits ready.` : 'Ready to build.'}` });
-    return true;
+  };
+
+  const sendCode = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setMessage({ kind: 'error', text: 'Enter the email address you used at checkout.' });
+      return;
+    }
+    setBusy('sending');
+    setMessage(null);
+    const res = await creditsConnect(trimmed);
+    if (!mounted.current) return;
+    setBusy('');
+    if (res.error) {
+      setMessage({ kind: 'error', text: res.error });
+      return;
+    }
+    if (res.signedIn) return connected(res);
+    setCode('');
+    setCodeSentTo(res.email || trimmed);
+    setMessage({ kind: 'ok', text: `We sent a sign-in code to ${res.email || trimmed}. It comes from Polar, our payment service.` });
+  };
+
+  const verifyCode = async () => {
+    if (!code.trim()) {
+      setMessage({ kind: 'error', text: 'Paste the code from the email.' });
+      return;
+    }
+    setBusy('connecting');
+    setMessage(null);
+    const res = await creditsVerify(codeSentTo, code);
+    if (!mounted.current) return;
+    setBusy('');
+    if (res.error) {
+      setMessage({ kind: 'error', text: res.error });
+      return;
+    }
+    connected(res);
   };
 
   const startPackCheckout = async (pack) => {
     setMessage(null);
     setBusy(pack.id);
-    const trimmedEmail = email.trim();
-    const res = await creditsCheckout(pack.id, trimmedEmail);
+    const res = await creditsCheckout(pack.id, email.trim());
     if (!mounted.current) return;
     setBusy('');
     if (res.error || !res.checkoutUrl) {
@@ -91,21 +112,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
     }
     try { window.open(res.checkoutUrl, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
     setWaitingPack(pack);
-    if (trimmedEmail && trimmedEmail.includes('@')) {
-      const poll = async () => {
-        if (!mounted.current) return;
-        const connected = await connectEmail(trimmedEmail, true);
-        if (!connected && mounted.current) {
-          pollTimer.current = setTimeout(poll, 4000);
-        }
-      };
-      clearTimeout(pollTimer.current);
-      pollTimer.current = setTimeout(poll, 4000);
-    }
   };
 
   const signOut = async () => {
-    clearTimeout(pollTimer.current);
     setWaitingPack(null);
     const res = await creditsSignOut();
     if (!mounted.current) return;
@@ -170,29 +179,59 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="block text-sm text-slate-600">
-                Checkout email
-                <div className="mt-1.5 flex flex-wrap sm:flex-nowrap gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setMessage(null); }}
-                    placeholder="you@example.com (email used at checkout)"
-                    className={FIELD_CLASS}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => connectEmail(email, false)}
-                    disabled={Boolean(busy) || !email.trim()}
-                    className={`${PRIMARY_BUTTON} shrink-0`}
-                  >
-                    {busy === 'connecting' ? 'Connecting…' : 'Connect Credits'}
-                  </button>
-                </div>
-              </label>
-              <p className="text-xs text-slate-500 leading-snug">
-                Already bought a credit pack? Enter the email you used at checkout and click Connect Credits. Need credits? Pick a pack below:
-              </p>
+              {codeSentTo ? (
+                <>
+                  <label className="block text-sm text-slate-600">
+                    Code from the email sent to {codeSentTo}
+                    <div className="mt-1.5 flex flex-wrap sm:flex-nowrap gap-2">
+                      <input
+                        value={code}
+                        onChange={(e) => { setCode(e.target.value); setMessage(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !busy) verifyCode(); }}
+                        placeholder="Paste the code"
+                        autoComplete="one-time-code"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        maxLength={32}
+                        className={`${FIELD_CLASS} font-mono`}
+                      />
+                      <button type="button" onClick={verifyCode} disabled={Boolean(busy) || !code.trim()} className={`${PRIMARY_BUTTON} shrink-0`}>
+                        {busy === 'connecting' ? 'Connecting…' : 'Connect Credits'}
+                      </button>
+                    </div>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={sendCode} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
+                      {busy === 'sending' ? 'Sending…' : 'Send a new code'}
+                    </button>
+                    <button type="button" onClick={() => { setCodeSentTo(''); setCode(''); setMessage(null); }} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
+                      Use a different email
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm text-slate-600">
+                    Checkout email
+                    <div className="mt-1.5 flex flex-wrap sm:flex-nowrap gap-2">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); setMessage(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !busy) sendCode(); }}
+                        placeholder="you@example.com (email used at checkout)"
+                        className={FIELD_CLASS}
+                      />
+                      <button type="button" onClick={sendCode} disabled={Boolean(busy) || !email.trim()} className={`${PRIMARY_BUTTON} shrink-0`}>
+                        {busy === 'sending' ? 'Sending…' : 'Email me a code'}
+                      </button>
+                    </div>
+                  </label>
+                  <p className="text-xs text-slate-500 leading-snug">
+                    Already bought a credit pack? Enter the email you used at checkout and we'll email you a code to connect. Need credits? Pick a pack below:
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -252,7 +291,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
                 Complete your {waitingPack.shortName} (${waitingPack.priceUsd}) purchase in the browser tab that opened.
               </p>
               <p>
-                Once finished, make sure your checkout email is entered above and click <strong>Connect Credits</strong> (if you typed your email first, AppBlips will detect it automatically).
+                {signedIn
+                  ? <>Once finished, click <strong>Refresh balance</strong>.</>
+                  : <>Once finished, enter your checkout email above and click <strong>Email me a code</strong>.</>}
               </p>
             </div>
           )}

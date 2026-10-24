@@ -12,7 +12,8 @@
 //
 //   GET    /api/credits          -> { signedIn, email, remaining, totalGranted, totalUsed, packs }
 //   DELETE /api/credits          -> sign out (forget the saved credit token)
-//   POST   /api/credits/connect  -> { email } -> { signedIn, email, remaining, totalGranted, totalUsed }
+//   POST   /api/credits/connect  -> { email } -> { codeSent, email } (a sign-in code is emailed)
+//   POST   /api/credits/verify   -> { email, code } -> { signedIn, email, remaining, totalGranted, totalUsed }
 //   POST   /api/credits/checkout -> { packId, email? } -> { checkoutUrl, pack }
 
 import { isForeignOrigin } from './chatProxy.js';
@@ -293,6 +294,73 @@ export async function recordPolarUsage(polarToken, customerId, credits, model, u
   }
 }
 
+// Proving the email is the customer's: Polar emails a one-time code (its
+// customer-portal sign-in, which also handles expiry and single use), and
+// only someone who can read that inbox gets a credit token. An email alone
+// used to be enough, so anyone who knew a customer's address could spend
+// their credits. These endpoints are the ones Polar's own portal uses.
+let cachedOrganizationId = '';
+async function polarOrganizationId(polarToken, env, fetchImpl) {
+  const fromEnv = String(env?.POLAR_ORGANIZATION_ID || '').trim();
+  if (fromEnv) return fromEnv;
+  if (cachedOrganizationId) return cachedOrganizationId;
+  const res = await fetchImpl(`${POLAR_API_BASE}/products/${TRIAL_PRODUCT_ID}`, {
+    headers: { Authorization: `Bearer ${polarToken}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const data = res.ok ? await res.json().catch(() => null) : null;
+  if (!data?.organization_id) throw new Error(`Could not look up the Polar organization (HTTP ${res.status}).`);
+  cachedOrganizationId = data.organization_id;
+  return cachedOrganizationId;
+}
+
+export async function requestPolarSignInCode(organizationId, email, customerId, fetchImpl = globalThis.fetch) {
+  const res = await fetchImpl(`${POLAR_API_BASE}/customer-portal/customer-session/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email, organization_id: organizationId, ...(customerId ? { customer_id: customerId } : {}) }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Could not send the sign-in code (HTTP ${res.status}). Try again in a moment.`);
+}
+
+// Returns the customer the code was sent to, or null for a wrong, used or
+// expired code.
+export async function verifyPolarSignInCode(code, fetchImpl = globalThis.fetch) {
+  const authRes = await fetchImpl(`${POLAR_API_BASE}/customer-portal/customer-session/authenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ code }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (authRes.status === 401 || authRes.status === 422) return null;
+  const auth = authRes.ok ? await authRes.json().catch(() => null) : null;
+  if (!auth?.token) throw new Error(`Could not check the sign-in code (HTTP ${authRes.status}). Try again in a moment.`);
+  const userRes = await fetchImpl(`${POLAR_API_BASE}/customer-portal/customer-session/user`, {
+    headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const user = userRes.ok ? await userRes.json().catch(() => null) : null;
+  if (!user?.customer_id) throw new Error(`Could not read your Polar account (HTTP ${userRes.status}). Try again in a moment.`);
+  return { customerId: user.customer_id, email: String(user.email || '').trim().toLowerCase() };
+}
+
+// Codes are letters and digits; people paste them with spaces or in lower case.
+const cleanCode = (code) => String(code || '').replace(/[\s-]/g, '').toUpperCase().slice(0, 32);
+
+const signedInBody = (email, balance) => ({
+  signedIn: true,
+  email,
+  remaining: balance.remaining,
+  totalGranted: balance.totalGranted,
+  totalUsed: balance.totalUsed,
+  hasTrial: Boolean(balance.hasTrial),
+  trialActive: Boolean(balance.trialActive),
+  trialExpired: Boolean(balance.trialExpired),
+  trialExpiresAt: balance.trialExpiresAt || null,
+  packs: CREDIT_PACKS,
+});
+
 const creditsOrigin = (env) => String(env?.APPBLIPS_CREDITS_ORIGIN || DEFAULT_CREDITS_ORIGIN).trim().replace(/\/+$/, '');
 
 export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
@@ -384,20 +452,9 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
             notFound: true,
           }, 404);
         }
-        const token = await createCreditToken(polarToken, balance.customerId, balance.email);
-        await tokens.save(balance.email, token);
-        return json({
-          signedIn: true,
-          email: balance.email,
-          remaining: balance.remaining,
-          totalGranted: balance.totalGranted,
-          totalUsed: balance.totalUsed,
-          hasTrial: balance.hasTrial,
-          trialActive: balance.trialActive,
-          trialExpired: balance.trialExpired,
-          trialExpiresAt: balance.trialExpiresAt,
-          packs: CREDIT_PACKS,
-        });
+        const organizationId = await polarOrganizationId(polarToken, env, fetchImpl);
+        await requestPolarSignInCode(organizationId, balance.email || email, balance.customerId, fetchImpl);
+        return json({ codeSent: true, email: balance.email || email });
       }
 
       const res = await fetchImpl(`${origin}/api/credits/connect`, {
@@ -407,27 +464,57 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
         signal: AbortSignal.timeout(15_000),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok || !data?.token) {
-        return json({
-          error: data?.error || `No AppBlips AI Credits were found for ${email}.`,
-          notFound: res.status === 404,
-        }, res.status === 404 ? 404 : 400);
+      if (res.ok && data?.codeSent) return json({ codeSent: true, email: data.email || email });
+      // A credits server that predates sign-in codes still answers with a
+      // token straight away; accept it so connecting keeps working until
+      // that server is updated.
+      if (res.ok && data?.ok && data?.token) {
+        await tokens.save(data.email || email, data.token);
+        return json(signedInBody(data.email || email, data));
       }
-      await tokens.save(data.email || email, data.token);
       return json({
-        signedIn: true,
-        email: data.email || email,
-        remaining: data.remaining,
-        totalGranted: data.totalGranted,
-        totalUsed: data.totalUsed,
-        hasTrial: Boolean(data.hasTrial),
-        trialActive: Boolean(data.trialActive),
-        trialExpired: Boolean(data.trialExpired),
-        trialExpiresAt: data.trialExpiresAt || null,
-        packs: CREDIT_PACKS,
-      });
+        error: data?.error || `No AppBlips AI Credits were found for ${email}.`,
+        notFound: res.status === 404,
+      }, res.status === 404 ? 404 : 400);
     } catch (err) {
       return json({ error: err?.message || 'Could not verify your credits right now. Try again in a moment.' }, 502);
+    }
+  }
+
+  if (path === '/api/credits/verify') {
+    const email = String(body.email || '').trim().toLowerCase();
+    const code = cleanCode(body.code);
+    if (!code) return json({ error: 'Enter the code from the email.' }, 400);
+    const wrongCode = () => json({ error: 'That code is wrong or has expired. Check the email, or send a new code.', invalidCode: true }, 401);
+
+    try {
+      if (polarToken) {
+        const customer = await verifyPolarSignInCode(code, fetchImpl);
+        if (!customer) return wrongCode();
+        // The token is for whoever the code was sent to, even if a different
+        // email was typed: holding the code is what proves the account.
+        const balance = await lookupPolarBalance(polarToken, { customerId: customer.customerId }, fetchImpl);
+        const signedEmail = customer.email || balance.email || email;
+        const token = await createCreditToken(polarToken, customer.customerId, signedEmail);
+        await tokens.save(signedEmail, token);
+        return json(signedInBody(signedEmail, balance));
+      }
+
+      const res = await fetchImpl(`${origin}/api/credits/verify`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ email, code }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 401) return wrongCode();
+      if (!res.ok || !data?.ok || !data?.token) {
+        return json({ error: data?.error || 'Could not check the code right now. Try again in a moment.' }, 502);
+      }
+      await tokens.save(data.email || email, data.token);
+      return json(signedInBody(data.email || email, data));
+    } catch (err) {
+      return json({ error: err?.message || 'Could not check the code right now. Try again in a moment.' }, 502);
     }
   }
 
