@@ -46,6 +46,7 @@
             "group": "Reference",
             "pages": [
               "reference/settings",
+              "reference/plans-billing",
               "reference/faq",
               "reference/troubleshooting",
               "reference/code-signing-policy"
