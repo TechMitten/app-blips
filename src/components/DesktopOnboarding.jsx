@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
-  FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X, Zap,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
@@ -438,18 +438,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     onComplete();
   };
 
-  // Tell the user exactly what is still missing, so "Start building" never
-  // looks like a dead end.
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
   const isAi = step === 'ai';
-  const missing = isName ? (needsName ? 'Tell us your name to continue.' : '')
-    : isAvatar ? ''
-      : needsModel && needsKey ? 'Connect a provider to continue.'
-        : needsModel ? 'Choose a model to continue.'
-          : needsKey ? 'Paste your API key to continue.' : '';
-  const showMissing = isName ? profileAttempted : attempted;
-  const allSet = isName ? 'Click Continue to pick your avatar.' : isAvatar ? 'Click Continue for the AI setup.' : 'Click Start building to begin.';
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -500,10 +491,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
             )}
-            <div className={`onboarding-your-turn ${showMissing && missing ? 'is-invalid' : ''}`} aria-live="polite">
-              <span className="onboarding-your-turn-icon">{missing ? <Zap size={24} /> : <Check size={24} />}</span>
-              <span><strong>{missing ? 'Your turn' : 'All set'}</strong>{missing || allSet}</span>
-            </div>
           </section>
           <section className="onboarding-visual-wrap">
             {isName ? (
