@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { gunzipSync } from 'node:zlib';
 import { createTar, gzip } from '../electron/server/tar.js';
 import { handleSurgeApi, normalizeSurgeDomain } from '../electron/server/surgeApi.js';
+import { addFaviconLinks } from '../src/lib/favicon.js';
 
 const ORIGIN = 'http://localhost:5175';
 
@@ -139,6 +140,41 @@ test('publish uploads copied Pollinations images next to the pages, and refuses 
     );
     assert.equal(response.status, 400, JSON.stringify(bad));
   }
+});
+
+test('publish uploads the site icon as favicon.png, within its size cap', async () => {
+  let seen;
+  const fetch = async (url, init) => {
+    seen = init;
+    return new Response('{"type":"info"}\n', { status: 200 });
+  };
+  const ok = await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': 'x' }, images: { 'favicon.png': btoa('PNG') } } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch },
+  );
+  assert.equal(ok.status, 200);
+  assert.deepEqual(readTar(gunzipSync(seen.body)).map((f) => f.name).sort(), ['site/favicon.png', 'site/index.html']);
+
+  const big = await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': 'x' }, images: { 'favicon.png': btoa('x'.repeat(300 * 1024)) } } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch: () => assert.fail('no upload') },
+  );
+  assert.equal(big.status, 400);
+});
+
+test('site icon links replace the page\'s own icons, in the <head> only', () => {
+  const page = '<!DOCTYPE html>\n<html><head>\n<meta charset="utf-8">\n<link rel="icon" href="data:,">\n<LINK REL=\'shortcut icon\' href="a.ico">\n<link rel="stylesheet" href="s.css">\n</head><body><header>Hi</header><script>const t = \'<link rel="icon">\';</script></body></html>';
+  const out = addFaviconLinks(page);
+  assert.equal((out.match(/rel="icon"/g) || []).length, 2, 'ours plus the one inside the script');
+  assert.ok(out.includes('<link rel="icon" type="image/png" href="/favicon.png">'));
+  assert.ok(out.includes('<link rel="apple-touch-icon" href="/favicon.png">'));
+  assert.ok(!out.includes('a.ico') && !out.includes('data:,'));
+  assert.ok(out.includes('rel="stylesheet"') && out.includes('<header>Hi</header>'));
+  assert.ok(out.indexOf('favicon.png') > out.indexOf('<head>') && out.indexOf('favicon.png') < out.indexOf('</head>'));
+
+  const noHead = addFaviconLinks('<!doctype html><html lang="en"><body>x</body></html>');
+  assert.match(noHead, /^<!doctype html><html lang="en"><head>\n<link rel="icon"[^]*<\/head>\n<body>x/);
+  assert.match(addFaviconLinks('<!doctype html><p>x</p>'), /^<!doctype html><link rel="icon"/);
 });
 
 test('publish without signing in asks for a sign-in', async () => {

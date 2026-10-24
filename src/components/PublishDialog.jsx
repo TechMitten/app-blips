@@ -1,17 +1,78 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CircleAlert, Copy, ExternalLink, Globe, Loader2, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, RefreshCw, Share2, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
-  SURGE_SUFFIX, loadPublishedName, savePublishedName, suggestSurgeName,
+  SURGE_SUFFIX, loadFavicon, loadPublishedName, saveFavicon, savePublishedName, suggestSurgeName,
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
+import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
 import ShareIcon from './ShareIcons';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
 const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
+
+// The site icon (favicon) row on the publish and manage steps. Picking an
+// image only changes what the next Publish / Update site sends.
+function SiteIconField({ icon, onChange, disabled }) {
+  const input = useRef(null);
+  const [error, setError] = useState('');
+  const [reading, setReading] = useState(false);
+
+  const pick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setReading(true);
+    setError('');
+    try {
+      onChange(await makeFavicon(file));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p id="site-icon-label" className={LABEL_CLASS}>Site icon <span className="font-normal text-slate-500">(optional)</span></p>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+          {icon
+            ? <img src={icon} alt="Current site icon" className="h-7 w-7 object-contain" />
+            : <Globe size={18} className="text-slate-400" aria-hidden="true" />}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico"
+          onChange={pick}
+          className="hidden"
+          aria-labelledby="site-icon-label"
+        />
+        <button type="button" onClick={() => input.current?.click()} disabled={disabled || reading} className={SECONDARY_BUTTON}>
+          {reading ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ImagePlus size={14} aria-hidden="true" />}
+          {icon ? 'Change…' : 'Choose image…'}
+        </button>
+        {icon && (
+          <button type="button" onClick={() => { setError(''); onChange(''); }} disabled={disabled || reading} className={`text-xs ${LINK_CLASS}`}>
+            Remove
+          </button>
+        )}
+      </div>
+      {error
+        ? <p role="alert" className="text-xs leading-snug text-red-600">{error}</p>
+        : (
+          <p className="text-xs leading-snug text-slate-500">
+            The small picture in the browser tab and bookmarks. A square image works best.
+          </p>
+        )}
+    </div>
+  );
+}
 
 // Publish: puts the current pages on Surge (surge.sh) at a free
 // <name>.surge.sh address with HTTPS. The first time it asks for a Surge sign-in
@@ -36,6 +97,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
   const [confirm, setConfirm] = useState('');
   const [account, setAccount] = useState('');
   const [name, setName] = useState(() => suggestSurgeName(projectName));
+  const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
@@ -107,10 +169,14 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
     if (from === 'ready') setStep('publishing');
     const pages = buildFiles();
     const { images } = await collectSiteImages(pages);
+    const uploads = Object.fromEntries(images.map(({ path, bytes }) => [path, bytesToBase64(bytes)]));
+    const icon = faviconBase64(favicon);
+    if (icon) uploads[FAVICON_PATH] = icon;
+    const sitePages = pointAtCopies(pages, images);
     const result = await surgePublish(
       clean,
-      pointAtCopies(pages, images),
-      images.length ? Object.fromEntries(images.map(({ path, bytes }) => [path, bytesToBase64(bytes)])) : undefined,
+      icon ? withFavicon(sitePages) : sitePages,
+      Object.keys(uploads).length ? uploads : undefined,
     );
     if (!mounted.current) return;
     setBusy(false);
@@ -123,6 +189,11 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
     setPublished(clean);
     setUrl(result.url);
     setStep('done');
+  };
+
+  const changeFavicon = (icon) => {
+    setFavicon(icon);
+    saveFavicon(projectId, icon);
   };
 
   const publish = (event) => {
@@ -282,7 +353,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
 
       {step === 'manage' && (
         <>
-          <div className="p-6 space-y-4 text-sm text-slate-700">
+          <div className="min-h-0 overflow-y-auto p-6 space-y-4 text-sm text-slate-700">
             <div className="space-y-1.5">
               <p className="flex items-center gap-2 font-semibold text-emerald-600">
                 <Check size={18} aria-hidden="true" />This project is online
@@ -296,6 +367,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
               <strong className="text-slate-800">Update site</strong> replaces what&rsquo;s online with your latest version.{' '}
               <strong className="text-slate-800">Unpublish</strong> takes it offline.
             </p>
+            <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
               <button
@@ -403,6 +475,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
                   : 'Letters, numbers and dashes. If someone else already uses the name, pick another.'}
               </p>
             </div>
+            <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
               Anyone with the link can see your site. Signed in to Surge as <strong className="text-slate-700">{account}</strong>.{' '}

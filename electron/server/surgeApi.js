@@ -11,10 +11,12 @@
 //                                 creates a free account); only the token is kept
 //   DELETE /api/surge          -> sign out
 //   POST   /api/surge/publish  -> { domain, files: { 'index.html': html },
-//                                   images?: { 'images/<name>.jpg': base64 } }
+//                                   images?: { 'images/<name>.jpg': base64,
+//                                              'favicon.png': base64 } }
 //                                 -> { url } or { error, signedOut? }
 //                                 (images: Pollinations images copied into the
-//                                 site, see src/lib/siteImages.js)
+//                                 site, see src/lib/siteImages.js, and the site
+//                                 icon, see src/lib/favicon.js)
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
 //
@@ -24,6 +26,7 @@ import { isForeignOrigin } from './chatProxy.js';
 import { createTar, gzip } from './tar.js';
 import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/pages.js';
 import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
+import { FAVICON_PATH, MAX_FAVICON_BYTES } from '../../src/lib/favicon.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
 export const SURGE_SUFFIX = '.surge.sh';
@@ -122,13 +125,15 @@ const decodeImages = (images) => {
   const entries = [];
   let size = 0;
   for (const [path, base64] of Object.entries(images)) {
-    if (!SITE_IMAGE_PATH_RE.test(path) || typeof base64 !== 'string') return 'This project has an image that can’t be published.';
+    const favicon = path === FAVICON_PATH;
+    if ((!favicon && !SITE_IMAGE_PATH_RE.test(path)) || typeof base64 !== 'string') return 'This project has an image that can’t be published.';
     let binary;
     try {
       binary = atob(base64);
     } catch {
       return 'This project has an image that can’t be published.';
     }
+    if (favicon && binary.length > MAX_FAVICON_BYTES) return 'The site icon is too big to publish. Pick a smaller image.';
     size += binary.length;
     if (size > MAX_SITE_IMAGES_BYTES) return 'This project’s images are too big to publish.';
     entries.push({ name: `site/${path}`, data: Uint8Array.from(binary, (char) => char.charCodeAt(0)) });

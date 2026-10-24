@@ -65,3 +65,35 @@ export const savePublishedName = (projectId, name) => {
     safeStorage('local')?.setItem(DOMAINS_KEY, JSON.stringify(domains));
   } catch { /* storage blocked: the next publish suggests a name again */ }
 };
+
+// The site icon chosen for each project (a small PNG data URL, see
+// favicon.js), so Update site keeps it.
+const FAVICONS_KEY = 'orion-surge-favicons';
+
+const loadFavicons = () => {
+  try {
+    const parsed = JSON.parse(safeStorage('local')?.getItem(FAVICONS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+export const loadFavicon = (projectId) => {
+  const icon = projectId ? loadFavicons()[projectId] : '';
+  return typeof icon === 'string' ? icon : '';
+};
+
+// An empty icon forgets it. Returns false when storage refused it (full or
+// blocked), so the dialog can say the icon won't be remembered.
+export const saveFavicon = (projectId, icon) => {
+  if (!projectId) return true;
+  const icons = { ...loadFavicons(), [projectId]: icon };
+  if (!icon) delete icons[projectId];
+  try {
+    safeStorage('local')?.setItem(FAVICONS_KEY, JSON.stringify(icons));
+    return true;
+  } catch {
+    return false;
+  }
+};
