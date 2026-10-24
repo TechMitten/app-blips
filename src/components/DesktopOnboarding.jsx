@@ -189,7 +189,7 @@ function OpenWebsiteModal({ onOpen, onClose }) {
       <span className="onboarding-info-icon"><ArrowUpRight size={22} /></span>
       <h2 id="onboarding-open-site-title">Open the AppBlips website?</h2>
       <p id="onboarding-open-site-text">
-        To see pricing and sign up, AppBlips will open appblips.com in your web browser. When you’ve finished, come back here and choose I already have AI Credits.
+        To see pricing and sign up, AppBlips will open appblips.com in your web browser. When you’ve finished, come back here and enter the email you used at checkout.
       </p>
       <div className="onboarding-info-actions">
         <button type="button" className="onboarding-skip" onClick={onClose}>Not now</button>
@@ -761,7 +761,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             ) : isCredits ? (
               <p>New here? See the plans and sign up on our website. Already signed up? Connect the credits you bought on the next screen.</p>
             ) : isConnect ? (
-              <p>Enter the email you used at checkout. We’ll email you a code to prove it’s you, so nobody else can use your credits.</p>
+              <p>{openedPricing ? 'The plans opened in your web browser. When you’ve finished checkout, enter' : 'Enter'} the email you used at checkout. We’ll email you a code to prove it’s you, so nobody else can use your credits.</p>
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
             )}
@@ -849,7 +849,14 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
       </main>
       {confirmWebsite && (
         <OpenWebsiteModal
-          onOpen={() => { setConfirmWebsite(false); openPricing(); }}
+          onOpen={() => {
+            setConfirmWebsite(false);
+            openPricing();
+            // Wait on the connect slide, so coming back from checkout lands
+            // on the email box instead of the new/existing choice.
+            setCreditsChoice('existing');
+            setStep('connect');
+          }}
           onClose={() => setConfirmWebsite(false)}
         />
       )}
