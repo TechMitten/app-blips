@@ -138,7 +138,7 @@ function TokenUsageNote({ usage }) {
   if (!usage?.calls) return null;
   const total = usage.input + usage.output;
   const text = usage.reported
-    ? `${formatTokenCount(total)} tokens (estimate)${usage.reported < usage.calls ? ' (some steps not reported)' : ''}`
+    ? `${formatTokenCount(total)} tokens (estimate)`
     : "Token usage isn't reported by this AI provider.";
   return (
     <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60" title={TOKEN_USAGE_HINT}>
@@ -160,7 +160,7 @@ function LiveTokenUsage() {
   const approx = usage.estimating ? '~' : '';
   return (
     <p className="pl-13 text-(length:--chat-label-text) text-slate-500 dark:text-white/60 tabular-nums" title={LIVE_USAGE_HINT} aria-live="off">
-      {approx}{formatTokenCount(usage.input + usage.output)} tokens (estimate) so far
+      {approx}{formatTokenCount(usage.input + usage.output)} tokens (estimate)
     </p>
   );
 }
