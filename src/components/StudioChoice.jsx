@@ -330,7 +330,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   Terms of Service
                 </a>
               </nav>
-              <p className="studio-text-soft pb-1 text-xs">© 2026 Tech Mitten LLC. All rights reserved.</p>
+              <p className="studio-text-soft pb-1 text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
             </div>
           </footer>
         </div>

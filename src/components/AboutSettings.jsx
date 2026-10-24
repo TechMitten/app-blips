@@ -6,7 +6,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings → About: logo, version and copyright. The copyright line mirrors
 // LICENSE; keep the two in sync.
-const COPYRIGHT = '© 2026 Tech Mitten LLC';
+const COPYRIGHT = '© 2026 TechMitten LLC';
 const WEBSITE_URL = 'https://www.appblips.com';
 const REPO_URL = 'https://github.com/TechMitten/app-blips';
 const BUG_REPORT_URL = `${REPO_URL}/issues/new`;
