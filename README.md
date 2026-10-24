@@ -33,8 +33,11 @@
 </p>
 
 ---
-[Watch demo video](https://github.com/user-attachments/assets/a7fd170c-e56c-4483-9305-3ed71db341dd)
-
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/a7fd170c-e56c-4483-9305-3ed71db341dd">
+    <img src="https://placehold.co/1200x675/0f172a/ffffff?text=Watch+Demo+Video" alt="Watch demo video" width="640" />
+  </a>
+</p>
 
 **AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds.
 
