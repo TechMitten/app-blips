@@ -33,7 +33,7 @@ Most readers are beginners who have never used an API key or a terminal.
 ## UI labels
 
 - Copy every label exactly from the app's source (`src/components/`), including capitals. Check it there before writing; don't guess from memory
-- Settings paths are bold with arrows: **Settings → API**. Provider, key and model are under **API**; reasoning, output tokens, review and other AI behaviour are under **AI**; AppBlips AI Credits are under **Credits**. **Workspace**, **Appearance**, **Data**, **Legal**, **Licenses**, **About** and **Danger Zone** are the other tabs
+- Settings paths are bold with arrows: **Settings → API**. Provider, key and model are under **API**; reasoning, output tokens, review and other AI behaviour are under **AI**; AppBlips AI Credits are under **Account**. **Workspace**, **Appearance**, **Data**, **Legal**, **Licenses**, **About** and **Danger Zone** are the other tabs
 - Icon-only keys: describe the icon and give its tooltip text, for example "the **Select parent** key (an arrow pointing up to a line)"
 - Quote error messages exactly as the app shows them, so readers can search for them
 

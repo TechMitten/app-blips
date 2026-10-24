@@ -2438,7 +2438,13 @@ export default function App({ coldStart = false }) {
     return (
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
-        onComplete={() => setDesktopOnboarding(null)}
+        onComplete={(opts) => {
+          setDesktopOnboarding(null);
+          if (opts?.openAccount) {
+            setSettingsInitialTab('credits');
+            setIsSettingsOpen(true);
+          }
+        }}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
       />
     );

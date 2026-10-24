@@ -7,9 +7,13 @@ import { ipcErrorMessage, providerApi } from '../lib/desktop';
 import { creditsStatus, creditsConnect, creditsVerify, creditsCheckout, creditsSignOut, CREDIT_PACKS, FREE_TRIAL_PACK } from '../lib/credits';
 import { logError } from '../lib/errorLog';
 
-// Settings → Credits: AppBlips AI Credits (src/lib/credits.js). A provider
+// Settings → Account: AppBlips AI Credits (src/lib/credits.js). A provider
 // saved under Settings → API takes over from credits, so this tab reads the
 // saved provider too, to say credits are paused and offer to switch back.
+
+// Polar's own customer portal: usage stats and subscription cancelling live
+// there, so we link out instead of cancelling from the app.
+const POLAR_PORTAL_URL = 'https://polar.sh/techmitten-llc/portal';
 
 function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   const [info, setInfo] = useState(null); // { signedIn, email, remaining, totalGranted, totalUsed }
@@ -162,6 +166,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
                 <button type="button" onClick={signOut} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
                   Disconnect
                 </button>
+                <a href={POLAR_PORTAL_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                  Cancel subscription <ExternalLink size={12} />
+                </a>
               </div>
             </div>
           ) : (
@@ -323,6 +330,10 @@ export default function CreditsSettings() {
   return (
     <>
       <AppBlipsCreditsRow byokActive={byokActive} onClearByok={onClearByok} />
+      <p className="pt-4 text-xs text-slate-600">
+        Have questions about your account? Email{' '}
+        <a href="mailto:support@appblips.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 underline">support@appblips.com</a>.
+      </p>
       {error && (
         <p role="alert" className="inline-flex items-center gap-1.5 text-xs text-red-600">
           <CircleAlert size={14} />

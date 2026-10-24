@@ -329,7 +329,7 @@ function PlanForm({ formRef, onSubmit, plan, setPlan }) {
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Make a selection:">
         <ChoiceCards formRef={formRef} label="How do you want to use AI?" options={PLAN_OPTIONS} value={plan} onChange={setPlan} />
-        <p className="onboarding-key-help">You can switch any time in Settings → API or Settings → Credits.</p>
+        <p className="onboarding-key-help">You can switch any time in Settings → API or Settings → Account.</p>
       </SetupField>
     </form>
   );
@@ -634,7 +634,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const finishCredits = async () => {
     await markOnboarded();
     setStatus({ kind: 'ok', text: 'You’re ready.' });
-    window.setTimeout(onComplete, 350);
+    // App opens Settings → Account (the credits tab) so they can see the connected plan.
+    window.setTimeout(() => onComplete({ openAccount: true }), 350);
   };
 
   const sendCreditsCode = async () => {
