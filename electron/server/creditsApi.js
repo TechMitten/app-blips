@@ -25,15 +25,10 @@ export const DEFAULT_CREDITS_ORIGIN = 'https://appblips.com';
 export const POLAR_METER_ID = '4a375eb5-d47f-4160-89d9-c3b19be1e13e';
 export const DEFAULT_CREDITS_MODEL = 'deepseek-v4-pro';
 
-// A $10/month subscription with a 3-day trial period, so checkout takes a card
-// and nothing is charged until the trial ends. Customers who don't cancel are
-// billed monthly; each paid month adds SUBSCRIPTION_MONTHLY_CREDITS (counted
-// from Polar orders in lookupPolarBalance).
-export const TRIAL_PRODUCT_ID = '785150d6-39ca-45da-8cf2-f60aebcb8ee9';
+export const TRIAL_PRODUCT_ID = 'f953b403-0083-498d-90da-55b0c94bf701';
 export const TRIAL_BENEFIT_ID = '3ceded01-ad19-4ec0-a544-f97d7f66572f';
 export const TRIAL_CREDITS = 100;
 export const TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
-export const SUBSCRIPTION_MONTHLY_CREDITS = 1000;
 
 export const FREE_TRIAL_PACK = {
   id: 'trial',
@@ -47,7 +42,7 @@ export const FREE_TRIAL_PACK = {
   trialDays: 3,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: '100 free AI Credits valid for 3 days—enough to build and edit your first 1–2 apps or websites. Then $10/month for 1,000 AI Credits a month. Cancel before the 3 days are up and you are never charged.',
+  description: '100 free AI Credits valid for 3 days—enough to build and edit your first 1–2 apps or websites. A card is needed to start, but you are never charged.',
 };
 
 export const CREDIT_PACKS = [
@@ -171,33 +166,6 @@ export function calculateCreditsFromUsage(usage) {
   return Math.max(1, Math.ceil(weighted / 4000));
 }
 
-// Credits from the monthly plan: SUBSCRIPTION_MONTHLY_CREDITS per paid order of
-// the trial subscription. The $0 order that starts the trial doesn't count, and
-// paid months stay after a cancel, like packs. Needs a Polar token with
-// orders:read; without it this counts none, so pack balances keep working.
-async function paidSubscriptionCredits(customerId, headers, fetchImpl) {
-  let paidMonths = 0;
-  try {
-    for (let page = 1; page <= 10; page += 1) {
-      const url = new URL(`${POLAR_API_BASE}/orders/`);
-      url.searchParams.set('customer_id', customerId);
-      url.searchParams.set('product_id', TRIAL_PRODUCT_ID);
-      url.searchParams.set('limit', '100');
-      url.searchParams.set('page', String(page));
-      const res = await fetchImpl(url.toString(), { headers, signal: AbortSignal.timeout(15_000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      for (const order of Array.isArray(data?.items) ? data.items : []) {
-        if (order.status === 'paid' && (order.total_amount || 0) > 0) paidMonths += 1;
-      }
-      if (page >= (data?.pagination?.max_page ?? 1)) break;
-    }
-  } catch (err) {
-    console.warn('[credits] could not read subscription orders (does POLAR_TOKEN have orders:read?):', err);
-  }
-  return paidMonths * SUBSCRIPTION_MONTHLY_CREDITS;
-}
-
 export async function lookupPolarBalance(polarToken, { email = '', customerId = '' }, fetchImpl = globalThis.fetch) {
   const targetEmail = String(email || '').trim().toLowerCase();
   const targetCustomerId = String(customerId || '').trim();
@@ -225,21 +193,11 @@ export async function lookupPolarBalance(polarToken, { email = '', customerId = 
   const nowMs = Date.now();
 
   for (const grant of items) {
+    if (grant.is_revoked) continue;
     const grantEmail = String(grant.customer?.email || '').trim().toLowerCase();
     const matches = (targetCustomerId && grant.customer_id === targetCustomerId)
       || (targetEmail && grantEmail === targetEmail);
     if (!matches) continue;
-    // Polar revokes the trial grant when the cancelled trial subscription
-    // ends. That still means the trial was used, so it blocks a second one.
-    if (grant.is_revoked) {
-      if (grant.benefit_id === TRIAL_BENEFIT_ID) {
-        matchedCustomerId = matchedCustomerId || grant.customer_id;
-        matchedEmail = matchedEmail || grantEmail;
-        hasTrial = true;
-        trialExpired = true;
-      }
-      continue;
-    }
     matchedCustomerId = matchedCustomerId || grant.customer_id;
     matchedEmail = matchedEmail || grantEmail;
     const units = typeof grant.properties?.units === 'number'
@@ -263,8 +221,7 @@ export async function lookupPolarBalance(polarToken, { email = '', customerId = 
     }
   }
 
-  const totalGranted = paidGranted + activeTrialGranted
-    + (matchedCustomerId ? await paidSubscriptionCredits(matchedCustomerId, headers, fetchImpl) : 0);
+  const totalGranted = paidGranted + activeTrialGranted;
 
   if (!matchedCustomerId || (totalGranted <= 0 && !hasTrial)) {
     return {
@@ -647,7 +604,7 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
 export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
   const { email, token } = savedToken(tokens);
   if (!token) {
-    return json({ error: 'Connect your AppBlips AI Credits in Settings → Credits first.' }, 401);
+    return json({ error: 'Connect your AppBlips AI Credits in Settings → API first.' }, 401);
   }
 
   const polarToken = String(env?.POLAR_TOKEN || '').trim();
@@ -693,7 +650,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
         ? 'Your 3-day free trial has expired. '
         : '';
       return json({
-        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Top up your credits in Settings → Credits to keep building.`,
+        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Top up your credits in Settings → API to keep building.`,
         source: 'provider',
       }, 429);
     }
