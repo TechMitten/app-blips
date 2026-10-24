@@ -403,18 +403,17 @@ export default function App({ coldStart = false }) {
     handleManualZoom, resetZoom,
   } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' || studioMode === 'codebase' });
 
-  // Website workspaces live on the desktop preset (a site's primary
-  // viewport); the user can still switch devices per-preview. Re-fires when
-  // a project loads so opening a website project reasserts it. App and game
-  // studios offer no desktop preset (they are touch-device mockups), so a
-  // desktop choice persisted from a website workspace snaps back to mobile.
-  // Imported codebases are websites too. Full size is a desktop view the user
-  // picked on purpose, so it is kept everywhere.
+  // Website workspaces open on Full size (a site's primary viewport, at its
+  // real size); the user can still switch devices per-preview. Re-fires when
+  // a project loads so opening a website project reasserts it. Imported
+  // codebases are websites too. App and game studios are touch-device first,
+  // so a desktop or Full size view carried over from a website workspace
+  // snaps back to mobile.
   useEffect(() => {
     if (studioMode === 'website' || studioMode === 'codebase') {
-      setPreviewMode((mode) => (mode === 'fill' ? mode : 'desktop'));
+      setPreviewMode('fill');
     } else if (studioMode) {
-      setPreviewMode((mode) => (mode === 'desktop' ? 'mobile' : mode));
+      setPreviewMode((mode) => (mode === 'desktop' || mode === 'fill' ? 'mobile' : mode));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studioMode, currentProjectId]);

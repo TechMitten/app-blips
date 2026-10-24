@@ -43,7 +43,7 @@ export const STUDIO_MODES = {
     label: 'Website',
     article: 'website',
     untitledName: 'Untitled Website',
-    defaultPreviewMode: 'desktop',
+    defaultPreviewMode: 'fill',
     description: 'Content-first pages — landing pages, portfolios, blogs — that you edit by clicking them in the preview.',
   },
   game: {
@@ -61,7 +61,7 @@ export const STUDIO_MODES = {
     label: 'Imported site',
     article: 'site',
     untitledName: 'Imported Site',
-    defaultPreviewMode: 'desktop',
+    defaultPreviewMode: 'fill',
     description: 'A React + Vite project imported from a .zip — keeps its real files, exports back as a project.',
   },
 };
