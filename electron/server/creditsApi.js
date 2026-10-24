@@ -42,7 +42,7 @@ export const FREE_TRIAL_PACK = {
   trialDays: 3,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: '100 free AI Credits valid for 3 days—enough to build and edit your first 1–2 apps or websites. A card is needed to start, but you are never charged.',
+  description: "100 free AI Credits valid for 3 days—enough to build and edit your first 1–2 apps or websites. A card is needed to start. You will be charged if you don't cancel.",
 };
 
 export const CREDIT_PACKS = [
