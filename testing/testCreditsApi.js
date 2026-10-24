@@ -8,6 +8,7 @@ import {
   calculateCreditsFromUsage,
   createCreditToken,
   verifyCreditToken,
+  recordPolarUsage,
   CREDIT_PACKS,
   FREE_TRIAL_PACK,
   TRIAL_BENEFIT_ID,
@@ -95,6 +96,9 @@ test('connect, status, chat deduction, and sign-out work end to end against Pola
     const u = String(url);
     const signInRes = signIn(u, init);
     if (signInRes) return signInRes;
+    if (u.includes('/v1/customers/')) {
+      return jsonResponse({ items: [{ id: 'cust_abc', email: 'alice@example.com' }] });
+    }
     if (u.includes('/v1/benefit-grants')) {
       return jsonResponse({
         items: [
@@ -107,6 +111,17 @@ test('connect, status, chat deduction, and sign-out work end to end against Pola
             customer: { id: 'cust_abc', email: 'alice@example.com' },
           },
         ],
+      });
+    }
+    if (u.includes('/v1/orders/')) {
+      return jsonResponse({
+        items: [{
+          status: 'paid',
+          total_amount: 1000,
+          product_id: CREDIT_PACKS[0].productId,
+          created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        }],
+        pagination: { max_page: 1 },
       });
     }
     if (u.includes('/v1/meters/') && u.includes('/quantities')) {
@@ -203,6 +218,9 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
     const u = String(url);
     const signInRes = signIn(u, init);
     if (signInRes) return signInRes;
+    if (u.includes('/v1/customers/')) {
+      return jsonResponse({ items: [{ id: 'cust_trial', email: 'trial@example.com' }] });
+    }
     if (u.includes('/v1/benefit-grants')) {
       return jsonResponse({
         items: [
@@ -217,6 +235,9 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
           },
         ],
       });
+    }
+    if (u.includes('/v1/orders/')) {
+      return jsonResponse({ items: [], pagination: { max_page: 1 } });
     }
     if (u.includes('/v1/meters/') && u.includes('/quantities')) {
       return jsonResponse({ total: 10 });
@@ -299,4 +320,156 @@ test('a credits server without sign-in codes still connects (until it is updated
   const body = await res.json();
   assert.equal(body.signedIn, true);
   assert.equal(tokens.keyFor('carol@example.com'), 'ab_cred_legacy');
+});
+
+test('a relay 401 clears the saved token and reports it as expired', async () => {
+  const tokens = memoryTokens('alice@example.com', 'ab_cred_old');
+  const mockFetch = async () => jsonResponse({ error: 'unauthorized' }, 401);
+
+  const res = await handleCreditsApi(req('/api/credits'), {}, tokens, { fetch: mockFetch });
+
+  const body = await res.json();
+  assert.equal(body.signedIn, false);
+  assert.equal(body.expired, true);
+  assert.equal(tokens.describe().hasKey, false);
+});
+
+test('connecting an email with no credits in direct mode returns notFound', async () => {
+  const mockFetch = async (url) => {
+    const u = String(url);
+    if (u.includes('/v1/customers/')) return jsonResponse({ items: [] });
+    if (u.includes('/v1/benefit-grants')) return jsonResponse({ items: [], pagination: { max_page: 1 } });
+    return assert.fail(`Unexpected fetch URL: ${u}`);
+  };
+
+  const res = await handleCreditsApi(
+    req('/api/credits/connect', { method: 'POST', body: { email: 'nobody@example.com' } }),
+    { POLAR_TOKEN: 'tok' },
+    memoryTokens(),
+    { fetch: mockFetch },
+  );
+
+  assert.equal(res.status, 404);
+  assert.equal((await res.json()).notFound, true);
+});
+
+test('checkout uses a configured Polar link and prefills the email', async () => {
+  const env = { POLAR_TOKEN: 'tok', POLAR_CHECKOUT_URL_STARTER: 'https://buy.polar.sh/starter' };
+
+  const res = await handleCreditsApi(
+    req('/api/credits/checkout', { method: 'POST', body: { packId: 'starter', email: 'Buyer@Example.com' } }),
+    env,
+    memoryTokens(),
+    { fetch: async () => assert.fail('no network expected for a configured checkout link') },
+  );
+
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  const url = new URL(body.checkoutUrl);
+  assert.equal(url.origin + url.pathname, 'https://buy.polar.sh/starter');
+  assert.equal(url.searchParams.get('customer_email'), 'Buyer@Example.com');
+  assert.equal(body.pack.id, 'starter');
+});
+
+test('checkout creates a Polar checkout with the current product id', async () => {
+  const bodies = [];
+  const mockFetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.endsWith('/v1/checkouts/')) {
+      bodies.push(JSON.parse(init.body));
+      return jsonResponse({ url: 'https://checkout.polar.sh/abc' });
+    }
+    return assert.fail(`Unexpected fetch URL: ${u}`);
+  };
+
+  const res = await handleCreditsApi(
+    req('/api/credits/checkout', { method: 'POST', body: { packId: 'builder' } }),
+    { POLAR_TOKEN: 'tok' },
+    memoryTokens(),
+    { fetch: mockFetch },
+  );
+
+  assert.equal((await res.json()).checkoutUrl, 'https://checkout.polar.sh/abc');
+  assert.deepEqual(bodies[0].products, [CREDIT_PACKS[1].productId]);
+  assert.ok(bodies[0].success_url.includes('credits_purchased=builder'));
+});
+
+test('a cancelled trial cannot be started again in direct mode', async () => {
+  const mockFetch = async (url) => {
+    const u = String(url);
+    if (u.includes('/v1/customers/')) {
+      return jsonResponse({ items: [{ id: 'cust_x', email: 'x@example.com' }] });
+    }
+    if (u.includes('/v1/benefit-grants')) {
+      return jsonResponse({
+        items: [{
+          customer_id: 'cust_x',
+          benefit_id: TRIAL_BENEFIT_ID,
+          is_revoked: true,
+          customer: { id: 'cust_x', email: 'x@example.com' },
+        }],
+        pagination: { max_page: 1 },
+      });
+    }
+    if (u.includes('/v1/orders/')) return jsonResponse({ items: [], pagination: { max_page: 1 } });
+    if (u.includes('/v1/meters/') && u.includes('/quantities')) return jsonResponse({ total: 0 });
+    return assert.fail(`Unexpected fetch URL: ${u}`);
+  };
+
+  const res = await handleCreditsApi(
+    req('/api/credits/checkout', { method: 'POST', body: { packId: 'trial', email: 'x@example.com' } }),
+    { POLAR_TOKEN: 'tok' },
+    memoryTokens(),
+    { fetch: mockFetch },
+  );
+
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /already been used/);
+});
+
+test('rejects unsupported methods, unknown paths and malformed bodies', async () => {
+  const tokens = memoryTokens();
+
+  const put = await handleCreditsApi(req('/api/credits', { method: 'PUT' }), {}, tokens);
+  assert.equal(put.status, 405);
+
+  const unknown = await handleCreditsApi(req('/api/credits/nope', { method: 'POST', body: {} }), {}, tokens);
+  assert.equal(unknown.status, 404);
+
+  const malformed = await handleCreditsApi(
+    new Request(`${ORIGIN}/api/credits/connect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '[]',
+    }),
+    {},
+    tokens,
+  );
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).error, 'Invalid request.');
+});
+
+test('recordPolarUsage posts an ai_usage event and never throws', async () => {
+  const calls = [];
+  const mockFetch = async (url, init = {}) => {
+    calls.push({ url: String(url), body: JSON.parse(init.body) });
+    return jsonResponse({});
+  };
+
+  await recordPolarUsage('tok', 'cust_1', 3, 'deepseek-v4-pro', { prompt_tokens: 100, completion_tokens: 200 }, mockFetch);
+
+  assert.equal(calls[0].url, 'https://api.polar.sh/v1/events/ingest');
+  assert.equal(calls[0].body.events[0].name, 'ai_usage');
+  assert.equal(calls[0].body.events[0].customer_id, 'cust_1');
+  assert.equal(calls[0].body.events[0].metadata.credits, 3);
+  assert.equal(calls[0].body.events[0].metadata.prompt_tokens, 100);
+  assert.equal(calls[0].body.events[0].metadata.completion_tokens, 200);
+
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    await recordPolarUsage('tok', 'cust_1', 1, 'm', null, async () => { throw new Error('offline'); });
+  } finally {
+    console.warn = warn;
+  }
 });

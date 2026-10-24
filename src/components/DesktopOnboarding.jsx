@@ -279,12 +279,12 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 
 const PLAN_OPTIONS = [
   { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
-  { id: 'credits', Icon: Coins, title: 'Use AppBlips AI Credits', text: 'No API key or AI account needed. Connect the credits you already have, or start a free trial or buy a pack next.' },
+  { id: 'credits', Icon: Coins, title: 'Use AppBlips AI Credits', text: 'No API key or AI account needed. Connect the credits you already have, or start a free trial or choose a plan next.' },
 ];
 
 const CREDITS_OPTIONS = [
-  { id: 'new', Icon: Sparkles, title: 'I’m new to AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or buy a credit pack.' },
-  { id: 'existing', Icon: Mail, title: 'I already have AI Credits', text: 'You started a trial or bought a pack. Connect it with the email you used at checkout.' },
+  { id: 'new', Icon: Sparkles, title: 'I’m new to AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or choose a monthly plan.' },
+  { id: 'existing', Icon: Mail, title: 'I already have AI Credits', text: 'You started a trial or subscribed to a plan. Connect it with the email you used at checkout.' },
 ];
 
 // A radio group drawn as cards; arrow keys move through it like the avatar grid.

@@ -18,6 +18,7 @@
     "build": "vite build --mode desktop",
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.js",
+    "test:credits": "node --test testing/testCreditsApi.js testing/testCreditsBalance.js testing/testCreditsCatalog.js",
     "check": "npm run typecheck && npm run lint",
     "preview": "vite preview",
     "start": "vite build --mode desktop && node server.js",

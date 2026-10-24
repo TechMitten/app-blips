@@ -55,7 +55,7 @@ These give the server its own provider. It's used whenever **Settings → API** 
 Most people never set these. They let a server you run bill AppBlips AI Credits directly instead of going through AppBlips' servers.
 
 <ParamField body="POLAR_TOKEN" type="string">
-  A [Polar](https://polar.sh) access token that can read benefits and meters and write events (and checkouts, to start a purchase from the app). With `DEEPSEEK_API_KEY` also set, AppBlips checks balances and records usage in Polar itself.
+  A [Polar](https://polar.sh) access token that can read benefits, orders and meters and write events (and checkouts, to start a purchase from the app). With `DEEPSEEK_API_KEY` also set, AppBlips checks balances and records usage in Polar itself. Reading orders is what makes each month's credits replace the last month's; without `orders:read`, AppBlips falls back to counting benefit grants.
 </ParamField>
 
 <ParamField body="DEEPSEEK_API_KEY" type="string">
@@ -63,7 +63,7 @@ Most people never set these. They let a server you run bill AppBlips AI Credits 
 </ParamField>
 
 <ParamField body="POLAR_CHECKOUT_URL_STARTER" type="string">
-  Optional. A ready-made Polar checkout link for a pack, instead of creating one. `POLAR_CHECKOUT_URL_BUILDER` and `POLAR_CHECKOUT_URL_STUDIO` work the same way.
+  Optional. A ready-made Polar checkout link for a plan, instead of creating one. `POLAR_CHECKOUT_URL_BUILDER` and `POLAR_CHECKOUT_URL_STUDIO` work the same way.
 </ParamField>
 
 <ParamField body="POLAR_ORGANIZATION_ID" type="string">

@@ -25,7 +25,11 @@ export const DEFAULT_CREDITS_ORIGIN = 'https://appblips.com';
 export const POLAR_METER_ID = '4a375eb5-d47f-4160-89d9-c3b19be1e13e';
 export const DEFAULT_CREDITS_MODEL = 'deepseek-v4-pro';
 
-export const TRIAL_PRODUCT_ID = 'f953b403-0083-498d-90da-55b0c94bf701';
+// The trial is a $10/month subscription with a 3-day trial period. When it
+// starts, the webhook schedules it to switch to the Starter plan at the end of
+// the trial, so the first charge buys Starter's credits.
+export const TRIAL_PRODUCT_ID = '785150d6-39ca-45da-8cf2-f60aebcb8ee9';
+export const STARTER_PRODUCT_ID = '69c500c9-8114-4efd-a1c4-2cf6c62ebd5d';
 export const TRIAL_BENEFIT_ID = '3ceded01-ad19-4ec0-a544-f97d7f66572f';
 export const TRIAL_CREDITS = 100;
 export const TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
@@ -42,46 +46,59 @@ export const FREE_TRIAL_PACK = {
   trialDays: 3,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: "100 free AI Credits valid for 3 days—enough to build and edit your first 1–2 apps or websites. A card is needed to start. You will be charged if you don't cancel.",
+  description: '100 free AI Credits for 3 days, enough to build your first 1–2 apps or websites. A card is needed to start. After 3 days you move to the Starter plan ($10/month, plus taxes) unless you cancel first.',
 };
 
 export const CREDIT_PACKS = [
   {
     id: 'starter',
-    name: 'Starter Pack — 1,000 AI Credits',
-    shortName: 'Starter Pack',
+    name: 'Starter Plan — 1,000 AI Credits a month',
+    shortName: 'Starter Plan',
     priceUsd: 10,
     credits: 1000,
     bonusCredits: 0,
-    productId: '9fe7f339-3526-4673-b009-e8a5caacf831',
+    productId: STARTER_PRODUCT_ID,
     benefitId: '5b523124-e43c-4917-88cb-6d64625b829c',
-    description: 'Great for building 3–5 complete websites, games, or apps. Credits never expire.',
+    description: 'Great for building 3–5 complete websites, games, or apps with dozens of follow-up edits every month. Credits reset each month; unused credits do not roll over.',
   },
   {
     id: 'builder',
-    name: 'Builder Pack — 2,750 AI Credits',
-    shortName: 'Builder Pack',
+    name: 'Builder Plan — 2,750 AI Credits a month',
+    shortName: 'Builder Plan',
     priceUsd: 25,
     credits: 2750,
     bonusCredits: 250,
     badge: 'Most Popular',
-    productId: '90eb1d08-01bb-44a8-abb1-96c5cf7a4c10',
+    productId: '0da84082-4c8e-420a-8b6d-701010c906fa',
     benefitId: 'cd0ea202-c732-448e-9311-cefc1b16c2a7',
-    description: 'Includes 250 bonus credits (10% extra). Enough for 10–15 full apps or websites.',
+    description: 'Includes 250 bonus credits a month (10% extra). Enough to build and refine 10–15 full apps, dashboards, or multi-page websites every month.',
   },
   {
     id: 'studio',
-    name: 'Studio Pack — 6,000 AI Credits',
-    shortName: 'Studio Pack',
+    name: 'Studio Plan — 6,000 AI Credits a month',
+    shortName: 'Studio Plan',
     priceUsd: 50,
     credits: 6000,
     bonusCredits: 1000,
     badge: 'Best Value',
-    productId: '35305dc4-7378-44c7-a4bd-c0f43e475f06',
+    productId: 'aa311937-6a99-41cd-879d-85916787a898',
     benefitId: '3de567a6-9234-4c39-8161-15b4d438a30d',
-    description: 'Includes 1,000 bonus credits (20% extra). Built for power users and agencies.',
+    description: 'Includes 1,000 bonus credits a month (20% extra). Built for heavy creators and agencies creating dozens of apps and websites.',
   },
 ];
+
+// Credits bought by each paid order, by Polar product: every month of a plan
+// is one order. A trial that renews without having switched to Starter (the
+// webhook's switch failed) is billed like Starter, so it gets Starter's credits.
+const ORDER_CREDITS = {
+  ...Object.fromEntries(CREDIT_PACKS.map((pack) => [pack.productId, pack.credits])),
+  [TRIAL_PRODUCT_ID]: 1000,
+};
+
+// Credits don't roll over: only the newest paid order counts, and it stops
+// counting a little over a month later (a cancelled plan, or a renewal that
+// failed) so old credits can't linger.
+const BILLING_PERIOD_MS = 35 * 24 * 60 * 60 * 1000;
 
 const BENEFIT_UNITS = {
   [TRIAL_BENEFIT_ID]: TRIAL_CREDITS,
@@ -166,64 +183,167 @@ export function calculateCreditsFromUsage(usage) {
   return Math.max(1, Math.ceil(weighted / 4000));
 }
 
+const MAX_GRANT_PAGES = 10;
+
+/**
+ * Email -> Polar customer id via Polar's customer search. Empty when it can't
+ * be read, in which case the caller falls back to the unfiltered grant list.
+ */
+async function resolveCustomerId(email, fetchImpl, headers) {
+  if (!email) return '';
+  try {
+    const url = new URL(`${POLAR_API_BASE}/customers/`);
+    url.searchParams.set('email', email);
+    url.searchParams.set('limit', '10');
+    const res = await fetchImpl(url.toString(), { headers, signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return '';
+    const data = await res.json();
+    // Polar's email filter is a search, so insist on the exact address.
+    const match = (data.items || []).find((c) => String(c.email || '').trim().toLowerCase() === email);
+    return match?.id || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The current billing period: the credits of the customer's newest paid order
+ * (ORDER_CREDITS) and when it was placed, which is where meter usage starts
+ * counting. Unused credits from earlier months are dropped, not carried over.
+ * `credits` is 0 when the newest paid order is over a billing period old.
+ * $0 orders (a trial starting) and refunded orders don't count. Null if
+ * Polar's orders can't be read or there is no paid order, leaving the benefit
+ * grants to count.
+ * Needs a POLAR_TOKEN with orders:read.
+ */
+async function paidOrderCredits(customerId, headers, fetchImpl) {
+  let newest = 0;
+  let credits = 0;
+  try {
+    for (let page = 1; page <= MAX_GRANT_PAGES; page += 1) {
+      const url = new URL(`${POLAR_API_BASE}/orders/`);
+      url.searchParams.set('customer_id', customerId);
+      url.searchParams.set('limit', '100');
+      url.searchParams.set('page', String(page));
+      const res = await fetchImpl(url.toString(), { headers, signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      for (const order of data.items || []) {
+        const placed = Date.parse(order.created_at || '');
+        const orderCredits = ORDER_CREDITS[order.product_id || ''] || 0;
+        if (order.status === 'paid' && (order.total_amount || 0) > 0 && orderCredits > 0 && placed > newest) {
+          newest = placed;
+          credits = orderCredits;
+        }
+      }
+      if (page >= (data.pagination?.max_page ?? 1)) break;
+    }
+  } catch (err) {
+    console.warn('[credits] could not read orders (does POLAR_TOKEN have orders:read?):', err);
+    return null;
+  }
+  // No paid order ever: credits given by hand in Polar are grants only.
+  if (!newest) return null;
+  if (Date.now() - newest > BILLING_PERIOD_MS) return { credits: 0, since: '' };
+  return { credits, since: new Date(newest).toISOString() };
+}
+
+/**
+ * Looks up a customer's granted credits and meter usage in Polar using
+ * `/v1/benefit-grants`, `/v1/orders` and `/v1/meters/{id}/quantities`.
+ * Enforces the 3-day expiration window and 1-per-customer limit on the Free Trial benefit.
+ */
 export async function lookupPolarBalance(polarToken, { email = '', customerId = '' }, fetchImpl = globalThis.fetch) {
   const targetEmail = String(email || '').trim().toLowerCase();
   const targetCustomerId = String(customerId || '').trim();
   const headers = { Authorization: `Bearer ${polarToken}`, Accept: 'application/json' };
 
-  const grantsUrl = new URL(`${POLAR_API_BASE}/benefit-grants`);
-  grantsUrl.searchParams.set('limit', '100');
-  if (targetCustomerId) grantsUrl.searchParams.set('customer_id', targetCustomerId);
+  // Ask Polar for one customer's grants. Without a customer id this used to
+  // list the newest 100 grants of everyone, which silently stops finding
+  // buyers once the shop outgrows that, so resolve the customer from the
+  // email first.
+  const resolvedCustomerId = targetCustomerId || (await resolveCustomerId(targetEmail, fetchImpl, headers));
+  const items = [];
+  for (let page = 1; page <= MAX_GRANT_PAGES; page += 1) {
+    const grantsUrl = new URL(`${POLAR_API_BASE}/benefit-grants`);
+    grantsUrl.searchParams.set('limit', '100');
+    grantsUrl.searchParams.set('page', String(page));
+    if (resolvedCustomerId) grantsUrl.searchParams.set('customer_id', resolvedCustomerId);
 
-  const grantsRes = await fetchImpl(grantsUrl.toString(), { headers, signal: AbortSignal.timeout(15_000) });
-  if (!grantsRes.ok) {
-    throw new Error(`Could not check Polar credit grants (HTTP ${grantsRes.status}).`);
+    const grantsRes = await fetchImpl(grantsUrl.toString(), { headers, signal: AbortSignal.timeout(15_000) });
+    if (!grantsRes.ok) {
+      throw new Error(`Could not check Polar credit grants (HTTP ${grantsRes.status}).`);
+    }
+    const grantsData = await grantsRes.json();
+    if (Array.isArray(grantsData?.items)) items.push(...grantsData.items);
+    // Unfiltered, only the first page is trusted, as before.
+    if (!resolvedCustomerId || page >= (grantsData?.pagination?.max_page ?? 1)) break;
   }
-  const grantsData = await grantsRes.json();
-  const items = Array.isArray(grantsData?.items) ? grantsData.items : [];
 
   let matchedCustomerId = targetCustomerId;
   let matchedEmail = targetEmail;
-  let paidGranted = 0;
-  let activeTrialGranted = 0;
-  let hasTrial = false;
+  let trialCredits = 0;
+  let grantCredits = 0;
+  let seenTrialGrant = false;
   let trialActive = false;
   let trialExpired = false;
   let trialExpiresAt = null;
-  const nowMs = Date.now();
+  const now = Date.now();
 
   for (const grant of items) {
+    // Polar revokes the grant when the trial subscription ends (cancelled
+    // during the trial). A revoked trial grant therefore means the trial was
+    // used, so it must still block a second one (and read as expired, not
+    // "not found").
+    if (grant.is_revoked && grant.benefit_id === TRIAL_BENEFIT_ID) {
+      const grantEmail = String(grant.customer?.email || '').trim().toLowerCase();
+      if ((targetCustomerId && grant.customer_id === targetCustomerId) || (targetEmail && grantEmail === targetEmail)) {
+        matchedCustomerId = matchedCustomerId || grant.customer_id;
+        matchedEmail = matchedEmail || grantEmail;
+        seenTrialGrant = true;
+        trialExpired = true;
+      }
+      continue;
+    }
     if (grant.is_revoked) continue;
     const grantEmail = String(grant.customer?.email || '').trim().toLowerCase();
     const matches = (targetCustomerId && grant.customer_id === targetCustomerId)
       || (targetEmail && grantEmail === targetEmail);
     if (!matches) continue;
+
     matchedCustomerId = matchedCustomerId || grant.customer_id;
     matchedEmail = matchedEmail || grantEmail;
-    const units = typeof grant.properties?.units === 'number'
-      ? grant.properties.units
-      : BENEFIT_UNITS[grant.benefit_id] || 0;
 
     if (grant.benefit_id === TRIAL_BENEFIT_ID) {
-      hasTrial = true;
-      const tsStr = grant.granted_at || grant.created_at || '';
-      const grantedMs = tsStr ? Date.parse(tsStr) : nowMs;
-      const expiresMs = (Number.isFinite(grantedMs) ? grantedMs : nowMs) + TRIAL_DURATION_MS;
+      // Only count at most one Free Trial grant per customer/email.
+      if (seenTrialGrant) continue;
+      seenTrialGrant = true;
+      const timestamp = Date.parse(grant.granted_at || grant.created_at || '');
+      const grantedMs = Number.isFinite(timestamp) ? timestamp : now;
+      const expiresMs = grantedMs + TRIAL_DURATION_MS;
       trialExpiresAt = new Date(expiresMs).toISOString();
-      if (nowMs <= expiresMs) {
+      if (now <= expiresMs) {
         trialActive = true;
-        if (units > 0) activeTrialGranted = Math.max(activeTrialGranted, units);
+        trialCredits = TRIAL_CREDITS;
       } else {
         trialExpired = true;
       }
-    } else if (units > 0) {
-      paidGranted += units;
+      continue;
     }
+
+    const units = typeof grant.properties?.units === 'number'
+      ? grant.properties.units
+      : BENEFIT_UNITS[grant.benefit_id] || 0;
+    if (units > 0) grantCredits += units;
   }
 
-  const totalGranted = paidGranted + activeTrialGranted;
+  matchedCustomerId = matchedCustomerId || resolvedCustomerId;
+  const period = matchedCustomerId ? await paidOrderCredits(matchedCustomerId, headers, fetchImpl) : null;
+  // Orders say which month we are in. Only if they can't be read do the
+  // benefit grants stand in (one per subscription, so those can't reset).
+  const totalGranted = trialCredits + (period ? period.credits : grantCredits);
 
-  if (!matchedCustomerId || (totalGranted <= 0 && !hasTrial)) {
+  if (!matchedCustomerId || (totalGranted <= 0 && !trialExpired)) {
     return {
       found: false,
       customerId: matchedCustomerId || '',
@@ -240,9 +360,11 @@ export async function lookupPolarBalance(polarToken, { email = '', customerId = 
 
   const quantitiesUrl = new URL(`${POLAR_API_BASE}/meters/${POLAR_METER_ID}/quantities`);
   quantitiesUrl.searchParams.set('customer_id', matchedCustomerId);
-  quantitiesUrl.searchParams.set('start_timestamp', '2025-01-01T00:00:00Z');
+  // Usage counts from the current period's order, so last month's use (and
+  // last month's leftovers) don't touch this month's credits.
+  quantitiesUrl.searchParams.set('start_timestamp', period?.since || '2025-01-01T00:00:00Z');
   quantitiesUrl.searchParams.set('end_timestamp', '2030-01-01T00:00:00Z');
-  quantitiesUrl.searchParams.set('interval', 'year');
+  quantitiesUrl.searchParams.set('interval', period?.since ? 'month' : 'year');
 
   let totalUsed = 0;
   try {
@@ -260,9 +382,10 @@ export async function lookupPolarBalance(polarToken, { email = '', customerId = 
     totalGranted,
     totalUsed,
     remaining: Math.max(0, totalGranted - totalUsed),
-    hasTrial,
+    // Any trial grant (active, expired or revoked) blocks a second one.
+    hasTrial: seenTrialGrant,
     trialActive,
-    trialExpired: trialExpired && !trialActive,
+    trialExpired,
     trialExpiresAt,
   };
 }
@@ -604,7 +727,7 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
 export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
   const { email, token } = savedToken(tokens);
   if (!token) {
-    return json({ error: 'Connect your AppBlips AI Credits in Settings → API first.' }, 401);
+    return json({ error: 'Connect your AppBlips AI Credits in Settings → Account first.' }, 401);
   }
 
   const polarToken = String(env?.POLAR_TOKEN || '').trim();
@@ -650,7 +773,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
         ? 'Your 3-day free trial has expired. '
         : '';
       return json({
-        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Top up your credits in Settings → API to keep building.`,
+        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Choose a plan in Settings → Account to keep building.`,
         source: 'provider',
       }, 429);
     }

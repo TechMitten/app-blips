@@ -56,7 +56,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 
 ### 0.1.15
 
-**New: AppBlips AI Credits.** No API key? Build with credits instead. Start the free 3-day trial (100 credits; a card is needed to start, and it renews at $10/month for 1,000 credits unless you cancel) or buy a pay-as-you-go pack (Starter, Builder or Studio; paid credits never expire). To connect, enter the email you used at checkout, then the six-character sign-in code emailed to you. Credits pay for every build, edit, review and Ask reply until you save your own provider, which always takes priority.
+**New: AppBlips AI Credits.** No API key? Build with credits instead. Start the free 3-day trial (100 credits; a card is needed to start, and it renews at $10/month for 1,000 credits unless you cancel) or subscribe to a monthly plan (Starter, Builder or Studio). To connect, enter the email you used at checkout, then the six-character sign-in code emailed to you. Credits pay for every build, edit, review and Ask reply until you save your own provider, which always takes priority.
 
 **New: My images.** Upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images". They're included when you export or publish.
 
@@ -93,7 +93,7 @@ Older releases: see the [changelog](https://docs.appblips.com/changelog) or [Git
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **My images** — upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images"; they're shipped with the site when you export or publish
-- **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, card needed, then $10/month unless you cancel from **Settings → Account**) or buy a pay-as-you-go pack in **Settings → Account**; a credit pack is used for every build until you switch to your own provider
+- **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, card needed, then $10/month unless you cancel from **Settings → Account**) or subscribe to a monthly plan in **Settings → Account**; your plan's credits pay for every build until you switch to your own provider
 - **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Token usage** — a live counter shows the tokens a build is using as it runs, and each AI reply keeps its total, as reported by your AI provider
@@ -220,12 +220,12 @@ The **My images** key in the prompt box opens a per-project gallery (`src/compon
 
 ### AppBlips AI Credits
 
-An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → Account** (or on the setup screens, after choosing **Use AppBlips AI Credits**) the user starts the **3-day free trial** (100 credits; a card is required to start, and it renews at $10/month for 1,000 credits unless cancelled; **Cancel subscription** links to the Polar customer portal), or buys a **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) pack through [Polar](https://polar.sh), then connects with the email used at checkout plus the one-time sign-in code Polar emails to it (`/api/credits/connect` sends the code, `/api/credits/verify` trades it for the saved token). Paid credits never expire.
+An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → Account** (or on the setup screens, after choosing **Use AppBlips AI Credits**) the user starts the **3-day free trial** (100 credits; a card is required to start, and it renews at $10/month for 1,000 credits unless cancelled; **Cancel subscription** links to the Polar customer portal), or subscribes to a monthly plan — **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) credits a month — through [Polar](https://polar.sh), then connects with the email used at checkout plus the one-time sign-in code Polar emails to it (`/api/credits/connect` sends the code, `/api/credits/verify` trades it for the saved token). Credits reset each month and unused credits don't roll over.
 
 - **Use:** while credits are connected they pay for every build, edit, review and Ask reply, using DeepSeek. A provider the user saves under Settings → API takes over and pauses credits (**Use AppBlips Credits instead** switches back); **Disconnect** forgets the credit token. One credit is about 4,000 weighted tokens (output counts triple), at least one per request.
-- **Where it runs:** the same handler in the desktop app, `npm start`/Docker, `npm run dev` and Android. The packaged app relays to `appblips.com`, which holds the Polar and DeepSeek keys; with `POLAR_TOKEN` and `DEEPSEEK_API_KEY` set in `.env` the server talks to them directly.
+- **Where it runs:** the same handler in the desktop app, `npm start`/Docker, `npm run dev` and Android. The packaged app relays to `appblips.com`, which holds the Polar and DeepSeek keys; with `POLAR_TOKEN` and `DEEPSEEK_API_KEY` set in `.env` the server talks to them directly. Direct mode needs `orders:read` on the Polar token so each month's order replaces the last month's credits.
 - **Credit token:** stored like the AI key: encrypted with the system keychain on desktop (`credits.json`), or in `credits-key.json` (mode 0600) next to `provider-key.json` in the browser version. The page only sees the email and balance.
-- **Test:** `node testing/testCreditsApi.js` (no network).
+- **Test:** `npm run test:credits` (no network). It checks the balance logic, the HTTP handlers and that the catalog matches the landing project. Set `POLAR_TOKEN` (test mode) and `APPBLIPS_POLAR_CONTRACT=1` to also verify the live Polar products, prices and trial length; `APPBLIPS_LANDING_DIR` points at a different landing checkout.
 
 ### Pollinations connector
 
