@@ -37,7 +37,7 @@
   --shadow-a1: 0.05;
   --shadow-a2: 0.08;
   --shadow-a3: 0.12;
-  --hairline: rgb(15 23 42 / 0.08);
+  --hairline: rgb(15 23 42 / 0.12);
 
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
@@ -91,7 +91,7 @@
     radial-gradient(78% 40% at 50% -6%, rgb(255 255 255 / 0.75) 0%, transparent 68%),
     radial-gradient(54% 22% at 50% 92%, rgb(15 23 42 / 0.09) 0%, transparent 72%),
     radial-gradient(122% 100% at 50% 46%, transparent 56%, rgb(15 23 42 / 0.06) 100%);
-  --panel-edge: 1px 0 0 0 rgb(15 23 42 / 0.06);
+  --panel-edge: 1px 0 0 0 rgb(15 23 42 / 0.12);
   --well-bg: #ffffff;
   --well-inset: none;
 }

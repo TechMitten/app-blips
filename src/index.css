@@ -93,12 +93,24 @@
        slate-900  primary text: soft charcoal instead of near-black ink
        slate-950  darkest text: pinned to the same charcoal
 
-     The mid ramp (100-800) keeps Tailwind's stock values, so borders
-     (200 = #e2e8f0) and secondary text (600/700) are unchanged.
+       200-300    borders: one step firmer than stock, whose #e2e8f0 all but
+                  vanished against the slate-50 canvas
+       400-700    muted/secondary text: each shifted about one stock step
+                  darker. Stock slate-400 (#90a1b9) is only ~2.6:1 on white
+                  and slate-500 read faint at the small label sizes the app
+                  uses it for; now 400 clears AA (~4.8:1) and 500+ sit well
+                  above it.
+
      .palette-stock is a no-op here (it only re-pins under html.dark), and
      the code panel paints from literal hex, so neither is affected. */
   html:not(.dark) {
     --color-slate-50: #edf2f7;
+    --color-slate-200: #d6dee8;
+    --color-slate-300: #b6c2d1;
+    --color-slate-400: #64748b;
+    --color-slate-500: #475569;
+    --color-slate-600: #334155;
+    --color-slate-700: #263347;
     --color-slate-900: #0f172a;
     --color-slate-950: #0f172a;
   }

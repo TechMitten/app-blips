@@ -98,8 +98,10 @@
 }
 
 .chat-bubble-bot {
-  background: rgb(from var(--color-blue-50) r g b / 0.8);
-  border-color: rgb(from var(--color-blue-200) r g b / 0.6);
+  /* Solid fill and full-strength border: at 0.8/0.6 the bubble barely
+     separated from the white panel behind it. */
+  background: var(--color-blue-50);
+  border-color: var(--color-blue-200);
   color: var(--color-slate-900);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
