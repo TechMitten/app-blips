@@ -150,6 +150,24 @@
   outline-offset: 2px;
 }
 
+/* Count of "My images" on the gallery button. */
+.prompt-input-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
 :is(html.dark, .force-dark) .chat-mode-option {
   color: rgb(255 255 255 / 0.62);
 }
@@ -433,4 +451,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .voice-listening { animation: none; box-shadow: 0 0 0 3px rgb(248 113 113 / 0.35); }
+}
+
+/* brand is white in dark mode (see .brand-fill-text in buttons.css). */
+:is(html.dark, .force-dark) .prompt-input-badge {
+  color: #080808;
 }

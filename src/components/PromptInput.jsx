@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Images } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
@@ -39,6 +39,8 @@ export default function PromptInput({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  galleryCount = 0,
+  onOpenGallery,
   voiceInput = false,
 }) {
   const textareaRef = useRef(null);
@@ -258,6 +260,18 @@ export default function PromptInput({
                 >
                   <Paperclip size={18} aria-hidden="true" />
                 </button>
+                {onOpenGallery && (
+                  <button
+                    type="button"
+                    onClick={onOpenGallery}
+                    aria-label={galleryCount ? `My images (${galleryCount})` : 'My images: upload images for the AI to use'}
+                    title={galleryCount ? `My images (${galleryCount})` : 'My images: upload images for the AI to use'}
+                    className="chat-mode-option min-w-(--composer-key-size)! p-0!"
+                  >
+                    <Images size={18} aria-hidden="true" />
+                    {galleryCount > 0 && <span className="prompt-input-badge" aria-hidden="true">{galleryCount}</span>}
+                  </button>
+                )}
                 {hasCode && (
                   <button
                     type="button"

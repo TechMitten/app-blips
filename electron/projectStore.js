@@ -94,9 +94,13 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 const isCodebaseRow = (row) => row?.data?.studioMode === 'codebase';
 
-// Every blob a codebase row's versions reference.
+// Every blob a row references: its versions (codebase files and assets,
+// review photos) and the images uploaded to its gallery ("My images").
 function referencedBlobs(row) {
   const hashes = new Set();
+  for (const image of Array.isArray(row?.data?.images) ? row.data.images : []) {
+    if (typeof image?.hash === 'string' && HASH_RE.test(image.hash)) hashes.add(image.hash);
+  }
   for (const version of Array.isArray(row?.data?.versions) ? row.data.versions : []) {
     const photos = Array.isArray(version?.qualityReview?.problems) ? version.qualityReview.problems.map((item) => item?.photo) : [];
     for (const map of [version?.tree, version?.assets, photos]) {
@@ -384,7 +388,8 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         // Review screenshots can be written before any project has a folder.
         await adoptOrphanBlobs(row.id, dir);
         await writeSiteMirror(dir, row);
-        if (isCodebaseRow(row)) await collectBlobs(dir, row);
+        // Gallery images removed by the user are cleaned up the same way.
+        if (isCodebaseRow(row) || row?.data?.images?.length) await collectBlobs(dir, row);
       });
     },
 

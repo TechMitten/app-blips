@@ -73,6 +73,9 @@ import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
+import useImageGallery from './hooks/useImageGallery';
+import ImageGalleryModal from './components/ImageGalleryModal';
+import { galleryExportFiles, inlineGalleryImages, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
 import { changedFiles } from './lib/codebase/fileInfo';
@@ -164,6 +167,11 @@ export default function App({ coldStart = false }) {
   // the import found (entry file, Tailwind version, ...), saved with the project.
   const isCodebase = studioMode === 'codebase';
   const [codebaseMeta, setCodebaseMeta] = useState(null);
+  // "My images" (lib/galleryImages.js): the project's uploaded images,
+  // [{ hash, name, type, width, height, size, note }], saved with the project
+  // row (not per version); useImageGallery manages the bytes.
+  const [galleryImages, setGalleryImages] = useState([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
   const [isShowcaseOpen, setIsShowcaseOpen] = useState(false);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
@@ -384,8 +392,8 @@ export default function App({ coldStart = false }) {
     loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave, galleryImages,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setGalleryImages,
       setCodebaseMeta: applyCodebaseMeta,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
@@ -396,6 +404,31 @@ export default function App({ coldStart = false }) {
   // remembers the previous project's id.
   const saveProjectRef = useRef(saveProject);
   saveProjectRef.current = saveProject;
+
+  // Renaming a gallery image changes the path pages use, so every version is
+  // pointed at the new name (restoring an older one keeps working).
+  const handleGalleryRenamed = useCallback((oldName, newName, nextImages) => {
+    const nextVersions = versions.map((version) => (version.files
+      ? { ...version, files: renameGalleryRefs(version.files, oldName, newName) }
+      : version));
+    setVersions(nextVersions);
+    setFiles((current) => renameGalleryRefs(current, oldName, newName));
+    if (currentProjectId) saveProjectRef.current({ versionsToSave: nextVersions, imagesToSave: nextImages, force: true });
+  }, [versions, currentProjectId]);
+  const gallery = useImageGallery({
+    images: galleryImages,
+    setImages: setGalleryImages,
+    projectId: currentProjectId,
+    saveProject,
+    onRenamed: handleGalleryRenamed,
+  });
+  const previewGallery = gallery.previewGallery;
+  const galleryUsedNames = useMemo(
+    () => new Set(referencedGalleryImages(files, galleryImages).map((image) => image.name)),
+    [files, galleryImages],
+  );
+  // Imported codebases have their own image files, so no gallery there.
+  const openGallery = isCodebase ? undefined : () => setIsGalleryOpen(true);
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -695,6 +728,7 @@ export default function App({ coldStart = false }) {
             // Read here rather than as a dependency: a changed Pollinations
             // choice reaches the preview on its next reload.
             pollinations: getPollinationsHelperOptions(),
+            gallery: isCodebase ? undefined : previewGallery,
           })
         : { srcDoc: '', token: '' },
     // previewReloadCount is intentionally "unused": bumping it re-runs the
@@ -705,7 +739,7 @@ export default function App({ coldStart = false }) {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeCode, previewReloadCount, projectStorageVersion, browserReview, activePage]
+    [activeCode, previewReloadCount, projectStorageVersion, browserReview, activePage, previewGallery]
   );
   useEffect(() => {
     if (!browserReview || !previewToken) return;
@@ -1918,6 +1952,7 @@ export default function App({ coldStart = false }) {
       title: projectName || 'Preview',
       initialStorage: { ...previewStorageRef.current },
       pollinations: getPollinationsHelperOptions(),
+      gallery: previewGallery,
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
     window.open(url, '_blank');
@@ -1925,19 +1960,21 @@ export default function App({ coldStart = false }) {
 
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with
   // one file per page (links like about.html keep working when unzipped).
-  // Images made with Pollinations come along (lib/siteImages.js): as files in
-  // images/ in a .zip, built into the page in a single file.
+  // Images made with Pollinations and the user's own (My images) come along
+  // (lib/siteImages.js, lib/galleryImages.js): as files in images/ in a .zip,
+  // built into the page in a single file.
   const handleExportHtml = async () => {
     if (!generatedCode) return;
     const pages = buildExportFiles();
     const { images } = await collectSiteImages(pages);
+    const uploads = galleryExportFiles(pages, galleryImages, blobBytes);
     const baseName = slugifyName(projectName) || 'app';
     const names = pageNames(pages);
-    const outputFiles = names.length > 1 ? pointAtCopies(pages, images) : inlineImages(pages, images);
+    const outputFiles = names.length > 1 ? pointAtCopies(pages, images) : inlineGalleryImages(inlineImages(pages, images), uploads);
     const blob = names.length > 1
       ? createZip([
         ...names.map((name) => ({ name, data: outputFiles[name] })),
-        ...images.map(({ path, bytes }) => ({ name: path, data: bytes })),
+        ...[...images, ...uploads].map(({ path, bytes }) => ({ name: path, data: bytes })),
       ])
       : new Blob([getLanding(outputFiles)], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -1958,6 +1995,10 @@ export default function App({ coldStart = false }) {
     // The Pollinations helper stays in index.html like the rest of the page.
     const entries = buildViteProject(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), { name: baseName, title: projectName || 'My App' });
     if (!entries) return;
+    // Vite serves public/ at the site root, so images/<name> keeps working.
+    for (const { path, bytes } of galleryExportFiles(files, galleryImages, blobBytes)) {
+      entries.push({ name: `${baseName}/public/${path}`, data: bytes });
+    }
     const url = URL.createObjectURL(createZip(entries));
     const link = document.createElement('a');
     link.href = url;
@@ -2062,7 +2103,7 @@ export default function App({ coldStart = false }) {
   // A project with an id is auto-saved after every change, so leaving it loses
   // nothing; only a running build (picking a studio aborts it) or work that
   // never got saved is worth a warning.
-  const hasUnsavedWork = !currentProjectId && Boolean(generatedCode || versions.length > 0 || hasSentFirstPrompt);
+  const hasUnsavedWork = !currentProjectId && Boolean(generatedCode || versions.length > 0 || hasSentFirstPrompt || galleryImages.length);
 
   const handleNewApp = () => {
     if (isGenerating || hasUnsavedWork) {
@@ -2273,6 +2314,8 @@ export default function App({ coldStart = false }) {
     setAttachmentError(null);
     setPendingPrompt('');
     setPendingAttachment(null);
+    setGalleryImages([]);
+    setIsGalleryOpen(false);
     setHasSentFirstPrompt(false);
     setChatMode('build');
     setError(null);
@@ -2470,6 +2513,19 @@ export default function App({ coldStart = false }) {
           />
         )}
         {isShowcaseOpen && <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />}
+        {isGalleryOpen && !isCodebase && (
+          <ImageGalleryModal
+            images={galleryImages}
+            bytesVersion={gallery.bytesVersion}
+            usedNames={galleryUsedNames}
+            isGenerating={isGenerating}
+            onAddFiles={gallery.addFiles}
+            onRename={gallery.rename}
+            onNote={gallery.setNote}
+            onRemove={gallery.remove}
+            onClose={() => setIsGalleryOpen(false)}
+          />
+        )}
         {isImportSiteOpen && (
           <ImportSiteDialog
             onImported={handleImportedSite}
@@ -2611,6 +2667,7 @@ export default function App({ coldStart = false }) {
           projectId={currentProjectId}
           projectName={projectName}
           buildFiles={buildExportFiles}
+          galleryFiles={(pages) => galleryExportFiles(pages, galleryImages, blobBytes)}
           onClose={() => setIsPublishOpen(false)}
           studioMode={studioMode}
         />
@@ -2636,6 +2693,8 @@ export default function App({ coldStart = false }) {
           onAttachScreenshot={handleAttachScreenshot}
           onAttachFile={handleAttachFile}
           onRemoveAttachment={handleRemoveAttachment}
+          galleryCount={galleryImages.length}
+          onOpenGallery={openGallery}
           starterIdeas={
             chatMode === 'ask'
               ? ASK_STARTER_PRESETS
@@ -2724,6 +2783,8 @@ export default function App({ coldStart = false }) {
               onAttachScreenshot={handleAttachScreenshot}
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
+              galleryCount={galleryImages.length}
+              onOpenGallery={openGallery}
               onNewChat={handleStartNewChat}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}

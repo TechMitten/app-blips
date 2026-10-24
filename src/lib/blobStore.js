@@ -65,6 +65,13 @@ function remember(hash, bytes) {
   bytesCache.set(hash, bytes);
 }
 
+// Holds bytes in memory only, for files added before their project has an
+// id (images uploaded ahead of the first build); putBlobs stores them once
+// it does.
+export function cacheBlobs(entries) {
+  for (const [hash, bytes] of entries) if (HASH_RE.test(hash)) remember(hash, bytes);
+}
+
 // entries: Map<hash, string | Uint8Array>. Writes only what this project
 // hasn't stored yet; resolves once everything is persisted.
 export async function putBlobs(projectId, entries) {

@@ -319,3 +319,22 @@ test('review photos: orphan blobs move into an app project; GC keeps cited ones'
   await again.save(cited);
   assert.ok(existsSync(join(codebaseBlobs, sha(photo))));
 }));
+
+// --- My images: the gallery's blobs belong to the row, not to a version ---
+test('gallery images: GC keeps listed images and deletes removed ones', () => withStore(async (store) => {
+  const kept = 'kept image';
+  const removed = 'removed image';
+  const galleryRow = (images) => ({ id: '77', name: 'Gallery App', updatedAt: new Date().toISOString(), data: {
+    versions: [{ files: { 'index.html': '<img src="images/kept.jpg">' } }], currentVersionIndex: 0, images,
+  } });
+  await store.putBlobs('77', [blob(kept), blob(removed)]);
+  await store.save(galleryRow([{ hash: sha(kept), name: 'kept.jpg', type: 'image/jpeg' }]));
+  const blobs = join(store.root, 'Gallery App', 'blobs');
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  await utimes(join(blobs, sha(kept)), twoHoursAgo, twoHoursAgo);
+  await utimes(join(blobs, sha(removed)), twoHoursAgo, twoHoursAgo);
+  const again = createProjectStore({ root: store.root, orphanDir: join(store.root, '..', 'app-data') });
+  await again.save(galleryRow([{ hash: sha(kept), name: 'kept.jpg', type: 'image/jpeg' }]));
+  assert.ok(existsSync(join(blobs, sha(kept))));
+  assert.ok(!existsSync(join(blobs, sha(removed))));
+}));

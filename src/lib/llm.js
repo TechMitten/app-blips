@@ -4,6 +4,7 @@ import { loadOutputTokenLimit } from './config';
 import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
 import { findImageRequests, resolveImages } from './pollinations';
 import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
+import { getActiveGallery } from './galleryImages';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
@@ -15,6 +16,7 @@ import {
 import {
   buildHtmlSystemPrompt,
   buildAskConnectorNote,
+  buildImageGalleryNote,
   
   REFINEMENT_TOOLS,
   getRefinementTools,
@@ -774,6 +776,7 @@ const generateAppCodeCore = async (
             ? 'You are a helpful coding assistant. The user is asking a question about their current app code. Answer the question directly and concisely. Do NOT generate or output the full HTML code. Provide a plain-text or markdown answer.'
             : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.')
           + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
+          + (getActiveGallery().length ? `\n\n${buildImageGalleryNote(getActiveGallery(), studioMode)}` : '')
       },
       ...chatHistory,
       {

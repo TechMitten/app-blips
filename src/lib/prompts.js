@@ -1,6 +1,7 @@
 import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
 import { embedSnippet, squareLinks } from './connectors.js';
 import { MAX_IMAGES_PER_BUILD, POLLINATIONS_IMAGE_MODEL } from './pollinationsApp.js';
+import { galleryPath, getActiveGallery } from './galleryImages.js';
 
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
@@ -641,14 +642,31 @@ export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBu
   return `\n\nThe user has connected these services in Settings → Connectors, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
 };
 
-export const buildHtmlSystemPrompt = (studioMode = "app", connectors = []) => {
+// The user's own uploaded images ("My images", lib/galleryImages.js). The AI
+// only gets names, sizes and the user's notes; pages refer to each one by its
+// published path, which the preview swaps for a loadable URL.
+export const buildImageGalleryNote = (images, studioMode = 'app') => {
+  if (!images?.length) return '';
+  const lines = images.map((image) => {
+    const size = image.type === 'image/svg+xml' ? 'vector' : image.width && image.height ? `${image.width}×${image.height}` : 'size unknown';
+    const note = image.note?.trim() ? ` — the user's note: ${image.note.trim().replace(/\s+/g, ' ')}` : '';
+    return `- ${galleryPath(image)} (${size}${image.type === 'image/gif' ? ', animated GIF' : ''})${note}`;
+  });
+  const game = studioMode === 'game'
+    ? ' In this game they are the one exception to the "no external image assets" rule: use them as sprites, backgrounds or title art when asked (in Phaser, this.load.image with the path).'
+    : '';
+  return `USER IMAGES: The user uploaded these images to their project ("My images"). Use them when the user asks for them: by name, by what they show, or with phrases like "my images", "my photos", "my logo" or "all my images". Don't add them to places the user didn't ask for, and don't remove ones already in use unless asked. Refer to each image exactly by the relative path listed (in an <img src>, a CSS url() or a JavaScript string); never invent other paths under images/, never turn them into data: URLs or full URLs, and never use these paths for anything else. AppBlips shows them in the preview and ships them with the published or exported site. Give each one meaningful alt text and fit it to the layout with CSS (object-fit: cover or contain), keeping the listed proportions in mind.${game}
+${lines.join('\n')}`;
+};
+
+export const buildHtmlSystemPrompt = (studioMode = "app", connectors = [], gallery = getActiveGallery()) => {
   const base = studioMode === "website"
     ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
     : studioMode === "game"
       ? GAME_HTML_SYSTEM_PROMPT
       : HTML_SYSTEM_PROMPT;
-  const directive = buildConnectorDirective(connectors, studioMode);
-  return directive ? base + "\n\n" + directive : base;
+  const extras = [buildConnectorDirective(connectors, studioMode), buildImageGalleryNote(gallery, studioMode)].filter(Boolean);
+  return extras.length ? base + "\n\n" + extras.join("\n\n") : base;
 };
 
 export const getSafeAreaInstruction = (layoutTarget) => {

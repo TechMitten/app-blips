@@ -52,6 +52,8 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  galleryCount,
+  onOpenGallery,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
 
@@ -234,6 +236,8 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
+          galleryCount={galleryCount}
+          onOpenGallery={onOpenGallery}
         />
       </div>
     </div>
