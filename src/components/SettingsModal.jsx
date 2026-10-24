@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info, Coins } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import ConnectorsSettings from './ConnectorsSettings';
@@ -9,6 +9,7 @@ import AboutSettings from './AboutSettings';
 import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
 import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
+import CreditsSettings from './CreditsSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import {
   SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
@@ -22,10 +23,11 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects), Data (project backup and
+// AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects),
+// API (your own AI provider), Credits (AppBlips AI Credits), Data (project backup and
 // the desktop projects folder), Legal, Licenses (open source credits) and About (logo,
 // version, copyright). AppBlips is a desktop, single-user app, so
-// there is no account or billing tab.
+// there is no account tab.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -37,6 +39,7 @@ const TABS = [
   { id: 'ai', label: 'AI', Icon: Sparkles },
   { id: 'connectors', label: 'Connectors', Icon: Plug },
   { id: 'api', label: 'API', Icon: Network },
+  { id: 'credits', label: 'Credits', Icon: Coins },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'legal', label: 'Legal', Icon: FileText },
   { id: 'licenses', label: 'Licenses', Icon: Scale },
@@ -389,6 +392,8 @@ export default function SettingsModal({
           {tab === 'api' && (
             <DesktopProviderSettings guardRef={providerGuardRef} />
           )}
+
+          {tab === 'credits' && <CreditsSettings />}
         </div>
       </div>
 

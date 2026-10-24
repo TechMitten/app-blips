@@ -329,7 +329,7 @@ function PlanForm({ formRef, onSubmit, plan, setPlan }) {
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Make a selection:">
         <ChoiceCards formRef={formRef} label="How do you want to use AI?" options={PLAN_OPTIONS} value={plan} onChange={setPlan} />
-        <p className="onboarding-key-help">You can switch any time in Settings → API.</p>
+        <p className="onboarding-key-help">You can switch any time in Settings → API or Settings → Credits.</p>
       </SetupField>
     </form>
   );
