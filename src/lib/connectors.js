@@ -389,6 +389,42 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  // The one native connector (`native: true`): no service and no key. Only the
+  // on/off switch is global; the answers are per project (lib/seo.js) and reach
+  // the AI once after they are saved or changed, not through
+  // CONNECTOR_DIRECTIVES, so getActiveConnectors leaves it out.
+  seo: {
+    id: 'seo',
+    name: 'SEO',
+    tagline: 'Help people find your site on Google',
+    description: 'Answer a few simple questions about your project and the AI adds professional search-engine optimization to it. Nothing is sent to any other service.',
+    native: true,
+    page: {
+      enableDescription: 'Answer a few questions about the project you have open, and the AI will apply good SEO to it.',
+    },
+    prompts: [
+      'Apply my saved SEO details to every page.',
+      'Check every page for SEO problems (titles, descriptions, headings, image alt text) and fix them using my saved SEO details.',
+      'Add structured data (JSON-LD) to every page that matches my saved SEO details.',
+    ],
+    about: {
+      what: 'SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector turns a short, friendly questionnaire into that work, done by the AI.',
+      steps: [
+        'Turn on SEO and open a project.',
+        'Answer the questions, two or three at a time: what your site is called and does, who it is for, the phrases people might search for, and how it should look when shared.',
+        'Press Save. The AI is told your answers once, with your next request (or right away if you choose), and adds titles, descriptions, sharing tags, headings, image descriptions and structured data to your pages.',
+        'When you export or publish, AppBlips also adds a sitemap.xml and robots.txt file for you, if you gave a website address.',
+      ],
+      notes: [
+        'Your answers are saved with the project, not with your other settings. Each project has its own.',
+        'The AI only hears about your answers after you save them for the first time or change them, so ordinary requests aren’t slowed down or made more expensive by them.',
+        'Nothing goes to a third party. Your answers go only to the AI provider you already use for building.',
+        'If you type your website address, AppBlips asks before it reads the site. Only if you say yes does it visit that one page, once, and keep its title, description and headings with your answers. You can say no, or forget what it read.',
+        'Good SEO helps search engines find and describe your site, but nobody can promise a ranking.',
+        'Imported codebases don’t use it.',
+      ],
+    },
+  },
 };
 
 export const CONNECTOR_IDS = Object.keys(CONNECTOR_DEFINITIONS);
@@ -421,11 +457,13 @@ export const saveConnectors = (connectors) => {
   } catch { /* storage blocked: the setting just won't persist */ }
 };
 
-// 'connected' (on, valid key or signed in: used by the AI), 'needs-key' (on,
-// key missing or malformed: not used yet), 'needs-sign-in' or 'off'.
+// 'connected' (on, valid key or signed in: used by the AI; native connectors
+// only need to be on), 'needs-key' (on, key missing or malformed: not used
+// yet), 'needs-sign-in' or 'off'.
 export const connectorStatus = (id, connectors = loadConnectors()) => {
   const { enabled, key = '', account } = connectors[id] || {};
   if (!enabled) return 'off';
+  if (CONNECTOR_DEFINITIONS[id].native) return 'connected';
   if (CONNECTOR_DEFINITIONS[id].signIn) return account ? 'connected' : 'needs-sign-in';
   return CONNECTOR_DEFINITIONS[id].isValidKey(key.trim()) ? 'connected' : 'needs-key';
 };
@@ -436,7 +474,7 @@ export const connectorStatus = (id, connectors = loadConnectors()) => {
 // how AI features are paid for, so the AI builds them to match: 'visitors',
 // 'site', or 'none' (site key chosen but not added yet: no AI features).
 export const getActiveConnectors = (connectors = loadConnectors()) => CONNECTOR_IDS
-  .filter((id) => connectorStatus(id, connectors) === 'connected')
+  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && connectorStatus(id, connectors) === 'connected')
   .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : connectors[id].key.trim() }));
 
 const pollinationsAiMode = (connectors) => {

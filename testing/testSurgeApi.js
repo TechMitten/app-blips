@@ -142,6 +142,32 @@ test('publish uploads copied Pollinations images next to the pages, and refuses 
   }
 });
 
+test('publish adds the SEO connector\'s sitemap.xml and robots.txt, and refuses any other extra file', async () => {
+  let seen;
+  const fetch = async (url, init) => {
+    seen = init;
+    return new Response('{"type":"info"}\n', { status: 200 });
+  };
+  const extras = { 'sitemap.xml': '<urlset/>', 'robots.txt': 'User-agent: *\nAllow: /\n' };
+  const ok = await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': 'x' }, extras } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch },
+  );
+  assert.equal(ok.status, 200);
+  const files = readTar(gunzipSync(seen.body));
+  assert.deepEqual(files.map((f) => f.name).sort(), ['site/index.html', 'site/robots.txt', 'site/sitemap.xml']);
+  assert.equal(files.find((f) => f.name === 'site/sitemap.xml').text, '<urlset/>');
+  assert.equal(seen.headers['file-count'], '3');
+
+  for (const bad of [{ '../x.xml': 'x' }, { 'evil.html': '<script>' }, { 'robots.txt': 5 }, { 'robots.txt': 'x'.repeat(300_000) }, ['x']]) {
+    const response = await handleSurgeApi(
+      request('/api/surge/publish', { method: 'POST', body: { domain: 'my-site', files: { 'index.html': 'x' }, extras: bad } }),
+      {}, memoryTokens('a@b.co', 'tok'), { fetch: () => assert.fail('no upload') },
+    );
+    assert.equal(response.status, 400, JSON.stringify(bad).slice(0, 60));
+  }
+});
+
 test('publish uploads the site icon as favicon.png, within its size cap', async () => {
   let seen;
   const fetch = async (url, init) => {

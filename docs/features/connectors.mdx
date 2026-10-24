@@ -1,10 +1,12 @@
 ---
 title: "Connectors"
 sidebarTitle: "Connectors"
-description: "Link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations so the AI wires them into the websites and apps you build."
+description: "Link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations, or turn on the built-in SEO connector, so the AI wires them into the websites and apps you build."
 ---
 
 Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features.
+
+SEO is different from the rest: it is built into AppBlips, so there is nothing to sign up for and no key to paste. You answer a few questions about your project instead (see [SEO](#seo)).
 
 Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)).
 
@@ -29,7 +31,7 @@ Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is s
   </Step>
 </Steps>
 
-Changes save as you type, so there is no Save button. Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
+Changes save as you type, so there is no Save button. (The one exception is the [SEO](#seo) questions, which have a **Save answers** button at the end.) Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
 
 ## Use a connector in a project
 
@@ -205,6 +207,37 @@ If the budget runs out, or you delete the key, the features show "AI features ar
 
 In the Browser Game studio, ask for Pollinations images for things like the title screen, backgrounds or sprites; everything else in a game is still drawn in code. Imported sites don't use Pollinations.
 
+## SEO
+
+SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector is built into AppBlips: there is no outside service, no account and no key. You answer a few plain questions about your project, and the AI adds professional SEO to its pages.
+
+<Steps>
+  <Step title="Open a project">
+    The answers belong to one project, so open the project first. Each project has its own.
+  </Step>
+  <Step title="Turn it on">
+    Click **Settings**, then **Connectors**, then the **SEO** card. Click the switch next to **Enable SEO**. The questions open in their own window. (If you've already answered them for this project, click **Review answers** instead.)
+  </Step>
+  <Step title="Answer the questions">
+    The questions come two or three at a time, one page after another, with a bar at the top showing how far along you are. Click **Next** to move on, **Back** to go back, or **Skip** on a page you'd rather leave. You can also click a part of the bar to jump back to a page you've already seen. Only the first page has questions you must answer.
+    - **Tell us about your site:** its name, what it does, and its website address (leave the address blank if you don't have one yet). If you type an address, AppBlips asks **Is it OK to scan** your site? Click **Yes, scan it** and AppBlips visits that one page, once, and reads its title, description and headings, so the AI can match what your site already says. Click **No thanks** and nothing is read. AppBlips only scans sites on the public internet, not addresses on your own network. After a scan you can click **Scan again** or **Forget it**.
+    - **Who is it for?** Your visitors, the kind of site it is, and where you are based.
+    - **How should people find you?** The phrases people might search for, your language or country, and whether search engines may list the site. Turn that off while the site is still a draft.
+    - **When someone shares your link:** your other profiles, such as Instagram, and a preview picture chosen from [My images](/features/building-apps#using-your-own-images).
+  </Step>
+  <Step title="Check and save">
+    The last page shows your answers. Click **Edit** next to a group to change it. Click **Save answers** to keep them with the project, then **Done**. If you close the window before saving, AppBlips asks first, since unsaved answers are lost.
+  </Step>
+</Steps>
+
+After you save, the AI hears about your answers once. They go with your next request, or you can click **Apply to my site now** on the last page of the questions to have the AI do it straight away. The AI then adds a title and description for every page, the tags that make your link look good when it's shared, a proper heading structure, descriptions for your images, and structured data (JSON-LD) that tells search engines what your business is.
+
+What a scan read is saved with your answers, and goes to the AI with them, as information about your site rather than instructions. Your answers are not sent again with every message. They go again only if you save a change, or after you start a **New chat**, which forgets earlier messages.
+
+If you gave a website address, **Export** and **Publish** also add a `sitemap.xml` and a `robots.txt` file to the site. The sitemap lists your pages, and the robots file points search engines to it. If you turned off **Let search engines list this site**, they instead ask search engines to stay away. Because these are separate files, an export with them downloads as a `.zip`, even for a single page.
+
+Good SEO helps search engines find and describe your site, but nobody can promise where it will rank. Imported sites don't use the SEO connector.
+
 ## Request a connector
 
 Missing a service?
@@ -219,4 +252,4 @@ Your request goes to the AppBlips team through Web3Forms. Nothing about your pro
 
 ## Privacy
 
-AppBlips saves your connector settings on your computer. It never contacts these services itself, except Web3Forms when you send a connector request, and Pollinations as described in [Pollinations](#pollinations). The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in is the exception: it is kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
+AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, and Pollinations as described in [Pollinations](#pollinations). The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in is the exception: it is kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

@@ -1,78 +1,65 @@
 // Run: node testing/testEmbeddedScreenshot.js
-// A screenshot covers the whole page: the embedded browser scrolls a screen at
-// a time from the top to the bottom, captures each, then scrolls back to where
-// the page was. The first screenshot of a page covers every screen size, and
-// one of a page and size that hasn't changed takes no new images.
+// A screenshot is one image of the current screen size. With an element ID
+// as target it scrolls that element into view first, then scrolls back to
+// where the page was. It never switches screen size or captures the whole page.
 import assert from 'node:assert/strict';
-import { createEmbeddedBrowser, MAX_SCREENS_PER_SIZE } from '../src/lib/embeddedBrowser.js';
+import { createEmbeddedBrowser } from '../src/lib/embeddedBrowser.js';
 
-const fakePage = (heights, { visibleHeight = 600, screen = 'desktop' } = {}) => {
+const fakePage = ({ pageHeight = 2000, visibleHeight = 600, screen = 'desktop', elements = { e1: 1500 } } = {}) => {
   let scrollY = 0;
-  let size = screen;
-  let page = 'index.html';
   const shots = [];
   const viewports = [];
-  const pageHeight = () => heights[size];
-  const viewport = () => ({ width: size === 'mobile' ? 390 : 1280, height: 800, scrollY, pageHeight: pageHeight(), visibleHeight,
-    atBottom: scrollY + visibleHeight >= pageHeight() - 1 });
+  const scrollTo = (y) => { scrollY = Math.max(0, Math.min(pageHeight - visibleHeight, y)); };
+  const viewport = () => ({ width: 1280, height: 800, scrollY, pageHeight, visibleHeight, atBottom: scrollY + visibleHeight >= pageHeight - 1 });
   const browser = createEmbeddedBrowser({
     mount() {},
     inspect: async () => ({ readyState: 'complete', errors: [], viewport: viewport() }),
     request: async (args) => {
+      if (args.action === 'target') {
+        if (!(args.target in elements)) throw new Error('Element is no longer available. Inspect the page again.');
+        // Like the runtime: scrolled into view before the covered check.
+        scrollTo(elements[args.target] - visibleHeight / 2);
+        if (args.target === 'covered') throw new Error('Element is covered by another element.');
+        return { success: true };
+      }
       if (args.action !== 'scroll') return { success: true };
-      assert.ok(Math.abs(args.y) <= 5000);
       const before = scrollY;
-      scrollY = Math.max(0, Math.min(Math.max(0, pageHeight() - visibleHeight), scrollY + args.y));
+      scrollTo(scrollY + args.y);
       return { success: true, scrolledBy: scrollY - before };
     },
-    screenshot: async () => { shots.push(`${size}@${scrollY}`); return { dataUrl: `data:image/png;base64,${size}${scrollY}` }; },
-    setViewport: (next) => { viewports.push(next); size = next; },
-    navigate: (next) => { page = next; scrollY = 0; },
-    getPage: () => page,
+    screenshot: async () => { shots.push(scrollY); return { dataUrl: `data:image/png;base64,${scrollY}` }; },
+    setViewport: (next) => viewports.push(next),
+    navigate() {},
+    getPage: () => 'index.html',
     screen,
   });
-  return { browser, shots, viewports, scrollTo: (y) => { scrollY = y; }, get scrollY() { return scrollY; }, get size() { return size; } };
+  return { browser, shots, viewports, scrollTo, get scrollY() { return scrollY; } };
 };
-const files = { 'index.html': '', 'about.html': '' };
+const files = { 'index.html': '' };
 
-// The first look at a page: every size, top to bottom, back to the user's size.
-let page = fakePage({ mobile: 1500, tablet: 500, desktop: 2000 });
+// No target: what is on screen now, and nothing else.
+let page = fakePage();
 await page.browser.open(files);
-let result = await page.browser.capturePage();
-assert.deepEqual(page.shots, ['mobile@0', 'mobile@560', 'mobile@900', 'tablet@0', 'desktop@0', 'desktop@560', 'desktop@1120', 'desktop@1400']);
-assert.deepEqual(result.shots.map((shot) => shot.screen), ['mobile', 'mobile', 'mobile', 'tablet', 'desktop', 'desktop', 'desktop', 'desktop']);
-assert.equal(result.shots[2].repeatsPx, 260, 'the last screen says how much it repeats');
-assert.equal(result.shots[1].repeatsPx, undefined, 'the normal overlap is not reported');
-assert.equal(page.size, 'desktop');
-assert.equal(result.screen, 'desktop');
-assert.equal(page.scrollY, 0);
+page.scrollTo(300);
+let result = await page.browser.execute({ action: 'screenshot', target: null });
+assert.deepEqual(page.shots, [300]);
+assert.equal(result.shots.length, 1);
+assert.equal(result.shots[0].screen, 'desktop');
+assert.equal(result.shots[0].scrollY, 300);
+assert.deepEqual(page.viewports, [], 'never switches screen size');
 
-// Unchanged page and size: no new images, even after scrolling.
-page.shots.length = 0;
-await page.browser.execute({ action: 'scroll', y: 500 });
-result = await page.browser.execute({ action: 'screenshot' });
-assert.deepEqual(result.shots, []);
-assert.match(result.alreadyCaptured, /Nothing has changed/);
-assert.deepEqual(page.shots, []);
+// A target is brought into view for the image, then the page scrolls back.
+result = await page.browser.execute({ action: 'screenshot', target: 'e1' });
+assert.deepEqual(page.shots, [300, 1200]);
+assert.equal(result.shots[0].scrollY, 1200);
+assert.equal(page.scrollY, 300, 'scrolled back to where it was');
 
-// After a click, only the current size, from the top, and scrolled back.
-page.scrollTo(700);
-await page.browser.execute({ action: 'click', target: 'e1' });
-result = await page.browser.execute({ action: 'screenshot' });
-assert.deepEqual(page.shots, ['desktop@0', 'desktop@560', 'desktop@1120', 'desktop@1400']);
-assert.equal(page.scrollY, 700, 'scrolled back to where it was');
-
-// A new page gets every size again.
-page.shots.length = 0;
-await page.browser.execute({ action: 'navigate', text: 'about.html' });
-result = await page.browser.execute({ action: 'screenshot' });
-assert.deepEqual([...new Set(result.shots.map((shot) => shot.screen))], ['mobile', 'tablet', 'desktop']);
-
-// A very long page stops at the cap and says the page goes on.
-page = fakePage({ mobile: 100000, tablet: 100000, desktop: 100000 });
+// A covered element can be the problem itself, so it is still photographed;
+// an element that no longer exists is an error.
+page = fakePage({ elements: { covered: 1000 } });
 await page.browser.open(files);
-result = await page.browser.execute({ action: 'screenshot' });
-assert.equal(result.shots.filter((shot) => shot.screen === 'desktop').length, MAX_SCREENS_PER_SIZE);
-assert.equal(result.shots.at(-1).pageContinues, true);
+result = await page.browser.execute({ action: 'screenshot', target: 'covered' });
+assert.deepEqual(page.shots, [700]);
+await assert.rejects(page.browser.execute({ action: 'screenshot', target: 'gone' }), /no longer available/);
 
 console.log('testEmbeddedScreenshot: ok');

@@ -10,6 +10,7 @@ import { normalizeStudioMode } from '../lib/constants';
 import { packVersions, referencedTextHashes, unpackVersions } from '../lib/codebase/versions';
 import { blobBytes, blobText, ensureBlobs, putBlobs } from '../lib/blobStore';
 import { normalizeGallery } from '../lib/galleryImages';
+import { normalizeSeoProfile } from '../lib/seo';
 import { logError, logWarn } from '../lib/errorLog';
 
 // Imported codebases save versions as file-hash trees with the text in the
@@ -39,8 +40,8 @@ let codebaseSaveChain = Promise.resolve();
 // all stable React state setters.
 export default function useProjects({ workspace }) {
   const {
-    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta, galleryImages,
-    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta, galleryImages, seoProfile,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile,
     setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState
   } = workspace;
@@ -56,6 +57,10 @@ export default function useProjects({ workspace }) {
   // with, and images added meanwhile must not be dropped from the row.
   const galleryRef = useRef(galleryImages);
   galleryRef.current = galleryImages;
+  // Same for the SEO answers (lib/seo.js): saving the form must survive a
+  // build that started before it.
+  const seoRef = useRef(seoProfile);
+  seoRef.current = seoProfile;
 
   const [myProjects, setMyProjects] = useState([]);
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
@@ -92,6 +97,7 @@ export default function useProjects({ workspace }) {
       // The bytes load in the background (useImageGallery); a backup restored
       // elsewhere has the list but not the images.
       setGalleryImages(normalizeGallery(projectData.images));
+      setSeoProfile(normalizeSeoProfile(projectData.seo));
       const currentVersion = migrated.versions[projectData.currentVersionIndex];
       if (currentVersion) {
         setFiles(versionFiles(currentVersion));
@@ -103,7 +109,7 @@ export default function useProjects({ workspace }) {
     } catch (err) {
       logError(`Could not load project ${projectId}`, err);
     }
-  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -115,7 +121,8 @@ export default function useProjects({ workspace }) {
       sessionIdToSave = currentChatSessionId,
       studioModeToSave = studioMode,
       codebaseToSave = codebaseMeta,
-      imagesToSave = galleryRef.current
+      imagesToSave = galleryRef.current,
+      seoToSave = seoRef.current
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
@@ -133,6 +140,7 @@ export default function useProjects({ workspace }) {
       };
       if (mode === 'codebase' && codebaseToSave) projectData.codebase = codebaseToSave;
       if (mode !== 'codebase' && imagesToSave?.length) projectData.images = imagesToSave;
+      if (mode !== 'codebase' && seoToSave) projectData.seo = seoToSave;
 
       const rows = readProjectRows();
       const existingIndex = rows.findIndex(r => r.id === projectId);
@@ -252,6 +260,7 @@ export default function useProjects({ workspace }) {
     setCurrentChatSessionId(migrated.currentChatSessionId);
     setStudioMode(normalizeStudioMode(project.studioMode));
     setCodebaseMeta(project.codebase || null);
+    setSeoProfile(normalizeSeoProfile(project.seo));
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));
       setActivePage(LANDING_PAGE);

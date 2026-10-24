@@ -69,7 +69,10 @@ import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
 import { injectPollinationsHelper } from './lib/pollinationsHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
-import { getPollinationsHelperOptions } from './lib/connectors';
+import { getPollinationsHelperOptions, loadConnectors } from './lib/connectors';
+import {
+  SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, normalizeSeoForm, seoExtraFiles, seoPending,
+} from './lib/seo';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
@@ -173,6 +176,11 @@ export default function App({ coldStart = false }) {
   // [{ hash, name, type, width, height, size, note }], saved with the project
   // row (not per version); useImageGallery manages the bytes.
   const [galleryImages, setGalleryImages] = useState([]);
+  // The SEO connector's answers for this project (lib/seo.js): { form,
+  // sentHash, sentSessionId } or null. Saved with the project row, not per version.
+  const [seoProfile, setSeoProfile] = useState(null);
+  const seoProfileRef = useRef(seoProfile);
+  seoProfileRef.current = seoProfile;
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
   const [isShowcaseOpen, setIsShowcaseOpen] = useState(false);
@@ -396,8 +404,8 @@ export default function App({ coldStart = false }) {
     loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave, galleryImages,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setGalleryImages,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave, galleryImages, seoProfile,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setGalleryImages, setSeoProfile,
       setCodebaseMeta: applyCodebaseMeta,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
@@ -1422,7 +1430,7 @@ export default function App({ coldStart = false }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && !isReviewFix && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    const shouldAskClarifyingQuestions = !isAutoFix && !isReviewFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
 
     setGenerationStatus(
       isAutoFix
@@ -1446,6 +1454,16 @@ export default function App({ coldStart = false }) {
       { role: 'user', content: v.prompt },
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
+
+    // The SEO connector's answers go to the AI once: with the first request
+    // after they are saved or changed, and again in a new chat session, which
+    // forgets them. Marked as sent only when the request really built or edited
+    // (below), so a question, clarification or failure sends them next time.
+    const seoNote = !isAutoFix && chatMode !== 'ask' && studioMode !== 'codebase'
+      && seoPending({ enabled: loadConnectors().seo?.enabled === true, profile: seoProfileRef.current, sessionId: currentChatSessionId })
+      ? buildSeoNote(seoProfileRef.current.form, studioMode)
+      : '';
+    const seoSentHash = seoNote ? hashSeoForm(seoProfileRef.current.form) : '';
 
     // Every AI request this turn makes, shown under its reply.
     const usageMeter = startUsageMeter();
@@ -1602,7 +1620,7 @@ export default function App({ coldStart = false }) {
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: buildReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1636,10 +1654,20 @@ export default function App({ coldStart = false }) {
       setVersions(finalVersions);
       setCurrentVersionIndex(updatedVersions.length);
 
+      // The AI has now been told the SEO answers (unless the form changed
+      // while it worked: then the newer answers are still pending).
+      let seoToSave;
+      if (seoNote && isBuildVersion && seoProfileRef.current) {
+        seoToSave = { ...seoProfileRef.current, sentHash: seoSentHash, sentSessionId: currentChatSessionId ?? null };
+        seoProfileRef.current = seoToSave;
+        setSeoProfile(seoToSave);
+      }
+
       // Auto-save
       saveProject({
         versionsToSave: finalVersions,
-        indexToSave: updatedVersions.length
+        indexToSave: updatedVersions.length,
+        ...(seoToSave ? { seoToSave } : {})
       });
 
       // Generation completed successfully — no interrupted job to resume.
@@ -1944,6 +1972,10 @@ export default function App({ coldStart = false }) {
     return mapPages(files, (html) => injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations));
   };
 
+  // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
+  // the page list here rather than written by the AI. [] when it is off.
+  const seoExtras = (pages) => seoExtraFiles({ enabled: loadConnectors().seo?.enabled === true, form: seoProfile?.form }, pageNames(pages));
+
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
   // (sign-in session, saved provider key) and /api/chat. The tab gets a
@@ -1974,17 +2006,21 @@ export default function App({ coldStart = false }) {
     const uploads = galleryExportFiles(pages, galleryImages, blobBytes);
     const baseName = slugifyName(projectName) || 'app';
     const names = pageNames(pages);
-    const outputFiles = names.length > 1 ? pointAtCopies(pages, images) : inlineGalleryImages(inlineImages(pages, images), uploads);
-    const blob = names.length > 1
+    const extras = seoExtras(pages);
+    // sitemap.xml and robots.txt are separate files, so they need a .zip too.
+    const asZip = names.length > 1 || extras.length > 0;
+    const outputFiles = asZip ? pointAtCopies(pages, images) : inlineGalleryImages(inlineImages(pages, images), uploads);
+    const blob = asZip
       ? createZip([
         ...names.map((name) => ({ name, data: outputFiles[name] })),
         ...[...images, ...uploads].map(({ path, bytes }) => ({ name: path, data: bytes })),
+        ...extras.map(({ path, text }) => ({ name: path, data: text })),
       ])
       : new Blob([getLanding(outputFiles)], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = names.length > 1 ? `${baseName}.zip` : `${baseName}.html`;
+    link.download = asZip ? `${baseName}.zip` : `${baseName}.html`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -2003,6 +2039,7 @@ export default function App({ coldStart = false }) {
     for (const { path, bytes } of galleryExportFiles(files, galleryImages, blobBytes)) {
       entries.push({ name: `${baseName}/public/${path}`, data: bytes });
     }
+    for (const { path, text } of seoExtras(files)) entries.push({ name: `${baseName}/public/${path}`, data: text });
     const url = URL.createObjectURL(createZip(entries));
     const link = document.createElement('a');
     link.href = url;
@@ -2319,6 +2356,7 @@ export default function App({ coldStart = false }) {
     setPendingPrompt('');
     setPendingAttachment(null);
     setGalleryImages([]);
+    setSeoProfile(null);
     setIsGalleryOpen(false);
     setHasSentFirstPrompt(false);
     setChatMode('build');
@@ -2459,6 +2497,39 @@ export default function App({ coldStart = false }) {
     );
   }
 
+  // Settings → Connectors → SEO. Saving keeps what the AI was last told, so
+  // only a real change makes the answers pending again (lib/seo.js).
+  const handleSaveSeo = (form) => {
+    const previous = seoProfileRef.current;
+    const next = {
+      form: normalizeSeoForm(form),
+      sentHash: previous?.sentHash || '',
+      sentSessionId: previous?.sentSessionId ?? null,
+    };
+    seoProfileRef.current = next;
+    setSeoProfile(next);
+    if (currentProjectId) saveProject({ seoToSave: next, force: true });
+  };
+  // "Apply to my site now": an ordinary build request, which carries the note.
+  const handleApplySeo = () => {
+    setIsSettingsOpen(false);
+    setSettingsInitialTab(null);
+    handleGenerateRef.current?.(null, SEO_APPLY_PROMPT);
+  };
+  // The SEO page needs a workspace to attach its answers to; imported
+  // codebases don't use connectors.
+  const seoProject = studioMode && studioMode !== 'codebase' && !isStudioChoiceOpen
+    ? {
+      profile: seoProfile,
+      images: galleryImages,
+      hasCode: Boolean(generatedCode),
+      busy: isGenerating,
+      sessionId: currentChatSessionId,
+      onSave: handleSaveSeo,
+      onApply: handleApplySeo,
+    }
+    : null;
+
   // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
@@ -2493,6 +2564,7 @@ export default function App({ coldStart = false }) {
           onResetApp={handleResetApp}
           onRestartOnboarding={isDesktop ? handleRestartOnboarding : undefined}
           projectCount={myProjects.length}
+          seoProject={seoProject}
         />
   );
 
@@ -2683,6 +2755,7 @@ export default function App({ coldStart = false }) {
           projectName={projectName}
           buildFiles={buildExportFiles}
           galleryFiles={(pages) => galleryExportFiles(pages, galleryImages, blobBytes)}
+          extraFiles={seoExtras}
           onClose={() => setIsPublishOpen(false)}
           studioMode={studioMode}
         />

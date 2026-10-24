@@ -164,7 +164,7 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 ### Code Review (beta)
 
 <ParamField body="Code Review" type="toggle" default="Off">
-  Code Review is a beta feature, so it is off by default. When enabled, AppBlips asks after every build or edit whether anything looks wrong on screen. Choose **Looks wrong** and the AI takes screenshots, tests the project in the built-in browser, reads the code, and writes a report with a screenshot as evidence for each problem. Choose **Looks fine** and it tests the project and reads the code the same way, but without screenshots, which uses fewer tokens. It doesn't change anything itself. If the report lists problems, AppBlips asks whether to fix them. Choose **Fix problems** and a new chat starts with the report as its task, and the AI fixes them as a normal edit, or choose **Not now** to leave things as they are. Choose **Skip** to move on without a review. Reviews can use a lot of extra tokens, so they only run when you say yes. Leave this off to skip both the question and the review.
+  Code Review is a beta feature, so it is off by default. When enabled, AppBlips asks after every build or edit whether anything looks wrong on screen. Choose **Looks wrong** and the AI tests the project in the built-in browser, reads the code, and writes a report; it takes a screenshot only when it finds a problem a picture would help confirm or show you, and adds it to the report as evidence. Choose **Looks fine** and it tests the project and reads the code the same way, but never takes screenshots. It doesn't change anything itself. If the report lists problems, AppBlips asks whether to fix them. Choose **Fix problems** and a new chat starts with the report as its task, and the AI fixes them as a normal edit, or choose **Not now** to leave things as they are. Choose **Skip** to move on without a review. Reviews can use a lot of extra tokens, so they only run when you say yes. Leave this off to skip both the question and the review.
 </ParamField>
 
 ### Smart game engine
@@ -209,6 +209,10 @@ The **Surge** card is the account [Publish to the web](/features/publishing) use
 
 <ParamField body="Enable Pollinations" type="toggle" default="Off">
   AI images and AI features. Needs a sign-in with your Pollinations account. Under **AI features in your sites**, choose whether visitors pay with their own Pollen or your site key pays. See [Pollinations](/features/connectors#pollinations).
+</ParamField>
+
+<ParamField body="Enable SEO" type="toggle" default="Off">
+  Built into AppBlips, with nothing to sign up for. Opens a short set of questions about the project you have open in their own window, two or three per page, ending with a **Save answers** button. If you type your website address, it asks before scanning that page. Click **Review answers** to see or change them later. The AI applies good search-engine optimization once after you save or change them. See [SEO](/features/connectors#seo).
 </ParamField>
 
 Missing a service? Click **Request a connector** at the end of the cards.

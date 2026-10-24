@@ -139,7 +139,7 @@ function ReviewOffer({ onReview, onSkip }) {
       <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
         <p className="flex items-start gap-2 text-(length:--chat-label-text) text-slate-600 dark:text-white/70 leading-relaxed">
           <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Try it in the preview first. Does anything look wrong on screen? Choose <strong>Looks wrong</strong> and the AI tests it with screenshots, or <strong>Looks fine</strong> to have it test that everything works, without screenshots. Then it writes a report, and you choose whether to fix what it found. Uses extra tokens.</span>
+          <span>Try it in the preview first. Does anything look wrong on screen? Choose <strong>Looks wrong</strong> and the AI tests it and can take a screenshot to check a problem it finds, or <strong>Looks fine</strong> to have it test that everything works, without screenshots. Then it writes a report, and you choose whether to fix what it found. Uses extra tokens.</span>
         </p>
         <div className="flex gap-2">
           <button

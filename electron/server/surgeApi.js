@@ -12,11 +12,14 @@
 //   DELETE /api/surge          -> sign out
 //   POST   /api/surge/publish  -> { domain, files: { 'index.html': html },
 //                                   images?: { 'images/<name>.jpg': base64,
-//                                              'favicon.png': base64 } }
+//                                              'favicon.png': base64 },
+//                                   extras?: { 'sitemap.xml': text,
+//                                              'robots.txt': text } }
 //                                 -> { url } or { error, signedOut? }
 //                                 (images: Pollinations images copied into the
 //                                 site, see src/lib/siteImages.js, and the site
-//                                 icon, see src/lib/favicon.js)
+//                                 icon, see src/lib/favicon.js; extras: the SEO
+//                                 connector's files, see src/lib/seo.js)
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
 //
@@ -141,7 +144,23 @@ const decodeImages = (images) => {
   return entries;
 };
 
-async function publish({ domain, files, images }, tokens, fetchImpl) {
+// The SEO connector's two text files (src/lib/seo.js), by name only.
+const EXTRA_FILE_NAMES = ['sitemap.xml', 'robots.txt'];
+const MAX_EXTRA_BYTES = 200_000;
+
+// { name: text } -> [{ name, data }], or an error message.
+const decodeExtras = (extras) => {
+  if (extras === undefined) return [];
+  if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return 'This project has a file that can’t be published.';
+  const entries = [];
+  for (const [name, text] of Object.entries(extras)) {
+    if (!EXTRA_FILE_NAMES.includes(name) || typeof text !== 'string' || text.length > MAX_EXTRA_BYTES) return 'This project has a file that can’t be published.';
+    entries.push({ name: `site/${name}`, data: text });
+  }
+  return entries;
+};
+
+async function publish({ domain, files, images, extras }, tokens, fetchImpl) {
   const { id: email, hasKey } = tokens.describe();
   const token = hasKey ? tokens.keyFor(email) : '';
   if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
@@ -155,8 +174,11 @@ async function publish({ domain, files, images }, tokens, fetchImpl) {
   const imageEntries = decodeImages(images);
   if (typeof imageEntries === 'string') return json({ error: imageEntries }, 400);
 
+  const extraEntries = decodeExtras(extras);
+  if (typeof extraEntries === 'string') return json({ error: extraEntries }, 400);
+
   // Surge drops the first folder of every path, so pages go in as site/<name>.
-  const entries = [...Object.entries(files).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...imageEntries];
+  const entries = [...Object.entries(files).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...imageEntries, ...extraEntries];
   const projectSize = entries.reduce((sum, { data }) => sum + (typeof data === 'string' ? new TextEncoder().encode(data).length : data.length), 0);
   const body = await gzip(createTar(entries));
 

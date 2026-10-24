@@ -741,7 +741,11 @@ const generateAppCodeCore = async (
   currentFiles = null,
   projectName = '',
   gameEngineRouter = true,
-  websiteAddonRouter = true
+  websiteAddonRouter = true,
+  // The SEO connector's one-time briefing (lib/seo.js buildSeoNote): added to
+  // this request's user message only, so it isn't stored in the chat history
+  // and later requests don't carry it.
+  seoNote = ''
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -894,7 +898,7 @@ const generateAppCodeCore = async (
       {
         role: 'user',
         content: buildUserContent(
-          chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt),
+          withSeoNote(chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt), seoNote),
           attachment
         )
       }
@@ -1026,7 +1030,7 @@ const generateAppCodeCore = async (
     {
       role: 'user',
       content: buildUserContent(
-        `${formatFilesForPrompt(startFiles, noun)}\n\nTask: ${prompt}. Use apply_surgical_edits to update the ${noun}. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`,
+        withSeoNote(`${formatFilesForPrompt(startFiles, noun)}\n\nTask: ${prompt}. Use apply_surgical_edits to update the ${noun}. If you're unsure a search string is unique, call list_sections or view_code first, or set occurrence/replace_all explicitly.`, seoNote),
         attachment
       )
     }
@@ -1271,6 +1275,8 @@ SETUP STEPS: if the changes leave something only the user can supply before part
   }
 };
 
+const withSeoNote = (content, seoNote) => (seoNote ? `${content}\n\n${seoNote}` : content);
+
 export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
 
 // Images the AI asked Pollinations for (see the Pollinations directive in
@@ -1365,17 +1371,14 @@ export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHisto
       ? `I ${checked} ${subject} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
       : `${fixCheck ? `I ${checked} the fixes and the ${noun} works now.` : `I ${checked} the ${noun} and found no problems.`}${review.summary ? ` ${review.summary}` : ''}`;
   // A review can quietly end up without seeing the page at all (a text-only
-  // model rejects the first image), so the user is told what it looked at.
+  // model rejects the image), so the user is told what it looked at.
   const shots = review.screenshotsTaken;
-  const seen = !browser || !screenshots ? ''
+  // Screenshots are taken only to check a suspected problem, so none is normal.
+  const notes = !browser || !screenshots ? ''
     : review.screenshotsOff
       ? 'Screenshots didn\'t work with this AI model, so I checked the page\'s text and layout without seeing it.'
       : shots
-        ? `I looked at ${shots === 1 ? 'one screenshot' : `${shots} screenshots`} of it.`
-        : 'I didn\'t take any screenshots, so I checked the page\'s text and layout without seeing it.';
-  const dropped = review.unshownDropped
-    ? `I left out ${review.unshownDropped === 1 ? 'one problem' : `${review.unshownDropped} problems`} I couldn't show in a screenshot.`
-    : '';
-  const notes = [seen, dropped].filter(Boolean).join(' ');
+        ? `I took ${shots === 1 ? 'one screenshot' : `${shots} screenshots`} to check what I found.`
+        : 'Nothing I found needed a screenshot, so I checked the page\'s text and layout without one.';
   return { qualityReview: review, photos, report, mission, reply: notes ? `${reply}\n\n${notes}` : reply };
 };

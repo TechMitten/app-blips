@@ -17,7 +17,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, seo: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -207,10 +207,13 @@ for (const id of CONNECTOR_IDS) {
   assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
   for (const prompt of prompts) assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: prompt text`);
   assert.equal(new Set(prompts).size, prompts.length, `${id}: prompts are unique (they are React keys)`);
-  // Sign-in connectors (Pollinations) have no key box, so no key wording.
-  const fields = CONNECTOR_DEFINITIONS[id].signIn
-    ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
-    : ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey'];
+  // Sign-in connectors (Pollinations) have no key box, so no key wording, and
+  // native ones (SEO) have no service to connect to.
+  const fields = CONNECTOR_DEFINITIONS[id].native
+    ? ['enableDescription']
+    : CONNECTOR_DEFINITIONS[id].signIn
+      ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
+      : ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey'];
   for (const field of fields) {
     assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
   }
@@ -220,3 +223,15 @@ for (const id of CONNECTOR_IDS) {
 }
 
 console.log('ok');
+
+// SEO is native: on is all it takes, and it never reaches the always-on prompt
+// text (its answers are sent once per save, see lib/seo.js).
+saveConnectors({ seo: { enabled: true } });
+assert.equal(CONNECTOR_DEFINITIONS.seo.native, true);
+assert.equal(connectorStatus('seo'), 'connected');
+assert.deepEqual(getActiveConnectors(), []);
+assert.equal(buildAskConnectorNote([{ id: 'seo', key: '' }]), '');
+assert.equal(buildConnectorDirective([{ id: 'seo', key: '' }]), '');
+saveConnectors({ seo: { enabled: false } });
+assert.equal(connectorStatus('seo'), 'off');
+console.log('SEO connector checks passed');

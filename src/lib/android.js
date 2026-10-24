@@ -27,6 +27,7 @@ import { handleChatProxy } from '../../electron/server/chatProxy.js';
 import { handleProviderApi } from '../../electron/server/providerApi.js';
 import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
+import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { handleCreditsApi } from '../../electron/server/creditsApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
@@ -113,6 +114,7 @@ export async function installAndroidApi() {
     ['/api/provider', (request) => handleProviderApi(request, ENV, keys)],
     ['/api/surge', (request) => handleSurgeApi(request, ENV, surgeTokens, { fetch: nativeFetch })],
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],
+    ['/api/seo/scan', (request) => handleSeoScanApi(request, ENV, { fetch: nativeFetch })],
   ];
   const routeFor = (url) => (url.origin === window.location.origin
     ? routes.find(([path]) => url.pathname === path || url.pathname.startsWith(`${path}/`))?.[1]

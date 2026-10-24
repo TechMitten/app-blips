@@ -24,6 +24,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
+import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { handleCreditsApi } from './electron/server/creditsApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
@@ -151,6 +152,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
     toFetchRequest(req)
       .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/seo/scan') {
+    toFetchRequest(req)
+      .then((request) => handleSeoScanApi(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

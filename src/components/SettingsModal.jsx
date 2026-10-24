@@ -115,6 +115,7 @@ export default function SettingsModal({
   onRestartOnboarding,
   projectCount = 0,
   initialTab = null,
+  seoProject = null,
 }) {
   const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
@@ -388,7 +389,7 @@ export default function SettingsModal({
             </>
           )}
 
-          {tab === 'connectors' && <ConnectorsSettings />}
+          {tab === 'connectors' && <ConnectorsSettings seoProject={seoProject} />}
 
           {tab === 'api' && (
             <DesktopProviderSettings guardRef={providerGuardRef} />

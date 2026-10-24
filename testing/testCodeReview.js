@@ -68,28 +68,29 @@ assert.match(test.result.warning, /could not finish/);
 await assert.rejects(run([new DOMException('Aborted', 'AbortError')]), { name: 'AbortError' });
 await assert.rejects(run([], { signal: AbortSignal.abort() }), { name: 'AbortError' });
 
-// Browser review: asked once to screenshot before reporting; runtime errors
-// seen while testing end up in the report.
+// Browser review: screenshots only when the reviewer asks for one, never
+// demanded before the report; runtime errors seen while testing end up in it.
 const shotBrowser = {
   async open() { return { elements: [{ id: 'e1' }], errors: ['Boom'] }; },
   async execute(args) { return { ...(args.action === 'screenshot' ? { dataUrl: `data:image/png;base64,${args.target}` } : {}), observation: { errors: [] } }; },
 };
 const shoot = (target) => ({ tool_calls: [call('browser_action', { action: 'screenshot', target })] });
 const images = (request) => request.messages.flatMap((m) => Array.isArray(m.content) ? m.content.filter((part) => part.type === 'image_url').map((part) => part.image_url.url) : []);
-test = await run([report(), shoot('a'), shoot('b'), report()], { browser: shotBrowser });
-assert.match(test.requests[1].messages.findLast((m) => m.role === 'tool').content, /Take screenshots/);
-assert.equal(test.result.screenshotsTaken, 2);
-assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,a']);
-assert.deepEqual(images(test.requests[3]), ['data:image/png;base64,b'], 'only the newest screenshot is resent');
+test = await run([report()], { browser: shotBrowser });
+assert.equal(test.requests.length, 1, 'a report without screenshots is accepted');
+assert.deepEqual(images(test.requests[0]), [], 'no screenshots up front');
+assert.equal(test.result.screenshotsTaken, 0);
 assert.equal(test.result.problems[0].title, 'Runtime error');
-assert.match(test.requests[0].messages[0].content, /Take screenshots/);
+assert.match(test.requests[0].messages[0].content, /take one only when you have a specific suspected problem/);
+test = await run([shoot('a'), shoot('b'), report()], { browser: shotBrowser });
+assert.equal(test.result.screenshotsTaken, 2);
+assert.deepEqual(images(test.requests[1]), ['data:image/png;base64,a']);
+assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,b'], 'only the newest screenshot is resent');
 assert.equal(test.result.screenshotsOff, false);
 
-// Without screenshots (the user saw nothing wrong): no first look, no
-// screenshot action, no nudge to take any, and no "screenshots failed" note.
-let captured = false;
-test = await run([report()], { browser: { ...shotBrowser, async capturePage() { captured = true; return { dataUrl: 'data:image/png;base64,x' }; } }, screenshots: false });
-assert.equal(captured, false, 'no first look without screenshots');
+// Without screenshots (the user saw nothing wrong): no screenshot action
+// and no "screenshots failed" note.
+test = await run([report()], { browser: shotBrowser, screenshots: false });
 assert.equal(test.requests.length, 1, 'the report is accepted without screenshots');
 assert.deepEqual(images(test.requests[0]), []);
 assert.ok(!test.requests[0].tools.find((tool) => tool.function.name === 'browser_action').function.parameters.properties.action.enum.includes('screenshot'));
@@ -117,63 +118,28 @@ assert.deepEqual(images(test.requests[2]), ['data:image/png;base64,tablet']);
 assert.ok(test.requests[2].messages.some((m) => typeof m.content === 'string' && /^\[Screenshot of the embedded browser #2 \(index\.html, desktop screen.*\) was removed/.test(m.content)));
 assert.ok(BROWSER_ACTION_TOOL.function.parameters.required.includes('notes'), 'the reviewer records what it saw');
 
-// One screenshot of a long page comes back as one image per screen, each
-// labelled with where it was taken; the result says how many there were.
-const pageBrowser = {
-  async open() { return { elements: [], errors: [] }; },
-  async execute() {
-    return { shots: [{ dataUrl: 'data:image/png;base64,top', scrollY: 0 }, { dataUrl: 'data:image/png;base64,end', scrollY: 760 }],
-      page: 'index.html', screen: 'desktop', observation: { errors: [], viewport: { width: 1280, height: 800, scrollY: 0, pageHeight: 1560 } } };
-  },
-};
-test = await run([shoot(null), report()], { browser: pageBrowser });
-assert.equal(test.result.screenshotsTaken, 2);
-assert.deepEqual(images(test.requests[1]), ['data:image/png;base64,top', 'data:image/png;base64,end'], 'every screen is shown');
-assert.match(labels(test.requests[1])[1], /#2 \(index\.html, desktop screen, 1280×800 px viewport, scrolled to y=760 of 1560 px page height\)/);
-assert.match(test.requests[1].messages.findLast((m) => m.role === 'tool').content, /"screenshots":2/);
-
-// Before the first turn the review captures the page at every screen size
-// itself; repeated content and cut-off pages are named in the labels.
-const firstLookBrowser = {
-  async open() { return { elements: [], errors: [] }; },
-  async capturePage() {
-    return { page: 'index.html', screen: 'desktop', observation: { errors: [], viewport: { width: 1280, height: 800, scrollY: 0 } }, shots: [
-      { dataUrl: 'data:image/png;base64,m1', screen: 'mobile', width: 390, height: 800, scrollY: 0, pageHeight: 1000 },
-      { dataUrl: 'data:image/png;base64,m2', screen: 'mobile', width: 390, height: 800, scrollY: 200, pageHeight: 1000, repeatsPx: 600 },
-      { dataUrl: 'data:image/png;base64,d1', screen: 'desktop', width: 1280, height: 800, scrollY: 0, pageHeight: 99999, pageContinues: true },
-    ] };
-  },
-  async execute() { return { observation: { errors: [] } }; },
-};
-test = await run([report()], { browser: firstLookBrowser });
-assert.deepEqual(images(test.requests[0]), ['data:image/png;base64,m1', 'data:image/png;base64,m2', 'data:image/png;base64,d1']);
-assert.match(labels(test.requests[0])[0], /#1 \(index\.html, mobile screen, 390×800 px viewport, scrolled to y=0 of 1000 px page height\)/);
-assert.match(labels(test.requests[0])[1], /top 600 px of scrolled content repeat the previous image/);
-assert.match(labels(test.requests[0])[2], /desktop screen.*The page continues below this image/);
-assert.ok(test.requests[0].messages.some((m) => typeof m.content === 'string' && /The 3 screenshots below show this whole page at every screen size/.test(m.content)));
-assert.equal(test.result.screenshotsTaken, 3);
-assert.equal(test.requests.length, 1, 'no nagging for screenshots after the first look');
-
-// Every problem needs photo evidence: a report citing no screenshot (or one
-// never taken) is sent back; a cited one comes back as a photo with where it
-// was taken. After two chances, problems still without one are left out.
+// Photos are optional: a problem citing none is kept as it is. One citing a
+// screenshot never taken is sent back once, then kept without the citation.
+// A cited one comes back as a photo with where it was taken.
 const cite = (title, screenshot) => ({ ...problem(title), screenshot });
 const citedReport = (...problems) => ({ tool_calls: [call('submit_review_report', { summary: 'Checked.', problems })] });
-test = await run([shoot('a'), citedReport(cite('Overlap', null), cite('Cut off', 1)), citedReport(cite('Overlap', 7), cite('Cut off', 1)), shoot('b'), citedReport(cite('Overlap', 2), cite('Cut off', 1))], { browser: labelledBrowser });
-assert.match(test.requests[2].messages.findLast((m) => m.role === 'tool').content, /photo evidence.*taken so far: #1\).*Overlap/);
-assert.doesNotMatch(test.requests[2].messages.findLast((m) => m.role === 'tool').content, /Cut off/);
-assert.match(test.requests[3].messages.findLast((m) => m.role === 'tool').content, /Overlap/, 'a screenshot that was never taken does not count');
-assert.deepEqual(test.result.problems.map((item) => [item.title, item.screenshot]), [['Overlap', 2], ['Cut off', 1]]);
-assert.deepEqual(test.result.photos, { 1: 'data:image/png;base64,a', 2: 'data:image/png;base64,b' });
+test = await run([shoot('a'), citedReport(cite('Save does nothing', null), cite('Cut off', 1))], { browser: labelledBrowser });
+assert.equal(test.requests.length, 2, 'a problem without a photo needs none');
+assert.deepEqual(test.result.problems.map((item) => [item.title, item.screenshot]), [['Save does nothing', undefined], ['Cut off', 1]]);
+assert.deepEqual(test.result.photos, { 1: 'data:image/png;base64,a' });
 assert.equal(test.result.problems[1].seenIn, 'index.html, a screen, 1280×800 px viewport, scrolled to y=0');
 assert.match(formatReviewReport(test.result), /2\. Cut off: Saw: Cut off\n {3}Seen in screenshot 1: index\.html, a screen/);
-assert.equal(test.result.unshownDropped, undefined);
 
-test = await run([shoot('a'), citedReport(cite('Overlap', null), cite('Cut off', 1)), citedReport(cite('Overlap', null), cite('Cut off', 1)), citedReport(cite('Overlap', null), cite('Cut off', 1))], { browser: labelledBrowser });
-assert.equal(test.requests.length, 4);
-assert.deepEqual(test.result.problems.map((item) => item.title), ['Cut off'], 'a claim never shown is left out');
-assert.equal(test.result.unshownDropped, 1);
-assert.deepEqual(Object.keys(test.result.photos), ['1'], 'only cited screenshots are returned');
+test = await run([shoot('a'), citedReport(cite('Overlap', 7), cite('Cut off', 1)), shoot('b'), citedReport(cite('Overlap', 2), cite('Cut off', 1))], { browser: labelledBrowser });
+assert.match(test.requests[2].messages.findLast((m) => m.role === 'tool').content, /didn't take \(taken so far: #1\).*Overlap/);
+assert.doesNotMatch(test.requests[2].messages.findLast((m) => m.role === 'tool').content, /Cut off/);
+assert.deepEqual(test.result.problems.map((item) => [item.title, item.screenshot]), [['Overlap', 2], ['Cut off', 1]]);
+assert.deepEqual(test.result.photos, { 1: 'data:image/png;base64,a', 2: 'data:image/png;base64,b' });
+
+test = await run([citedReport(cite('Overlap', 3)), citedReport(cite('Overlap', 3))], { browser: labelledBrowser });
+assert.equal(test.requests.length, 2, 'asked about a bad citation only once');
+assert.deepEqual(test.result.problems.map((item) => [item.title, item.screenshot]), [['Overlap', undefined]], 'kept without the citation');
+assert.deepEqual(test.result.photos, {});
 
 // Without screenshots (code-only review) problems need no photo.
 test = await run([citedReport(cite('Overlap', null))]);

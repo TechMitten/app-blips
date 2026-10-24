@@ -2,12 +2,13 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Info, MessagesSquare, Plus,
+  ArrowLeft, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Info, MessagesSquare, Plus, Search,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
 import PollinationsConnector from './PollinationsConnector';
+import SeoConnector from './SeoConnector';
 import PublishDialog from './PublishDialog';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
@@ -22,7 +23,9 @@ import { surgeStatus } from '../lib/surge';
 // text the "How it works" dialog shows), its
 // instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
 // Pollinations signs in instead of taking a key, so it has its own page
-// (PollinationsConnector.jsx).
+// (PollinationsConnector.jsx). SEO is native (no service): its page is a
+// questionnaire about the open project (SeoConnector.jsx), saved on the project
+// by App.jsx rather than here, and `seoProject` is what it needs from App.
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -41,7 +44,7 @@ const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'),
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), seo: Search,
 };
 
 const STATUS_BADGE = {
@@ -186,7 +189,7 @@ function ConnectorPrompts({ id, connected }) {
   );
 }
 
-export default function ConnectorsSettings() {
+export default function ConnectorsSettings({ seoProject = null }) {
   const [connectors, setConnectors] = useState(loadConnectors);
   const [openId, setOpenId] = useState(null);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -249,9 +252,11 @@ export default function ConnectorsSettings() {
           </button>
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
-          {CONNECTOR_DEFINITIONS[openId].signIn
-            ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
-            : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
+          {CONNECTOR_DEFINITIONS[openId].native
+            ? <SeoConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} seoProject={seoProject} />
+            : CONNECTOR_DEFINITIONS[openId].signIn
+              ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+              : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
           <ConnectorPrompts key={`${openId}-prompts`} id={openId} connected={connectorStatus(openId, connectors) === 'connected'} />
         </div>
         {/* Portaled out of the settings card: a fixed overlay inside it would be

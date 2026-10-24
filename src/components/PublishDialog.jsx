@@ -98,7 +98,7 @@ function SiteIconField({ icon, onChange, disabled }) {
 // publish: it signs in or out of Surge and stops at 'account'.
 // Once a project is online, "Submit to the showcase" opens the showcase form
 // with its address filled in; `studioMode` pre-picks app/website/game.
-export default function PublishDialog({ projectId, projectName, buildFiles, galleryFiles, onClose, connectOnly = false, studioMode = '' }) {
+export default function PublishDialog({ projectId, projectName, buildFiles, galleryFiles, extraFiles, onClose, connectOnly = false, studioMode = '' }) {
   // loading | signin | account | manage | unpublish | removed | ready | publishing | done
   const [step, setStep] = useState('loading');
   // The address this project is live at (without .surge.sh), or ''.
@@ -192,10 +192,13 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     const icon = faviconBase64(favicon);
     if (icon) uploads[FAVICON_PATH] = icon;
     const sitePages = pointAtCopies(pages, images);
+    // sitemap.xml and robots.txt from the SEO connector (lib/seo.js).
+    const extras = Object.fromEntries((extraFiles ? extraFiles(pages) : []).map(({ path, text }) => [path, text]));
     const result = await surgePublish(
       clean,
       icon ? withFavicon(sitePages) : sitePages,
       Object.keys(uploads).length ? uploads : undefined,
+      Object.keys(extras).length ? extras : undefined,
     );
     if (!mounted.current) return;
     setBusy(false);

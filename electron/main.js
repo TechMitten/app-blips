@@ -25,6 +25,7 @@ import { createProviderStore } from './providerStore.js';
 import { createSurgeStore } from './surgeStore.js';
 import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
+import { handleSeoScanApi } from './server/seoScanApi.js';
 import { handleCreditsApi, hasSavedCredits } from './server/creditsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
@@ -207,6 +208,8 @@ async function handleAppRequest(request) {
       case '/api/pollinations/login/check':
       case '/api/pollinations/image':
         return withSecurityHeaders(await handlePollinationsApi(request, process.env, pollinationsStore));
+      case '/api/seo/scan':
+        return withSecurityHeaders(await handleSeoScanApi(request, process.env));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });

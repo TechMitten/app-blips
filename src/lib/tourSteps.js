@@ -165,7 +165,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`}. You can replay this tour here any time.`,
         tips: [
           'Settings: theme, chat font, Code tab, AI provider and reasoning.',
-          'Settings → Connectors adds services like contact forms, payments, analytics, live chat, and AI images.',
+          'Settings → Connectors adds services like contact forms, payments, analytics, live chat, AI images, and SEO.',
           `Help (${SHORTCUT_HINTS.help}) opens the full docs.`,
         ],
       },

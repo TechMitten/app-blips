@@ -8,6 +8,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
 import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
+import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { handleCreditsApi } from './electron/server/creditsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
@@ -118,6 +119,16 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handlePollinationsApi(await toFetchRequest(req), env, pollinationsKeys)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The SEO connector's one-time read of the user's own website.
+      server.middlewares.use('/api/seo/scan', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Scanning a site is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleSeoScanApi(await toFetchRequest(req), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },
