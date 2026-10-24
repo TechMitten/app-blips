@@ -32,143 +32,98 @@
   <a href="#license">License</a>
 </p>
 
-## Why AppBlips?
+---
 
-**AppBlips is built for everyone.** If you've never written a line of code, you can describe what you want in plain language and use the result a few seconds later. If you code every day, you get a fast way to sketch ideas, prototype tools, and build small apps and games without setting up a project. Every app or website is designed around plain-language prompting, instant preview, and a clean path from idea to working result, and the code is always there to read, export, and change. AppBlips strips away setup work so you can focus on the app itself.
+**AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds. 
 
-## What it is
+It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama) or use built-in **AppBlips AI Credits**. No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
 
-AppBlips lets you describe an app, a game, or a website in plain language and get back a working version you can preview, tweak, and use immediately. Type what you want, and AppBlips builds it as a single, self-contained app or game, or a website with the structure and styling you asked for.
+## Three Studios, One Workflow
 
-AppBlips has three studios, chosen from the launch screen:
+Every studio shares the same fast loop: **Prompt → Live Preview → Version History → Export/Publish**.
 
-- **App Studio** — interactive tools and dashboards. JavaScript-driven, saves its data in the browser, and designed to feel native on a phone (mobile preview by default).
-- **Website Studio** — content-first pages such as landing pages, portfolios, restaurant or business sites, and blogs. It builds real website anatomy (navigation, hero, content sections, footer), adds libraries such as Swiper carousels, GSAP scroll animations or Leaflet maps when the site needs them, then lets you refine it with prompts or click-to-edit tools.
-- **Game Studio** — playable browser games with a real game loop: raw Canvas 2D for simple arcade games or the Phaser 3 engine (loaded from CDN) for sprite, tilemap and physics-heavy games, with controls, scoring, levels, juice, and sound tuned for both touch and keyboard.
+| Studio | Best For | Under the Hood |
+| :--- | :--- | :--- |
+| **App Studio** | Interactive tools, utilities, and dashboards | JavaScript-driven, persists data in the browser, defaults to mobile preview. |
+| **Website Studio** | Landing pages, portfolios, business sites, and blogs | Full website anatomy with Swiper, GSAP, or Leaflet. Supports both AI edits and direct click-to-edit. |
+| **Game Studio** | Playable 2D browser games with touch & keyboard controls | Raw Canvas 2D for simple arcade games or Phaser 3 (via CDN) for physics, sprites, and tilemaps. |
 
-The studios share the same workflow: prompt, live preview, versions, and export.
+## Key Features
 
-Under the hood, AppBlips is a React app that sends your build prompt to an AI model through a local, single-user proxy and renders the result live in a safely sandboxed preview. That builder connection is how it turns plain-English requests into quickly editable output.
+### Creation & Editing
+- **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
+- **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes, or ask the AI in plain English for deeper structural tweaks.
+- **Project Image Gallery ("My Images")** — Upload your own photos and logos to a project's gallery and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
+- **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
+- **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
-AppBlips runs on your computer, powered by your own AI provider key. No account, no cloud sync. Install the **desktop app** (Windows and Linux), or **run it from source** or with **Docker** on any system and use it in your browser. See [Quick start](#quick-start) below.
+### AI & Integrations
+- **Bring Your Own Key or Use Credits** — Connect your own API keys (or local models) for free, or subscribe to **AppBlips AI Credits** (starts with a 3-day, 100-credit trial; converts to the $10/mo Starter Plan for 1,000 credits/mo unless cancelled).
+- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), or Pollinations (AI image generation & chat) via **Settings → Connectors**.
 
-## What's new
+### Sharing & Hosting
+- **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
+- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon) directly from the preview toolbar.
+- **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
-### 0.1.15
+<details>
+<summary><strong>🎉 What's New in v0.1.15 (Click to expand)</strong></summary>
+<br />
 
-**New: AppBlips AI Credits.** No API key? Build with credits instead. Start the free 3-day trial (100 credits; a valid payment method is required, and it converts to the Starter Plan at $10/month plus applicable taxes for 1,000 credits a month unless you cancel before the trial expires) or subscribe to a monthly plan (Starter, Builder or Studio). To connect, enter the email you used at checkout, then the six-character sign-in code emailed to you. Credits pay for every build, edit, review and Ask reply until you save your own provider, which always takes priority.
+- **AppBlips AI Credits:** Build without an API key. Start a 3-day free trial (100 credits; requires a valid payment method and converts to the $10/month Starter Plan for 1,000 credits/mo unless cancelled in **Settings → Account & Usage**) or pick a monthly plan (Starter, Builder, or Studio). Your own saved API provider always takes priority if configured.
+- **My Images Gallery:** Upload project photos and logos, ask the AI to place them by name, and have them automatically bundled on export or publish.
+- **Showcase & Site Icons:** Browse real AppBlips projects from the studio picker (even offline) and attach custom favicons when publishing to Surge.
+- **Quality of Life:** Streamlined first-run setup, a refreshed Light theme with higher contrast, Full-size preview support for websites, external link confirmation prompts, a manual **Check now** update button in **Settings → Workspace**, and Electron 44.9.1 security updates.
 
-**New: My images.** Upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images". They're included when you export or publish.
+*For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
+</details>
 
-**New: Showcase.** Browse real websites and games built with AppBlips from the studio picker, even offline, and submit your own published project to be featured.
+---
 
-**New: Site icon.** Pick an optional icon (favicon) in the Publish window and it's added to every page of your Surge site.
+## Quick Start
 
-**New: Check now for updates.** **Settings → Workspace → Check now** looks for a new version straight away, even with the automatic check turned off.
+### 1. Desktop App (Windows & Linux)
+- **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (signed by Microsoft with automatic updates).
+- **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. *(For AppImage: right-click → Properties → allow executing as a program).*
+- **macOS:** No native installer yet—use Docker or run from source below.
 
-**Improved**
+> **First run:** Choose where to save your projects, then either connect **AppBlips AI Credits** or paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). Keys are encrypted using your OS system keychain.
 
-- **Setup:** first-run setup now asks whether you want to bring your own API key or use AppBlips AI Credits. The "Your turn" box is gone.
-- **Settings → Account & Usage:** the first tab of Settings holds your AI Credits and a usage bar (the credits left also show at the top of the Build pane), with support contact details and a **Cancel subscription** link.
-- **Full size preview:** websites and imported sites now open in Full size too.
-- **Links to other websites:** links in Settings now ask you to confirm, and say why, before opening an outside website.
-
-**Look and feel**
-
-- **Light theme:** firmer borders, darker muted text for easier reading, solid chat bubbles, and a navy (instead of coral) building screen.
-
-**For developers**
-
-- Electron updated to 44.9.1 with Chromium security fixes.
-- The Docker guide now says to install Docker Compose v2.
-
-Older releases: see the [changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
-
-## Features
-
-- **One simple prompt box** — describe your idea in plain English and get a working app, game, or website back
-- **App, Website, and Game studios** — pick the studio that fits; each has its own prompts, starter ideas, and default preview size
-- **Click-to-edit websites** — in the Website Studio, click text, images, and links right in the preview to change them directly, with an AI-assisted edit through chat when a change needs more nuance
-- **Instant live preview** — see exactly what you built, right next to the prompt, with no extra step
-- **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
-- **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
-- **My images** — upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images"; they're shipped with the site when you export or publish
-- **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, valid payment method required, then the Starter Plan at $10/month plus applicable taxes unless you cancel from **Settings → Account & Usage** before the trial expires) or subscribe to a monthly plan in **Settings → Account & Usage**; your plan's credits pay for every build until you switch to your own provider
-- **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
-- **Undo/redo** — every generation and edit is saved as a version you can always go back to
-- **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
-- **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
-- **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)
-- **Showcase** — explore real websites and games built with AppBlips right in the app, and submit your own published project to be featured
-- **Connectors** — link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations in **Settings → Connectors**, and the AI wires them into what it builds: forms that email you, visitor stats, live chat, payments, AI-generated images and AI features
-
-
-## Documentation
-
-Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
-
-- **[Introduction](https://docs.appblips.com/introduction)** — what AppBlips is and how it works
-- **[Desktop app quickstart](https://docs.appblips.com/quickstart-desktop)** — install, add your API key, and build your first app
-- **[Run from source](https://docs.appblips.com/quickstart-source)** — run it in your browser with Node.js, or build the desktop app yourself
-- **[Docker](https://docs.appblips.com/self-hosting/docker)** — run it in a container with one command
-- **[Feature guides](https://docs.appblips.com/features/building-apps)** — deep dives into the App, Website, and Game studios
-- **[Publish to the web](https://docs.appblips.com/features/publishing)** — put a project online at a free `surge.sh` address
-- **[Showcase](https://docs.appblips.com/features/showcase)** — explore projects built with AppBlips and submit your own
-
-## Quick start
-
-### Desktop app (Windows and Linux)
-
-- **Windows:** install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)**. It's signed by Microsoft (no install warnings) and the Store keeps it up to date for you.
-- **Linux:** download an installer from the **[latest release](https://github.com/TechMitten/app-blips/releases/latest)** (scroll down to **Assets**):
-  - **AppImage:** download `AppBlips-<version>-x86_64.AppImage`. It works on any distribution. Right-click the file → Properties → allow it to run as a program, then double-click it.
-  - **Debian / Ubuntu (.deb):** download `AppBlips-<version>-amd64.deb` and double-click it to install it with your software center.
-
-All Linux versions and checksums are on the **[Releases](https://github.com/TechMitten/app-blips/releases)** page.
-
-The first time you open it, AppBlips asks for your name, a chat avatar and where to save your projects, then asks you to choose an AI provider (Anthropic by default; OpenAI, Gemini, DeepSeek, OpenRouter, or LM Studio/Ollama on your own computer), paste its API key and pick a model. Get an Anthropic key from the [Claude Console](https://platform.claude.com/settings/keys). Your key is encrypted with your system keychain, and your projects are saved in AppBlips' own data folder (open it from Settings → Data). See the [desktop app guide](https://docs.appblips.com/quickstart-desktop) for details.
-
-The app tells you when a new version is out. On the Microsoft Store it updates itself through the Store; with the AppImage it downloads the update itself and offers to restart; click **Check now** in Settings → Workspace to check straight away, or turn the check off there.
-
-On macOS there is no installer yet: run it from source or with Docker instead (below).
-
-### Run from source (Windows, macOS, Linux)
-
-You need [Node.js](https://nodejs.org/) 22.12 or newer (the LTS version).
-
-1. Get the code and install it:
-
-   ```bash
-   git clone https://github.com/techmitten/app-blips.git
-   cd app-blips
-   npm install
-   ```
-
-2. Start AppBlips in your browser:
-
-   ```bash
-   npm start
-   ```
-
-3. Open [http://localhost:3000](http://localhost:3000) and add your AI provider when asked.
-
-Your projects are saved in your browser (your API key is saved by AppBlips on your computer, not in the browser), so back up with **Settings → Data → Export** now and then. Prefer the desktop app? Run `npm run desktop` instead of `npm start`, or `npm run desktop:dist` to build your own installers into `dist-desktop/`. See the [run from source guide](https://docs.appblips.com/quickstart-source) for details, including updating.
-
-### Docker
-
-With [Docker](https://docs.docker.com/get-docker/) installed, in the `app-blips` folder run:
+### 2. Docker (All Platforms)
+With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run from the project root:
 
 ```bash
 docker compose up -d
 ```
 
-Then open [http://localhost:3000](http://localhost:3000). It's the same browser version, with nothing else to install. Stop it with `docker compose down`; update with `git pull` and `docker compose up -d --build`. See the [Docker guide](https://docs.appblips.com/self-hosting/docker) for ports and local models.
+Open [http://localhost:3000](http://localhost:3000). Stop with `docker compose down`, or update with `git pull && docker compose up -d --build`.
 
-### Optional configuration
+### 3. Run from Source (Windows, macOS, Linux)
+Requires [Node.js](https://nodejs.org/) 22.12 LTS or newer.
 
-The browser version and Docker can read an AI provider and server settings from a `.env` file: copy `.env.example` to `.env` and fill in what you need. Everything in it is optional; see the [configuration reference](https://docs.appblips.com/self-hosting/configuration).
+```bash
+git clone [https://github.com/techmitten/app-blips.git](https://github.com/techmitten/app-blips.git)
+cd app-blips
+npm install
+npm start
+```
 
-## Project structure
+Open [http://localhost:3000](http://localhost:3000). 
+- **Want the Electron desktop app?** Run `npm run desktop` (dev) or `npm run desktop:dist` to build installers into `dist-desktop/`.
+- **Optional `.env` setup:** Copy `.env.example` to `.env` to pre-configure providers or server settings. See the [Configuration Reference](https://docs.appblips.com/self-hosting/configuration).
+
+---
+
+## Documentation
+
+Full guides and references live at **[docs.appblips.com](https://docs.appblips.com/)**:
+
+- **[Introduction](https://docs.appblips.com/introduction)** · **[Desktop Quickstart](https://docs.appblips.com/quickstart-desktop)** · **[Run from Source](https://docs.appblips.com/quickstart-source)** · **[Docker Guide](https://docs.appblips.com/self-hosting/docker)**
+- **[Studio Feature Guides](https://docs.appblips.com/features/building-apps)** · **[Publishing to Surge](https://docs.appblips.com/features/publishing)** · **[Community Showcase](https://docs.appblips.com/features/showcase)**
+
+---
+
+## Architecture & Developer Notes
 
 ```text
 src/
@@ -185,67 +140,48 @@ testing/             # Standalone Node scripts for exercising the proxy and prev
 scripts/             # Build helpers, including fetch-whisper-model.js for voice input
 ```
 
-### Voice input (Whisper)
+<details>
+<summary><strong>🔧 Deep Dive: Subsystems & Testing (Click to expand)</strong></summary>
+<br />
 
-Voice input turns speech into text entirely on the user's computer. Nothing is uploaded, and it works the same in the desktop app and the browser version.
+For a complete architectural walkthrough (generation flow, preview sandboxing, and LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 
-- **Model:** OpenAI's [Whisper base](https://huggingface.co/openai/whisper-base) (multilingual), using the 8-bit quantized ONNX conversion from [`onnx-community/whisper-base`](https://huggingface.co/onnx-community/whisper-base). It's about 76 MB.
-- **Runtime:** [transformers.js](https://github.com/huggingface/transformers.js) (`@huggingface/transformers`) running on ONNX Runtime's WebAssembly backend, single-threaded, inside a Web Worker (`src/lib/whisperWorker.js`), so the UI stays responsive.
-- **Recording:** `src/hooks/useSpeechRecognition.js` records the microphone with `MediaRecorder` (up to 2 minutes), decodes it to 16 kHz mono, and sends it to the worker. The worker loads the model the first time the mic is used and keeps it for the session. Whisper is given the system language first and detects the language itself if that one isn't supported.
-- **Bundled, not downloaded at runtime:** `scripts/fetch-whisper-model.js` downloads the model files into `public/whisper/` (gitignored), from one pinned Hugging Face revision, and checks each file's SHA-256. A mismatch fails the build. It runs automatically when Vite starts (`npm run dev` or any build) and does nothing if the files are already there. Run `node scripts/fetch-whisper-model.js` to fetch them ahead of time, for example before an offline build. Vite copies them into `dist/`, so the desktop app, `npm start` and Docker all ship the model. The Dockerfile fetches it in its own layer, so rebuilding after `git pull` doesn't download it again.
-- **No network at runtime:** the worker turns off remote model loading and the browser cache, and loads ONNX Runtime's `.wasm` from the app bundle instead of a CDN.
-- **Microphone permission:** in the desktop app, `electron/main.js` grants the `media` permission only for audio and only to the app's own top-level page. The sandboxed preview, where generated apps run, can't use the microphone, and nothing can use the camera. The Microsoft Store package declares the `microphone` capability.
-- **Test:** after `npm run build`, `node testing/testVoiceInput.mjs` (Playwright) plays a speech clip through a fake microphone and checks both the transcript and that no request left the app's own server.
+#### Voice Input (Whisper)
+- **Model & Runtime:** Uses an 8-bit quantized ONNX conversion of OpenAI's multilingual `whisper-base` (~76 MB) via `@huggingface/transformers` (WASM backend) inside a dedicated Web Worker (`src/lib/whisperWorker.js`).
+- **Offline Bundling:** `scripts/fetch-whisper-model.js` pulls pinned model files into `public/whisper/` during build/dev and verifies SHA-256 hashes. No external network calls occur at runtime.
+- **Permissions:** `electron/main.js` restricts `media` audio permissions strictly to the top-level app UI—never the sandboxed preview iframe, and never the camera.
+- **Test:** `node testing/testVoiceInput.mjs` (after `npm run build`).
 
-### Publishing with Surge
+#### Publishing with Surge
+- **Flow:** Compiles JSX, injects loop protection, strips the preview bridge, bundles referenced Pollinations/gallery images under `images/` plus `favicon.png` (`src/lib/favicon.js`), and uploads a gzipped tarball to Surge via `electron/server/surgeApi.js`.
+- **Auth Storage:** Passwords are never saved. The returned Surge token is encrypted in the system keychain on desktop (`electron/surgeStore.js`) or saved with `0600` permissions in `surge-token.json` for browser/Docker builds.
+- **Test:** `node testing/testSurgeApi.js` (offline; Surge is stubbed).
 
-**Publish** (the globe button in the preview toolbar) puts an app, website or game online with [Surge](https://surge.sh), free static hosting with HTTPS on every `<name>.surge.sh` address. Imported codebases can't be published yet.
-
-- **Accounts:** each person uses their own free Surge account. The Publish window offers **I have an account** or **Create an account** (password typed twice). Surge creates an account for any email it hasn't seen, so there's no separate sign-up step.
-- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), plus copies of any Pollinations images and My images uploads they use under `images/` (`src/lib/siteImages.js`, `src/lib/galleryImages.js`) and the optional **Site icon** as `favicon.png` (resized to a small PNG in the browser and linked from every page's `<head>`, `src/lib/favicon.js`), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
-- **Where it runs:** the upload happens in AppBlips' own server code (`electron/server/surgeApi.js`), not in the page, because Surge's API doesn't accept requests from web pages. It's the same handler in the desktop app, `npm start`/Docker and `npm run dev`.
-- **Sign-in storage:** the password goes to Surge once and is never saved. The token Surge returns is kept like the AI key: encrypted with the system keychain on desktop (`electron/surgeStore.js`), or in `surge-token.json` next to `provider-key.json` (mode 0600) in the browser version. The page only ever sees the account email. Sign in or out from the Publish window or the **Surge** card in **Settings → Connectors** (the same window with nothing to publish); **Factory Reset** also signs out.
-- **Limits:** only `*.surge.sh` addresses for now (no custom domains). Surge rate-limits publishing, and its [terms](https://surge.sh/terms) apply to what you publish. For an older address AppBlips no longer remembers, run `npx surge teardown <name>.surge.sh`.
-- **Test:** `node testing/testSurgeApi.js` (no network; Surge is stubbed).
-
-### My images (project gallery)
-
-The **My images** key in the prompt box opens a per-project gallery (`src/components/ImageGalleryModal.jsx`, `src/hooks/useImageGallery.js`, `src/lib/galleryImages.js`).
-
-- **Storage:** the bytes go in the project's content-addressed blob store (`src/lib/blobStore.js`: `blobs/` in the desktop project folder, IndexedDB elsewhere); the project row keeps only `data.images` (`[{ hash, name, type, width, height, size, note }]`), not versioned. Uploads made before the first save wait in memory. Desktop blob cleanup keeps listed images (`referencedBlobs` in `electron/projectStore.js`). JSON backups carry the list but not the bytes.
-- **AI:** the system prompt lists each image's path, size and the user's note (`buildImageGalleryNote` in `src/lib/prompts.js`); the AI never sees the pixels.
-- **Paths:** pages refer to an image as `images/<name>`, its published path. The preview swaps that for an `appblips://assets` URL (desktop) or a `data:` URL at render time (`injectPreviewBridge`'s `gallery` option), never in stored `files`. Export and Publish add the referenced images at `images/<name>` (inlined as `data:` URLs in a single-file export, `public/images/` in a React project).
+#### My Images (Project Gallery)
+- **Storage & References:** Image bytes live in a content-addressed blob store (`blobs/` on desktop, IndexedDB in browser), while project metadata tracks `[{ hash, name, type, width, height, size, note }]`.
+- **Privacy & Export:** The AI only receives image file paths, dimensions, and user notes (`buildImageGalleryNote` in `src/lib/prompts.js`)—never raw pixels. At render time, `images/<name>` swaps to `appblips://assets` or `data:` URLs, and bundles cleanly on export/publish.
 - **Test:** `node testing/testGalleryImages.js`.
 
-### AppBlips AI Credits
+#### AppBlips AI Credits
+- **Billing & Auth:** Managed via [Polar](https://polar.sh) (`electron/server/creditsApi.js`, `src/lib/credits.js`). Users authenticate via emailed one-time codes (`/api/credits/connect` and `/api/credits/verify`). Credits route requests to DeepSeek (~4,000 weighted tokens per credit; output weighted 3x).
+- **Host Relay vs. Direct:** Packaged apps relay through `appblips.com`; self-hosters can set `POLAR_TOKEN` (with `orders:read`) and `DEEPSEEK_API_KEY` in `.env` for direct mode. Tokens are stored encrypted on desktop (`credits.json`) or `0600` (`credits-key.json`) on server.
+- **Test:** `npm run test:credits` (add `POLAR_TOKEN` and `APPBLIPS_POLAR_CONTRACT=1` for live contract verification).
 
-An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → Account & Usage** (or on the setup screens, after choosing **Purchase AppBlips AI Plan**) the user starts the **3-day free trial** (100 credits; a valid payment method is required, and it converts to the Starter Plan at $10/month plus applicable taxes for 1,000 credits a month unless cancelled before the trial expires; **Cancel subscription** links to the Polar customer portal), or subscribes to a monthly plan — **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) credits a month — through [Polar](https://polar.sh), then connects with the email used at checkout plus the one-time sign-in code Polar emails to it (`/api/credits/connect` sends the code, `/api/credits/verify` trades it for the saved token). Credits reset each month and unused credits don't roll over.
+#### Pollinations Connector
+- **Integration:** Uses Pollinations' device flow (`electron/server/pollinationsApi.js`). Keyless `gen.pollinations.ai` URLs are resolved server-side after build into public `media.pollinations.ai` assets and bundled on export.
+- **In-App AI:** Injects `window.Pollinations` (`chat`, `image`, `mountConnect`) via `src/lib/pollinationsHelper.js`. Supports visitor-paid device flow (default) or a budget-capped site key.
+- **Test:** `node testing/testPollinations.js` (offline; stubbed).
 
-- **Use:** while credits are connected they pay for every build, edit, review and Ask reply, using DeepSeek. A provider the user saves under Settings → API takes over and pauses credits (**Use AppBlips Credits instead** switches back); **Disconnect** forgets the credit token. One credit is about 4,000 weighted tokens (output counts triple), at least one per request.
-- **Where it runs:** the same handler in the desktop app, `npm start`/Docker, `npm run dev` and Android. The packaged app relays to `appblips.com`, which holds the Polar and DeepSeek keys; with `POLAR_TOKEN` and `DEEPSEEK_API_KEY` set in `.env` the server talks to them directly. Direct mode needs `orders:read` on the Polar token so each month's order replaces the last month's credits.
-- **Credit token:** stored like the AI key: encrypted with the system keychain on desktop (`credits.json`), or in `credits-key.json` (mode 0600) next to `provider-key.json` in the browser version. The page only sees the email and balance.
-- **Test:** `npm run test:credits` (no network). It checks the balance logic, the HTTP handlers and that the catalog matches the landing project. Set `POLAR_TOKEN` (test mode) and `APPBLIPS_POLAR_CONTRACT=1` to also verify the live Polar products, prices and trial length; `APPBLIPS_LANDING_DIR` points at a different landing checkout.
+</details>
 
-### Pollinations connector
+---
 
-**Settings → Connectors → Pollinations** lets the AI make images and add AI features with [Pollinations](https://github.com/pollinations/pollinations), but only when the user asks for them.
+## Security & Privacy
 
-- **Sign-in:** Pollinations' device flow with AppBlips' publishable App Key (`src/lib/pollinationsApp.js`), run server-side in `electron/server/pollinationsApi.js` (same handler in all three hosts). The user key it returns is stored like the Surge token: keychain-encrypted on desktop, `pollinations-key.json` (mode 0600) in the browser version. The page only sees the account name. **Factory Reset** signs out.
-- **Images:** the AI writes keyless `https://gen.pollinations.ai/image/...` URLs; after the build, `resolveImages` (`src/lib/pollinations.js`) has the server generate each one with the user's key and swaps in the stored copy's public `media.pollinations.ai` address. Publish and Export copy those images into the site.
-- **AI features in built apps:** the AI only calls `window.Pollinations` (`chat`, `image`, `mountConnect`), which `src/lib/pollinationsHelper.js` adds at preview/export time, like loop protection. The user picks who pays (`aiPayer`): visitors (default; a Connect button runs the device flow with AppBlips' App Key and each visitor spends their own Pollen) or a budget-capped site key shared by all their sites (no visitor sign-in; scrambled in the page but not secret, which Settings says plainly; keys without a budget or with account permissions are refused). The AI's instructions follow the choice.
-- **Test:** `node testing/testPollinations.js` (no network; Pollinations is stubbed).
-
-For a full architectural deep-dive (generation flow, preview sandboxing, LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
-
-## Security notes
-
-- Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
-- The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
-- The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved by the server in a file only you can read (`~/.appblips`, or the `appblips-data` volume in Docker), never in your browser.
-- **AppBlips AI Credits** are optional. When connected, your prompts and code are sent through AppBlips' servers to DeepSeek instead of straight to your own provider. Nothing is sent that way unless you connect credits, and a provider you set yourself always takes priority.
-- **Publish** sends your project's pages to Surge only when you click it. Your Surge password isn't saved, and the token Surge returns stays outside the page, like the AI key.
-- Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and how to check a download.
+- **Strict Sandboxing:** Generated apps run inside a sandboxed iframe (`sandbox` without `allow-same-origin`) using an opaque origin, isolating them completely from the parent app.
+- **Local-First Keys:** The desktop app opens zero network ports and encrypts API keys in your OS keychain. The browser/Docker server binds strictly to `127.0.0.1` (`localhost`) and stores keys on disk (`~/.appblips` or `appblips-data` volume with restricted permissions)—never in browser storage.
+- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider, opt into AppBlips AI Credits (which routes prompts through AppBlips' proxy to DeepSeek), or explicitly click **Publish** to upload static files to Surge.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). The open source projects AppBlips includes, and their licenses, are listed in the app under **Settings → Licenses**.
+Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available inside the app under **Settings → Licenses**.
