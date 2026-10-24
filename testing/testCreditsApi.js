@@ -11,6 +11,8 @@ import {
   CREDIT_PACKS,
   FREE_TRIAL_PACK,
   TRIAL_BENEFIT_ID,
+  TRIAL_PRODUCT_ID,
+  lookupPolarBalance,
 } from '../electron/server/creditsApi.js';
 
 const ORIGIN = 'http://localhost:5175';
@@ -299,4 +301,46 @@ test('a credits server without sign-in codes still connects (until it is updated
   const body = await res.json();
   assert.equal(body.signedIn, true);
   assert.equal(tokens.keyFor('carol@example.com'), 'ab_cred_legacy');
+});
+
+test('each paid month of the trial subscription adds 1,000 credits; the $0 trial order adds none', async () => {
+  const urls = [];
+  const mockFetch = async (url) => {
+    const u = String(url);
+    urls.push(u);
+    if (u.includes('/v1/benefit-grants')) {
+      return new Response(JSON.stringify({ items: [{ customer_id: 'cust_1', benefit_id: TRIAL_BENEFIT_ID, granted_at: '2020-01-01T00:00:00Z', properties: { units: 100 }, customer: { email: 'a@example.com' } }] }));
+    }
+    if (u.includes('/v1/orders/')) {
+      return new Response(JSON.stringify({ items: [
+        { status: 'paid', total_amount: 0 },
+        { status: 'paid', total_amount: 1000 },
+        { status: 'paid', total_amount: 1000 },
+        { status: 'refunded', total_amount: 1000 },
+      ] }));
+    }
+    return new Response(JSON.stringify({ total: 300 }));
+  };
+  const balance = await lookupPolarBalance('tok', { customerId: 'cust_1' }, mockFetch);
+  assert.equal(balance.found, true);
+  assert.equal(balance.trialExpired, true);
+  assert.equal(balance.totalGranted, 2000);
+  assert.equal(balance.remaining, 1700);
+  assert.ok(urls.some((u) => u.includes('/v1/orders/') && u.includes(`product_id=${TRIAL_PRODUCT_ID}`)));
+});
+
+test('a revoked trial grant still counts as a used trial', async () => {
+  const mockFetch = async (url) => {
+    const u = String(url);
+    if (u.includes('/v1/benefit-grants')) {
+      return new Response(JSON.stringify({ items: [{ customer_id: 'cust_1', benefit_id: TRIAL_BENEFIT_ID, is_revoked: true, customer: { email: 'a@example.com' } }] }));
+    }
+    if (u.includes('/v1/orders/')) return new Response(JSON.stringify({ items: [] }));
+    return new Response(JSON.stringify({ total: 0 }));
+  };
+  const balance = await lookupPolarBalance('tok', { email: 'a@example.com' }, mockFetch);
+  assert.equal(balance.found, true);
+  assert.equal(balance.hasTrial, true);
+  assert.equal(balance.trialExpired, true);
+  assert.equal(balance.remaining, 0);
 });

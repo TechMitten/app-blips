@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **API**, **Data**, **Legal**, **Licenses**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **API**, **Credits**, **Data**, **Legal**, **Licenses**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -168,35 +168,6 @@ Missing a service? Click **Request a connector** at the end of the cards.
 
 ## API
 
-### AppBlips AI Credits
-
-No API key? Use AppBlips AI Credits instead. You pay once for a pack, with no subscription, and AppBlips uses them for every build, edit, review and Ask reply.
-
-| Pack | Credits | Price |
-| --- | --- | --- |
-| 3-Day Free Trial | 100 (valid for 3 days) | Free |
-| Starter | 1,000 | $10 |
-| Builder | 2,750 (includes 250 bonus) | $25 |
-| Studio | 6,000 (includes 1,000 bonus) | $50 |
-
-1. Open **Settings → API** and find **AppBlips AI Credits**.
-2. Click a pack (or the free trial). Your web browser opens the checkout page. Use a real email address you can check. The free trial asks for a card to start, but you are never charged: it ends on its own after 3 days.
-3. Back in AppBlips, type the same email and click **Email me a code**.
-4. Open the email from Polar (AppBlips' payment service) and find the sign-in code. It can take a minute to arrive; check your spam folder if it doesn't.
-5. Type the code into the boxes in AppBlips (or paste the whole code into the first one) and click **Connect Credits**. Your balance shows how many credits are left.
-
-The code proves the email is yours, so nobody else can connect to your credits just by knowing your address. Didn't get it? Click **Send a new code**.
-
-Paid credits never expire. A small request costs about one credit and a full build costs more: credits are used up by the amount of text the AI reads and writes. When you run out, buy another pack in the same place. **Disconnect** forgets the connection on this computer; connect again any time with the same email and a new code.
-
-If you also save your own provider below, your provider is used and credits are paused until you click **Use AppBlips Credits instead**. The free trial can be used once per customer.
-
-<Note>
-  Credits are the one case where your prompts and code go through AppBlips' own servers (on their way to the AI) instead of straight to a provider you chose. If you'd rather not, use your own API key.
-</Note>
-
-### Your own provider
-
 Choose the AI provider that builds your apps: **Anthropic** (the default), **OpenAI**, **Gemini**, **DeepSeek**, **LM Studio**, **Ollama**, or **OpenRouter**. Your provider is used for building, editing, reviews, and Ask mode.
 
 With **Anthropic**, AppBlips turns on prompt caching automatically, so the repeated parts of a build cost less. See the [FAQ](/reference/faq) for how it works.
@@ -217,6 +188,35 @@ Click **Test connection** to check the settings, then **Save**. **Clear** remove
 
 <Note>
   In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), AppBlips' own server saves it on your computer, never in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
+</Note>
+
+---
+
+## Credits
+
+No API key? Use AppBlips AI Credits instead. You pay once for a pack, with no subscription, and AppBlips uses them for every build, edit, review and Ask reply.
+
+| Pack | Credits | Price |
+| --- | --- | --- |
+| 3-Day Free Trial, then monthly plan | 100 for 3 days, then 1,000 a month | Free for 3 days, then $10/month until you cancel |
+| Starter | 1,000 | $10 |
+| Builder | 2,750 (includes 250 bonus) | $25 |
+| Studio | 6,000 (includes 1,000 bonus) | $50 |
+
+1. Open **Settings → Credits**.
+2. Click a pack (or the free trial). Your web browser opens the checkout page. Use a real email address you can check. The free trial asks for a card to start. After 3 days it becomes a monthly plan at $10 a month with 1,000 credits each month. To pay nothing, cancel before the 3 days are up with the link in the email from Polar.
+3. Back in AppBlips, type the same email and click **Email me a code**.
+4. Open the email from Polar (AppBlips' payment service) and find the sign-in code. It can take a minute to arrive; check your spam folder if it doesn't.
+5. Type the code into the boxes in AppBlips (or paste the whole code into the first one) and click **Connect Credits**. Your balance shows how many credits are left.
+
+The code proves the email is yours, so nobody else can connect to your credits just by knowing your address. Didn't get it? Click **Send a new code**.
+
+Paid credits never expire, including the monthly plan's: unused ones carry over, and you keep them if you cancel. A small request costs about one credit and a full build costs more: credits are used up by the amount of text the AI reads and writes. When you run out, buy another pack in the same place. **Disconnect** forgets the connection on this computer; connect again any time with the same email and a new code.
+
+If you also save your own provider in [Settings → API](#api), your provider is used and credits are paused until you click **Use AppBlips Credits instead**. The free trial can be used once per customer.
+
+<Note>
+  Credits are the one case where your prompts and code go through AppBlips' own servers (on their way to the AI) instead of straight to a provider you chose. If you'd rather not, use your own API key in [Settings → API](#api).
 </Note>
 
 ---
