@@ -70,7 +70,9 @@ export default function Markdown({ text }) {
                   </div>
                 )}
                 <pre className="px-2.5 py-2 overflow-x-auto font-mono text-[length:var(--chat-code-text)] leading-snug">
-                  <code>{block.code}</code>
+                  {/* Reset the base `code` chip (index.css): its slate-100 fill
+                      matched this block's light-theme text and hid the code. */}
+                  <code className="p-0 bg-transparent rounded-none text-[length:inherit]">{block.code}</code>
                 </pre>
               </div>
             );

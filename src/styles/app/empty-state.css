@@ -660,7 +660,9 @@
   --peek-bar-dot: #256db1;
   --peek-bar-dot-glow: 0 0 8px rgb(37 109 177 / 0.5);
   --peek-bar-label: #334155;
-  --peek-text: #24292f;
+  --peek-text: #1f2328;
+  /* Dark ink on white looks lighter than light on dark at the same weight. */
+  --peek-weight: 500;
   --peek-thinking: #334155;
   --peek-thinking-label: #52607a;
   --peek-footer: #3d4760;
@@ -944,8 +946,11 @@
 .live-code-peek-body {
   padding: 16px 14px 12px;
   color: var(--peek-text);
-  font-size: clamp(9px, 3.2cqi, 12px);
-  line-height: 1.72;
+  /* 9px at the phone's width was too thin to read, worst on the light card;
+     the card shows fewer lines instead (LiveCodePeek measures how many fit). */
+  font-size: clamp(11px, 3.8cqi, 13px);
+  font-weight: var(--peek-weight, 400);
+  line-height: 1.6;
 }
 
 .live-code-peek-body .line-content { color: var(--peek-text); }
@@ -1086,6 +1091,7 @@
   --peek-bar-dot-glow: 0 0 12px rgb(233 96 79 / 0.85);
   --peek-bar-label: #c9c4d8;
   --peek-text: #d4d0e0;
+  --peek-weight: 400;
   --peek-thinking: #d4d0e0;
   --peek-thinking-label: #9993ad;
   --peek-footer: #a7a3b8;
