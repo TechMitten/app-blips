@@ -176,7 +176,7 @@ export default function ShowcaseModal({ onClose }) {
       <Modal
         zIndex={60}
         scrimClass="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-2 sm:p-6 animate-fade-in"
-        cardClass="w-full max-w-6xl bg-surface rounded-2xl border border-slate-200 shadow-2xl dark:bg-[#17171c] dark:border-white/12 dark:shadow-[0_24px_64px_-16px_rgb(0_0_0/0.9)] overflow-hidden flex flex-col h-[calc(100dvh-1rem)] sm:h-[min(900px,92vh)] animate-scale-in"
+        cardClass="showcase-modal-card w-full max-w-6xl bg-surface rounded-2xl border border-slate-200 shadow-2xl dark:bg-[#17171c] dark:border-white/12 dark:shadow-[0_24px_64px_-16px_rgb(0_0_0/0.9)] overflow-hidden flex flex-col h-[calc(100dvh-1rem)] sm:h-[min(900px,92vh)] animate-scale-in"
         cardProps={{ role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'showcase-modal-title' }}
       >
         {activeProject ? (

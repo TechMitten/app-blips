@@ -317,6 +317,12 @@
   .modal-card { height: auto; }
   .modal-card > * { flex-shrink: 0; }
   .modal-card > .flex-1 { flex: none; min-height: 200px; }
+  /* The Showcase is a gallery or a live site frame with no height of its
+     own, so sized to its content it collapsed to a strip. Keep it filling
+     the window, with the frame or the gallery taking the rest (the gallery
+     scrolls inside it, under a fixed header). */
+  .modal-card.showcase-modal-card { height: 100%; overflow: hidden; }
+  .modal-card.showcase-modal-card > .flex-1 { flex: 1 1 0%; min-height: 0; }
 }
 @media (hover: none) {
   .history-sidebar .history-icon-btn { opacity: 1; min-width: 40px; min-height: 40px; }
