@@ -204,16 +204,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       onClick={isProjects ? handleOpenProjects : () => onSelectStudio(key)}
                       aria-label={`${cta}: ${title}`}
                       data-studio={key}
-                      className={`studio-card group flex items-start gap-4 rounded-2xl p-5 text-left sm:flex-col sm:gap-0 sm:p-6 ${FOCUS_RING}`}
+                      className={`studio-card group relative flex items-start gap-4 rounded-2xl p-5 text-left sm:flex-col sm:gap-0 sm:p-6 ${FOCUS_RING}`}
                     >
                       <span className="studio-icon-tile relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:mb-5 sm:h-12 sm:w-12">
                         <Icon className="h-5 w-5" aria-hidden="true" />
-                        {isProjects && savedAppsCount > 0 && (
-                          <span className="studio-saved-badge absolute -right-2 -top-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
-                            {savedAppsCount} saved
-                          </span>
-                        )}
                       </span>
+                      {isProjects && savedAppsCount > 0 && (
+                        <span className="studio-saved-badge absolute right-3 top-3 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold sm:right-4 sm:top-4">
+                          {savedAppsCount} saved
+                        </span>
+                      )}
 
                       <span className="flex min-w-0 flex-1 flex-col self-stretch">
                         <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
