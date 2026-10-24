@@ -56,3 +56,6 @@ RELEASING.md
 
 # Whisper voice model, fetched at build time (scripts/fetch-whisper-model.js)
 public/whisper/
+
+# Pinokio launcher scripts, kept local
+pinokio/
