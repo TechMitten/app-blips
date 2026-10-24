@@ -54,24 +54,33 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 
 ## What's new
 
-### 0.1.14
+### 0.1.15
 
-**New: Full size preview.** A **Full size** button next to the device sizes drops the window frame and shows your page at its real size, filling the whole preview area. It works in every studio.
+**New: AppBlips AI Credits.** No API key? Build with credits instead. Start the free 3-day trial (100 credits; a card is needed to start, and it renews at $10/month for 1,000 credits unless you cancel) or buy a pay-as-you-go pack (Starter, Builder or Studio; paid credits never expire). To connect, enter the email you used at checkout, then the six-character sign-in code emailed to you. Credits pay for every build, edit, review and Ask reply until you save your own provider, which always takes priority.
 
-**New: About tab in Settings.** **Settings → About** shows the AppBlips version you're running (desktop app or browser version), links to the website and source code, and a **Report a bug** link that opens a new issue on GitHub.
+**New: My images.** Upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images". They're included when you export or publish.
+
+**New: Showcase.** Browse real websites and games built with AppBlips from the studio picker, even offline, and submit your own published project to be featured.
+
+**New: Site icon.** Pick an optional icon (favicon) in the Publish window and it's added to every page of your Surge site.
+
+**New: Check now for updates.** **Settings → Workspace → Check now** looks for a new version straight away, even with the automatic check turned off.
 
 **Improved**
 
-- **Preview toolbar:** Rotate, Full size and a new **Reload** button are always in the same place, so the toolbar no longer shifts when you switch devices. Buttons that don't apply to the current view are greyed out.
-- **Phone and tablet previews:** they no longer show a desktop-style browser bar, just like a real phone or tablet. While the AI is testing your page, its status and **Stop** button appear in the preview toolbar instead.
-- **Images in games:** the Game Studio can now use Pollinations to make title art, backgrounds and sprites.
-- **Questions about connectors:** in Ask mode, the AI now knows which services you've connected, instead of wrongly saying it can't use them.
-- **Guided tour:** updated for recent features: Publish, Full size, Reload, importing a site and Settings → Connectors. Imported sites get their own steps.
+- **Setup:** first-run setup now asks whether you want to bring your own API key or use AppBlips AI Credits. The "Your turn" box is gone.
+- **Settings → Account:** the first tab of Settings holds your AI Credits, with support contact details and a **Cancel subscription** link.
+- **Full size preview:** websites and imported sites now open in Full size too.
+- **Links to other websites:** links in Settings now ask you to confirm, and say why, before opening an outside website.
 
 **Look and feel**
 
-- **Building screen:** in the dark theme, the live code card has a soft white border instead of a red one.
-- **Guided tour:** the tour cards stand out clearly against the dark theme.
+- **Light theme:** firmer borders, darker muted text for easier reading, solid chat bubbles, and a navy (instead of coral) building screen.
+
+**For developers**
+
+- Electron updated to 44.9.1 with Chromium security fixes.
+- The Docker guide now says to install Docker Compose v2.
 
 Older releases: see the [changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
