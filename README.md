@@ -89,6 +89,7 @@ Older releases: see the [changelog](https://docs.appblips.com/changelog) or [Git
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
 - **Export to HTML** — download any generated app or website as a single self-contained HTML file, ready to host or share anywhere
 - **Publish to the web** — one click puts your app, website or game online at a free `surge.sh` address with HTTPS (needs a free [Surge](https://surge.sh) account, which you can create right in the Publish window)
+- **Showcase** — explore real websites and games built with AppBlips right in the app, and submit your own published project to be featured
 - **Connectors** — link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations in **Settings → Connectors**, and the AI wires them into what it builds: forms that email you, visitor stats, live chat, payments, AI-generated images and AI features
 
 
@@ -102,6 +103,7 @@ Full guides live at **[docs.appblips.com](https://docs.appblips.com/)**:
 - **[Docker](https://docs.appblips.com/self-hosting/docker)** — run it in a container with one command
 - **[Feature guides](https://docs.appblips.com/features/building-apps)** — deep dives into the App, Website, and Game studios
 - **[Publish to the web](https://docs.appblips.com/features/publishing)** — put a project online at a free `surge.sh` address
+- **[Showcase](https://docs.appblips.com/features/showcase)** — explore projects built with AppBlips and submit your own
 
 ## Quick start
 

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, MonitorSmartphone,
-  Moon, Settings, Smartphone, Sun, X,
+  Moon, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 
@@ -63,7 +63,7 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, resolvedTheme, onToggleTheme = null }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -96,6 +96,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
               <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
                 <button type="button" onClick={handleOpenProjects} className={NAV_LINK}>My projects</button>
+                {onOpenShowcase && (
+                  <button type="button" onClick={onOpenShowcase} className={NAV_LINK}>Showcase</button>
+                )}
                 <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Docs</a>
               </div>
 
@@ -249,6 +252,30 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   </span>
                   <span className="studio-card-cta hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
                     Import .zip
+                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
+                </button>
+              )}
+
+              {onOpenShowcase && (
+                <button
+                  type="button"
+                  onClick={onOpenShowcase}
+                  aria-label="Showcase: see what people have built with AppBlips"
+                  data-studio="showcase"
+                  className={`studio-card group mt-4 flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:mt-5 sm:px-6 ${FOCUS_RING}`}
+                >
+                  <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="block text-base font-semibold studio-text-strong">Showcase</span>
+                    <span className="mt-0.5 block text-sm leading-relaxed studio-text-soft">
+                      See what people have built with one prompt, and submit your own published project.
+                    </span>
+                  </span>
+                  <span className="studio-card-cta hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
+                    Explore
                     <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
                 </button>

@@ -22,6 +22,7 @@ import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
+import ShowcaseModal from './components/ShowcaseModal';
 import PublishDialog from './components/PublishDialog';
 import { surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
@@ -164,6 +165,7 @@ export default function App({ coldStart = false }) {
   const isCodebase = studioMode === 'codebase';
   const [codebaseMeta, setCodebaseMeta] = useState(null);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
+  const [isShowcaseOpen, setIsShowcaseOpen] = useState(false);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   // The route the preview is on (reported by the router shim). Read by the
   // next rebuild, so edits don't throw the user back to the home page.
@@ -2446,7 +2448,8 @@ export default function App({ coldStart = false }) {
         <StudioChoice
           onSelectStudio={handleChooseStudio}
           onImportSite={() => setIsImportSiteOpen(true)}
-          onCancel={isStudioChoiceOpen && !isProjectsListOpen ? handleCancelStudioChoice : null}
+          onOpenShowcase={() => setIsShowcaseOpen(true)}
+          onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -2466,6 +2469,7 @@ export default function App({ coldStart = false }) {
             onDeleteProject={handleDeleteProject}
           />
         )}
+        {isShowcaseOpen && <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />}
         {isImportSiteOpen && (
           <ImportSiteDialog
             onImported={handleImportedSite}
@@ -2608,6 +2612,7 @@ export default function App({ coldStart = false }) {
           projectName={projectName}
           buildFiles={buildExportFiles}
           onClose={() => setIsPublishOpen(false)}
+          studioMode={studioMode}
         />
       )}
 

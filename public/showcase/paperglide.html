@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script>window.__orion_loop_check = function(id) { var s = window.__orion_loop_state = window.__orion_loop_state || {}; var n = Date.now(); var e = s[id]; if (!e) { s[id] = { start: n }; setTimeout(function () { delete s[id]; }, 0); return; } if (n - e.start > 1500) throw new Error("Infinite loop detected! Script halted to protect your browser."); };</script>
+<!-- @section: head -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Paper Glide – Paper Plane Flight Game</title>
+<meta name="description" content="Throw a paper plane with a drag-and-release launch, ride updrafts, dodge obstacles, collect stars and beat your longest flight.">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100dvh;overflow:hidden;background:#0b1020;touch-action:none;user-select:none;-webkit-user-select:none;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #game{position:absolute;inset:0;width:100%;height:100dvh}
+  #game canvas{display:block}
+  .tbtn{touch-action:none;-webkit-tap-highlight-color:transparent}
+  .tbtn.active{transform:scale(.92);background:rgba(255,255,255,.55)}
+  @keyframes blink{50%{opacity:.25}}
+  .blink{animation:blink .4s infinite}
+</style>
+</head>
+<body>
+<!-- @section: canvas -->
+<div id="game"></div>
+
+<!-- @section: hud -->
+<div id="hud" class="fixed top-0 left-0 right-0 z-20 flex justify-between items-start p-2 sm:p-3 pointer-events-none transition-opacity">
+  <div class="flex gap-2 flex-wrap">
+    <div class="bg-slate-900/55 backdrop-blur rounded-xl px-3 py-1.5 text-white shadow">
+      <div class="text-[10px] uppercase tracking-wider text-sky-200">Distance</div>
+      <div id="hDist" class="text-lg sm:text-2xl font-extrabold leading-none">0 m</div>
+    </div>
+    <div class="bg-slate-900/55 backdrop-blur rounded-xl px-3 py-1.5 text-white shadow">
+      <div class="text-[10px] uppercase tracking-wider text-sky-200">Stars</div>
+      <div id="hStars" class="text-lg sm:text-2xl font-extrabold leading-none text-yellow-300">★ 0</div>
+    </div>
+    <div class="bg-slate-900/55 backdrop-blur rounded-xl px-3 py-1.5 text-white shadow">
+      <div class="text-[10px] uppercase tracking-wider text-sky-200">Paper</div>
+      <div id="hHealth" class="text-lg sm:text-2xl font-extrabold leading-none text-rose-300">♥♥♥</div>
+    </div>
+  </div>
+  <div class="flex gap-2 items-start">
+    <div class="hidden sm:block bg-slate-900/55 backdrop-blur rounded-xl px-3 py-1.5 text-white shadow text-right">
+      <div class="text-[10px] uppercase tracking-wider text-sky-200">Best</div>
+      <div id="hBest" class="text-lg sm:text-2xl font-extrabold leading-none">0 m</div>
+    </div>
+    <button id="btnPause" class="pointer-events-auto w-11 h-11 rounded-xl bg-slate-900/60 text-white text-xl font-bold shadow active:scale-95" aria-label="Pause">❚❚</button>
+    <button id="btnMute" class="pointer-events-auto w-11 h-11 rounded-xl bg-slate-900/60 text-white text-xl shadow active:scale-95" aria-label="Toggle sound">🔊</button>
+  </div>
+</div>
+<div id="stall" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-rose-100 bg-rose-600/80 px-4 py-1 rounded-full font-bold blink text-sm sm:text-base">STALL! Dive to gain speed</div>
+<div id="hint" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-white bg-slate-900/60 px-4 py-2 rounded-xl text-center text-sm sm:text-base max-w-[90vw]">
+  <b>Drag back</b> anywhere &amp; <b>release</b> to throw <span class="hidden sm:inline">· or aim ↑↓ and hold/release SPACE</span>
+</div>
+
+<!-- @section: touch-controls -->
+<div id="touch" class="hidden fixed bottom-0 left-0 right-0 z-20 pointer-events-none flex justify-between items-end p-5">
+  <button id="tUp" class="tbtn pointer-events-auto w-24 h-24 rounded-full bg-white/30 border-4 border-white/70 text-white text-4xl font-black shadow-lg backdrop-blur">▲</button>
+  <button id="tDown" class="tbtn pointer-events-auto w-24 h-24 rounded-full bg-white/30 border-4 border-white/70 text-white text-4xl font-black shadow-lg backdrop-blur">▼</button>
+</div>
+
+<!-- @section: menu -->
+<div id="menu" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="w-full max-w-lg bg-white/95 rounded-3xl shadow-2xl p-6 sm:p-8 text-slate-800 text-center">
+    <div class="text-5xl mb-1">✈️</div>
+    <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-sky-700">Paper Glide</h1>
+    <p class="text-slate-500 mt-1 mb-4">Throw it. Ride the wind. Fly forever.</p>
+    <ul class="text-left text-sm sm:text-base space-y-1.5 bg-sky-50 rounded-2xl p-4 mb-4">
+      <li>🖐️ <b>Launch:</b> drag back &amp; release (slingshot) — or aim <b>↑/↓</b>, hold &amp; release <b>SPACE</b></li>
+      <li>🎮 <b>Steer:</b> <b>↑/W</b> nose up, <b>↓/S</b> nose down — or hold the screen above/below the plane, or the ▲▼ buttons</li>
+      <li>🌬️ <b>Updrafts</b> (rising sparkles) lift you higher</li>
+      <li>⚠️ Climb too steep and you'll <b>stall</b> — dive to regain speed</li>
+      <li>⭐ Stars +25 · birds, balloons, buildings &amp; storms tear your paper (3 hits)</li>
+    </ul>
+    <div class="flex justify-center gap-6 mb-5 text-sm">
+      <div><div class="text-slate-400 uppercase text-xs">Longest flight</div><div id="mBestDist" class="text-2xl font-extrabold">0 m</div></div>
+      <div><div class="text-slate-400 uppercase text-xs">Best score</div><div id="mBestScore" class="text-2xl font-extrabold">0</div></div>
+    </div>
+    <button id="btnPlay" class="w-full py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-2xl font-black shadow-lg active:scale-95 transition">FLY!</button>
+    <p class="text-xs text-slate-400 mt-3">Esc / P to pause · Enter to start</p>
+  </div>
+</div>
+
+<!-- @section: pause -->
+<div id="pause" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="w-full max-w-sm bg-white/95 rounded-3xl shadow-2xl p-6 text-center">
+    <h2 class="text-4xl font-black text-sky-700 mb-4">Paused</h2>
+    <button id="btnResume" class="w-full py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-xl font-bold mb-3 active:scale-95">Resume</button>
+    <button id="btnRestartP" class="w-full py-3 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xl font-bold active:scale-95">Restart</button>
+  </div>
+</div>
+
+<!-- @section: gameover -->
+<div id="over" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="w-full max-w-md bg-white/95 rounded-3xl shadow-2xl p-6 sm:p-8 text-center text-slate-800">
+    <h2 id="oTitle" class="text-4xl font-black text-sky-700">Landed!</h2>
+    <div id="oRecord" class="hidden mt-2 inline-block bg-yellow-300 text-yellow-900 font-black px-3 py-1 rounded-full">🏆 NEW RECORD!</div>
+    <div class="grid grid-cols-3 gap-2 my-5">
+      <div class="bg-sky-50 rounded-xl p-2"><div class="text-xs text-slate-400 uppercase">Distance</div><div id="oDist" class="text-xl font-extrabold">0 m</div></div>
+      <div class="bg-sky-50 rounded-xl p-2"><div class="text-xs text-slate-400 uppercase">Stars</div><div id="oStars" class="text-xl font-extrabold text-yellow-500">0</div></div>
+      <div class="bg-sky-50 rounded-xl p-2"><div class="text-xs text-slate-400 uppercase">Score</div><div id="oScore" class="text-xl font-extrabold">0</div></div>
+    </div>
+    <p class="text-sm text-slate-500 mb-4">Longest flight: <b id="oBestDist">0 m</b> · Best score: <b id="oBestScore">0</b></p>
+    <button id="btnAgain" class="w-full py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white text-2xl font-black shadow-lg active:scale-95">Throw Again</button>
+    <button id="btnMenu" class="w-full mt-2 py-2 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold active:scale-95">Menu</button>
+  </div>
+</div>
+
+<!-- @section: game-script -->
+<script>
+// @section: state-and-storage
+const LS_KEY = 'paperGlide.v1';
+function loadStore(){ try { return Object.assign({bestDist:0,bestScore:0,muted:false}, JSON.parse(localStorage.getItem(LS_KEY)) ?? {}); } catch { return {bestDist:0,bestScore:0,muted:false}; } }
+function saveStore(){ try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch {} }
+const store = loadStore();
+const G = { ui:'menu', keys:new Set(), touchUp:false, touchDown:false, muted:!!store.muted };
+const COARSE = window.matchMedia('(pointer: coarse)').matches;
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+// @section: audio
+let actx=null, master=null, windGain=null, windFilter=null, noiseBuf=null;
+function initAudio(){
+  if(actx){ if(actx.state==='suspended') actx.resume(); return; }
+  try{
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    master = actx.createGain(); master.gain.value = G.muted?0:0.6; master.connect(actx.destination);
+    noiseBuf = actx.createBuffer(1, actx.sampleRate*2, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) {window.__orion_loop_check(1);d[i]=Math.random()*2-1;}
+    const src = actx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    windFilter = actx.createBiquadFilter(); windFilter.type='bandpass'; windFilter.frequency.value=500; windFilter.Q.value=0.8;
+    windGain = actx.createGain(); windGain.gain.value=0;
+    src.connect(windFilter).connect(windGain).connect(master); src.start();
+  }catch(e){ actx=null; }
+}
+function tone(freq,dur,type='sine',vol=0.25,slide=null,delay=0){
+  if(!actx) return; const t=actx.currentTime+delay;
+  const o=actx.createOscillator(), g=actx.createGain(); o.type=type;
+  o.frequency.setValueAtTime(freq,t); if(slide) o.frequency.exponentialRampToValueAtTime(slide,t+dur);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(master); o.start(t); o.stop(t+dur+0.05);
+}
+function noise(dur,vol=0.3,freq=1000,ftype='lowpass',delay=0){
+  if(!actx) return; const t=actx.currentTime+delay;
+  const s=actx.createBufferSource(); s.buffer=noiseBuf;
+  const f=actx.createBiquadFilter(); f.type=ftype; f.frequency.value=freq;
+  const g=actx.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f).connect(g).connect(master); s.start(t, Math.random()); s.stop(t+dur+0.05);
+}
+const SFX = {
+  launch(){ noise(0.45,0.45,1800,'bandpass'); tone(260,0.35,'triangle',0.15,720); },
+  star(c=0){ const f=880*Math.pow(2,Math.min(c,10)/12); tone(f,0.1,'sine',0.2); tone(f*1.5,0.18,'sine',0.15,null,0.06); },
+  hit(){ noise(0.3,0.55,500); tone(160,0.3,'square',0.12,60); },
+  updraft(){ tone(380,0.45,'sine',0.07,820); noise(0.5,0.08,2500,'highpass'); },
+  crash(){ noise(0.7,0.6,350); tone(220,0.6,'sawtooth',0.12,45); },
+  land(){ noise(0.4,0.25,700); tone(500,0.15,'triangle',0.12,300); },
+  milestone(){ [660,880,1100].forEach((f,i)=>tone(f,0.12,'triangle',0.12,null,i*0.07)); },
+  record(){ [523,659,784,1047].forEach((f,i)=>tone(f,0.2,'triangle',0.16,null,i*0.1)); },
+  stall(){ tone(300,0.12,'square',0.06,200); }
+};
+function setWind(v){ if(!actx||!windGain) return; windGain.gain.setTargetAtTime(v, actx.currentTime, 0.15); }
+function applyMute(){
+  $('btnMute').textContent = G.muted?'🔇':'🔊';
+  if(master) master.gain.value = G.muted?0:0.6;
+  store.muted=G.muted; saveStore();
+}
+
+// @section: boot-scene
+class BootScene extends Phaser.Scene{
+  constructor(){ super('Boot'); }
+  create(){
+    const g = this.add.graphics();
+    // dot
+    g.fillStyle(0xffffff,1); g.fillCircle(8,8,8); g.generateTexture('dot',16,16); g.clear();
+    // shard
+    g.fillStyle(0xffffff,1); g.fillTriangle(0,0,12,3,4,10); g.generateTexture('shard',12,10); g.clear();
+    // plane
+    g.fillStyle(0xd9e2ec,1); g.fillTriangle(16,15,56,13,4,27);
+    g.fillStyle(0xffffff,1); g.fillTriangle(0,2,56,13,16,16);
+    g.lineStyle(2,0x5b6b80,1); g.strokeTriangle(0,2,56,13,16,16); g.strokeTriangle(16,15,56,13,4,27);
+    g.lineStyle(1.5,0x9fb0c4,1); g.lineBetween(16,15,56,13);
+    g.generateTexture('plane',58,30); g.clear();
+    // star
+    const pts=[]; for(let i=0;i<10;i++){window.__orion_loop_check(2); const r=i%2?7:16, a=-Math.PI/2+i*Math.PI/5; pts.push({x:17+Math.cos(a)*r,y:17+Math.sin(a)*r}); }
+    g.fillStyle(0xffd34d,1); g.fillPoints(pts,true); g.lineStyle(2.5,0xe69500,1); g.strokePoints(pts,true);
+    g.fillStyle(0xfff6c8,1); g.fillCircle(14,13,3); g.generateTexture('star',34,34); g.clear();
+    // bird
+    g.lineStyle(5,0x2d3142,1); g.beginPath(); g.moveTo(2,6); g.lineTo(18,16); g.lineTo(34,6); g.strokePath();
+    g.fillStyle(0x2d3142,1); g.fillEllipse(18,16,14,8); g.fillStyle(0xf2a541,1); g.fillTriangle(6,15,0,17,6,19);
+    g.generateTexture('bird',36,24); g.clear();
+    // balloon
+    g.lineStyle(2,0x555555,1); g.lineBetween(25,50,27,88);
+    g.fillStyle(0xff5a5f,1); g.fillCircle(25,25,23); g.fillTriangle(20,46,30,46,25,53);
+    g.fillStyle(0xffffff,0.55); g.fillEllipse(17,16,9,14);
+    g.generateTexture('balloon',50,90); g.clear();
+    // storm cloud
+    g.fillStyle(0x4a5068,1); [[50,65,40],[95,50,50],[150,60,45],[185,75,30],[30,80,28],[120,82,40]].forEach(c=>g.fillCircle(c[0],c[1],c[2]));
+    g.fillStyle(0x363a4f,1); g.fillRect(20,85,180,22); g.fillCircle(20,90,17); g.fillCircle(200,90,17);
+    g.fillStyle(0xffe066,1); g.fillTriangle(100,100,120,100,96,125); g.fillTriangle(104,112,118,112,108,128);
+    g.generateTexture('storm',220,130); g.clear();
+    // building tile
+    g.fillStyle(0xe4e8ef,1); g.fillRect(0,0,90,40);
+    g.fillStyle(0x8fa3bf,1); for(let i=0;i<4;i++) {window.__orion_loop_check(3);g.fillRect(8+i*20,10,12,18);}
+    g.fillStyle(0xfff2a8,1); g.fillRect(28,10,12,18);
+    g.fillStyle(0xc8cfdb,1); g.fillRect(0,0,4,40); g.fillRect(86,0,4,40);
+    g.generateTexture('bldg',90,40); g.clear();
+    // hills (tileable)
+    const HW=512, HH=240;
+    const hill=(col,amp,base,k1,k2,ph)=>{ const p=[{x:0,y:HH}]; for(let x=0;x<=HW;x+=8){window.__orion_loop_check(4); p.push({x, y: base - amp*(0.6*Math.sin(x/HW*Math.PI*2*k1+ph)+0.4*Math.sin(x/HW*Math.PI*2*k2+ph*2))}); } p.push({x:HW,y:HH}); g.fillStyle(col,1); g.fillPoints(p,true); };
+    hill(0x9cc5d6,50,110,1,3,0.5); hill(0x7fb77e,40,165,2,5,1.3); hill(0x5fa35f,25,205,3,7,2.1);
+    g.generateTexture('hills',HW,HH); g.clear();
+    // clouds
+    g.fillStyle(0xffffff,0.9);
+    [[120,120],[420,70],[760,140],[930,60]].forEach(([cx,cy])=>{ g.fillCircle(cx,cy,30); g.fillCircle(cx+30,cy-12,36); g.fillCircle(cx+65,cy,28); g.fillRect(cx,cy,65,28); });
+    g.generateTexture('clouds',1024,200); g.clear();
+    // ground
+    g.fillStyle(0x8a6a45,1); g.fillRect(0,0,64,200); g.fillStyle(0x7a5c3a,1); g.fillRect(0,30,32,8); g.fillRect(32,60,32,8);
+    g.fillStyle(0x4caf50,1); g.fillRect(0,0,64,14); g.fillStyle(0x3d9142,1); for(let i=0;i<8;i++) {window.__orion_loop_check(5);g.fillTriangle(i*8,14,i*8+4,20,i*8+8,14);}
+    g.generateTexture('ground',64,200); g.clear();
+    // heat vent
+    g.fillStyle(0xff9f43,0.8); g.fillEllipse(40,12,80,22); g.fillStyle(0xffd166,0.9); g.fillEllipse(40,12,44,10);
+    g.generateTexture('vent',80,24); g.destroy();
+    // sky + column gradients
+    const sky=this.textures.createCanvas('sky',4,512); const sc=sky.getContext(); const sg=sc.createLinearGradient(0,0,0,512);
+    sg.addColorStop(0,'#3d7fd6'); sg.addColorStop(0.55,'#8cc6f0'); sg.addColorStop(1,'#ffe1b8'); sc.fillStyle=sg; sc.fillRect(0,0,4,512); sky.refresh();
+    const col=this.textures.createCanvas('column',4,256); const cc=col.getContext(); const cg=cc.createLinearGradient(0,0,0,256);
+    cg.addColorStop(0,'rgba(255,255,255,0)'); cg.addColorStop(0.3,'rgba(255,255,255,0.5)'); cg.addColorStop(1,'rgba(255,240,200,0.9)'); cc.fillStyle=cg; cc.fillRect(0,0,4,256); col.refresh();
+    this.scene.start('Play');
+  }
+}
+
+// @section: play-scene
+const STALL=150, GRAV=420, DRAG=0.16, SINK=18, PITCH=2.0;
+class PlayScene extends Phaser.Scene{
+  constructor(){ super('Play'); }
+  create(){
+    const W=this.scale.width, H=this.scale.height; this.W=W; this.H=H;
+    this.groundY = H-60; const gy=this.groundY;
+    this.startX = 170; this.launchY = gy - H*0.48;
+    this.state='launch'; this.s=0; this.a=-0.25; this.aimA=-0.25; this.power=0; this.drag=null;
+    this.liftV=0; this.health=3; this.stars=0; this.dist=0; this.invuln=0; this.combo=0; this.lastStar=0;
+    this.nextMilestone=100; this.wasIn=false; this.stallSoundT=0; this.doneT=0; this.vx=0; this.vy=0;
+    this.needRelease = G.keys.has('Space');
+    this.updrafts=[];
+
+    // background
+    this.add.image(0,0,'sky').setOrigin(0).setDisplaySize(W,H).setScrollFactor(0).setDepth(-10);
+    this.add.circle(W*0.82,H*0.17,Math.min(W,H)*0.08,0xfff3c4,0.95).setScrollFactor(0).setDepth(-10);
+    this.cloudsFar = this.add.tileSprite(0,H*0.04,W,200,'clouds').setOrigin(0).setScrollFactor(0).setDepth(-9).setAlpha(0.85);
+    this.hills = this.add.tileSprite(0,gy-235,W,240,'hills').setOrigin(0).setScrollFactor(0).setDepth(-8);
+    this.ground = this.add.tileSprite(0,gy,W,H-gy,'ground').setOrigin(0).setScrollFactor(0).setDepth(6);
+
+    // launch tower
+    const t=this.add.graphics().setDepth(1);
+    t.fillStyle(0x6d4c41,1); t.fillRect(this.startX-70,this.launchY+16,100,gy-this.launchY-16);
+    t.fillStyle(0x8d6e63,1); t.fillRect(this.startX-80,this.launchY+12,120,14);
+    t.fillStyle(0xffd166,1); for(let y=this.launchY+50;y<gy-30;y+=50){window.__orion_loop_check(6); t.fillRect(this.startX-50,y,18,24); t.fillRect(this.startX-5,y,18,24); }
+    t.fillStyle(0xe63946,1); t.fillTriangle(this.startX-60,this.launchY+12,this.startX-60,this.launchY-30,this.startX-30,this.launchY-20);
+    t.lineStyle(3,0x333333,1); t.lineBetween(this.startX-60,this.launchY+12,this.startX-60,this.launchY-32);
+
+    // groups
+    this.obstacles = this.physics.add.group({allowGravity:false});
+    this.starGroup = this.physics.add.group({allowGravity:false});
+
+    // plane
+    this.plane = this.physics.add.sprite(this.startX,this.launchY,'plane').setDepth(10);
+    this.plane.body.setSize(34,14).setOffset(14,8);
+    this.plane.rotation=this.aimA;
+
+    // particles
+    this.trail = this.add.particles(0,0,'dot',{speed:{min:0,max:15},lifespan:700,scale:{start:0.4,end:0},alpha:{start:0.6,end:0},frequency:22,emitting:false}).setDepth(9);
+    this.trail.startFollow(this.plane,-18,0);
+    this.sparks = this.add.particles(0,0,'dot',{emitting:false,speed:{min:60,max:260},lifespan:{min:300,max:700},scale:{start:0.8,end:0},alpha:{start:1,end:0},tint:[0xffd34d,0xffffff,0xffa000]}).setDepth(12);
+    this.debris = this.add.particles(0,0,'shard',{emitting:false,speed:{min:80,max:300},lifespan:{min:500,max:1000},rotate:{min:0,max:360},gravityY:400,scale:{start:1.2,end:0.4},alpha:{start:1,end:0},tint:[0xffffff,0xdde3ea,0xff8a80]}).setDepth(12);
+    this.puff = this.add.particles(0,0,'dot',{emitting:false,speed:{min:20,max:120},lifespan:600,scale:{start:1.2,end:0},alpha:{start:0.6,end:0},tint:0xffffff}).setDepth(8);
+
+    this.aimG = this.add.graphics().setDepth(11);
+
+    // camera
+    const cam=this.cameras.main;
+    cam.setBounds(0,0,1e7,H);
+    cam.startFollow(this.plane,false,0.12,0);
+    cam.setFollowOffset(-W*(W>H?0.22:0.2),0);
+
+    // collisions
+    this.physics.add.overlap(this.plane,this.obstacles,this.onHit,null,this);
+    this.physics.add.overlap(this.plane,this.starGroup,this.onStar,null,this);
+
+    // launch pointer input
+    this.input.on('pointerdown',p=>{ if(G.ui!=='play'||this.state!=='launch') return; initAudio(); this.drag={x:p.x,y:p.y}; });
+    this.input.on('pointerup',()=>{ if(this.state!=='launch'||!this.drag) return; this.drag=null; if(this.power>0.08 && G.ui==='play') this.launch(); else this.power=0; });
+
+    // spawn
+    this.nextX = this.startX + W*0.6;
+    this.lastUpX = this.startX - 500;
+    this.fillWorld();
+    UI.setHud(this);
+  }
+
+  diff(){ return clamp(this.dist/1800,0,1); }
+
+  // @section: spawning
+  fillWorld(){
+    const cam=this.cameras.main;
+    while(this.nextX < cam.scrollX + this.W*1.6){window.__orion_loop_check(7);
+      const d=this.diff();
+      const gap = lerp(480,320,d) + Math.random()*140;
+      this.spawnChunk(this.nextX, gap, d);
+      this.nextX += gap;
+    }
+  }
+  spawnChunk(x,gap,d){
+    const H=this.H, gy=this.groundY;
+    const force = x - this.lastUpX > lerp(900,1350,d);
+    if(force || Math.random()<lerp(0.4,0.22,d)){
+      this.makeUpdraft(x,d); this.lastUpX=x;
+      if(Math.random()<0.6) this.makeStars(x+40, Phaser.Math.Between(H*0.15, gy-220), 3, 'col');
+      if(d>0.35 && Math.random()<d*0.6) this.makeBird(x+gap*0.7, d);
+    } else {
+      if(Math.random()<lerp(0.7,0.95,d)) this.makeObstacle(x,d);
+      if(Math.random()<0.55) this.makeStars(x+gap*0.45, Phaser.Math.Between(H*0.12, gy-140), Phaser.Math.Between(3,5), 'arc');
+      if(Math.random()<d*0.55) this.makeBird(x+gap*0.5, d);
+    }
+  }
+  makeUpdraft(x,d){
+    const gy=this.groundY, H=this.H;
+    const w = Phaser.Math.Between(lerp(200,150,d), lerp(300,210,d));
+    const top = Phaser.Math.Between(H*0.08, H*0.3);
+    const str = lerp(430,330,d);
+    const col = this.add.image(x,top,'column').setOrigin(0).setDisplaySize(w,gy-top).setAlpha(0.28).setDepth(0);
+    const vent = this.add.image(x+w/2,gy+4,'vent').setDisplaySize(w*0.9,24).setDepth(7);
+    this.tweens.add({targets:col,alpha:0.18,duration:900,yoyo:true,repeat:-1,ease:'Sine.inOut'});
+    const em = this.add.particles(x,gy,'dot',{
+      emitZone:{type:'random',source:new Phaser.Geom.Rectangle(0,-10,w,10)},
+      speedY:{min:-260,max:-170}, speedX:{min:-10,max:10},
+      lifespan:(gy-top)/215*1000, scale:{start:0.55,end:0.15}, alpha:{start:0.7,end:0}, frequency:55, tint:[0xffffff,0xfff1c1]
+    }).setDepth(1);
+    this.updrafts.push({x0:x,x1:x+w,top,str,objs:[col,vent,em]});
+  }
+  makeObstacle(x,d){
+    const r=Math.random(), gy=this.groundY, H=this.H;
+    if(r<0.35){
+      const h = Phaser.Math.Between(H*0.15, H*lerp(0.32,0.55,d));
+      const b = this.add.tileSprite(x,gy,90,Math.round(h/40)*40||40,'bldg').setOrigin(0.5,1).setDepth(2);
+      b.setTint(Phaser.Utils.Array.GetRandom([0xbcd4ff,0xffd6c2,0xd7f2d0,0xe8d7ff,0xffffff]));
+      this.obstacles.add(b); b.body.setSize(80,b.height-6);
+    } else if(r<0.6){
+      this.makeBird(x,d);
+    } else if(r<0.82){
+      const y = Phaser.Math.Between(H*0.15, gy-140);
+      const bl = this.add.image(x,y,'balloon').setDepth(3);
+      bl.setTint(Phaser.Utils.Array.GetRandom([0xffffff,0xffe066,0x9be7ff,0xc3f0ca]));
+      this.obstacles.add(bl); bl.body.setCircle(21,4,4);
+      this.tweens.add({targets:bl,y:y-Phaser.Math.Between(30,70),duration:Phaser.Math.Between(1400,2200),yoyo:true,repeat:-1,ease:'Sine.inOut'});
+    } else {
+      const sc = lerp(1,1.5,d)*Phaser.Math.FloatBetween(0.85,1.15);
+      const st = this.add.image(x,Phaser.Math.Between(H*0.02,H*0.18),'storm').setOrigin(0.5,0).setScale(sc).setDepth(3);
+      this.obstacles.add(st); st.body.setSize(180,95).setOffset(20,15);
+      this.tweens.add({targets:st,alpha:0.8,duration:300,yoyo:true,repeat:-1,repeatDelay:1500});
+    }
+  }
+  makeBird(x,d){
+    const y = Phaser.Math.Between(this.H*0.1, this.groundY-120);
+    const b = this.add.image(x,y,'bird').setDepth(4);
+    this.obstacles.add(b); b.body.setCircle(11,7,2);
+    b.body.setVelocityX(-Phaser.Math.Between(50,130)*(1+d*0.8));
+    this.tweens.add({targets:b,scaleY:0.55,duration:160,yoyo:true,repeat:-1});
+    this.tweens.add({targets:b,y:y+Phaser.Math.Between(-60,60),duration:Phaser.Math.Between(1000,1800),yoyo:true,repeat:-1,ease:'Sine.inOut'});
+  }
+  makeStars(x,y,n,shape){
+    for(let i=0;i<n;i++){window.__orion_loop_check(8);
+      let sx=x+i*55, sy=y;
+      if(shape==='arc') sy = y - Math.sin(i/(n-1||1)*Math.PI)*60;
+      if(shape==='col'){ sx=x+30; sy=y+i*55; }
+      sy = clamp(sy,30,this.groundY-40);
+      const s=this.add.image(sx,sy,'star').setDepth(5);
+      this.starGroup.add(s); s.body.setCircle(15,2,2);
+      this.tweens.add({targets:s,angle:360,duration:2400,repeat:-1});
+      this.tweens.add({targets:s,scale:1.15,duration:500,yoyo:true,repeat:-1,ease:'Sine.inOut',delay:i*80});
+    }
+  }
+  cleanup(){
+    const lim=this.cameras.main.scrollX-450;
+    [this.obstacles,this.starGroup].forEach(gr=>gr.getChildren().slice().forEach(o=>{ if(o.x<lim){ this.tweens.killTweensOf(o); o.destroy(); } }));
+    this.updrafts = this.updrafts.filter(u=>{ if(u.x1<lim){ u.objs.forEach(o=>{ this.tweens.killTweensOf(o); o.destroy(); }); return false; } return true; });
+  }
+
+  // @section: collisions
+  onHit(plane,obs){
+    if(this.state!=='fly' || this.time.now<this.invuln) return;
+    this.tweens.killTweensOf(obs);
+    this.debris.explode(14,obs.x,obs.y - (obs.texture.key==='bldg'?0:0));
+    obs.destroy();
+    this.health--; this.invuln=this.time.now+1200;
+    this.s*=0.65; this.a=clamp(this.a+0.35,-1.1,1.3);
+    this.cameras.main.shake(220,0.012); this.cameras.main.flash(160,255,90,90);
+    this.debris.explode(10,plane.x,plane.y);
+    SFX.hit();
+    this.tweens.add({targets:plane,alpha:0.3,duration:100,yoyo:true,repeat:5,onComplete:()=>plane.setAlpha(1)});
+    this.popup(plane.x,plane.y-30,'RIP!','#ff6b6b');
+    if(this.health<=0){ this.state='falling'; this.vy=Math.max(this.vy,0); SFX.crash(); this.trail.stop(); }
+  }
+  onStar(plane,s){
+    if(this.state!=='fly' && this.state!=='falling') return;
+    this.tweens.killTweensOf(s);
+    this.sparks.explode(14,s.x,s.y); s.destroy();
+    this.stars++;
+    this.combo = (this.time.now-this.lastStar<1500)? this.combo+1 : 0; this.lastStar=this.time.now;
+    SFX.star(this.combo); this.popup(s.x,s.y-20,'+25','#ffd34d');
+  }
+  popup(x,y,txt,color){
+    const t=this.add.text(x,y,txt,{fontFamily:'system-ui,sans-serif',fontSize:'26px',fontStyle:'900',color,stroke:'#1b2333',strokeThickness:5}).setOrigin(0.5).setDepth(20);
+    this.tweens.add({targets:t,y:y-50,alpha:0,duration:800,ease:'Cubic.out',onComplete:()=>t.destroy()});
+  }
+
+  // @section: launch
+  launch(){
+    this.state='fly'; this.s=260+this.power*560; this.a=this.aimA; this.power=0;
+    this.plane.setPosition(this.startX,this.launchY);
+    this.trail.start(); this.puff.explode(14,this.startX-10,this.launchY);
+    this.tweens.add({targets:this.plane,scale:1.3,duration:120,yoyo:true});
+    this.cameras.main.shake(120,0.004);
+    SFX.launch(); this.aimG.clear();
+  }
+  updateLaunch(dt,time){
+    const p=this.input.activePointer; const playing=G.ui==='play';
+    let aiming=false;
+    if(playing && this.drag && p.isDown){
+      let dx=this.drag.x-p.x, dy=this.drag.y-p.y;
+      this.power=clamp(Math.hypot(dx,dy)/(this.H*0.3),0,1);
+      if(dx<8) dx=8;
+      this.aimA=clamp(Math.atan2(dy,dx),-1.1,0.6); aiming=true;
+    }
+    if(playing){
+      const k=G.keys;
+      if(k.has('ArrowUp')||k.has('KeyW')) this.aimA=clamp(this.aimA-1.2*dt,-1.1,0.6);
+      if(k.has('ArrowDown')||k.has('KeyS')) this.aimA=clamp(this.aimA+1.2*dt,-1.1,0.6);
+      const sp=k.has('Space');
+      if(this.needRelease){ if(!sp) this.needRelease=false; }
+      else if(sp){ this.kbCharge=true; this.power=Math.min(1,this.power+dt*0.85); aiming=true; }
+      else if(this.kbCharge){ this.kbCharge=false; this.launch(); return; }
+    }
+    // plane pose
+    const pull=this.power*26;
+    this.plane.x=lerp(this.plane.x,this.startX-Math.cos(this.aimA)*pull,0.4);
+    this.plane.y=lerp(this.plane.y,this.launchY-Math.sin(this.aimA)*pull+Math.sin(time/400)*2,0.4);
+    this.plane.rotation=lerp(this.plane.rotation,this.aimA,0.3);
+    this.plane.body.setVelocity(0,0);
+    // trajectory preview
+    const g=this.aimG; g.clear();
+    const pw = aiming? this.power : 0.35;
+    let x=this.startX, y=this.launchY, s=260+pw*560, a=this.aimA;
+    const alpha = aiming?0.9:0.35;
+    for(let i=0;i<36;i++){window.__orion_loop_check(9);
+      const st=1/20;
+      if(s<STALL) a+=1.2*st;
+      s+= (GRAV*Math.sin(a)-DRAG*s)*st;
+      x+= s*Math.cos(a)*st; y+= (s*Math.sin(a)+SINK)*st;
+      if(y>this.groundY) break;
+      if(i%2===0){ g.fillStyle(0xffffff,alpha*(1-i/40)); g.fillCircle(x,y,aiming?5:3.5); }
+    }
+    if(aiming){
+      g.fillStyle(0x1b2333,0.6); g.fillRoundedRect(this.startX-40,this.launchY+30,80,10,4);
+      g.fillStyle(Phaser.Display.Color.GetColor(255*this.power,220*(1-this.power)+35,60),1); g.fillRoundedRect(this.startX-40,this.launchY+30,80*this.power,10,4);
+    }
+  }
+
+  // @section: flight
+  updateFly(dt){
+    const k=G.keys; const p=this.input.activePointer;
+    let up = k.has('ArrowUp')||k.has('KeyW')||G.touchUp;
+    let down = k.has('ArrowDown')||k.has('KeyS')||G.touchDown;
+    if(p.isDown && G.ui==='play'){ const wy=p.worldY; if(wy<this.plane.y-25) up=true; else if(wy>this.plane.y+25) down=true; }
+    const stalled = this.s<STALL;
+    const ctrl = stalled?0.35:1;
+    if(up) this.a-=PITCH*ctrl*dt;
+    if(down) this.a+=PITCH*dt;
+    if(stalled){
+      this.a += (1.6*(1-this.s/STALL)+0.4)*dt;
+      if(this.time.now>this.stallSoundT){ SFX.stall(); this.stallSoundT=this.time.now+500; }
+    }
+    this.a=clamp(this.a,-1.1,1.3);
+    this.s += (GRAV*Math.sin(this.a)-DRAG*this.s)*dt;
+    // updrafts
+    let lift=0; const px=this.plane.x, py=this.plane.y;
+    for(const u of this.updrafts){window.__orion_loop_check(10); if(px>u.x0 && px<u.x1 && py>u.top-20){ lift=u.str*clamp((py-u.top+20)/90,0,1); } }
+    if(lift>0 && !this.wasIn){ SFX.updraft(); this.puff.explode(6,px,py+10); }
+    this.wasIn = lift>0;
+    this.liftV = lerp(this.liftV, lift, clamp(6*dt,0,1));
+    if(lift>0) this.s += 40*dt;
+    this.s=clamp(this.s,60,1100);
+    this.vx=this.s*Math.cos(this.a); this.vy=this.s*Math.sin(this.a)+SINK-this.liftV;
+    if(py<24 && this.vy<0){ this.vy=0; this.plane.y=24; this.a=Math.max(this.a,0); }
+    this.plane.body.setVelocity(this.vx,this.vy);
+    this.plane.rotation = Phaser.Math.Angle.RotateTo(this.plane.rotation, Math.atan2(this.vy,this.vx)+Math.sin(this.time.now/120)*0.02*(this.liftV/300), 6*dt);
+    setWind(clamp(this.s/2400,0,0.35)+(lift?0.08:0));
+    if(actx&&windFilter) windFilter.frequency.setTargetAtTime(300+this.s*1.2,actx.currentTime,0.2);
+    // ground
+    if(this.plane.y>=this.groundY-8){ this.state='sliding'; this.plane.y=this.groundY-8; SFX.land(); this.puff.explode(16,this.plane.x,this.groundY); this.cameras.main.shake(150,0.005); }
+    UI.stall(stalled);
+  }
+  updateFalling(dt){
+    this.vy+=1300*dt; this.vx*=Math.pow(0.4,dt);
+    this.plane.body.setVelocity(this.vx,this.vy); this.plane.angle+=600*dt;
+    setWind(0.1);
+    if(this.plane.y>=this.groundY-8){ this.plane.y=this.groundY-8; this.debris.explode(20,this.plane.x,this.groundY); this.cameras.main.shake(300,0.015); this.finish('crashed'); }
+  }
+  updateSliding(dt){
+    this.vx*=Math.pow(0.08,dt); this.plane.body.setVelocity(this.vx,0); this.plane.y=this.groundY-8;
+    this.plane.rotation=lerp(this.plane.rotation,0.05,0.15);
+    if(Math.random()<0.4) this.puff.emitParticleAt(this.plane.x,this.groundY);
+    setWind(clamp(this.vx/3000,0,0.1));
+    if(this.vx<15) this.finish('landed');
+  }
+  finish(result){
+    this.state='done'; this.plane.body.setVelocity(0,0); this.trail.stop(); setWind(0); UI.stall(false);
+    this.time.delayedCall(800,()=>UI.gameOver(this,result));
+  }
+
+  // @section: main-update
+  update(time,delta){
+    const dt=Math.min(delta/1000,0.05);
+    const cam=this.cameras.main;
+    this.cloudsFar.tilePositionX = cam.scrollX*0.12 + time*0.01;
+    this.hills.tilePositionX = cam.scrollX*0.35;
+    this.ground.tilePositionX = cam.scrollX;
+    if(this.state==='launch') this.updateLaunch(dt,time);
+    else if(this.state==='fly') this.updateFly(dt);
+    else if(this.state==='falling') this.updateFalling(dt);
+    else if(this.state==='sliding') this.updateSliding(dt);
+    if(this.state!=='launch'){
+      this.dist=Math.max(this.dist,(this.plane.x-this.startX)/10);
+      if(this.dist>=this.nextMilestone){ this.popup(this.plane.x,this.plane.y-50,this.nextMilestone+'m!','#ffffff'); SFX.milestone(); this.nextMilestone+=100; }
+    }
+    this.fillWorld(); this.cleanup();
+    UI.setHud(this);
+  }
+}
+
+// @section: ui
+const UI = {
+  _last:'', _touch:null, _hint:null,
+  setHud(sc){
+    const key = Math.floor(sc.dist)+'|'+sc.stars+'|'+sc.health;
+    if(key!==this._last){
+      this._last=key;
+      $('hDist').textContent=Math.floor(sc.dist)+' m';
+      $('hStars').textContent='★ '+sc.stars;
+      $('hHealth').textContent='♥'.repeat(Math.max(0,sc.health))+'♡'.repeat(3-Math.max(0,sc.health));
+    }
+    const t = COARSE && sc.state==='fly' && G.ui==='play';
+    if(t!==this._touch){ this._touch=t; $('touch').classList.toggle('hidden',!t); if(!t){ G.touchUp=G.touchDown=false; } }
+    const h = sc.state==='launch' && G.ui==='play';
+    if(h!==this._hint){ this._hint=h; $('hint').classList.toggle('hidden',!h); }
+  },
+  stall(on){ $('stall').classList.toggle('hidden',!on || G.ui!=='play'); },
+  refreshBest(){
+    $('hBest').textContent=Math.floor(store.bestDist)+' m';
+    $('mBestDist').textContent=Math.floor(store.bestDist)+' m'; $('mBestScore').textContent=store.bestScore;
+    $('oBestDist').textContent=Math.floor(store.bestDist)+' m'; $('oBestScore').textContent=store.bestScore;
+  },
+  gameOver(sc,result){
+    if(G.ui!=='play') return;
+    const dist=Math.floor(sc.dist), score=dist+sc.stars*25;
+    let rec=false;
+    if(dist>store.bestDist){ store.bestDist=dist; rec=true; }
+    if(score>store.bestScore){ store.bestScore=score; rec=true; }
+    saveStore(); this.refreshBest();
+    $('oTitle').textContent = result==='landed' ? 'Smooth Landing!' : 'Crashed!';
+    $('oDist').textContent=dist+' m'; $('oStars').textContent=sc.stars; $('oScore').textContent=score;
+    $('oRecord').classList.toggle('hidden',!rec);
+    if(rec) SFX.record();
+    G.ui='over'; showOnly('over');
+  }
+};
+function showOnly(id){
+  ['menu','pause','over'].forEach(k=>$(k).classList.toggle('hidden',k!==id));
+  $('hud').classList.toggle('opacity-30',!!id);
+  if(id){ $('touch').classList.add('hidden'); $('hint').classList.add('hidden'); $('stall').classList.add('hidden'); UI._touch=null; UI._hint=null; }
+}
+function playScene(){ return game && game.scene.getScene('Play'); }
+function startGame(){
+  initAudio(); G.ui='play'; showOnly(null);
+  const s=playScene(); if(!s) return;
+  if(game.scene.isPaused('Play')) game.scene.resume('Play');
+  s.scene.restart();
+}
+function togglePause(){
+  if(G.ui==='play'){ G.ui='paused'; game.scene.pause('Play'); setWind(0); showOnly('pause'); }
+  else if(G.ui==='paused'){ G.ui='play'; game.scene.resume('Play'); showOnly(null); }
+}
+function toMenu(){ G.ui='menu'; showOnly('menu'); const s=playScene(); if(s){ if(game.scene.isPaused('Play')) game.scene.resume('Play'); s.scene.restart(); } }
+
+// @section: input-wiring
+const GAME_KEYS=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'];
+document.addEventListener('keydown',e=>{
+  initAudio();
+  if(GAME_KEYS.includes(e.code)) e.preventDefault();
+  if(e.repeat){ G.keys.add(e.code); return; }
+  if(e.code==='Escape'||e.code==='KeyP'){ togglePause(); return; }
+  if(e.code==='KeyM'){ G.muted=!G.muted; applyMute(); return; }
+  if((e.code==='Enter'||e.code==='Space') && (G.ui==='menu'||G.ui==='over')){ G.keys.add(e.code); startGame(); return; }
+  if(e.code==='Enter' && G.ui==='paused'){ togglePause(); return; }
+  G.keys.add(e.code);
+});
+document.addEventListener('keyup',e=>{ G.keys.delete(e.code); if(GAME_KEYS.includes(e.code)) e.preventDefault(); });
+window.addEventListener('blur',()=>{ G.keys.clear(); if(G.ui==='play') togglePause(); });
+window.addEventListener('visibilitychange',()=>{ if(document.hidden && G.ui==='play') togglePause(); });
+document.addEventListener('pointerdown',()=>initAudio(),{capture:true});
+function holdBtn(el,flag){
+  const on=e=>{ e.preventDefault(); G[flag]=true; el.classList.add('active'); };
+  const off=e=>{ G[flag]=false; el.classList.remove('active'); };
+  el.addEventListener('pointerdown',on); ['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,off));
+}
+holdBtn($('tUp'),'touchUp'); holdBtn($('tDown'),'touchDown');
+$('btnPlay').onclick=startGame; $('btnAgain').onclick=startGame;
+$('btnMenu').onclick=toMenu;
+$('btnResume').onclick=togglePause;
+$('btnRestartP').onclick=startGame;
+$('btnPause').onclick=()=>{ initAudio(); togglePause(); };
+$('btnMute').onclick=()=>{ initAudio(); G.muted=!G.muted; applyMute(); };
+applyMute(); UI.refreshBest();
+
+// @section: game-init
+let landscape = window.innerWidth > window.innerHeight;
+function makeGame(){
+  const size = landscape ? {w:1280,h:720} : {w:720,h:1280};
+  return new Phaser.Game({
+    type:Phaser.AUTO, parent:'game', backgroundColor:'#8cc6f0',
+    scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH, width:size.w, height:size.h},
+    physics:{default:'arcade', arcade:{gravity:{y:0}, debug:false}},
+    input:{activePointers:3},
+    scene:[BootScene, PlayScene]
+  });
+}
+let game = makeGame();
+let rzT=null;
+window.addEventListener('resize',()=>{
+  clearTimeout(rzT);
+  rzT=setTimeout(()=>{
+    const nl = window.innerWidth > window.innerHeight;
+    if(nl!==landscape && (G.ui==='menu'||G.ui==='over')){ landscape=nl; game.destroy(true); game=makeGame(); }
+  },300);
+});
+</script>
+</body>
+</html>

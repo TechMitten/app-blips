@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<!-- @section: head -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ray's Barber Shop | Classic Cuts, Hot Shaves &amp; Beard Care</title>
+  <meta name="description" content="Ray's Barber Shop delivers sharp fades, classic scissor cuts, hot towel shaves and expert beard grooming in a relaxed, old-school setting. Walk in or book online.">
+  <meta property="og:title" content="Ray's Barber Shop | Classic Cuts, Hot Shaves &amp; Beard Care">
+  <meta property="og:description" content="Sharp fades, classic cuts, hot towel shaves and beard grooming in a relaxed, old-school barber shop. Walk in or book online.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Bebas Neue"', 'cursive'],
+            body: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            ink: { 950: '#0b0b0d', 900: '#121215', 800: '#1a1a1f', 700: '#26262d', 600: '#3a3a44' },
+            brass: { 300: '#e9c982', 400: '#d9ae55', 500: '#c9962f', 600: '#a97a22' },
+          },
+          boxShadow: { glow: '0 0 40px rgba(201,150,47,0.25)' },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+    .pole-stripes {
+      background: repeating-linear-gradient(135deg, #c9962f 0 14px, #121215 14px 28px, #f4f4f5 28px 42px, #121215 42px 56px);
+    }
+    .grain::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .08;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .swiper-pagination-bullet { background: #6b6b75; opacity: 1; }
+    .swiper-pagination-bullet-active { background: #c9962f; }
+    .swiper-button-next, .swiper-button-prev { color: #c9962f; }
+    .swiper-button-next::after, .swiper-button-prev::after { font-size: 22px; }
+    #map { height: 420px; }
+    .leaflet-container { background: #1a1a1f; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BarberShop",
+    "name": "Ray's Barber Shop",
+    "description": "Sharp fades, classic scissor cuts, hot towel shaves and expert beard grooming in a relaxed, old-school barber shop.",
+    "telephone": "+1-718-555-0142",
+    "email": "hello@raysbarbershop.com",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "128 Court Street",
+      "addressLocality": "Brooklyn",
+      "addressRegion": "NY",
+      "postalCode": "11201",
+      "addressCountry": "US"
+    },
+    "geo": { "@type": "GeoCoordinates", "latitude": 40.6908, "longitude": -73.9926 },
+    "openingHoursSpecification": [
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:00", "closes": "19:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "18:00" },
+      { "@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "10:00", "closes": "16:00" }
+    ],
+    "priceRange": "$$"
+  }
+  </script>
+</head>
+<body class="bg-ink-950 text-zinc-200 font-body antialiased">
+
+<!-- @section: nav -->
+<header class="fixed inset-x-0 top-0 z-50">
+  <div class="h-1 pole-stripes"></div>
+  <nav class="bg-ink-950/85 backdrop-blur border-b border-white/5" aria-label="Main navigation">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+      <a href="#top" class="flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full border border-brass-500/60 bg-ink-800 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+        </span>
+        <span class="font-display text-2xl tracking-wider text-white">Ray's <span class="text-brass-400">Barber Shop</span></span>
+      </a>
+      <ul class="hidden items-center gap-8 text-sm font-medium text-zinc-300 lg:flex">
+        <li><a href="#about" class="transition hover:text-brass-400">About</a></li>
+        <li><a href="#services" class="transition hover:text-brass-400">Services</a></li>
+        <li><a href="#gallery" class="transition hover:text-brass-400">Gallery</a></li>
+        <li><a href="#team" class="transition hover:text-brass-400">Barbers</a></li>
+        <li><a href="#testimonials" class="transition hover:text-brass-400">Reviews</a></li>
+        <li><a href="#location" class="transition hover:text-brass-400">Location</a></li>
+      </ul>
+      <div class="flex items-center gap-3">
+        <a href="#booking" class="hidden rounded-full bg-brass-500 px-5 py-2.5 text-sm font-semibold text-ink-950 shadow-glow transition hover:bg-brass-400 sm:inline-flex">Book a Chair</a>
+        <button id="menu-toggle" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 text-zinc-200 lg:hidden" aria-controls="mobile-menu" aria-expanded="false" aria-label="Toggle menu">
+          <svg id="icon-open" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+          <svg id="icon-close" xmlns="http://www.w3.org/2000/svg" class="hidden h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mobile-menu" class="hidden border-t border-white/5 bg-ink-900 lg:hidden">
+      <ul class="flex flex-col gap-1 px-6 py-4 text-base font-medium">
+        <li><a href="#about" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">About</a></li>
+        <li><a href="#services" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">Services</a></li>
+        <li><a href="#gallery" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">Gallery</a></li>
+        <li><a href="#team" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">Barbers</a></li>
+        <li><a href="#testimonials" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">Reviews</a></li>
+        <li><a href="#location" class="block rounded-md px-3 py-2 hover:bg-ink-800 hover:text-brass-400">Location</a></li>
+        <li class="pt-2"><a href="#booking" class="block rounded-full bg-brass-500 px-5 py-3 text-center font-semibold text-ink-950">Book a Chair</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+<!-- @section: hero -->
+<section class="relative isolate grain overflow-hidden pt-28">
+  <img src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=2000&q=80" alt="Barber in a classic shop finishing a sharp haircut with clippers" class="absolute inset-0 -z-20 h-full w-full object-cover">
+  <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink-950 via-ink-950/85 to-ink-950/30"></div>
+  <div class="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-ink-950 to-transparent"></div>
+  <div class="mx-auto grid max-w-7xl gap-12 px-6 pb-24 pt-16 lg:grid-cols-12 lg:px-8 lg:pb-36 lg:pt-28">
+    <div class="lg:col-span-7" data-aos="fade-up">
+      <p class="mb-5 inline-flex items-center gap-2 rounded-full border border-brass-500/40 bg-ink-900/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-brass-400">
+        <span class="h-1.5 w-1.5 rounded-full bg-brass-400"></span> Est. 1998 · Brooklyn, NY
+      </p>
+      <h1 class="font-display text-6xl leading-[0.95] tracking-wide text-white sm:text-7xl lg:text-8xl xl:text-9xl">
+        Look Sharp.<br>Feel <span class="text-brass-400">Sharper.</span>
+      </h1>
+      <p class="mt-6 max-w-xl text-lg leading-relaxed text-zinc-300">
+        Precision fades, timeless scissor cuts and straight-razor hot towel shaves — done the old-school way, with a cold drink in your hand and good music on the speakers.
+      </p>
+      <div class="mt-9 flex flex-wrap items-center gap-4">
+        <a href="#booking" class="rounded-full bg-brass-500 px-7 py-3.5 text-base font-semibold text-ink-950 shadow-glow transition hover:-translate-y-0.5 hover:bg-brass-400">Book an Appointment</a>
+        <a href="#services" class="rounded-full border border-white/20 px-7 py-3.5 text-base font-semibold text-white transition hover:border-brass-400 hover:text-brass-400">View Services &amp; Prices</a>
+      </div>
+      <dl class="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-white/10 pt-8">
+        <div><dt class="text-xs uppercase tracking-widest text-zinc-400">Years Cutting</dt><dd class="mt-1 font-display text-4xl text-white">25+</dd></div>
+        <div><dt class="text-xs uppercase tracking-widest text-zinc-400">Happy Clients</dt><dd class="mt-1 font-display text-4xl text-white">40K</dd></div>
+        <div><dt class="text-xs uppercase tracking-widest text-zinc-400">Google Rating</dt><dd class="mt-1 font-display text-4xl text-white">4.9★</dd></div>
+      </dl>
+    </div>
+    <div class="relative hidden lg:col-span-5 lg:block" data-aos="fade-left" data-aos-delay="150">
+      <div class="absolute -left-6 top-10 h-72 w-5 rounded-full pole-stripes shadow-glow"></div>
+      <div class="ml-8 overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+        <img src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=80" alt="Barber carefully shaping a client's beard with a straight razor" class="h-[520px] w-full object-cover">
+      </div>
+      <div class="absolute -bottom-6 left-0 rounded-2xl border border-white/10 bg-ink-900/90 p-5 backdrop-blur">
+        <p class="text-xs uppercase tracking-widest text-zinc-400">Open today</p>
+        <p class="mt-1 font-display text-3xl text-brass-400">9:00 AM – 7:00 PM</p>
+        <p class="mt-1 text-sm text-zinc-300">Walk-ins welcome · No wait with booking</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: marquee -->
+<section class="border-y border-white/5 bg-ink-900 py-5" aria-label="Highlights">
+  <ul class="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-3 px-6 font-display text-xl tracking-widest text-zinc-400 lg:justify-between lg:px-8">
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Hot Towel Shaves</li>
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Skin Fades</li>
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Beard Sculpting</li>
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Kids Cuts</li>
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Complimentary Drinks</li>
+    <li class="flex items-center gap-3"><span class="text-brass-400">✦</span> Walk-Ins Welcome</li>
+  </ul>
+</section>
+
+<!-- @section: about -->
+<section id="about" class="relative py-24 lg:py-32">
+  <div class="mx-auto grid max-w-7xl items-center gap-16 px-6 lg:grid-cols-2 lg:px-8">
+    <div class="relative" data-aos="fade-right">
+      <div class="grid grid-cols-2 gap-4">
+        <img src="https://images.unsplash.com/photo-1567894340315-735d7c361db0?auto=format&fit=crop&w=800&q=80" alt="Interior of a vintage barber shop with leather chairs and mirrors" class="h-72 w-full rounded-2xl object-cover sm:h-96">
+        <img src="https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=800&q=80" alt="Barber's tools laid out: scissors, combs, clippers and razor" class="mt-10 h-72 w-full rounded-2xl object-cover sm:h-96">
+      </div>
+      <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-2xl border border-brass-500/40 bg-ink-900 px-6 py-4 text-center shadow-glow">
+        <p class="font-display text-4xl text-brass-400">Since 1998</p>
+        <p class="text-xs uppercase tracking-widest text-zinc-400">Family owned &amp; operated</p>
+      </div>
+    </div>
+    <div data-aos="fade-left">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Our Story</p>
+      <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">A Neighborhood Shop With Big-City Standards</h2>
+      <p class="mt-6 leading-relaxed text-zinc-300">
+        Ray opened the shop with two chairs, one mirror and a stubborn belief that a haircut should be an experience, not a transaction. Twenty-five years later the chairs are more numerous, but the philosophy hasn't moved an inch: take your time, listen to the client, and never let anyone walk out looking less than their best.
+      </p>
+      <p class="mt-4 leading-relaxed text-zinc-300">
+        Every barber on our team is licensed, continuously trained, and obsessed with the details — from the crispness of a lineup to the temperature of a hot towel.
+      </p>
+      <ul class="mt-8 grid gap-4 sm:grid-cols-2">
+        <li class="flex items-start gap-3 rounded-xl border border-white/5 bg-ink-900 p-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 flex-none text-brass-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div><p class="font-semibold text-white">Licensed Master Barbers</p><p class="text-sm text-zinc-400">Decades of combined experience.</p></div>
+        </li>
+        <li class="flex items-start gap-3 rounded-xl border border-white/5 bg-ink-900 p-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 flex-none text-brass-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div><p class="font-semibold text-white">Premium Products</p><p class="text-sm text-zinc-400">Only the good stuff touches your hair.</p></div>
+        </li>
+        <li class="flex items-start gap-3 rounded-xl border border-white/5 bg-ink-900 p-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 flex-none text-brass-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div><p class="font-semibold text-white">Sterilized Tools</p><p class="text-sm text-zinc-400">Hospital-grade hygiene, every chair.</p></div>
+        </li>
+        <li class="flex items-start gap-3 rounded-xl border border-white/5 bg-ink-900 p-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 flex-none text-brass-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div><p class="font-semibold text-white">Relaxed Atmosphere</p><p class="text-sm text-zinc-400">Good music, cold drinks, no rush.</p></div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- @section: services -->
+<section id="services" class="relative bg-ink-900 py-24 lg:py-32">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="mx-auto max-w-2xl text-center" data-aos="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Services &amp; Pricing</p>
+      <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">The Menu</h2>
+      <p class="mt-4 text-zinc-400">Straightforward pricing, no surprises. Every service includes a consultation, a hot towel finish and a complimentary drink.</p>
+    </div>
+    <div class="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <article class="group rounded-2xl border border-white/5 bg-ink-800 p-7 transition hover:-translate-y-1 hover:border-brass-500/50 hover:shadow-glow" data-aos="fade-up">
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Classic Haircut</h3><span class="font-display text-3xl text-brass-400">$35</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">Scissor or clipper cut tailored to your head shape and lifestyle. Includes wash, style and neck shave.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">45 min</p>
+      </article>
+      <article class="group rounded-2xl border border-white/5 bg-ink-800 p-7 transition hover:-translate-y-1 hover:border-brass-500/50 hover:shadow-glow" data-aos="fade-up" data-aos-delay="100">
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Skin Fade</h3><span class="font-display text-3xl text-brass-400">$40</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">Low, mid or high — blended razor-smooth with a crisp lineup and textured top.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">50 min</p>
+      </article>
+      <article class="group relative rounded-2xl border border-brass-500/60 bg-ink-800 p-7 shadow-glow transition hover:-translate-y-1" data-aos="fade-up" data-aos-delay="200">
+        <span class="absolute -top-3 right-6 rounded-full bg-brass-500 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink-950">Most Popular</span>
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Cut &amp; Beard Combo</h3><span class="font-display text-3xl text-brass-400">$60</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">The full package: haircut of your choice plus a sculpted beard trim with hot towel and oil finish.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">75 min</p>
+      </article>
+      <article class="group rounded-2xl border border-white/5 bg-ink-800 p-7 transition hover:-translate-y-1 hover:border-brass-500/50 hover:shadow-glow" data-aos="fade-up">
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 21 3"/><path d="M9 3h12v12"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Hot Towel Shave</h3><span class="font-display text-3xl text-brass-400">$38</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">Traditional straight-razor shave with pre-shave oil, two hot towels and a cooling aftershave balm.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">40 min</p>
+      </article>
+      <article class="group rounded-2xl border border-white/5 bg-ink-800 p-7 transition hover:-translate-y-1 hover:border-brass-500/50 hover:shadow-glow" data-aos="fade-up" data-aos-delay="100">
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Beard Trim &amp; Shape</h3><span class="font-display text-3xl text-brass-400">$25</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">Precision shaping, razor-clean edges and a conditioning beard oil treatment.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">30 min</p>
+      </article>
+      <article class="group rounded-2xl border border-white/5 bg-ink-800 p-7 transition hover:-translate-y-1 hover:border-brass-500/50 hover:shadow-glow" data-aos="fade-up" data-aos-delay="200">
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brass-500/10 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 15 8l6 1-4.5 4.5L17.5 20 12 17l-5.5 3 1-6.5L3 9l6-1z"/></svg>
+        </div>
+        <div class="mt-6 flex items-baseline justify-between"><h3 class="text-xl font-semibold text-white">Kids Cut (Under 12)</h3><span class="font-display text-3xl text-brass-400">$25</span></div>
+        <p class="mt-3 text-sm leading-relaxed text-zinc-400">Patient, friendly barbers and a lollipop at the end. First haircut certificates available.</p>
+        <p class="mt-4 text-xs uppercase tracking-widest text-zinc-500">30 min</p>
+      </article>
+    </div>
+    <p class="mt-10 text-center text-sm text-zinc-500" data-aos="fade-up">Add-ons: Grey blending $15 · Eyebrow cleanup $8 · Scalp massage $10 · Hair wash $5</p>
+  </div>
+</section>
+
+<!-- @section: gallery -->
+<section id="gallery" class="py-24 lg:py-32">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between" data-aos="fade-up">
+      <div class="max-w-xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Fresh Work</p>
+        <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">Straight From The Chair</h2>
+      </div>
+      <p class="max-w-md text-zinc-400">A few recent cuts, shaves and shop moments. Follow us on Instagram for daily fresh fades.</p>
+    </div>
+    <div class="mt-14 grid grid-cols-2 gap-4 md:grid-cols-4 md:grid-rows-2">
+      <figure class="group relative overflow-hidden rounded-2xl md:col-span-2 md:row-span-2" data-aos="zoom-in">
+        <img src="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=1200&q=80" alt="Client with a fresh high skin fade in the barber chair" class="h-64 w-full object-cover transition duration-700 group-hover:scale-105 md:h-full">
+        <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/90 to-transparent p-5 text-sm font-medium text-white">High skin fade with textured crop</figcaption>
+      </figure>
+      <figure class="group relative overflow-hidden rounded-2xl" data-aos="zoom-in" data-aos-delay="100">
+        <img src="https://images.unsplash.com/photo-1532710093739-9470acff878f?auto=format&fit=crop&w=800&q=80" alt="Barber trimming a full beard with clippers" class="h-48 w-full object-cover transition duration-700 group-hover:scale-105 md:h-64">
+        <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/90 to-transparent p-4 text-xs font-medium text-white">Full beard sculpt</figcaption>
+      </figure>
+      <figure class="group relative overflow-hidden rounded-2xl" data-aos="zoom-in" data-aos-delay="150">
+        <img src="https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=800&q=80" alt="Vintage leather barber chair under warm lighting" class="h-48 w-full object-cover transition duration-700 group-hover:scale-105 md:h-64">
+        <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/90 to-transparent p-4 text-xs font-medium text-white">Chair No. 1</figcaption>
+      </figure>
+      <figure class="group relative overflow-hidden rounded-2xl" data-aos="zoom-in" data-aos-delay="200">
+        <img src="https://images.unsplash.com/photo-1593702275687-f8b402bf1fb5?auto=format&fit=crop&w=800&q=80" alt="Straight razor hot towel shave in progress" class="h-48 w-full object-cover transition duration-700 group-hover:scale-105 md:h-64">
+        <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/90 to-transparent p-4 text-xs font-medium text-white">Straight-razor shave</figcaption>
+      </figure>
+      <figure class="group relative overflow-hidden rounded-2xl" data-aos="zoom-in" data-aos-delay="250">
+        <img src="https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=800&q=80" alt="Barber styling a client's hair with a comb and product" class="h-48 w-full object-cover transition duration-700 group-hover:scale-105 md:h-64">
+        <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950/90 to-transparent p-4 text-xs font-medium text-white">Classic side part</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- @section: team -->
+<section id="team" class="bg-ink-900 py-24 lg:py-32">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="mx-auto max-w-2xl text-center" data-aos="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Meet The Barbers</p>
+      <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">The Crew Behind The Chairs</h2>
+      <p class="mt-4 text-zinc-400">Pick your barber when you book, or let us match you with the right pair of hands.</p>
+    </div>
+    <div class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <article class="group text-center" data-aos="fade-up">
+        <div class="relative mx-auto overflow-hidden rounded-3xl border border-white/5">
+          <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80" alt="Portrait of Ray Delgado, owner and master barber" class="h-80 w-full object-cover transition duration-700 group-hover:scale-105">
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950 to-transparent p-4 text-left">
+            <p class="text-xs uppercase tracking-widest text-brass-400">Specialty</p>
+            <p class="text-sm text-white">Classic cuts &amp; straight-razor shaves</p>
+          </div>
+        </div>
+        <h3 class="mt-5 text-xl font-semibold text-white">Ray Delgado</h3>
+        <p class="text-sm text-zinc-400">Owner &amp; Master Barber · 25 yrs</p>
+      </article>
+      <article class="group text-center" data-aos="fade-up" data-aos-delay="100">
+        <div class="relative mx-auto overflow-hidden rounded-3xl border border-white/5">
+          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80" alt="Portrait of Marcus Reed, senior barber" class="h-80 w-full object-cover transition duration-700 group-hover:scale-105">
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950 to-transparent p-4 text-left">
+            <p class="text-xs uppercase tracking-widest text-brass-400">Specialty</p>
+            <p class="text-sm text-white">Skin fades &amp; hair designs</p>
+          </div>
+        </div>
+        <h3 class="mt-5 text-xl font-semibold text-white">Marcus Reed</h3>
+        <p class="text-sm text-zinc-400">Senior Barber · 12 yrs</p>
+      </article>
+      <article class="group text-center" data-aos="fade-up" data-aos-delay="200">
+        <div class="relative mx-auto overflow-hidden rounded-3xl border border-white/5">
+          <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80" alt="Portrait of Tony Marchetti, beard specialist" class="h-80 w-full object-cover transition duration-700 group-hover:scale-105">
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950 to-transparent p-4 text-left">
+            <p class="text-xs uppercase tracking-widest text-brass-400">Specialty</p>
+            <p class="text-sm text-white">Beard sculpting &amp; grooming</p>
+          </div>
+        </div>
+        <h3 class="mt-5 text-xl font-semibold text-white">Tony Marchetti</h3>
+        <p class="text-sm text-zinc-400">Beard Specialist · 9 yrs</p>
+      </article>
+      <article class="group text-center" data-aos="fade-up" data-aos-delay="300">
+        <div class="relative mx-auto overflow-hidden rounded-3xl border border-white/5">
+          <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=600&q=80" alt="Portrait of Jordan Blake, barber and stylist" class="h-80 w-full object-cover transition duration-700 group-hover:scale-105">
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-950 to-transparent p-4 text-left">
+            <p class="text-xs uppercase tracking-widest text-brass-400">Specialty</p>
+            <p class="text-sm text-white">Modern styling &amp; kids cuts</p>
+          </div>
+        </div>
+        <h3 class="mt-5 text-xl font-semibold text-white">Jordan Blake</h3>
+        <p class="text-sm text-zinc-400">Barber &amp; Stylist · 6 yrs</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- @section: testimonials -->
+<section id="testimonials" class="relative overflow-hidden py-24 lg:py-32">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(201,150,47,0.12),transparent_60%)]"></div>
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="mx-auto max-w-2xl text-center" data-aos="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Reviews</p>
+      <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">What The Regulars Say</h2>
+      <p class="mt-4 text-zinc-400">Rated 4.9 out of 5 across 1,200+ Google reviews.</p>
+    </div>
+    <div class="swiper testimonial-swiper mt-14 pb-14" data-aos="fade-up" data-aos-delay="100">
+      <div class="swiper-wrapper">
+        <blockquote class="swiper-slide h-auto rounded-2xl border border-white/5 bg-ink-800 p-8">
+          <p class="text-brass-400" aria-label="5 out of 5 stars">★★★★★</p>
+          <p class="mt-4 leading-relaxed text-zinc-200">"Been coming to Ray's for eight years and I've never once left disappointed. Marcus does the cleanest fade in Brooklyn, period."</p>
+          <footer class="mt-6 flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80" alt="Portrait of reviewer Daniel K." class="h-11 w-11 rounded-full object-cover">
+            <div><cite class="not-italic font-semibold text-white">Daniel K.</cite><p class="text-xs text-zinc-500">Regular since 2016</p></div>
+          </footer>
+        </blockquote>
+        <blockquote class="swiper-slide h-auto rounded-2xl border border-white/5 bg-ink-800 p-8">
+          <p class="text-brass-400" aria-label="5 out of 5 stars">★★★★★</p>
+          <p class="mt-4 leading-relaxed text-zinc-200">"The hot towel shave is a genuine ritual. Forty minutes of pure relaxation and the smoothest face I've had in my adult life."</p>
+          <footer class="mt-6 flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=100&q=80" alt="Portrait of reviewer Andre M." class="h-11 w-11 rounded-full object-cover">
+            <div><cite class="not-italic font-semibold text-white">Andre M.</cite><p class="text-xs text-zinc-500">Hot towel shave</p></div>
+          </footer>
+        </blockquote>
+        <blockquote class="swiper-slide h-auto rounded-2xl border border-white/5 bg-ink-800 p-8">
+          <p class="text-brass-400" aria-label="5 out of 5 stars">★★★★★</p>
+          <p class="mt-4 leading-relaxed text-zinc-200">"Took my 5-year-old for his first real haircut. Jordan was incredibly patient and he actually asked when we could go back. Miracle."</p>
+          <footer class="mt-6 flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80" alt="Portrait of reviewer Priya S." class="h-11 w-11 rounded-full object-cover">
+            <div><cite class="not-italic font-semibold text-white">Priya S.</cite><p class="text-xs text-zinc-500">Kids cut</p></div>
+          </footer>
+        </blockquote>
+        <blockquote class="swiper-slide h-auto rounded-2xl border border-white/5 bg-ink-800 p-8">
+          <p class="text-brass-400" aria-label="5 out of 5 stars">★★★★★</p>
+          <p class="mt-4 leading-relaxed text-zinc-200">"Tony turned my scraggly lockdown beard into something I'm actually proud of. He explained how to maintain it too. Top-tier service."</p>
+          <footer class="mt-6 flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1463453091185-61582044d556?auto=format&fit=crop&w=100&q=80" alt="Portrait of reviewer Chris L." class="h-11 w-11 rounded-full object-cover">
+            <div><cite class="not-italic font-semibold text-white">Chris L.</cite><p class="text-xs text-zinc-500">Beard trim &amp; shape</p></div>
+          </footer>
+        </blockquote>
+        <blockquote class="swiper-slide h-auto rounded-2xl border border-white/5 bg-ink-800 p-8">
+          <p class="text-brass-400" aria-label="5 out of 5 stars">★★★★★</p>
+          <p class="mt-4 leading-relaxed text-zinc-200">"Online booking is painless, there's never a wait, and the vibe in the shop is unbeatable. Worth every cent of the $60 combo."</p>
+          <footer class="mt-6 flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1552058544-f2b08422138a?auto=format&fit=crop&w=100&q=80" alt="Portrait of reviewer Sam O." class="h-11 w-11 rounded-full object-cover">
+            <div><cite class="not-italic font-semibold text-white">Sam O.</cite><p class="text-xs text-zinc-500">Cut &amp; beard combo</p></div>
+          </footer>
+        </blockquote>
+      </div>
+      <div class="swiper-pagination"></div>
+      <div class="swiper-button-prev"></div>
+      <div class="swiper-button-next"></div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: booking -->
+<section id="booking" class="relative grain overflow-hidden py-24 lg:py-32">
+  <img src="https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=2000&q=80" alt="Barber shop interior with barber at work in the background" class="absolute inset-0 -z-20 h-full w-full object-cover">
+  <div class="absolute inset-0 -z-10 bg-ink-950/90"></div>
+  <div class="mx-auto grid max-w-7xl items-center gap-16 px-6 lg:grid-cols-2 lg:px-8">
+    <div data-aos="fade-right">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Book Online</p>
+      <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">Reserve Your Chair</h2>
+      <p class="mt-5 leading-relaxed text-zinc-300">Skip the wait. Tell us what you need and when, and we'll confirm your slot by text within the hour. Walk-ins are always welcome, but regulars know the booked chair is the best chair.</p>
+      <dl class="mt-10 space-y-5">
+        <div class="flex gap-4">
+          <span class="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-brass-500/40 text-brass-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <div><dt class="font-semibold text-white">Opening Hours</dt><dd class="text-sm text-zinc-400">Mon–Fri 9am–7pm · Sat 8am–6pm · Sun 10am–4pm</dd></div>
+        </div>
+        <div class="flex gap-4">
+          <span class="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-brass-500/40 text-brass-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </span>
+          <div><dt class="font-semibold text-white">Call or Text</dt><dd class="text-sm text-zinc-400"><a href="tel:+17185550142" class="hover:text-brass-400">(718) 555-0142</a></dd></div>
+        </div>
+        <div class="flex gap-4">
+          <span class="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-brass-500/40 text-brass-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
+          <div><dt class="font-semibold text-white">Find Us</dt><dd class="text-sm text-zinc-400">128 Court Street, Brooklyn, NY 11201</dd></div>
+        </div>
+      </dl>
+    </div>
+    <form id="booking-form" class="rounded-3xl border border-white/10 bg-ink-900/90 p-8 shadow-2xl backdrop-blur lg:p-10" novalidate data-aos="fade-left">
+      <h3 class="font-display text-3xl tracking-wide text-white">Appointment Request</h3>
+      <div class="mt-6 grid gap-5 sm:grid-cols-2">
+        <div>
+          <label for="name" class="mb-1.5 block text-sm font-medium text-zinc-300">Full Name</label>
+          <input id="name" name="name" type="text" required placeholder="Jordan Smith" class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white placeholder-zinc-500 outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+          <p class="mt-1 hidden text-xs text-red-400" data-error-for="name">Please enter your name.</p>
+        </div>
+        <div>
+          <label for="phone" class="mb-1.5 block text-sm font-medium text-zinc-300">Phone</label>
+          <input id="phone" name="phone" type="tel" required placeholder="(718) 555-0100" class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white placeholder-zinc-500 outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+          <p class="mt-1 hidden text-xs text-red-400" data-error-for="phone">Please enter a valid phone number.</p>
+        </div>
+        <div>
+          <label for="service" class="mb-1.5 block text-sm font-medium text-zinc-300">Service</label>
+          <select id="service" name="service" required class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+            <option value="">Select a service</option>
+            <option>Classic Haircut — $35</option>
+            <option>Skin Fade — $40</option>
+            <option>Cut &amp; Beard Combo — $60</option>
+            <option>Hot Towel Shave — $38</option>
+            <option>Beard Trim &amp; Shape — $25</option>
+            <option>Kids Cut — $25</option>
+          </select>
+          <p class="mt-1 hidden text-xs text-red-400" data-error-for="service">Please choose a service.</p>
+        </div>
+        <div>
+          <label for="barber" class="mb-1.5 block text-sm font-medium text-zinc-300">Preferred Barber</label>
+          <select id="barber" name="barber" class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+            <option>No preference</option>
+            <option>Ray Delgado</option>
+            <option>Marcus Reed</option>
+            <option>Tony Marchetti</option>
+            <option>Jordan Blake</option>
+          </select>
+        </div>
+        <div>
+          <label for="date" class="mb-1.5 block text-sm font-medium text-zinc-300">Date</label>
+          <input id="date" name="date" type="date" required class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+          <p class="mt-1 hidden text-xs text-red-400" data-error-for="date">Please pick a date.</p>
+        </div>
+        <div>
+          <label for="time" class="mb-1.5 block text-sm font-medium text-zinc-300">Time</label>
+          <input id="time" name="time" type="time" required class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30">
+          <p class="mt-1 hidden text-xs text-red-400" data-error-for="time">Please pick a time.</p>
+        </div>
+        <div class="sm:col-span-2">
+          <label for="notes" class="mb-1.5 block text-sm font-medium text-zinc-300">Notes (optional)</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="Anything we should know? Reference photos welcome at the shop." class="w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-white placeholder-zinc-500 outline-none transition focus:border-brass-400 focus:ring-2 focus:ring-brass-500/30"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="mt-7 w-full rounded-full bg-brass-500 px-7 py-3.5 font-semibold text-ink-950 shadow-glow transition hover:bg-brass-400">Request Appointment</button>
+      <p class="mt-3 text-center text-xs text-zinc-500">We'll confirm by text. No deposit required.</p>
+      <div id="form-success" class="mt-5 hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300" role="status">
+        <strong class="font-semibold">Request received!</strong> Thanks — a barber will text you shortly to confirm your appointment.
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- @section: location -->
+<section id="location" class="bg-ink-900 py-24 lg:py-32">
+  <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="grid gap-12 lg:grid-cols-5 lg:items-center">
+      <div class="lg:col-span-2" data-aos="fade-right">
+        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brass-400">Visit The Shop</p>
+        <h2 class="mt-3 font-display text-5xl tracking-wide text-white lg:text-6xl">Right On Court Street</h2>
+        <address class="mt-6 not-italic leading-relaxed text-zinc-300">
+          <strong class="text-white">Ray's Barber Shop</strong><br>
+          128 Court Street<br>
+          Brooklyn, NY 11201
+        </address>
+        <ul class="mt-6 space-y-2 text-sm text-zinc-400">
+          <li>🚇 2 min walk from Borough Hall (2, 3, 4, 5, R)</li>
+          <li>🅿️ Street parking and garage on Atlantic Ave</li>
+          <li>♿ Step-free entrance and accessible restroom</li>
+        </ul>
+        <div class="mt-8 rounded-2xl border border-white/5 bg-ink-800 p-6">
+          <h3 class="font-semibold text-white">Hours</h3>
+          <dl class="mt-3 space-y-2 text-sm">
+            <div class="flex justify-between"><dt class="text-zinc-400">Monday – Friday</dt><dd class="text-zinc-200">9:00 AM – 7:00 PM</dd></div>
+            <div class="flex justify-between"><dt class="text-zinc-400">Saturday</dt><dd class="text-zinc-200">8:00 AM – 6:00 PM</dd></div>
+            <div class="flex justify-between"><dt class="text-zinc-400">Sunday</dt><dd class="text-zinc-200">10:00 AM – 4:00 PM</dd></div>
+          </dl>
+        </div>
+        <a href="https://www.openstreetmap.org/?mlat=40.6908&mlon=-73.9926#map=17/40.6908/-73.9926" target="_blank" rel="noopener" class="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-brass-400 hover:text-brass-300">
+          Get directions on OpenStreetMap
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+      <div class="lg:col-span-3" data-aos="fade-left">
+        <div id="map" class="w-full overflow-hidden rounded-3xl border border-white/10 shadow-2xl" role="region" aria-label="Map showing Ray's Barber Shop at 128 Court Street, Brooklyn"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: cta -->
+<section class="py-20">
+  <div class="mx-auto max-w-5xl px-6 lg:px-8" data-aos="zoom-in">
+    <div class="relative overflow-hidden rounded-3xl border border-brass-500/40 bg-gradient-to-br from-ink-800 to-ink-900 px-8 py-14 text-center shadow-glow sm:px-16">
+      <div class="absolute left-0 top-0 h-full w-2 pole-stripes"></div>
+      <div class="absolute right-0 top-0 h-full w-2 pole-stripes"></div>
+      <h2 class="font-display text-5xl tracking-wide text-white lg:text-6xl">Your Next Great Haircut Is One Click Away</h2>
+      <p class="mx-auto mt-4 max-w-xl text-zinc-400">New clients get $5 off their first service. Mention the website when you book.</p>
+      <a href="#booking" class="mt-8 inline-flex rounded-full bg-brass-500 px-8 py-4 font-semibold text-ink-950 transition hover:bg-brass-400">Book a Chair Now</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- @section: footer -->
+<footer class="border-t border-white/5 bg-ink-950">
+  <div class="mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-12 lg:px-8">
+    <div class="lg:col-span-4">
+      <a href="#top" class="flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full border border-brass-500/60 bg-ink-800 text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+        </span>
+        <span class="font-display text-2xl tracking-wider text-white">Ray's <span class="text-brass-400">Barber Shop</span></span>
+      </a>
+      <p class="mt-5 max-w-sm text-sm leading-relaxed text-zinc-400">Classic barbering for the modern gentleman. Family owned in Brooklyn since 1998.</p>
+      <div class="mt-6 flex gap-3">
+        <a href="#" aria-label="Instagram" class="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-brass-400 hover:text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg>
+        </a>
+        <a href="#" aria-label="Facebook" class="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-brass-400 hover:text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        </a>
+        <a href="#" aria-label="TikTok" class="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-zinc-300 transition hover:border-brass-400 hover:text-brass-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="lg:col-span-2">
+      <h3 class="text-sm font-semibold uppercase tracking-widest text-white">Explore</h3>
+      <ul class="mt-4 space-y-2.5 text-sm text-zinc-400">
+        <li><a href="#about" class="hover:text-brass-400">About the shop</a></li>
+        <li><a href="#services" class="hover:text-brass-400">Services &amp; pricing</a></li>
+        <li><a href="#gallery" class="hover:text-brass-400">Gallery</a></li>
+        <li><a href="#team" class="hover:text-brass-400">Our barbers</a></li>
+        <li><a href="#testimonials" class="hover:text-brass-400">Reviews</a></li>
+      </ul>
+    </div>
+    <div class="lg:col-span-3">
+      <h3 class="text-sm font-semibold uppercase tracking-widest text-white">Hours</h3>
+      <ul class="mt-4 space-y-2.5 text-sm text-zinc-400">
+        <li class="flex justify-between gap-4"><span>Mon – Fri</span><span class="text-zinc-200">9:00 AM – 7:00 PM</span></li>
+        <li class="flex justify-between gap-4"><span>Saturday</span><span class="text-zinc-200">8:00 AM – 6:00 PM</span></li>
+        <li class="flex justify-between gap-4"><span>Sunday</span><span class="text-zinc-200">10:00 AM – 4:00 PM</span></li>
+      </ul>
+    </div>
+    <div class="lg:col-span-3">
+      <h3 class="text-sm font-semibold uppercase tracking-widest text-white">Contact</h3>
+      <ul class="mt-4 space-y-2.5 text-sm text-zinc-400">
+        <li>128 Court Street<br>Brooklyn, NY 11201</li>
+        <li><a href="tel:+17185550142" class="hover:text-brass-400">(718) 555-0142</a></li>
+        <li><a href="mailto:hello@raysbarbershop.com" class="hover:text-brass-400">hello@raysbarbershop.com</a></li>
+      </ul>
+      <a href="#booking" class="mt-6 inline-flex rounded-full border border-brass-500/60 px-5 py-2.5 text-sm font-semibold text-brass-400 transition hover:bg-brass-500 hover:text-ink-950">Book a Chair</a>
+    </div>
+  </div>
+  <div class="border-t border-white/5">
+    <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-6 text-xs text-zinc-500 sm:flex-row lg:px-8">
+      <p>© 2024 Ray's Barber Shop. All rights reserved.</p>
+      <p class="flex gap-5"><a href="#" class="hover:text-brass-400">Privacy Policy</a><a href="#" class="hover:text-brass-400">Terms of Service</a><a href="#" class="hover:text-brass-400">Accessibility</a></p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  (function () {
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Mobile nav toggle
+    var toggle = document.getElementById('menu-toggle');
+    var menu = document.getElementById('mobile-menu');
+    var iconOpen = document.getElementById('icon-open');
+    var iconClose = document.getElementById('icon-close');
+    if (toggle && menu) {
+      toggle.addEventListener('click', function () {
+        var open = menu.classList.toggle('hidden') === false;
+        toggle.setAttribute('aria-expanded', String(open));
+        iconOpen.classList.toggle('hidden', open);
+        iconClose.classList.toggle('hidden', !open);
+      });
+      menu.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () {
+          menu.classList.add('hidden');
+          toggle.setAttribute('aria-expanded', 'false');
+          iconOpen.classList.remove('hidden');
+          iconClose.classList.add('hidden');
+        });
+      });
+    }
+
+    if (reduceMotion) document.documentElement.classList.remove('scroll-smooth');
+
+    // AOS
+    if (window.AOS) {
+      if (reduceMotion) {
+        document.querySelectorAll('[data-aos]').forEach(function (el) { el.removeAttribute('data-aos'); });
+      } else {
+        AOS.init({ once: true, duration: 700, offset: 80 });
+      }
+    }
+
+    // Swiper testimonials
+    if (window.Swiper) {
+      new Swiper('.testimonial-swiper', {
+        slidesPerView: 1,
+        spaceBetween: 24,
+        grabCursor: true,
+        pagination: { el: '.swiper-pagination', clickable: true },
+        navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+        breakpoints: { 768: { slidesPerView: 2 }, 1024: { slidesPerView: 3 } }
+      });
+    }
+
+    // Leaflet map
+    if (window.L && document.getElementById('map')) {
+      var map = L.map('map', { scrollWheelZoom: false }).setView([40.6908, -73.9926], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      L.marker([40.6908, -73.9926]).addTo(map)
+        .bindPopup("<strong>Ray's Barber Shop</strong><br>128 Court Street, Brooklyn, NY 11201")
+        .openPopup();
+    }
+
+    // Booking form validation
+    var form = document.getElementById('booking-form');
+    if (form) {
+      var success = document.getElementById('form-success');
+      function showError(name, show) {
+        var el = form.querySelector('[data-error-for="' + name + '"]');
+        var input = form.elements[name];
+        if (el) el.classList.toggle('hidden', !show);
+        if (input) input.classList.toggle('border-red-500', show);
+      }
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var valid = true;
+        var name = form.elements.name.value.trim();
+        var phone = form.elements.phone.value.replace(/\D/g, '');
+        var service = form.elements.service.value;
+        var date = form.elements.date.value;
+        var time = form.elements.time.value;
+        showError('name', !name); if (!name) valid = false;
+        showError('phone', phone.length < 10); if (phone.length < 10) valid = false;
+        showError('service', !service); if (!service) valid = false;
+        showError('date', !date); if (!date) valid = false;
+        showError('time', !time); if (!time) valid = false;
+        if (!valid) { success.classList.add('hidden'); return; }
+        success.classList.remove('hidden');
+        form.reset();
+        success.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+      });
+      ['name', 'phone', 'service', 'date', 'time'].forEach(function (n) {
+        form.elements[n].addEventListener('input', function () { showError(n, false); });
+      });
+    }
+  })();
+</script>
+</body>
+</html>

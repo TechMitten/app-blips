@@ -31,6 +31,7 @@
               "features/connectors",
               "features/exporting",
               "features/publishing",
+              "features/showcase",
               "features/importing-sites"
             ]
           },

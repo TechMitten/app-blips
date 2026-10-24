@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
@@ -10,12 +11,23 @@ import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
 import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
 import ShareIcon from './ShareIcons';
+import ShowcaseSubmitModal from './ShowcaseSubmitModal';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
 const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
 
 // The site icon (favicon) row on the publish and manage steps. Picking an
 // image only changes what the next Publish / Update site sends.
+function ShowcaseSubmitLink({ onClick, disabled = false }) {
+  return (
+    <p className="flex items-center gap-1.5 text-xs leading-snug text-slate-600">
+      <Sparkles size={13} className="shrink-0 text-indigo-600" aria-hidden="true" />
+      Proud of it?{' '}
+      <button type="button" onClick={onClick} disabled={disabled} className={LINK_CLASS}>Submit it to the showcase</button>
+    </p>
+  );
+}
+
 function SiteIconField({ icon, onChange, disabled }) {
   const input = useRef(null);
   const [error, setError] = useState('');
@@ -84,7 +96,9 @@ function SiteIconField({ icon, onChange, disabled }) {
 // site, unpublish it, or publish to a different address.
 // `connectOnly` (Settings → Connectors) is the same window with nothing to
 // publish: it signs in or out of Surge and stops at 'account'.
-export default function PublishDialog({ projectId, projectName, buildFiles, onClose, connectOnly = false }) {
+// Once a project is online, "Submit to the showcase" opens the showcase form
+// with its address filled in; `studioMode` pre-picks app/website/game.
+export default function PublishDialog({ projectId, projectName, buildFiles, onClose, connectOnly = false, studioMode = '' }) {
   // loading | signin | account | manage | unpublish | removed | ready | publishing | done
   const [step, setStep] = useState('loading');
   // The address this project is live at (without .surge.sh), or ''.
@@ -98,6 +112,8 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
   const [account, setAccount] = useState('');
   const [name, setName] = useState(() => suggestSurgeName(projectName));
   const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
+  // The address the showcase form is open for, or ''.
+  const [submitUrl, setSubmitUrl] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
@@ -123,13 +139,14 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key !== 'Escape' || busy) return;
+      // The showcase form above this dialog closes itself on Escape.
+      if (event.key !== 'Escape' || busy || submitUrl) return;
       event.stopPropagation();
       onClose();
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [onClose, busy]);
+  }, [onClose, busy, submitUrl]);
 
   const signIn = async (event) => {
     event.preventDefault();
@@ -368,6 +385,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
               <strong className="text-slate-800">Unpublish</strong> takes it offline.
             </p>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
+            <ShowcaseSubmitLink onClick={() => setSubmitUrl(publishedUrl)} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
               <button
@@ -530,6 +548,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
             <p className="text-xs leading-snug text-slate-500">
               It can take a minute to appear everywhere. After you make changes, click Publish again to update it.
             </p>
+            <ShowcaseSubmitLink onClick={() => setSubmitUrl(url)} />
           </div>
           <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">
             <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Close</button>
@@ -538,6 +557,17 @@ export default function PublishDialog({ projectId, projectName, buildFiles, onCl
             </a>
           </div>
         </>
+      )}
+      {/* Portaled out of the card: its scale-in transform would otherwise
+          contain the dialog's fixed-position scrim. */}
+      {submitUrl && createPortal(
+        <ShowcaseSubmitModal
+          initialUrl={submitUrl}
+          initialProjectName={projectName}
+          initialKind={studioMode}
+          onClose={() => setSubmitUrl('')}
+        />,
+        document.body,
       )}
     </Modal>
   );

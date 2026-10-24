@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- @section: head -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Florist — Romantic Bouquets, Subscriptions &amp; Wedding Flowers</title>
+<meta name="description" content="Florist crafts romantic, garden-inspired bouquets, weekly flower subscriptions and full wedding florals, with same-day delivery across the city.">
+<meta property="og:title" content="Florist — Romantic Bouquets, Subscriptions &amp; Wedding Flowers">
+<meta property="og:description" content="Garden-inspired bouquets, weekly subscriptions and full wedding florals with same-day local delivery.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          blush: '#f7ecec',
+          petal: '#e9c9c6',
+          rose: '#c4776f',
+          rosewood: '#8f4a45',
+          moss: '#7d8a6d',
+          sage: '#eff1e9',
+          fern: '#3f4a38',
+          ink: '#2c2a27',
+          cream: '#fdfaf7'
+        },
+        fontFamily: {
+          display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+          body: ['Jost', 'system-ui', 'sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Florist",
+  "name": "Florist",
+  "description": "Romantic garden-inspired bouquets, weekly flower subscriptions and wedding florals with same-day delivery.",
+  "telephone": "+1-555-018-2244",
+  "email": "hello@florist.example",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "14 Willowbank Lane",
+    "addressLocality": "Riverbend",
+    "addressRegion": "OR",
+    "postalCode": "97210",
+    "addressCountry": "US"
+  },
+  "openingHours": "Mo-Sa 09:00-18:00, Su 10:00-16:00",
+  "priceRange": "$$"
+}
+</script>
+</head>
+<body class="bg-cream text-ink font-body antialiased">
+
+<!-- @section: nav -->
+<header class="sticky top-0 z-50 bg-cream/90 backdrop-blur border-b border-petal/50">
+  <nav class="mx-auto max-w-7xl px-6 lg:px-10" aria-label="Main navigation">
+    <div class="flex h-20 items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3 group">
+        <span class="grid h-10 w-10 place-items-center rounded-full bg-rose/10 text-rose ring-1 ring-rose/20">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5" aria-hidden="true">
+            <path d="M12 21c0-4.5 2-7 6-7-1 4-3 6-6 7Z"/>
+            <path d="M12 21c0-4.5-2-7-6-7 1 4 3 6 6 7Z"/>
+            <circle cx="12" cy="9" r="4"/>
+          </svg>
+        </span>
+        <span class="font-display text-3xl font-semibold tracking-wide text-fern">Florist</span>
+      </a>
+
+      <ul class="hidden lg:flex items-center gap-9 text-sm uppercase tracking-[0.16em] text-fern/80">
+        <li><a href="#bouquets" class="hover:text-rose transition-colors">Bouquets</a></li>
+        <li><a href="#subscriptions" class="hover:text-rose transition-colors">Subscriptions</a></li>
+        <li><a href="#weddings" class="hover:text-rose transition-colors">Weddings</a></li>
+        <li><a href="#delivery" class="hover:text-rose transition-colors">Delivery</a></li>
+        <li><a href="#faq" class="hover:text-rose transition-colors">FAQ</a></li>
+      </ul>
+
+      <div class="flex items-center gap-3">
+        <a href="#inquiry" class="hidden sm:inline-flex items-center rounded-full bg-rose px-6 py-3 text-sm font-medium uppercase tracking-[0.14em] text-white shadow-sm transition-colors hover:bg-rosewood">
+          Order Now
+        </a>
+        <button id="navToggle" type="button" class="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border border-petal text-fern" aria-expanded="false" aria-controls="mobileMenu" aria-label="Toggle navigation menu">
+          <svg id="navIconOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+          <svg id="navIconClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="hidden h-5 w-5" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobileMenu" class="hidden lg:hidden pb-6">
+      <ul class="flex flex-col gap-1 border-t border-petal/60 pt-4 text-base text-fern">
+        <li><a href="#bouquets" class="block rounded-xl px-4 py-3 hover:bg-blush">Bouquets</a></li>
+        <li><a href="#subscriptions" class="block rounded-xl px-4 py-3 hover:bg-blush">Subscriptions</a></li>
+        <li><a href="#weddings" class="block rounded-xl px-4 py-3 hover:bg-blush">Weddings</a></li>
+        <li><a href="#delivery" class="block rounded-xl px-4 py-3 hover:bg-blush">Delivery</a></li>
+        <li><a href="#faq" class="block rounded-xl px-4 py-3 hover:bg-blush">FAQ</a></li>
+        <li class="pt-2"><a href="#inquiry" class="block rounded-full bg-rose px-6 py-3 text-center font-medium uppercase tracking-[0.14em] text-white">Order Now</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<main>
+<!-- @section: hero -->
+<section class="relative overflow-hidden bg-blush">
+  <div class="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-petal/50 blur-3xl" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-sage blur-3xl" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-6 lg:px-10 py-20 lg:py-28 grid items-center gap-14 lg:grid-cols-2">
+    <div>
+      <p class="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-rose">
+        <span class="h-px w-10 bg-rose/60" aria-hidden="true"></span>
+        Garden-grown, hand-tied
+      </p>
+      <h1 class="mt-6 font-display text-5xl sm:text-6xl lg:text-7xl leading-[1.05] text-fern">
+        Romantic flowers, <em class="italic text-rosewood">gathered</em> with care.
+      </h1>
+      <p class="mt-7 max-w-xl text-lg leading-relaxed text-fern/75">
+        Seasonal stems from local growers, arranged in loose, garden-inspired shapes and delivered the same day across Riverbend. Every bouquet is wrapped by hand in tissue and silk ribbon.
+      </p>
+      <div class="mt-10 flex flex-col sm:flex-row gap-4">
+        <a href="#bouquets" class="inline-flex items-center justify-center rounded-full bg-rose px-8 py-4 text-sm font-medium uppercase tracking-[0.16em] text-white shadow-sm transition-colors hover:bg-rosewood">
+          Browse Bouquets
+        </a>
+        <a href="#subscriptions" class="inline-flex items-center justify-center rounded-full border border-fern/25 bg-white/60 px-8 py-4 text-sm font-medium uppercase tracking-[0.16em] text-fern transition-colors hover:bg-white">
+          Weekly Subscriptions
+        </a>
+      </div>
+      <dl class="mt-14 grid max-w-lg grid-cols-3 gap-6 border-t border-fern/15 pt-8">
+        <div>
+          <dt class="text-xs uppercase tracking-[0.18em] text-fern/60">Same-day</dt>
+          <dd class="mt-1 font-display text-2xl text-fern">Order by 1pm</dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-[0.18em] text-fern/60">Local farms</dt>
+          <dd class="mt-1 font-display text-2xl text-fern">9 growers</dd>
+        </div>
+        <div>
+          <dt class="text-xs uppercase tracking-[0.18em] text-fern/60">Since</dt>
+          <dd class="mt-1 font-display text-2xl text-fern">2014</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="relative">
+      <div class="overflow-hidden rounded-[2.5rem] shadow-xl shadow-rosewood/10 ring-1 ring-white/60">
+        <img
+          src="https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1200&q=80"
+          alt="Loose bouquet of blush garden roses and eucalyptus resting on a linen tablecloth"
+          class="h-[420px] w-full object-cover lg:h-[560px]">
+      </div>
+      <div class="absolute -bottom-8 -left-4 hidden w-64 overflow-hidden rounded-3xl border-8 border-cream shadow-lg sm:block">
+        <img
+          src="https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=600&q=80"
+          alt="Florist trimming stems at a workbench surrounded by buckets of fresh flowers"
+          class="h-44 w-full object-cover">
+      </div>
+      <div class="absolute -right-4 top-8 hidden rounded-2xl bg-cream/95 px-6 py-5 shadow-lg ring-1 ring-petal/60 lg:block">
+        <p class="font-display text-2xl text-fern">Bouquet of the week</p>
+        <p class="mt-1 text-sm text-fern/70">Peony &amp; ranunculus — $62</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: promises -->
+<section class="bg-cream py-16 lg:py-20">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <ul class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <li class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-petal/40">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-7 w-7 text-rose" aria-hidden="true">
+          <path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
+        </svg>
+        <h3 class="mt-5 font-display text-2xl text-fern">Same-day delivery</h3>
+        <p class="mt-2 text-sm leading-relaxed text-fern/70">Order before 1pm for delivery the very same afternoon, seven days a week.</p>
+      </li>
+      <li class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-petal/40">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-7 w-7 text-rose" aria-hidden="true">
+          <path d="M12 21c0-5 3-8 7-8-1 5-4 7-7 8Z"/><path d="M12 21c0-5-3-8-7-8 1 5 4 7 7 8Z"/><path d="M12 21V9"/>
+        </svg>
+        <h3 class="mt-5 font-display text-2xl text-fern">Grown nearby</h3>
+        <p class="mt-2 text-sm leading-relaxed text-fern/70">Nine family farms within 60 miles supply our stems, so everything arrives fresh.</p>
+      </li>
+      <li class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-petal/40">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-7 w-7 text-rose" aria-hidden="true">
+          <path d="M12 3l2.5 5.5L20 10l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-1.5z"/>
+        </svg>
+        <h3 class="mt-5 font-display text-2xl text-fern">Designer's choice</h3>
+        <p class="mt-2 text-sm leading-relaxed text-fern/70">Let our florists pick the season's best; you receive something beautifully unexpected.</p>
+      </li>
+      <li class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-petal/40">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-7 w-7 text-rose" aria-hidden="true">
+          <path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1Z"/>
+        </svg>
+        <h3 class="mt-5 font-display text-2xl text-fern">Seven-day freshness</h3>
+        <p class="mt-2 text-sm leading-relaxed text-fern/70">Every arrangement is guaranteed to look lovely for at least a week, or we replace it.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- @section: bouquets -->
+<section id="bouquets" class="scroll-mt-24 bg-sage py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-2xl">
+        <p class="text-xs uppercase tracking-[0.35em] text-rose">The collection</p>
+        <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Bouquets for every occasion</h2>
+        <p class="mt-4 text-fern/70">Filter by the moment you're celebrating — each design is tied to order in the studio that morning.</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Filter bouquets by occasion">
+        <button type="button" data-filter="all" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white is-active" aria-pressed="true">All</button>
+        <button type="button" data-filter="romance" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white" aria-pressed="false">Romance</button>
+        <button type="button" data-filter="birthday" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white" aria-pressed="false">Birthday</button>
+        <button type="button" data-filter="sympathy" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white" aria-pressed="false">Sympathy</button>
+        <button type="button" data-filter="congrats" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white" aria-pressed="false">Congratulations</button>
+        <button type="button" data-filter="justbecause" class="filter-btn rounded-full border border-fern/25 px-5 py-2.5 text-sm text-fern transition-colors hover:bg-white" aria-pressed="false">Just Because</button>
+      </div>
+    </div>
+
+    <ul id="bouquetGrid" class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="romance">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1519378058457-4c29a0a2efac?auto=format&fit=crop&w=800&q=80" alt="Romantic bouquet of deep red roses wrapped in kraft paper" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Romance</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">The Long Letter</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">Two dozen garden roses, soft eucalyptus and a hand-written note tied in silk.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$84</p>
+        </div>
+      </li>
+
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="birthday">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1508610048659-a06b669e3321?auto=format&fit=crop&w=800&q=80" alt="Bright mixed bouquet of yellow tulips and white daisies in a glass vase" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Birthday</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">Sunroom Party</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">Tulips, ranunculus and chamomile in cheerful yellows with a mini celebration card.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$58</p>
+        </div>
+      </li>
+
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="sympathy">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1487530811176-3780de880c2d?auto=format&fit=crop&w=800&q=80" alt="Serene white lilies and pale greenery arranged in a low basket" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Sympathy</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">Quiet Garden</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">White lilies, lisianthus and olive branch, delivered gently with a sympathy card.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$72</p>
+        </div>
+      </li>
+
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="congrats">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1494972308805-463bc619d34e?auto=format&fit=crop&w=800&q=80" alt="Pink peonies arranged loosely with greenery in a ceramic jug" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Congratulations</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">New Chapter</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">Peonies and stock in blush tones — for graduations, new homes and new jobs.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$76</p>
+        </div>
+      </li>
+
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="romance">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1454944338482-a69bb95894af?auto=format&fit=crop&w=800&q=80" alt="Loose arrangement of blush and cream flowers photographed against a pale wall" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Romance</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">Sunday Morning</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">Soft blush roses, waxflower and trailing jasmine for slow, unhurried love.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$68</p>
+        </div>
+      </li>
+
+      <li class="bouquet-card group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-petal/40 transition-shadow hover:shadow-lg" data-occasion="justbecause">
+        <div class="overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1502537626307-6d0bd5bd4b4b?auto=format&fit=crop&w=800&q=80" alt="Wildflower posy of orange and purple blooms on a wooden table" class="h-64 w-full object-cover transition-transform duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-7">
+          <p class="text-xs uppercase tracking-[0.22em] text-rose">Just Because</p>
+          <h3 class="mt-2 font-display text-2xl text-fern">Wanderer's Posy</h3>
+          <p class="mt-2 text-sm leading-relaxed text-fern/70">A small, wild handful of whatever is brightest in the field that week.</p>
+          <p class="mt-5 font-display text-2xl text-rosewood">$42</p>
+        </div>
+      </li>
+    </ul>
+
+    <p id="filterEmpty" class="mt-12 hidden rounded-3xl bg-white p-10 text-center text-fern/70 ring-1 ring-petal/40">
+      No bouquets in this category yet — try another occasion or ask us for a custom design.
+    </p>
+  </div>
+</section>
+
+<!-- @section: subscriptions -->
+<section id="subscriptions" class="scroll-mt-24 bg-cream py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="text-xs uppercase tracking-[0.35em] text-rose">Flower subscriptions</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Fresh flowers, on repeat</h2>
+      <p class="mt-4 text-fern/70">Choose a rhythm and a size — we design something new each delivery and pause any time you like.</p>
+    </div>
+
+    <div class="mt-14 grid gap-8 lg:grid-cols-3">
+      <article class="flex flex-col rounded-3xl bg-white p-9 shadow-sm ring-1 ring-petal/40">
+        <h3 class="font-display text-3xl text-fern">The Weekly Posy</h3>
+        <p class="mt-2 text-sm text-fern/70">A small, seasonal arrangement every Friday.</p>
+        <p class="mt-6 font-display text-5xl text-fern">$28<span class="text-lg text-fern/60">/week</span></p>
+        <ul class="mt-8 space-y-3 text-sm text-fern/80">
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> 8–10 stems, wrapped in tissue</li>
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Free local delivery</li>
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Pause or skip any week</li>
+        </ul>
+        <a href="#inquiry" class="mt-9 inline-flex justify-center rounded-full border border-fern/25 px-7 py-3.5 text-sm font-medium uppercase tracking-[0.14em] text-fern transition-colors hover:bg-blush">Start a Posy</a>
+      </article>
+
+      <article class="relative flex flex-col rounded-3xl bg-fern p-9 text-cream shadow-lg lg:-mt-6">
+        <span class="absolute right-7 top-7 rounded-full bg-petal px-4 py-1 text-xs uppercase tracking-[0.2em] text-fern">Most loved</span>
+        <h3 class="font-display text-3xl">The Seasonal Table</h3>
+        <p class="mt-2 text-sm text-cream/75">A generous centerpiece for your home, fortnightly.</p>
+        <p class="mt-6 font-display text-5xl">$46<span class="text-lg text-cream/60">/fortnight</span></p>
+        <ul class="mt-8 space-y-3 text-sm text-cream/85">
+          <li class="flex gap-3"><span class="text-petal" aria-hidden="true">✦</span> 18–22 stems in a rented vessel</li>
+          <li class="flex gap-3"><span class="text-petal" aria-hidden="true">✦</span> Priority-free local delivery</li>
+          <li class="flex gap-3"><span class="text-petal" aria-hidden="true">✦</span> Choose your palette: blush, white or wild</li>
+          <li class="flex gap-3"><span class="text-petal" aria-hidden="true">✦</span> Vase swapped at each visit</li>
+        </ul>
+        <a href="#inquiry" class="mt-9 inline-flex justify-center rounded-full bg-rose px-7 py-3.5 text-sm font-medium uppercase tracking-[0.14em] text-white transition-colors hover:bg-rosewood">Choose Seasonal</a>
+      </article>
+
+      <article class="flex flex-col rounded-3xl bg-white p-9 shadow-sm ring-1 ring-petal/40">
+        <h3 class="font-display text-3xl text-fern">The Atelier</h3>
+        <p class="mt-2 text-sm text-fern/70">Designer's choice, monthly, with studio extras.</p>
+        <p class="mt-6 font-display text-5xl text-fern">$78<span class="text-lg text-fern/60">/month</span></p>
+        <ul class="mt-8 space-y-3 text-sm text-fern/80">
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Large sculptural arrangement</li>
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Rare and imported blooms included</li>
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Personal florist to call</li>
+          <li class="flex gap-3"><span class="text-rose" aria-hidden="true">✦</span> Hand-written card each time</li>
+        </ul>
+        <a href="#inquiry" class="mt-9 inline-flex justify-center rounded-full border border-fern/25 px-7 py-3.5 text-sm font-medium uppercase tracking-[0.14em] text-fern transition-colors hover:bg-blush">Join the Atelier</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- @section: weddings -->
+<section id="weddings" class="scroll-mt-24 bg-blush py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 grid items-center gap-14 lg:grid-cols-2">
+    <div class="overflow-hidden rounded-[2.5rem] shadow-xl shadow-rosewood/10">
+      <img src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80" alt="Bride holding a loose bouquet of white and blush flowers at a garden wedding" class="h-[420px] w-full object-cover lg:h-[600px]">
+    </div>
+
+    <div>
+      <p class="text-xs uppercase tracking-[0.35em] text-rose">Weddings &amp; celebrations</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Florals that feel like your own garden</h2>
+      <p class="mt-5 leading-relaxed text-fern/75">
+        From intimate elopements to 200-guest marquees, we design with the season and your venue in mind. Consultations happen at our Willowbank studio over coffee, or on-site with your planner.
+      </p>
+
+      <ul class="mt-10 grid gap-6 sm:grid-cols-2">
+        <li class="rounded-2xl bg-white/70 p-6 ring-1 ring-white">
+          <h3 class="font-display text-2xl text-fern">Bridal party</h3>
+          <p class="mt-2 text-sm text-fern/70">Bouquets, buttonholes, flower crowns and hair flowers.</p>
+        </li>
+        <li class="rounded-2xl bg-white/70 p-6 ring-1 ring-white">
+          <h3 class="font-display text-2xl text-fern">Ceremony</h3>
+          <p class="mt-2 text-sm text-fern/70">Arches, aisle meadows, pew ends and hanging installations.</p>
+        </li>
+        <li class="rounded-2xl bg-white/70 p-6 ring-1 ring-white">
+          <h3 class="font-display text-2xl text-fern">Reception</h3>
+          <p class="mt-2 text-sm text-fern/70">Tablescapes, bud vases, candle clusters and a floral cake crown.</p>
+        </li>
+        <li class="rounded-2xl bg-white/70 p-6 ring-1 ring-white">
+          <h3 class="font-display text-2xl text-fern">Next-day care</h3>
+          <p class="mt-2 text-sm text-fern/70">We collect and compost every stem the morning after.</p>
+        </li>
+      </ul>
+
+      <div class="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <a href="#inquiry" class="inline-flex items-center justify-center rounded-full bg-rose px-8 py-4 text-sm font-medium uppercase tracking-[0.16em] text-white transition-colors hover:bg-rosewood">Book a Consultation</a>
+        <p class="text-sm text-fern/70">Weddings booked from <span class="font-medium text-fern">$1,400</span> · 2025 dates open</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: gallery -->
+<section class="bg-cream py-20 lg:py-24">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-rose">From the studio</p>
+        <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">A week in flowers</h2>
+      </div>
+      <p class="max-w-md text-sm text-fern/70">Snapshots from the Willowbank workbench, the market run and a few very happy doorsteps.</p>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <figure class="overflow-hidden rounded-3xl sm:col-span-2">
+        <img src="https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1000&q=80" alt="Wide arrangement of blush roses, peonies and greenery on a linen cloth" class="h-72 w-full object-cover lg:h-80">
+      </figure>
+      <figure class="overflow-hidden rounded-3xl">
+        <img src="https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=700&q=80" alt="Florist's hands tying a bouquet with ribbon at the studio bench" class="h-72 w-full object-cover lg:h-80">
+      </figure>
+      <figure class="overflow-hidden rounded-3xl">
+        <img src="https://images.unsplash.com/photo-1502977249166-824b3a8b4613?auto=format&fit=crop&w=700&q=80" alt="Potted pink hydrangea beside secateurs and twine" class="h-72 w-full object-cover lg:h-80">
+      </figure>
+      <figure class="overflow-hidden rounded-3xl">
+        <img src="https://images.unsplash.com/photo-1509719662282-64f4d0c5f2b6?auto=format&fit=crop&w=700&q=80" alt="Close-up of delicate white blossom on a branch in soft daylight" class="h-56 w-full object-cover">
+      </figure>
+      <figure class="overflow-hidden rounded-3xl">
+        <img src="https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=700&q=80" alt="Row of tulips in soft pink standing in a bucket of water" class="h-56 w-full object-cover">
+      </figure>
+      <figure class="overflow-hidden rounded-3xl sm:col-span-2">
+        <img src="https://images.unsplash.com/photo-1470509037663-253afd7f0f51?auto=format&fit=crop&w=1000&q=80" alt="Field of wildflowers glowing in late afternoon light" class="h-56 w-full object-cover">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- @section: delivery -->
+<section id="delivery" class="scroll-mt-24 bg-fern py-20 text-cream lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 grid gap-14 lg:grid-cols-2">
+    <div>
+      <p class="text-xs uppercase tracking-[0.35em] text-petal">Delivery area</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl">Where we deliver, and when</h2>
+      <p class="mt-5 leading-relaxed text-cream/80">
+        Our cyclists and van cover Riverbend and the surrounding valleys daily. Order before 1pm for same-day delivery; anything later arrives the next morning, freshly tied.
+      </p>
+
+      <div class="mt-10 grid gap-6 sm:grid-cols-2">
+        <div class="rounded-2xl bg-cream/10 p-6 ring-1 ring-cream/15">
+          <h3 class="font-display text-2xl">Free delivery zone</h3>
+          <p class="mt-2 text-sm text-cream/80">Riverbend, Willowbank, Northgate and Elm Row — always free, seven days.</p>
+        </div>
+        <div class="rounded-2xl bg-cream/10 p-6 ring-1 ring-cream/15">
+          <h3 class="font-display text-2xl">Extended zone</h3>
+          <p class="mt-2 text-sm text-cream/80">Harborview, Fell Creek, Meadowbrook and Ashgrove — $12 flat rate.</p>
+        </div>
+      </div>
+
+      <dl class="mt-10 space-y-4 border-t border-cream/20 pt-8 text-sm">
+        <div class="flex flex-wrap justify-between gap-2"><dt class="text-cream/70">Monday – Friday</dt><dd>9:00 – 18:00</dd></div>
+        <div class="flex flex-wrap justify-between gap-2"><dt class="text-cream/70">Saturday</dt><dd>9:00 – 18:00</dd></div>
+        <div class="flex flex-wrap justify-between gap-2"><dt class="text-cream/70">Sunday</dt><dd>10:00 – 16:00</dd></div>
+        <div class="flex flex-wrap justify-between gap-2"><dt class="text-cream/70">Cut-off for same day</dt><dd>13:00 local time</dd></div>
+      </dl>
+    </div>
+
+    <div class="rounded-[2.5rem] bg-cream/10 p-8 ring-1 ring-cream/15 lg:p-10">
+      <h3 class="font-display text-3xl">Check your postcode</h3>
+      <p class="mt-3 text-sm text-cream/80">Not sure if we reach you? Send us your address and we'll confirm within the hour.</p>
+
+      <form id="postcodeForm" class="mt-8 space-y-5" novalidate>
+        <div>
+          <label for="postcode" class="block text-xs uppercase tracking-[0.2em] text-cream/70">Postcode or suburb</label>
+          <input id="postcode" name="postcode" type="text" placeholder="e.g. 97210 or Willowbank" class="mt-2 w-full rounded-xl border border-cream/25 bg-cream/10 px-4 py-3.5 text-cream placeholder:text-cream/50 focus:border-petal focus:outline-none focus:ring-2 focus:ring-petal/40">
+          <p id="postcodeError" class="mt-2 hidden text-sm text-petal">Please enter a postcode or suburb name.</p>
+        </div>
+        <button type="submit" class="w-full rounded-full bg-rose px-7 py-4 text-sm font-medium uppercase tracking-[0.16em] text-white transition-colors hover:bg-rosewood">Check My Area</button>
+        <p id="postcodeSuccess" class="hidden rounded-xl bg-cream/15 px-5 py-4 text-sm text-cream" role="status"></p>
+      </form>
+
+      <p class="mt-8 text-sm text-cream/70">
+        Outside these areas? Call the studio on
+        <a href="tel:+15550182244" class="underline decoration-petal/60 underline-offset-4 hover:text-petal">+1 (555) 018-2244</a>
+        and we'll arrange a courier quote.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- @section: testimonials -->
+<section class="bg-cream py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="text-xs uppercase tracking-[0.35em] text-rose">Kind words</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Loved by our neighbours</h2>
+    </div>
+
+    <div class="mt-14 grid gap-8 lg:grid-cols-3">
+      <figure class="rounded-3xl bg-white p-9 shadow-sm ring-1 ring-petal/40">
+        <blockquote class="font-display text-2xl leading-snug text-fern">"The Seasonal Table arrived the morning we moved in and made the whole house feel like home."</blockquote>
+        <figcaption class="mt-6 text-sm text-fern/70">Marisol &amp; Theo — Willowbank</figcaption>
+      </figure>
+      <figure class="rounded-3xl bg-white p-9 shadow-sm ring-1 ring-petal/40">
+        <blockquote class="font-display text-2xl leading-snug text-fern">"They designed our whole wedding in February colours. Guests are still talking about the arch."</blockquote>
+        <figcaption class="mt-6 text-sm text-fern/70">Priya &amp; Sam — Harborview</figcaption>
+      </figure>
+      <figure class="rounded-3xl bg-white p-9 shadow-sm ring-1 ring-petal/40">
+        <blockquote class="font-display text-2xl leading-snug text-fern">"Ordered at 12:40 and the bouquet was at my mother's door by four. Flawless."</blockquote>
+        <figcaption class="mt-6 text-sm text-fern/70">Daniel R. — Northgate</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- @section: faq -->
+<section id="faq" class="scroll-mt-24 bg-sage py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 grid gap-14 lg:grid-cols-[0.85fr_1.15fr]">
+    <div>
+      <p class="text-xs uppercase tracking-[0.35em] text-rose">Good to know</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Questions we're asked most</h2>
+      <p class="mt-4 text-fern/70">Still curious? Send a note through the inquiry form and a florist will reply personally.</p>
+      <a href="#inquiry" class="mt-8 inline-flex rounded-full border border-fern/25 px-7 py-3.5 text-sm font-medium uppercase tracking-[0.14em] text-fern transition-colors hover:bg-white">Ask a Florist</a>
+    </div>
+
+    <div class="divide-y divide-fern/15 rounded-3xl bg-white shadow-sm ring-1 ring-petal/40">
+      <div class="faq-item">
+        <h3>
+          <button type="button" class="faq-toggle flex w-full items-center justify-between gap-6 px-7 py-6 text-left font-display text-2xl text-fern" aria-expanded="false" aria-controls="faq1">
+            How do I care for my bouquet?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="faq-icon h-5 w-5 shrink-0 text-rose transition-transform" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </h3>
+        <div id="faq1" class="faq-panel hidden px-7 pb-7 text-fern/75">
+          Trim the stems at an angle, change the water every two days and keep the vase away from radiators and direct sun. A sachet of flower food comes wrapped with every order.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <h3>
+          <button type="button" class="faq-toggle flex w-full items-center justify-between gap-6 px-7 py-6 text-left font-display text-2xl text-fern" aria-expanded="false" aria-controls="faq2">
+            Can I request specific flowers or colours?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="faq-icon h-5 w-5 shrink-0 text-rose transition-transform" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </h3>
+        <div id="faq2" class="faq-panel hidden px-7 pb-7 text-fern/75">
+          Absolutely. Mention your palette or favourite stems in the inquiry form and we'll build the bouquet around them, substituting close seasonal matches when needed.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <h3>
+          <button type="button" class="faq-toggle flex w-full items-center justify-between gap-6 px-7 py-6 text-left font-display text-2xl text-fern" aria-expanded="false" aria-controls="faq3">
+            Can I pause or cancel a subscription?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="faq-icon h-5 w-5 shrink-0 text-rose transition-transform" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </h3>
+        <div id="faq3" class="faq-panel hidden px-7 pb-7 text-fern/75">
+          Yes — pause, skip a week or cancel any time before the cut-off, simply by replying to your confirmation email. There are no lock-in contracts.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <h3>
+          <button type="button" class="faq-toggle flex w-full items-center justify-between gap-6 px-7 py-6 text-left font-display text-2xl text-fern" aria-expanded="false" aria-controls="faq4">
+            Do you deliver to hospitals or workplaces?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="faq-icon h-5 w-5 shrink-0 text-rose transition-transform" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </h3>
+        <div id="faq4" class="faq-panel hidden px-7 pb-7 text-fern/75">
+          We do — provide the ward, floor or reception details at checkout. For hospitals we deliver in a water-safe vessel and hand the bouquet to staff for safekeeping.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <h3>
+          <button type="button" class="faq-toggle flex w-full items-center justify-between gap-6 px-7 py-6 text-left font-display text-2xl text-fern" aria-expanded="false" aria-controls="faq5">
+            How far ahead should I book wedding flowers?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="faq-icon h-5 w-5 shrink-0 text-rose transition-transform" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </h3>
+        <div id="faq5" class="faq-panel hidden px-7 pb-7 text-fern/75">
+          Six to nine months is comfortable, especially for peak spring and summer weekends. That said, we keep room for a handful of shorter-notice celebrations each month.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: inquiry -->
+<section id="inquiry" class="scroll-mt-24 bg-cream py-20 lg:py-28">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10 grid gap-14 lg:grid-cols-2">
+    <div>
+      <p class="text-xs uppercase tracking-[0.35em] text-rose">Order inquiry</p>
+      <h2 class="mt-5 font-display text-4xl lg:text-5xl text-fern">Tell us who it's for</h2>
+      <p class="mt-5 leading-relaxed text-fern/75">
+        Share a few details and a florist will reply within one working day with recommendations, pricing and delivery timing. No payment is taken here — this is simply the start of the conversation.
+      </p>
+
+      <div class="mt-10 space-y-6 text-sm">
+        <div class="flex gap-4">
+          <span class="mt-1 text-rose" aria-hidden="true">✦</span>
+          <p><span class="font-medium text-fern">Studio visits</span><br>14 Willowbank Lane, Riverbend — Tuesday to Saturday.</p>
+        </div>
+        <div class="flex gap-4">
+          <span class="mt-1 text-rose" aria-hidden="true">✦</span>
+          <p><span class="font-medium text-fern">Call the workbench</span><br><a href="tel:+15550182244" class="underline decoration-petal underline-offset-4 hover:text-rose">+1 (555) 018-2244</a>, 9am–6pm daily.</p>
+        </div>
+        <div class="flex gap-4">
+          <span class="mt-1 text-rose" aria-hidden="true">✦</span>
+          <p><span class="font-medium text-fern">Email anytime</span><br><a href="mailto:hello@florist.example" class="underline decoration-petal underline-offset-4 hover:text-rose">hello@florist.example</a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-[2.5rem] bg-white p-8 shadow-sm ring-1 ring-petal/40 lg:p-11">
+      <form id="inquiryForm" class="space-y-6" novalidate>
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label for="name" class="block text-xs uppercase tracking-[0.2em] text-fern/70">Your name</label>
+            <input id="name" name="name" type="text" autocomplete="name" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink placeholder:text-fern/40 focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25" placeholder="Amelia Hart">
+            <p class="field-error mt-2 hidden text-sm text-rosewood" data-error-for="name">Please tell us your name.</p>
+          </div>
+          <div>
+            <label for="email" class="block text-xs uppercase tracking-[0.2em] text-fern/70">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink placeholder:text-fern/40 focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25" placeholder="amelia@example.com">
+            <p class="field-error mt-2 hidden text-sm text-rosewood" data-error-for="email">Please enter a valid email address.</p>
+          </div>
+        </div>
+
+        <div class="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label for="occasion" class="block text-xs uppercase tracking-[0.2em] text-fern/70">Occasion</label>
+            <select id="occasion" name="occasion" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25">
+              <option>Romance</option>
+              <option>Birthday</option>
+              <option>Sympathy</option>
+              <option>Congratulations</option>
+              <option>Just because</option>
+              <option>Wedding or event</option>
+              <option>Flower subscription</option>
+            </select>
+          </div>
+          <div>
+            <label for="date" class="block text-xs uppercase tracking-[0.2em] text-fern/70">Needed by</label>
+            <input id="date" name="date" type="date" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25">
+          </div>
+        </div>
+
+        <div>
+          <label for="budget" class="block text-xs uppercase tracking-[0.2em] text-fern/70">Budget</label>
+          <select id="budget" name="budget" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25">
+            <option>Under $50</option>
+            <option>$50 – $90</option>
+            <option>$90 – $200</option>
+            <option>$200 – $1,000</option>
+            <option>$1,000+ (weddings and events)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="message" class="block text-xs uppercase tracking-[0.2em] text-fern/70">What would you like?</label>
+          <textarea id="message" name="message" rows="5" class="mt-2 w-full rounded-xl border border-petal/70 bg-cream/60 px-4 py-3.5 text-ink placeholder:text-fern/40 focus:border-rose focus:outline-none focus:ring-2 focus:ring-rose/25" placeholder="Blush and cream palette, delivered Friday afternoon to Willowbank…"></textarea>
+          <p class="field-error mt-2 hidden text-sm text-rosewood" data-error-for="message">Please add a few details about your order.</p>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <input id="consent" name="consent" type="checkbox" class="mt-1 h-5 w-5 rounded border-petal text-rose focus:ring-rose/40">
+          <label for="consent" class="text-sm text-fern/75">Yes, Florist may contact me about this inquiry.</label>
+        </div>
+        <p class="field-error hidden text-sm text-rosewood" data-error-for="consent">Please tick the box so we can reply.</p>
+
+        <button type="submit" class="w-full rounded-full bg-rose px-8 py-4 text-sm font-medium uppercase tracking-[0.16em] text-white shadow-sm transition-colors hover:bg-rosewood">Send Inquiry</button>
+
+        <p id="inquirySuccess" class="hidden rounded-xl bg-sage px-5 py-4 text-sm text-fern" role="status"></p>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- @section: footer -->
+<footer class="bg-ink py-16 text-cream/80">
+  <div class="mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="grid gap-12 lg:grid-cols-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="grid h-10 w-10 place-items-center rounded-full bg-cream/10 text-petal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5" aria-hidden="true">
+              <path d="M12 21c0-4.5 2-7 6-7-1 4-3 6-6 7Z"/>
+              <path d="M12 21c0-4.5-2-7-6-7 1 4 3 6 6 7Z"/>
+              <circle cx="12" cy="9" r="4"/>
+            </svg>
+          </span>
+          <span class="font-display text-3xl text-cream">Florist</span>
+        </div>
+        <p class="mt-5 text-sm leading-relaxed">Romantic, garden-inspired flowers grown within 60 miles and hand-tied at our Willowbank studio since 2014.</p>
+      </div>
+
+      <nav aria-label="Shop links">
+        <h2 class="font-display text-xl text-cream">Shop</h2>
+        <ul class="mt-5 space-y-3 text-sm">
+          <li><a href="#bouquets" class="hover:text-petal">Bouquet collection</a></li>
+          <li><a href="#subscriptions" class="hover:text-petal">Flower subscriptions</a></li>
+          <li><a href="#weddings" class="hover:text-petal">Wedding flowers</a></li>
+          <li><a href="#inquiry" class="hover:text-petal">Gift vouchers</a></li>
+        </ul>
+      </nav>
+
+      <nav aria-label="Help links">
+        <h2 class="font-display text-xl text-cream">Helpful</h2>
+        <ul class="mt-5 space-y-3 text-sm">
+          <li><a href="#delivery" class="hover:text-petal">Delivery areas</a></li>
+          <li><a href="#faq" class="hover:text-petal">Flower care &amp; FAQ</a></li>
+          <li><a href="#inquiry" class="hover:text-petal">Order inquiry</a></li>
+          <li><a href="#gallery" class="hover:text-petal">Studio gallery</a></li>
+        </ul>
+      </nav>
+
+      <div>
+        <h2 class="font-display text-xl text-cream">Visit &amp; contact</h2>
+        <address class="mt-5 space-y-3 text-sm not-italic">
+          <p>14 Willowbank Lane<br>Riverbend, OR 97210</p>
+          <p><a href="tel:+15550182244" class="hover:text-petal">+1 (555) 018-2244</a></p>
+          <p><a href="mailto:hello@florist.example" class="hover:text-petal">hello@florist.example</a></p>
+        </address>
+        <p class="mt-4 text-sm">Open Mon–Sat 9–18, Sun 10–16</p>
+      </div>
+    </div>
+
+    <div class="mt-14 flex flex-col gap-4 border-t border-cream/15 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <p>© 2025 Florist. All rights reserved.</p>
+      <p>Photography courtesy of Unsplash. Made with care in Riverbend.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- @section: scripts -->
+<script>
+  // Mobile navigation toggle
+  (function () {
+    var toggle = document.getElementById('navToggle');
+    var menu = document.getElementById('mobileMenu');
+    var openIcon = document.getElementById('navIconOpen');
+    var closeIcon = document.getElementById('navIconClose');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', function () {
+      var isOpen = menu.classList.toggle('hidden') === false;
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      openIcon.classList.toggle('hidden', isOpen);
+      closeIcon.classList.toggle('hidden', !isOpen);
+    });
+
+    menu.querySelectorAll('a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        menu.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+        openIcon.classList.remove('hidden');
+        closeIcon.classList.add('hidden');
+      });
+    });
+  })();
+
+  // Smooth scrolling for in-page anchors
+  (function () {
+    document.querySelectorAll('a[href^="#"]').forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        var id = link.getAttribute('href');
+        if (id.length < 2) return;
+        var target = document.querySelector(id);
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  })();
+
+  // Bouquet filtering by occasion
+  (function () {
+    var buttons = document.querySelectorAll('.filter-btn');
+    var cards = document.querySelectorAll('.bouquet-card');
+    var empty = document.getElementById('filterEmpty');
+    if (!buttons.length) return;
+
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        var filter = button.getAttribute('data-filter');
+        var visible = 0;
+
+        buttons.forEach(function (other) {
+          var active = other === button;
+          other.classList.toggle('is-active', active);
+          other.setAttribute('aria-pressed', String(active));
+        });
+
+        cards.forEach(function (card) {
+          var match = filter === 'all' || card.getAttribute('data-occasion') === filter;
+          card.classList.toggle('hidden', !match);
+          if (match) visible++;
+        });
+
+        if (empty) empty.classList.toggle('hidden', visible > 0);
+      });
+    });
+  })();
+
+  // FAQ accordion
+  (function () {
+    document.querySelectorAll('.faq-toggle').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var panel = document.getElementById(button.getAttribute('aria-controls'));
+        var expanded = button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', String(!expanded));
+        if (panel) panel.classList.toggle('hidden', expanded);
+        var icon = button.querySelector('.faq-icon');
+        if (icon) icon.style.transform = expanded ? '' : 'rotate(180deg)';
+      });
+    });
+  })();
+
+  // Postcode area check
+  (function () {
+    var form = document.getElementById('postcodeForm');
+    if (!form) return;
+    var input = document.getElementById('postcode');
+    var error = document.getElementById('postcodeError');
+    var success = document.getElementById('postcodeSuccess');
+    var free = ['97210', '97211', '97212', '97213', '97401', 'willowbank', 'riverbend', 'northgate', 'elm row', 'elmrow'];
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var value = input.value.trim().toLowerCase();
+      if (!value) {
+        error.classList.remove('hidden');
+        success.classList.add('hidden');
+        input.setAttribute('aria-invalid', 'true');
+        return;
+      }
+      error.classList.add('hidden');
+      input.removeAttribute('aria-invalid');
+      var covered = free.some(function (area) { return value.indexOf(area) !== -1; });
+      success.textContent = covered
+        ? 'Good news — that address is inside our free delivery zone. Same-day delivery available if you order by 1pm.'
+        : 'We likely reach you through our extended zone at a $12 flat rate. Leave your details in the inquiry form and we will confirm exactly.';
+      success.classList.remove('hidden');
+    });
+  })();
+
+  // Inquiry form validation
+  (function () {
+    var form = document.getElementById('inquiryForm');
+    if (!form) return;
+    var success = document.getElementById('inquirySuccess');
+
+    function showError(field, show) {
+      var message = form.querySelector('[data-error-for="' + field + '"]');
+      var input = document.getElementById(field);
+      if (message) message.classList.toggle('hidden', !show);
+      if (input) {
+        if (show) { input.setAttribute('aria-invalid', 'true'); }
+        else { input.removeAttribute('aria-invalid'); }
+      }
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var name = document.getElementById('name');
+      var email = document.getElementById('email');
+      var message = document.getElementById('message');
+      var consent = document.getElementById('consent');
+      var valid = true;
+
+      var nameOk = name.value.trim().length > 1;
+      showError('name', !nameOk);
+      if (!nameOk) valid = false;
+
+      var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+      showError('email', !emailOk);
+      if (!emailOk) valid = false;
+
+      var messageOk = message.value.trim().length > 9;
+      showError('message', !messageOk);
+      if (!messageOk) valid = false;
+
+      var consentOk = consent.checked;
+      showError('consent', !consentOk);
+      if (!consentOk) valid = false;
+
+      if (!valid) {
+        success.classList.add('hidden');
+        return;
+      }
+
+      success.textContent = 'Thank you, ' + name.value.trim() + '. Your inquiry is with our florists — expect a reply at ' + email.value.trim() + ' within one working day.';
+      success.classList.remove('hidden');
+      form.reset();
+      form.querySelectorAll('.field-error').forEach(function (el) { el.classList.add('hidden'); });
+    });
+  })();
+</script>
+</body>
+</html>

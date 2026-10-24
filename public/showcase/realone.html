@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<!-- @section: head -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RealOne | Luxury Homes, Estates &amp; Private Listings</title>
+<meta name="description" content="RealOne is a luxury real estate agency representing exceptional homes, private estates and penthouses in the world's most desirable neighborhoods.">
+<meta property="og:title" content="RealOne | Luxury Homes, Estates &amp; Private Listings">
+<meta property="og:description" content="Browse curated luxury listings, explore neighborhood guides, meet our agents and calculate your mortgage with RealOne.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0E1416',
+          slate2: '#2B3538',
+          sand: '#F7F4EF',
+          gold: '#C09A56',
+          goldsoft: '#E4D3AE'
+        },
+        fontFamily: {
+          display: ['"Playfair Display"', 'serif'],
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  html.js .reveal { opacity: 0; transform: translateY(18px); }
+  html.js .reveal.is-visible { opacity: 1; transform: none; transition: opacity .7s ease, transform .7s ease; }
+  summary::-webkit-details-marker { display: none; }
+  details[open] .faq-chevron { transform: rotate(180deg); }
+  input[type="range"] { accent-color: #C09A56; }
+</style>
+<script>document.documentElement.classList.add('js');</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "RealEstateAgent",
+  "name": "RealOne",
+  "description": "Luxury real estate agency representing exceptional homes, private estates and penthouses.",
+  "telephone": "+1-310-555-0142",
+  "email": "concierge@realone.com",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "800 Wilshire Boulevard, Suite 2100",
+    "addressLocality": "Los Angeles",
+    "addressRegion": "CA",
+    "postalCode": "90017",
+    "addressCountry": "US"
+  },
+  "openingHours": "Mo-Fr 09:00-19:00, Sa-Su 10:00-17:00",
+  "areaServed": ["Los Angeles", "Malibu", "Miami Beach", "Aspen", "New York", "Napa Valley"]
+}
+</script>
+</head>
+<body class="bg-sand font-sans text-ink antialiased">
+
+<!-- @section: nav -->
+<header class="sticky top-0 z-50 border-b border-ink/10 bg-sand/85 backdrop-blur-md">
+  <nav class="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-5 py-4 lg:px-10" aria-label="Primary">
+    <a href="index.html" class="flex items-center gap-3">
+      <span class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-gold">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+          <path d="M3 10.5 12 3l9 7.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5.5 9.5V20h13V9.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 20v-5.5h4V20" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="font-display text-2xl font-600 tracking-tight">RealOne</span>
+    </a>
+
+    <ul class="hidden items-center gap-8 text-sm font-500 text-slate2 lg:flex">
+      <li><a href="#listings" class="transition hover:text-gold">Listings</a></li>
+      <li><a href="#neighborhoods" class="transition hover:text-gold">Neighborhoods</a></li>
+      <li><a href="#agents" class="transition hover:text-gold">Agents</a></li>
+      <li><a href="#calculator" class="transition hover:text-gold">Mortgage Calculator</a></li>
+      <li><a href="#faq" class="transition hover:text-gold">FAQ</a></li>
+    </ul>
+
+    <div class="hidden items-center gap-3 lg:flex">
+      <a href="tel:+13105550142" class="text-sm font-500 text-slate2 transition hover:text-gold">+1 (310) 555-0142</a>
+      <a href="#schedule" class="rounded-full bg-ink px-5 py-2.5 text-sm font-600 text-sand transition hover:bg-gold hover:text-ink">Book a Viewing</a>
+    </div>
+
+    <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" class="inline-flex items-center justify-center rounded-lg border border-ink/15 p-2 text-ink lg:hidden">
+      <span class="sr-only">Toggle navigation menu</span>
+      <svg id="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-6 w-6" aria-hidden="true">
+        <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/>
+      </svg>
+      <svg id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="hidden h-6 w-6" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </nav>
+
+  <div id="mobile-menu" class="hidden border-t border-ink/10 bg-sand px-5 pb-6 pt-3 lg:hidden">
+    <ul class="flex flex-col gap-1 text-base font-500">
+      <li><a href="#listings" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">Listings</a></li>
+      <li><a href="#neighborhoods" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">Neighborhoods</a></li>
+      <li><a href="#agents" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">Agents</a></li>
+      <li><a href="#calculator" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">Mortgage Calculator</a></li>
+      <li><a href="#faq" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">FAQ</a></li>
+      <li><a href="#schedule" class="block rounded-lg px-3 py-3 transition hover:bg-ink/5">Book a Viewing</a></li>
+    </ul>
+    <a href="#schedule" class="mt-4 block rounded-full bg-ink px-5 py-3 text-center text-sm font-600 text-sand">Book a Viewing</a>
+  </div>
+</header>
+
+<main>
+<!-- @section: hero -->
+<section class="relative isolate overflow-hidden bg-ink">
+  <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2000&q=80"
+       alt="Contemporary luxury home with floor-to-ceiling glass windows lit at dusk"
+       class="absolute inset-0 h-full w-full object-cover opacity-70">
+  <div class="absolute inset-0 bg-gradient-to-b from-ink/80 via-ink/55 to-ink/85"></div>
+
+  <div class="relative mx-auto max-w-[1400px] px-5 pb-14 pt-20 lg:px-10 lg:pb-20 lg:pt-32">
+    <p class="mb-5 inline-flex items-center gap-2 rounded-full border border-gold/40 bg-ink/40 px-4 py-1.5 text-xs font-600 uppercase tracking-[0.22em] text-goldsoft">
+      <span class="h-1.5 w-1.5 rounded-full bg-gold"></span>
+      Private clientele · 42 markets worldwide
+    </p>
+    <h1 class="max-w-4xl font-display text-4xl font-600 leading-[1.08] text-white sm:text-5xl lg:text-7xl">
+      Exceptional homes for<br class="hidden sm:block"> extraordinary lives.
+    </h1>
+    <p class="mt-6 max-w-2xl text-base leading-relaxed text-sand/80 lg:text-lg">
+      RealOne represents architecturally significant residences, private estates and trophy penthouses — with the discretion, data and negotiation power only a boutique luxury house can offer.
+    </p>
+
+    <div class="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-sand/70">
+      <span class="flex items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4 text-gold" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Off-market access
+      </span>
+      <span class="flex items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4 text-gold" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        24-hour concierge response
+      </span>
+      <span class="flex items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4 text-gold" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        $4.8B closed in 2024
+      </span>
+    </div>
+  </div>
+
+  <!-- @section: hero-search -->
+  <div class="relative mx-auto -mb-1 max-w-[1400px] px-5 lg:px-10">
+    <form id="search-form" action="#listings" method="get"
+          class="relative -mb-12 grid grid-cols-1 gap-3 rounded-2xl border border-white/15 bg-sand/95 p-4 shadow-2xl shadow-ink/40 backdrop-blur sm:grid-cols-2 lg:-mb-14 lg:grid-cols-4 lg:gap-4 lg:p-5">
+      <div class="flex flex-col gap-1.5">
+        <label for="search-location" class="text-[11px] font-600 uppercase tracking-[0.16em] text-slate2/70">Location</label>
+        <div class="flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4 shrink-0 text-gold" aria-hidden="true">
+            <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="10" r="2.5"/>
+          </svg>
+          <input id="search-location" name="location" type="text" placeholder="City, neighborhood or ZIP"
+                 class="w-full bg-transparent text-sm text-ink placeholder:text-slate2/45 focus:outline-none">
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="search-type" class="text-[11px] font-600 uppercase tracking-[0.16em] text-slate2/70">Property type</label>
+        <div class="rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+          <select id="search-type" name="type" class="w-full bg-transparent text-sm text-ink focus:outline-none">
+            <option>Any type</option>
+            <option>Estate</option>
+            <option>Villa</option>
+            <option>Penthouse</option>
+            <option>Townhouse</option>
+            <option>Waterfront</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="search-price" class="text-[11px] font-600 uppercase tracking-[0.16em] text-slate2/70">Price range</label>
+        <div class="rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+          <select id="search-price" name="price" class="w-full bg-transparent text-sm text-ink focus:outline-none">
+            <option>Any price</option>
+            <option>$2M – $4M</option>
+            <option>$4M – $7M</option>
+            <option>$7M – $10M</option>
+            <option>$10M+</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="search-beds" class="text-[11px] font-600 uppercase tracking-[0.16em] text-slate2/70">Bedrooms</label>
+        <div class="rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+          <select id="search-beds" name="beds" class="w-full bg-transparent text-sm text-ink focus:outline-none">
+            <option>Any</option>
+            <option>3+ bedrooms</option>
+            <option>4+ bedrooms</option>
+            <option>5+ bedrooms</option>
+            <option>6+ bedrooms</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sm:col-span-2 lg:col-span-4">
+        <button type="submit"
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-ink px-6 py-3.5 text-sm font-600 uppercase tracking-[0.14em] text-sand transition hover:bg-gold hover:text-ink">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+          </svg>
+          Search residences
+        </button>
+        <p id="search-note" class="mt-3 hidden text-center text-xs font-500 text-slate2/70"></p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- @section: stats -->
+<section class="bg-sand">
+  <div class="mx-auto max-w-[1400px] px-5 pb-16 pt-24 lg:px-10 lg:pb-20 lg:pt-28">
+    <dl class="grid grid-cols-2 gap-8 border-y border-ink/10 py-10 lg:grid-cols-4 lg:gap-12">
+      <div>
+        <dt class="text-xs font-600 uppercase tracking-[0.18em] text-slate2/60">Closed volume 2024</dt>
+        <dd class="mt-2 font-display text-3xl font-600 lg:text-4xl">$4.8B</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-600 uppercase tracking-[0.18em] text-slate2/60">Luxury listings</dt>
+        <dd class="mt-2 font-display text-3xl font-600 lg:text-4xl">1,240+</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-600 uppercase tracking-[0.18em] text-slate2/60">Average days on market</dt>
+        <dd class="mt-2 font-display text-3xl font-600 lg:text-4xl">27</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-600 uppercase tracking-[0.18em] text-slate2/60">Client satisfaction</dt>
+        <dd class="mt-2 font-display text-3xl font-600 lg:text-4xl">98%</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- @section: listings -->
+<section id="listings" class="bg-sand pb-20 lg:pb-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="reveal flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-2xl">
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Featured listings</p>
+        <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Residences currently represented by RealOne</h2>
+        <p class="mt-4 text-base leading-relaxed text-slate2/80">
+          Each property is privately vetted, professionally staged and presented with complete architectural and financial documentation.
+        </p>
+      </div>
+      <a href="#schedule" class="inline-flex shrink-0 items-center gap-2 text-sm font-600 text-ink underline decoration-gold decoration-2 underline-offset-8 transition hover:text-gold">
+        Request the full private collection
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+
+      <!-- listing 1 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1000&q=80"
+               alt="Modern concrete and glass mansion with reflecting pool at twilight"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-[11px] font-700 uppercase tracking-[0.14em] text-ink">New</span>
+          <span class="absolute right-4 top-4 rounded-full bg-ink/80 px-3 py-1 text-[11px] font-600 uppercase tracking-[0.14em] text-sand backdrop-blur">Exclusive</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$8,450,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">1420 Crescent Ridge Drive</h3>
+          <p class="text-sm text-slate2/70">Trousdale Estates, Beverly Hills, CA</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">6 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">7 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">9,200 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">0.9 acre</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <!-- listing 2 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=80"
+               alt="Sunlit open-plan living room with marble floors and ocean views"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-[11px] font-700 uppercase tracking-[0.14em] text-ink">New</span>
+          <span class="absolute right-4 top-4 rounded-full bg-ink/80 px-3 py-1 text-[11px] font-600 uppercase tracking-[0.14em] text-sand backdrop-blur">Penthouse</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$5,975,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">88 Marina Vista Penthouse</h3>
+          <p class="text-sm text-slate2/70">South of Fifth, Miami Beach, FL</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">4 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">4 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">4,100 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">Private elevator</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <!-- listing 3 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1000&q=80"
+               alt="Mountain lodge with timber façade and glowing interior lights at dusk"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute right-4 top-4 rounded-full bg-ink/80 px-3 py-1 text-[11px] font-600 uppercase tracking-[0.14em] text-sand backdrop-blur">Ski-in / Ski-out</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$11,200,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">12 Aspen Hollow Lodge</h3>
+          <p class="text-sm text-slate2/70">Red Mountain, Aspen, CO</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">7 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">8 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">11,400 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">Spa &amp; wine cellar</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <!-- listing 4 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80"
+               alt="Cliffside contemporary villa with infinity pool overlooking the ocean"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-[11px] font-700 uppercase tracking-[0.14em] text-ink">Waterfront</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$7,300,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">305 Pacific Bluff Terrace</h3>
+          <p class="text-sm text-slate2/70">Point Dume, Malibu, CA</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">5 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">6 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">6,850 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">Infinity pool</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <!-- listing 5 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=80"
+               alt="Elegant prewar apartment interior with high ceilings and herringbone floors"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute right-4 top-4 rounded-full bg-ink/80 px-3 py-1 text-[11px] font-600 uppercase tracking-[0.14em] text-sand backdrop-blur">Prewar</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$4,250,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">27 Gramercy Park Residence</h3>
+          <p class="text-sm text-slate2/70">Gramercy Park, New York, NY</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">3 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">3 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">2,600 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">Park key</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <!-- listing 6 -->
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+        <div class="relative aspect-[4/3] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1000&q=80"
+               alt="Estate house surrounded by vineyards and mature gardens in late afternoon light"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+          <span class="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-[11px] font-700 uppercase tracking-[0.14em] text-ink">Vineyard</span>
+        </div>
+        <div class="p-6">
+          <p class="font-display text-2xl font-600 text-ink">$6,150,000</p>
+          <h3 class="mt-2 text-base font-600 text-ink">9 Vineyard Estate Road</h3>
+          <p class="text-sm text-slate2/70">St. Helena, Napa Valley, CA</p>
+          <ul class="mt-5 flex flex-wrap gap-2 text-xs font-600 text-slate2">
+            <li class="rounded-full bg-sand px-3 py-1.5">5 bd</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">5 ba</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">7,100 sq ft</li>
+            <li class="rounded-full bg-sand px-3 py-1.5">4 acres</li>
+          </ul>
+          <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Schedule a private tour
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- @section: neighborhoods -->
+<section id="neighborhoods" class="bg-white py-20 lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="reveal max-w-3xl">
+      <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Neighborhood guides</p>
+      <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Know the street before you know the house</h2>
+      <p class="mt-4 text-base leading-relaxed text-slate2/80">
+        Our market desks publish quarterly intelligence on pricing, school catchments, micro-climate, walkability and long-term appreciation for every community we serve.
+      </p>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-sand">
+        <div class="aspect-[5/4] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=900&q=80"
+               alt="Beverly Hills street lined with palm trees and Mediterranean mansions"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Beverly Hills &amp; Trousdale</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-slate2/60">Median $6.4M · +7.2% YoY</p>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">Gated estates, flat lots and the deepest concentration of architect-built residences in Los Angeles.</p>
+          <a href="#schedule" class="mt-5 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Read the Los Angeles guide
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-sand">
+        <div class="aspect-[5/4] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=900&q=80"
+               alt="Miami waterfront skyline with yachts and modern high-rise towers"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Miami Beach Waterfront</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-slate2/60">Median $4.1M · +9.8% YoY</p>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">Branded residences, deep-water dockage and zero state income tax driving international demand.</p>
+          <a href="#schedule" class="mt-5 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Read the Miami guide
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-sand">
+        <div class="aspect-[5/4] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=900&q=80"
+               alt="Manhattan brownstones and skyline viewed from a quiet residential street"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Downtown &amp; Gramercy</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-slate2/60">Median $3.2M · +4.6% YoY</p>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">Limited-inventory prewar co-ops, full-floor conversions and the city's most competitive board approvals.</p>
+          <a href="#schedule" class="mt-5 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Read the New York guide
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+      <article class="reveal group overflow-hidden rounded-2xl border border-ink/10 bg-sand">
+        <div class="aspect-[5/4] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=900&q=80"
+               alt="Snow-covered mountain village with alpine lodges and pine forest"
+               class="h-full w-full object-cover transition duration-700 group-hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Aspen &amp; Red Mountain</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-slate2/60">Median $9.7M · +6.1% YoY</p>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">Ski-in/ski-out lodges, strict growth caps and a rental market that covers ownership costs year-round.</p>
+          <a href="#schedule" class="mt-5 inline-flex items-center gap-2 text-sm font-600 text-ink transition hover:text-gold">
+            Read the Aspen guide
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- @section: agents -->
+<section id="agents" class="bg-ink py-20 text-sand lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="reveal flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-2xl">
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Your advisors</p>
+        <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Senior agents, one per client</h2>
+        <p class="mt-4 text-base leading-relaxed text-sand/70">
+          Every RealOne engagement is led personally by a partner-level advisor with a dedicated research analyst and closing coordinator behind them.
+        </p>
+      </div>
+      <a href="#schedule" class="inline-flex shrink-0 items-center gap-2 rounded-full border border-sand/25 px-6 py-3 text-sm font-600 text-sand transition hover:border-gold hover:bg-gold hover:text-ink">
+        Meet the full team
+      </a>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4">
+
+      <article class="reveal overflow-hidden rounded-2xl border border-sand/15 bg-slate2/40">
+        <div class="aspect-[4/5] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80"
+               alt="Portrait of Adrian Cole, Managing Partner at RealOne"
+               class="h-full w-full object-cover transition duration-700 hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Adrian Cole</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-gold">Managing Partner · Los Angeles</p>
+          <p class="mt-4 text-sm leading-relaxed text-sand/70">22 years in Westside trophy assets. Negotiated three of Bel-Air's ten highest sales on record.</p>
+          <div class="mt-5 flex flex-col gap-1 text-sm text-sand/80">
+            <a href="tel:+13105550142" class="transition hover:text-gold">+1 (310) 555-0142</a>
+            <a href="mailto:adrian.cole@realone.com" class="transition hover:text-gold">adrian.cole@realone.com</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="reveal overflow-hidden rounded-2xl border border-sand/15 bg-slate2/40">
+        <div class="aspect-[4/5] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80"
+               alt="Portrait of Marisol Vega, Partner for Waterfront Estates at RealOne"
+               class="h-full w-full object-cover transition duration-700 hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Marisol Vega</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-gold">Partner · Waterfront Estates</p>
+          <p class="mt-4 text-sm leading-relaxed text-sand/70">Leads our Malibu and Miami beachfront desks, specialising in coastal permitting and dockage rights.</p>
+          <div class="mt-5 flex flex-col gap-1 text-sm text-sand/80">
+            <a href="tel:+13055550187" class="transition hover:text-gold">+1 (305) 555-0187</a>
+            <a href="mailto:marisol.vega@realone.com" class="transition hover:text-gold">marisol.vega@realone.com</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="reveal overflow-hidden rounded-2xl border border-sand/15 bg-slate2/40">
+        <div class="aspect-[4/5] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80"
+               alt="Portrait of Daniel Okafor, Director of Private Client Advisory at RealOne"
+               class="h-full w-full object-cover transition duration-700 hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Daniel Okafor</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-gold">Director · Private Client Advisory</p>
+          <p class="mt-4 text-sm leading-relaxed text-sand/70">Advises family offices and founders on acquisition structure, off-market sourcing and portfolio strategy.</p>
+          <div class="mt-5 flex flex-col gap-1 text-sm text-sand/80">
+            <a href="tel:+12125550164" class="transition hover:text-gold">+1 (212) 555-0164</a>
+            <a href="mailto:daniel.okafor@realone.com" class="transition hover:text-gold">daniel.okafor@realone.com</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="reveal overflow-hidden rounded-2xl border border-sand/15 bg-slate2/40">
+        <div class="aspect-[4/5] overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80"
+               alt="Portrait of Elena Rausch, Partner for Mountain and Resort Homes at RealOne"
+               class="h-full w-full object-cover transition duration-700 hover:scale-105">
+        </div>
+        <div class="p-6">
+          <h3 class="font-display text-xl font-600">Elena Rausch</h3>
+          <p class="mt-1 text-xs font-600 uppercase tracking-[0.16em] text-gold">Partner · Mountain &amp; Resort</p>
+          <p class="mt-4 text-sm leading-relaxed text-sand/70">Aspen and Napa Valley specialist with deep expertise in land-use caps and vineyard entitlements.</p>
+          <div class="mt-5 flex flex-col gap-1 text-sm text-sand/80">
+            <a href="tel:+19705550193" class="transition hover:text-gold">+1 (970) 555-0193</a>
+            <a href="mailto:elena.rausch@realone.com" class="transition hover:text-gold">elena.rausch@realone.com</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- @section: calculator -->
+<section id="calculator" class="bg-sand py-20 lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="reveal grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
+
+      <div>
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Mortgage calculator</p>
+        <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Model your payment before you tour</h2>
+        <p class="mt-4 text-base leading-relaxed text-slate2/80">
+          Adjust the numbers below for an instant estimate of your monthly obligation. Figures include an estimated property tax and insurance allowance; your RealOne advisor will refine them once a specific property is under consideration.
+        </p>
+
+        <form id="mortgage-form" class="mt-8 grid grid-cols-1 gap-5 rounded-2xl border border-ink/10 bg-white p-6 shadow-sm sm:grid-cols-2 lg:p-8" novalidate>
+          <div class="flex flex-col gap-2">
+            <label for="calc-price" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Home price (USD)</label>
+            <input id="calc-price" name="price" type="number" min="100000" step="50000" value="4500000"
+                   class="rounded-xl border border-ink/15 bg-sand px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="calc-down" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Down payment (%)</label>
+            <input id="calc-down" name="down" type="number" min="0" max="90" step="1" value="25"
+                   class="rounded-xl border border-ink/15 bg-sand px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <input id="calc-down-range" type="range" min="0" max="90" step="1" value="25" aria-label="Down payment percentage slider" class="mt-1 w-full">
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="calc-rate" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Interest rate (%)</label>
+            <input id="calc-rate" name="rate" type="number" min="0.1" max="15" step="0.05" value="6.25"
+                   class="rounded-xl border border-ink/15 bg-sand px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="calc-term" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Loan term</label>
+            <select id="calc-term" name="term"
+                    class="rounded-xl border border-ink/15 bg-sand px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <option value="15">15 years</option>
+              <option value="20">20 years</option>
+              <option value="30" selected>30 years</option>
+            </select>
+          </div>
+
+          <p class="text-xs leading-relaxed text-slate2/60 sm:col-span-2">
+            Estimates assume a 1.15% annual property tax rate and a $260 monthly insurance and maintenance allowance. This tool is for illustration only and is not a lending commitment.
+          </p>
+        </form>
+      </div>
+
+      <div class="reveal flex flex-col justify-center rounded-2xl bg-ink p-8 text-sand shadow-xl lg:p-10">
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Estimated monthly payment</p>
+        <p id="out-total" class="mt-4 font-display text-5xl font-600 leading-none lg:text-6xl">$26,043</p>
+        <p class="mt-3 text-sm text-sand/60">Principal, interest, taxes and insurance combined</p>
+
+        <dl class="mt-8 space-y-4 border-t border-sand/15 pt-8 text-sm">
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-sand/70">Loan amount</dt>
+            <dd id="out-loan" class="font-600">$3,375,000</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-sand/70">Down payment</dt>
+            <dd id="out-down" class="font-600">$1,125,000</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-sand/70">Principal &amp; interest</dt>
+            <dd id="out-pi" class="font-600">$20,779</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-sand/70">Property tax (est.)</dt>
+            <dd id="out-tax" class="font-600">$4,313</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-sand/70">Insurance &amp; upkeep (est.)</dt>
+            <dd id="out-ins" class="font-600">$260</dd>
+          </div>
+        </dl>
+
+        <div class="mt-8 rounded-xl border border-gold/30 bg-gold/10 p-5">
+          <p class="text-sm leading-relaxed text-sand/85">
+            Prefer a tailored structure? RealOne works with private banks and portfolio lenders who underwrite jumbo and asset-backed loans.
+          </p>
+          <a href="#schedule" class="mt-4 inline-flex items-center gap-2 text-sm font-600 text-gold transition hover:text-goldsoft">
+            Speak with a lending advisor
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14m-5-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- @section: testimonials -->
+<section class="bg-white py-20 lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="reveal max-w-2xl">
+      <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Client experience</p>
+      <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Represented with discretion</h2>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <figure class="reveal rounded-2xl border border-ink/10 bg-sand p-8">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="h-7 w-7 text-gold" aria-hidden="true"><path d="M7.5 6C5 6 3 8 3 10.5S5 15 7.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C11.1 8 9.1 6 7.5 6Zm9 0C14 6 12 8 12 10.5S14 15 16.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C20.1 8 18.1 6 16.5 6Z"/></svg>
+        <blockquote class="mt-5 text-base leading-relaxed text-slate2/90">
+          "RealOne found a Trousdale estate that never reached the open market and negotiated $900,000 below the comparable set. The process was calm, considered and completely private."
+        </blockquote>
+        <figcaption class="mt-6 text-sm font-600 text-ink">Helena Marchetti<span class="block text-xs font-400 text-slate2/60">Buyer · Beverly Hills, CA</span></figcaption>
+      </figure>
+
+      <figure class="reveal rounded-2xl border border-ink/10 bg-sand p-8">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="h-7 w-7 text-gold" aria-hidden="true"><path d="M7.5 6C5 6 3 8 3 10.5S5 15 7.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C11.1 8 9.1 6 7.5 6Zm9 0C14 6 12 8 12 10.5S14 15 16.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C20.1 8 18.1 6 16.5 6Z"/></svg>
+        <blockquote class="mt-5 text-base leading-relaxed text-slate2/90">
+          "We interviewed four brokerages. RealOne was the only team that arrived with a priced, data-backed marketing plan. The lodge sold in 19 days, above ask."
+        </blockquote>
+        <figcaption class="mt-6 text-sm font-600 text-ink">Grant Whitfield<span class="block text-xs font-400 text-slate2/60">Seller · Aspen, CO</span></figcaption>
+      </figure>
+
+      <figure class="reveal rounded-2xl border border-ink/10 bg-sand p-8">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="h-7 w-7 text-gold" aria-hidden="true"><path d="M7.5 6C5 6 3 8 3 10.5S5 15 7.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C11.1 8 9.1 6 7.5 6Zm9 0C14 6 12 8 12 10.5S14 15 16.5 15c.3 0 .6 0 .9-.1-.5 1.6-2 2.8-3.7 3.1v1.9c3.6-.4 6.4-3.5 6.4-7.4V10.5C20.1 8 18.1 6 16.5 6Z"/></svg>
+        <blockquote class="mt-5 text-base leading-relaxed text-slate2/90">
+          "As an overseas buyer I needed someone to handle inspections, board approvals and closing remotely. Marisol's team managed every detail without a single flight."
+        </blockquote>
+        <figcaption class="mt-6 text-sm font-600 text-ink">Tomás Ferreira<span class="block text-xs font-400 text-slate2/60">Buyer · Miami Beach, FL</span></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- @section: faq -->
+<section id="faq" class="bg-sand py-20 lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="grid grid-cols-1 gap-12 lg:grid-cols-[0.9fr_1.4fr] lg:gap-20">
+      <div class="reveal">
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Questions</p>
+        <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Everything buyers and sellers ask us first</h2>
+        <p class="mt-4 text-base leading-relaxed text-slate2/80">
+          Still unsure? Our concierge desk replies within one business hour, seven days a week.
+        </p>
+        <a href="#schedule" class="mt-6 inline-flex items-center gap-2 text-sm font-600 text-ink underline decoration-gold decoration-2 underline-offset-8 transition hover:text-gold">
+          Send a question to the concierge
+        </a>
+      </div>
+
+      <div class="reveal divide-y divide-ink/10 border-y border-ink/10">
+        <details class="group py-5" open>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-600 text-ink">
+            How does the private viewing process work?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="faq-chevron h-5 w-5 shrink-0 text-gold transition" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">
+            Submit the form below and a partner-level advisor calls you within one business hour to confirm timing, access requirements and any confidentiality agreements. Most viewings are arranged within 48 hours, and off-market tours can be accompanied by architectural plans and financial pro formas.
+          </p>
+        </details>
+
+        <details class="group py-5">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-600 text-ink">
+            What are your commission rates for sellers?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="faq-chevron h-5 w-5 shrink-0 text-gold transition" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">
+            Commission is agreed case by case and disclosed in writing before listing. It covers professional photography, architectural film, staging consultation, print placement, international buyer outreach and full closing coordination.
+          </p>
+        </details>
+
+        <details class="group py-5">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-600 text-ink">
+            Do you represent buyers as well as sellers?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="faq-chevron h-5 w-5 shrink-0 text-gold transition" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">
+            Yes. Buyer representation includes off-market sourcing, comparable-price analysis, inspection coordination, negotiation and, where useful, introductions to private banking and tax counsel.
+          </p>
+        </details>
+
+        <details class="group py-5">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-600 text-ink">
+            Can international clients purchase remotely?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="faq-chevron h-5 w-5 shrink-0 text-gold transition" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">
+            Absolutely. We run live guided video tours, coordinate independent inspections and structural reports, and manage signing through recognised remote-notary services. Our largest international client base is in Europe, Latin America and East Asia.
+          </p>
+        </details>
+
+        <details class="group py-5">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-600 text-ink">
+            How accurate is the mortgage calculator?
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="faq-chevron h-5 w-5 shrink-0 text-gold transition" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <p class="mt-4 text-sm leading-relaxed text-slate2/80">
+            It is a general estimate using a fixed tax rate and insurance allowance. Actual jumbo lending terms depend on credit profile, reserves, property type and lender appetite — your advisor can connect you with a lender who will produce a formal pre-approval.
+          </p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: schedule -->
+<section id="schedule" class="bg-white py-20 lg:py-28">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
+
+      <div class="reveal">
+        <p class="text-xs font-600 uppercase tracking-[0.24em] text-gold">Schedule a viewing</p>
+        <h2 class="mt-3 font-display text-3xl font-600 leading-tight lg:text-5xl">Arrange a private tour</h2>
+        <p class="mt-4 text-base leading-relaxed text-slate2/80">
+          Tell us which residence interests you and when you are available. A RealOne advisor will confirm your appointment by phone within one business hour.
+        </p>
+
+        <div class="mt-10 space-y-6">
+          <div class="flex gap-4">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sand text-gold">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+                <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.5"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="text-sm font-600 text-ink">Flagship office</h3>
+              <p class="mt-1 text-sm text-slate2/75">800 Wilshire Boulevard, Suite 2100<br>Los Angeles, CA 90017</p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sand text-gold">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+                <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1.1 1A16 16 0 0 1 4 5.1A1 1 0 0 1 5 4Z" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="text-sm font-600 text-ink">Concierge line</h3>
+              <p class="mt-1 text-sm text-slate2/75">
+                <a href="tel:+13105550142" class="transition hover:text-gold">+1 (310) 555-0142</a><br>
+                <a href="mailto:concierge@realone.com" class="transition hover:text-gold">concierge@realone.com</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sand text-gold">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <div>
+              <h3 class="text-sm font-600 text-ink">Office hours</h3>
+              <p class="mt-1 text-sm text-slate2/75">Monday – Friday, 9:00 – 19:00<br>Saturday – Sunday, 10:00 – 17:00</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal rounded-2xl border border-ink/10 bg-sand p-6 shadow-sm lg:p-10">
+        <form id="viewing-form" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate>
+          <div class="flex flex-col gap-2">
+            <label for="view-name" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Full name</label>
+            <input id="view-name" name="name" type="text" autocomplete="name" placeholder="Jordan Bennett" required
+                   class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink placeholder:text-slate2/40 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <p class="hidden text-xs font-500 text-red-600" data-error-for="view-name">Please enter your full name.</p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="view-email" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Email address</label>
+            <input id="view-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required
+                   class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink placeholder:text-slate2/40 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <p class="hidden text-xs font-500 text-red-600" data-error-for="view-email">Please enter a valid email address.</p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="view-phone" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Phone</label>
+            <input id="view-phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 (310) 555-0100" required
+                   class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink placeholder:text-slate2/40 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <p class="hidden text-xs font-500 text-red-600" data-error-for="view-phone">Please enter a phone number with at least 7 digits.</p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="view-date" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Preferred date</label>
+            <input id="view-date" name="date" type="date" required
+                   class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <p class="hidden text-xs font-500 text-red-600" data-error-for="view-date">Please choose a preferred date.</p>
+          </div>
+
+          <div class="flex flex-col gap-2 sm:col-span-2">
+            <label for="view-property" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Property of interest</label>
+            <select id="view-property" name="property"
+                    class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <option>1420 Crescent Ridge Drive, Beverly Hills</option>
+              <option>88 Marina Vista Penthouse, Miami Beach</option>
+              <option>12 Aspen Hollow Lodge, Aspen</option>
+              <option>305 Pacific Bluff Terrace, Malibu</option>
+              <option>27 Gramercy Park Residence, New York</option>
+              <option>9 Vineyard Estate Road, Napa Valley</option>
+              <option>Something else — please advise</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-2 sm:col-span-2">
+            <label for="view-notes" class="text-xs font-600 uppercase tracking-[0.14em] text-slate2/70">Notes for your advisor</label>
+            <textarea id="view-notes" name="notes" rows="4" placeholder="Preferred arrival time, accessibility needs, financing status…"
+                      class="rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm text-ink placeholder:text-slate2/40 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"></textarea>
+          </div>
+
+          <div class="sm:col-span-2">
+            <button type="submit"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-ink px-6 py-4 text-sm font-600 uppercase tracking-[0.14em] text-sand transition hover:bg-gold hover:text-ink">
+              Request this viewing
+            </button>
+            <p id="viewing-success" class="mt-4 hidden rounded-xl border border-green-600/30 bg-green-600/10 px-5 py-4 text-sm font-500 text-green-800" role="status"></p>
+            <p class="mt-3 text-xs leading-relaxed text-slate2/60">
+              By submitting this request you agree to be contacted by a RealOne advisor about this property. We never share client details with third parties.
+            </p>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- @section: cta-band -->
+<section class="bg-ink">
+  <div class="mx-auto flex max-w-[1400px] flex-col items-start gap-8 px-5 py-16 lg:flex-row lg:items-center lg:justify-between lg:px-10 lg:py-20">
+    <div class="max-w-2xl">
+      <h2 class="font-display text-2xl font-600 text-sand lg:text-4xl">Selling a residence that deserves a quiet, well-paced campaign?</h2>
+      <p class="mt-4 text-base leading-relaxed text-sand/70">Request a confidential valuation. You will receive a written market opinion, a positioning strategy and a photography plan — at no cost.</p>
+    </div>
+    <a href="#schedule" class="shrink-0 rounded-full bg-gold px-8 py-4 text-sm font-600 uppercase tracking-[0.14em] text-ink transition hover:bg-goldsoft">Request a valuation</a>
+  </div>
+</section>
+</main>
+
+<!-- @section: footer -->
+<footer class="bg-ink pb-10 pt-16 text-sand/75 lg:pt-20">
+  <div class="mx-auto max-w-[1400px] px-5 lg:px-10">
+    <div class="grid grid-cols-1 gap-12 border-b border-sand/15 pb-12 sm:grid-cols-2 lg:grid-cols-4">
+
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="flex h-10 w-10 items-center justify-center rounded-full bg-sand/10 text-gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5" aria-hidden="true">
+              <path d="M3 10.5 12 3l9 7.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5.5 9.5V20h13V9.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 20v-5.5h4V20" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="font-display text-2xl font-600 text-sand">RealOne</span>
+        </div>
+        <p class="mt-5 text-sm leading-relaxed">
+          A boutique luxury brokerage representing architecturally significant homes, private estates and trophy penthouses in 42 markets worldwide.
+        </p>
+        <div class="mt-6 flex items-center gap-3">
+          <a href="#listings" aria-label="RealOne on Instagram" class="flex h-9 w-9 items-center justify-center rounded-full border border-sand/20 transition hover:border-gold hover:text-gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.5"/><circle cx="16.6" cy="7.4" r="1"/>
+            </svg>
+          </a>
+          <a href="#listings" aria-label="RealOne on LinkedIn" class="flex h-9 w-9 items-center justify-center rounded-full border border-sand/20 transition hover:border-gold hover:text-gold">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+              <path d="M6.5 8.5H3.8V20h2.7V8.5Zm-1.35-4A1.65 1.65 0 1 0 5.15 7.8 1.65 1.65 0 0 0 5.15 4.5ZM20.2 13.4c0-3-1.6-4.4-3.75-4.4a3.3 3.3 0 0 0-2.95 1.6V8.5h-2.7V20h2.7v-6.1c0-1.5.7-2.35 1.9-2.35 1.1 0 1.65.75 1.65 2.3V20h2.75v-6.6Z"/>
+            </svg>
+          </a>
+          <a href="#listings" aria-label="RealOne on YouTube" class="flex h-9 w-9 items-center justify-center rounded-full border border-sand/20 transition hover:border-gold hover:text-gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="12" rx="4"/><path d="m11 9.5 4 2.5-4 2.5v-5Z" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <nav aria-label="Explore">
+        <h2 class="text-xs font-600 uppercase tracking-[0.2em] text-sand/60">Explore</h2>
+        <ul class="mt-5 space-y-3 text-sm">
+          <li><a href="#listings" class="transition hover:text-gold">Featured listings</a></li>
+          <li><a href="#neighborhoods" class="transition hover:text-gold">Neighborhood guides</a></li>
+          <li><a href="#agents" class="transition hover:text-gold">Our agents</a></li>
+          <li><a href="#calculator" class="transition hover:text-gold">Mortgage calculator</a></li>
+          <li><a href="#faq" class="transition hover:text-gold">Frequently asked questions</a></li>
+        </ul>
+      </nav>
+
+      <nav aria-label="Services">
+        <h2 class="text-xs font-600 uppercase tracking-[0.2em] text-sand/60">Services</h2>
+        <ul class="mt-5 space-y-3 text-sm">
+          <li><a href="#schedule" class="transition hover:text-gold">Buyer representation</a></li>
+          <li><a href="#schedule" class="transition hover:text-gold">Confidential valuations</a></li>
+          <li><a href="#schedule" class="transition hover:text-gold">Off-market sourcing</a></li>
+          <li><a href="#schedule" class="transition hover:text-gold">Private client advisory</a></li>
+          <li><a href="#schedule" class="transition hover:text-gold">Relocation concierge</a></li>
+        </ul>
+      </nav>
+
+      <div>
+        <h2 class="text-xs font-600 uppercase tracking-[0.2em] text-sand/60">Contact</h2>
+        <ul class="mt-5 space-y-3 text-sm">
+          <li>800 Wilshire Boulevard, Suite 2100<br>Los Angeles, CA 90017</li>
+          <li><a href="tel:+13105550142" class="transition hover:text-gold">+1 (310) 555-0142</a></li>
+          <li><a href="mailto:concierge@realone.com" class="transition hover:text-gold">concierge@realone.com</a></li>
+          <li class="pt-1"><a href="#schedule" class="inline-flex rounded-full border border-sand/25 px-5 py-2.5 text-xs font-600 uppercase tracking-[0.14em] text-sand transition hover:border-gold hover:bg-gold hover:text-ink">Book a viewing</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-4 pt-8 text-xs text-sand/50 lg:flex-row lg:items-center lg:justify-between">
+      <p>© 2025 RealOne Luxury Real Estate. All rights reserved. License #DRE 01987654.</p>
+      <p class="flex flex-wrap gap-x-6 gap-y-2">
+        <a href="#faq" class="transition hover:text-gold">Privacy policy</a>
+        <a href="#faq" class="transition hover:text-gold">Terms of service</a>
+        <a href="#faq" class="transition hover:text-gold">Accessibility statement</a>
+        <span>Equal Housing Opportunity</span>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<!-- @section: scripts -->
+<script>
+  // Mobile navigation toggle (progressive enhancement)
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var menu = document.getElementById('mobile-menu');
+    var iconOpen = document.getElementById('icon-open');
+    var iconClose = document.getElementById('icon-close');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', function () {
+      var isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      menu.classList.toggle('hidden', isOpen);
+      iconOpen.classList.toggle('hidden', !isOpen);
+      iconClose.classList.toggle('hidden', isOpen);
+    });
+
+    menu.querySelectorAll('a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        toggle.setAttribute('aria-expanded', 'false');
+        menu.classList.add('hidden');
+        iconOpen.classList.remove('hidden');
+        iconClose.classList.add('hidden');
+      });
+    });
+  })();
+
+  // Scroll reveal (gracefully hidden only when JS is available)
+  (function () {
+    var items = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window)) {
+      items.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    items.forEach(function (el) { observer.observe(el); });
+  })();
+
+  // Hero search — inline acknowledgement, no page reload
+  (function () {
+    var form = document.getElementById('search-form');
+    var note = document.getElementById('search-note');
+    if (!form || !note) return;
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var location = document.getElementById('search-location').value.trim();
+      var type = document.getElementById('search-type').value;
+      var price = document.getElementById('search-price').value;
+      var beds = document.getElementById('search-beds').value;
+      var summary = 'Showing curated matches';
+      if (location) summary += ' in ' + location;
+      summary += ' · ' + type + ' · ' + price + ' · ' + beds + ' — 6 residences below.';
+      note.textContent = summary;
+      note.classList.remove('hidden');
+      document.getElementById('listings').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  })();
+
+  // Mortgage calculator
+  (function () {
+    var priceEl = document.getElementById('calc-price');
+    var downEl = document.getElementById('calc-down');
+    var rangeEl = document.getElementById('calc-down-range');
+    var rateEl = document.getElementById('calc-rate');
+    var termEl = document.getElementById('calc-term');
+    if (!priceEl || !downEl || !rateEl || !termEl) return;
+
+    var out = {
+      total: document.getElementById('out-total'),
+      loan: document.getElementById('out-loan'),
+      down: document.getElementById('out-down'),
+      pi: document.getElementById('out-pi'),
+      tax: document.getElementById('out-tax'),
+      ins: document.getElementById('out-ins')
+    };
+
+    function money(value, decimals) {
+      var n = isFinite(value) ? value : 0;
+      return '$' + n.toLocaleString('en-US', {
+        minimumFractionDigits: decimals || 0,
+        maximumFractionDigits: decimals || 0
+      });
+    }
+
+    function clamp(value, min, max, fallback) {
+      var n = parseFloat(value);
+      if (!isFinite(n)) n = fallback;
+      return Math.min(Math.max(n, min), max);
+    }
+
+    function update() {
+      var price = clamp(priceEl.value, 0, 1e10, 4500000);
+      var downPct = clamp(downEl.value, 0, 90, 25);
+      var rate = clamp(rateEl.value, 0, 20, 6.25);
+      var years = parseInt(termEl.value, 10) || 30;
+
+      var downAmount = price * (downPct / 100);
+      var loan = Math.max(price - downAmount, 0);
+      var monthlyRate = (rate / 100) / 12;
+      var payments = years * 12;
+
+      var pi = 0;
+      if (loan > 0 && payments > 0) {
+        if (monthlyRate > 0) {
+          pi = loan * monthlyRate / (1 - Math.pow(1 + monthlyRate, -payments));
+        } else {
+          pi = loan / payments;
+        }
+      }
+
+      var tax = price * 0.0115 / 12;
+      var insurance = 260;
+      var total = pi + tax + insurance;
+
+      out.total.textContent = money(total);
+      out.loan.textContent = money(loan);
+      out.down.textContent = money(downAmount);
+      out.pi.textContent = money(pi);
+      out.tax.textContent = money(tax);
+      out.ins.textContent = money(insurance);
+    }
+
+    [priceEl, downEl, rateEl, termEl].forEach(function (el) {
+      el.addEventListener('input', update);
+      el.addEventListener('change', update);
+    });
+
+    if (rangeEl) {
+      rangeEl.addEventListener('input', function () {
+        downEl.value = rangeEl.value;
+        update();
+      });
+      downEl.addEventListener('input', function () {
+        rangeEl.value = clamp(downEl.value, 0, 90, 25);
+      });
+    }
+
+    update();
+  })();
+
+  // Viewing request form validation
+  (function () {
+    var form = document.getElementById('viewing-form');
+    if (!form) return;
+    var success = document.getElementById('viewing-success');
+
+    function setError(field, message) {
+      var el = document.querySelector('[data-error-for="' + field.id + '"]');
+      var hasError = Boolean(message);
+      field.classList.toggle('border-red-500', hasError);
+      field.classList.toggle('ring-2', hasError);
+      field.classList.toggle('ring-red-500/25', hasError);
+      if (el) {
+        el.textContent = message || '';
+        el.classList.toggle('hidden', !hasError);
+      }
+      return !hasError;
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var name = document.getElementById('view-name');
+      var email = document.getElementById('view-email');
+      var phone = document.getElementById('view-phone');
+      var date = document.getElementById('view-date');
+
+      var okName = setError(name, name.value.trim().length >= 2 ? '' : 'Please enter your full name.');
+      var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim());
+      var okEmail = setError(email, emailOk ? '' : 'Please enter a valid email address.');
+      var digits = phone.value.replace(/\D/g, '');
+      var okPhone = setError(phone, digits.length >= 7 ? '' : 'Please enter a phone number with at least 7 digits.');
+      var okDate = setError(date, date.value ? '' : 'Please choose a preferred date.');
+
+      if (!(okName && okEmail && okPhone && okDate)) {
+        success.classList.add('hidden');
+        return;
+      }
+
+      var firstName = name.value.trim().split(' ')[0];
+      var property = document.getElementById('view-property').value;
+      success.textContent = 'Thank you, ' + firstName + '. Your viewing request for ' + property + ' on ' + date.value +
+        ' has been received. A RealOne advisor will call you within one business hour to confirm the details.';
+      success.classList.remove('hidden');
+      form.reset();
+    });
+  })();
+</script>
+
+</body>
+</html>

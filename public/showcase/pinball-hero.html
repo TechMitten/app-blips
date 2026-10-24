@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script>window.__orion_loop_check = function(id) { var s = window.__orion_loop_state = window.__orion_loop_state || {}; var n = Date.now(); var e = s[id]; if (!e) { s[id] = { start: n }; setTimeout(function () { delete s[id]; }, 0); return; } if (n - e.start > 1500) throw new Error("Infinite loop detected! Script halted to protect your browser."); };</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pinball Hero — Neon Table Pinball</title>
+<meta name="description" content="Pinball Hero is a single-table neon pinball game with flippers, a plunger launch, kicking bumpers, lit targets and multiball.">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; background: #04060f; }
+  body {
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  canvas { display: block; touch-action: none; }
+  #game { position: relative; }
+  /* The touch bar is shown whenever the device looks touch-capable: the JS
+     `is-touch` class is the primary switch, but the media query means the pads
+     are still there even if the class is added late (or never) on a phone. */
+  #touchbar { display: none; position: relative; z-index: 30; }
+  html.is-touch #touchbar { display: flex; }
+  @media (pointer: coarse) { #touchbar { display: flex; } }
+  .pad-btn {
+    touch-action: none;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+    transition: transform .05s ease, box-shadow .1s ease, background-color .1s ease;
+  }
+  .pad-btn.down {
+    transform: translateY(2px) scale(.98);
+    filter: brightness(1.55);
+  }
+  .pad-btn:active, .pad-btn.down {
+    transform: translateY(2px) scale(.98);
+    filter: brightness(1.5);
+  }
+  @keyframes pulseGlow { 0%,100% { opacity:.55 } 50% { opacity:1 } }
+  .glowPulse { animation: pulseGlow 1.6s ease-in-out infinite; }
+
+  /* @section: splash styles */
+  .splash-scan {
+    background: repeating-linear-gradient(to bottom,
+      rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+      rgba(0,0,0,.38) 3px, rgba(0,0,0,.38) 4px);
+    pointer-events: none;
+  }
+  .splash-grid {
+    background-image:
+      linear-gradient(rgba(255,120,215,.85) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(120,235,255,.70) 2px, transparent 2px);
+    background-size: 52px 52px;
+    animation: gridScroll 1.5s linear infinite;
+    transform: perspective(320px) rotateX(52deg) scale(1.6);
+    transform-origin: bottom center;
+    mask-image: linear-gradient(to top, #000 30%, transparent 96%);
+    -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 96%);
+  }
+  @keyframes gridScroll {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 48px, 0 0; }
+  }
+  /* Solid, high-contrast title fill. No background-clip:text tricks (those can
+     render as dark/blank glyphs), just a bright white-glyph body with a hard
+     black rim and a strong cyan/magenta neon bloom around it. */
+  /* Two-tone neon marquee: saturated cyan + hot pink glyphs, each on a hard black
+     rim with a coloured bloom. Colour is back (no washed-out all-white look) while
+     every glyph keeps a dark outline, so it stays readable on the plate. */
+  .chrome-text {
+    color: #ffffff;
+    -webkit-text-fill-color: #ffffff;
+    text-shadow:
+      0 3px 0 #06010e, 0 -2px 0 #06010e, 3px 0 0 #06010e, -3px 0 0 #06010e;
+  }
+  .neon-c {
+    color: #8ff4ff;
+    -webkit-text-fill-color: #8ff4ff;
+    text-shadow:
+      3px 3px 0 #06010e, -3px 3px 0 #06010e, 3px -3px 0 #06010e, -3px -3px 0 #06010e,
+      0 6px 0 #06010e, 0 -3px 0 #06010e, 4px 0 0 #06010e, -4px 0 0 #06010e,
+      0 0 22px rgba(120,235,255,1), 0 0 52px rgba(60,170,255,.9);
+  }
+  .neon-p {
+    color: #ff52d0;
+    -webkit-text-fill-color: #ff52d0;
+    text-shadow:
+      3px 3px 0 #06010e, -3px 3px 0 #06010e, 3px -3px 0 #06010e, -3px -3px 0 #06010e,
+      0 6px 0 #06010e, 0 -3px 0 #06010e, 4px 0 0 #06010e, -4px 0 0 #06010e,
+      0 0 22px rgba(255,80,203,1), 0 0 52px rgba(255,130,222,.85);
+  }
+  .retro-shadow { text-shadow: 0 0 10px rgba(255,45,180,.85), 0 0 28px rgba(80,220,255,.65), 3px 3px 0 rgba(10,0,40,.85); }
+  .neon-flicker { animation: neonFlicker 4s infinite steps(1,end); }
+  @keyframes neonFlicker {
+    0%,92%,100% { opacity: 1 }
+    93% { opacity: .35 } 94% { opacity: .95 } 95% { opacity: .5 } 96% { opacity: 1 }
+  }
+  /* Softer flash: the prompt never drops to fully invisible, so PRESS START
+     stays readable even mid-blink. */
+  .blink { animation: blink 1.15s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0.45 } }
+
+  /* @section: splash contrast fixes */
+  /* Deep vignette plate so the pink chrome letters never sit directly on the
+     pink radial haze at the bottom of the splash. */
+  /* Nearly solid black plate: the pink haze behind it can no longer tint the
+     chrome letters, so every glyph sits on deep black. */
+  .splash-plate {
+    border-radius: 30px;
+    padding: 16px 12px 20px;
+    background: linear-gradient(180deg, rgba(2,0,9,.985) 0%, rgba(2,0,9,.985) 62%, rgba(3,0,12,.93) 84%, rgba(3,0,12,.55) 100%);
+    border: 1px solid rgba(120,220,255,.22);
+    backdrop-filter: blur(10px) brightness(.85) saturate(.7);
+    box-shadow: 0 0 0 6px rgba(2,0,9,.55), 0 0 80px 24px rgba(2,0,9,.92);
+  }
+  /* Thick black outline drawn behind the title with a ::before copy of the same
+     text, so the letters stay legible no matter what is behind them. */
+  /* The title is a single bright layer now: crisp white glyphs, dark rim from
+     the text-shadow ring above, plus a soft halo. No ::before outline copy is
+     needed (and the old one could sit on top of the fill and hide it). */
+  .hero-title {
+    position: relative;
+    color: #ffffff;
+    line-height: 1.04;
+  }
+  .hero-title::before { content: none; display: none; }
+  .sub-name {
+    color: #9df3ff;
+    text-shadow:
+      0 2px 0 rgba(6,0,18,1), 0 -1px 0 rgba(6,0,18,1),
+      1px 0 0 rgba(6,0,18,1), -1px 0 0 rgba(6,0,18,1),
+      0 0 18px rgba(120,235,255,1), 0 0 44px rgba(255,80,203,.85);
+  }
+  .splash-note {
+    color: #c9f7ff;
+    text-shadow: 0 2px 0 rgba(4,1,16,1), 0 -1px 0 rgba(4,1,16,1), 1px 0 0 rgba(4,1,16,1), -1px 0 0 rgba(4,1,16,1), 0 0 22px rgba(120,235,255,.9), 0 0 40px rgba(255,80,203,.45);
+  }
+  .splash-panel {
+    background: rgba(2,0,10,.72);
+    border: 1px solid rgba(120,220,255,.28);
+    border-radius: 14px;
+  }
+  /* Big, heavy copyright mark so it stays readable over the moving grid. */
+  .splash-copy-main {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    color: #ffd166;
+    text-shadow:
+      0 2px 0 rgba(0,0,0,1), 0 -1px 0 rgba(0,0,0,1),
+      1px 0 0 rgba(0,0,0,1), -1px 0 0 rgba(0,0,0,1),
+      0 0 16px rgba(255,200,90,.85), 0 0 36px rgba(255,80,203,.75);
+  }
+  @media (min-width: 640px) { .splash-copy-main { font-size: 24px; letter-spacing: .20em; } }
+</style>
+</head>
+<body class="h-[100dvh] w-full overflow-hidden flex flex-col text-slate-100 bg-[#04060f]">
+
+<!-- @section: topbar -->
+<header class="shrink-0 w-full px-2 sm:px-4 py-2 flex items-center gap-2 sm:gap-4 bg-[#070c1c]/90 border-b border-cyan-500/25 z-20">
+  <div class="font-black tracking-[0.18em] text-base sm:text-xl text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,.7)] whitespace-nowrap">PINBALL<span class="text-pink-400">HERO</span></div>
+  <div class="flex-1"></div>
+  <div class="flex items-baseline gap-2">
+    <span class="hidden sm:inline text-[15px] font-bold tracking-[0.22em] text-cyan-100">SCORE</span>
+    <span id="hud-score" class="text-2xl sm:text-4xl font-black tabular-nums leading-none text-white drop-shadow-[0_0_12px_rgba(120,220,255,.95)]">0</span>
+  </div>
+  <div id="hud-balls" class="flex items-center gap-1.5 px-1"></div>
+  <div class="hidden md:flex items-baseline gap-2">
+    <span class="text-[15px] font-bold tracking-[0.22em] text-amber-100">BEST</span>
+    <span id="hud-best" class="text-xl font-bold tabular-nums text-amber-300">0</span>
+  </div>
+  <button id="btn-mute" title="Mute" class="w-11 h-11 rounded-lg border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/30 text-xl leading-none">🔊</button>
+  <button id="btn-pause" title="Pause" class="w-11 h-11 rounded-lg border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/30 text-xl leading-none">⏸</button>
+</header>
+
+<!-- @section: ball-save-bar -->
+<div class="shrink-0 w-full h-1.5 bg-[#0b1226] relative overflow-hidden z-20">
+  <div id="saveBar" class="h-full w-0 bg-gradient-to-r from-emerald-400 to-cyan-300 transition-[width] duration-100"></div>
+</div>
+
+<!-- @section: main layout -->
+<main class="flex-1 min-h-0 w-full flex items-stretch justify-center gap-3 px-2 sm:px-3 py-2">
+
+  <!-- @section: left panel -->
+  <aside class="hidden lg:flex flex-col w-72 shrink-0 gap-3">
+    <div class="rounded-xl border border-cyan-500/40 bg-[#0b1430]/95 p-3.5">
+      <div class="text-[14px] font-black tracking-[0.2em] text-cyan-300 mb-2.5">TABLE STATUS</div>
+      <div class="space-y-2.5 text-[16px]">
+        <div class="flex justify-between"><span class="text-slate-100">Targets lit</span><span id="p-targets" class="font-bold text-yellow-300 tabular-nums">0 / 4</span></div>
+        <div class="flex justify-between"><span class="text-slate-100">Balls left</span><span id="p-balls" class="font-bold text-cyan-200 tabular-nums">3</span></div>
+        <div class="flex justify-between"><span class="text-slate-100">Multiplier</span><span id="p-mult" class="font-bold text-pink-300 tabular-nums">x1</span></div>
+        <div class="flex justify-between"><span class="text-slate-100">Ball save</span><span id="p-save" class="font-bold text-emerald-300 tabular-nums">—</span></div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-pink-500/40 bg-[#0b1430]/95 p-3.5">
+      <div class="text-[14px] font-black tracking-[0.2em] text-pink-300 mb-2.5">SCORING</div>
+      <div class="space-y-2 text-[15px] text-slate-100">
+        <div class="flex justify-between"><span>Bumper</span><span class="text-white font-semibold">100</span></div>
+        <div class="flex justify-between"><span>Pop post</span><span class="text-white font-semibold">150</span></div>
+        <div class="flex justify-between"><span>Slingshot</span><span class="text-white font-semibold">50</span></div>
+        <div class="flex justify-between"><span>Lit target</span><span class="text-white font-semibold">500</span></div>
+        <div class="flex justify-between"><span>All targets</span><span class="text-yellow-300 font-bold">5000 + MULTIBALL</span></div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-slate-400/30 bg-[#0b1430]/95 p-3.5 text-[15px] text-slate-100 leading-relaxed">
+      <div class="text-[14px] font-black tracking-[0.2em] text-white mb-2.5">CONTROLS</div>
+      <div><span class="text-cyan-300 font-bold">A / ←</span> left flipper</div>
+      <div><span class="text-cyan-300 font-bold">D / →</span> right flipper</div>
+      <div><span class="text-cyan-300 font-bold">SPACE</span> hold to pull the spring back, release to fire</div>
+      <div><span class="text-cyan-300 font-bold">P / ESC</span> pause</div>
+    </div>
+  </aside>
+
+  <!-- @section: game canvas -->
+  <div id="game" class="flex-1 min-h-0 min-w-0 relative rounded-2xl overflow-hidden border border-cyan-400/40 shadow-[0_0_70px_rgba(34,211,238,.28)] bg-[#0a1024]"></div>
+
+  <!-- @section: right panel -->
+  <aside class="hidden lg:flex flex-col w-72 shrink-0 gap-3">
+    <div class="rounded-xl border border-amber-500/40 bg-[#0b1430]/95 p-3.5">
+      <div class="text-[14px] font-black tracking-[0.2em] text-amber-300 mb-2">HIGH SCORE</div>
+      <div id="p-best" class="text-3xl font-black tabular-nums text-amber-300 drop-shadow-[0_0_12px_rgba(252,211,77,.6)]">0</div>
+      <div id="p-games" class="text-[14px] text-slate-100 mt-1.5">Games played: 0</div>
+    </div>
+    <div class="rounded-xl border border-cyan-500/40 bg-[#0b1430]/95 p-3.5">
+      <div class="text-[14px] font-black tracking-[0.2em] text-cyan-300 mb-2">MULTIBALL</div>
+      <div id="p-mbstate" class="text-[15px] leading-snug text-slate-100">Light all 4 targets to unleash the multiball.</div>
+      <div class="mt-2.5 h-2.5 rounded-full bg-white/10 overflow-hidden">
+        <div id="p-mbbar" class="h-full w-0 bg-gradient-to-r from-yellow-400 to-pink-500 transition-[width] duration-200"></div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-slate-400/30 bg-[#0b1430]/95 p-3.5 text-[15px] text-slate-100 leading-relaxed">
+      <div class="text-[14px] font-black tracking-[0.2em] text-white mb-2">TIPS</div>
+      Hold the flipper to trap the ball, then release for a controlled shot up the middle. Charge the plunger fully to send the ball around the top orbit and hit the upper target. The pop posts and mid-field kicker ramps fire the ball away on contact — use them to bank shots into the lit targets.
+    </div>
+  </aside>
+</main>
+
+<!-- @section: touch controls -->
+<footer id="touchbar" class="shrink-0 w-full h-[112px] px-2 pb-2 pt-1.5 gap-2 items-stretch select-none" style="touch-action:none; padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));">
+  <button id="pad-left" class="pad-btn flex-1 rounded-2xl border-2 border-cyan-400/60 bg-gradient-to-b from-cyan-500/30 to-cyan-900/50 text-white font-black text-xl tracking-widest shadow-lg active:bg-cyan-400/50">◀ FLIP</button>
+  <button id="pad-plunge" class="pad-btn w-[26%] rounded-2xl border-2 border-pink-400/60 bg-gradient-to-b from-pink-500/30 to-pink-900/50 text-white font-black text-base tracking-widest shadow-lg active:bg-pink-400/50">PLUNGER<br><span class="text-[13px] font-bold opacity-90">hold / release</span></button>
+  <button id="pad-right" class="pad-btn flex-1 rounded-2xl border-2 border-cyan-400/60 bg-gradient-to-b from-cyan-500/30 to-cyan-900/50 text-white font-black text-xl tracking-widest shadow-lg active:bg-cyan-400/50">FLIP ▶</button>
+</footer>
+
+<!-- @section: splash -->
+<div id="splash" class="fixed inset-0 z-[60] hidden items-center justify-center overflow-hidden bg-[#0a0320]">
+  <div class="absolute inset-0 bg-gradient-to-b from-[#3a1a86] via-[#8c22b8] to-[#180a44]"></div>
+  <div class="absolute inset-x-0 bottom-0 h-[56%] splash-grid opacity-95"></div>
+  <div class="absolute inset-x-0 -bottom-[10%] h-40 bg-[radial-gradient(circle_at_50%_150%,rgba(255,80,200,.45),rgba(255,180,80,.28)_42%,rgba(80,220,255,0)_74%)]"></div>
+  <div class="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#180a44] via-[#180a44]/55 to-transparent"></div>
+  <div class="absolute inset-0 splash-scan opacity-20 pointer-events-none"></div>
+
+  <div class="relative z-10 w-full max-w-3xl px-4 sm:px-5 text-center splash-plate">
+    <div class="text-[15px] sm:text-lg font-black tracking-[0.42em] text-cyan-200 neon-flicker" style="text-shadow:0 2px 0 rgba(4,1,16,1),0 0 20px rgba(120,235,255,1)">PINBALL SYSTEMS PRESENTS</div>
+    <h1 data-text="PINBALL HERO" class="hero-title mt-3 text-5xl sm:text-8xl font-black tracking-[0.09em]"><span class="neon-c">PINBALL</span> <span class="neon-p">HERO</span></h1>
+    <div class="mt-4 text-lg sm:text-2xl font-black tracking-[0.3em] sub-name">NEON TABLE &bull; 3 BALL PLAY</div>
+    <div class="mt-5 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-1 rounded-xl border-2 border-cyan-300/60 splash-panel px-5 py-2.5 text-base sm:text-xl font-black tracking-[0.18em] text-cyan-100">
+      <span>HI-SCORE <span id="splash-best" class="text-amber-300 font-bold">0</span></span>
+      <span class="text-cyan-300/50">|</span>
+      <span class="text-pink-300">1 PLAYER</span>
+      <span class="text-cyan-300/50">|</span>
+      <span class="text-amber-200">&copy; 1986 APPBLIPS.COM</span>
+    </div>
+    <div class="mt-7 blink text-3xl sm:text-5xl font-black tracking-[0.3em]" style="color:#ff7ad9;text-shadow:0 3px 0 rgba(4,1,16,1),0 -2px 0 rgba(4,1,16,1),2px 0 0 rgba(4,1,16,1),-2px 0 0 rgba(4,1,16,1),0 0 22px rgba(255,80,195,1),0 0 50px rgba(120,235,255,.95)">PRESS START</div>
+    <div class="mt-3 text-base sm:text-xl font-black tracking-[0.24em] splash-note">TAP THE TABLE OR PRESS ANY KEY</div>
+    <div class="mt-6 inline-block rounded-xl border border-cyan-300/40 bg-black/70 px-4 py-2 text-[14px] sm:text-lg font-black tracking-[0.16em] text-cyan-50 splash-note leading-relaxed">A / &larr; LEFT FLIPPER &nbsp;&bull;&nbsp; D / &rarr; RIGHT FLIPPER &nbsp;&bull;&nbsp; HOLD SPACE TO PULL THE SPRING</div>
+  </div>
+
+  <!-- @section: splash copyright -->
+  <div class="absolute inset-x-0 bottom-0 z-10 pb-2 sm:pb-4 px-3 text-center pointer-events-none">
+    <div class="mx-auto w-fit max-w-[94vw] rounded-xl border-2 border-cyan-300/50 bg-black/80 px-4 py-2 sm:px-6 sm:py-3 shadow-[0_0_28px_rgba(0,0,0,.9)]">
+      <div class="splash-copy-main">&copy; 1986 PINBALL HERO &mdash; <span class="text-cyan-200" style="text-shadow:0 2px 0 rgba(0,0,0,1),0 0 18px rgba(120,235,255,.95)">APPBLIPS.COM</span></div>
+      <div class="mt-1 text-[14px] sm:text-lg font-black tracking-[0.28em] text-cyan-200" style="text-shadow:0 2px 0 rgba(0,0,0,1),0 0 16px rgba(120,235,255,.8)">ALL RIGHTS RESERVED</div>
+    </div>
+  </div>
+</div>
+
+<!-- @section: overlay -->
+<div id="overlay" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+  <div id="overlay-card" class="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-2xl border border-cyan-400/45 bg-[#0b1430]/98 p-5 sm:p-8 text-center shadow-[0_0_80px_rgba(34,211,238,.4)]"></div>
+</div>
+
+<script>
+// @section: constants
+const VW = 480, VH = 800;
+const GRAVITY = 950;
+const MAX_SPEED = 1750;
+const SUBSTEPS = 5;
+const BALL_R = 9;
+const DEG = Math.PI / 180;
+const LANE_X = 433;
+const BALL_REST_Y = 738;
+const LS_BEST = 'pinballhero.best';
+const LS_MUTED = 'pinballhero.muted';
+const LS_GAMES = 'pinballhero.games';
+
+// @section: storage helpers
+function lsGet(key, dflt) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return (v === null || v === undefined) ? dflt : v; }
+  catch (e) { return dflt; }
+}
+function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+// @section: audio (procedural web audio)
+const Sfx = {
+  ctx: null, master: null, muted: lsGet(LS_MUTED, false),
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.5;
+      this.master.connect(this.ctx.destination);
+    } catch (e) { this.ctx = null; }
+  },
+  ready() { return this.ctx && !this.muted; },
+  tone(freq, dur, type, vol, slideTo, delay) {
+    if (!this.ready()) return;
+    const ctx = this.ctx, t0 = ctx.currentTime + (delay || 0);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t0); o.stop(t0 + dur + 0.03);
+  },
+  noise(dur, vol, freq, delay) {
+    if (!this.ready()) return;
+    const ctx = this.ctx, t0 = ctx.currentTime + (delay || 0);
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {window.__orion_loop_check(1);d[i] = (Math.random() * 2 - 1) * (1 - i / len);}
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq || 900; f.Q.value = 1.1;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t0);
+  },
+  bumper() { this.tone(880, 0.09, 'square', 0.14, 1500); this.noise(0.05, 0.06, 2400); },
+  sling() { this.tone(320, 0.11, 'sawtooth', 0.12, 620); this.noise(0.06, 0.09, 1500); },
+  wall() { this.noise(0.03, 0.05, 700); },
+  flipper() { this.noise(0.035, 0.09, 420); this.tone(160, 0.05, 'square', 0.06, 90); },
+  target() { this.tone(1180, 0.14, 'sine', 0.16, 1760); this.tone(1760, 0.12, 'sine', 0.08, 2400, 0.05); },
+  launch() { this.tone(140, 0.34, 'sawtooth', 0.16, 900); this.noise(0.12, 0.07, 1800); },
+  drain() { this.tone(420, 0.5, 'sawtooth', 0.16, 70); },
+  save() { this.tone(660, 0.12, 'triangle', 0.16, 990); this.tone(990, 0.16, 'triangle', 0.14, 1320, 0.1); },
+  multiball() {
+    const notes = [523, 659, 784, 988, 1319];
+    notes.forEach((n, i) => this.tone(n, 0.22, 'triangle', 0.15, n * 1.02, i * 0.08));
+  },
+  gameover() {
+    [392, 330, 262, 196].forEach((n, i) => this.tone(n, 0.4, 'sawtooth', 0.13, n * 0.94, i * 0.16));
+  },
+  // @section: game-lost jingle
+  // MIDI-style "GAME LOST" fanfare: a stepwise descending square lead with a
+  // triangle sub-voice underneath and one final low sawtooth thud. Plays the
+  // instant the ball slips past the flippers and the game is over.
+  lost() {
+    const melody = [
+      [659.25, 0.16, 0.00], [587.33, 0.16, 0.16], [523.25, 0.16, 0.32],
+      [493.88, 0.18, 0.48], [440.00, 0.30, 0.68], [392.00, 0.30, 1.00],
+      [329.63, 0.36, 1.32], [261.63, 0.80, 1.70]
+    ];
+    for (const n of melody) {window.__orion_loop_check(2);
+      const f = n[0], d = n[1], at = n[2];
+      // lead voice (square) + soft sub-octave so it reads as chiptune MIDI
+      this.tone(f, d, 'square', 0.15, f * 0.985, at);
+      this.tone(f / 2, d * 1.1, 'triangle', 0.10, (f / 2) * 0.985, at);
+    }
+    // final "the ball is gone" thud + drain hiss
+    this.tone(130.81, 0.95, 'sawtooth', 0.14, 55, 1.70);
+    this.noise(0.55, 0.055, 300, 1.72);
+  },
+  start() { [392, 523, 659].forEach((n, i) => this.tone(n, 0.16, 'triangle', 0.14, n, i * 0.07)); }
+};
+
+// @section: table geometry
+const WALLS = [], BUMPERS = [], TARGETS = [], SLINGS = [], FLIPPERS = [], balls = [];
+const events = [];
+let T = 0;
+
+function seg(ax, ay, bx, by, e) {
+  const s = { ax, ay, bx, by, e, lastHit: -9, kick: 0, sling: false };
+  WALLS.push(s); return s;
+}
+function polyline(pts, e) { for (let i = 0; i < pts.length - 1; i++) {window.__orion_loop_check(3);seg(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], e);} }
+function arcPts(cx, cy, r, a0, a1, n) {
+  const p = [];
+  for (let i = 0; i <= n; i++) {window.__orion_loop_check(4); const a = a0 + (a1 - a0) * i / n; p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return p;
+}
+
+const DOME = { cx: 240, cy: 272, r: 212 };
+const LEFT_SIDE = [[28, 272], [28, 530], [140, 678]];
+const RIGHT_GUIDE = [[414, 600], [340, 680]];
+const LANE = [[414, 272], [414, 760], [452, 760], [452, 272]];
+const DOME_PTS = arcPts(DOME.cx, DOME.cy, DOME.r, Math.PI, Math.PI * 2, 34);
+
+function buildTable() {
+  polyline(DOME_PTS, 0.5);
+  polyline(LEFT_SIDE, 0.5);
+  polyline(RIGHT_GUIDE, 0.5);
+  polyline(LANE, 0.42);
+
+  const s1 = seg(118, 570, 170, 632, 0.35); s1.sling = true; s1.kick = 600; SLINGS.push(s1);
+  const s2 = seg(362, 570, 310, 632, 0.35); s2.sling = true; s2.kick = 600; SLINGS.push(s2);
+
+  // @section: mid-field kicker ramps
+  // angled slingshot rails halfway up the table: they bounce the ball back
+  // toward the middle instead of letting it dribble down the sides
+  const s3 = seg(120, 430, 176, 476, 0.4); s3.sling = true; s3.kick = 540; SLINGS.push(s3);
+  const s4 = seg(360, 430, 304, 476, 0.4); s4.sling = true; s4.kick = 540; SLINGS.push(s4);
+
+  BUMPERS.push({ x: 170, y: 250, r: 26, kick: 470, lastHit: -9, img: null, tint: 0x3fd8ff });
+  BUMPERS.push({ x: 240, y: 180, r: 26, kick: 470, lastHit: -9, img: null, tint: 0x3fd8ff });
+  BUMPERS.push({ x: 310, y: 250, r: 26, kick: 470, lastHit: -9, img: null, tint: 0x3fd8ff });
+
+  // @section: pop posts (spring-loaded obstacles)
+  // small round posts that kick the ball hard on contact, in matching pairs
+  const post = (x, y, r, kick, tint) => BUMPERS.push({ x, y, r, kick, lastHit: -9, img: null, glow: null, tint, post: true });
+  post(240, 262, 14, 440, 0xffd166);
+  post(118, 352, 15, 500, 0xff6ec7);
+  post(362, 352, 15, 500, 0xff6ec7);
+  post(148, 508, 15, 470, 0xa78bfa);
+  post(332, 508, 15, 470, 0xa78bfa);
+  post(240, 396, 13, 430, 0x6ee7b7);
+
+  TARGETS.push({ x: 240, y: 336, r: 11, lit: false, lastHit: -9 });
+  TARGETS.push({ x: 132, y: 404, r: 11, lit: false, lastHit: -9 });
+  TARGETS.push({ x: 348, y: 404, r: 11, lit: false, lastHit: -9 });
+  TARGETS.push({ x: 240, y: 112, r: 11, lit: false, lastHit: -9 });
+
+  FLIPPERS.push({ side: 'left', pivot: { x: 150, y: 692 }, len: 62, rad: 8, restAngle: 32 * DEG, activeAngle: -32 * DEG, angle: 32 * DEG, omega: 0, active: false, gfx: null });
+  FLIPPERS.push({ side: 'right', pivot: { x: 330, y: 692 }, len: 62, rad: 8, restAngle: 148 * DEG, activeAngle: 212 * DEG, angle: 148 * DEG, omega: 0, active: false, gfx: null });
+}
+buildTable();
+
+// @section: game state
+let splashT = 0;
+const S = {
+  phase: 'splash',
+  score: 0,
+  ballsLeft: 3,
+  ballSave: 0,
+  multiplier: 1,
+  best: lsGet(LS_BEST, 0),
+  games: lsGet(LS_GAMES, 0),
+  newBest: false
+};
+const plunger = { charge: 0, held: false, at: 0, retract: 0, lastPower: 0 };
+
+// @section: dom references
+const elScore = document.getElementById('hud-score');
+const elBest = document.getElementById('hud-best');
+const elBalls = document.getElementById('hud-balls');
+const elSaveBar = document.getElementById('saveBar');
+const elOverlay = document.getElementById('overlay');
+const elCard = document.getElementById('overlay-card');
+const elMute = document.getElementById('btn-mute');
+const elPause = document.getElementById('btn-pause');
+const elSplash = document.getElementById('splash');
+const elSplashBest = document.getElementById('splash-best');
+const elPTargets = document.getElementById('p-targets');
+const elPBalls = document.getElementById('p-balls');
+const elPMult = document.getElementById('p-mult');
+const elPSave = document.getElementById('p-save');
+const elPBest = document.getElementById('p-best');
+const elPGames = document.getElementById('p-games');
+const elPMbState = document.getElementById('p-mbstate');
+const elPMbBar = document.getElementById('p-mbbar');
+
+// @section: input state
+const key = { left: false, right: false, plunge: false };
+const touchIn = { left: false, right: false, plunge: false };
+const effLeft = () => key.left || touchIn.left;
+const effRight = () => key.right || touchIn.right;
+const effPlunge = () => key.plunge || touchIn.plunge;
+
+const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyP', 'KeyM', 'Escape']);
+
+document.addEventListener('keydown', (e) => {
+  if (GAME_KEYS.has(e.code)) e.preventDefault();
+  Sfx.init();
+  if (e.repeat) return;
+  if (S.phase === 'splash') { advanceFromSplash(); return; }
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': key.left = true; break;
+    case 'ArrowRight': case 'KeyD': key.right = true; break;
+    case 'Space': case 'ArrowUp': case 'KeyW': case 'KeyS': case 'ArrowDown': key.plunge = true; break;
+    case 'Escape': case 'KeyP': togglePause(); break;
+    case 'KeyM': toggleMute(); break;
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (GAME_KEYS.has(e.code)) e.preventDefault();
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': key.left = false; break;
+    case 'ArrowRight': case 'KeyD': key.right = false; break;
+    case 'Space': case 'ArrowUp': case 'KeyW': case 'KeyS': case 'ArrowDown': key.plunge = false; break;
+  }
+});
+
+// @section: touch pad buttons
+// Each pad listens to raw touch events AND pointer events (mobile browsers are
+// inconsistent about which they deliver), and never uses pointerleave — touch
+// pointers get implicit capture, so the pad keeps receiving the release even when
+// the finger slides off it. That is what used to leave a flipper stuck down.
+const PAD_IDS = [['pad-left', 'left'], ['pad-right', 'right'], ['pad-plunge', 'plunge']];
+function releaseAllPads() {
+  touchIn.left = false; touchIn.right = false; touchIn.plunge = false;
+  for (const p of PAD_IDS) {window.__orion_loop_check(5); const el = document.getElementById(p[0]); if (el) el.classList.remove('down'); }
+}
+function bindPad(id, prop) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const press = (e) => {
+    if (e && e.cancelable) e.preventDefault();
+    Sfx.init();
+    if (S.phase === 'splash') { advanceFromSplash(); return; }
+    touchIn[prop] = true;
+    el.classList.add('down');
+  };
+  const release = (e) => {
+    if (e && e.cancelable) e.preventDefault();
+    touchIn[prop] = false;
+    el.classList.remove('down');
+  };
+  el.addEventListener('pointerdown', press, { passive: false });
+  el.addEventListener('pointerup', release, { passive: false });
+  el.addEventListener('pointercancel', release, { passive: false });
+  el.addEventListener('lostpointercapture', release, { passive: false });
+  el.addEventListener('touchstart', press, { passive: false });
+  el.addEventListener('touchend', release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  el.addEventListener('dragstart', (e) => e.preventDefault());
+}
+for (const p of PAD_IDS) {window.__orion_loop_check(6);bindPad(p[0], p[1]);}
+
+// losing focus or a cancelled gesture must never leave a pad latched on
+window.addEventListener('blur', releaseAllPads);
+document.addEventListener('touchcancel', releaseAllPads, { passive: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllPads(); });
+
+// @section: splash tap-to-advance
+const splashTap = (e) => {
+  if (e && e.cancelable) e.preventDefault();
+  Sfx.init();
+  advanceFromSplash();
+};
+elSplash.addEventListener('pointerdown', splashTap, { passive: false });
+elSplash.addEventListener('touchstart', splashTap, { passive: false });
+
+elMute.addEventListener('click', toggleMute);
+elPause.addEventListener('click', togglePause);
+document.addEventListener('visibilitychange', () => { if (document.hidden && S.phase === 'playing') setPhase('paused'); });
+
+// @section: hud sync
+function syncHUD() {
+  elScore.textContent = S.score.toLocaleString();
+  elBest.textContent = S.best.toLocaleString();
+  elSaveBar.style.width = (S.ballSave > 0 ? Math.min(1, S.ballSave / 12) * 100 : 0) + '%';
+  let dots = '';
+  for (let i = 0; i < 3; i++) {window.__orion_loop_check(7);
+    const on = i < S.ballsLeft;
+    dots += `<span class="w-3.5 h-3.5 rounded-full ${on ? 'bg-cyan-300 shadow-[0_0_9px_rgba(34,211,238,.95)]' : 'bg-slate-600'}"></span>`;
+  }
+  if (elBalls.dataset.n !== dots) { elBalls.innerHTML = dots; elBalls.dataset.n = dots; }
+  const lit = TARGETS.filter(t => t.lit).length;
+  elPTargets.textContent = lit + ' / 4';
+  elPBalls.textContent = String(Math.max(0, S.ballsLeft));
+  elPMult.textContent = 'x' + S.multiplier;
+  elPSave.textContent = S.ballSave > 0 ? S.ballSave.toFixed(1) + 's' : '—';
+  elPBest.textContent = S.best.toLocaleString();
+  elPGames.textContent = 'Games played: ' + S.games;
+  elPMbBar.style.width = (lit / 4 * 100) + '%';
+  elPMbState.textContent = S.multiplier > 1 ? 'MULTIBALL ACTIVE — x2 scoring!' : (lit === 4 ? 'All targets lit!' : 'Light all 4 targets to unleash the multiball.');
+}
+
+// @section: overlay / state machine
+function renderOverlay() {
+  if (S.phase === 'menu') {
+    elCard.innerHTML = `
+      <div class="text-[15px] font-bold tracking-[0.32em] text-cyan-200">NEON TABLE PINBALL</div>
+      <h1 class="mt-2 text-4xl sm:text-5xl font-black tracking-[0.14em] text-white drop-shadow-[0_0_18px_rgba(34,211,238,.85)]">PINBALL<span class="text-pink-400">HERO</span></h1>
+      <p class="mt-3 text-lg text-slate-100">Three balls. One table. Light all four targets to unlock <span class="text-yellow-300 font-bold">MULTIBALL</span>.</p>
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-left text-[15px] text-slate-100">
+        <div class="rounded-lg bg-white/5 p-3 border border-cyan-500/25">
+          <div class="font-black text-cyan-300 mb-1.5 tracking-widest text-[13px]">KEYBOARD</div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">A / ←</span><span class="text-slate-300">left flipper</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">D / →</span><span class="text-slate-300">right flipper</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">SPACE (hold)</span><span class="text-slate-300">pull the spring back</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">SPACE (release)</span><span class="text-slate-300">launch the ball</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">P / ESC</span><span class="text-slate-300">pause</span></div>
+        </div>
+        <div class="rounded-lg bg-white/5 p-3 border border-pink-500/25">
+          <div class="font-black text-pink-300 mb-1.5 tracking-widest text-[13px]">TOUCH</div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">Left half</span><span class="text-slate-300">left flipper</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">Right half</span><span class="text-slate-300">right flipper</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">Plunger pad</span><span class="text-slate-300">hold to launch</span></div>
+          <div class="flex justify-between gap-2"><span class="font-semibold">⏸ button</span><span class="text-slate-300">pause</span></div>
+        </div>
+      </div>
+      <button id="btn-start" class="mt-5 w-full sm:w-auto px-10 py-4 rounded-xl text-xl font-black tracking-[0.2em] text-[#04121a] bg-gradient-to-r from-cyan-300 to-emerald-300 hover:from-cyan-200 hover:to-emerald-200 shadow-[0_0_30px_rgba(34,211,238,.55)]">START GAME</button>
+      <div class="mt-3 flex justify-center">
+        <button id="btn-intro" class="px-6 py-2.5 rounded-xl text-[15px] font-bold tracking-[0.2em] text-cyan-100 border border-cyan-400/40 bg-white/5 hover:bg-white/10">&#9664; REPLAY INTRO</button>
+      </div>
+      <div class="mt-4 text-[16px] text-slate-100">BEST <span class="text-amber-300 font-bold">${S.best.toLocaleString()}</span> &nbsp;•&nbsp; GAMES ${S.games}</div>
+    `;
+    const b = document.getElementById('btn-start');
+    if (b) b.onclick = () => { Sfx.init(); Sfx.start(); startGame(); };
+    const ib = document.getElementById('btn-intro');
+    if (ib) ib.onclick = () => { Sfx.init(); setPhase('splash'); };
+  } else if (S.phase === 'paused') {
+    elCard.innerHTML = `
+      <h2 class="text-3xl font-black tracking-[0.25em] text-cyan-200 drop-shadow-[0_0_16px_rgba(34,211,238,.7)]">PAUSED</h2>
+      <p class="mt-3 text-lg text-slate-100">Table frozen — take your time.</p>
+      <div class="mt-5 flex flex-col sm:flex-row gap-2 justify-center">
+        <button id="btn-resume" class="px-7 py-3.5 rounded-xl text-lg font-black tracking-widest text-[#04121a] bg-gradient-to-r from-cyan-300 to-emerald-300">RESUME</button>
+        <button id="btn-restart" class="px-7 py-3.5 rounded-xl text-lg font-bold tracking-widest text-cyan-100 border border-cyan-400/40 bg-white/5 hover:bg-white/10">RESTART</button>
+        <button id="btn-quit" class="px-7 py-3.5 rounded-xl text-lg font-bold tracking-widest text-slate-200 border border-slate-500/40 bg-white/5 hover:bg-white/10">MAIN MENU</button>
+      </div>`;
+    document.getElementById('btn-resume').onclick = () => setPhase('playing');
+    document.getElementById('btn-restart').onclick = () => startGame();
+    document.getElementById('btn-quit').onclick = () => setPhase('menu');
+  } else if (S.phase === 'gameover') {
+    elCard.innerHTML = `
+      <h2 class="text-4xl font-black tracking-[0.18em] text-pink-300 drop-shadow-[0_0_18px_rgba(244,114,182,.8)]">GAME OVER</h2>
+      <div class="mt-4 text-[15px] font-bold tracking-[0.25em] text-slate-200">FINAL SCORE</div>
+      <div class="text-5xl font-black tabular-nums text-white">${S.score.toLocaleString()}</div>
+      ${S.newBest ? '<div class="mt-3 text-lg font-black text-amber-300 glowPulse tracking-widest">★ NEW HIGH SCORE ★</div>'
+                  : `<div class="mt-3 text-lg text-slate-200">Best <span class="text-amber-300 font-bold">${S.best.toLocaleString()}</span></div>`}
+      <button id="btn-again" class="mt-5 w-full sm:w-auto px-10 py-4 rounded-xl text-xl font-black tracking-[0.2em] text-[#1a0410] bg-gradient-to-r from-pink-300 to-amber-300 hover:from-pink-200 hover:to-amber-200 shadow-[0_0_30px_rgba(244,114,182,.5)]">PLAY AGAIN</button>
+      <button id="btn-menu2" class="mt-3 w-full sm:w-auto px-7 py-3 rounded-xl text-lg font-bold tracking-widest text-slate-200 border border-slate-500/40 bg-white/5 hover:bg-white/10">MAIN MENU</button>
+    `;
+    document.getElementById('btn-again').onclick = () => startGame();
+    document.getElementById('btn-menu2').onclick = () => setPhase('menu');
+  }
+}
+
+function setPhase(p) {
+  S.phase = p;
+  const splashOn = (p === 'splash');
+  if (p === 'playing' || splashOn) {
+    elOverlay.classList.add('hidden');
+    elOverlay.classList.remove('flex');
+  } else {
+    elOverlay.classList.remove('hidden');
+    elOverlay.classList.add('flex');
+    renderOverlay();
+  }
+  if (splashOn) {
+    splashT = 0;
+    if (elSplashBest) elSplashBest.textContent = S.best.toLocaleString();
+    elSplash.classList.remove('hidden');
+    elSplash.classList.add('flex');
+  } else {
+    elSplash.classList.add('hidden');
+    elSplash.classList.remove('flex');
+  }
+  syncHUD();
+}
+
+// @section: splash advance
+// Any key, a tap on the table, or the 7s attract timer jumps from the retro
+// welcome splash into the main menu.
+function advanceFromSplash() {
+  if (S.phase !== 'splash') return;
+  Sfx.init();
+  Sfx.start();
+  setPhase('menu');
+}
+
+function togglePause() {
+  Sfx.init();
+  if (S.phase === 'playing') setPhase('paused');
+  else if (S.phase === 'paused') setPhase('playing');
+}
+function toggleMute() {
+  Sfx.muted = !Sfx.muted;
+  lsSet(LS_MUTED, Sfx.muted);
+  elMute.textContent = Sfx.muted ? '🔇' : '🔊';
+  elMute.classList.toggle('bg-pink-500/25', Sfx.muted);
+  if (!Sfx.muted) Sfx.init();
+}
+
+// @section: game flow
+function startGame() {
+  S.score = 0;
+  S.ballsLeft = 3;
+  S.ballSave = 0;
+  S.multiplier = 1;
+  S.newBest = false;
+  S.games++;
+  lsSet(LS_GAMES, S.games);
+  for (const b of balls) {window.__orion_loop_check(8);if (b.spr) b.spr.destroy();}
+  balls.length = 0;
+  for (const t of TARGETS) {window.__orion_loop_check(9);t.lit = false;}
+  plunger.charge = 0;
+  if (sceneRef) { sceneRef.flash('BALL 1 — LAUNCH!', '#7dd3fc'); }
+  serveBall();
+  setPhase('playing');
+}
+
+function serveBall() {
+  if (!sceneRef) return;
+  const b = { x: LANE_X, y: BALL_REST_Y, vx: 0, vy: 0, r: BALL_R, inLane: true, trail: [], slow: 0,
+              spin: (Math.random() - 0.5) * 160, wobble: Math.random() * Math.PI * 2,
+              turbA: 90 + Math.random() * 120, turbF: 1.1 + Math.random() * 2.3,
+              turbP: Math.random() * Math.PI * 2 };
+  b.spr = sceneRef.add.image(b.x, b.y, 'ball').setDisplaySize(22, 22).setDepth(6);
+  balls.push(b);
+  // fresh ball on the rod => spring fully reset so it can be pulled again
+  plunger.charge = 0;
+  plunger.retract = 0;
+  plunger.held = false;
+  plunger.at = T;
+}
+
+// @section: lane recapture
+// A ball that rolls back down the shooter lane is re-seated on the plunger rod
+// so the spring can be pulled and fired again (and again, and again). Without
+// this the plunger only ever worked for the ball it was served with.
+const LANE_CATCH_X0 = 412, LANE_CATCH_X1 = 456, LANE_CATCH_Y = 736;
+function captureLaneBalls() {
+  if (S.phase !== 'playing') return;
+  // only one ball ever sits on the rod at a time
+  if (balls.some(x => x.inLane)) return;
+  for (const b of balls) {window.__orion_loop_check(10);
+    if (b.inLane) continue;
+    // only catch balls that are not still rocketing up the lane
+    if (b.vy < -60) continue;
+    if (b.x > LANE_CATCH_X0 && b.x < LANE_CATCH_X1 && b.y > LANE_CATCH_Y) {
+      b.inLane = true;
+      b.x = LANE_X; b.y = BALL_REST_Y;
+      b.vx = 0; b.vy = 0; b.slow = 0;
+      b.spin = 0;
+      b.wobble = Math.random() * Math.PI * 2;
+      if (b.trail) b.trail.length = 0;
+      plunger.charge = 0;
+      plunger.retract = 0;
+      plunger.held = false;
+      Sfx.wall();
+      sceneRef.burst(LANE_X, BALL_REST_Y + 6, 0x9be7ff, 6);
+    }
+  }
+}
+
+function gameOver() {
+  S.newBest = S.score > S.best;
+  if (S.newBest) { S.best = S.score; lsSet(LS_BEST, S.best); }
+  setPhase('gameover');
+  // the last ball slipped by — fire the GAME LOST jingle
+  Sfx.lost();
+}
+
+function addScore(n) {
+  S.score += Math.round(n * S.multiplier);
+}
+
+// @section: physics
+function collideSeg(b, s) {
+  const ex = s.bx - s.ax, ey = s.by - s.ay;
+  const L2 = ex * ex + ey * ey;
+  if (L2 < 1e-6) return false;
+  let t = ((b.x - s.ax) * ex + (b.y - s.ay) * ey) / L2;
+  t = t < 0 ? 0 : (t > 1 ? 1 : t);
+  const px = s.ax + ex * t, py = s.ay + ey * t;
+  let dx = b.x - px, dy = b.y - py;
+  let d = Math.sqrt(dx * dx + dy * dy);
+  if (d >= b.r) return false;
+  if (d < 0.0001) { dx = -ey; dy = ex; d = Math.sqrt(dx * dx + dy * dy) || 1; }
+  const nx = dx / d, ny = dy / d;
+  b.x = px + nx * (b.r + 0.05);
+  b.y = py + ny * (b.r + 0.05);
+  const vn = b.vx * nx + b.vy * ny;
+  if (vn >= 0) return true;
+  b.vx -= (1 + s.e) * vn * nx;
+  b.vy -= (1 + s.e) * vn * ny;
+  const tx = -ny, ty = nx;
+  const vt = b.vx * tx + b.vy * ty;
+  b.vx -= vt * 0.03 * tx; b.vy -= vt * 0.03 * ty;
+  // per-impact scatter: every wall contact nudges the rebound sideways AND rotates
+  // the outgoing velocity by a small random angle. Shallow grazes (small vn) get
+  // their own jitter too, which is what matters here — the shooter lane walls are
+  // grazed at a shallow angle, and without that jitter the ball left the lane
+  // travelling perfectly straight on every single launch.
+  const impactSpeed = Math.hypot(b.vx, b.vy);
+  if (impactSpeed > 40) {
+    const hard = Math.abs(vn) > 60;
+    const sc = (Math.random() - 0.5) * (hard ? 0.20 : 0.11) * impactSpeed;
+    b.vx += sc * tx; b.vy += sc * ty;
+    const rot = (Math.random() - 0.5) * (hard ? 0.11 : 0.06);
+    const cs = Math.cos(rot), sn = Math.sin(rot);
+    const rvx = b.vx * cs - b.vy * sn;
+    const rvy = b.vx * sn + b.vy * cs;
+    b.vx = rvx; b.vy = rvy;
+    b.spin = (b.spin || 0) + (Math.random() - 0.5) * 170;
+  }
+  if (s.sling && T - s.lastHit > 0.07) {
+    s.lastHit = T;
+    b.vx += nx * s.kick; b.vy += ny * s.kick;
+    events.push({ type: 'sling', x: px, y: py, nx, ny });
+  } else if (!s.sling && T - s.lastHit > 0.09 && Math.abs(vn) > 260) {
+    s.lastHit = T;
+    events.push({ type: 'wall', x: px, y: py, v: Math.abs(vn) });
+  }
+  return true;
+}
+
+function collideBumper(b, m) {
+  const dx = b.x - m.x, dy = b.y - m.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const rr = m.r + b.r;
+  if (d >= rr || d < 0.0001) return;
+  const nx = dx / d, ny = dy / d;
+  b.x = m.x + nx * rr; b.y = m.y + ny * rr;
+  const vn = b.vx * nx + b.vy * ny;
+  if (vn < 0) { const e = 1.48 + Math.random() * 0.16; b.vx -= e * vn * nx; b.vy -= e * vn * ny; }
+  if (T - m.lastHit > 0.07) {
+    m.lastHit = T;
+    // the kick leaves at a slightly off-centre angle every time, so a sequence of
+    // bumper hits fans out instead of repeating the same bank shot
+    const off = (Math.random() - 0.5) * 0.34;
+    b.vx += nx * m.kick - ny * m.kick * off;
+    b.vy += ny * m.kick + nx * m.kick * off;
+    events.push({ type: 'bumper', m, x: m.x + nx * m.r, y: m.y + ny * m.r });
+  }
+}
+
+function collideTarget(b, tg) {
+  const dx = b.x - tg.x, dy = b.y - tg.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const rr = tg.r + b.r;
+  if (d >= rr || d < 0.0001) return;
+  const nx = dx / d, ny = dy / d;
+  b.x = tg.x + nx * rr; b.y = tg.y + ny * rr;
+  const vn = b.vx * nx + b.vy * ny;
+  if (vn < 0) { const e = 1.34 + Math.random() * 0.14; b.vx -= e * vn * nx; b.vy -= e * vn * ny; }
+  if (T - tg.lastHit > 0.12) {
+    tg.lastHit = T;
+    const off = (Math.random() - 0.5) * 0.40;
+    b.vx += nx * 150 - ny * 150 * off;
+    b.vy += ny * 150 + nx * 150 * off;
+    events.push({ type: 'target', tg, x: tg.x + nx * tg.r, y: tg.y + ny * tg.r });
+  }
+}
+
+function collideFlipper(b, f) {
+  const px = f.pivot.x, py = f.pivot.y;
+  const ex = Math.cos(f.angle) * f.len, ey = Math.sin(f.angle) * f.len;
+  const L2 = ex * ex + ey * ey;
+  let t = ((b.x - px) * ex + (b.y - py) * ey) / L2;
+  t = t < 0 ? 0 : (t > 1 ? 1 : t);
+  const cx = px + ex * t, cy = py + ey * t;
+  let dx = b.x - cx, dy = b.y - cy;
+  let d = Math.sqrt(dx * dx + dy * dy);
+  const rr = b.r + f.rad;
+  if (d >= rr) return;
+  if (d < 0.0001) { dx = 0; dy = -1; d = 1; }
+  const nx = dx / d, ny = dy / d;
+  b.x = cx + nx * (rr + 0.05);
+  b.y = cy + ny * (rr + 0.05);
+  const rxv = cx - px, ryv = cy - py;
+  const pvx = -f.omega * ryv, pvy = f.omega * rxv;
+  const rvx = b.vx - pvx, rvy = b.vy - pvy;
+  const vn = rvx * nx + rvy * ny;
+  if (vn < 0) {
+    const e = 0.42;
+    b.vx = rvx - (1 + e) * vn * nx + pvx;
+    b.vy = rvy - (1 + e) * vn * ny + pvy;
+    if (Math.abs(f.omega) > 4 && vn < -140) events.push({ type: 'flip', x: cx, y: cy, nx, ny });
+  }
+  const sp = Math.hypot(b.vx, b.vy);
+  if (sp > MAX_SPEED) { b.vx *= MAX_SPEED / sp; b.vy *= MAX_SPEED / sp; }
+}
+
+function stepPhysics(dt) {
+  for (const f of FLIPPERS) {window.__orion_loop_check(11);
+    const act = f.side === 'left' ? effLeft() : effRight();
+    if (act && !f.active) Sfx.flipper();
+    f.active = act;
+    const target = act ? f.activeAngle : f.restAngle;
+    const speed = act ? 34 : 17;
+    const diff = target - f.angle;
+    if (Math.abs(diff) > 0.0008) {
+      const step = Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
+      f.angle += step;
+      f.omega = step / dt;
+    } else { f.angle = target; f.omega = 0; }
+  }
+
+  for (const b of balls) {window.__orion_loop_check(12);
+    if (b.inLane) { b.x = LANE_X; b.y = BALL_REST_Y; b.vx = 0; b.vy = 0; continue; }
+    b.vy += GRAVITY * dt;
+    // lateral spin drift + per-ball air turbulence: two out-of-phase harmonics add a
+    // slow, continuously bending sideways force unique to each ball, so even two
+    // balls launched identically peel apart within a fraction of a second.
+    if (!b.spin) b.spin = (Math.random() - 0.5) * 90;
+    b.spin *= (1 - 0.6 * dt);
+    b.vx += b.spin * dt;
+    b.wobble = (b.wobble || 0) + dt * 2.4;
+    const ta = (b.turbA === undefined) ? 120 : b.turbA;
+    const tf = (b.turbF === undefined) ? 1.7 : b.turbF;
+    const tp = (b.turbP === undefined) ? 0 : b.turbP;
+    b.vx += (Math.sin(b.wobble * tf + tp) * 0.8 + Math.sin(b.wobble * 0.37 + tp * 1.7) * 0.5) * ta * dt;
+    let sp = Math.hypot(b.vx, b.vy);
+    if (sp > MAX_SPEED) { b.vx *= MAX_SPEED / sp; b.vy *= MAX_SPEED / sp; sp = MAX_SPEED; }
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    for (let i = 0; i < WALLS.length; i++) {window.__orion_loop_check(13);collideSeg(b, WALLS[i]);}
+    for (let i = 0; i < BUMPERS.length; i++) {window.__orion_loop_check(14);collideBumper(b, BUMPERS[i]);}
+    for (let i = 0; i < TARGETS.length; i++) {window.__orion_loop_check(15);collideTarget(b, TARGETS[i]);}
+    for (let i = 0; i < FLIPPERS.length; i++) {window.__orion_loop_check(16);collideFlipper(b, FLIPPERS[i]);}
+    if (sp < 26) b.slow += dt; else b.slow = 0;
+  }
+
+  // ball vs ball
+  for (let i = 0; i < balls.length; i++) {window.__orion_loop_check(17);
+    for (let j = i + 1; j < balls.length; j++) {window.__orion_loop_check(18);
+      const a = balls[i], c = balls[j];
+      if (a.inLane || c.inLane) continue;
+      const dx = c.x - a.x, dy = c.y - a.y;
+      const d = Math.hypot(dx, dy), rr = a.r + c.r;
+      if (d < rr && d > 0.001) {
+        const nx = dx / d, ny = dy / d, push = (rr - d) / 2;
+        a.x -= nx * push; a.y -= ny * push;
+        c.x += nx * push; c.y += ny * push;
+        const rvx = c.vx - a.vx, rvy = c.vy - a.vy;
+        const vn = rvx * nx + rvy * ny;
+        if (vn < 0) {
+          const imp = -1.5 * vn / 2;
+          a.vx -= imp * nx; a.vy -= imp * ny;
+          c.vx += imp * nx; c.vy += imp * ny;
+        }
+      }
+    }
+  }
+}
+
+// @section: events -> juice
+function processEvents() {
+  for (const e of events) {window.__orion_loop_check(19);
+    if (e.type === 'bumper') {
+      const isPost = !!e.m.post;
+      addScore(isPost ? 150 : 100);
+      Sfx.bumper();
+      const col = isPost ? (e.m.tint === undefined ? 0x66e0ff : e.m.tint) : 0x66e0ff;
+      sceneRef.burst(e.x, e.y, col, isPost ? 12 : 10);
+      sceneRef.popBumper(e.m);
+      sceneRef.cameras.main.shake(isPost ? 85 : 70, isPost ? 0.004 : 0.0035);
+    } else if (e.type === 'sling') {
+      addScore(50); Sfx.sling();
+      sceneRef.burst(e.x, e.y, 0xff7ad0, 8);
+      sceneRef.cameras.main.shake(60, 0.003);
+    } else if (e.type === 'target') {
+      if (!e.tg.lit) {
+        e.tg.lit = true;
+        addScore(500); Sfx.target();
+        sceneRef.burst(e.x, e.y, 0xffe066, 14);
+        sceneRef.cameras.main.shake(90, 0.004);
+        const litCount = TARGETS.filter(t => t.lit).length;
+        if (litCount === 4) unlockMultiball();
+        else sceneRef.flash('TARGET LIT  ' + litCount + '/4', '#fde047');
+      } else {
+        addScore(150); Sfx.bumper();
+        sceneRef.burst(e.x, e.y, 0xffd166, 5);
+      }
+    } else if (e.type === 'wall') {
+      if (e.v > 500) Sfx.wall();
+    } else if (e.type === 'flip') {
+      sceneRef.burst(e.x, e.y, 0xffffff, 3);
+    }
+  }
+  events.length = 0;
+}
+
+function unlockMultiball() {
+  addScore(5000);
+  Sfx.multiball();
+  sceneRef.flash('MULTIBALL!', '#ff6ec7', 1500);
+  sceneRef.cameras.main.flash(220, 120, 200, 255);
+  sceneRef.cameras.main.shake(320, 0.008);
+  for (let i = 0; i < 2; i++) {window.__orion_loop_check(20);
+    const ang = -Math.PI / 2 + (i === 0 ? -0.7 : 0.7);
+    const b = {
+      x: 240 + (i === 0 ? -40 : 40), y: 210,
+      vx: Math.cos(ang) * 420 + (Math.random() - 0.5) * 300,
+      vy: Math.sin(ang) * 420,
+      r: BALL_R, inLane: false, trail: [], slow: 0,
+      spin: (Math.random() - 0.5) * 320, wobble: Math.random() * Math.PI * 2,
+      turbA: 90 + Math.random() * 120, turbF: 1.1 + Math.random() * 2.3,
+      turbP: Math.random() * Math.PI * 2
+    };
+    b.spr = sceneRef.add.image(b.x, b.y, 'ball').setDisplaySize(22, 22).setDepth(6);
+    balls.push(b);
+    sceneRef.burst(b.x, b.y, 0xffe066, 18);
+  }
+  for (const t of TARGETS) {window.__orion_loop_check(21);t.lit = false;}
+  setTimeout(() => { for (const t of TARGETS) {window.__orion_loop_check(22);t.lastHit = T + 0.3;} }, 0);
+}
+
+function updateMultiplier() {
+  S.multiplier = balls.length > 1 ? 2 : 1;
+}
+
+// @section: ball lifecycle
+function drainBalls() {
+  for (let i = balls.length - 1; i >= 0; i--) {window.__orion_loop_check(23);
+    const b = balls[i];
+    if (b.y > 782 && !b.inLane) {
+      if (b.spr) b.spr.destroy();
+      balls.splice(i, 1);
+      sceneRef.burst(b.x, 760, 0x88aaff, 10);
+    }
+  }
+  if (S.phase !== 'playing') return;
+  if (balls.length === 0) {
+    if (S.ballSave > 0) {
+      S.ballSave = 0;
+      Sfx.save();
+      sceneRef.flash('BALL SAVED', '#6ee7b7', 1200);
+      serveBall();
+    } else {
+      S.ballsLeft--;
+      Sfx.drain();
+      sceneRef.cameras.main.shake(260, 0.006);
+      if (S.ballsLeft <= 0) { updateMultiplier(); gameOver(); }
+      else {
+        sceneRef.flash('BALL LOST', '#fb7185', 1200);
+        serveBall();
+      }
+    }
+  }
+  updateMultiplier();
+}
+
+function nudgeStuck(dt) {
+  for (const b of balls) {window.__orion_loop_check(24);
+    if (b.inLane) continue;
+    if (b.slow > 2.6) {
+      b.vx += (Math.random() - 0.5) * 260;
+      b.vy -= 120 + Math.random() * 120;
+      b.slow = 0;
+      sceneRef.burst(b.x, b.y, 0xffffff, 4);
+    }
+  }
+}
+
+// @section: plunger
+// Hold to retract the spring (the rod pulls back and the ball rides with it),
+// release to fire the ball with whatever power was wound up.
+function updatePlunger(dt) {
+  const held = effPlunge();
+  const ballInLane = balls.some(b => b.inLane);
+  const charging = held && ballInLane && S.phase === 'playing';
+  const canFire = ballInLane && S.phase === 'playing';
+
+  if (charging) {
+    // the spring only winds while a ball is actually sitting on the rod
+    if (!plunger.held) { plunger.charge = 0; plunger.retract = 0; }
+    plunger.charge = Math.min(1, plunger.charge + dt / 0.8);
+    plunger.retract = Math.min(1, plunger.retract + dt / 0.16);
+  } else {
+    // released: fire, then let the rod snap back to rest
+    if (plunger.held && !held && canFire) launchBall();
+    plunger.charge = 0;
+    plunger.retract = Math.max(0, plunger.retract - dt / 0.07);
+  }
+  plunger.held = held;
+  plunger.lastPower = plunger.charge;
+}
+
+function launchBall() {
+  const b = balls.find(x => x.inLane);
+  if (!b) return;
+  // A quick tap still clears the lane; a full wind sends the ball around the dome.
+  // The rod skew is what actually changes the shot: a wide lateral kick plus a
+  // random spin and a per-ball turbulence seed send the ball up the lane at a real
+  // angle, so it leaves the lane mouth on a different heading every time.
+  const charge = plunger.charge;
+  const power = (1060 + charge * 400) * (0.94 + Math.random() * 0.12);
+  const skew = (Math.random() * 2 - 1);        // -1 = hard left off the rod, +1 = hard right
+  b.inLane = false;
+  b.x = LANE_X + skew * 15;                    // off-centre rod contact point
+  b.y = BALL_REST_Y - 2;
+  b.vy = -power * (0.90 + Math.abs(skew) * 0.16);
+  b.vx = skew * (170 + Math.random() * 320) * (0.45 + charge * 0.55);
+  b.spin = skew * (90 + Math.random() * 330);
+  b.wobble = Math.random() * Math.PI * 2;
+  b.turbA = 90 + Math.random() * 120;
+  b.turbF = 1.1 + Math.random() * 2.3;
+  b.turbP = Math.random() * Math.PI * 2;
+  S.ballSave = 12;
+  Sfx.launch();
+  sceneRef.burst(LANE_X, BALL_REST_Y, 0x9be7ff, 14);
+  sceneRef.cameras.main.shake(90, 0.003);
+}
+
+// @section: phaser scene
+let sceneRef = null;
+
+function mkCanvasTex(scene, key, w, h, drawFn) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  // Build the canvas ourselves so we never depend on a texture-helper getter.
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext('2d');
+  if (ctx) drawFn(ctx, w, h);
+  let tex = null;
+  try {
+    if (typeof scene.textures.addCanvas === 'function') tex = scene.textures.addCanvas(key, cv);
+  } catch (err) { tex = null; }
+  if (!tex && typeof scene.textures.createCanvas === 'function') {
+    tex = scene.textures.createCanvas(key, w, h);
+    if (tex && tex.context) { drawFn(tex.context, w, h); if (tex.refresh) tex.refresh(); }
+  }
+  return tex;
+}
+
+class TableScene extends Phaser.Scene {
+  constructor() { super('table'); }
+
+  create() {
+    sceneRef = this;
+
+    // @section: textures
+    mkCanvasTex(this, 'bg', VW, VH, (g, w, h) => {
+      g.fillStyle = '#0a1024'; g.fillRect(0, 0, w, h);
+      const rg = g.createRadialGradient(240, 330, 40, 240, 360, 520);
+      rg.addColorStop(0, '#2b4b8f'); rg.addColorStop(0.45, '#182a55'); rg.addColorStop(1, '#0a1024');
+      g.fillStyle = rg; g.fillRect(0, 0, w, h);
+      g.save();
+      g.beginPath();
+      g.arc(240, 272, 208, Math.PI, Math.PI * 2);
+      g.lineTo(32, 780); g.lineTo(410, 780);
+      g.closePath();
+      g.clip();
+      g.strokeStyle = 'rgba(130,190,255,0.20)'; g.lineWidth = 1.4;
+      for (let i = 0; i < 26; i++) {window.__orion_loop_check(25); g.beginPath(); g.moveTo(0, 40 + i * 30); g.lineTo(480, 40 + i * 30); g.stroke(); }
+      for (let i = 0; i < 18; i++) {window.__orion_loop_check(26); g.beginPath(); g.moveTo(20 + i * 26, 0); g.lineTo(20 + i * 26, 800); g.stroke(); }
+      const rg2 = g.createRadialGradient(240, 700, 10, 240, 700, 190);
+      rg2.addColorStop(0, 'rgba(255,70,120,0.45)'); rg2.addColorStop(1, 'rgba(255,70,120,0)');
+      g.fillStyle = rg2; g.fillRect(0, 500, 480, 300);
+      g.restore();
+    });
+    mkCanvasTex(this, 'ball', 24, 24, (g) => {
+      const rg = g.createRadialGradient(9, 8, 0.6, 12, 12, 12);
+      rg.addColorStop(0, '#ffffff'); rg.addColorStop(0.32, '#e2ecff');
+      rg.addColorStop(0.72, '#8fa4c8'); rg.addColorStop(1, '#3d4a68');
+      g.fillStyle = rg; g.beginPath(); g.arc(12, 12, 11.4, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.95)';
+      g.beginPath(); g.arc(8.4, 7.4, 2.5, 0, Math.PI * 2); g.fill();
+    });
+    mkCanvasTex(this, 'spark', 16, 16, (g) => {
+      const rg = g.createRadialGradient(8, 8, 0, 8, 8, 8);
+      rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.4, 'rgba(255,255,255,0.65)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 16, 16);
+    });
+    mkCanvasTex(this, 'bumper', 80, 80, (g) => {
+      const rg = g.createRadialGradient(32, 30, 2, 40, 40, 38);
+      rg.addColorStop(0, '#ffffff'); rg.addColorStop(0.22, '#7df0ff');
+      rg.addColorStop(0.62, '#1a86c8'); rg.addColorStop(1, '#081a30');
+      g.fillStyle = rg; g.beginPath(); g.arc(40, 40, 38, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(180,240,255,0.85)'; g.lineWidth = 3;
+      g.beginPath(); g.arc(40, 40, 30, 0, Math.PI * 2); g.stroke();
+    });
+    mkCanvasTex(this, 'glow', 64, 64, (g) => {
+      const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      rg.addColorStop(0, 'rgba(255,255,255,0.95)'); rg.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+    });
+
+    // @section: background image
+    this.add.image(0, 0, 'bg').setOrigin(0, 0).setDepth(0);
+
+    // @section: static table graphics
+    const g = this.add.graphics().setDepth(2);
+    const strokePts = (pts) => {
+      g.beginPath();
+      g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {window.__orion_loop_check(27);g.lineTo(pts[i][0], pts[i][1]);}
+      g.strokePath();
+    };
+    const drawGlowLine = (pts, c) => {
+      g.lineStyle(22, c, 0.18); strokePts(pts);
+      g.lineStyle(11, c, 0.48); strokePts(pts);
+      g.lineStyle(4.6, 0xe2f4ff, 0.95); strokePts(pts);
+      g.lineStyle(2.0, 0xffffff, 1); strokePts(pts);
+    };
+    drawGlowLine(DOME_PTS, 0x63b0ff);
+    drawGlowLine(LEFT_SIDE, 0x63b0ff);
+    drawGlowLine(RIGHT_GUIDE, 0x63b0ff);
+    drawGlowLine(LANE, 0xa98cff);
+
+    // slingshots
+    for (const s of SLINGS) {window.__orion_loop_check(28);
+      g.lineStyle(20, 0xff3d8b, 0.22); g.lineBetween(s.ax, s.ay, s.bx, s.by);
+      g.lineStyle(9, 0xff5fa8, 0.70); g.lineBetween(s.ax, s.ay, s.bx, s.by);
+      g.lineStyle(4, 0xffe3f0, 1); g.lineBetween(s.ax, s.ay, s.bx, s.by);
+    }
+
+    // drain glow
+    g.fillStyle(0xff2d6f, 0.14);
+    g.fillRect(120, 742, 240, 58);
+    g.lineStyle(2.6, 0xff5f92, 0.7);
+    g.beginPath(); g.moveTo(150, 745); g.lineTo(330, 745); g.strokePath();
+
+    // lane guide arrow decal
+    g.lineStyle(2, 0x6ad4ff, 0.35);
+    g.beginPath(); g.moveTo(LANE_X, 690); g.lineTo(LANE_X, 640); g.strokePath();
+
+    // @section: bumpers + pop posts
+    for (const m of BUMPERS) {window.__orion_loop_check(29);
+      const tint = (m.tint === undefined) ? 0x3fd8ff : m.tint;
+      const glow = this.add.image(m.x, m.y, 'glow').setDisplaySize(m.r * 5.2, m.r * 5.2).setTint(tint).setAlpha(0.62).setDepth(3).setBlendMode(Phaser.BlendModes.ADD);
+      m.glow = glow;
+      m.img = this.add.image(m.x, m.y, 'bumper').setDisplaySize(m.r * 2, m.r * 2).setDepth(4);
+      if (m.post) m.img.setTint(tint);
+      this.tweens.add({ targets: glow, alpha: 0.95, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+
+    // @section: targets
+    this.targetG = this.add.graphics().setDepth(4);
+
+    // @section: trails + flippers + plunger + hint
+    this.trailG = this.add.graphics().setDepth(5);
+    this.flipG = this.add.graphics().setDepth(6);
+    this.plungeG = this.add.graphics().setDepth(5);
+    this.hint = this.add.text(LANE_X - 2, 650, 'HOLD', {
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+      fontSize: '16px', color: '#7dd3fc', fontStyle: 'bold', align: 'center', lineSpacing: 2,
+      stroke: '#04060f', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(9).setAlpha(0);
+    this.tweens.add({ targets: this.hint, alpha: 0.95, duration: 600, yoyo: true, repeat: -1 });
+
+    // @section: particles
+    this.sparksCyan = this.sparksGold = this.sparksPink = null;
+    const mkEmitter = (tint, lifespan, minSpd, maxSpd, startScale) => {
+      try {
+        return this.add.particles(0, 0, 'spark', {
+          lifespan: lifespan,
+          speed: { min: minSpd, max: maxSpd },
+          scale: { start: startScale, end: 0 },
+          alpha: { start: 1, end: 0 },
+          blendMode: 'ADD', emitting: false, tint: tint
+        }).setDepth(8);
+      } catch (err) { return null; }
+    };
+    this.sparksCyan = mkEmitter(0x66e0ff, 460, 60, 300, 0.9);
+    this.sparksGold = mkEmitter(0xffd166, 620, 70, 340, 1.1);
+    this.sparksPink = mkEmitter(0xff6ec7, 500, 50, 260, 0.85);
+
+    // @section: input on canvas
+    // Tapping the table itself works too: left half = left flipper, right half =
+    // right flipper, and the plunge lane during a launch. Every touch is tracked
+    // by pointer id and released by BOTH Phaser's events and a window-level
+    // safety net, because Phaser can miss the "up" when the finger leaves the
+    // canvas (or the browser fires pointercancel) — that stranded flipper is the
+    // main reason the table felt unplayable on a phone.
+    this.input.addPointer(3);
+    const pointerSide = new Map();
+    const releasePointer = (id) => {
+      const side = pointerSide.get(id);
+      if (side !== undefined) { touchIn[side] = false; pointerSide.delete(id); }
+    };
+    const releaseAll = () => {
+      touchIn.left = false; touchIn.right = false; touchIn.plunge = false;
+      pointerSide.clear();
+      if (this._winUp) { window.removeEventListener('pointerup', this._winUp, true); window.removeEventListener('pointercancel', this._winUp, true); }
+      if (this._winTouchEnd) window.removeEventListener('touchend', this._winTouchEnd, true);
+      window.removeEventListener('blur', releaseAll);
+    };
+
+    const pressPointer = (p) => {
+      Sfx.init();
+      if (S.phase === 'splash') { advanceFromSplash(); return; }
+      if (S.phase !== 'playing') return;
+      if (pointerSide.has(p.id)) return;
+      const ballInLane = balls.some(b => b.inLane);
+      const side = (ballInLane && p.x > 392) ? 'plunge' : (p.x < VW / 2 ? 'left' : 'right');
+      pointerSide.set(p.id, side);
+      touchIn[side] = true;
+      if (side !== 'plunge') Sfx.flipper();
+    };
+
+    this.input.on('pointerdown', pressPointer);
+    this.input.on('pointerup', (p) => releasePointer(p.id));
+    this.input.on('pointerupoutside', (p) => releasePointer(p.id));
+
+    // window-level backstop: matches by pointerId (== Phaser's pointer id)
+    this._winUp = (e) => releasePointer(e.pointerId === undefined ? -1 : e.pointerId);
+    window.addEventListener('pointerup', this._winUp, true);
+    window.addEventListener('pointercancel', this._winUp, true);
+    // when the very last finger lifts, clear everything on the table
+    this._winTouchEnd = (e) => {
+      if (e.touches && e.touches.length === 0) pointerSide.forEach((side, id) => releasePointer(id));
+    };
+    window.addEventListener('touchend', this._winTouchEnd, true);
+    window.addEventListener('blur', releaseAll);
+    this.events.on('shutdown', releaseAll);
+
+    // @section: resize handling
+    // Phaser.Scale.FIT re-fits the canvas automatically; the guarded refresh only
+    // re-reads the parent size and can never re-enter itself.
+    this.scale.on('resize', () => { safeRefresh(); });
+
+    syncHUD();
+    serveBall();
+    setPhase('splash');
+  }
+
+  // @section: helpers
+  burst(x, y, color, n) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    let em = this.sparksCyan;
+    if (color === 0xffd166 || color === 0xffe066) em = this.sparksGold;
+    else if (color === 0xff6ec7 || color === 0xff7ad0) em = this.sparksPink;
+    if (!em || typeof em.emitParticleAt !== 'function') return;
+    em.emitParticleAt(x, y, n);
+  }
+
+  popBumper(m) {
+    if (!m.img) return;
+    this.tweens.killTweensOf(m.img);
+    m.img.setScale(1.18);
+    this.tweens.add({ targets: m.img, scale: 1, duration: 190, ease: 'Back.easeOut' });
+    if (m.glow) {
+      this.tweens.killTweensOf(m.glow);
+      m.glow.setAlpha(0.95);
+      this.tweens.add({ targets: m.glow, alpha: 0.45, duration: 240 });
+    }
+  }
+
+  flash(text, color, dur) {
+    const t = this.add.text(VW / 2, 470, text, {
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+      fontSize: '34px', color: color || '#ffffff', fontStyle: 'bold',
+      stroke: '#04060f', strokeThickness: 7
+    }).setOrigin(0.5).setDepth(11).setAlpha(0).setScale(0.7);
+    this.tweens.add({ targets: t, alpha: 1, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, alpha: 0, y: 430, duration: 500, delay: dur || 720, onComplete: () => t.destroy() });
+  }
+
+  // @section: main loop
+  update(time, delta) {
+    const dtRaw = Math.min(delta, 40) / 1000;
+    T += dtRaw;
+
+    if (S.phase === 'playing') {
+      updatePlunger(dtRaw);
+      const sub = dtRaw / SUBSTEPS;
+      for (let i = 0; i < SUBSTEPS; i++) {window.__orion_loop_check(30);stepPhysics(sub);}
+      processEvents();
+      captureLaneBalls();
+      drainBalls();
+      nudgeStuck(dtRaw);
+      if (S.ballSave > 0) {
+        S.ballSave -= dtRaw;
+        if (S.ballSave <= 0) { S.ballSave = 0; }
+      }
+    } else {
+      // @section: splash attract timer
+      if (S.phase === 'splash') {
+        splashT += dtRaw;
+        if (splashT > 7) advanceFromSplash();
+      }
+      // idle flippers ease back to rest
+      for (const f of FLIPPERS) {window.__orion_loop_check(31);
+        const diff = f.restAngle - f.angle;
+        f.angle += diff * Math.min(1, dtRaw * 12);
+        f.omega = 0;
+      }
+      updateMultiplier();
+    }
+
+    this.render(dtRaw);
+    syncHUD();
+  }
+
+  // @section: render
+  render(dt) {
+    // trails
+    this.trailG.clear();
+    for (const b of balls) {window.__orion_loop_check(32);
+      if (!b.spr) continue;
+      // a ball seated on the plunger rides back with the retracting rod
+      const seated = (b.inLane && S.phase === 'playing') ? plunger.retract * 12 : 0;
+      b.spr.setPosition(b.x, b.y + seated);
+      b.trail.push(b.x, b.y);
+      if (b.trail.length > 22) b.trail.splice(0, 2);
+      const n = b.trail.length / 2;
+      for (let i = 0; i < n; i++) {window.__orion_loop_check(33);
+        const a = (i + 1) / n;
+        this.trailG.fillStyle(0xbdefff, a * a * 0.55);
+        this.trailG.fillCircle(b.trail[i * 2], b.trail[i * 2 + 1], 4 + a * 6);
+      }
+    }
+
+    // target discs
+    const tg = this.targetG;
+    tg.clear();
+    const pulse = 0.55 + 0.45 * Math.sin(T * 5);
+    for (const t of TARGETS) {window.__orion_loop_check(34);
+      if (t.lit) {
+        tg.fillStyle(0xffd166, 0.30 * pulse);
+        tg.fillCircle(t.x, t.y, t.r * 3.8);
+        tg.fillStyle(0xfff0bd, 1);
+        tg.fillCircle(t.x, t.y, t.r);
+        tg.lineStyle(3.2, 0xffffff, 1);
+        tg.strokeCircle(t.x, t.y, t.r + 3.5);
+      } else {
+        tg.fillStyle(0x6478c8, 0.35 * pulse);
+        tg.fillCircle(t.x, t.y, t.r * 2.7);
+        tg.fillStyle(0x2b4270, 1);
+        tg.fillCircle(t.x, t.y, t.r);
+        tg.lineStyle(2.8, 0x9dc0ff, 1);
+        tg.strokeCircle(t.x, t.y, t.r);
+        tg.fillStyle(0x88aaff, 1);
+        tg.fillCircle(t.x, t.y, t.r * 0.46);
+      }
+    }
+
+    // flippers as capsules, drawn in world space (no canvas transform commands)
+    const fg = this.flipG;
+    fg.clear();
+    for (const f of FLIPPERS) {window.__orion_loop_check(35);
+      const px = f.pivot.x, py = f.pivot.y;
+      const tipX = px + Math.cos(f.angle) * f.len;
+      const tipY = py + Math.sin(f.angle) * f.len;
+      fg.lineStyle(f.rad * 2 + 18, f.active ? 0xff4f8b : 0xd12a63, 0.22);
+      fg.lineBetween(px, py, tipX, tipY);
+      fg.lineStyle(f.rad * 2 + 9, 0x0a1020, 0.85);
+      fg.lineBetween(px, py, tipX, tipY);
+      fg.lineStyle(f.rad * 2, f.active ? 0xff7fb0 : 0xff3d7f, 1);
+      fg.lineBetween(px, py, tipX, tipY);
+      fg.lineStyle(f.rad * 0.95, 0xfff2f7, 1);
+      fg.lineBetween(px, py, tipX, tipY);
+      fg.fillStyle(0x3b4a70, 1);
+      fg.fillCircle(px, py, 8);
+      fg.lineStyle(2.5, 0xffb6d0, 1);
+      fg.strokeCircle(px, py, 8);
+    }
+
+    // plunger: rod retracts on hold, spring coil compresses, gauge shows wound power
+    const pg = this.plungeG;
+    pg.clear();
+    const live = S.phase === 'playing';
+    const charge01 = live ? plunger.charge : 0;
+    const pull = (live ? plunger.retract : 0) * 12;
+
+    // base plate + knob at the bottom of the rod
+    pg.fillStyle(0x1b2438, 1);
+    pg.fillRoundedRect(418, 786, 30, 7, 3);
+    pg.fillStyle(0x141c30, 1);
+    pg.fillCircle(433, 793, 5);
+
+    // spring coil (shorter the harder the spring is pulled back)
+    const coilTop = 750 + pull;
+    const coilBot = 786;
+    const steps = 8;
+    pg.lineStyle(2.6, 0x9fc4ff, 0.9);
+    pg.beginPath();
+    for (let i = 0; i <= steps; i++) {window.__orion_loop_check(36);
+      const tt = i / steps;
+      const yy = coilTop + (coilBot - coilTop) * tt;
+      const xx = 433 + (i % 2 === 0 ? -7 : 7);
+      if (i === 0) pg.moveTo(433, yy); else pg.lineTo(xx, yy);
+    }
+    pg.strokePath();
+
+    // rod head (pushed back into the lane as the spring is pulled)
+    pg.fillStyle(0x2b3a5c, 1);
+    pg.fillRoundedRect(416, 740 + pull, 34, 9, 4);
+    pg.fillStyle(0x6ad4ff, 0.85);
+    pg.fillRoundedRect(420, 742 + pull, 26, 4, 2);
+    if (pull > 0.4) {
+      pg.fillStyle(0x7df0ff, 0.55 * (pull / 12));
+      pg.fillRoundedRect(412, 738 + pull, 42, 13, 5);
+    }
+
+    // wound-power gauge beside the lane
+    const gx = 458, gy = 702, gw = 12, gh = 70;
+    pg.fillStyle(0x0b1428, 0.85);
+    pg.fillRoundedRect(gx, gy, gw, gh, 4);
+    const fill = charge01 * (gh - 6);
+    if (fill > 5) {
+      pg.fillStyle(charge01 > 0.85 ? 0xff6ec7 : 0x6ad4ff, 1);
+      pg.fillRoundedRect(gx + 3, gy + gh - 3 - fill, gw - 6, fill, 3);
+    }
+    pg.lineStyle(1.5, 0x4a6ea8, 0.55);
+    pg.strokeRoundedRect(gx, gy, gw, gh, 4);
+
+    // launch hint: prompts the pull, then shouts to release once the spring is wound
+    const ballInLane = balls.some(b => b.inLane);
+    this.hint.setText(charge01 > 0.02 ? 'RELEASE' : 'HOLD');
+    this.hint.setColor(charge01 > 0.85 ? '#ff9ede' : '#7dd3fc');
+    this.hint.setAlpha(ballInLane && live ? (0.45 + 0.5 * Math.abs(Math.sin(T * 3))) : 0);
+  }
+}
+
+// @section: boot
+let refreshing = false;
+function safeRefresh() {
+  if (refreshing || !sceneRef || !sceneRef.scale) return;
+  refreshing = true;
+  try { sceneRef.scale.refresh(); } catch (err) { /* ignore transient scale issues */ }
+  refreshing = false;
+}
+
+// @section: touch device detection
+// Prefer the media query, but fall back to feature sniffing so the on-screen
+// pads always appear on phones/tablets — and re-check on the first real touch,
+// in case the device lied at boot time.
+function markTouchDevice() { document.documentElement.classList.add('is-touch'); }
+const coarsePointer = !!(window.matchMedia && (
+  window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(any-pointer: coarse)').matches));
+if (coarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0) markTouchDevice();
+window.addEventListener('touchstart', markTouchDevice, { passive: true, once: true });
+elMute.textContent = Sfx.muted ? '🔇' : '🔊';
+
+const game = new Phaser.Game({
+  type: Phaser.AUTO,
+  parent: 'game',
+  backgroundColor: '#0a1024',
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: VW, height: VH },
+  scene: [TableScene],
+  antialias: true,
+  roundPixels: false
+});
+
+window.addEventListener('resize', () => { safeRefresh(); });
+window.addEventListener('orientationchange', () => { setTimeout(safeRefresh, 250); });
+
+// @section: first interaction unlocks audio
+const unlockAudio = () => { Sfx.init(); window.removeEventListener('pointerdown', unlockAudio); window.removeEventListener('keydown', unlockAudio); };
+window.addEventListener('pointerdown', unlockAudio);
+window.addEventListener('keydown', unlockAudio);
+
+syncHUD();
+</script>
+</body>
+</html>
