@@ -33,7 +33,8 @@
 </p>
 
 ---
-https://github.com/user-attachments/assets/a7fd170c-e56c-4483-9305-3ed71db341dd
+
+https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
 
 
 **AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds. 
