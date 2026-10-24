@@ -871,7 +871,10 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
   if (!upstream.ok) {
     const errBody = await upstream.json().catch(() => null);
     const msg = errBody?.error?.message || errBody?.error || `AppBlips Credits error (HTTP ${upstream.status}).`;
-    return json({ error: msg }, upstream.status);
+    // The credits server's 429 means no credits left (or DeepSeek's own
+    // limit); marked as the provider's, the renderer shows that reason
+    // instead of "you're sending requests too quickly".
+    return json({ error: msg, ...(upstream.status === 429 ? { source: 'provider' } : {}) }, upstream.status);
   }
 
   return new Response(upstream.body, {

@@ -334,6 +334,17 @@ test('a relay 401 clears the saved token and reports it as expired', async () =>
   assert.equal(tokens.describe().hasKey, false);
 });
 
+test('a relay 429 keeps the credits server reason and is marked as the provider\'s', async () => {
+  const tokens = memoryTokens('alice@example.com', 'ab_cred_relay');
+  const reason = 'You have 0 AppBlips AI Credits remaining (100 of 100 used). Top up your credits in Settings → API to keep building.';
+  const mockFetch = async () => jsonResponse({ error: { message: reason } }, 429);
+
+  const res = await handleCreditsChat({ messages: [{ role: 'user', content: 'hi' }], stream: true }, {}, tokens, { fetch: mockFetch });
+
+  assert.equal(res.status, 429);
+  assert.deepEqual(await res.json(), { error: reason, source: 'provider' });
+});
+
 test('connecting an email with no credits in direct mode returns notFound', async () => {
   const mockFetch = async (url) => {
     const u = String(url);
