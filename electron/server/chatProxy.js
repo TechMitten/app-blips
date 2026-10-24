@@ -18,6 +18,7 @@
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
+import { handleCreditsChat, hasSavedCredits } from './creditsApi.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -155,7 +156,7 @@ const routeModel = (env, provider, payload) => {
   return provider.model;
 };
 
-export async function handleChatProxy(request, env) {
+export async function handleChatProxy(request, env, creditsStore = null) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -180,6 +181,10 @@ export async function handleChatProxy(request, env) {
   const maxTokens = payload?.max_tokens;
   if (maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
+  }
+
+  if (payload?.user_provider == null && hasSavedCredits(creditsStore)) {
+    return handleCreditsChat(payload, env, creditsStore);
   }
 
   const picked = pickProvider(env, payload);

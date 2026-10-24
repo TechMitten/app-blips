@@ -25,6 +25,7 @@ import { createProviderStore } from './providerStore.js';
 import { createSurgeStore } from './surgeStore.js';
 import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
+import { handleCreditsApi, hasSavedCredits } from './server/creditsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
@@ -51,6 +52,7 @@ let projectStore;
 let providerStore;
 let surgeStore;
 let pollinationsStore;
+let creditsStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
@@ -189,7 +191,11 @@ async function handleAppRequest(request) {
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env, creditsStore));
+      case '/api/credits':
+      case '/api/credits/connect':
+      case '/api/credits/checkout':
+        return withSecurityHeaders(await handleCreditsApi(request, process.env, creditsStore));
       case '/api/surge':
       case '/api/surge/login':
       case '/api/surge/publish':
@@ -231,8 +237,8 @@ function handle(channel, fn) {
 }
 
 // Whether any provider is usable without Settings → AI (env vars set by a
-// power user launching from a terminal).
-const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error;
+// power user launching from a terminal, or connected AppBlips AI Credits).
+const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error || hasSavedCredits(creditsStore);
 
 function registerIpc() {
   handle('desktop:browser:input', (args) => executeBrowserInput(mainWindow, args));
@@ -472,6 +478,11 @@ app.whenReady().then(() => {
     file: join(app.getPath('userData'), 'pollinations.json'),
     crypto: safeStorage,
     label: 'Pollinations',
+  });
+  creditsStore = createSurgeStore({
+    file: join(app.getPath('userData'), 'credits.json'),
+    crypto: safeStorage,
+    label: 'AppBlips Credits',
   });
 
   updater = createUpdater({

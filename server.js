@@ -24,6 +24,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
+import { handleCreditsApi } from './electron/server/creditsApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
@@ -44,6 +45,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const keys = createKeyFile({ file: defaultKeyFile() });
 const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-token.json') });
 const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pollinations-key.json') });
+const creditsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'credits-key.json') });
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -116,7 +118,15 @@ const server = createServer((req, res) => {
     }
     toChatRequest(req)
       .then((request) => withSavedProvider(request, keys))
-      .then((request) => handleChatProxy(request, process.env))
+      .then((request) => handleChatProxy(request, process.env, creditsKeys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/credits' || req.url.startsWith('/api/credits/')) {
+    toFetchRequest(req)
+      .then((request) => handleCreditsApi(request, process.env, creditsKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

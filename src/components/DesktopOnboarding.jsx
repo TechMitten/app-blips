@@ -5,6 +5,7 @@ import {
   FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
+import { creditsConnect, creditsCheckout, FREE_TRIAL_PACK } from '../lib/credits';
 import { logError, logWarn } from '../lib/errorLog';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -166,9 +167,43 @@ function NeedKeyModal({ providerLabel, onClose }) {
   );
 }
 
-function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
+function SetupForm({ formRef, onSubmit, onCreditsConnected, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
   const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
   const [needKey, setNeedKey] = useState(false);
+  const [creditsEmail, setCreditsEmail] = useState('');
+  const [creditsBusy, setCreditsBusy] = useState(false);
+  const [trialBusy, setTrialBusy] = useState(false);
+  const [creditsError, setCreditsError] = useState('');
+
+  const handleConnectCredits = async () => {
+    const trimmed = creditsEmail.trim();
+    if (!trimmed) {
+      setCreditsError('Enter the email address you used at checkout.');
+      return;
+    }
+    setCreditsBusy(true);
+    setCreditsError('');
+    const res = await creditsConnect(trimmed);
+    setCreditsBusy(false);
+    if (res.error) {
+      setCreditsError(res.error);
+      return;
+    }
+    onCreditsConnected?.();
+  };
+
+  const handleStartFreeTrial = async () => {
+    setTrialBusy(true);
+    setCreditsError('');
+    const res = await creditsCheckout(FREE_TRIAL_PACK.id, creditsEmail.trim());
+    setTrialBusy(false);
+    if (res.error || !res.checkoutUrl) {
+      setCreditsError(res.error || 'Could not open the free trial checkout.');
+      return;
+    }
+    try { window.open(res.checkoutUrl, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
+  };
+
   // Local servers (LM Studio, Ollama) list models without a key.
   const canOpenModels = () => {
     if (provider.local || apiKey.trim()) return true;
@@ -183,6 +218,42 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <SetupField title="AppBlips AI Credits (No API key needed)" optional error={creditsError}>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={creditsEmail}
+            onChange={(event) => { setCreditsEmail(event.target.value); setCreditsError(''); }}
+            placeholder="Checkout email (if you bought AI Credits)"
+            aria-label="AppBlips AI Credits email"
+            className="onboarding-select flex-1"
+          />
+          <button
+            type="button"
+            onClick={handleConnectCredits}
+            disabled={creditsBusy || !creditsEmail.trim()}
+            className="onboarding-next"
+          >
+            {creditsBusy ? 'Connecting…' : 'Use Credits'}
+          </button>
+        </div>
+        <p className="onboarding-key-help">
+          New here?{' '}
+          <button
+            type="button"
+            onClick={handleStartFreeTrial}
+            disabled={trialBusy || creditsBusy}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+          >
+            {trialBusy ? 'Opening Free Trial…' : 'Start a 3-Day Free Trial (100 Credits)'}
+          </button>
+          {' '}or grab a credit pack at{' '}
+          <a href="https://appblips.com/#pricing" target="_blank" rel="noopener noreferrer">
+            appblips.com/#pricing <ArrowUpRight size={15} />
+          </a>
+        </p>
+      </SetupField>
+
       <SetupField title="Provider">
         <ProviderSelect value={provider.id} onChange={setProviderId} />
         {provider.local && (
@@ -506,6 +577,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <SetupForm
                 formRef={formRef}
                 onSubmit={save}
+                onCreditsConnected={skip}
                 provider={provider}
                 setProviderId={changeProvider}
                 {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}

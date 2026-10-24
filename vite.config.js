@@ -8,6 +8,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
 import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
+import { handleCreditsApi } from './electron/server/creditsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -65,15 +66,27 @@ function llmProxyDevMiddleware(mode) {
       // computer (or a host in APPBLIPS_ALLOWED_HOSTS), never by another device
       // or a DNS-rebinding page.
       const keys = createKeyFile({ file: defaultKeyFile(env) })
-      const noKeys = { keyFor: () => '' }
+      const creditsKeys = createKeyFile({ file: defaultKeyFile(env, 'credits-key.json') })
+      const noKeys = { keyFor: () => '', describe: () => ({ id: '', hasKey: false }) }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
           return
         }
-        const savedKeys = hostAllowed(req.headers.host || '', env) ? keys : noKeys
-        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env)
+        const allowed = hostAllowed(req.headers.host || '', env)
+        const savedKeys = allowed ? keys : noKeys
+        const savedCredits = allowed ? creditsKeys : noKeys
+        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env, savedCredits)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      server.middlewares.use('/api/credits', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('AppBlips Credits sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleCreditsApi(await toFetchRequest(req), env, creditsKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {

@@ -27,6 +27,7 @@ import { handleChatProxy } from '../../electron/server/chatProxy.js';
 import { handleProviderApi } from '../../electron/server/providerApi.js';
 import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
+import { handleCreditsApi } from '../../electron/server/creditsApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
 
@@ -98,15 +99,17 @@ async function nativeFetch(input, init = {}) {
 const ENV = {};
 
 export async function installAndroidApi() {
-  const [keys, surgeTokens, pollinationsKeys] = await Promise.all([
+  const [keys, surgeTokens, pollinationsKeys, creditsKeys] = await Promise.all([
     createSecureKeyStore('provider-key'),
     createSecureKeyStore('surge-token'),
     createSecureKeyStore('pollinations-key'),
+    createSecureKeyStore('credits-key'),
   ]);
 
   // The same routes, in the same order, as server.js.
   const routes = [
-    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV))],
+    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV, creditsKeys))],
+    ['/api/credits', (request) => handleCreditsApi(request, ENV, creditsKeys, { fetch: nativeFetch })],
     ['/api/provider', (request) => handleProviderApi(request, ENV, keys)],
     ['/api/surge', (request) => handleSurgeApi(request, ENV, surgeTokens, { fetch: nativeFetch })],
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],
