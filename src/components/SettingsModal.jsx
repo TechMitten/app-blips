@@ -25,9 +25,9 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
 // AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects),
-// API (your own AI provider), Account (AppBlips AI Credits), Data (project backup and
+// API (your own AI provider), Account & Usage (AppBlips AI Credits and usage), Data (project backup and
 // the desktop projects folder), Legal, Licenses (open source credits) and About (logo,
-// version, copyright). AppBlips is single-user, so Account is the AI Credits
+// version, copyright). AppBlips is single-user, so Account & Usage is the AI Credits
 // connection.
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
@@ -35,7 +35,7 @@ const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'te
 const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', high: 'High' };
 
 const TABS = [
-  { id: 'credits', label: 'Account', Icon: UserRound },
+  { id: 'credits', label: 'Account & Usage', Icon: UserRound },
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },

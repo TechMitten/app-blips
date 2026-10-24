@@ -69,7 +69,7 @@ AppBlips runs on your computer, powered by your own AI provider key. No account,
 **Improved**
 
 - **Setup:** first-run setup now asks whether you want to bring your own API key or use AppBlips AI Credits. The "Your turn" box is gone.
-- **Settings → Account:** the first tab of Settings holds your AI Credits, with support contact details and a **Cancel subscription** link.
+- **Settings → Account & Usage:** the first tab of Settings holds your AI Credits and a usage bar (the credits left also show at the top of the Build pane), with support contact details and a **Cancel subscription** link.
 - **Full size preview:** websites and imported sites now open in Full size too.
 - **Links to other websites:** links in Settings now ask you to confirm, and say why, before opening an outside website.
 
@@ -93,7 +93,7 @@ Older releases: see the [changelog](https://docs.appblips.com/changelog) or [Git
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
 - **My images** — upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images"; they're shipped with the site when you export or publish
-- **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, valid payment method required, then the Starter Plan at $10/month plus applicable taxes unless you cancel from **Settings → Account** before the trial expires) or subscribe to a monthly plan in **Settings → Account**; your plan's credits pay for every build until you switch to your own provider
+- **AppBlips AI Credits** — no API key? Start a 3-day trial (100 credits, valid payment method required, then the Starter Plan at $10/month plus applicable taxes unless you cancel from **Settings → Account & Usage** before the trial expires) or subscribe to a monthly plan in **Settings → Account & Usage**; your plan's credits pay for every build until you switch to your own provider
 - **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Mobile and desktop views** — check how your app or website looks on different screen sizes, with adjustable zoom
@@ -219,7 +219,7 @@ The **My images** key in the prompt box opens a per-project gallery (`src/compon
 
 ### AppBlips AI Credits
 
-An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → Account** (or on the setup screens, after choosing **Purchase AppBlips AI Plan**) the user starts the **3-day free trial** (100 credits; a valid payment method is required, and it converts to the Starter Plan at $10/month plus applicable taxes for 1,000 credits a month unless cancelled before the trial expires; **Cancel subscription** links to the Polar customer portal), or subscribes to a monthly plan — **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) credits a month — through [Polar](https://polar.sh), then connects with the email used at checkout plus the one-time sign-in code Polar emails to it (`/api/credits/connect` sends the code, `/api/credits/verify` trades it for the saved token). Credits reset each month and unused credits don't roll over.
+An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → Account & Usage** (or on the setup screens, after choosing **Purchase AppBlips AI Plan**) the user starts the **3-day free trial** (100 credits; a valid payment method is required, and it converts to the Starter Plan at $10/month plus applicable taxes for 1,000 credits a month unless cancelled before the trial expires; **Cancel subscription** links to the Polar customer portal), or subscribes to a monthly plan — **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) credits a month — through [Polar](https://polar.sh), then connects with the email used at checkout plus the one-time sign-in code Polar emails to it (`/api/credits/connect` sends the code, `/api/credits/verify` trades it for the saved token). Credits reset each month and unused credits don't roll over.
 
 - **Use:** while credits are connected they pay for every build, edit, review and Ask reply, using DeepSeek. A provider the user saves under Settings → API takes over and pauses credits (**Use AppBlips Credits instead** switches back); **Disconnect** forgets the credit token. One credit is about 4,000 weighted tokens (output counts triple), at least one per request.
 - **Where it runs:** the same handler in the desktop app, `npm start`/Docker, `npm run dev` and Android. The packaged app relays to `appblips.com`, which holds the Polar and DeepSeek keys; with `POLAR_TOKEN` and `DEEPSEEK_API_KEY` set in `.env` the server talks to them directly. Direct mode needs `orders:read` on the Polar token so each month's order replaces the last month's credits.

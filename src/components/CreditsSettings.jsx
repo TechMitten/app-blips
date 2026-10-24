@@ -9,13 +9,39 @@ import { ipcErrorMessage, providerApi } from '../lib/desktop';
 import { creditsStatus, creditsConnect, creditsVerify, creditsCheckout, creditsSignOut, CREDIT_PACKS, FREE_TRIAL_PACK } from '../lib/credits';
 import { logError } from '../lib/errorLog';
 
-// Settings → Account: AppBlips AI Credits (src/lib/credits.js). A provider
+// Settings → Account & Usage: AppBlips AI Credits (src/lib/credits.js). A provider
 // saved under Settings → API takes over from credits, so this tab reads the
 // saved provider too, to say credits are paused and offer to switch back.
 
 // Polar's own customer portal: usage stats and subscription cancelling live
 // there, so we link out instead of cancelling from the app.
 const POLAR_PORTAL_URL = 'https://polar.sh/techmitten-llc/portal';
+
+// Share of this period's credits already used. Turns amber, then red, as the
+// plan runs low so the user sees it coming before builds start failing.
+function CreditUsageBar({ used, total }) {
+  const percent = Math.min(100, Math.max(0, Math.round((used / total) * 100)));
+  const fill = percent >= 90 ? 'bg-red-500' : percent >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+        <span>Credit usage</span>
+        <span>{percent}% used</span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Credit usage"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={Math.min(used, total)}
+        aria-valuetext={`${used.toLocaleString()} of ${total.toLocaleString()} credits used`}
+        className="h-2 w-full overflow-hidden rounded-full bg-slate-200"
+      >
+        <div className={`h-full rounded-full transition-[width] duration-500 ${fill}`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function AppBlipsCreditsRow({ byokActive, onClearByok }) {
   const [info, setInfo] = useState(null); // { signedIn, email, remaining, totalGranted, totalUsed }
@@ -144,6 +170,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
               </span>
             )}
           </div>
+          {typeof info.totalGranted === 'number' && info.totalGranted > 0 && (
+            <CreditUsageBar used={info.totalUsed || 0} total={info.totalGranted} />
+          )}
           {typeof info.totalGranted === 'number' && (
             <p className="text-xs text-slate-500">
               Used {(info.totalUsed || 0).toLocaleString()} of {info.totalGranted.toLocaleString()} total credits.

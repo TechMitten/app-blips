@@ -727,7 +727,7 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
 export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
   const { email, token } = savedToken(tokens);
   if (!token) {
-    return json({ error: 'Connect your AppBlips AI Credits in Settings → Account first.' }, 401);
+    return json({ error: 'Connect your AppBlips AI Credits in Settings → Account & Usage first.' }, 401);
   }
 
   const polarToken = String(env?.POLAR_TOKEN || '').trim();
@@ -773,7 +773,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
         ? 'Your 3-day free trial has expired. '
         : '';
       return json({
-        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Choose a plan in Settings → Account to keep building.`,
+        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Choose a plan in Settings → Account & Usage to keep building.`,
         source: 'provider',
       }, 429);
     }

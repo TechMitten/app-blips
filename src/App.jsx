@@ -75,6 +75,7 @@ import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
+import useCreditBalance from './hooks/useCreditBalance';
 import ImageGalleryModal from './components/ImageGalleryModal';
 import { galleryExportFiles, inlineGalleryImages, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
@@ -236,6 +237,8 @@ export default function App({ coldStart = false }) {
   // attachmentForRequest capture in handleGenerate.
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Shown in the Build header for AI Credits users; null otherwise.
+  const creditsRemaining = useCreditBalance(isGenerating || isSettingsOpen);
   // Every version stores `files` (page filename -> HTML); `index.html` is the
   // landing page. `generatedCode` is the landing page's HTML, which the
   // generation and export paths still treat as "the app"; `activeCode` is
@@ -2798,6 +2801,8 @@ export default function App({ coldStart = false }) {
               galleryCount={galleryImages.length}
               onOpenGallery={openGallery}
               onNewChat={handleStartNewChat}
+              creditsRemaining={creditsRemaining}
+              onOpenCredits={() => { setSettingsInitialTab('credits'); setIsSettingsOpen(true); }}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}
               chatBottomRef={chatBottomRef}
