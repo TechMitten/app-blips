@@ -19,7 +19,8 @@
               "introduction",
               "quickstart-desktop",
               "quickstart-source",
-              "self-hosting/docker"
+              "self-hosting/docker",
+              "reference/plans-billing"
             ]
           },
           {
@@ -46,7 +47,6 @@
             "group": "Reference",
             "pages": [
               "reference/settings",
-              "reference/plans-billing",
               "reference/faq",
               "reference/troubleshooting",
               "reference/code-signing-policy"
