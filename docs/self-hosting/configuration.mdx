@@ -50,6 +50,26 @@ These give the server its own provider. It's used whenever **Settings → API** 
   A key in `.env` can be used by anyone who can open AppBlips. Keep AppBlips on your own computer (the default), and set a spend limit with your provider.
 </Warning>
 
+## AppBlips AI Credits (optional)
+
+Most people never set these. They let a server you run bill AppBlips AI Credits directly instead of going through AppBlips' servers.
+
+<ParamField body="POLAR_TOKEN" type="string">
+  A [Polar](https://polar.sh) access token that can read benefits and meters and write events (and checkouts, to start a purchase from the app). With `DEEPSEEK_API_KEY` also set, AppBlips checks balances and records usage in Polar itself.
+</ParamField>
+
+<ParamField body="DEEPSEEK_API_KEY" type="string">
+  The DeepSeek key used to answer requests paid for with credits.
+</ParamField>
+
+<ParamField body="POLAR_CHECKOUT_URL_STARTER" type="string">
+  Optional. A ready-made Polar checkout link for a pack, instead of creating one. `POLAR_CHECKOUT_URL_BUILDER` and `POLAR_CHECKOUT_URL_STUDIO` work the same way.
+</ParamField>
+
+<ParamField body="APPBLIPS_CREDITS_ORIGIN" type="string">
+  Where to relay credit requests when `POLAR_TOKEN` isn't set. Blank means `https://appblips.com`.
+</ParamField>
+
 ## Server
 
 <ParamField body="PORT" type="number" default="3000">

@@ -83,6 +83,8 @@ Older releases: see the [changelog](https://docs.appblips.com/changelog) or [Git
 - **Instant live preview** — see exactly what you built, right next to the prompt, with no extra step
 - **Ask for changes in plain English** — request a tweak and AppBlips edits the app, game, or website for you, no code required
 - **Attach images** — drop in a screenshot or reference picture and have AppBlips build from it
+- **My images** — upload your own photos and logos to a project's gallery, then ask the AI to "put team-photo in the hero" or "use all my images"; they're shipped with the site when you export or publish
+- **AppBlips AI Credits** — no API key? Start a free 3-day trial (100 credits) or buy a pay-as-you-go pack in **Settings → API**; a credit pack is used for every build until you switch to your own provider
 - **Speak your prompt** — click the microphone and describe your idea; speech is turned into text on your own computer with Whisper, nothing is uploaded
 - **Undo/redo** — every generation and edit is saved as a version you can always go back to
 - **Token usage** — a live counter shows the tokens a build is using as it runs, and each AI reply keeps its total, as reported by your AI provider
@@ -192,11 +194,29 @@ Voice input turns speech into text entirely on the user's computer. Nothing is u
 **Publish** (the globe button in the preview toolbar) puts an app, website or game online with [Surge](https://surge.sh), free static hosting with HTTPS on every `<name>.surge.sh` address. Imported codebases can't be published yet.
 
 - **Accounts:** each person uses their own free Surge account. The Publish window offers **I have an account** or **Create an account** (password typed twice). Surge creates an account for any email it hasn't seen, so there's no separate sign-up step.
-- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), plus copies of any Pollinations images they use under `images/` (`src/lib/siteImages.js`) and the optional **Site icon** as `favicon.png` (resized to a small PNG in the browser and linked from every page's `<head>`, `src/lib/favicon.js`), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
+- **What's uploaded:** the same pages **Export** downloads (JSX compiled, loop protection added, no preview bridge), plus copies of any Pollinations images and My images uploads they use under `images/` (`src/lib/siteImages.js`, `src/lib/galleryImages.js`) and the optional **Site icon** as `favicon.png` (resized to a small PNG in the browser and linked from every page's `<head>`, `src/lib/favicon.js`), packed as a gzipped tar and sent to Surge's API. AppBlips remembers the last address per project, so publishing that project again offers **Update site** (same address) or **Unpublish** (takes it offline).
 - **Where it runs:** the upload happens in AppBlips' own server code (`electron/server/surgeApi.js`), not in the page, because Surge's API doesn't accept requests from web pages. It's the same handler in the desktop app, `npm start`/Docker and `npm run dev`.
 - **Sign-in storage:** the password goes to Surge once and is never saved. The token Surge returns is kept like the AI key: encrypted with the system keychain on desktop (`electron/surgeStore.js`), or in `surge-token.json` next to `provider-key.json` (mode 0600) in the browser version. The page only ever sees the account email. Sign in or out from the Publish window or the **Surge** card in **Settings → Connectors** (the same window with nothing to publish); **Factory Reset** also signs out.
 - **Limits:** only `*.surge.sh` addresses for now (no custom domains). Surge rate-limits publishing, and its [terms](https://surge.sh/terms) apply to what you publish. For an older address AppBlips no longer remembers, run `npx surge teardown <name>.surge.sh`.
 - **Test:** `node testing/testSurgeApi.js` (no network; Surge is stubbed).
+
+### My images (project gallery)
+
+The **My images** key in the prompt box opens a per-project gallery (`src/components/ImageGalleryModal.jsx`, `src/hooks/useImageGallery.js`, `src/lib/galleryImages.js`).
+
+- **Storage:** the bytes go in the project's content-addressed blob store (`src/lib/blobStore.js`: `blobs/` in the desktop project folder, IndexedDB elsewhere); the project row keeps only `data.images` (`[{ hash, name, type, width, height, size, note }]`), not versioned. Uploads made before the first save wait in memory. Desktop blob cleanup keeps listed images (`referencedBlobs` in `electron/projectStore.js`). JSON backups carry the list but not the bytes.
+- **AI:** the system prompt lists each image's path, size and the user's note (`buildImageGalleryNote` in `src/lib/prompts.js`); the AI never sees the pixels.
+- **Paths:** pages refer to an image as `images/<name>`, its published path. The preview swaps that for an `appblips://assets` URL (desktop) or a `data:` URL at render time (`injectPreviewBridge`'s `gallery` option), never in stored `files`. Export and Publish add the referenced images at `images/<name>` (inlined as `data:` URLs in a single-file export, `public/images/` in a React project).
+- **Test:** `node testing/testGalleryImages.js`.
+
+### AppBlips AI Credits
+
+An optional way to build without your own AI key (`electron/server/creditsApi.js`, `src/lib/credits.js`). In **Settings → API** (or on the desktop setup screen) the user starts the **3-day free trial** (100 credits), or buys a **Starter** (1,000), **Builder** (2,750) or **Studio** (6,000) pack through [Polar](https://polar.sh), then clicks **Connect Credits** with the email used at checkout. Paid credits never expire.
+
+- **Use:** while credits are connected they pay for every build, edit, review and Ask reply, using DeepSeek. A provider the user saves under Settings → API takes over and pauses credits (**Use AppBlips Credits instead** switches back); **Disconnect** forgets the credit token. One credit is about 4,000 weighted tokens (output counts triple), at least one per request.
+- **Where it runs:** the same handler in the desktop app, `npm start`/Docker, `npm run dev` and Android. The packaged app relays to `appblips.com`, which holds the Polar and DeepSeek keys; with `POLAR_TOKEN` and `DEEPSEEK_API_KEY` set in `.env` the server talks to them directly.
+- **Credit token:** stored like the AI key: encrypted with the system keychain on desktop (`credits.json`), or in `credits-key.json` (mode 0600) next to `provider-key.json` in the browser version. The page only sees the email and balance.
+- **Test:** `node testing/testCreditsApi.js` (no network).
 
 ### Pollinations connector
 
@@ -214,6 +234,7 @@ For a full architectural deep-dive (generation flow, preview sandboxing, LLM pro
 - Generated apps are never rendered directly — they're injected into a sandboxed iframe (`sandbox` without `allow-same-origin`) with an opaque origin, so the app can't reach the parent page and vice versa.
 - The desktop app opens no network port, so other devices can't reach it or spend your AI key. Your key is encrypted with the system keychain.
 - The browser version (`npm start`, Docker) has no sign-in either. It listens on `127.0.0.1` only and answers only when opened as `localhost`, so other devices and other websites can't use it. Keep it that way, or put your own access control in front of it. A key entered in the app is saved by the server in a file only you can read (`~/.appblips`, or the `appblips-data` volume in Docker), never in your browser.
+- **AppBlips AI Credits** are optional. When connected, your prompts and code are sent through AppBlips' servers to DeepSeek instead of straight to your own provider. Nothing is sent that way unless you connect credits, and a provider you set yourself always takes priority.
 - **Publish** sends your project's pages to Surge only when you click it. Your Surge password isn't saved, and the token Surge returns stays outside the page, like the AI key.
 - Windows builds aren't code-signed yet, which is why Smart App Control can block the installer. See the [code signing policy](https://docs.appblips.com/reference/code-signing-policy) for how releases are built and how to check a download.
 
