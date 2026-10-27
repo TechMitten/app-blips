@@ -1031,7 +1031,12 @@ export default function App({ coldStart = false }) {
       replyInlineEditResult(false, payload?.editId);
       return;
     }
-    const result = applyElementChangesToSource(payload, { text: payload.newText, style: payload.styles });
+    const result = applyElementChangesToSource(payload, {
+      text: payload.newText,
+      style: payload.styles,
+      // Set when part of the text was formatted on its own.
+      ...(typeof payload.innerHtml === 'string' ? { innerHtml: payload.innerHtml } : {}),
+    });
     if (result.ok) {
       // (applyElementChangesToSource queued the payload's scroll offset.)
       replyInlineEditResult(true, payload.editId);

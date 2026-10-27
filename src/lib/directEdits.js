@@ -112,7 +112,10 @@ const decodeEntities = (str) => str.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (ma
 // Comparable form of an element's visible text: what the bridge's innerText
 // reports (entities decoded, whitespace collapsed). Case-insensitive because
 // innerText applies CSS text-transform (uppercase eyebrows etc.).
-const comparableText = (html) => decodeEntities(html.replace(/<[^>]*>/g, ' '))
+// Inline tags add no space (`<span>dark</span>, played` reads "dark, played"),
+// while <br> and block-level tags break the line like innerText does.
+const SPACING_TAG_RE = /^<\/?(?:br|p|div|li|ul|ol|h[1-6]|section|article|header|footer|nav|main|aside|blockquote|tr|td|th|table|hr|pre|figure|figcaption)\b/i;
+const comparableText = (html) => decodeEntities(html.replace(/<[^>]*>/g, (tag) => (SPACING_TAG_RE.test(tag) ? ' ' : '')))
   .replace(/[\s\u00a0]+/g, ' ')
   .trim()
   .toLowerCase();
@@ -463,11 +466,46 @@ const summarizeStyles = (styles) => {
   return labels.length ? `styled text (${Array.from(new Set(labels)).join(', ')})` : null;
 };
 
-const applyTextChange = (code, element, nextTextRaw, styleChanges = null) => {
+// Replace the element's whole inner markup. Used when part of the text was
+// formatted on its own (a selection wrapped in a styled <span>), which a
+// plain text swap cannot express. The element is located by its source
+// position, else by its original visible text.
+const applyInnerHtmlChange = (code, element, prevText, innerHtml, styles) => {
+  if (typeof innerHtml !== 'string' || innerHtml.length > 200_000 || /<\/?script\b/i.test(innerHtml)) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const masked = maskNonMarkup(code);
+  const tag = String(element.tag || '').toLowerCase();
+  let candidate = null;
+  const range = locateBySourceId(code, masked, tag, element);
+  if (range && range.end !== range.openEnd
+    && comparableText(masked.slice(range.openEnd, range.closeStart)) === comparableText(prevText)) {
+    candidate = { open: range.open, innerStart: range.openEnd, innerEnd: range.closeStart };
+  } else {
+    candidate = pickTextCandidate(findElementsByText(code, tag, prevText, masked), element);
+  }
+  if (!candidate) return { ok: false, reason: 'text-not-found' };
+  const nextOpen = styles ? mergeStylesIntoOpenTag(candidate.open, styles) : candidate.open;
+  if (!nextOpen) return { ok: false, reason: 'text-not-found' };
+  const openStart = candidate.innerStart - candidate.open.length;
+  return {
+    ok: true,
+    code: code.slice(0, openStart) + nextOpen + innerHtml + code.slice(candidate.innerEnd),
+  };
+};
+
+const applyTextChange = (code, element, nextTextRaw, styleChanges = null, innerHtml = null) => {
   const prevText = (element.text || '').trim();
   const nextText = nextTextRaw === undefined ? prevText : String(nextTextRaw ?? '').trim();
   const styles = styleChanges && summarizeStyles(styleChanges) ? styleChanges : null;
   const textChanged = prevText !== nextText;
+  if (innerHtml !== null && innerHtml !== undefined) {
+    if (!prevText) return { ok: false, reason: 'element-has-no-text' };
+    const result = applyInnerHtmlChange(code, element, prevText, innerHtml, styles);
+    if (!result.ok) return result;
+    const parts = [textChanged ? `changed text to "${truncate(nextText, 60)}"` : null, 'styled part of the text', styles ? summarizeStyles(styles) : null];
+    return { ...result, summary: parts.filter(Boolean).join(' and ') };
+  }
   if (!textChanged && !styles) return { ok: false, reason: 'no-op' };
   if (!prevText) return { ok: false, reason: 'element-has-no-text' };
   if (element.textTruncated) return { ok: false, reason: 'text-too-long' };
@@ -1049,8 +1087,8 @@ export const applyDirectEdit = (code, element, changes) => {
   // Text first: it anchors on the element's original serialized markup, which
   // attribute swaps would otherwise invalidate.
   const styleChanges = changes.style && typeof changes.style === 'object' ? changes.style : null;
-  if (changes.text !== undefined || styleChanges) {
-    const failure = run(applyTextChange(working, element, changes.text, styleChanges));
+  if (changes.text !== undefined || styleChanges || changes.innerHtml !== undefined) {
+    const failure = run(applyTextChange(working, element, changes.text, styleChanges, changes.innerHtml));
     if (failure) return failure;
     // A newly chosen catalog font needs its stylesheet in the page.
     if (styleChanges?.fontFamily) {

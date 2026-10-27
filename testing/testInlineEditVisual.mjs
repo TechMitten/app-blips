@@ -158,7 +158,8 @@ await enable();
 await frame.locator('#grad').click();
 await page.waitForTimeout(120);
 {
-  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('#grad')).caretColor);
+  // The native caret is hidden and a slimmer one is drawn (see startFakeCaret).
+  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('[data-orion-caret]')).backgroundColor);
   const ok = !/^rgba\(.*,\s*0\)$/.test(caret) && caret !== 'transparent';
   if (!ok) failures++;
   console.log(`#grad        caret-color=${caret} ${ok ? 'visible' : 'INVISIBLE'}`);
@@ -178,7 +179,7 @@ await enable();
 await frame.locator('#overlay').click();
 await page.waitForTimeout(120);
 {
-  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('#overlay')).caretColor);
+  const caret = await frame.evaluate(() => getComputedStyle(document.querySelector('[data-orion-caret]')).backgroundColor);
   const ok = caret === 'rgb(255, 255, 255)';
   if (!ok) failures++;
   console.log(`#overlay     caret-color=${caret} ${ok ? 'follows text' : 'WRONG (invisible on dark layer)'}`);

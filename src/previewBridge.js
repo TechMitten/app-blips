@@ -685,20 +685,105 @@ const BRIDGE_SOURCE = `(function () {
     } catch (fErr) { /* no caret this round */ }
   }
 
+  // Props that can apply to just the highlighted words; alignment only means
+  // something on the block, so it always goes on the element.
+  var RUN_PROPS = {
+    fontFamily: 1, fontSize: 1, fontWeight: 1, fontStyle: 1,
+    textDecorationLine: 1, textTransform: 1, color: 1
+  };
+
+  // The saved selection when it highlights only part of the text being
+  // edited (not collapsed, not the whole thing); null means "format the
+  // whole element", the long-standing behaviour.
+  function partialSelectionRange(entry) {
+    var range = entry.savedRange;
+    try {
+      if (!range || range.collapsed || !entry.el.contains(range.commonAncestorContainer)) return null;
+      var all = document.createRange();
+      all.selectNodeContents(entry.el);
+      var coversAll = range.compareBoundaryPoints(Range.START_TO_START, all) <= 0
+        && range.compareBoundaryPoints(Range.END_TO_END, all) >= 0;
+      if (coversAll) return null;
+      if (!String(range.toString()).replace(/\\s+/g, '')) return null;
+      return range;
+    } catch (rngErr) { return null; }
+  }
+
+  // Wraps the highlighted text in a styled span so only it changes. Styles
+  // the new span overrides are cleared on what it swallows, or an inner
+  // span's old color would win over the new one.
+  function wrapSelectionWithStyles(entry, range, runStyles) {
+    var span = document.createElement('span');
+    span.setAttribute('data-ab-fmt', '');
+    var frag = range.extractContents();
+    var inner = frag.querySelectorAll ? frag.querySelectorAll('*') : [];
+    for (var i = 0; i < inner.length; i++) {
+      for (var p in runStyles) {
+        if (Object.prototype.hasOwnProperty.call(runStyles, p)) inner[i].style[p] = '';
+      }
+    }
+    for (var prop in runStyles) {
+      if (Object.prototype.hasOwnProperty.call(runStyles, prop)) span.style[prop] = runStyles[prop];
+    }
+    span.appendChild(frag);
+    range.insertNode(span);
+    var sel = window.getSelection();
+    var next = document.createRange();
+    next.selectNodeContents(span);
+    if (sel) { sel.removeAllRanges(); sel.addRange(next); }
+    entry.savedRange = next.cloneRange();
+  }
+
   function applyInlineFormat(styles) {
     var entry = inlineEdit;
     if (!entry || !styles || typeof styles !== 'object') return;
+    var runStyles = {};
+    var hasRun = false;
+    var partial = partialSelectionRange(entry);
     for (var prop in styles) {
       if (!Object.prototype.hasOwnProperty.call(styles, prop) || !FORMAT_PROPS[prop]) continue;
       var value = String(styles[prop] == null ? '' : styles[prop]).slice(0, 200);
       if (!value || /[;{}<>]/.test(value)) continue;
+      if (partial && RUN_PROPS[prop]) {
+        runStyles[prop] = value;
+        hasRun = true;
+        continue;
+      }
       if (!Object.prototype.hasOwnProperty.call(entry.origInline, prop)) entry.origInline[prop] = entry.el.style[prop];
       entry.el.style[prop] = value;
       entry.formatStyles[prop] = value;
     }
+    if (hasRun) {
+      try { wrapSelectionWithStyles(entry, partial, runStyles); } catch (wrapErr) { /* leave the text as it was */ }
+    }
     recordInlineSnapshot(entry);
     refocusInline(entry);
     post('inline-typography', readTypography(entry.el));
+  }
+
+  // The element's markup as it should be written to the source: bridge
+  // attributes stripped, and newlines typed in the host as <br>.
+  function inlineEditHtml(el) {
+    var clone = el.cloneNode(true);
+    var marked = clone.querySelectorAll('[data-ab-src],[data-ab-fmt]');
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].removeAttribute('data-ab-src');
+      marked[i].removeAttribute('data-ab-fmt');
+    }
+    var walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+    var texts = [];
+    for (var n = walker.nextNode(); n; n = walker.nextNode()) texts.push(n);
+    for (var t = 0; t < texts.length; t++) {
+      var parts = texts[t].nodeValue.split(/\\r\\n?|\\n/);
+      if (parts.length < 2) continue;
+      var frag = document.createDocumentFragment();
+      for (var q = 0; q < parts.length; q++) {
+        if (q) frag.appendChild(document.createElement('br'));
+        if (parts[q]) frag.appendChild(document.createTextNode(parts[q]));
+      }
+      texts[t].parentNode.replaceChild(frag, texts[t]);
+    }
+    return clone.innerHTML;
   }
 
   // Session undo/redo. The browser's own undo stack knows nothing about the
@@ -784,6 +869,7 @@ const BRIDGE_SOURCE = `(function () {
       // Undoes stabilizeInlineHost's pinned white-space ('' clears it).
       entry.el.style.whiteSpace = entry.origWhiteSpace || '';
     } catch (wsErr) { /* keep going */ }
+    stopFakeCaret();
     try { entry.el.style.caretColor = entry.origCaretColor || ''; } catch (caretErr) { /* keep going */ }
     if (inlineEdit === entry) inlineEdit = null;
     paintSelection(entry.el);
@@ -847,8 +933,10 @@ const BRIDGE_SOURCE = `(function () {
       return;
     }
     var newText = inlineEditText(entry.el);
+    var hasRuns = !!entry.el.querySelector('[data-ab-fmt]');
+    var newInner = hasRuns ? inlineEditHtml(entry.el) : null;
     teardownInline(entry);
-    var hasFormat = Object.keys(entry.formatStyles).length > 0;
+    var hasFormat = Object.keys(entry.formatStyles).length > 0 || hasRuns;
     if (!newText) { restoreInlineEntry(entry); restoreOutline(entry.el); return; }
     // Against the text as it was when editing began (same normalization),
     // not the fully collapsed snapshot, so adding or removing just a line
@@ -869,6 +957,7 @@ const BRIDGE_SOURCE = `(function () {
     }
     payload.newText = newText;
     payload.styles = entry.formatStyles;
+    if (newInner !== null) payload.innerHtml = newInner;
     payload.editId = editId;
     payload.scroll = { x: window.pageXOffset || 0, y: window.pageYOffset || 0 };
     post('element-text-committed', payload);
@@ -1043,6 +1132,81 @@ const BRIDGE_SOURCE = `(function () {
     } catch (pointErr) { return null; }
   }
 
+  // Blink draws the native caret as tall as the font's whole content area
+  // (ascent + descent, ~1.1em), which on large hero text towers over the
+  // letters, and no CSS can shorten it. During an edit the native caret is
+  // made transparent and a slimmer one is drawn at the same spot.
+  var fakeCaret = null;
+  var fakeCaretTimer = null;
+  var fakeCaretOnMove = null;
+  function caretRectFor(el) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed || !el.contains(sel.anchorNode)) return null;
+    var range = sel.getRangeAt(0).cloneRange();
+    var rects = range.getClientRects();
+    if (rects.length) return { left: rects[0].left, top: rects[0].top, height: rects[0].height };
+    // A caret at the very end of the element has no rect of its own:
+    // borrow the right edge of the last character instead.
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    var last = null;
+    while (walker.nextNode()) { if (walker.currentNode.nodeValue.length) last = walker.currentNode; }
+    if (last) {
+      var r = document.createRange();
+      r.setStart(last, last.nodeValue.length - 1);
+      r.setEnd(last, last.nodeValue.length);
+      var lr = r.getClientRects();
+      if (lr.length) {
+        var tail = lr[lr.length - 1];
+        return { left: tail.right, top: tail.top, height: tail.height };
+      }
+    }
+    var box = el.getBoundingClientRect();
+    return { left: box.left, top: box.top, height: box.height };
+  }
+  function updateFakeCaret(entry) {
+    if (!fakeCaret) return;
+    try {
+      var pos = caretRectFor(entry.el);
+      if (!pos) { fakeCaret.style.display = 'none'; return; }
+      var fs = parseFloat(window.getComputedStyle(entry.el).fontSize) || pos.height;
+      var h = Math.min(pos.height, fs * 0.9);
+      fakeCaret.style.display = 'block';
+      fakeCaret.style.visibility = 'visible';
+      fakeCaret.style.height = h + 'px';
+      fakeCaret.style.left = pos.left + 'px';
+      fakeCaret.style.top = (pos.top + (pos.height - h) / 2) + 'px';
+    } catch (fcErr) { fakeCaret.style.display = 'none'; }
+  }
+  function startFakeCaret(entry, color) {
+    stopFakeCaret();
+    try {
+      fakeCaret = document.createElement('div');
+      fakeCaret.setAttribute('data-orion-caret', '');
+      fakeCaret.style.cssText = 'position:fixed;width:2px;margin-left:-1px;pointer-events:none;z-index:2147483647;display:none;background:' + color;
+      document.documentElement.appendChild(fakeCaret);
+      entry.el.style.caretColor = 'transparent';
+      fakeCaretTimer = setInterval(function () {
+        if (fakeCaret && fakeCaret.style.display === 'block') {
+          fakeCaret.style.visibility = fakeCaret.style.visibility === 'hidden' ? 'visible' : 'hidden';
+        }
+      }, 530);
+      fakeCaretOnMove = function () { updateFakeCaret(entry); };
+      window.addEventListener('scroll', fakeCaretOnMove, true);
+      window.addEventListener('resize', fakeCaretOnMove);
+      updateFakeCaret(entry);
+    } catch (fcErr) { stopFakeCaret(); }
+  }
+  function stopFakeCaret() {
+    if (fakeCaretTimer) { clearInterval(fakeCaretTimer); fakeCaretTimer = null; }
+    if (fakeCaretOnMove) {
+      window.removeEventListener('scroll', fakeCaretOnMove, true);
+      window.removeEventListener('resize', fakeCaretOnMove);
+      fakeCaretOnMove = null;
+    }
+    if (fakeCaret && fakeCaret.parentNode) fakeCaret.parentNode.removeChild(fakeCaret);
+    fakeCaret = null;
+  }
+
   function tryStartInlineEdit(el, point) {
     if (inlineEdit || !editingActive) return false;
     if (!isSelectable(el)) return false;
@@ -1111,6 +1275,7 @@ const BRIDGE_SOURCE = `(function () {
         sel.addRange(range);
       }
     } catch (focusErr) { /* no caret this round */ }
+    try { startFakeCaret(entry, caretColor || window.getComputedStyle(el).color); } catch (fcErr) { /* native caret stays */ }
     paintSelection(el);
     // Blur commits after a short grace period: a click on the parent's text
     // toolbar moves focus out of this frame, and the toolbar's hold message
@@ -1127,6 +1292,7 @@ const BRIDGE_SOURCE = `(function () {
       if (entry.blurTimer) { clearTimeout(entry.blurTimer); entry.blurTimer = null; }
     };
     entry.onInput = function () {
+      updateFakeCaret(entry);
       if (entry.histTimer) clearTimeout(entry.histTimer);
       entry.histTimer = setTimeout(function () { entry.histTimer = null; recordInlineSnapshot(entry); }, 400);
     };
@@ -1135,6 +1301,7 @@ const BRIDGE_SOURCE = `(function () {
         var sel = window.getSelection();
         if (sel && sel.rangeCount && entry.el.contains(sel.anchorNode)) entry.savedRange = sel.getRangeAt(0).cloneRange();
       } catch (rangeErr) { /* keep the previous range */ }
+      updateFakeCaret(entry);
     };
     // With the toolbar holding the session, a click back on the page ends the
     // hold: outside the element it commits (the blur already happened).
