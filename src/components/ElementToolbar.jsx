@@ -92,6 +92,9 @@ export default function ElementToolbar({
   const currentBgHex = rgbToHex(element.backgroundColor) || '#ffffff';
   const [bgColor, setBgColor] = useState(currentBgHex);
   const [bgImage, setBgImage] = useState('');
+  // Natural size of an uploaded replacement, and whether to resize to it.
+  const [uploadedSize, setUploadedSize] = useState(null);
+  const [fitToImage, setFitToImage] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   // A failed in-place apply opens the bar with the error already set -- skip
@@ -116,7 +119,16 @@ export default function ElementToolbar({
       setIsUploading(true);
       const dataUrl = await readFileAsDataUrl(file);
       const compressed = await compressImageDataUrl(dataUrl);
-      if (isImage) setSrc(compressed);
+      if (isImage) {
+        setSrc(compressed);
+        const size = await new Promise((resolve) => {
+          const probe = new Image();
+          probe.onload = () => resolve({ width: probe.naturalWidth, height: probe.naturalHeight });
+          probe.onerror = () => resolve(null);
+          probe.src = compressed;
+        });
+        setUploadedSize(size);
+      }
       else setBgImage(compressed);
     } catch (err) {
       logError(`Could not process image ${file.name} (${file.size} bytes)`, err);
@@ -130,6 +142,7 @@ export default function ElementToolbar({
     const changes = {};
     if (isImage) {
       if (src.trim() && src.trim() !== (element.attributes?.src || '')) changes.src = src.trim();
+      if (changes.src && fitToImage && uploadedSize && src.startsWith('data:')) changes.fitImage = uploadedSize;
       if (alt.trim() !== (element.attributes?.alt || '')) changes.alt = alt.trim();
     }
     if (showLink && href.trim() && href.trim() !== (element.attributes?.href || '')) changes.href = href.trim();
@@ -281,6 +294,17 @@ export default function ElementToolbar({
                 />
                 {fileInput(imageFileRef)}
                 {uploadButton(imageFileRef, 'Upload', 'Replace with an image from your computer')}
+                {uploadedSize && src.startsWith('data:') && (
+                  <label className="element-bar-field" data-tip="Keep the width, and change the height to match the new image's proportions">
+                    <input
+                      type="checkbox"
+                      checked={fitToImage}
+                      onChange={(e) => setFitToImage(e.target.checked)}
+                      disabled={busy}
+                    />
+                    <span>Fit size to image</span>
+                  </label>
+                )}
                 <input
                   type="text"
                   value={alt}

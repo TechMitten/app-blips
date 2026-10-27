@@ -373,6 +373,8 @@ const STYLE_PROPS = {
   backgroundImage: 'background-image',
   backgroundSize: 'background-size',
   backgroundPosition: 'background-position',
+  height: 'height',
+  aspectRatio: 'aspect-ratio',
 };
 
 const STYLE_LABELS = {
@@ -769,6 +771,18 @@ const applyImageSrcChange = (code, element, nextSrc) => {
   return { ...result, summary: 'replaced image' };
 };
 
+// "Fit to new image": keep the width the page gives the <img> and let the
+// height follow the new picture's proportions. Inline styles beat classes like
+// h-64, and aspect-ratio (not fixed pixels) keeps it responsive.
+const applyFitImage = (code, element, natural) => {
+  const w = Number(natural?.width);
+  const h = Number(natural?.height);
+  if (!(w > 0) || !(h > 0)) return { ok: false, reason: 'no-op' };
+  const styles = { height: 'auto', aspectRatio: `${Math.round(w)} / ${Math.round(h)}` };
+  const result = rewriteLocatedOpenTag(code, element, (open) => mergeStylesIntoOpenTag(open, styles), 'src-not-found');
+  return result.ok ? { ...result, summary: 'resized image to fit' } : result;
+};
+
 // Open-in-new-tab toggle for links. `rel` is merged rather than replaced
 // (a page may carry rel="nofollow"), and on the way back only the tokens
 // this toggle adds are removed.
@@ -1042,7 +1056,7 @@ const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo'];
  *
  * @param {string} code current generated HTML (never carries the preview bridge)
  * @param {object} element the bridge's element-selected payload
- * @param {{ text?: string, style?: Record<string, string>, src?: string, alt?: string, href?: string,
+ * @param {{ text?: string, style?: Record<string, string>, src?: string, fitImage?: { width: number, height: number }, alt?: string, href?: string,
  *   target?: '_blank' | null, backgroundColor?: string, backgroundImage?: string,
  *   remove?: true, duplicate?: true, move?: -1 | 1,
  *   moveTo?: { target: object, position: 'before' | 'after' } }} changes
@@ -1096,7 +1110,9 @@ export const applyDirectEdit = (code, element, changes) => {
       if (font) working = insertFontLinks(working, font);
     }
   }
+  // Before src: it locates the element by its original markup.
   const steps = [
+    ['fitImage', () => applyFitImage(working, element, changes.fitImage)],
     ['src', () => applyImageSrcChange(working, element, changes.src)],
     ['alt', () => applyAttributeChange(working, element, 'alt', changes.alt)],
     ['title', () => applyAttributeChange(working, element, 'title', changes.title)],
