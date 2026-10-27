@@ -1,9 +1,11 @@
 import { useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, ArrowUpToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
-  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus,
+  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
+import Modal, { ModalCloseButton } from './Modal';
 import { logError } from '../lib/errorLog';
 import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts';
 
@@ -85,6 +87,8 @@ export default function ElementToolbar({
 
   const [src, setSrc] = useState(element.attributes?.src || '');
   const [alt, setAlt] = useState(element.attributes?.alt || '');
+  const [altOpen, setAltOpen] = useState(false);
+  const [altDraft, setAltDraft] = useState('');
   const [href, setHref] = useState(element.attributes?.href || '');
   const initialNewTab = element.attributes?.target === '_blank';
   const [newTab, setNewTab] = useState(initialNewTab);
@@ -227,27 +231,23 @@ export default function ElementToolbar({
         }
       }}
     >
-      {/* What is selected */}
-      <div className="element-bar-id">
-        <span className="element-bar-chip">{ROLE_LABELS[role] || 'Element'}</span>
-        <span className="element-bar-path" title={`<${element.tag}>${element.parentTag ? ` in <${element.parentTag}>` : ''}`}>
-          &lt;{element.tag}&gt;
-          {element.parentTag ? <span className="element-bar-path-parent"> in &lt;{element.parentTag}&gt;</span> : null}
-        </span>
-        {element.parentSelectable && onSelectParent && (
-          <button
-            type="button"
-            onClick={onSelectParent}
-            className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
-            aria-label="Select parent element"
-            data-tip="Select the parent (sections, backgrounds, wallpapers)"
-          >
-            <ArrowUpToLine size={16} />
-          </button>
-        )}
-      </div>
-
-      <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+      {/* The selection's kind and tag live in the toolbar's aria-label, not on screen. */}
+      {element.parentSelectable && onSelectParent && (
+        <>
+          <div className="element-bar-id">
+            <button
+              type="button"
+              onClick={onSelectParent}
+              className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+              aria-label="Select parent element"
+              data-tip="Select the parent (sections, backgrounds, wallpapers)"
+            >
+              <ArrowUpToLine size={16} />
+            </button>
+          </div>
+          <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+        </>
+      )}
 
       {/* What you can change */}
       <div className="element-bar-body">
@@ -305,16 +305,16 @@ export default function ElementToolbar({
                     <span>Fit size to image</span>
                   </label>
                 )}
-                <input
-                  type="text"
-                  value={alt}
-                  onChange={(e) => setAlt(e.target.value)}
-                  onKeyDown={submitOnEnter(handleApply)}
-                  placeholder="Alt text"
-                  aria-label="Alt text"
-                  className="element-bar-input element-bar-alt"
+                <button
+                  type="button"
+                  onClick={() => { setAltDraft(alt); setAltOpen(true); }}
                   disabled={isApplying}
-                />
+                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+                  aria-label={alt.trim() ? 'Edit alt text' : 'Set alt text'}
+                  data-tip={alt.trim() ? `Alt text: ${alt.trim()}` : 'Set alt text (describes the image for screen readers)'}
+                >
+                  <Captions size={16} />
+                </button>
               </>
             )}
 
@@ -520,6 +520,50 @@ export default function ElementToolbar({
           <X size={16} />
         </button>
       </div>
+      {/* Portaled to body: the bar is docked inside the preview chrome, which
+          would clip or offset a fixed overlay. */}
+      {altOpen && createPortal(
+        <Modal zIndex={70}>
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Image alt text</h2>
+            <ModalCloseButton onClick={() => setAltOpen(false)} />
+          </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); setAlt(altDraft.trim()); setAltOpen(false); }}
+            className="p-6 space-y-4"
+          >
+            <textarea
+              autoFocus
+              rows={3}
+              value={altDraft}
+              onChange={(e) => setAltDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setAltOpen(false); }}
+              placeholder="e.g. A golden retriever catching a frisbee on a beach"
+              aria-label="Alt text"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+            />
+            <p className="text-xs text-slate-400">
+              Describes the picture for people who use screen readers. It also shows if the image can't load. Click Apply in the bar to save it.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAltOpen(false)}
+                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg px-5 py-2 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors active:scale-[0.98]"
+              >
+                Done
+              </button>
+            </div>
+          </form>
+        </Modal>,
+        document.body,
+      )}
     </div>
   );
 }

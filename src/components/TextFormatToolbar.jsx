@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Minus, Plus, Check, X, ChevronDown, CaseUpper, Type, Undo2, Redo2,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Minus, Plus, Check, X, ChevronDown, CaseUpper, Undo2, Redo2,
 } from 'lucide-react';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { FONT_OPTIONS, findFontByStack, fontPreviewStylesheetUrl } from '../lib/fonts';
@@ -171,12 +171,6 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
       onPointerDownCapture={() => onHold?.(true)}
       onKeyDown={(e) => { if (e.key === 'Escape' && !open) onFinish?.(false); }}
     >
-      <div className="element-bar-id">
-        <span className="element-bar-chip"><Type size={12} aria-hidden="true" />Text</span>
-      </div>
-
-      <span className="chrome-divider element-bar-divider" aria-hidden="true" />
-
       <div className="element-bar-body element-bar-format">
         {/* Session history: typing and formatting steps, not page versions */}
         <div className="nav-segmented-group" role="group" aria-label="Undo and redo">
