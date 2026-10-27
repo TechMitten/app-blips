@@ -35,6 +35,8 @@ npm run release [patch|minor|major]  # scripts/release.sh: lint, bump, commit+ta
 
 **Keep testing proportionate to the change.** Run `npm run check` after edits -- it is quick and always safe. You do not need to run `npm run build` after every edit; build once at the end (and whenever a change could affect the bundle). Also run only the `testing/` file(s) that cover the code you changed (write one if none exists). Ask the user before running the full suite, starting dev servers, Playwright/browser runs or screenshots, comparing against a clean copy of HEAD, or building bundles/Docker images to try them. Finish by listing what you didn't test.
 
+**Clean up headless browsers.** Every Playwright/Chromium instance you launch must be closed before you finish, including when a script fails or times out: wrap the work in `try { ... } finally { await browser.close(); }` in scripts you write. A script moved to the background must be stopped (TaskStop) once you have what you need. Afterwards, check nothing is left running with `pgrep -fa 'chrom|headless_shell'` (the check lists itself, so ignore that line). Kill leftovers that you started, and never kill a browser or dev server you didn't start (the user may have one on port 5175).
+
 There is **no test runner** (`npm test` doesn't exist). `testing/` holds standalone scripts that use `node:assert`; run one with `node testing/testPages.js`. Not all of them are self-contained:
 - `.mjs` files are headless Playwright checks (`npx playwright install chromium` once).
 - `testGuidedTour.js` and `testResponsiveLayout.js` are also Playwright and need `npm run dev` running (override the URL with `TOUR_TEST_URL` / `RESPONSIVE_TEST_URL`).
