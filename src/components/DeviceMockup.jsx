@@ -3,6 +3,7 @@ import {
   Sparkles, Zap, ShieldAlert, Layers, X, Brain, Loader2
 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
+import BuildBlueprint from './BuildBlueprint';
 import { PREVIEW_MODES, PREVIEW_SHUTTER_MS } from '../lib/constants';
 import { getEffectivePreviewBox, syntaxHighlightHtml } from '../lib/helpers';
 
@@ -487,6 +488,7 @@ export default function DeviceMockup({
   liveCodeRef = null,
   liveCodePage = null,
   streamingReasoning = '',
+  studioMode = 'app',
   hasCode,
   isAutoFixing = false,
   isTransitioning = false,
@@ -500,10 +502,10 @@ export default function DeviceMockup({
   ));
   // Reasoning is on and the model hasn't produced output yet.
   const isThinking = Boolean(thinkingSince) && !isErrorAutoFix;
-  // Normal builds lead with the code window alone (see LiveCodePeek). Keep the
-  // status block for repairs, where the error and cancel control matter, and
-  // when live code preview is off and there is no window to lead with.
-  const showBuildStatus = isErrorAutoFix || !liveCodeRef;
+  // Normal builds show the blueprint (BuildBlueprint) with the code window one
+  // click away. The status block with its cancel control stays for repairs,
+  // where the error matters.
+  const showBuildStatus = isErrorAutoFix;
 
   return (
     <div
@@ -740,12 +742,26 @@ export default function DeviceMockup({
                   )}
                 </div>
               )}
-              {(isGenerating || isErrorAutoFix) && liveCodeRef && (
+              {isErrorAutoFix && liveCodeRef && (
                 <LiveCodePeek
                   codeRef={liveCodeRef}
                   page={liveCodePage}
                   reasoning={streamingReasoning}
-                  className={showBuildStatus ? 'mt-6' : ''}
+                  className="mt-6"
+                />
+              )}
+              {!isErrorAutoFix && (
+                <BuildBlueprint
+                  studioMode={studioMode}
+                  isTouch={PREVIEW_MODES[mode].isTouchChrome}
+                  isThinking={isThinking}
+                  thinkingSince={thinkingSince}
+                  status={generationStatus}
+                  page={liveCodePage}
+                  codeRef={liveCodeRef}
+                  codeSlot={liveCodeRef ? (
+                    <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} reasoning={streamingReasoning} />
+                  ) : null}
                 />
               )}
             </div>

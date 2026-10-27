@@ -530,6 +530,7 @@ export default function PreviewPane({
             generationStatus={generationStatus || (isPreviewBuilding ? 'Building the preview…' : null)}
             thinkingSince={thinkingSince}
             streamingReasoning={streamingReasoning}
+            studioMode={studioMode}
             liveCodeRef={liveCodeRef}
             liveCodePage={liveCodePage}
             hasCode={hasCode}
