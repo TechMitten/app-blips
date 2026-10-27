@@ -70,28 +70,20 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.18 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.19 (Click to expand)</strong></summary>
 <br />
 
 **New**
-- **SEO connector:** Answer a few friendly questions and the AI adds search-engine optimization to your site, plus a sitemap and robots file when you export or publish. No account needed.
-- **My images is now a connector (beta):** Turn it on in **Settings → Connectors → My images**. You can also hide individual images from the AI with the eye button; pages that already use them keep working.
-- **"Looks fine but doesn't work":** After a build, the review prompt has a second choice that clicks through every control to find things that look right but don't work.
-- **Credits left in the Build header:** If you use AppBlips AI Credits, your remaining credits show at the top of the Build pane. Click them to open **Settings → Account & Usage** (formerly Account), which now has a usage bar that turns amber at 75% and red at 90%.
+- **Update Ubuntu and Debian with apt:** Debian/Ubuntu users can add the AppBlips package source once, and new versions then arrive with `sudo apt update && sudo apt upgrade` and in your software center. Steps are in the [desktop quick start](https://docs.appblips.com/quickstart-desktop).
 
 **Improved**
-- Settings asks before replacing your AppBlips AI Credits with your own API key.
-- When the credits server turns a request down (for example, no credits left), you now see its real reason instead of "You're sending requests too quickly".
-- Onboarding waits on the "Connect your AI Credits" screen after you open the pricing page, so coming back from checkout lands on the email box.
-- Factory Reset also signs you out of AppBlips AI Credits, and the plan descriptions are clearer.
-- The live code peek on the building screen no longer goes blank mid-edit.
-- Account & Usage no longer flashes the signed-out view while loading.
-- The token counter has been removed from the chat. Check usage in **Settings → Account & Usage**, or on your provider's usage page.
+- **Click-to-edit with part of the text highlighted:** Bold, color and other toolbar formatting now apply to just the highlighted words instead of the whole line or heading.
+- **Click-to-edit saves reliably next to inline tags:** Headings like "<span>dark</span>, played" no longer fail to save with "could not be found in the page source".
+- The update notice now also appears during first-run setup, and on `.deb` installs without the package source its button downloads the installer directly.
 
 **Look and feel**
-- Streamed code in chat is readable in the light theme.
-- The studio picker fits in the window without scrolling, and the Showcase stays full height on short windows.
-- Neutral (non-red) accents in the SEO window, a wider Settings sidebar, a larger splash image on phones, and a tidier mobile header.
+- A slimmer text cursor while editing, so it no longer towers over large hero text.
+- The update notice now stands out against your theme, and the first-run setup screens have tidier layout and styling.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
 </details>
