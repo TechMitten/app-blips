@@ -102,7 +102,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### 1. Desktop App (Windows & Linux)
 - **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (signed by Microsoft with automatic updates).
-- **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. *(For AppImage: right-click → Properties → allow executing as a program).*
+- **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. Debian/Ubuntu users can also add the [AppBlips package source](https://docs.appblips.com/quickstart-desktop) to update with `sudo apt upgrade`. *(For AppImage: right-click → Properties → allow executing as a program).*
 - **macOS:** No native installer yet—use Docker or run from source below.
 
 > **First run:** Choose where to save your projects, then either connect **AppBlips AI Credits** or paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). Keys are encrypted using your OS system keychain.

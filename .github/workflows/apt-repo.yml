@@ -1,0 +1,103 @@
+name: APT repository
+
+# Publishes the .deb files of the latest releases as a signed APT repository
+# on GitHub Pages (https://techmitten.github.io/app-blips), so Debian and
+# Ubuntu users get updates through `sudo apt upgrade` and the software center.
+# Runs when a release is published (publishing the draft is what rolls an
+# update out), or by hand from the Actions tab.
+#
+# Needs two repository secrets and Pages set to "GitHub Actions" (see
+# RELEASING.md): APT_GPG_PRIVATE_KEY (the armored private signing key, no
+# passphrase) and APT_GPG_KEY_ID (its fingerprint).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer run replaces a queued one.
+concurrency:
+  group: apt-repo
+  cancel-in-progress: false
+
+env:
+  # Releases kept in the repository. apt only ever offers the newest, and
+  # Pages sites are capped at 1 GB, so a short history is plenty.
+  KEEP_RELEASES: 3
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Download the .deb files of the latest releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p site/pool/main
+          for tag in $(gh release list --exclude-drafts --exclude-pre-releases --limit "$KEEP_RELEASES" --json tagName --jq '.[].tagName'); do
+            gh release download "$tag" --pattern '*.deb' --dir site/pool/main
+          done
+          ls -l site/pool/main
+          [ -n "$(ls site/pool/main)" ] || { echo "No .deb files found in any published release"; exit 1; }
+
+      - name: Build and sign the repository
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_KEY_ID: ${{ secrets.APT_GPG_KEY_ID }}
+        run: |
+          set -euo pipefail
+          cd site
+          dist=dists/stable
+          mkdir -p "$dist/main/binary-amd64"
+
+          # Package index (every file under pool/ is amd64; the build only makes x64).
+          apt-ftparchive packages pool > "$dist/main/binary-amd64/Packages"
+          gzip -9kf "$dist/main/binary-amd64/Packages"
+
+          # Release file listing the index hashes; this is what gets signed.
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin=AppBlips \
+            -o APT::FTPArchive::Release::Label=AppBlips \
+            -o APT::FTPArchive::Release::Suite=stable \
+            -o APT::FTPArchive::Release::Codename=stable \
+            -o APT::FTPArchive::Release::Architectures=amd64 \
+            -o APT::FTPArchive::Release::Components=main \
+            release "$dist" > "$dist/Release"
+
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          printf '%s' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+          sign() { gpg --batch --yes --pinentry-mode loopback --passphrase '' --local-user "$APT_GPG_KEY_ID" "$@"; }
+          sign --clearsign --output "$dist/InRelease" "$dist/Release"
+          sign --armor --detach-sign --output "$dist/Release.gpg" "$dist/Release"
+
+          # The public key users download once to trust the repository.
+          gpg --export "$APT_GPG_KEY_ID" > appblips.gpg
+          gpg --armor --export "$APT_GPG_KEY_ID" > appblips.asc
+          rm -rf "$GNUPGHOME"
+
+          cat > index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>AppBlips APT repository</title>
+          <h1>AppBlips APT repository</h1>
+          <p>This is a package source for apt, not a web page. To install AppBlips and get updates with <code>sudo apt upgrade</code>, follow the steps at
+          <a href="https://docs.appblips.com/quickstart-desktop">docs.appblips.com/quickstart-desktop</a>.</p>
+          HTML
+          touch .nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
