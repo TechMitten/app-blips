@@ -1,21 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-const splashImg = '/blackblipsbg.webp';
+const splashVideo = '/animatedsplash.mp4';
 
-// The image slowly fades in, holds, then the whole splash slowly fades out.
-const FADE_IN_MS = 1600;
-const HOLD_MS = 1400;
-const FADE_OUT_MS = 1600;
+// The video is silent and fades itself to black in its last 1.5s, so the
+// splash simply ends when it does; the short fade-out below only hides the
+// final black frame.
+const END_FADE_MS = 300;
+const FADE_IN_MS = 1000;
+// One notch above normal speed. Set at runtime rather than re-encoding, which
+// would cost the video another generation of quality.
+const PLAYBACK_RATE = 1.5;
 // Skipping (button or Esc) uses a quicker fade so it doesn't feel ignored.
 const SKIP_FADE_MS = 500;
 
 export default function SplashScreen({ skip = false }) {
   const [isVisible, setIsVisible] = useState(!skip);
-  const [isImageShown, setIsImageShown] = useState(false);
   const [fadeOutMs, setFadeOutMs] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const endedRef = useRef(false);
-  const imgRef = useRef(null);
   const timersRef = useRef([]);
-  const startedRef = useRef(false);
 
   const endSplash = (duration) => {
     if (endedRef.current) return;
@@ -26,17 +28,8 @@ export default function SplashScreen({ skip = false }) {
   };
   const skipSplash = () => endSplash(SKIP_FADE_MS);
 
-  const startFadeIn = () => {
-    if (endedRef.current || startedRef.current) return;
-    startedRef.current = true;
-    setIsImageShown(true);
-    timersRef.current.push(setTimeout(() => endSplash(FADE_OUT_MS), FADE_IN_MS + HOLD_MS));
-  };
-
   useEffect(() => {
     if (skip) return;
-    // A cached image can finish loading before React attaches onLoad.
-    if (imgRef.current?.complete && imgRef.current.naturalWidth) startFadeIn();
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') skipSplash();
     };
@@ -45,9 +38,6 @@ export default function SplashScreen({ skip = false }) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       timers.current.forEach(clearTimeout);
-      // StrictMode re-runs this effect; let the re-run restart the timeline
-      // instead of leaving the splash stuck with its timer cleared.
-      startedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skip]);
@@ -63,25 +53,33 @@ export default function SplashScreen({ skip = false }) {
       }`}
       style={{ transitionDuration: `${fadeOutMs ?? 0}ms` }}
     >
-      <img
-        ref={imgRef}
-        src={splashImg}
-        alt="AppBlips"
-        decoding="async"
-        onLoad={startFadeIn}
-        // A missing image shouldn't leave a black screen up.
+      <video
+        src={splashVideo}
+        autoPlay
+        muted
+        playsInline
+        aria-label="AppBlips"
+        onLoadedMetadata={(e) => {
+          e.currentTarget.playbackRate = PLAYBACK_RATE;
+        }}
+        // Fade in once frames are actually showing, not while it buffers.
+        onPlaying={() => setIsPlaying(true)}
+        onEnded={() => endSplash(END_FADE_MS)}
+        // A missing or undecodable video shouldn't leave a black screen up.
         onError={skipSplash}
-        // 38vw suits desktops, but the image is wide (16:9-ish) and its edges
-        // are feathered away, so on a phone it needs most of the width.
-        className={`max-h-[38dvh] w-[92vw] object-contain sm:w-[38vw] transition-opacity ease-in-out ${
-          isImageShown ? 'opacity-100' : 'opacity-0'
+        // Capped at 1280 CSS px (the video is 2560 wide, so this is sharp even
+        // on high-DPI screens); smaller screens scale it down.
+        className={`max-h-full w-full max-w-[1280px] object-contain transition-opacity ease-in-out ${
+          isPlaying ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
           transitionDuration: `${FADE_IN_MS}ms`,
-          // The image's dark-grey edges would show as a box on the black
-          // backdrop at this size; feather them away.
-          maskImage: 'radial-gradient(ellipse, black 45%, transparent 75%)',
-          WebkitMaskImage: 'radial-gradient(ellipse, black 45%, transparent 75%)'
+          // The video's grey haze would show as a box on the black backdrop
+          // when it doesn't fill the screen. closest-side makes the mask fully
+          // transparent at the middle of every edge (the default reached only
+          // the corners, leaving visible edges), so it blends seamlessly.
+          maskImage: 'radial-gradient(ellipse closest-side, black 70%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse closest-side, black 70%, transparent 100%)'
         }}
       />
       <button
