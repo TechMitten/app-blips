@@ -1764,6 +1764,7 @@ export default function App({ coldStart = false }) {
   // a build; it doesn't need an offer. Screenshots are taken only when the
   // user said something looks wrong: they cost many images' worth of tokens
   // and add nothing to a problem that isn't visual, like an auto-fix's
+    const brokenFunction = options?.brokenFunction === true;
   // code errors.
   const handleReview = async (options) => {
     const automatic = options?.automatic === true;
@@ -1813,6 +1814,7 @@ export default function App({ coldStart = false }) {
         fixCheck: updatedVersions[buildIndex].reviewFix === true,
         chatHistory,
         studioMode,
+        brokenFunction,
         signal,
         onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
         browser: createReviewBrowser(signal),
