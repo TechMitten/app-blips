@@ -303,14 +303,30 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
     let raf = 0;
     let cursor = 0;
     let lastKey = '';
+    let revealed = '';
     const tick = () => {
       const text = codeRef?.current || '';
-      if (cursor > text.length) cursor = text.length;
+      if (!text.startsWith(revealed)) {
+        // A shorter copy of what's on screen (an empty ref between edit
+        // streams, or a cut-off chunk) keeps the last frame. Rewinding the
+        // cursor would replay from the first, mostly-indentation characters,
+        // which reads as the card going blank mid-build.
+        if (revealed.startsWith(text)) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        // Otherwise resume where the two agree: a new stream types from the
+        // top, a reworded tail only from where it changed.
+        let same = 0;
+        while (same < revealed.length && revealed[same] === text[same]) same += 1;
+        cursor = same;
+      }
       const backlog = text.length - cursor;
       if (backlog > 1200) cursor = text.length - 1200; // don't replay a huge burst
       if (backlog > 0) {
         cursor += Math.min(backlog, Math.max(2, Math.ceil(backlog / 24)));
-        const all = text.slice(0, cursor).split('\n');
+        revealed = text.slice(0, cursor);
+        const all = revealed.split('\n');
         const start = Math.max(0, all.length - PEEK_LINES);
         const lines = all.slice(start).map((line) => line.slice(0, 240));
         const key = `${start}\u0000${lines.join('\n')}`;
@@ -319,8 +335,6 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
           setView({ start, lines });
         }
       }
-      // An empty ref mid-stream (edit-stream reset between attempts) keeps the
-      // last frame on screen rather than unmounting and replaying the entrance.
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -656,6 +670,7 @@ export default function DeviceMockup({
             <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
               <div className="building-device-status" aria-hidden="true">
                 <SystemClock />
+                <span className="building-device-title">Your Workspace</span>
                 <span className="building-device-icons">
                   <span className="building-signal"><i /><i /><i /><i /></span>
                   <span className="building-wifi"><i /><i /></span>

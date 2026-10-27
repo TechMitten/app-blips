@@ -1,4 +1,4 @@
-import { PREVIEW_MODES } from './constants';
+import { PREVIEW_MODES } from './constants.js';
 export const syntaxHighlightHtml = (code) => {
   if (!code) return "";
 
@@ -95,10 +95,12 @@ const unescapeJsonFragment = (fragment) =>
 // Pulls the code being written out of partially streamed tool arguments: the
 // (possibly still unterminated) "replace" string of every apply_surgical_edits
 // edit, or the "html" string of create_page, joined in order. Search strings
-// are skipped -- they're the old code.
+// are skipped -- they're the old code. A chunk often ends right after the
+// backslash of an escape (`\n`, `\"`); that lone backslash must not stop the
+// match, or the code being written vanishes from the peek until the next chunk.
 export const extractStreamedEditCode = (argsJson) => {
   const parts = [];
-  const re = /"(?:replace|html)"\s*:\s*"((?:[^"\\]|\\.)*)("|$)/g;
+  const re = /"(?:replace|html)"\s*:\s*"((?:[^"\\]|\\.)*(?:\\$)?)("|$)/g;
   let m;
   while ((m = re.exec(argsJson)) !== null) {
     parts.push(unescapeJsonFragment(m[1]));
