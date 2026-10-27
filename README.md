@@ -70,20 +70,20 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.19 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.20 (Click to expand)</strong></summary>
 <br />
 
 **New**
-- **Update Ubuntu and Debian with apt:** Debian/Ubuntu users can add the AppBlips package source once, and new versions then arrive with `sudo apt update && sudo apt upgrade` and in your software center. Steps are in the [desktop quick start](https://docs.appblips.com/quickstart-desktop).
+- **Ask to add the apt source at install (Debian/Ubuntu):** the `.deb` now asks "Get AppBlips updates through apt?" during install. Say yes and new versions arrive with `sudo apt upgrade` and in your software center. The default is no.
+- **Fit an image to its replacement:** after you upload a new picture in click-to-edit, tick **Fit size to image** to keep the width and match the new picture's proportions.
+- **Build blueprint:** while a build runs, you now see a wireframe of your page assembling step by step, with the live code one click away.
 
 **Improved**
-- **Click-to-edit with part of the text highlighted:** Bold, color and other toolbar formatting now apply to just the highlighted words instead of the whole line or heading.
-- **Click-to-edit saves reliably next to inline tags:** Headings like "<span>dark</span>, played" no longer fail to save with "could not be found in the page source".
-- The update notice now also appears during first-run setup, and on `.deb` installs without the package source its button downloads the installer directly.
+- **Alt text** opens in a small window with an Apply button, and the element id chip is gone from the editor bar.
+- **Update check** now asks GitHub every hour instead of every 12 hours.
 
 **Look and feel**
-- A slimmer text cursor while editing, so it no longer towers over large hero text.
-- The update notice now stands out against your theme, and the first-run setup screens have tidier layout and styling.
+- The splash screen now plays a short silent animated video that fades in and out, with updated artwork.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
 </details>
