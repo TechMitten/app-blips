@@ -91,7 +91,9 @@ details[open] > summary[data-tip]::after {
 }
 
 @media (hover: none) {
-  [data-tip]::after { content: none; }
+  /* content: none alone leaves the padded, bordered box behind, which tapping
+     (focus-visible) reveals as a blank square over the icons. */
+  [data-tip]::after { content: none; display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
