@@ -1,0 +1,11 @@
+Template: appblips/add-apt-source
+Type: boolean
+Default: false
+Description: Get AppBlips updates through apt?
+ Add the AppBlips package source to this computer, so new versions of AppBlips
+ arrive with "sudo apt upgrade" and your software center. The source is
+ https://techmitten.github.io/app-blips and is checked against a signing key
+ that ships inside this package.
+ .
+ If you say no, AppBlips still tells you when a new version is out and links
+ to the download.

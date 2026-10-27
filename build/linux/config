@@ -1,0 +1,11 @@
+#!/bin/sh
+# Asks, once, whether to add the AppBlips apt source (see after-install.tpl).
+# debconf remembers the answer, so upgrades never ask again; neither does an
+# install that already has the source (e.g. one that came from the repo).
+set -e
+. /usr/share/debconf/confmodule
+
+if [ ! -e /etc/apt/sources.list.d/appblips.list ]; then
+    db_input high appblips/add-apt-source || true
+    db_go || true
+fi

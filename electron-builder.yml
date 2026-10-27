@@ -68,6 +68,25 @@ linux:
   icon: build/icons
   synopsis: Turn a text prompt into a working app, website or game.
   artifactName: AppBlips-${version}-${arch}.${ext}
+  # The public key of the APT repository (apt-repo.yml), so the .deb can add
+  # the package source offline when the user agrees (see deb: below).
+  extraResources:
+    - from: build/linux/appblips.gpg
+      to: appblips.gpg
+# Installing the .deb asks whether to add the AppBlips apt source (a debconf
+# question: build/linux/templates + config), and after-install.tpl adds it on
+# yes. The two .tpl files are electron-builder's own after-install/after-remove
+# scripts (node_modules/app-builder-lib/templates/linux) plus the apt part, so
+# re-copy them when upgrading electron-builder. If the signing key is ever
+# replaced, replace build/linux/appblips.gpg with the new appblips.gpg from the
+# APT repository.
+deb:
+  afterInstall: build/linux/after-install.tpl
+  afterRemove: build/linux/after-remove.tpl
+  fpm:
+    - --deb-templates=build/linux/templates
+    - --deb-config=build/linux/config
+    - --depends=debconf (>= 0.5) | debconf-2.0
 # Where electron-updater looks for new versions (Windows and AppImage builds
 # update themselves; see electron/updater.js). Builds never upload by
 # themselves (--publish never): the Desktop workflow attaches the installers
