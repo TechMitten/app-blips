@@ -43,8 +43,15 @@ function CreditUsageBar({ used, total }) {
   );
 }
 
-function AppBlipsCreditsRow({ byokActive, onClearByok }) {
-  const [info, setInfo] = useState(null); // { signedIn, email, remaining, totalGranted, totalUsed }
+// Last status seen, so the tab paints the right view at once on later opens.
+// The first open is fed by a fetch started when the app loads.
+let cachedStatus = null;
+const rememberStatus = (res) => { if (res && !res.error) cachedStatus = res; return res; };
+if (typeof window !== 'undefined') creditsStatus().then(rememberStatus).catch(() => {});
+
+function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
+  const [info, setInfo] = useState(cachedStatus); // { signedIn, email, remaining, totalGranted, totalUsed }
+  const [loaded, setLoaded] = useState(Boolean(cachedStatus)); // first status answered (or failed)
   const [email, setEmail] = useState('');
   const { ask, dialog } = useExternalConfirm();
   const [busy, setBusy] = useState(''); // '' | 'sending' | 'connecting' | 'checking' | packId
@@ -61,8 +68,10 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
     const res = await creditsStatus();
     if (!mounted.current) return;
     if (!silent) setBusy('');
+    setLoaded(true);
+    onLoaded?.();
     if (!res.error) {
-      setInfo(res);
+      setInfo(rememberStatus(res));
       if (res.email && !email) setEmail(res.email);
     }
   };
@@ -78,7 +87,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
     setWaitingPack(null);
     setCodeSentTo('');
     setCode('');
-    setInfo(res);
+    setInfo(rememberStatus(res));
     setMessage({ kind: 'ok', text: `Connected! ${typeof res.remaining === 'number' ? `${res.remaining.toLocaleString()} AI Credits ready.` : 'Ready to build.'}` });
   };
 
@@ -145,11 +154,17 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
     setWaitingPack(null);
     const res = await creditsSignOut();
     if (!mounted.current) return;
-    setInfo(res);
+    setInfo(rememberStatus(res));
     setMessage(null);
   };
 
   const signedIn = Boolean(info?.signedIn);
+
+  // Until the first status arrives we can't tell signed in from signed out,
+  // and guessing signed out flashes the connect form for connected users.
+  if (!loaded) {
+    return <div id="set-appblips-credits" className="min-h-40" aria-busy="true" />;
+  }
 
   return (
     <>
@@ -359,6 +374,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok }) {
 export default function CreditsSettings() {
   const [byokActive, setByokActive] = useState(false);
   const [error, setError] = useState(null);
+  const [loaded, setLoaded] = useState(Boolean(cachedStatus));
 
   useEffect(() => {
     providerApi.get().then((saved) => {
@@ -379,11 +395,11 @@ export default function CreditsSettings() {
 
   return (
     <>
-      <AppBlipsCreditsRow byokActive={byokActive} onClearByok={onClearByok} />
-      <p className="pt-4 text-xs text-slate-600">
+      <AppBlipsCreditsRow byokActive={byokActive} onClearByok={onClearByok} onLoaded={() => setLoaded(true)} />
+      {loaded && <p className="pt-4 text-xs text-slate-600">
         Have questions about your account? Email{' '}
         <a href="mailto:support@appblips.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-900 underline">support@appblips.com</a>.
-      </p>
+      </p>}
       {error && (
         <p role="alert" className="inline-flex items-center gap-1.5 text-xs text-red-600">
           <CircleAlert size={14} />
