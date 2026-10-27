@@ -5,7 +5,7 @@ import { safeStorage } from '../lib/config';
 import { logWarn } from '../lib/errorLog';
 
 // Settings → Workspace → Check for updates → "Check now". Asks straight away
-// (skipping the 12-hour cache and the desktop updater's hourly limit) and
+// (skipping the hourly cache and the desktop updater's hourly limit) and
 // shows the answer under the row. Works even with the switch off: clicking
 // is the user asking for this one check. Mirrors UpdateNotice's three kinds
 // of install: self-updating desktop builds report downloading/ready, the

@@ -18,7 +18,9 @@ export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
 export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#updating';
 // Microsoft Store installs link to their Store page instead of the release.
 export const STORE_URL = 'https://apps.microsoft.com/detail/9nk9ss4v2n1k';
-export const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+// Hourly, so a new release reaches people soon after it is published. One
+// request an hour per install stays far below the API limit above.
+export const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 export const CHECK_CACHE_KEY = 'orion-update-check';
 
 // Substituted at build time; absent when node tests load this file.
