@@ -1,5 +1,5 @@
 import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
@@ -289,6 +289,32 @@ export default function ChatTranscript({
   projectId = null,
 }) {
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
+
+  // Opening a saved project mounts a long transcript whose height keeps
+  // changing for a moment (markdown, fonts, fade-ins), so a single scroll to
+  // the bottom lands short and the pane reads from the top. Pin to the bottom
+  // while the log settles, and stop as soon as the user takes over.
+  useLayoutEffect(() => {
+    const bottom = chatBottomRef?.current;
+    const scroller = bottom?.closest('.build-panel-scroll');
+    if (!scroller) return undefined;
+    const pin = () => { scroller.scrollTop = scroller.scrollHeight; };
+    pin();
+    const observer = new ResizeObserver(pin);
+    observer.observe(bottom.parentElement);
+    const stop = () => observer.disconnect();
+    const timer = setTimeout(stop, 1500);
+    const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+    events.forEach((name) => scroller.addEventListener(name, stop, { once: true, passive: true }));
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      events.forEach((name) => scroller.removeEventListener(name, stop));
+    };
+    // Mount only: later messages are handled by the scroll effect in App.jsx.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="chat-log select-text space-y-4 pb-1" role="log" aria-label="Build conversation">
       {startIndex > 0 && (

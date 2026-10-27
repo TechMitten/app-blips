@@ -1174,11 +1174,26 @@ export default function App({ coldStart = false }) {
   // normal Header + build/preview layout for good.
   const showHero = !isChatActive;
 
+  // Opening a saved project mounts the transcript after this effect would have
+  // run on an unchanged `versions.length`, so the pane stayed at the top.
+  // Re-run when the project or the chat view changes and jump without
+  // animating, so the latest messages are already in view.
+  const scrolledChatKeyRef = useRef(null);
   useEffect(() => {
-    if (pendingPrompt || versions.length > 0) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [pendingPrompt, versions.length, streamingReply]);
+    if (!(pendingPrompt || versions.length > 0)) return;
+    // While a saved project resumes (cold start) the build pane isn't mounted,
+    // so there is nothing to scroll and the key must not be marked as done.
+    const bottom = chatBottomRef.current;
+    const key = isChatActive && !isResumingProject && bottom ? currentProjectId || 'new' : null;
+    const isOpening = key !== null && scrolledChatKeyRef.current !== key;
+    if (key !== null) scrolledChatKeyRef.current = key;
+    bottom?.scrollIntoView({ behavior: isOpening ? 'auto' : 'smooth' });
+    // Layout (fonts, fade-in, late-loading content) can still grow the log
+    // after this frame; settle on the true bottom once it has.
+    if (!isOpening) return;
+    const frame = requestAnimationFrame(() => bottom.scrollIntoView({ behavior: 'auto' }));
+    return () => cancelAnimationFrame(frame);
+  }, [pendingPrompt, versions.length, streamingReply, isChatActive, isResumingProject, currentProjectId]);
 
   // Warn the user before leaving / reloading while a build is running.
   useEffect(() => {
