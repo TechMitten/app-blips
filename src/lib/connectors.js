@@ -425,6 +425,43 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  // Native like SEO: no service, no key. The switch is global; the images are
+  // per project (lib/galleryImages.js) and each can also be switched off. Like
+  // the others it starts off. The AI hears about the images through the gallery note in prompts.js,
+  // not CONNECTOR_DIRECTIVES, so getActiveConnectors leaves it out.
+  images: {
+    id: 'images',
+    name: 'My images',
+    tagline: 'Upload your own photos and logos for the AI to use',
+    description: 'Add pictures to the project you have open and ask the AI to place them by name. Nothing is sent to any other service.',
+    native: true,
+    page: {
+      enableDescription: 'Let the AI use the images you add to the project you have open. Turn it off and the AI ignores all of them.',
+    },
+    gallery: true,
+    beta: true,
+    prompts: [
+      'Put my logo in the header of every page.',
+      'Use all my images in a gallery on the about page.',
+      'Use my first image as the hero background and make sure the text stays readable.',
+    ],
+    about: {
+      what: 'My images lets you upload your own photos and logos to a project, so the AI builds with your pictures instead of stock or generated ones.',
+      steps: [
+        'Open a project, then use the upload box on this page to add pictures (JPEG, PNG, WebP, GIF or SVG).',
+        'Give an image a short name, and a note about what it shows or where it should go. Use the eye on an image to hide it from the AI without deleting it.',
+        'Ask the AI for what you want, for example “put team-photo in the hero section”.',
+        'When you export or publish, only the images your pages use come along.',
+      ],
+      notes: [
+        'This is a beta feature, so it may change and some things may not work smoothly yet.',
+        'The AI is told each image’s name, size and your note, never the pixels themselves. Hidden images, and all of them while the switch is off, aren’t mentioned to it. Pages that already show one keep showing it.',
+        'Images belong to one project and are not part of its version history.',
+        'They aren’t included in a JSON backup: a restored project lists them without the pictures.',
+        'Imported sites don’t use it: they keep their own image files.',
+      ],
+    },
+  },
 };
 
 export const CONNECTOR_IDS = Object.keys(CONNECTOR_DEFINITIONS);

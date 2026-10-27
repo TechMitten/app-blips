@@ -79,7 +79,6 @@ import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
 import useCreditBalance from './hooks/useCreditBalance';
-import ImageGalleryModal from './components/ImageGalleryModal';
 import { galleryExportFiles, inlineGalleryImages, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
@@ -181,7 +180,6 @@ export default function App({ coldStart = false }) {
   const [seoProfile, setSeoProfile] = useState(null);
   const seoProfileRef = useRef(seoProfile);
   seoProfileRef.current = seoProfile;
-  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
   const [isShowcaseOpen, setIsShowcaseOpen] = useState(false);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
@@ -439,8 +437,6 @@ export default function App({ coldStart = false }) {
     () => new Set(referencedGalleryImages(files, galleryImages).map((image) => image.name)),
     [files, galleryImages],
   );
-  // Imported codebases have their own image files, so no gallery there.
-  const openGallery = isCodebase ? undefined : () => setIsGalleryOpen(true);
 
   // --- Preview viewport (mode / orientation / zoom) ---
   const {
@@ -1764,11 +1760,11 @@ export default function App({ coldStart = false }) {
   // a build; it doesn't need an offer. Screenshots are taken only when the
   // user said something looks wrong: they cost many images' worth of tokens
   // and add nothing to a problem that isn't visual, like an auto-fix's
-    const brokenFunction = options?.brokenFunction === true;
   // code errors.
   const handleReview = async (options) => {
     const automatic = options?.automatic === true;
     const screenshots = options?.screenshots === true;
+    const brokenFunction = options?.brokenFunction === true;
     if (isGeneratingRef.current) return;
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const reviewed = updatedVersions[updatedVersions.length - 1];
@@ -1814,11 +1810,11 @@ export default function App({ coldStart = false }) {
         fixCheck: updatedVersions[buildIndex].reviewFix === true,
         chatHistory,
         studioMode,
-        brokenFunction,
         signal,
         onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
         browser: createReviewBrowser(signal),
         screenshots,
+        brokenFunction,
       });
       // The screenshots each problem cites are kept as evidence for the user.
       let { problems } = review.qualityReview;
@@ -2359,7 +2355,6 @@ export default function App({ coldStart = false }) {
     setPendingAttachment(null);
     setGalleryImages([]);
     setSeoProfile(null);
-    setIsGalleryOpen(false);
     setHasSentFirstPrompt(false);
     setChatMode('build');
     setError(null);
@@ -2532,6 +2527,22 @@ export default function App({ coldStart = false }) {
     }
     : null;
 
+  // My images lives in Settings → Connectors; imported codebases keep their
+  // own image files, so no gallery there (seoProject is null for them).
+  const galleryProject = seoProject
+    ? {
+      images: galleryImages,
+      bytesVersion: gallery.bytesVersion,
+      usedNames: galleryUsedNames,
+      isGenerating,
+      onAddFiles: gallery.addFiles,
+      onRename: gallery.rename,
+      onNote: gallery.setNote,
+      onToggle: gallery.setEnabled,
+      onRemove: gallery.remove,
+    }
+    : null;
+
   // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
@@ -2567,6 +2578,7 @@ export default function App({ coldStart = false }) {
           onRestartOnboarding={isDesktop ? handleRestartOnboarding : undefined}
           projectCount={myProjects.length}
           seoProject={seoProject}
+          galleryProject={galleryProject}
         />
   );
 
@@ -2644,19 +2656,6 @@ export default function App({ coldStart = false }) {
 
       {settingsModal}
 
-      {isGalleryOpen && !isCodebase && (
-        <ImageGalleryModal
-          images={galleryImages}
-          bytesVersion={gallery.bytesVersion}
-          usedNames={galleryUsedNames}
-          isGenerating={isGenerating}
-          onAddFiles={gallery.addFiles}
-          onRename={gallery.rename}
-          onNote={gallery.setNote}
-          onRemove={gallery.remove}
-          onClose={() => setIsGalleryOpen(false)}
-        />
-      )}
 
       {isProjectsListOpen && (
         <ProjectsListModal
@@ -2784,8 +2783,6 @@ export default function App({ coldStart = false }) {
           onAttachScreenshot={handleAttachScreenshot}
           onAttachFile={handleAttachFile}
           onRemoveAttachment={handleRemoveAttachment}
-          galleryCount={galleryImages.length}
-          onOpenGallery={openGallery}
           starterIdeas={
             chatMode === 'ask'
               ? ASK_STARTER_PRESETS
@@ -2874,8 +2871,6 @@ export default function App({ coldStart = false }) {
               onAttachScreenshot={handleAttachScreenshot}
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
-              galleryCount={galleryImages.length}
-              onOpenGallery={openGallery}
               onNewChat={handleStartNewChat}
               creditsRemaining={creditsRemaining}
               onOpenCredits={() => { setSettingsInitialTab('credits'); setIsSettingsOpen(true); }}

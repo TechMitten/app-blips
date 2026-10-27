@@ -96,6 +96,16 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
     commit(imagesRef.current.map((image) => (image.name === name ? { ...image, note: String(note).slice(0, MAX_GALLERY_NOTE) } : image)));
   }, [commit]);
 
+  // Off = the AI ignores the image (getActiveGallery); pages keep showing it.
+  const setEnabled = useCallback((name, enabled) => {
+    commit(imagesRef.current.map((image) => {
+      if (image.name !== name) return image;
+      const next = { ...image, enabled: false };
+      if (enabled) delete next.enabled;
+      return next;
+    }));
+  }, [commit]);
+
   // Renaming changes the path pages use, so App rewrites them (onRenamed).
   // Returns the final name (made unique and valid).
   const rename = useCallback((name, newStem) => {
@@ -133,5 +143,5 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
     [images, toUrl],
   );
 
-  return { addFiles, setNote, rename, remove, previewGallery, bytesVersion };
+  return { addFiles, setNote, setEnabled, rename, remove, previewGallery, bytesVersion };
 }

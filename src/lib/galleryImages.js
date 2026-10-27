@@ -9,9 +9,10 @@
 // sandboxed preview can't resolve relative paths, so the path is swapped for a
 // loadable URL at render time (previewBridge.js), never in stored `files`.
 // Bytes live in the project's content-addressed blob store (blobStore.js);
-// the project row keeps only [{ hash, name, type, width, height, note }].
+// the project row keeps only [{ hash, name, type, width, height, note, enabled? }].
 import { SITE_IMAGE_PATH_RE, MAX_SITE_IMAGES_BYTES, bytesToBase64 } from './siteImages.js';
 import { sha256Hex } from './codebase/hash.js';
+import { loadConnectors } from './connectors.js';
 
 export const MAX_GALLERY_IMAGES = 25;
 export const MAX_GALLERY_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -29,9 +30,16 @@ export const galleryPath = (image) => `images/${image.name}`;
 // The open project's gallery, read by the system prompts (prompts.js
 // buildHtmlSystemPrompt) like the connected services are, so every build,
 // edit, fix and review sees it without threading it through each call.
+// What the AI hears about is only the images the user hasn't switched off
+// (`enabled: false`), and nothing at all while the My images connector is off.
+// The preview, export and the gallery itself still use every image, so pages
+// that already show a switched-off image keep working.
 let activeGallery = [];
 export const setActiveGallery = (images) => { activeGallery = Array.isArray(images) ? images : []; };
-export const getActiveGallery = () => activeGallery;
+export const isGalleryImageEnabled = (image) => image.enabled !== false;
+export const getActiveGallery = () => (loadConnectors().images?.enabled
+  ? activeGallery.filter(isGalleryImageEnabled)
+  : []);
 
 const stemOf = (fileName) => String(fileName || '')
   .replace(/\.[a-z0-9]{1,5}$/i, '')
@@ -76,6 +84,8 @@ export function normalizeGallery(list) {
       height: Number.isFinite(item.height) ? item.height : 0,
       size: Number.isFinite(item.size) ? item.size : 0,
       note: typeof item.note === 'string' ? item.note.slice(0, MAX_GALLERY_NOTE) : '',
+      // Stored only when switched off, so older projects stay on.
+      ...(item.enabled === false ? { enabled: false } : {}),
     });
     if (out.length >= MAX_GALLERY_IMAGES) break;
   }

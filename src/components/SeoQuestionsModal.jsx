@@ -194,7 +194,7 @@ function Field({ field, form, onChange, images, onEnter, className = '' }) {
       </select>
     ) : (
       <p id={id} className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs leading-snug text-slate-600">
-        You haven’t uploaded any images yet. Add some with My images in the builder, then come back to pick one.
+        You haven’t uploaded any images yet. Add some in Settings → Connectors → My images, then come back to pick one.
       </p>
     );
   } else if (field.type === 'textarea' || field.type === 'lines') {

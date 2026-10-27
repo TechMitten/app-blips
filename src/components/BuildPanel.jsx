@@ -52,8 +52,6 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
-  galleryCount,
-  onOpenGallery,
   creditsRemaining = null,
   onOpenCredits,
 }) {
@@ -252,8 +250,6 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
-          galleryCount={galleryCount}
-          onOpenGallery={onOpenGallery}
         />
       </div>
     </div>

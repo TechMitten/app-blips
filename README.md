@@ -56,7 +56,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 ### Creation & Editing
 - **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
 - **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes, or ask the AI in plain English for deeper structural tweaks.
-- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos to a project's gallery and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
+- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Connectors → My images and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
 - **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
@@ -74,7 +74,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 <br />
 
 - **AppBlips AI Credits:** Build without an API key. Start a 3-day free trial (100 credits; requires a valid payment method and converts to the $10/month Starter Plan for 1,000 credits/mo unless cancelled in **Settings → Account & Usage**) or pick a monthly plan (Starter, Builder, or Studio). Your own saved API provider always takes priority if configured.
-- **My Images Gallery (beta):** Upload project photos and logos, ask the AI to place them by name, and have them automatically bundled on export or publish.
+- **My Images Gallery (beta):** From Settings → Connectors, upload project photos and logos, ask the AI to place them by name, and have them automatically bundled on export or publish.
 - **Showcase & Site Icons:** Browse real AppBlips projects from the studio picker (even offline) and attach custom favicons when publishing to Surge.
 - **Quality of Life:** Streamlined first-run setup, a refreshed Light theme with higher contrast, Full-size preview support for websites, external link confirmation prompts, a manual **Check now** update button in **Settings → Workspace**, and Electron 44.9.1 security updates.
 

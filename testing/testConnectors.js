@@ -17,7 +17,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, seo: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -220,6 +220,29 @@ for (const id of CONNECTOR_IDS) {
   assert.ok(typeof about?.what === 'string' && about.what, `${id}: about.what`);
   assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
   assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);
+}
+
+// My images starts off like every connector, can be switched on, and never
+// reaches the AI as a service.
+assert.equal(connectorStatus('images'), 'off');
+saveConnectors({ images: { enabled: true, key: '' } });
+assert.equal(connectorStatus('images'), 'connected');
+assert.deepEqual(getActiveConnectors(), []);
+
+{
+  const { setActiveGallery, getActiveGallery } = await import('../src/lib/galleryImages.js');
+  const pic = { hash: 'a'.repeat(64), name: 'a.png', type: 'image/png' };
+  saveConnectors({});
+  setActiveGallery([pic, { ...pic, name: 'b.png', enabled: false }]);
+  assert.deepEqual(getActiveGallery(), [], 'default off: the AI hears about no images');
+  saveConnectors({ images: { enabled: true, key: '' } });
+  assert.deepEqual(getActiveGallery().map((i) => i.name), ['a.png']);
+  saveConnectors({ images: { enabled: false, key: '' } });
+  assert.deepEqual(getActiveGallery(), [], 'switch off: the AI hears about no images');
+  assert.doesNotMatch(buildHtmlSystemPrompt('app', [], getActiveGallery()), /USER IMAGES/);
+  saveConnectors({ images: { enabled: true, key: '' } });
+  assert.match(buildHtmlSystemPrompt('app', [], getActiveGallery()), /images\/a\.png/);
+  assert.doesNotMatch(buildHtmlSystemPrompt('app', [], getActiveGallery()), /images\/b\.png/);
 }
 
 console.log('ok');

@@ -3,7 +3,9 @@
 // export file lists, and the prompt note (prompts.js buildImageGalleryNote).
 import assert from 'node:assert/strict';
 
-globalThis.window = { localStorage: { length: 0, getItem: () => null, setItem: () => {} } };
+// My images is off by default, and the AI only hears about images while it is on.
+const connectorsOn = JSON.stringify({ images: { enabled: true, key: '' } });
+globalThis.window = { localStorage: { length: 0, getItem: () => connectorsOn, setItem: () => {} } };
 
 const {
   galleryName, renamedGalleryName, normalizeGallery, rewriteGalleryRefs, referencedGalleryImages,
@@ -102,3 +104,13 @@ assert.ok(!srcDoc.includes('images/team-photo.jpg'));
 assert.ok(injectPreviewBridge(stored).srcDoc.includes('images/team-photo.jpg'));
 
 console.log('testGalleryImages: all passed');
+
+// --- Hidden images and the My images switch ---
+{
+  const { setActiveGallery, getActiveGallery, normalizeGallery } = await import('../src/lib/galleryImages.js');
+  const hiddenLogo = { ...logo, enabled: false };
+  setActiveGallery([team, hiddenLogo]);
+  assert.deepStrictEqual(getActiveGallery().map((i) => i.name), ['team-photo.jpg']);
+  assert.strictEqual(normalizeGallery([hiddenLogo])[0].enabled, false);
+  assert.ok(!('enabled' in normalizeGallery([team])[0]));
+}

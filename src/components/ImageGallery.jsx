@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Images, Loader2, Trash2, X } from 'lucide-react';
-import Modal from './Modal';
+import { createPortal } from 'react-dom';
+import { Eye, EyeOff, ImagePlus, Images, Loader2, Trash2 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { FIELD_CLASS, PRIMARY_BUTTON } from './SettingControls';
 import { blobBytes } from '../lib/blobStore';
@@ -16,7 +16,7 @@ function formatSize(bytes) {
 
 // One gallery image: thumbnail, editable name (the path pages use) and note
 // (what the AI is told it shows).
-function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onRemove }) {
+function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onToggle, onRemove }) {
   const [stem, setStem] = useState(stemOf(image.name));
   const [note, setNote] = useState(image.note || '');
 
@@ -28,18 +28,34 @@ function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onRemove }
     if (note !== (image.note || '')) onNote(image.name, note);
   };
 
+  const visible = image.enabled !== false;
   const size = image.type === 'image/svg+xml' ? 'SVG' : [image.width && image.height ? `${image.width}×${image.height}` : '', formatSize(image.size)].filter(Boolean).join(' · ');
   return (
     <li className="rounded-xl border border-slate-200 overflow-hidden flex flex-col bg-surface">
       <div className="relative aspect-[4/3] bg-slate-100 flex items-center justify-center">
         {url
-          ? <img src={url} alt={image.note || image.name} className="w-full h-full object-contain" />
+          ? <img src={url} alt={image.note || image.name} className={`w-full h-full object-contain${visible ? '' : ' opacity-40 grayscale'}`} />
           : <span className="text-xs text-slate-500 px-3 text-center">Image missing on this device</span>}
         {inUse && (
           <span className="absolute top-2 left-2 rounded-full bg-surface/90 border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
             In use
           </span>
         )}
+        {!visible && (
+          <span className="absolute bottom-2 left-2 rounded-full bg-surface/90 border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+            Hidden from the AI
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => onToggle(image.name, !visible)}
+          aria-pressed={!visible}
+          aria-label={visible ? `Hide ${image.name} from the AI` : `Show ${image.name} to the AI`}
+          title={visible ? 'Hide from the AI' : 'Show to the AI'}
+          className="absolute top-2 right-12 p-1.5 rounded-lg bg-surface/90 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+        >
+          {visible ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+        </button>
         <button
           type="button"
           onClick={() => onRemove(image)}
@@ -84,9 +100,10 @@ function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onRemove }
   );
 }
 
-// "My images": the project's uploaded images (lib/galleryImages.js). Same
-// shell as Settings. Uploads are processed and stored by useImageGallery.
-export default function ImageGalleryModal({ images, bytesVersion, usedNames, isGenerating, onAddFiles, onRename, onNote, onRemove, onClose }) {
+// "My images": the project's uploaded images (lib/galleryImages.js), shown
+// inside Settings → Connectors → My images (ImagesConnector.jsx). Uploads are
+// processed and stored by useImageGallery.
+export default function ImageGallery({ images, bytesVersion, usedNames, isGenerating, onAddFiles, onRename, onNote, onToggle, onRemove }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState([]);
@@ -94,7 +111,7 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
   const [removing, setRemoving] = useState(null);
 
   // Thumbnails from the stored bytes; revoked when the list changes or the
-  // modal closes.
+  // page closes.
   const urls = useMemo(() => {
     const out = {};
     for (const image of images) {
@@ -106,14 +123,6 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images, bytesVersion]);
   useEffect(() => () => Object.values(urls).forEach((url) => URL.revokeObjectURL(url)), [urls]);
-
-  useEffect(() => {
-    const onKey = (event) => {
-      if (event.key === 'Escape' && !removing && !event.defaultPrevented) onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, removing]);
 
   const add = async (fileList) => {
     const files = [...(fileList || [])].filter((file) => file.type?.startsWith('image/'));
@@ -143,24 +152,8 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
   };
 
   return (
-    <Modal
-      zIndex={60}
-      cardClass="w-full max-w-lg sm:max-w-2xl xl:max-w-3xl max-h-[90vh] bg-surface rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col"
-      cardProps={{ role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'gallery-title' }}
-    >
-      <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 id="gallery-title" className="text-xl font-bold text-slate-900">My images <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span></h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          aria-label="Close"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+    <>
+      <div className="space-y-5 py-4">
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -198,7 +191,7 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
         {images.length > 0 ? (
           <>
             <p className="text-xs text-slate-500">
-              The AI sees each image's name and note, not the picture itself, so a short note helps it pick the right one.
+              The AI sees each image's name and note, not the picture itself, so a short note helps it pick the right one. Click the eye to hide an image from the AI; pages that already show it keep showing it.
               {isGenerating && ' Names can be changed once the build has finished.'}
             </p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -211,6 +204,7 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
                   disabled={isGenerating}
                   onRename={onRename}
                   onNote={onNote}
+                  onToggle={onToggle}
                   onRemove={confirmRemove}
                 />
               ))}
@@ -221,7 +215,7 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
         )}
       </div>
 
-      {removing && (
+      {removing && createPortal(
         <ConfirmModal
           title="Remove this image?"
           onClose={() => setRemoving(null)}
@@ -232,8 +226,9 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
           <p className="text-sm text-slate-700">
             Your project uses <strong>{galleryPath(removing)}</strong>. After removing it, that spot shows a broken image until you ask the AI to change it.
           </p>
-        </ConfirmModal>
+        </ConfirmModal>,
+        document.body,
       )}
-    </Modal>
+    </>
   );
 }

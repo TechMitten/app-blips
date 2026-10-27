@@ -48,8 +48,6 @@ export default function HeroLanding({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
-  galleryCount,
-  onOpenGallery,
   starterIdeas,
   starterSampleSize,
   onPickStarter,
@@ -107,8 +105,6 @@ export default function HeroLanding({
                 onAttachScreenshot={onAttachScreenshot}
                 onAttachFile={onAttachFile}
                 onRemoveAttachment={onRemoveAttachment}
-                galleryCount={galleryCount}
-                onOpenGallery={onOpenGallery}
                 voiceInput
               />
             </div>
