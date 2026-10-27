@@ -23,6 +23,67 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
   - The update notice stands out against your theme, and the first-run setup screens have tidier layout and styling.
 </Update>
 
+<Update label="0.1.18" description="October 27, 2026" tags={["New", "Improved", "Look and feel"]}>
+  ## New
+
+  - **SEO connector.** Answer a few friendly questions and the AI adds search-engine optimization to your site, plus a sitemap and robots file when you export or publish. No account needed.
+  - **My images is now a connector (beta).** Turn it on in **Settings → Connectors → My images**. You can also hide individual images from the AI with the eye button; pages that already use them keep working.
+  - **"Looks fine but doesn't work."** After a build, the review prompt has a second choice that clicks through every control to find things that look right but don't work.
+  - **Credits left in the Build header.** If you use AppBlips AI Credits, your remaining credits show at the top of the Build pane. Click them to open **Settings → Account & Usage** (formerly Account), which now has a usage bar that turns amber at 75% and red at 90%.
+
+  ## Improved
+
+  - Settings asks before replacing your AppBlips AI Credits with your own API key.
+  - When the credits server turns a request down (for example, no credits left), you now see its real reason instead of "You're sending requests too quickly".
+  - Onboarding waits on the "Connect your AI Credits" screen after you open the pricing page, so coming back from checkout lands on the email box.
+  - Factory Reset also signs you out of AppBlips AI Credits, and the plan descriptions are clearer.
+  - The live code peek on the building screen no longer goes blank mid-edit.
+  - Account & Usage no longer flashes the signed-out view while loading.
+  - The token counter has been removed from the chat. Check usage in **Settings → Account & Usage**, or on your provider's usage page.
+  - The refund rules now say that AI results aren't refundable, and what is.
+
+  ## Look and feel
+
+  - Streamed code in chat is readable in the light theme.
+  - The studio picker fits in the window without scrolling, and the Showcase stays full height on short windows.
+  - Neutral (non-red) accents in the SEO window, a wider Settings sidebar, a larger splash image on phones, and a tidier mobile header.
+</Update>
+
+<Update label="0.1.17" description="October 24, 2026" tags={["Improved"]}>
+  ## Improved
+
+  - Wording fixes in the plans and billing documentation.
+</Update>
+
+<Update label="0.1.16" description="October 24, 2026" tags={["Improved"]}>
+  ## Improved
+
+  - New **Plans and billing** page in Get Started: the free trial, cancelling, and refunds. It says clearly that the trial is charged unless you cancel.
+</Update>
+
+<Update label="0.1.15" description="October 24, 2026" tags={["New", "Improved", "Look and feel"]}>
+  ## New
+
+  - **AppBlips AI Credits.** Build without an API key. Start a 3-day free trial (100 credits; requires a valid payment method and converts to the $10/month Starter Plan for 1,000 credits a month unless cancelled) or pick a monthly plan. Connect with a sign-in code emailed to you, entered in six boxes. Your own saved API provider always takes priority if configured.
+  - **Account tab in Settings** with a support email and a **Cancel subscription** link.
+  - **My images gallery (beta).** Upload your own photos and logos per project, ask the AI to place them by name, and they're bundled when you export or publish.
+  - **Showcase.** Browse real AppBlips websites and games from the studio picker, even offline, and submit your own after publishing.
+  - **Site icons.** Choose a favicon in the Publish window before publishing to Surge.
+  - **Link confirmation.** AppBlips asks before opening an external website.
+
+  ## Improved
+
+  - Onboarding asks whether you want to bring your own API key or use AI Credits.
+  - Websites and imported sites can use **Full size** preview.
+  - Electron updated to 44.9.1 for Chromium security fixes.
+  - The Docker guide now says to install Docker Compose v2.
+
+  ## Look and feel
+
+  - The light theme has higher contrast, with firmer borders, darker secondary text and solid chat bubbles, and a navy accent while building.
+  - The "Your turn" box is gone from onboarding.
+</Update>
+
 <Update label="0.1.14" description="October 23, 2026" tags={["New", "Improved", "Look and feel"]}>
   ## New
 
