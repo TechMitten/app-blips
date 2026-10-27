@@ -30,7 +30,7 @@ const metaFor = (index) => (index < REVIEW ? STEP_META[SEO_STEPS[index].id] : RE
 const LINK_BUTTON = 'text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline disabled:opacity-40 disabled:no-underline';
 const GHOST_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40';
 const INPUT_CLASS = `${FIELD_CLASS} transition-[border-color,box-shadow] focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20`;
-const ICON_TILE = 'flex shrink-0 items-center justify-center text-red-600 dark:text-red-300';
+const ICON_TILE = 'flex shrink-0 items-center justify-center text-slate-500';
 
 // Small notes under a field: a quiet one, or a warning that something typed
 // will be left out when saved.
@@ -71,7 +71,7 @@ function ChipsField({ id, field, value, onChange, describedBy }) {
         className="flex min-h-[2.625rem] w-full cursor-text flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 transition-[border-color,box-shadow] focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20"
       >
         {value.map((word) => (
-          <span key={word} className="inline-flex items-center gap-1 rounded-md bg-red-500/10 py-1 pl-2 pr-1 text-xs font-medium text-red-700 dark:text-red-300">
+          <span key={word} className="inline-flex items-center gap-1 rounded-md bg-red-500/10 py-1 pl-2 pr-1 text-xs font-medium text-slate-700">
             {word}
             <button
               type="button"
@@ -143,7 +143,7 @@ function ChoiceField({ id, field, value, onChange }) {
             onKeyDown={(event) => move(event, index)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 ${
               on
-                ? 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-300'
+                ? 'border-red-500 bg-red-500/10 text-slate-700'
                 : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
             }`}
           >
@@ -323,7 +323,7 @@ function SiteScan({ origin, scan, declined, onScan, onDecline, className = '' })
     return (
       <p className={`text-xs text-slate-500 ${className}`}>
         Not scanning {host}.{' '}
-        <button type="button" onClick={() => { onDecline(false); run(); }} className="font-semibold text-red-600 hover:underline dark:text-red-300">Scan it after all</button>
+        <button type="button" onClick={() => { onDecline(false); run(); }} className="font-semibold text-slate-700 hover:underline">Scan it after all</button>
       </p>
     );
   }
@@ -331,7 +331,7 @@ function SiteScan({ origin, scan, declined, onScan, onDecline, className = '' })
   return (
     <div role="group" aria-labelledby="seo-scan-title" className={shell}>
       <div className="flex items-start gap-3">
-        <Globe size={18} className="mt-0.5 shrink-0 text-red-600 dark:text-red-300" aria-hidden="true" />
+        <Globe size={18} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
         <div className="min-w-0">
           <p id="seo-scan-title" className="text-sm font-semibold text-slate-900">Is it OK to scan {host}?</p>
           <p className="mt-0.5 text-xs leading-snug text-slate-600">
@@ -402,7 +402,7 @@ function ReviewValue({ field, form }) {
     return (
       <span className="flex flex-wrap gap-1">
         {value.map((word) => (
-          <span key={word} className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">{word}</span>
+          <span key={word} className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-xs font-medium text-slate-700">{word}</span>
         ))}
       </span>
     );
@@ -426,7 +426,7 @@ function Review({ form, onEdit }) {
                 <span className={`${ICON_TILE} h-6 w-6 rounded-md`}><Icon size={13} aria-hidden="true" /></span>
                 {step.title}
               </h4>
-              <button type="button" onClick={() => onEdit(index)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-300">
+              <button type="button" onClick={() => onEdit(index)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100">
                 <Pencil size={11} aria-hidden="true" />Edit<span className="sr-only"> {step.title}</span>
               </button>
             </div>
@@ -544,7 +544,7 @@ export default function SeoQuestionsModal({ project, onClose }) {
           <div className="mb-5 flex items-start gap-3">
             <span className={`${ICON_TILE} h-10 w-10`}><StepIcon size={20} aria-hidden="true" /></span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-300">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 {current ? `Step ${step + 1} of ${REVIEW}` : 'Last look'}
               </p>
               <h3 className="text-lg font-bold leading-tight text-slate-900">{current ? current.title : 'Does this look right?'}</h3>
@@ -607,7 +607,7 @@ export default function SeoQuestionsModal({ project, onClose }) {
                 {confirmReset ? (
                   <p className="flex flex-wrap items-center gap-3 text-xs text-slate-700">
                     Clear all your answers?
-                    <button type="button" onClick={reset} className="font-semibold text-red-600 hover:underline">Yes, clear them</button>
+                    <button type="button" onClick={reset} className="font-semibold text-slate-700 hover:underline">Yes, clear them</button>
                     <button type="button" onClick={() => setConfirmReset(false)} className={LINK_BUTTON}>Cancel</button>
                   </p>
                 ) : (
@@ -628,7 +628,7 @@ export default function SeoQuestionsModal({ project, onClose }) {
             </p>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setConfirmClose(false)} autoFocus className={GHOST_BUTTON}>Keep going</button>
-              <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500/10">Close</button>
+              <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100">Close</button>
             </div>
           </div>
         ) : (

@@ -128,14 +128,15 @@
   .preview-tabs > span,
   .preview-tabs button > span { display: none; }
   .preview-tabs .nav-segmented-group { margin-left: 0; }
-  /* Same 40px square as every other key at this fold; the open menu's
+  /* Same 36px square as every other key at this fold; the open menu's
      check mark still names the current page. */
-  .preview-page-picker-key { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .preview-page-picker-key { width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
   .preview-page-picker-label,
   .preview-page-picker-chevron { display: none; }
   .preview-tabs button,
   .preview-actions .nav-btn,
-  .preview-actions .nav-segmented-btn { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn,
+  .preview-actions summary { width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
   .preview-actions { gap: 4px; }
   .preview-canvas { padding: 12px; }
 }
@@ -233,8 +234,14 @@
   .build-panel-header { display: none; }
 
   .header-view-switch { flex: 1 1 auto; min-width: 0; }
+  /* 34px segments in a 3px-padded track: about 42px overall, a phone's own
+     segmented-control height. 44px segments made the track nearly as tall
+     as the header itself. The segments are wide, so the target is still
+     easy to hit. */
+  .app-header .header-view-switch { padding: 3px; }
   .header-view-switch .nav-segmented-btn {
-    min-height: 44px;
+    min-height: 34px;
+    padding-block: 0;
     padding-inline: 0.5rem;
   }
 
@@ -244,13 +251,25 @@
      .nav-btn-icon already uses. */
   /* The preview toolbar's keys are sized by a container query on the pane,
      which also fires on a narrow desktop pane -- so the touch bump belongs
-     here, keyed on the viewport, rather than in that query. min-width beats
-     the width it sets, so the keys grow without the query being touched. */
+     here, keyed on the viewport, rather than in that query. It is an
+     invisible 4px apron (::after) rather than a bigger key: a 44px filled
+     key (the active tab) loomed over its bare-icon neighbors and filled the
+     band edge to edge. Child combinators keep it off the sliders dropdown,
+     whose keys grow for real below. */
   .preview-tabs button,
   .preview-actions .nav-btn,
-  .preview-actions .nav-segmented-btn,
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn,
   .preview-actions summary,
-  .preview-tabs summary,
+  .preview-tabs summary { position: relative; }
+  .preview-tabs button::after,
+  .preview-actions .nav-btn::after,
+  .preview-actions > .nav-segmented-group > .nav-segmented-btn::after,
+  .preview-actions summary::after,
+  .preview-tabs summary::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
   .preview-tools-menu .nav-segmented-btn { min-width: 44px; min-height: 44px; }
   .chat-rewind-btn,
   .chat-copy-btn { min-width: 44px; min-height: 44px; }
@@ -339,8 +358,8 @@
    phone those three bands stack directly on top of one another, and a track
    wrapped around a pair of 40px keys doubles their visual weight -- the rows
    read as nested containers rather than controls. So the whole top section
-   flattens to one language here: evenly spaced outlined keys sitting straight
-   on the band, no tracks, and the active workspace view marked by a blue rim
+   flattens to one language here: evenly spaced keys sitting straight on the
+   band (outlined in light, bare glyphs in dark), no tracks, and the active workspace view marked by a blue rim
    instead of a raised light key (with the keys detached there's no track left
    to read a selection against, so the state has to live on the rim).
 
@@ -358,17 +377,16 @@
   min-height: 2.75rem;
   padding: 0;
   border-radius: 0.85rem;
-  background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
-  border: 1px solid rgb(255 255 255 / 0.12);
+  /* A bare glyph, not a framed tile: rimmed, shadowed keys scattered over
+     the phone's black chrome read as stickers rather than controls. */
+  background: transparent;
+  border: 1px solid transparent;
   color: #e2e8f0;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 1px 0 rgb(255 255 255 / 0.05);
+  box-shadow: none;
 }
 
 .header-menu-key:hover {
-  background: linear-gradient(180deg, #272b36 0%, #1d2028 100%);
-  border-color: rgb(255 255 255 / 0.22);
+  background: rgb(255 255 255 / 0.08);
   color: #ffffff;
 }
 
@@ -432,6 +450,26 @@
     inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
+/* The workspace switch in the app header: a flat tinted track with a solid
+   lighter thumb (the familiar phone segmented control). The sunken, rimmed
+   well with a raised grey key inside read as a sticker on the black header,
+   and a faint fill in that well just looked muddy. */
+:is(html.dark, .force-dark) .header-view-switch {
+  background: rgb(255 255 255 / 0.07);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:is(html.dark, .force-dark) .header-view-switch .nav-segmented-btn {
+  color: var(--color-slate-600);
+}
+
+:is(html.dark, .force-dark) .header-view-switch .nav-segmented-btn-active {
+  background: #3a3a3e !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
 /* --- Preview toolbar ----------------------------------------------------- */
 @container (max-width: 640px) {
 
@@ -453,9 +491,10 @@
     border-radius: 0.75rem;
   }
 
-  /* :not(.brand-fill-text) so Export/Deploy stay filled keys -- everything
-     else in the rank (Open, Reload, Edit, the sliders trigger) flattens to
-     an outlined key sitting straight on the band. */
+  /* :not(.brand-fill-text) so Export/Deploy stay filled keys in light --
+     everything else in the rank (Open, Reload, Edit, the sliders trigger)
+     flattens to an outlined key sitting straight on the band. Dark drops the
+     fill too (below): a white tile among bare glyphs looked stuck on. */
   .preview-tabs > .nav-segmented-group > .nav-segmented-btn,
   .preview-actions > .nav-segmented-group > .nav-segmented-btn,
   .preview-actions .nav-btn:not(.brand-fill-text) {
@@ -471,12 +510,34 @@
       .preview-actions > .nav-segmented-group > .nav-segmented-btn,
       .preview-actions .nav-btn:not(.brand-fill-text)
     ) {
-    background: linear-gradient(180deg, #1e212a 0%, #16181f 100%);
-    border-color: rgb(255 255 255 / 0.1);
+    /* Bare glyphs on dark: outlined, shadowed tiles on the black band read
+       as stickers. Hover and the active tab still get a soft fill. */
+    background: transparent;
+    border-color: transparent;
     color: var(--color-slate-700);
-    box-shadow:
-      0 1px 2px rgb(0 0 0 / 0.45),
-      inset 0 1px 0 rgb(255 255 255 / 0.04);
+    box-shadow: none;
+  }
+
+  :is(html.dark, .force-dark)
+    :is(
+      .preview-tabs > .nav-segmented-group > .nav-segmented-btn,
+      .preview-actions > .nav-segmented-group > .nav-segmented-btn,
+      .preview-actions .nav-btn:not(.brand-fill-text)
+    ):hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  /* Publish/Export: a bare white glyph like its neighbors. The !important
+     colour outranks the dark ink .brand-fill-text forces for its white key. */
+  :is(html.dark, .force-dark) .preview-actions .nav-btn.brand-fill-text {
+    background: transparent;
+    border-color: transparent;
+    color: #ffffff !important;
+    box-shadow: none;
+  }
+
+  :is(html.dark, .force-dark) .preview-actions .nav-btn.brand-fill-text:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.06);
   }
 
   /* Active view tab. Kept to a lifted face + brighter icon rather than the
@@ -490,9 +551,9 @@
   }
 
   :is(html.dark, .force-dark) .preview-tabs > .nav-segmented-group > .nav-segmented-btn-active {
-    background: linear-gradient(180deg, #2f3440 0%, #232730 100%) !important;
+    background: rgb(255 255 255 / 0.1) !important;
     color: #ffffff !important;
-    border-color: rgb(255 255 255 / 0.18);
+    border-color: transparent;
   }
 
   /* 14px glyphs were sized for a label beside them; alone in a 40px key they

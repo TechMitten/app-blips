@@ -84,7 +84,7 @@ export function TabList({ tabs, active, onSelect, idPrefix, label }) {
       aria-label={label}
       aria-orientation="vertical"
       onKeyDown={onKeyDown}
-      className={`shrink-0 grid ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} sm:flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-48 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60`}
+      className={`shrink-0 grid ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} sm:flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-56 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60`}
     >
       {tabs.map(({ id, label: tabLabel, Icon, attention }) => {
         const selected = active === id;

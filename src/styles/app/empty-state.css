@@ -722,6 +722,18 @@
   gap: clamp(6px, 1.6vw, 9px);
 }
 
+/* Mock status-bar title between the clock and the signal icons. Absolutely
+   centered on the bar so it stays put regardless of the clock/icon widths. */
+.building-device-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .building-signal {
   display: inline-flex;
   align-items: end;
@@ -1055,10 +1067,12 @@
   --build-blue-bright: #ffb8ad;
   --build-status-ink: #f2f0f8;
   --build-bg:
-    radial-gradient(90% 42% at 50% 22%, rgb(233 96 79 / 0.13), transparent 72%),
-    radial-gradient(70% 35% at 50% 100%, rgb(233 96 79 / 0.07), transparent 74%),
+    radial-gradient(90% 42% at 50% 22%, rgb(255 255 255 / 0.05), transparent 72%),
+    radial-gradient(70% 35% at 50% 100%, rgb(255 255 255 / 0.025), transparent 74%),
     linear-gradient(180deg, #08070b 0%, #040405 54%, #020202 100%);
-  --build-grid: rgb(255 190 180 / 0.05);
+  /* Neutral glow and grid: coral at this low strength over black turns a
+     muddy brown, so the red stays on the spinner, dots and card only. */
+  --build-grid: rgb(255 255 255 / 0.045);
   --build-vignette:
     radial-gradient(ellipse 60% 34% at 50% 27%, transparent 36%, rgb(0 0 0 / 0.45) 100%),
     linear-gradient(90deg, rgb(0 0 0 / 0.3), transparent 24%, transparent 76%, rgb(0 0 0 / 0.36));

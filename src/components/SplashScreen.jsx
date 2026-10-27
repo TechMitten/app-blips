@@ -71,7 +71,9 @@ export default function SplashScreen({ skip = false }) {
         onLoad={startFadeIn}
         // A missing image shouldn't leave a black screen up.
         onError={skipSplash}
-        className={`max-h-[38dvh] w-[38vw] object-contain transition-opacity ease-in-out ${
+        // 38vw suits desktops, but the image is wide (16:9-ish) and its edges
+        // are feathered away, so on a phone it needs most of the width.
+        className={`max-h-[38dvh] w-[92vw] object-contain sm:w-[38vw] transition-opacity ease-in-out ${
           isImageShown ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
