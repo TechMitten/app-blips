@@ -70,13 +70,28 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.15 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.18 (Click to expand)</strong></summary>
 <br />
 
-- **AppBlips AI Credits:** Build without an API key. Start a 3-day free trial (100 credits; requires a valid payment method and converts to the $10/month Starter Plan for 1,000 credits/mo unless cancelled in **Settings → Account & Usage**) or pick a monthly plan (Starter, Builder, or Studio). Your own saved API provider always takes priority if configured.
-- **My Images Gallery (beta):** From Settings → Connectors, upload project photos and logos, ask the AI to place them by name, and have them automatically bundled on export or publish.
-- **Showcase & Site Icons:** Browse real AppBlips projects from the studio picker (even offline) and attach custom favicons when publishing to Surge.
-- **Quality of Life:** Streamlined first-run setup, a refreshed Light theme with higher contrast, Full-size preview support for websites, external link confirmation prompts, a manual **Check now** update button in **Settings → Workspace**, and Electron 44.9.1 security updates.
+**New**
+- **SEO connector:** Answer a few friendly questions and the AI adds search-engine optimization to your site, plus a sitemap and robots file when you export or publish. No account needed.
+- **My images is now a connector (beta):** Turn it on in **Settings → Connectors → My images**. You can also hide individual images from the AI with the eye button; pages that already use them keep working.
+- **"Looks fine but doesn't work":** After a build, the review prompt has a second choice that clicks through every control to find things that look right but don't work.
+- **Credits left in the Build header:** If you use AppBlips AI Credits, your remaining credits show at the top of the Build pane. Click them to open **Settings → Account & Usage** (formerly Account), which now has a usage bar that turns amber at 75% and red at 90%.
+
+**Improved**
+- Settings asks before replacing your AppBlips AI Credits with your own API key.
+- When the credits server turns a request down (for example, no credits left), you now see its real reason instead of "You're sending requests too quickly".
+- Onboarding waits on the "Connect your AI Credits" screen after you open the pricing page, so coming back from checkout lands on the email box.
+- Factory Reset also signs you out of AppBlips AI Credits, and the plan descriptions are clearer.
+- The live code peek on the building screen no longer goes blank mid-edit.
+- Account & Usage no longer flashes the signed-out view while loading.
+- The token counter has been removed from the chat. Check usage in **Settings → Account & Usage**, or on your provider's usage page.
+
+**Look and feel**
+- Streamed code in chat is readable in the light theme.
+- The studio picker fits in the window without scrolling, and the Showcase stays full height on short windows.
+- Neutral (non-red) accents in the SEO window, a wider Settings sidebar, a larger splash image on phones, and a tidier mobile header.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
 </details>
