@@ -1,5 +1,5 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
@@ -9,6 +9,7 @@ import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { logError } from '../lib/errorLog';
+import { creditsStatus } from '../lib/credits';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 // Settings → AI. In the desktop app the key is saved in the main process,
@@ -30,6 +31,8 @@ export default function DesktopProviderSettings({ guardRef }) {
   const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
+  const [confirmCredits, setConfirmCredits] = useState(false);
+  const creditsResolve = useRef(null);
   const modelList = useProviderModels({
     ...draft,
     hasSavedKey: Boolean(saved?.hasKey && saved.id === draft.id),
@@ -70,6 +73,15 @@ export default function DesktopProviderSettings({ guardRef }) {
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = async () => {
+    // Saving a provider pauses AppBlips AI Credits (chatProxy.js only uses
+    // credits when no provider is saved), so ask before switching.
+    if (!active) {
+      const signedIn = await creditsStatus().then((c) => Boolean(c?.signedIn), () => false);
+      if (signedIn) {
+        const ok = await new Promise((resolve) => { creditsResolve.current = resolve; setConfirmCredits(true); });
+        if (!ok) return false;
+      }
+    }
     setStatus({ kind: 'busy', text: 'Saving…' });
     try {
       const next = await providerApi.set({
@@ -239,6 +251,24 @@ export default function DesktopProviderSettings({ guardRef }) {
     />
     {/* Portaled out of the settings card: a fixed overlay inside it would be
         clipped by the card's overflow. */}
+    {confirmCredits && createPortal(
+      <ConfirmModal
+        title="Use your own API key?"
+        subtitle="You're currently using AppBlips AI Credits."
+        onClose={() => { setConfirmCredits(false); creditsResolve.current?.(false); }}
+        onConfirm={() => { setConfirmCredits(false); creditsResolve.current?.(true); }}
+        confirmLabel="Use my own key"
+        confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+      >
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+          <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <span>
+            Builds will use {providerLabel(draft.id)} and be billed by them instead of using your AppBlips AI Credits. Your remaining credits are kept, and you can switch back by clearing the provider here.
+          </span>
+        </div>
+      </ConfirmModal>,
+      document.body,
+    )}
     {confirmClear && createPortal(
       <ConfirmModal
         title="Clear AI provider?"
