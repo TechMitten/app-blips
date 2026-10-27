@@ -63,7 +63,12 @@ function StatusBadge({ status }) {
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
 }
 
-function ConnectorCard({ name, tagline, Icon, status, onClick }) {
+// Same pill as Code Review's in Settings → AI; `beta` is set in the definition.
+function BetaBadge() {
+  return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span>;
+}
+
+function ConnectorCard({ name, tagline, Icon, status, beta = false, onClick }) {
   return (
     <button
       type="button"
@@ -77,7 +82,7 @@ function ConnectorCard({ name, tagline, Icon, status, onClick }) {
         <StatusBadge status={status} />
       </span>
       <span>
-        <span className="block text-sm font-semibold text-slate-900">{name}</span>
+        <span className="block text-sm font-semibold text-slate-900">{name}{beta && <BetaBadge />}</span>
         <span className="mt-0.5 block text-xs leading-snug text-slate-600">{tagline}</span>
       </span>
     </button>
@@ -220,7 +225,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
   };
 
   if (openId) {
-    const { name, description, homeUrl, homeLinkLabel } = CONNECTOR_DEFINITIONS[openId];
+    const { name, description, homeUrl, homeLinkLabel, beta } = CONNECTOR_DEFINITIONS[openId];
     const Icon = ICONS[openId];
     return (
       <div>
@@ -237,7 +242,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
             <Icon size={22} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-slate-900">{name}</h3>
+            <h3 className="text-base font-bold text-slate-900">{name}{beta && <BetaBadge />}</h3>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">{description}</p>
             {homeUrl && (
               <ConfirmedLink href={homeUrl} why={`To read about ${name} on its own website.`} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline">
@@ -289,6 +294,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
             name={CONNECTOR_DEFINITIONS[id].name}
             tagline={CONNECTOR_DEFINITIONS[id].tagline}
             Icon={ICONS[id]}
+            beta={CONNECTOR_DEFINITIONS[id].beta}
             status={connectorStatus(id, connectors)}
             onClick={() => setOpenId(id)}
           />
