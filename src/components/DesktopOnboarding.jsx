@@ -278,8 +278,8 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 }
 
 const PLAN_OPTIONS = [
-  { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
   { id: 'credits', Icon: Coins, title: 'Purchase AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Start a 3-day free trial with 100 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
+  { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
 ];
 
 const CREDITS_OPTIONS = [
@@ -499,6 +499,13 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 // that onboarding is done so it doesn't come back on the next launch.
 export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup }) {
   const [step, setStep] = useState('name');
+  // Slide direction follows the step order; only updated when the step
+  // changes so unrelated re-renders don't restart the animation.
+  const [slide, setSlide] = useState({ step, rank: 0, dir: 'forward' });
+  if (slide.step !== step) {
+    const rank = { name: 0, avatar: 1, plan: 2, ai: 3, credits: 3, connect: 4 }[step];
+    setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
+  }
   const [profile] = useState(loadProfile);
   const [name, setName] = useState(profile.name);
   const [avatar, setAvatar] = useState(profile.avatar || AVATAR_IDS[0]);
@@ -521,7 +528,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   );
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [plan, setPlan] = useState('key');
+  const [plan, setPlan] = useState('credits');
   const [creditsChoice, setCreditsChoice] = useState('new');
   const [openedPricing, setOpenedPricing] = useState(false);
   const [confirmWebsite, setConfirmWebsite] = useState(false);
@@ -716,7 +723,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
           )}
         </header>
 
-        <div className="onboarding-stage" key={step}>
+        <div className="onboarding-stage" key={step} data-dir={slide.dir}>
           <section className="onboarding-copy has-panel">
             <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
             {!isName && cleanName(name) && (

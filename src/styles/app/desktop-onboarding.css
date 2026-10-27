@@ -138,8 +138,9 @@
   align-items: center;
   gap: clamp(2rem, 5vw, 5rem);
   padding: clamp(2rem, 5vw, 4.5rem);
-  animation: onboarding-enter 0.42s cubic-bezier(.2,.75,.25,1) both;
+  animation: onboarding-slide-forward 0.34s cubic-bezier(.2,.75,.25,1) both;
 }
+.onboarding-stage[data-dir="back"] { animation-name: onboarding-slide-back; }
 
 .desktop-onboarding-card.is-setup .onboarding-stage {
   position: relative;
@@ -441,7 +442,8 @@
 .onboarding-info-actions { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .onboarding-info-actions .onboarding-next { margin-top: 0; }
 
-@keyframes onboarding-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes onboarding-slide-forward { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes onboarding-slide-back { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: translateX(0); } }
 
 @media (max-width: 850px) {
   /* The card is taller than the screen here, and a centred grid item that
