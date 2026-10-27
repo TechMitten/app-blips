@@ -141,25 +141,25 @@ function ReviewOffer({ onReview, onSkip }) {
           <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
           <span>Try it in the preview first. Does anything look wrong on screen? Choose <strong>Looks wrong</strong> and the AI tests it and can take a screenshot to check a problem it finds, or <strong>Looks fine</strong> to have it test that everything works, without screenshots. Then it writes a report, and you choose whether to fix what it found. Uses extra tokens.</span>
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => onReview({ screenshots: true })}
-            className="brand-fill-text rounded-lg px-3 py-1.5 bg-brand text-white text-(length:--chat-label-text) font-semibold hover:bg-brand-hover transition-colors"
+            className="brand-fill-text whitespace-nowrap rounded-lg px-3 py-1.5 bg-brand text-white text-(length:--chat-label-text) font-semibold hover:bg-brand-hover transition-colors"
           >
             Looks wrong
           </button>
           <button
             type="button"
             onClick={() => onReview({ screenshots: false })}
-            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="whitespace-nowrap rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             Looks fine
           </button>
           <button
             type="button"
             onClick={onSkip}
-            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="whitespace-nowrap rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             Skip
           </button>

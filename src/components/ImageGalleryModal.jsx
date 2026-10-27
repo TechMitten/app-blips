@@ -149,7 +149,7 @@ export default function ImageGalleryModal({ images, bytesVersion, usedNames, isG
       cardProps={{ role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'gallery-title' }}
     >
       <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 id="gallery-title" className="text-xl font-bold text-slate-900">My images</h2>
+        <h2 id="gallery-title" className="text-xl font-bold text-slate-900">My images <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span></h2>
         <button
           type="button"
           onClick={onClose}

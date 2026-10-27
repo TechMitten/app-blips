@@ -2600,19 +2600,6 @@ export default function App({ coldStart = false }) {
           />
         )}
         {isShowcaseOpen && <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />}
-        {isGalleryOpen && !isCodebase && (
-          <ImageGalleryModal
-            images={galleryImages}
-            bytesVersion={gallery.bytesVersion}
-            usedNames={galleryUsedNames}
-            isGenerating={isGenerating}
-            onAddFiles={gallery.addFiles}
-            onRename={gallery.rename}
-            onNote={gallery.setNote}
-            onRemove={gallery.remove}
-            onClose={() => setIsGalleryOpen(false)}
-          />
-        )}
         {isImportSiteOpen && (
           <ImportSiteDialog
             onImported={handleImportedSite}
@@ -2654,6 +2641,20 @@ export default function App({ coldStart = false }) {
       )}
 
       {settingsModal}
+
+      {isGalleryOpen && !isCodebase && (
+        <ImageGalleryModal
+          images={galleryImages}
+          bytesVersion={gallery.bytesVersion}
+          usedNames={galleryUsedNames}
+          isGenerating={isGenerating}
+          onAddFiles={gallery.addFiles}
+          onRename={gallery.rename}
+          onNote={gallery.setNote}
+          onRemove={gallery.remove}
+          onClose={() => setIsGalleryOpen(false)}
+        />
+      )}
 
       {isProjectsListOpen && (
         <ProjectsListModal
