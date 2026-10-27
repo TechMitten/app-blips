@@ -42,15 +42,21 @@ export function compareVersions(a, b) {
   return pa[4] < pb[4] ? -1 : 1;
 }
 
-// GitHub's "latest release" payload -> { version, url } or null. Drafts and
-// pre-releases are never offered, and links point only into this repo.
+// GitHub's "latest release" payload -> { version, url, downloadUrl? } or null.
+// Drafts and pre-releases are never offered, and links point only into this
+// repo. downloadUrl is the .deb itself: .deb installs can't update themselves,
+// so their notice downloads the installer instead of opening the release page.
 export function parseLatestRelease(json) {
   if (!json || typeof json !== 'object' || json.draft || json.prerelease) return null;
   const version = String(json.tag_name || '').trim().replace(/^v/i, '');
   if (!VERSION_RE.test(version)) return null;
   const html = String(json.html_url || '');
   const url = html.startsWith(`https://github.com/${UPDATE_REPO}/releases/`) ? html : RELEASES_URL;
-  return { version, url };
+  const prefix = `https://github.com/${UPDATE_REPO}/releases/download/`;
+  const deb = Array.isArray(json.assets)
+    ? json.assets.find((a) => /\.deb$/i.test(String(a?.name || '')) && String(a?.browser_download_url || '').startsWith(prefix))
+    : null;
+  return deb ? { version, url, downloadUrl: deb.browser_download_url } : { version, url };
 }
 
 // The latest release, or null when there is none yet (GitHub answers 404).

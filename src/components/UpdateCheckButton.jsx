@@ -59,7 +59,7 @@ export function UpdateCheckResult({ result }) {
       )}
       {result.status === 'available' && (
         <div className="mt-2 flex flex-wrap gap-2">
-          <ConfirmedLink href={result.url} why={result.store ? 'To get the update from the Microsoft Store.' : isDesktop ? 'To download the newer version of AppBlips from the AppBlips release page.' : 'To read what changed in the newest version of AppBlips.'} className={SECONDARY_BUTTON}>
+          <ConfirmedLink href={isDesktop && result.downloadUrl ? result.downloadUrl : result.url} why={result.store ? 'To get the update from the Microsoft Store.' : isDesktop ? 'To download the newer version of AppBlips from the AppBlips release page.' : 'To read what changed in the newest version of AppBlips.'} className={SECONDARY_BUTTON}>
             {result.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}
           </ConfirmedLink>
           {!isDesktop && (

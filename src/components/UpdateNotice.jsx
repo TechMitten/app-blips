@@ -18,7 +18,9 @@ import { logError, logWarn } from '../lib/errorLog';
 // Closing a release notice hides that version for good; "Later" on a
 // downloaded desktop update only hides it until next launch (it installs
 // when the app quits anyway).
-export default function UpdateNotice() {
+// `aboveOverlay` lifts it over the full-screen onboarding (z-index 1000), so a
+// fresh install hears about an update before setup is finished.
+export default function UpdateNotice({ aboveOverlay = false }) {
   const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, store? }
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
@@ -83,7 +85,7 @@ export default function UpdateNotice() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 right-4 z-[85] w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface px-4 py-3.5 shadow-xl text-sm text-slate-700"
+      className={`update-notice dark force-dark palette-stock fixed bottom-4 right-4 ${aboveOverlay ? 'z-[1200]' : 'z-[85]'} w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface px-4 py-3.5 shadow-xl text-sm text-slate-700`}
     >
       <div className="flex items-start gap-3">
         <ArrowUpCircle size={18} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
@@ -115,7 +117,7 @@ export default function UpdateNotice() {
               </>
             ) : (
               <>
-                <a href={update.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                <a href={isDesktop && update.downloadUrl ? update.downloadUrl : update.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
                   {update.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}
                 </a>
                 {!isDesktop && (

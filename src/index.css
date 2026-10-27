@@ -422,6 +422,17 @@
     --color-violet-800: oklch(43.2% 0.232 292.759);
     --color-violet-900: oklch(38% 0.189 293.745);
     --color-violet-950: oklch(28.3% 0.141 291.089);  }
+
+  /* The update notice is inverted against the app: dark card in the light
+     theme (force-dark on the element), light card in the dark theme. Under
+     html.dark, palette-stock re-pins the slate ramp to the light stock
+     values; surface and brand are not part of that, so they are pinned here
+     to their light-theme values. */
+  html.dark .update-notice {
+    --color-surface: #ffffff;
+    --color-brand: #1e598f;
+    --color-brand-hover: #184672;
+  }
 }
 
 /* ---------------------------------------------------------------------------

@@ -2480,6 +2480,7 @@ export default function App({ coldStart = false }) {
 
   if (desktopOnboarding) {
     return (
+      <>
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
         onComplete={(opts) => {
@@ -2491,6 +2492,8 @@ export default function App({ coldStart = false }) {
         }}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
       />
+      <UpdateNotice aboveOverlay />
+      </>
     );
   }
 
