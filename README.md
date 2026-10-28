@@ -66,7 +66,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
-- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon) directly from the preview toolbar.
+- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>

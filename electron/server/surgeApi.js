@@ -13,6 +13,8 @@
 //   POST   /api/surge/publish  -> { domain, files: { 'index.html': html },
 //                                   images?: { 'images/<name>.jpg': base64,
 //                                              'favicon.png': base64 },
+//                                   password?: string  (lock the site, see
+//                                              src/lib/passwordGate.js),
 //                                   extras?: { 'sitemap.xml': text,
 //                                              'robots.txt': text } }
 //                                 -> { url } or { error, signedOut? }
@@ -29,7 +31,8 @@ import { isForeignOrigin } from './chatProxy.js';
 import { createTar, gzip } from './tar.js';
 import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/pages.js';
 import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
-import { FAVICON_PATH, MAX_FAVICON_BYTES } from '../../src/lib/favicon.js';
+import { FAVICON_PATH, MAX_FAVICON_BYTES, addFaviconLinks } from '../../src/lib/favicon.js';
+import { checkGatePassword, inlineGateImages, protectPages } from '../../src/lib/passwordGate.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
 export const SURGE_SUFFIX = '.surge.sh';
@@ -139,7 +142,7 @@ const decodeImages = (images) => {
     if (favicon && binary.length > MAX_FAVICON_BYTES) return 'The site icon is too big to publish. Pick a smaller image.';
     size += binary.length;
     if (size > MAX_SITE_IMAGES_BYTES) return 'This project’s images are too big to publish.';
-    entries.push({ name: `site/${path}`, data: Uint8Array.from(binary, (char) => char.charCodeAt(0)) });
+    entries.push({ name: `site/${path}`, path, data: Uint8Array.from(binary, (char) => char.charCodeAt(0)) });
   }
   return entries;
 };
@@ -160,7 +163,9 @@ const decodeExtras = (extras) => {
   return entries;
 };
 
-async function publish({ domain, files, images, extras }, tokens, fetchImpl) {
+const IMAGE_TYPES = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml' };
+
+async function publish({ domain, files, images, extras, password }, tokens, fetchImpl) {
   const { id: email, hasKey } = tokens.describe();
   const token = hasKey ? tokens.keyFor(email) : '';
   if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
@@ -177,8 +182,27 @@ async function publish({ domain, files, images, extras }, tokens, fetchImpl) {
   const extraEntries = decodeExtras(extras);
   if (typeof extraEntries === 'string') return json({ error: extraEntries }, 400);
 
+  let pages = files;
+  let uploads = [...imageEntries, ...extraEntries];
+  if (password !== undefined) {
+    const passwordProblem = checkGatePassword(password);
+    if (passwordProblem) return json({ error: passwordProblem }, 400);
+    // Pictures go inside the encrypted pages; only the site icon stays public
+    // (the lock screen shows it). The sitemap would list the private pages.
+    const hidden = imageEntries.filter((entry) => entry.path !== FAVICON_PATH);
+    const icon = imageEntries.find((entry) => entry.path === FAVICON_PATH);
+    const withImages = inlineGateImages(files, hidden.map(({ path, data }) => ({ path, type: IMAGE_TYPES[path.split('.').pop()], bytes: data })));
+    try {
+      pages = await protectPages(withImages, password);
+    } catch {
+      return json({ error: 'Couldn’t lock the site. Try again.' }, 500);
+    }
+    if (icon) pages = Object.fromEntries(Object.entries(pages).map(([name, html]) => [name, addFaviconLinks(html)]));
+    uploads = icon ? [icon] : [];
+  }
+
   // Surge drops the first folder of every path, so pages go in as site/<name>.
-  const entries = [...Object.entries(files).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...imageEntries, ...extraEntries];
+  const entries = [...Object.entries(pages).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...uploads];
   const projectSize = entries.reduce((sum, { data }) => sum + (typeof data === 'string' ? new TextEncoder().encode(data).length : data.length), 0);
   const body = await gzip(createTar(entries));
 

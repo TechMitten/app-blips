@@ -29,7 +29,7 @@ async function call(path, { method = 'GET', body } = {}) {
 export const surgeStatus = () => call('/api/surge');
 export const surgeLogin = (email, password) => call('/api/surge/login', { method: 'POST', body: { email, password } });
 export const surgeSignOut = () => call('/api/surge', { method: 'DELETE' });
-export const surgePublish = (domain, files, images, extras) => call('/api/surge/publish', { method: 'POST', body: { domain, files, ...(images ? { images } : {}), ...(extras ? { extras } : {}) } });
+export const surgePublish = (domain, files, images, extras, password) => call('/api/surge/publish', { method: 'POST', body: { domain, files, ...(images ? { images } : {}), ...(extras ? { extras } : {}), ...(password ? { password } : {}) } });
 export const surgeUnpublish = (domain) => call('/api/surge/unpublish', { method: 'POST', body: { domain } });
 
 // "My Bakery Site" -> "my-bakery-site-x7k2": a random tail makes it unlikely
@@ -119,5 +119,30 @@ export const saveSearchable = (projectId, allowed) => {
   if (!allowed) delete map[projectId];
   try {
     safeStorage('local')?.setItem(SEARCHABLE_KEY, JSON.stringify(map));
+  } catch { /* not remembered: the box starts unticked next time */ }
+};
+
+// Whether a project's published site is password protected (see
+// passwordGate.js). Only that fact is remembered, never the password: Update
+// site asks for it again.
+const PROTECTED_KEY = 'orion-surge-protected';
+
+const loadProtectedMap = () => {
+  try {
+    const parsed = JSON.parse(safeStorage('local')?.getItem(PROTECTED_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+export const loadProtected = (projectId) => (projectId ? loadProtectedMap()[projectId] === true : false);
+
+export const saveProtected = (projectId, on) => {
+  if (!projectId) return;
+  const map = { ...loadProtectedMap(), [projectId]: on };
+  if (!on) delete map[projectId];
+  try {
+    safeStorage('local')?.setItem(PROTECTED_KEY, JSON.stringify(map));
   } catch { /* not remembered: the box starts unticked next time */ }
 };

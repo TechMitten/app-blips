@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, Lock, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
-  SURGE_SUFFIX, loadFavicon, loadPublishedName, loadSearchable, saveFavicon, savePublishedName, saveSearchable, suggestSurgeName,
+  SURGE_SUFFIX, loadFavicon, loadProtected, loadPublishedName, loadSearchable, saveFavicon, saveProtected, savePublishedName, saveSearchable, suggestSurgeName,
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { addNoIndex } from '../lib/seo';
+import { MIN_GATE_PASSWORD_LENGTH, checkGatePassword } from '../lib/passwordGate';
 import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
 import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
@@ -49,6 +50,65 @@ function SearchableField({ checked, onChange, disabled }) {
         </span>
       </span>
     </label>
+  );
+}
+
+// Locks the published site behind a password. The pages are encrypted before
+// they are uploaded (lib/passwordGate.js), so the password isn't in the
+// published files and neither is the project's code. It is never saved here:
+// Update site asks for it again.
+function PasswordField({ on, onToggle, password, onPassword, confirm, onConfirm, disabled, wasProtected }) {
+  return (
+    <div className="space-y-2">
+      <label className="flex items-start gap-2.5 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(event) => onToggle(event.target.checked)}
+          disabled={disabled}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-indigo-600"
+        />
+        <span>
+          <span className="flex items-center gap-1.5 font-semibold text-slate-900"><Lock size={13} aria-hidden="true" />Password protect this site</span>
+          <span className="block text-xs leading-snug text-slate-500">
+            Visitors must type a password before they can see anything. Your project&rsquo;s code stays encrypted until then.
+          </span>
+        </span>
+      </label>
+      {on && (
+        <div className="space-y-2 pl-6">
+          <div className="space-y-1.5">
+            <label htmlFor="site-password" className={LABEL_CLASS}>Site password</label>
+            <input
+              id="site-password"
+              type="password"
+              value={password}
+              onChange={(event) => onPassword(event.target.value)}
+              autoComplete="new-password"
+              disabled={disabled}
+              aria-describedby="site-password-help"
+              className={FIELD_CLASS}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="site-password-confirm" className={LABEL_CLASS}>Type it again</label>
+            <input
+              id="site-password-confirm"
+              type="password"
+              value={confirm}
+              onChange={(event) => onConfirm(event.target.value)}
+              autoComplete="new-password"
+              disabled={disabled}
+              className={FIELD_CLASS}
+            />
+          </div>
+          <p id="site-password-help" className="text-xs leading-snug text-slate-500">
+            At least {MIN_GATE_PASSWORD_LENGTH} characters. A few random words work well. AppBlips doesn&rsquo;t save this password, so keep it somewhere safe.
+            {wasProtected && ' Type it again to update the site; type a new one to change it.'}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -137,6 +197,11 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const [name, setName] = useState(() => suggestSurgeName(projectName));
   const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
   const [searchable, setSearchable] = useState(() => loadSearchable(projectId));
+  // Never stored: only whether the site is protected is remembered.
+  const [locked, setLocked] = useState(() => loadProtected(projectId));
+  const wasLocked = useRef(locked).current;
+  const [sitePassword, setSitePassword] = useState('');
+  const [siteConfirm, setSiteConfirm] = useState('');
   // The address the showcase form is open for, or ''.
   const [submitUrl, setSubmitUrl] = useState('');
   const [error, setError] = useState('');
@@ -206,11 +271,18 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   // failure goes back to where it started.
   const publishTo = async (target, from) => {
     const clean = target.trim().toLowerCase();
+    if (locked) {
+      const problem = checkGatePassword(sitePassword) || (sitePassword !== siteConfirm ? 'The site passwords don’t match. Type the same password in both boxes.' : '');
+      if (problem) {
+        setError(problem);
+        return;
+      }
+    }
     setBusy(true);
     setError('');
     if (from === 'ready') setStep('publishing');
     const pages = buildFiles();
-    if (!searchable) {
+    if (!searchable || locked) {
       for (const name of Object.keys(pages)) if (name.endsWith('.html')) pages[name] = addNoIndex(pages[name]);
     }
     const { images } = await collectSiteImages(pages);
@@ -221,12 +293,13 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     if (icon) uploads[FAVICON_PATH] = icon;
     const sitePages = pointAtCopies(pages, images);
     // sitemap.xml and robots.txt from the SEO connector (lib/seo.js).
-    const extras = Object.fromEntries((extraFiles ? extraFiles(pages, searchable) : []).map(({ path, text }) => [path, text]));
+    const extras = Object.fromEntries((extraFiles && !locked ? extraFiles(pages, searchable) : []).map(({ path, text }) => [path, text]));
     const result = await surgePublish(
       clean,
       icon ? withFavicon(sitePages) : sitePages,
       Object.keys(uploads).length ? uploads : undefined,
       Object.keys(extras).length ? extras : undefined,
+      locked ? sitePassword : undefined,
     );
     if (!mounted.current) return;
     setBusy(false);
@@ -236,6 +309,9 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       return;
     }
     savePublishedName(projectId, clean);
+    saveProtected(projectId, locked);
+    setSitePassword('');
+    setSiteConfirm('');
     setPublished(clean);
     setUrl(result.url);
     setStep('done');
@@ -268,6 +344,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       return;
     }
     savePublishedName(projectId, '');
+    saveProtected(projectId, false);
     setStep('removed');
   };
 
@@ -423,7 +500,17 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               <strong className="text-slate-800">Unpublish</strong> takes it offline.
             </p>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
-            <SearchableField checked={searchable} onChange={changeSearchable} disabled={busy} />
+            <SearchableField checked={searchable && !locked} onChange={changeSearchable} disabled={busy || locked} />
+            <PasswordField
+              on={locked}
+              onToggle={setLocked}
+              password={sitePassword}
+              onPassword={setSitePassword}
+              confirm={siteConfirm}
+              onConfirm={setSiteConfirm}
+              disabled={busy}
+              wasProtected={wasLocked}
+            />
             <ShowcaseSubmitLink onClick={() => setSubmitUrl(publishedUrl)} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
@@ -533,10 +620,20 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               </p>
             </div>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
-            <SearchableField checked={searchable} onChange={changeSearchable} disabled={busy} />
+            <SearchableField checked={searchable && !locked} onChange={changeSearchable} disabled={busy || locked} />
+            <PasswordField
+              on={locked}
+              onToggle={setLocked}
+              password={sitePassword}
+              onPassword={setSitePassword}
+              confirm={siteConfirm}
+              onConfirm={setSiteConfirm}
+              disabled={busy}
+              wasProtected={wasLocked}
+            />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
-              Anyone with the link can see your site. Signed in to Surge as <strong className="text-slate-700">{account}</strong>.{' '}
+              {locked ? 'Only people with the password can see your site.' : 'Anyone with the link can see your site.'} Signed in to Surge as <strong className="text-slate-700">{account}</strong>.{' '}
               <button type="button" onClick={signOut} disabled={busy} className={LINK_CLASS}>Sign out</button>
             </p>
           </div>
