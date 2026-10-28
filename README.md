@@ -16,11 +16,6 @@
 </p>
 
 <p align="center">
-  <img alt="Get it on Google Play" src=".github/readme/google-play-badge.png" height="80"><br />
-  <strong>Android app coming soon to Google Play</strong>
-</p>
-
-<p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <a href="https://docs.appblips.com/"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.appblips.com-080808"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
