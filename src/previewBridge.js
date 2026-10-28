@@ -2308,6 +2308,14 @@ const BRIDGE_SOURCE = `(function () {
     insertSubject = null;
   }
 
+  function containerAt(x, y) {
+    var hit = null;
+    try { hit = document.elementFromPoint(x, y); } catch (hitErr) { hit = null; }
+    if (!hit || isBridgeNode(hit)) return null;
+    var el = promoteToBlock(hit);
+    return isMovable(el) ? el : null;
+  }
+
   function insertSubjectAt(x, y) {
     var hit = null;
     try { hit = document.elementFromPoint(x, y); } catch (hitErr) { hit = null; }
@@ -2340,6 +2348,7 @@ const BRIDGE_SOURCE = `(function () {
       placeBox(insertLine, lr.left, lr.top, lr.width, lr.height);
     }
     var subject = insertSubjectAt(e.clientX, e.clientY);
+    var area = subject ? null : containerAt(e.clientX, e.clientY);
     var subjectReport = subject ? buildElementDescription(subject) : null;
     // Outlined while the menu is open, so it's clear what Cut or Delete hits.
     if (subject && !isPicked(subject)) {
@@ -2353,6 +2362,9 @@ const BRIDGE_SOURCE = `(function () {
       viewportWidth: window.innerWidth || document.documentElement.clientWidth,
       spot: spot ? { target: describeLite(spot.el), position: spot.position } : null,
       element: subjectReport,
+      // Off text and images: the block right-clicked (a card, a section),
+      // so Ask AI can name the area by its source.
+      container: area ? describeLite(area) : null,
       scroll: { x: window.pageXOffset || 0, y: window.pageYOffset || 0 }
     });
   }

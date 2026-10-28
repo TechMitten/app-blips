@@ -50,9 +50,9 @@ try {
     assert.ok(response, 'unexpected API request');
     return Response.json({ choices: [{ message: response }] });
   };
-  const generate = (prompt, confirm, history = []) => generateAppCode(
+  const generate = (prompt, confirm, history = [], galleryCheckPrompt = null) => generateAppCode(
     prompt, null, history, null, 'both', null, false, false, null, false,
-    { build: 'none' }, 'app', null, '', false, false, '', confirm,
+    { build: 'none' }, 'app', null, '', false, false, '', confirm, galleryCheckPrompt,
   );
 
   // A request naming an image stops for confirmation; the tool lists only real names.
@@ -100,6 +100,29 @@ try {
   ]);
   assert.equal(result.editMode, 'clarify');
   assert.equal(result.imageConfirm.matches[0].image, beach.name);
+
+  // Click-to-edit / right-click Ask AI on a picture already on the page: the
+  // request quotes its source (and so its file name), but only the typed
+  // words are checked, so changing the image itself never asks.
+  const quoted = 'Target element, as it appears in the source:\n```html\n<img src="images/mountain-lake-sunset.jpg" alt="mountain lake sunset">\n```\n\n'
+    + 'Directly edit the image (<img>) with the image "images/mountain-lake-sunset.jpg": ';
+  requests = [];
+  responses = [{ content: html }, { content: 'Rounded the corners.' }];
+  result = await generate(`${quoted}round its corners`, true, [], 'round its corners');
+  assert.equal(result.editMode, 'full-generation');
+  assert.ok(!requests.some((req) => req.tools?.some((t) => t.function.name === 'report_image_matches')),
+    'an edit to the image on the page is not checked against My images');
+
+  // Swapping it for another picture still asks, from the typed words only.
+  requests = [];
+  responses = [{ tool_calls: [call('report_image_matches', { matches: [{ mentioned: 'the tropical beach photo', image: beach.name }] })] }];
+  result = await generate(`${quoted}use the tropical beach photo instead`, true, [], 'use the tropical beach photo instead');
+  assert.equal(result.editMode, 'clarify');
+  assert.equal(result.imageConfirm.matches[0].image, beach.name);
+  assert.match(requests[0].messages[1].content, /Latest message: use the tropical beach photo instead$/);
+
+  // The match check's instructions rule out edits to an image already on the page.
+  assert.match(requests[0].messages[0].content, /already on the page without swapping in a different picture/);
 
   // The provider doesn't call the tool, or fails: build as usual.
   responses = [{ content: 'no tool' }, { content: html }, { content: 'Done.' }];

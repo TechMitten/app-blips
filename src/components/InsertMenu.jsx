@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move,
+  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles,
 } from 'lucide-react';
 
 const EDGE = 8;
@@ -10,17 +10,19 @@ const SUBJECT_LABELS = { heading: 'Heading', text: 'Text', image: 'Image' };
 
 // Click-to-edit's right-click menu. On text or an image (`menu.element`):
 // cut, copy, duplicate or delete it, or Move (turns drag mode on so it can
-// be dragged; already on, it just closes the menu). Anywhere: paste what was copied, or add
+// be dragged; already on, it just closes the menu). Anywhere: Ask AI (a
+// request for this spot, which App quotes from the source), or paste what was copied, or add
 // a text container or an uploaded image, at the spot the frame marked with
 // its insertion line. Opens at the pointer (screen coordinates from
 // usePreviewBridge), portaled to <body> so the device zoom and the preview
 // pane's clipping don't reach it. Using the page again closes it from the
 // frame's side (insert-menu-dismissed).
 export default function InsertMenu({
-  menu, canPaste = false, clipboardLabel = '', onElementAction, onAddText, onAddImage, onClose,
+  menu, canPaste = false, clipboardLabel = '', onElementAction, onAskAI, onAddText, onAddImage, onClose,
 }) {
   const [mode, setMode] = useState('menu');
   const [text, setText] = useState('');
+  const [aiText, setAiText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [pos, setPos] = useState({ left: menu.x, top: menu.y });
@@ -48,7 +50,7 @@ export default function InsertMenu({
 
   // Focus moves out of the frame so Escape and the arrow keys reach the menu.
   useEffect(() => {
-    if (mode === 'text') textRef.current?.focus();
+    if (mode === 'text' || mode === 'ai') textRef.current?.focus();
     else firstRef.current?.focus();
   }, [mode]);
 
@@ -122,7 +124,7 @@ export default function InsertMenu({
   return createPortal(
     <div
       ref={rootRef}
-      className={`insert-menu${mode === 'text' ? ' insert-menu-text' : ''}`}
+      className={`insert-menu${mode !== 'menu' ? ' insert-menu-text' : ''}${mode === 'ai' ? ' insert-menu-ai' : ''}`}
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -159,6 +161,16 @@ export default function InsertMenu({
             type="button"
             role="menuitem"
             className="insert-menu-item"
+            disabled={busy}
+            onClick={() => { setError(null); setMode('ai'); }}
+          >
+            <Sparkles size={15} />
+            <span>Ask AI</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="insert-menu-item"
             disabled={!canAdd || busy}
             onClick={() => { setError(null); setMode('text'); }}
           >
@@ -188,6 +200,39 @@ export default function InsertMenu({
           />
           {!canAdd && <p className="insert-menu-note">Nothing can be added or pasted at this spot. Right-click next to some text or an image.</p>}
         </div>
+      ) : mode === 'ai' ? (
+        <form
+          className="insert-menu-form"
+          onSubmit={(e) => { e.preventDefault(); if (aiText.trim()) onAskAI(aiText, { run: true }); }}
+        >
+          <label className="insert-menu-label" htmlFor="insert-menu-ai">
+            {subject ? `Ask AI to change this ${(SUBJECT_LABELS[subject.role] || 'element').toLowerCase()}` : 'Ask AI to change this spot'}
+          </label>
+          <textarea
+            id="insert-menu-ai"
+            ref={textRef}
+            className="element-bar-input insert-menu-textarea"
+            rows={3}
+            maxLength={2000}
+            placeholder={subject ? 'e.g. make it bigger and centred' : 'e.g. add a signup button here'}
+            value={aiText}
+            onChange={(e) => setAiText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (aiText.trim()) onAskAI(aiText, { run: true });
+              }
+            }}
+          />
+          <p className="insert-menu-hint">The AI is told exactly where this is in your page.</p>
+          <div className="insert-menu-actions">
+            <button type="button" className="nav-btn nav-btn-secondary element-bar-btn ml-auto" onClick={() => onAskAI(aiText, { run: false })}>Add to chat</button>
+            <button type="submit" className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs element-bar-btn disabled:opacity-50 disabled:cursor-not-allowed" disabled={!aiText.trim()}>
+              <Sparkles size={14} />
+              <span>Ask AI</span>
+            </button>
+          </div>
+        </form>
       ) : (
         <form
           className="insert-menu-form"

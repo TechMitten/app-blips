@@ -39,7 +39,7 @@ import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import {
   applyDirectEdit, removeElements, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure,
-  copyElementSource,
+  copyElementSource, buildSpotEditPrompt,
 } from './lib/directEdits';
 import {
   loadPreviewStorage,
@@ -1097,6 +1097,25 @@ export default function App({ coldStart = false }) {
     setElementEditError(null);
     return { ok: true };
   }, [insertMenu, canPasteElement, elementClipboard, insertAtSpot, activeCode, applyElementChangesToSource, closeInsertMenu, currentProjectId, isDragMode, handleToggleDragMode]);
+  // Ask AI: the instruction plus where on the page it applies, quoted from
+  // the source (buildSpotEditPrompt).
+  // Runs straight away like the toolbar's "Apply with AI", or only prefills
+  // the chat when it can't run now (a draft or attachment in the chat box,
+  // Ask mode, a build in progress) or for "Add to chat".
+  const handleMenuAskAI = useCallback((instruction, { run = false } = {}) => {
+    if (!insertMenu) return;
+    const context = { code: activeCode, page: activePage, multiPage: Object.keys(files).length > 1 };
+    const request = buildSpotEditPrompt(insertMenu, instruction, context);
+    const canRun = run && String(instruction ?? '').trim() && chatMode !== 'ask'
+      && !isGeneratingRef.current && !prompt.trim() && !attachment;
+    closeInsertMenu();
+    if (canRun) {
+      handleGenerateRef.current?.(null, request, false, null, { galleryCheckPrompt: String(instruction) });
+      return;
+    }
+    setPrompt((current) => (current.trim() ? `${current}\n${request}` : request));
+    setMobileView('chat');
+  }, [insertMenu, activeCode, activePage, files, chatMode, prompt, attachment, closeInsertMenu]);
   const handleInsertText = useCallback((text) => insertAtSpot(insertMenu, { kind: 'text', text }), [insertMenu, insertAtSpot]);
   const handleInsertImage = useCallback(async (file) => {
     const menu = insertMenu;
@@ -1129,7 +1148,8 @@ export default function App({ coldStart = false }) {
     setSelectedElement(null);
     setElementEditError(null);
     if (canRun) {
-      handleGenerateRef.current?.(null, prefill);
+      // Only the typed instruction is checked against My images (llm.js).
+      handleGenerateRef.current?.(null, prefill, false, null, { galleryCheckPrompt: String(instruction) });
       return;
     }
     setPrompt((current) => (current.trim() ? `${current}\n${prefill}` : prefill));
@@ -1491,7 +1511,8 @@ export default function App({ coldStart = false }) {
     return runtime;
   };
 
-  const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null) => {
+  // `galleryCheckPrompt`: see generateAppCode (llm.js).
+  const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null, { galleryCheckPrompt = null } = {}) => {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     const isReviewFix = reviewFixRef.current;
@@ -1760,7 +1781,7 @@ export default function App({ coldStart = false }) {
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: buildReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -3149,6 +3170,7 @@ export default function App({ coldStart = false }) {
                 canPaste={canPasteElement}
                 clipboardLabel={elementClipboard?.label || ''}
                 onElementAction={handleMenuElementAction}
+                onAskAI={handleMenuAskAI}
                 onAddText={handleInsertText}
                 onAddImage={handleInsertImage}
                 onClose={closeInsertMenu}

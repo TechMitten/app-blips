@@ -8,7 +8,7 @@
 
 import assert from 'node:assert';
 import {
-  applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, copyElementSource, describeDirectEditFailure,
+  applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, buildSpotEditPrompt, copyElementSource, describeDirectEditFailure,
   locateElement, removeElements,
 } from '../src/lib/directEdits.js';
 
@@ -682,6 +682,33 @@ check('copy + paste: the exact source goes in at the new spot, re-indented and w
     '<body>\n  <div class="card">\n    <p id="note">One\n      two</p>\n  </div>\n  <h2>Next</h2>\n  <p>One\n    two</p>\n</body>',
   );
   assert.match(pasted.summary, /pasted an element after the heading "Next"/);
+});
+
+check('Ask AI on an element quotes its source like the toolbar prompt', () => {
+  const heading = el({ tag: 'h1', role: 'heading', text: 'Fresh bread, every morning', attributes: { class: 'text-5xl font-black text-white' } });
+  const context = { code: FIXTURE, page: 'index.html', multiPage: false };
+  assert.strictEqual(
+    buildSpotEditPrompt({ element: heading, spot: null }, 'make it gold', context),
+    buildElementEditPrompt(heading, 'make it gold', context),
+  );
+});
+
+check('Ask AI off an element names the area by its opening tag and the exact spot', () => {
+  const prompt = buildSpotEditPrompt({
+    element: null,
+    container: { tag: 'section', text: 'Baked in Bend since 2012 & loved daily.', attributes: { class: 'py-24 bg-slate-900 text-white' } },
+    spot: { target: { tag: 'p', role: 'text', text: 'Baked in Bend since 2012 & loved daily.', attributes: {} }, position: 'after' },
+  }, 'add a "Visit us" button', { code: FIXTURE, page: 'about.html', multiPage: true });
+  assert.match(prompt, /^Target page: about\.html\n/);
+  assert.match(prompt, /Target area \(in the "about" section\): the element that opens like this in the source:\n```html\n<section class="py-24 bg-slate-900 text-white" style="[^"]*">\n```/);
+  assert.match(prompt, /Exact spot: directly after this element \(in the "about" section\):\n```html\n<p>Baked in Bend since 2012 &amp; loved daily\.<\/p>\n```/);
+  assert.match(prompt, /Make this change there: add a "Visit us" button$/);
+  assert.doesNotMatch(prompt, /grid|px/);
+});
+
+check('Ask AI with nothing locatable still asks, on the page', () => {
+  const prompt = buildSpotEditPrompt({ element: null, container: null, spot: null }, 'add a footer', { code: FIXTURE });
+  assert.strictEqual(prompt, 'Make this change on this page: add a footer');
 });
 
 check('copy refuses the page root and elements it cannot find; paste refuses non-markup', () => {

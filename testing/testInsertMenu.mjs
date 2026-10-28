@@ -13,7 +13,7 @@
 
 import { chromium } from '@playwright/test';
 import { injectPreviewBridge } from '../src/previewBridge.js';
-import { applyDirectEdit, copyElementSource } from '../src/lib/directEdits.js';
+import { applyDirectEdit, buildSpotEditPrompt, copyElementSource } from '../src/lib/directEdits.js';
 
 const FIXTURE = `<!DOCTYPE html>
 <html lang="en">
@@ -118,6 +118,7 @@ try {
       `${menu?.spot?.target?.tag} ${menu?.spot?.position}`);
     const marks = await lines();
     check('an insertion line marks the spot', marks.length === 1 && marks[0].width > marks[0].height, JSON.stringify(marks));
+    check('no area is reported alongside an element', menu?.container === null);
     check('the right-clicked heading is reported for cut / copy / delete',
       menu?.element?.tag === 'h2' && menu?.element?.role === 'heading' && menu?.element?.text === 'Features', `${menu?.element?.tag} ${menu?.element?.role}`);
     check('and outlined while the menu is open',
@@ -155,9 +156,14 @@ try {
     const [menu] = await rightClick(li.left + 20, li.top + 4);
     check('a list item spot climbs to the list', menu?.spot?.target?.tag === 'ul', `${menu?.spot?.target?.tag}`);
     check('a list item itself is the element (text)', menu?.element?.tag === 'li', `${menu?.element?.tag}`);
-    const cards = await rectOf('.cards');
-    const [gap] = await rightClick(cards.left + 2, cards.top + 2);
+    // The gap between the two cards belongs to their row.
+    const first = await rectOf('.card:nth-child(1)');
+    const [gap] = await rightClick(first.right + 8, first.top + 10);
     check('a container is not offered for cut / copy', gap?.element === null, `${gap?.element?.tag}`);
+    check('but is reported as the area for Ask AI', gap?.container?.tag === 'div' && gap?.container?.attributes?.class === 'cards',
+      `${gap?.container?.tag} ${gap?.container?.attributes?.class}`);
+    const ask = gap && buildSpotEditPrompt(gap, 'add a third card', { code: FIXTURE });
+    check('the Ask AI prompt quotes the area and the spot', /<div class="cards">/.test(ask || '') && /Exact spot: directly/.test(ask || ''), ask);
   }
 
   // --- parent clears the spot; scrolling dismisses -----------------------------

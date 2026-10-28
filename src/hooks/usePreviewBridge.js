@@ -277,11 +277,12 @@ export default function usePreviewBridge({
       // Right-click while editing: where to open the insert menu, the spot
       // (a lite snapshot + side) a new element goes beside, or null when
       // nothing there can take one, and the text or image under the pointer
-      // (a full snapshot, or null) for cut / copy / duplicate / delete. The frame reports its own viewport
+      // (a full snapshot, or null) for cut / copy / duplicate / delete, and
+      // off those, the block right-clicked (a lite snapshot) for Ask AI. The frame reports its own viewport
       // pixels; the device zoom scales them, so they are mapped onto the
       // iframe's on-screen box here.
       else if (data.type === 'insert-menu' && onInsertMenuRef.current) {
-        const { x, y, viewportWidth, spot, element, scroll } = data.payload || {};
+        const { x, y, viewportWidth, spot, element, container, scroll } = data.payload || {};
         if (![x, y, viewportWidth].every(Number.isFinite) || viewportWidth <= 0) return;
         const validSpot = spot && typeof spot === 'object' && spot.target && typeof spot.target === 'object'
           && (spot.position === 'before' || spot.position === 'after');
@@ -292,6 +293,7 @@ export default function usePreviewBridge({
           y: box.top + y * scale,
           spot: validSpot ? { target: spot.target, position: spot.position } : null,
           element: element && typeof element === 'object' && typeof element.tag === 'string' ? element : null,
+          container: container && typeof container === 'object' && typeof container.tag === 'string' ? container : null,
           scroll: scroll && Number.isFinite(scroll.x) && Number.isFinite(scroll.y) ? { x: scroll.x, y: scroll.y } : null,
         });
       }

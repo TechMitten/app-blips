@@ -100,7 +100,8 @@ Decide whether the request asks to add, place, swap in or otherwise use one or m
 - "image": the file name from the list that best matches those words, by its name first (whole name, name without extension, a few of its words in any order or form, typos) and otherwise by the user's note. Use "" when no image in the list plausibly matches, or when two match equally well.
 For "all my images" or "my photos", add one entry per image, each with the same "mentioned" words.
 The request may also continue an earlier image confirmation in the conversation: if the latest message answers one (for example "no, use the beach one instead"), report the images for the whole request as it now stands.
-Return an empty list when the request doesn't use the user's images, for example a change of colours or text, or an image the AI should find or draw itself with no link to the library.`;
+Return an empty list when the request doesn't use the user's images, for example a change of colours or text, or an image the AI should find or draw itself with no link to the library.
+Changing an image that is already on the page without swapping in a different picture (its size, shape, corners, border, shadow, position, alignment, alt text, link or anything else about it) is not a use of the library either, even when the request quotes the page's source or names that image's file: return an empty list.`;
 
 export const buildGalleryMatchTool = (names) => ({
   type: 'function',

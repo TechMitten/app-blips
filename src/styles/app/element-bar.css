@@ -583,6 +583,55 @@
   color: var(--color-amber-700);
 }
 
+/* Ask AI panel: inverted against the app theme so it stands apart from the
+   menu it replaces -- dark with white text in the light theme, off-white
+   with black text in the dark theme. Colours are set outright (not from the
+   theme ramps, which flip) so both stay readable. */
+.insert-menu.insert-menu-ai {
+  --ai-ink: #ffffff;
+  --ai-muted: rgb(255 255 255 / 0.68);
+  --ai-field-bg: rgb(255 255 255 / 0.08);
+  --ai-field-border: rgb(255 255 255 / 0.2);
+  --ai-error: #fbbf24;
+  background: #15171f;
+  border-color: rgb(255 255 255 / 0.12);
+  color: var(--ai-ink);
+}
+:is(html.dark, .force-dark) .insert-menu.insert-menu-ai {
+  --ai-ink: #0b0c10;
+  --ai-muted: rgb(11 12 16 / 0.62);
+  --ai-field-bg: #ffffff;
+  --ai-field-border: rgb(11 12 16 / 0.18);
+  --ai-error: #b45309;
+  background: #f7f6f2;
+  border-color: rgb(11 12 16 / 0.12);
+}
+.insert-menu-ai .insert-menu-label,
+.insert-menu-ai .insert-menu-hint { color: var(--ai-muted); }
+.insert-menu.insert-menu-ai .insert-menu-textarea {
+  background: var(--ai-field-bg);
+  border-color: var(--ai-field-border);
+  box-shadow: none;
+  color: var(--ai-ink);
+}
+.insert-menu-ai .insert-menu-textarea::placeholder { color: var(--ai-muted); }
+.insert-menu.insert-menu-ai .nav-btn-secondary {
+  background: transparent;
+  border-color: var(--ai-field-border);
+  color: var(--ai-ink);
+  box-shadow: none;
+}
+/* Every property the app's hover rules set is restated: the dark theme's
+   hover turns the text the theme's (near-white) ink, which vanished on the
+   off-white panel. */
+.insert-menu.insert-menu-ai .nav-btn-secondary:hover {
+  background: var(--ai-field-bg);
+  border-color: var(--ai-muted);
+  color: var(--ai-ink);
+  box-shadow: none;
+}
+.insert-menu-ai .insert-menu-error { color: var(--ai-error); }
+
 @media (prefers-reduced-motion: reduce) {
   .insert-menu { animation-duration: 0.01ms; }
 }

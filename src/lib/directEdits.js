@@ -1381,3 +1381,49 @@ export const buildElementsEditPrompt = (elements, instruction = '', context = {}
   lines.push('', trimmed ? `Directly edit all ${elements.length} of these elements: ${trimmed}` : `Directly edit all ${elements.length} of these elements:`);
   return lines.join('\n');
 };
+
+// --- Right-click "Ask AI": a change at a spot on the page --------------------
+
+// Opening tag of an element's source, enough to name a container without
+// quoting everything inside it.
+const openTagSnippet = (code, range) => truncate(code.slice(range.start, range.openEnd), 300);
+
+/**
+ * The AI prompt for the right-click menu's Ask AI. The place is given the
+ * way the AI edits: by source, not by screen position (pixels and screen
+ * grids shift with the window size and the AI can't map them to code).
+ * On text or an image it is that element's exact source, like the
+ * toolbar's prompt; elsewhere it is the opening tag of the block that was
+ * right-clicked and the element the insertion line sat next to, each with
+ * its section, so "add a button here" and "make this card blue" both land.
+ *
+ * @param {{ element?: object|null, container?: object|null,
+ *   spot?: { target: object, position: 'before'|'after' }|null }} menu the bridge's insert-menu payload
+ * @param {string} instruction what the user wants changed (may be empty)
+ * @param {{ code?: string, page?: string, multiPage?: boolean }} context
+ */
+export const buildSpotEditPrompt = (menu, instruction = '', context = {}) => {
+  if (menu?.element) return buildElementEditPrompt(menu.element, instruction, context);
+  const code = context.code || '';
+  const page = context.multiPage && context.page ? context.page : null;
+  const trimmed = String(instruction ?? '').trim();
+  const lines = page ? [`Target page: ${page}`, ''] : [];
+  const sectionOf = (range) => sectionNameBefore(code, range.start);
+
+  const area = menu?.container && code ? locateElement(code, menu.container) : null;
+  if (area?.ok) {
+    const section = sectionOf(area);
+    lines.push(`Target area${section ? ` (in the "${section}" section)` : ''}: the element that opens like this in the source:`,
+      '```html', openTagSnippet(code, area), '```', '');
+  }
+  const target = menu?.spot?.target;
+  const spot = target && code ? locateElement(code, target) : null;
+  if (spot?.ok) {
+    const section = sectionOf(spot);
+    lines.push(`Exact spot: directly ${menu.spot.position} this element${section ? ` (in the "${section}" section)` : ''}:`,
+      '```html', sourceSnippet(code, spot), '```', '');
+  }
+  const where = area?.ok || spot?.ok ? 'there' : 'on this page';
+  lines.push(trimmed ? `Make this change ${where}: ${trimmed}` : `Make this change ${where}:`);
+  return lines.join('\n');
+};

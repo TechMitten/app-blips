@@ -796,7 +796,12 @@ const generateAppCodeCore = async (
   // Ask the user to confirm which My images picture a request means before
   // building: true, or 'answer' when the request replies to such a question.
   // App.jsx passes false once the user has approved.
-  confirmGalleryImages = false
+  confirmGalleryImages = false,
+  // The user's own words when the request also quotes page source
+  // (click-to-edit's "Apply with AI" / right-click "Ask AI"): only these are
+  // checked against My images. The quoted element names the picture already
+  // on the page, which is not a request to use one.
+  galleryCheckPrompt = null
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -864,7 +869,10 @@ const generateAppCodeCore = async (
   const galleryImages = confirmGalleryImages && !isAutoFix ? getActiveGallery() : [];
   if (galleryImages.length) {
     if (onChunk) onChunk('Checking which of your images you mean…', 'status');
-    const matches = await matchGalleryImages({ prompt, chatHistory, images: galleryImages, signal, answering: confirmGalleryImages === 'answer' });
+    const matches = await matchGalleryImages({
+      prompt: typeof galleryCheckPrompt === 'string' ? galleryCheckPrompt : prompt,
+      chatHistory, images: galleryImages, signal, answering: confirmGalleryImages === 'answer',
+    });
     if (matches.length) {
       const { reply, allMatched } = buildImageConfirmReply(matches, galleryImages);
       return {
