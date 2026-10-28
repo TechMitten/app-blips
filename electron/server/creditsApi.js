@@ -46,7 +46,7 @@ export const FREE_TRIAL_PACK = {
   trialDays: 3,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: 'Start your 3-day free trial with 100 AI credits. Valid payment method required. After your 3-day trial ends, your subscription will automatically convert to the Starter Plan at $10/month (plus applicable taxes). Cancel anytime in your account settings before your trial expires to avoid being charged. Unused trial credits do not roll over.',
+  description: '100 AI credits for 3 days. Card required. Then you are charged for the Starter Plan at $10/month (plus taxes) unless you cancel before the trial ends. Unused credits do not roll over.',
 };
 
 export const CREDIT_PACKS = [
