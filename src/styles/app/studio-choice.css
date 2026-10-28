@@ -368,57 +368,75 @@
   }
 }
 
-/* Fit the whole picker in the window without scrolling once the four studios
-   sit on one row (the desktop app's smallest window is 960 x 600). Spacing and
-   the heading follow the window height instead of fixed steps, and the
-   shortest windows also drop the eyebrow pill and then the intro line. These override the Tailwind
-   spacing on the same elements (this file is unlayered, so it wins); below
-   900px wide the cards stack and the page scrolls as before. */
+/* Fit the whole picker in the window without scrolling, at any size. The
+   Tailwind classes give the roomy layout; everything here is unlayered, so it
+   wins. Spacing and the heading follow the window height instead of fixed
+   steps, the four studios stay in a 2 x 2 grid until they fit on one row
+   (900px), and shorter windows drop the eyebrow pill, then the card
+   descriptions, then the intro line. The outer wrapper still scrolls as a last
+   resort for windows too tiny to fit even that. */
+.studio-main { padding-block: clamp(0.5rem, 3vh, 3.5rem); }
+.studio-title {
+  margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
+  font-size: clamp(1.75rem, min(6.5vh, 9vw), 3.75rem);
+}
+.studio-lead {
+  margin-top: clamp(0.375rem, 1.8vh, 1.25rem);
+  font-size: clamp(0.875rem, 2.2vh, 1.125rem);
+}
+.studio-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.6vh, 1.25rem);
+  margin-top: clamp(0.75rem, 3.5vh, 3rem);
+}
+.studio-grid .studio-card {
+  flex-direction: column;
+  gap: 0;
+  padding: clamp(0.75rem, 2.4vh, 1.5rem);
+}
+.studio-grid .studio-icon-tile { margin-bottom: clamp(0.5rem, 1.8vh, 1.25rem); }
+.studio-grid .studio-card-cta { margin-top: auto; padding-top: clamp(0.5rem, 2vh, 1.5rem); }
+.studio-extra-rows {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.6vh, 1.25rem);
+  margin-top: clamp(0.5rem, 1.8vh, 1.25rem);
+}
+.studio-extra-rows .studio-card { padding: clamp(0.5rem, 1.6vh, 1rem) clamp(0.75rem, 2vw, 1.5rem); gap: 0.75rem; }
+.studio-extra-rows .studio-card-cta { display: none; }
+.studio-footer-inner { padding-block: 0.375rem; }
+
 @media (min-width: 900px) {
-  .studio-main { padding-block: clamp(0.75rem, 3.5vh, 3.5rem); }
-  .studio-title {
-    margin-top: clamp(0.75rem, 2.4vh, 1.5rem);
-    font-size: clamp(2.25rem, 6.5vh, 3.75rem);
-  }
-  .studio-lead { margin-top: clamp(0.5rem, 2vh, 1.25rem); }
-  /* Set here rather than with a min-[900px]: class, which Tailwind sorts
-     before sm: so the two-column rule would win. */
-  .studio-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: clamp(1.25rem, 4vh, 3rem);
-  }
-  .studio-grid .studio-card { padding: clamp(0.875rem, 2.4vh, 1.5rem); }
-  .studio-grid .studio-icon-tile { margin-bottom: clamp(0.625rem, 2vh, 1.25rem); }
-  .studio-grid .studio-card-cta { padding-top: clamp(0.75rem, 2.4vh, 1.5rem); }
-  .studio-extra-rows {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: clamp(0.75rem, 2vh, 1.25rem);
-  }
+  .studio-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .studio-grid .studio-card-title { font-size: 1rem; }
+  .studio-extra-rows .studio-card-cta { display: inline-flex; }
 }
 
 /* Narrower wide windows: the cards are only ~200px across, so win back width
-   before height. The rows' own "Import .zip" / "Explore" labels repeat what
-   the whole row already does. */
+   before height. The rows' own labels repeat what the whole row already does. */
 @media (min-width: 900px) and (max-width: 1199px) {
   .studio-main { padding-inline: 1.5rem; }
-  .studio-grid .studio-card-title { font-size: 1rem; }
   .studio-extra-rows .studio-card-cta { display: none; }
 }
 
-@media (min-width: 900px) and (max-height: 820px) {
+@media (max-height: 820px) {
   .studio-topbar-inner { height: 4rem; }
-  .studio-footer-inner { padding-block: 0.375rem; }
 }
 
-@media (min-width: 900px) and (max-height: 700px) {
+@media (max-height: 760px) {
   .studio-choice .studio-pill { display: none; }
   .studio-title { margin-top: 0; }
-  .studio-lead { font-size: 1rem; }
+}
+
+/* Short windows: the card titles and calls to action explain themselves. */
+@media (max-height: 700px) {
+  .studio-extra-rows .studio-card-desc { display: none; }
   .studio-grid .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 }
 
-/* The desktop app's smallest window: the cards explain themselves, so the
-   intro line goes too. */
-@media (min-width: 900px) and (max-height: 620px) {
+@media (max-width: 899px) and (max-height: 860px) {
+  .studio-grid .studio-card-desc { display: none; }
+}
+
+@media (max-height: 620px) {
   .studio-lead { display: none; }
 }

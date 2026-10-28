@@ -67,9 +67,10 @@ export default function SplashScreen({ skip = false }) {
         onEnded={() => endSplash(END_FADE_MS)}
         // A missing or undecodable video shouldn't leave a black screen up.
         onError={skipSplash}
-        // Capped at 1280 CSS px (the video is 2560 wide, so this is sharp even
-        // on high-DPI screens); smaller screens scale it down.
-        className={`max-h-full w-full max-w-[1280px] object-contain transition-opacity ease-in-out ${
+        // Capped at 960 CSS px (the video is 2560 wide, so this is sharp even
+        // on high-DPI screens) so it sits centered instead of filling the
+        // window; smaller screens scale it down.
+        className={`max-h-full w-full max-w-[960px] object-contain transition-opacity ease-in-out ${
           isPlaying ? 'opacity-100' : 'opacity-0'
         }`}
         style={{

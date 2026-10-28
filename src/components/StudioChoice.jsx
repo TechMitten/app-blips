@@ -217,7 +217,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
                       <span className="flex min-w-0 flex-1 flex-col self-stretch">
                         <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
-                        <span className="mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
+                        <span className="studio-card-desc mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
                         <span className="studio-card-cta mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
                           {cta}
                           <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
@@ -249,7 +249,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       <span className="block text-base font-semibold studio-text-strong">Import a site</span>
                       <span className="studio-beta-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Beta</span>
                     </span>
-                    <span className="mt-0.5 block text-sm leading-relaxed studio-text-soft">
+                    <span className="studio-card-desc mt-0.5 block text-sm leading-relaxed studio-text-soft">
                       Got a React + Vite project from your web designer? Open its .zip and keep editing it with AI.
                     </span>
                   </span>
@@ -273,7 +273,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="block text-base font-semibold studio-text-strong">Showcase</span>
-                    <span className="mt-0.5 block text-sm leading-relaxed studio-text-soft">
+                    <span className="studio-card-desc mt-0.5 block text-sm leading-relaxed studio-text-soft">
                       See what people have built with one prompt, and submit your own published project.
                     </span>
                   </span>
