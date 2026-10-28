@@ -1046,20 +1046,72 @@ const applyMoveTo = (code, element, target, position) => {
   return { ok: true, code: next, summary: `moved the ${what} ${position} the ${describeTarget(target)}` };
 };
 
-const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo'];
+// Right-click "Add text container" / "Add image": the new element's markup.
+// Text is escaped (line breaks become <br>); the image keeps its natural
+// size as width/height so the page reserves its space, but never overflows
+// its column.
+const insertHtml = (insert) => {
+  if (insert.kind === 'text') {
+    const text = String(insert.text ?? '').trim();
+    return text ? `<p>${escapeTextWithBreaks(text)}</p>` : null;
+  }
+  if (insert.kind === 'image') {
+    const src = String(insert.src ?? '').trim();
+    if (!src || /[\s"'<>]/.test(src)) return null;
+    const size = [['width', insert.width], ['height', insert.height]]
+      .filter(([, v]) => Number.isInteger(v) && v > 0)
+      .map(([k, v]) => ` ${k}="${v}"`)
+      .join('');
+    return `<img src="${escapeAttrValue(src)}" alt="${escapeAttrValue(insert.alt ?? '')}"${size} style="max-width: 100%; height: auto;">`;
+  }
+  return null;
+};
+
+// Writes the new element directly before or after another element's block,
+// on its own line at that element's indentation when it has one.
+const applyInsert = (code, element, insert) => {
+  const html = insertHtml(insert);
+  if (!html) return { ok: false, reason: 'invalid' };
+  const range = locateElement(code, element);
+  if (!range.ok) return { ok: false, reason: range.reason === 'ambiguous' ? 'ambiguous' : 'insert-target-not-found' };
+  const slot = lineSpan(code, blockStart(code, range.start), range.end);
+  let at;
+  let text;
+  if (slot.ownLine) {
+    at = insert.position === 'before' ? slot.start : slot.end;
+    text = insert.position === 'after' && code[at - 1] !== '\n' ? `\n${slot.indent}${html}` : `${slot.indent}${html}\n`;
+  } else if (insert.position === 'before') {
+    at = blockStart(code, range.start);
+    text = `${html} `;
+  } else {
+    at = range.end;
+    text = ` ${html}`;
+  }
+  const what = insert.kind === 'image' ? 'an image' : 'a text container';
+  return {
+    ok: true,
+    code: code.slice(0, at) + text + code.slice(at),
+    summary: `added ${what} ${insert.position} the ${describeTarget(element)}`,
+  };
+};
+
+const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo', 'insert'];
 
 /**
  * Apply click-to-edit changes to the source document.
  *
- * Structural changes (`remove`, `duplicate`, `move`, `moveTo`) stand alone; every
- * other key may be combined and is applied in one version.
+ * Structural changes (`remove`, `duplicate`, `move`, `moveTo`, `insert`) stand
+ * alone; every other key may be combined and is applied in one version. For
+ * `insert`, `element` is the element the new one goes beside.
  *
  * @param {string} code current generated HTML (never carries the preview bridge)
  * @param {object} element the bridge's element-selected payload
  * @param {{ text?: string, style?: Record<string, string>, src?: string, fitImage?: { width: number, height: number }, alt?: string, href?: string,
  *   target?: '_blank' | null, backgroundColor?: string, backgroundImage?: string,
  *   remove?: true, duplicate?: true, move?: -1 | 1,
- *   moveTo?: { target: object, position: 'before' | 'after' } }} changes
+ *   moveTo?: { target: object, position: 'before' | 'after' },
+ *   insert?: { kind: 'text' | 'image', position: 'before' | 'after', text?: string,
+ *     src?: string, alt?: string, width?: number, height?: number } }} changes
  *   (`moveTo.target` is a lite snapshot of the element dropped against)
  * @returns {{ ok: true, code: string, summary: string } | { ok: false, reason: string }}
  */
@@ -1083,6 +1135,13 @@ export const applyDirectEdit = (code, element, changes) => {
       }
       if (PROTECTED_TAGS.has(String(element.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
       result = applyMoveTo(code, element, target, position);
+    } else if (op === 'insert') {
+      const { insert } = changes;
+      if (typeof insert !== 'object' || (insert.position !== 'before' && insert.position !== 'after')) {
+        return { ok: false, reason: 'invalid' };
+      }
+      if (PROTECTED_TAGS.has(String(element.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
+      result = applyInsert(code, element, insert);
     } else {
       result = applyStructureChange(code, element, op, changes.move);
     }
@@ -1174,6 +1233,7 @@ const FAILURE_MESSAGES = {
   'sibling-not-found': 'Its neighbour could not be found in the page source, so it could not be moved directly.',
   'drop-target-not-found': 'The spot where it was dropped could not be found in the page source (it may be added by a script), so it could not be moved directly.',
   'invalid-drop': 'An element cannot be moved inside itself.',
+  'insert-target-not-found': 'That spot could not be found in the page source (it may be added by a script), so nothing could be added there directly.',
   'invalid-color': 'That is not a valid color. Use a hex value like #1e293b.',
   'invalid-image-url': 'That image URL cannot be used as a background (it contains quotes, brackets or line breaks).',
   'no-op': 'Nothing changed.',

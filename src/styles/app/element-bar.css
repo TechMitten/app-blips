@@ -477,6 +477,94 @@
 }
 .element-bar-chip svg { margin-right: 0.3rem; }
 
+/* --- Right-click insert menu (InsertMenu.jsx) ---------------------------- */
+
+/* Same surface as the toolbar's popovers, but fixed at the pointer and above
+   everything in the preview pane. */
+.insert-menu {
+  position: fixed;
+  z-index: 60;
+  width: 14.5rem;
+  padding: 0.35rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.75rem;
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.45), 0 0 0 1px var(--hairline);
+  font-family: var(--font-control);
+  animation: elementBarIn 0.14s ease-out both;
+}
+:is(html.dark, .force-dark) .insert-menu {
+  border-color: rgb(255 255 255 / 0.14);
+  background: #1b1e2b;
+}
+.insert-menu-text { width: 19rem; padding: 0.75rem; }
+
+.insert-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-slate-800);
+  text-align: left;
+  cursor: pointer;
+}
+.insert-menu-item svg { flex: none; color: var(--color-slate-500); }
+.insert-menu-item:hover:not(:disabled),
+.insert-menu-item:focus-visible {
+  outline: none;
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-brand);
+}
+.insert-menu-item:hover:not(:disabled) svg,
+.insert-menu-item:focus-visible svg { color: currentColor; }
+.insert-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.insert-menu-form { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.insert-menu-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-slate-500);
+}
+
+.insert-menu-textarea {
+  width: 100%;
+  height: auto;
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.insert-menu-actions { display: flex; align-items: center; gap: 0.4rem; }
+.insert-menu-hint {
+  margin-right: auto;
+  font-size: 0.6875rem;
+  color: var(--color-slate-500);
+}
+
+.insert-menu-note,
+.insert-menu-error {
+  margin: 0.25rem 0.6rem 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.insert-menu-note { color: var(--color-slate-500); }
+.insert-menu-error {
+  display: flex;
+  gap: 0.4rem;
+  color: var(--color-amber-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insert-menu { animation-duration: 0.01ms; }
+}
+
 /* --- Structure keys and toggles (ElementToolbar.jsx) --------------------- */
 
 .element-bar-struct { display: flex; align-items: center; gap: 0.125rem; }

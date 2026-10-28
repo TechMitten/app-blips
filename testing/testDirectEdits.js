@@ -617,6 +617,55 @@ check('moveTo handles inline neighbours sharing a line', () => {
   assert.strictEqual(result.code, '<div> <img src="b.png"> <img src="c.png"> <img src="a.png"></div>');
 });
 
+check('insert adds a text container on its own line beside the spot', () => {
+  const code = '<body>\n  <!-- @section: a -->\n  <section>\n    <h2>Title</h2>\n  </section>\n</body>';
+  const after = applyDirectEdit(code, el({ tag: 'h2', role: 'heading', text: 'Title' }), {
+    insert: { kind: 'text', text: 'Hello <world> & you\nline two', position: 'after' },
+  });
+  assert.ok(after.ok, `expected ok, got: ${after.reason}`);
+  assert.strictEqual(
+    after.code,
+    '<body>\n  <!-- @section: a -->\n  <section>\n    <h2>Title</h2>\n    <p>Hello &lt;world&gt; &amp; you<br>line two</p>\n  </section>\n</body>',
+  );
+  assert.match(after.summary, /added a text container after the heading "Title"/);
+
+  // Before a section: above its landmark, so the landmark keeps labelling it.
+  const before = applyDirectEdit(code, el({ tag: 'section', role: 'container', text: 'Title' }), {
+    insert: { kind: 'text', text: 'Intro', position: 'before' },
+  });
+  assert.ok(before.ok, `expected ok, got: ${before.reason}`);
+  assert.strictEqual(
+    before.code,
+    '<body>\n  <p>Intro</p>\n  <!-- @section: a -->\n  <section>\n    <h2>Title</h2>\n  </section>\n</body>',
+  );
+});
+
+check('insert adds an image, inline beside a neighbour sharing its line', () => {
+  const code = '<div><img src="a.png"> <img src="b.png"></div>';
+  const result = applyDirectEdit(code, el({ tag: 'img', role: 'image', attributes: { src: 'a.png' } }), {
+    insert: { kind: 'image', src: 'images/team photo.jpg', alt: 'team "photo"', width: 800, height: 600, position: 'after' },
+  });
+  assert.strictEqual(result.reason, 'invalid', 'a src with spaces or quotes is refused');
+  const ok = applyDirectEdit(code, el({ tag: 'img', role: 'image', attributes: { src: 'a.png' } }), {
+    insert: { kind: 'image', src: 'images/team.jpg', alt: 'team "photo"', width: 800, height: 600, position: 'after' },
+  });
+  assert.ok(ok.ok, `expected ok, got: ${ok.reason}`);
+  assert.strictEqual(
+    ok.code,
+    '<div><img src="a.png"> <img src="images/team.jpg" alt="team &quot;photo&quot;" width="800" height="600" style="max-width: 100%; height: auto;"> <img src="b.png"></div>',
+  );
+});
+
+check('insert refuses empty text, unknown kinds, missing spots and bad positions', () => {
+  const heading = el({ tag: 'h1', role: 'heading', text: 'Fresh bread, every morning' });
+  assert.strictEqual(applyDirectEdit(FIXTURE, heading, { insert: { kind: 'text', text: '  ', position: 'after' } }).reason, 'invalid');
+  assert.strictEqual(applyDirectEdit(FIXTURE, heading, { insert: { kind: 'video', position: 'after' } }).reason, 'invalid');
+  assert.strictEqual(applyDirectEdit(FIXTURE, heading, { insert: { kind: 'text', text: 'x', position: 'inside' } }).reason, 'invalid');
+  const missing = applyDirectEdit(FIXTURE, el({ tag: 'p', text: 'Not on the page' }), { insert: { kind: 'text', text: 'x', position: 'after' } });
+  assert.strictEqual(missing.reason, 'insert-target-not-found');
+  assert.match(describeDirectEditFailure('insert-target-not-found'), /could not be found/);
+});
+
 check('moveTo refuses nesting, missing targets, no-ops and bad payloads', () => {
   const inside = applyDirectEdit(FIXTURE, el(HEADER_EL), {
     moveTo: { target: { tag: 'h1', text: 'Fresh bread, every morning', attributes: {} }, position: 'after' },

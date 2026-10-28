@@ -53,10 +53,13 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
   }, [projectId, saveProject, setImages]);
 
   // `notes[i]` is file i's note (Pixabay photos come with one).
-  // -> { added: number, errors: string[] }
+  // -> { added: number, errors: string[], images: object[], list: object[] }
+  // (`images`: the gallery entry for each file that made it in, including
+  // one already there; `list`: the whole gallery afterwards)
   const addFiles = useCallback(async (fileList, { notes = [] } = {}) => {
     const files = [...(fileList || [])];
     const errors = [];
+    const picked = [];
     let next = imagesRef.current;
     for (const [index, file] of files.entries()) {
       if (next.length >= MAX_GALLERY_IMAGES) {
@@ -65,7 +68,11 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
       }
       try {
         const processed = await processGalleryUpload(file);
-        if (next.some((image) => image.hash === processed.hash)) continue;
+        const existing = next.find((image) => image.hash === processed.hash);
+        if (existing) {
+          picked.push(existing);
+          continue;
+        }
         if (galleryBytesTotal(next) + processed.bytes.length > MAX_GALLERY_BYTES) {
           errors.push(`${file.name} doesn't fit: a project's images can be at most ${MAX_GALLERY_BYTES / 1024 / 1024} MB in total.`);
           continue;
@@ -81,6 +88,7 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
           size: processed.bytes.length,
           note: String(notes[index] || '').slice(0, MAX_GALLERY_NOTE),
         }];
+        picked.push(next[next.length - 1]);
       } catch (err) {
         errors.push(err?.message || `${file.name} couldn't be added.`);
       }
@@ -90,7 +98,7 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
       commit(next);
       setBytesVersion((n) => n + 1);
     }
-    return { added, errors };
+    return { added, errors, images: picked, list: next };
   }, [commit, projectId]);
 
   const setNote = useCallback((name, note) => {

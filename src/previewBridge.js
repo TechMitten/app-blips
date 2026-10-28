@@ -2282,6 +2282,61 @@ const BRIDGE_SOURCE = `(function () {
     if (marquee && e.pointerId === marquee.pointerId) endMarquee(false);
   }
 
+  // ------------------------------------------------------------------
+  // Insert menu: a right-click while editing asks the parent for its "Add
+  // text container" / "Add image" menu instead of the browser's own. The
+  // spot is resolved like a drop (resolveDrop with a stand-in paragraph that
+  // is never in the page) and marked with the drag's insertion line while
+  // the menu is open. This side only reports; the parent writes the new
+  // element into the source and the page reloads from it.
+  // ------------------------------------------------------------------
+  var insertLine = null;
+  var insertMenuOpen = false;
+
+  function clearInsertSpot() {
+    insertMenuOpen = false;
+    if (insertLine && insertLine.parentNode) insertLine.parentNode.removeChild(insertLine);
+    insertLine = null;
+  }
+
+  // The menu sits over the page; using the page again closes it.
+  function dismissInsertMenu() {
+    if (!insertMenuOpen) return;
+    clearInsertSpot();
+    post('insert-menu-dismissed', {});
+  }
+
+  function editOnContextMenu(e) {
+    if (!editingActive) return;
+    // Text being typed keeps the browser's own menu (spelling, paste).
+    if (inlineEdit && inlineEdit.el.contains(e.target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (drag || marquee || pendingCommits.length) return;
+    clearInsertSpot();
+    clearHover();
+    var spot = null;
+    try { spot = resolveDrop(e.clientX, e.clientY, document.createElement('p')); } catch (spotErr) { spot = null; }
+    if (spot) {
+      var lr = lineRect(spot);
+      insertLine = dragChrome('z-index:2147483647;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);', 'line');
+      placeBox(insertLine, lr.left, lr.top, lr.width, lr.height);
+    }
+    insertMenuOpen = true;
+    post('insert-menu', {
+      x: e.clientX,
+      y: e.clientY,
+      viewportWidth: window.innerWidth || document.documentElement.clientWidth,
+      spot: spot ? { target: describeLite(spot.el), position: spot.position } : null,
+      scroll: { x: window.pageXOffset || 0, y: window.pageYOffset || 0 }
+    });
+  }
+
+  function insertOnPointerDown(e) {
+    if (e.button === 2) return;
+    dismissInsertMenu();
+  }
+
   function editSelectParent() {
     if (!editingActive || !editSelectedEl) return;
     abortInlineEdit();
@@ -2323,6 +2378,7 @@ const BRIDGE_SOURCE = `(function () {
     }
     endDrag(false);
     endMarquee(false);
+    clearInsertSpot();
     editingActive = !!enabled;
     dragModeActive = editingActive && !!dragOn;
     abortInlineEdit();
@@ -2355,6 +2411,10 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('pointerup', marqueeOnPointerUp, true);
   document.addEventListener('pointercancel', marqueeOnPointerCancel, true);
   document.addEventListener('dragstart', dragOnNativeDragStart, true);
+  document.addEventListener('contextmenu', editOnContextMenu, true);
+  document.addEventListener('pointerdown', insertOnPointerDown, true);
+  // The line is fixed to the viewport; scrolling would leave it behind.
+  window.addEventListener('scroll', dismissInsertMenu, true);
 
   // Dead-link guard. The frame's document is about:srcdoc, so a relative
   // href ("about.html", "/pricing", "") would navigate the frame to a blank
@@ -2821,6 +2881,8 @@ const BRIDGE_SOURCE = `(function () {
       editSelectParent();
     } else if (d.type === 'deselect') {
       clearSelection(false);
+    } else if (d.type === 'insert-clear') {
+      clearInsertSpot();
     } else if (d.type === 'inline-format') {
       applyInlineFormat(d.payload && d.payload.styles);
     } else if (d.type === 'inline-undo' || d.type === 'inline-redo') {

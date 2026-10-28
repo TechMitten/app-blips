@@ -8,6 +8,7 @@ import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
 import BuildPanel from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
+import InsertMenu from './components/InsertMenu';
 import SettingsModal from './components/SettingsModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import HeroLanding from './components/HeroLanding';
@@ -82,7 +83,7 @@ import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
 import useCreditBalance from './hooks/useCreditBalance';
-import { galleryExportFiles, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
+import { galleryExportFiles, galleryPath, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
 import { changedFiles } from './lib/codebase/fileInfo';
@@ -229,6 +230,10 @@ export default function App({ coldStart = false }) {
   // Live in-place text session (bridge inline-edit-started .. -ended): the
   // element snapshot plus its current typography, for the text toolbar.
   const [textSession, setTextSession] = useState(null);
+  // Right-click insert menu (bridge insert-menu): screen position, the spot
+  // the new element goes beside (or null) and the frame's scroll, plus a key
+  // that remounts the menu for every right-click.
+  const [insertMenu, setInsertMenu] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
   // and never written into `versions`/localStorage (keeps saved
@@ -816,6 +821,10 @@ export default function App({ coldStart = false }) {
   }, []);
   const handleInlineEditEnded = useCallback(() => setTextSession(null), []);
 
+  const handleInsertMenu = useCallback((menu) => {
+    setInsertMenu((prev) => (menu ? { ...menu, key: (prev?.key || 0) + 1 } : null));
+  }, []);
+
   const handleElementDeselected = useCallback(() => {
     setSelectedElement(null);
     setElementEditError(null);
@@ -827,7 +836,7 @@ export default function App({ coldStart = false }) {
   pageNavRef.current = pageNav;
 
   const {
-    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement,
+    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement, clearInsertSpot,
     replyInlineEditResult, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
@@ -851,6 +860,7 @@ export default function App({ coldStart = false }) {
     onInlineHistory: handleInlineHistory,
     onElementShortcut: handleElementShortcutTrampoline,
     onElementDrop: handleElementDropTrampoline,
+    onInsertMenu: handleInsertMenu,
     onNavigatePage: pageNav.navigateToHref,
     onRouteChange: handleCodebaseRouteChange,
   });
@@ -871,6 +881,7 @@ export default function App({ coldStart = false }) {
     setSelectedElement(null);
     setTextSession(null);
     setElementEditError(null);
+    setInsertMenu(null);
     pendingScrollRef.current = null;
   }, []);
 
@@ -881,6 +892,7 @@ export default function App({ coldStart = false }) {
     setActiveTab(tab);
     if (tab !== 'preview') {
       setSelectedElement(null);
+      setInsertMenu(null);
       setTextSession(null);
       setElementEditError(null);
       pendingScrollRef.current = null;
@@ -918,7 +930,9 @@ export default function App({ coldStart = false }) {
   // unchanged. When the anchor can't be matched unambiguously the edit
   // falls back to the AI path. Shared by the panel's Apply button and the
   // in-place text-edit commit.
-  const applyElementChangesToSource = useCallback((element, changes) => {
+  // `saveExtra` goes to saveProject as well (an inserted image passes the
+  // gallery list it was just added to, which state has not caught up with).
+  const applyElementChangesToSource = useCallback((element, changes, saveExtra = {}) => {
     if (!element || !activeCode) return { ok: false, reason: 'invalid' };
     // A group only supports deleting all of it; anything else goes through AI.
     const result = element.group
@@ -942,6 +956,7 @@ export default function App({ coldStart = false }) {
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
     saveProject({
+      ...saveExtra,
       versionsToSave: finalVersions,
       indexToSave: updatedVersions.length,
     });
@@ -1013,6 +1028,45 @@ export default function App({ coldStart = false }) {
     setSelectionKey((n) => n + 1);
   }, [applyElementChangesToSource]);
   elementDropRef.current = handleElementDrop;
+
+  // Right-click insert menu: a new text container or uploaded image written
+  // straight into the page source beside the spot the frame marked, as an
+  // ordinary direct edit (one version, undoable). Image uploads join My
+  // images and the page refers to them as images/<name>, like the AI's.
+  // Called through a ref after the upload's await, so it sees the version
+  // list and gallery of the latest render.
+  const applyElementChangesRef = useRef(applyElementChangesToSource);
+  applyElementChangesRef.current = applyElementChangesToSource;
+  const closeInsertMenu = useCallback(() => {
+    setInsertMenu(null);
+    clearInsertSpot();
+  }, [clearInsertSpot]);
+  const insertAtSpot = useCallback((menu, insert, saveExtra) => {
+    if (!menu?.spot) return { error: 'Nothing can be added at this spot.' };
+    if (isGeneratingRef.current) return { error: 'Wait for the current build to finish, then try again.' };
+    const target = { ...menu.spot.target, scroll: menu.scroll };
+    const result = applyElementChangesRef.current(target, { insert: { ...insert, position: menu.spot.position } }, saveExtra);
+    if (!result.ok) return { error: describeDirectEditFailure(result.reason) };
+    setInsertMenu(null);
+    setSelectedElement(null);
+    setElementEditError(null);
+    return { ok: true };
+  }, []);
+  const handleInsertText = useCallback((text) => insertAtSpot(insertMenu, { kind: 'text', text }), [insertMenu, insertAtSpot]);
+  const handleInsertImage = useCallback(async (file) => {
+    const menu = insertMenu;
+    if (!file.type?.startsWith('image/')) return { error: 'Please choose an image file.' };
+    const { images, errors, list } = await gallery.addFiles([file]);
+    const image = images[0];
+    if (!image) return { error: errors[0] || `${file.name} couldn't be added.` };
+    return insertAtSpot(menu, {
+      kind: 'image',
+      src: galleryPath(image),
+      alt: image.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim(),
+      width: image.width,
+      height: image.height,
+    }, { imagesToSave: list });
+  }, [insertMenu, insertAtSpot, gallery]);
 
   // "Apply with AI" runs the edit straight away as a normal refinement; "Add
   // to chat" (or a chat box that already holds a draft or an attachment,
@@ -3043,6 +3097,15 @@ export default function App({ coldStart = false }) {
               onCancelElementSelection={handleCancelElementSelection}
               onSelectParentElement={handleSelectParentElement}
             />
+            {insertMenu && isPreviewEditing && activeTab === 'preview' && (
+              <InsertMenu
+                key={insertMenu.key}
+                menu={insertMenu}
+                onAddText={handleInsertText}
+                onAddImage={handleInsertImage}
+                onClose={closeInsertMenu}
+              />
+            )}
           </div>
         </main>
       </div>

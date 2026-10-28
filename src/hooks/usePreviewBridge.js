@@ -40,6 +40,7 @@ export default function usePreviewBridge({
   onInlineHistory,
   onElementShortcut,
   onElementDrop,
+  onInsertMenu,
   onNavigatePage,
   onRouteChange,
 }) {
@@ -55,6 +56,7 @@ export default function usePreviewBridge({
   const onInlineHistoryRef = useRef(onInlineHistory);
   const onElementShortcutRef = useRef(onElementShortcut);
   const onElementDropRef = useRef(onElementDrop);
+  const onInsertMenuRef = useRef(onInsertMenu);
   const onNavigatePageRef = useRef(onNavigatePage);
   const onRouteChangeRef = useRef(onRouteChange);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
@@ -95,6 +97,7 @@ export default function usePreviewBridge({
     onInlineHistoryRef.current = onInlineHistory;
     onElementShortcutRef.current = onElementShortcut;
     onElementDropRef.current = onElementDrop;
+    onInsertMenuRef.current = onInsertMenu;
     onNavigatePageRef.current = onNavigatePage;
     onRouteChangeRef.current = onRouteChange;
     currentTokenRef.current = previewToken;
@@ -271,6 +274,26 @@ export default function usePreviewBridge({
           onElementDropRef.current({ element, target, position });
         }
       }
+      // Right-click while editing: where to open the insert menu and the
+      // spot (a lite snapshot + side) the new element goes beside, or null
+      // when nothing there can take one. The frame reports its own viewport
+      // pixels; the device zoom scales them, so they are mapped onto the
+      // iframe's on-screen box here.
+      else if (data.type === 'insert-menu' && onInsertMenuRef.current) {
+        const { x, y, viewportWidth, spot, scroll } = data.payload || {};
+        if (![x, y, viewportWidth].every(Number.isFinite) || viewportWidth <= 0) return;
+        const validSpot = spot && typeof spot === 'object' && spot.target && typeof spot.target === 'object'
+          && (spot.position === 'before' || spot.position === 'after');
+        const box = iframe.getBoundingClientRect();
+        const scale = box.width / viewportWidth;
+        onInsertMenuRef.current({
+          x: box.left + x * scale,
+          y: box.top + y * scale,
+          spot: validSpot ? { target: spot.target, position: spot.position } : null,
+          scroll: scroll && Number.isFinite(scroll.x) && Number.isFinite(scroll.y) ? { x: scroll.x, y: scroll.y } : null,
+        });
+      }
+      else if (data.type === 'insert-menu-dismissed' && onInsertMenuRef.current) onInsertMenuRef.current(null);
       else if (
         (data.type === 'storage_set' || data.type === 'storage_remove' || data.type === 'storage_clear') &&
         onStorageChangeRef.current
@@ -380,6 +403,11 @@ export default function usePreviewBridge({
     sendRef.current('deselect', {});
   }, []);
 
+  // The insert menu closed: take its insertion line out of the page.
+  const clearInsertSpot = useCallback(() => {
+    sendRef.current('insert-clear', {});
+  }, []);
+
   // Verdict on a committed in-place text edit (editId echoes the committed
   // payload so the frame restores exactly the right element when several
   // edits are in flight). ok=false (or a bridge-side timeout) reverts the
@@ -416,7 +444,7 @@ export default function usePreviewBridge({
   const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
 
   return {
-    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement,
+    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement, clearInsertSpot,
     replyInlineEditResult, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState, goBack, goForward, scrollToHash,
