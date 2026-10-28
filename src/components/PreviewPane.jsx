@@ -365,7 +365,7 @@ export default function PreviewPane({
               data-tip={isEditMode ? 'Click elements in the preview to edit' : 'Turn on click-to-edit'}
               className={`nav-btn nav-ghost nav-btn-icon ${isEditMode ? 'nav-ghost-active' : ''}`}
             >
-              <MousePointerClick size={16} />
+              <MousePointerClick size={16} className={isEditMode ? 'text-red-500' : undefined} />
             </button>
           )}
 
@@ -383,7 +383,7 @@ export default function PreviewPane({
               data-tip={isDragMode ? 'Drag elements in the preview to move them' : 'Turn on drag mode to move elements'}
               className={`nav-btn nav-ghost nav-btn-icon ${isDragMode ? 'nav-ghost-active' : ''}`}
             >
-              <Move size={16} />
+              <Move size={16} className={isDragMode ? 'text-red-500' : undefined} />
             </button>
           )}
 

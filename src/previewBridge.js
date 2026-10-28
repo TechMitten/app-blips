@@ -1378,8 +1378,18 @@ const BRIDGE_SOURCE = `(function () {
         return;
       }
       // Clicks outside: focus already moved, so the editor's blur handler
-      // has committed (or will as the focus settles); fall through and let
-      // this click select as usual.
+      // has committed (or will as the focus settles). A tap on other text
+      // must hop the caret there, but the blur commit only lands ~180ms
+      // later, after this click has already been refused (an edit is still
+      // live) -- the session just ended and nothing new opened. When nothing
+      // was typed there is nothing to save, so end it now and fall through to
+      // start the new one. Typed text keeps the normal commit: it reloads the
+      // frame from the edited source, which would swallow a fresh session.
+      var cur = inlineEdit;
+      if (!dragModeActive && !inlineHold && !cur.el.querySelector('[data-ab-fmt]') &&
+          !Object.keys(cur.formatStyles).length && inlineEditText(cur.el) === cur.startText) {
+        finishInlineEdit(true, false);
+      }
     }
     if (!isSelectable(el)) return;
     // Capture phase + both stops: the page must not react to selection
@@ -2298,9 +2308,12 @@ const BRIDGE_SOURCE = `(function () {
     function onPointerDown(e) {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (isFormControl(e.target)) return;
-      // While the element picker is active, every gesture belongs to the
-      // picker -- no drag-scrolling, so taps reliably reach editOnClick.
-      if (editingActive) return;
+      // During a text session the gesture belongs to the editor (caret
+      // placement and selection). Otherwise the picker still needs the page
+      // to scroll: touch-action is none here, so without this a finger could
+      // never reach the content below the fold while click-to-edit is on.
+      // Taps stay taps (the 6px threshold below), so they reach editOnClick.
+      if (editingActive && inlineEdit) return;
 
       if (momentumId) {
         cancelAnimationFrame(momentumId);
@@ -2422,7 +2435,6 @@ const BRIDGE_SOURCE = `(function () {
     }
 
     function onClick(e) {
-      if (editingActive) return;
       if (suppressClick) {
         e.preventDefault();
         e.stopPropagation();

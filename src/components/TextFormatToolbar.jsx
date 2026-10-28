@@ -140,7 +140,7 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
       data-tip={tip || label}
       className={`nav-segmented-btn nav-segmented-btn-icon ${pressed ? 'nav-segmented-btn-active' : ''}`}
     >
-      <Icon size={16} />
+      <Icon size={16} className={pressed ? 'text-red-500' : undefined} />
     </button>
   );
 
@@ -155,7 +155,7 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
       data-tip={alignEnabled ? label : 'Alignment applies to block text'}
       className={`nav-segmented-btn nav-segmented-btn-icon ${alignEnabled && t.textAlign === value ? 'nav-segmented-btn-active' : ''}`}
     >
-      <Icon size={16} />
+      <Icon size={16} className={alignEnabled && t.textAlign === value ? 'text-red-500' : undefined} />
     </button>
   );
 
