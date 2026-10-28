@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, EyeOff, ImagePlus, Images, Loader2, Trash2 } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, ImagePlus, Images, Loader2, Trash2 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { FIELD_CLASS, PRIMARY_BUTTON } from './SettingControls';
-import { blobBytes } from '../lib/blobStore';
+import useGalleryThumbnails from '../hooks/useGalleryThumbnails';
 import { MAX_GALLERY_IMAGES, MAX_GALLERY_NOTE, galleryPath } from '../lib/galleryImages';
 
 const stemOf = (name) => name.replace(/\.[a-z0-9]+$/i, '');
@@ -15,10 +15,33 @@ function formatSize(bytes) {
 }
 
 // One gallery image: thumbnail, editable name (the path pages use) and note
-// (what the AI is told it shows).
+// (what the AI is told it shows). The name is how users point the AI at one
+// image, so it copies with one click (a long name can be cut off in the box).
 function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onToggle, onRemove }) {
   const [stem, setStem] = useState(stemOf(image.name));
   const [note, setNote] = useState(image.note || '');
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const nameRef = useRef(null);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  // Copies the saved name (with its extension), not an unsaved edit. When the
+  // clipboard is blocked, the name is selected so the user can copy it.
+  const copyName = async () => {
+    try {
+      await navigator.clipboard.writeText(image.name);
+      setCopyFailed(false);
+      setCopied(true);
+    } catch {
+      setCopyFailed(true);
+      nameRef.current?.select();
+    }
+  };
 
   const commitStem = () => {
     if (stem.trim() && stem !== stemOf(image.name)) setStem(stemOf(onRename(image.name, stem)));
@@ -68,22 +91,42 @@ function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onToggle, 
         </button>
       </div>
       <div className="p-3 space-y-2">
-        <label className="block">
-          <span className="sr-only">Name</span>
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label htmlFor={`gallery-name-${image.hash}`} className="text-[11px] font-semibold text-slate-600">Name</label>
+            <button
+              type="button"
+              onClick={copyName}
+              aria-label={copied ? `Copied ${image.name}` : `Copy the name ${image.name}`}
+              title="Copy the name to use in a prompt"
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                copied ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'text-indigo-600 hover:bg-indigo-500/10'
+              }`}
+            >
+              {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
+              {copied ? 'Copied' : 'Copy name'}
+            </button>
+          </div>
           <span className="flex items-center gap-1">
             <input
+              id={`gallery-name-${image.hash}`}
+              ref={nameRef}
               value={stem}
               onChange={(e) => setStem(e.target.value)}
               onBlur={commitStem}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               disabled={disabled}
               maxLength={40}
+              spellCheck={false}
+              title={image.name}
               className={`${FIELD_CLASS} py-1! px-2! font-medium`}
-              aria-label={`Name of ${image.name}`}
             />
             <span className="text-xs text-slate-500 shrink-0">{extOf(image.name)}</span>
           </span>
-        </label>
+          {copyFailed && (
+            <p role="alert" className="mt-1 text-[11px] text-red-600">Couldn’t copy. The name is selected: press Ctrl+C (Cmd+C on a Mac).</p>
+          )}
+        </div>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -110,19 +153,7 @@ export default function ImageGallery({ images, bytesVersion, usedNames, isGenera
   const [dragging, setDragging] = useState(false);
   const [removing, setRemoving] = useState(null);
 
-  // Thumbnails from the stored bytes; revoked when the list changes or the
-  // page closes.
-  const urls = useMemo(() => {
-    const out = {};
-    for (const image of images) {
-      const bytes = blobBytes(image.hash);
-      if (bytes) out[image.hash] = URL.createObjectURL(new Blob([bytes], { type: image.type }));
-    }
-    return out;
-    // bytesVersion: stored bytes finished loading.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images, bytesVersion]);
-  useEffect(() => () => Object.values(urls).forEach((url) => URL.revokeObjectURL(url)), [urls]);
+  const urls = useGalleryThumbnails(images, bytesVersion);
 
   const add = async (fileList) => {
     const files = [...(fileList || [])].filter((file) => file.type?.startsWith('image/'));
@@ -162,8 +193,8 @@ export default function ImageGallery({ images, bytesVersion, usedNames, isGenera
         >
           <Images size={28} className="text-slate-400" aria-hidden="true" />
           <p className="text-sm text-slate-700">
-            Add your own photos, logos and pictures. Then ask the AI to use them, for example
-            {' '}<em>"put team-photo in the hero"</em> or <em>"use all my images"</em>.
+            Add your own photos, logos and pictures. To use a specific image, mention its name to the AI,
+            for example <em>"put team-photo in the hero"</em>. Or ask for all of them: <em>"use all my images"</em>.
           </p>
           <input
             ref={inputRef}
@@ -191,7 +222,7 @@ export default function ImageGallery({ images, bytesVersion, usedNames, isGenera
         {images.length > 0 ? (
           <>
             <p className="text-xs text-slate-500">
-              The AI sees each image's name and note, not the picture itself, so a short note helps it pick the right one. Click the eye to hide an image from the AI; pages that already show it keep showing it.
+              To use an image, mention its name to the AI: click Copy name on it and paste the name into your request. The AI sees each image's name and note, not the picture itself, so a short note helps it when you don't name one. Click the eye to hide an image from the AI; pages that already show it keep showing it.
               {isGenerating && ' Names can be changed once the build has finished.'}
             </p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

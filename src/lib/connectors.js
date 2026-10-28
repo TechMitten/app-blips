@@ -14,6 +14,11 @@
 // features in the user's sites: 'visitors' (their own Pollen) or 'site' (the
 // user's `siteKey`). The site key is the exception to the rule above: it is
 // written into every site anyway, so it is no more secret here than there.
+// Pixabay (`serverKey: true`) takes a key the user pastes, but the key is
+// personal, so it goes straight to the same kind of store
+// (electron/server/pixabayApi.js) and only its last four characters are kept
+// here, as `keyHint`. The AI never uses Pixabay directly: photos the user picks
+// are added to My images, so getActiveConnectors leaves it out.
 import { safeStorage } from './config.js';
 import { POLLINATIONS_EARNINGS, POLLINATIONS_FEE_NOTE } from './pollinationsApp.js';
 
@@ -389,6 +394,46 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  pixabay: {
+    id: 'pixabay',
+    name: 'Pixabay',
+    tagline: 'Search free stock photos for My images',
+    description: 'Millions of free photos. Search Pixabay, pick the ones you like and add them to the open project’s My images, ready for the AI to use.',
+    serverKey: true,
+    keyLabel: 'API key',
+    keyPlaceholder: '12345678-0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d',
+    keyUrl: 'https://pixabay.com/api/docs/',
+    homeUrl: 'https://pixabay.com/',
+    homeLinkLabel: 'Visit the Pixabay website',
+    isValidKey: () => false,
+    page: {
+      enableDescription: 'Search Pixabay’s free photos here and on the My images page, and add the ones you pick to your project.',
+      keyHelp: 'Sign in to Pixabay, open its API documentation page and copy the key shown under “Parameters”. It stays inside AppBlips and is never written into your projects.',
+      keyLinkLabel: 'Get your free key',
+      connected: 'Search below, or use “Find free photos on Pixabay” on the My images page.',
+      needsKey: 'Add your key to finish setting up.',
+    },
+    // No `prompts`: the AI never uses Pixabay itself, only the photos added to
+    // My images, whose page has the prompts for them.
+    about: {
+      what: 'Pixabay is a library of millions of free photos. With your own free Pixabay key, you can search it from inside AppBlips and add the photos you like to a project’s My images, so the AI builds with them.',
+      steps: [
+        'Create a free account at pixabay.com, or sign in.',
+        'Open pixabay.com/api/docs. Your API key is shown in the “Parameters” section, next to “key”. Copy it.',
+        'Turn on Pixabay here, paste the key into the API key box and click Save key.',
+        'Open a project. Type what you are looking for in the search box (here, or with “Find free photos on Pixabay” on the My images page), click the photos you want, then click Add to My images.',
+        'Each photo gets a name in My images, made from its tags, such as “mountain-lake-sunset”. To use a specific photo, mention that name to the AI, for example “use mountain-lake-sunset as the hero background”. If My images was off, adding photos turns it on.',
+      ],
+      notes: [
+        'Pixabay photos are free to use, also commercially, under the Pixabay Content License. Crediting the photographer isn’t required, but it is appreciated. Each photo’s note in My images says who took it.',
+        'Your key stays inside AppBlips and is never written into your projects. Only your search words and the photos you add travel between AppBlips and Pixabay.',
+        'Photos are downloaded into the project like images you upload yourself, so they keep working after you export or publish.',
+        'Searches are remembered for a day, as Pixabay asks, and Pixabay limits how many searches a key can make each minute.',
+        'Imported codebases don’t use it, since they don’t have My images.',
+        'Pixabay is a separate service with its own terms.',
+      ],
+    },
+  },
   // The one native connector (`native: true`): no service and no key. Only the
   // on/off switch is global; the answers are per project (lib/seo.js) and reach
   // the AI once after they are saved or changed, not through
@@ -440,17 +485,23 @@ export const CONNECTOR_DEFINITIONS = {
     },
     gallery: true,
     beta: true,
+    // Naming the image is how to pick one, and the name needn't be exact, so
+    // the prompts show each form with one of the open project's images
+    // (ConnectorsSettings.jsx): `{image}` its full name, `{stem}` without the
+    // extension, `{partial}` a few of its words (galleryNameForms).
     prompts: [
-      'Put my logo in the header of every page.',
+      'Put {image} in the hero section of the home page.',
+      'Use the {partial} photo as the hero background and make sure the text on top stays readable.',
+      'Put {stem} in the header of every page, at a small size like a logo.',
       'Use all my images in a gallery on the about page.',
-      'Use my first image as the hero background and make sure the text stays readable.',
     ],
     about: {
       what: 'My images lets you upload your own photos and logos to a project, so the AI builds with your pictures instead of stock or generated ones.',
       steps: [
         'Open a project, then use the upload box on this page to add pictures (JPEG, PNG, WebP, GIF or SVG).',
         'Give an image a short name, and a note about what it shows or where it should go. Use the eye on an image to hide it from the AI without deleting it.',
-        'Ask the AI for what you want, for example “put team-photo in the hero section”.',
+        'To use a specific image, mention its name (shown under it) to the AI, for example “put team-photo in the hero section”. To use them all, just say so: “use all my images in a gallery”.',
+        'Before building, the AI shows which of your images it matched to your words. Click “Yes, use it” to go ahead, or type the right image’s name if it picked the wrong one.',
         'When you export or publish, only the images your pages use come along.',
       ],
       notes: [
@@ -466,8 +517,9 @@ export const CONNECTOR_DEFINITIONS = {
 
 export const CONNECTOR_IDS = Object.keys(CONNECTOR_DEFINITIONS);
 
-// { [id]: { enabled: boolean, key: string, account?: string } } for every
-// known connector (`account` only for sign-in connectors).
+// { [id]: { enabled: boolean, key: string, account?: string, keyHint?: string } }
+// for every known connector (`account` only for sign-in connectors, `keyHint`
+// only for server-key ones).
 export const loadConnectors = () => {
   let stored = {};
   try {
@@ -485,6 +537,9 @@ export const loadConnectors = () => {
       // has accepted that visitors can find it; cleared when the key changes.
       siteKeyAccepted: stored[id]?.siteKeyAccepted === true,
     } : {}),
+    ...(CONNECTOR_DEFINITIONS[id].serverKey ? {
+      keyHint: typeof stored[id]?.keyHint === 'string' ? stored[id].keyHint : '',
+    } : {}),
   }]));
 };
 
@@ -495,12 +550,13 @@ export const saveConnectors = (connectors) => {
 };
 
 // 'connected' (on, valid key or signed in: used by the AI; native connectors
-// only need to be on), 'needs-key' (on, key missing or malformed: not used
-// yet), 'needs-sign-in' or 'off'.
+// only need to be on; server-key ones need a saved key), 'needs-key' (on, key
+// missing or malformed: not used yet), 'needs-sign-in' or 'off'.
 export const connectorStatus = (id, connectors = loadConnectors()) => {
-  const { enabled, key = '', account } = connectors[id] || {};
+  const { enabled, key = '', account, keyHint } = connectors[id] || {};
   if (!enabled) return 'off';
   if (CONNECTOR_DEFINITIONS[id].native) return 'connected';
+  if (CONNECTOR_DEFINITIONS[id].serverKey) return keyHint ? 'connected' : 'needs-key';
   if (CONNECTOR_DEFINITIONS[id].signIn) return account ? 'connected' : 'needs-sign-in';
   return CONNECTOR_DEFINITIONS[id].isValidKey(key.trim()) ? 'connected' : 'needs-key';
 };
@@ -511,7 +567,8 @@ export const connectorStatus = (id, connectors = loadConnectors()) => {
 // how AI features are paid for, so the AI builds them to match: 'visitors',
 // 'site', or 'none' (site key chosen but not added yet: no AI features).
 export const getActiveConnectors = (connectors = loadConnectors()) => CONNECTOR_IDS
-  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && connectorStatus(id, connectors) === 'connected')
+  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey
+    && connectorStatus(id, connectors) === 'connected')
   .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : connectors[id].key.trim() }));
 
 const pollinationsAiMode = (connectors) => {

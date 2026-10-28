@@ -25,6 +25,7 @@ import { createProviderStore } from './providerStore.js';
 import { createSurgeStore } from './surgeStore.js';
 import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
+import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
 import { handleCreditsApi, hasSavedCredits } from './server/creditsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
@@ -53,6 +54,7 @@ let projectStore;
 let providerStore;
 let surgeStore;
 let pollinationsStore;
+let pixabayStore;
 let creditsStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
@@ -105,7 +107,7 @@ async function writeSettings(patch) {
 // so the provider saved in Settings → AI travels with each request (see
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
-// and /api/pollinations/* the Pollinations key.
+// /api/pollinations/* the Pollinations key and /api/pixabay/* the Pixabay key.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -208,6 +210,11 @@ async function handleAppRequest(request) {
       case '/api/pollinations/login/check':
       case '/api/pollinations/image':
         return withSecurityHeaders(await handlePollinationsApi(request, process.env, pollinationsStore));
+      case '/api/pixabay':
+      case '/api/pixabay/key':
+      case '/api/pixabay/search':
+      case '/api/pixabay/download':
+        return withSecurityHeaders(await handlePixabayApi(request, process.env, pixabayStore));
       case '/api/seo/scan':
         return withSecurityHeaders(await handleSeoScanApi(request, process.env));
       default:
@@ -482,6 +489,11 @@ app.whenReady().then(() => {
     file: join(app.getPath('userData'), 'pollinations.json'),
     crypto: safeStorage,
     label: 'Pollinations',
+  });
+  pixabayStore = createSurgeStore({
+    file: join(app.getPath('userData'), 'pixabay.json'),
+    crypto: safeStorage,
+    label: 'Pixabay',
   });
   creditsStore = createSurgeStore({
     file: join(app.getPath('userData'), 'credits.json'),

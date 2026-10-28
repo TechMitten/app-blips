@@ -1,5 +1,5 @@
 import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
@@ -8,6 +8,8 @@ import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
 import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
 import { loadProfile } from '../lib/profile';
+import { imageApprovalText } from '../lib/galleryImages';
+import useGalleryThumbnails from '../hooks/useGalleryThumbnails';
 
 // Prompt/reply bubbles as a two-sided conversation: the person's turn on the
 // right behind a neutral avatar, the app's reply on the left behind the
@@ -124,6 +126,51 @@ function ReplyRow({ title, className = '', copyText, children }) {
       >
         {children}
         <CopyMessageButton text={copyText} tone="bot" />
+      </div>
+    </div>
+  );
+}
+
+// The pictures an image confirmation matched, so the user sees what they are
+// approving, not just names. Images since removed from My images are left out.
+function ImageConfirmThumbs({ matches, images, urls }) {
+  const shown = [...new Set(matches.map((match) => match.image).filter(Boolean))]
+    .map((name) => images.find((image) => image.name === name))
+    .filter(Boolean);
+  if (!shown.length) return null;
+  return (
+    <ul className="pl-13 flex flex-wrap gap-2" aria-label="Matched images">
+      {shown.map((image) => (
+        <li key={image.hash} className="w-28 overflow-hidden rounded-lg border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5">
+          <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 dark:bg-white/5">
+            {urls[image.hash]
+              ? <img src={urls[image.hash]} alt={image.note || image.name} className="h-full w-full object-cover" />
+              : <span className="px-2 text-center text-[10px] text-slate-500">Loading…</span>}
+          </div>
+          <p className="truncate px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-white/80" title={image.name}>{image.name}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Shown under the AI's image confirmation (llm.js matchGalleryImages) while it
+// is the latest message: approving sends "Yes, use …" as the next request,
+// which starts the build. Typing another image's name instead corrects it.
+function ImageConfirmOffer({ matches, onApprove }) {
+  const several = new Set(matches.map((match) => match.image)).size > 1;
+  return (
+    <div className="pl-13 animate-fade-in">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onApprove(imageApprovalText(matches))}
+          className="brand-fill-text inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 bg-brand text-white text-(length:--chat-label-text) font-semibold hover:bg-brand-hover transition-colors"
+        >
+          <Check size={14} aria-hidden="true" />
+          {several ? 'Yes, use them' : 'Yes, use it'}
+        </button>
+        <span className="text-(length:--chat-label-text) text-slate-500 dark:text-white/50">or type which image to use instead</span>
       </div>
     </div>
   );
@@ -286,9 +333,20 @@ export default function ChatTranscript({
   canOfferFix = false,
   onFixReview,
   onSkipFix,
+  onApproveImages,
+  // The project's My images ({ images, bytesVersion }), for the thumbnails
+  // under image confirmations.
+  gallery = null,
   projectId = null,
 }) {
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
+  // Thumbnails only for the images some confirmation matched.
+  const galleryList = gallery?.images;
+  const confirmedImages = useMemo(() => {
+    const names = new Set(versions.flatMap((v) => v.imageConfirm?.matches?.map((match) => match.image) || []));
+    return names.size ? (galleryList || []).filter((image) => names.has(image.name)) : [];
+  }, [versions, galleryList]);
+  const thumbnailUrls = useGalleryThumbnails(confirmedImages, gallery?.bytesVersion);
 
   // Opening a saved project mounts a long transcript whose height keeps
   // changing for a moment (markdown, fonts, fade-ins), so a single scroll to
@@ -348,6 +406,10 @@ export default function ChatTranscript({
             )}
             {canOfferReview && ver.reviewOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
               <ReviewOffer onReview={onReview} onSkip={onSkipReview} />
+            )}
+            {ver.imageConfirm && <ImageConfirmThumbs matches={ver.imageConfirm.matches} images={confirmedImages} urls={thumbnailUrls} />}
+            {onApproveImages && ver.imageConfirm?.allMatched && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
+              <ImageConfirmOffer matches={ver.imageConfirm.matches} onApprove={onApproveImages} />
             )}
             {canOfferFix && ver.fixOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
               <FixOffer onFix={onFixReview} onSkip={onSkipFix} />

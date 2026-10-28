@@ -56,13 +56,13 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 ### Creation & Editing
 - **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
 - **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes (drag a box or Shift+click to select several at once), or ask the AI in plain English for deeper structural tweaks.
-- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Connectors → My images and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
+- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Connectors → My images (or search free Pixabay stock photos with your own Pixabay key and add the ones you pick) and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
 - **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
 ### AI & Integrations
 - **Bring Your Own Key or Use Credits** — Connect your own API keys (or local models) for free, or subscribe to **AppBlips AI Credits** (starts with a 3-day, 100-credit trial; converts to the $10/mo Starter Plan for 1,000 credits/mo unless cancelled).
-- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), or Pollinations (AI image generation & chat) via **Settings → Connectors**. The built-in **SEO** connector needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), or Pixabay (free stock photos for My images) via **Settings → Connectors**. The built-in **SEO** connector needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
@@ -181,6 +181,11 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 - **Integration:** Uses Pollinations' device flow (`electron/server/pollinationsApi.js`). Keyless `gen.pollinations.ai` URLs are resolved server-side after build into public `media.pollinations.ai` assets and bundled on export.
 - **In-App AI:** Injects `window.Pollinations` (`chat`, `image`, `mountConnect`) via `src/lib/pollinationsHelper.js`. Supports visitor-paid device flow (default) or a budget-capped site key.
 - **Test:** `node testing/testPollinations.js` (offline; stubbed).
+
+#### Pixabay Connector
+- **Integration:** The user's own Pixabay API key is checked and stored server-side (`electron/server/pixabayApi.js`; OS keychain on desktop, `pixabay-key.json` in the browser version). The page only sees its last four characters. Search results are sanitized and cached for 24 hours, as Pixabay's API terms ask.
+- **Flow:** Picked photos are downloaded by id through the server (never by URL) and added to the project's My images via `useImageGallery`'s `addFiles`, with a note built from their tags. The AI never calls Pixabay.
+- **Test:** `node testing/testPixabayApi.js` (offline; stubbed).
 
 </details>
 

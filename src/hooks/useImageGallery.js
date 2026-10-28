@@ -52,12 +52,13 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
     if (projectId) saveProject({ imagesToSave: next, force: true });
   }, [projectId, saveProject, setImages]);
 
+  // `notes[i]` is file i's note (Pixabay photos come with one).
   // -> { added: number, errors: string[] }
-  const addFiles = useCallback(async (fileList) => {
+  const addFiles = useCallback(async (fileList, { notes = [] } = {}) => {
     const files = [...(fileList || [])];
     const errors = [];
     let next = imagesRef.current;
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       if (next.length >= MAX_GALLERY_IMAGES) {
         errors.push(`A project can have at most ${MAX_GALLERY_IMAGES} images.`);
         break;
@@ -78,7 +79,7 @@ export default function useImageGallery({ images, setImages, projectId, saveProj
           width: processed.width,
           height: processed.height,
           size: processed.bytes.length,
-          note: '',
+          note: String(notes[index] || '').slice(0, MAX_GALLERY_NOTE),
         }];
       } catch (err) {
         errors.push(err?.message || `${file.name} couldn't be added.`);

@@ -41,6 +41,8 @@ export default function BuildPanel({
   canOfferFix = false,
   onFixReview,
   onSkipFix,
+  onApproveImages,
+  gallery = null,
   projectId = null,
   chatBottomRef,
   interruptedJob = null,
@@ -207,6 +209,8 @@ export default function BuildPanel({
                 canOfferFix={canOfferFix}
                 onFixReview={onFixReview}
                 onSkipFix={onSkipFix}
+                onApproveImages={chatMode === 'build' ? onApproveImages : undefined}
+                gallery={gallery}
                 projectId={projectId}
               />
             </>

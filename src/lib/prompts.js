@@ -90,6 +90,46 @@ Reply with that single word only: no punctuation, no explanation.`;
 // Build mode sends every message to the code writer, so a question typed there
 // would otherwise start an edit. This router sends pure questions to the Ask
 // path instead (see classifyBuildIntent in llm.js).
+// Before a build that uses the user's own images (My images), AppBlips asks
+// the user to confirm which image each mention means (llm.js
+// matchGalleryImages). The tool's enum is the image names, so a reply can
+// only name an image that exists ("" means none matched).
+export const GALLERY_MATCH_SYSTEM_PROMPT = `You check build requests in a no-code builder against the user's image library ("My images"), listed below with each image's file name and the user's note about it.
+Decide whether the request asks to add, place, swap in or otherwise use one or more of these images, then call report_image_matches with one entry per image the request refers to:
+- "mentioned": the user's own words for that image, copied from the request (for example "the mountain lake photo", "team-photo", "my logo", "all my images").
+- "image": the file name from the list that best matches those words, by its name first (whole name, name without extension, a few of its words in any order or form, typos) and otherwise by the user's note. Use "" when no image in the list plausibly matches, or when two match equally well.
+For "all my images" or "my photos", add one entry per image, each with the same "mentioned" words.
+The request may also continue an earlier image confirmation in the conversation: if the latest message answers one (for example "no, use the beach one instead"), report the images for the whole request as it now stands.
+Return an empty list when the request doesn't use the user's images, for example a change of colours or text, or an image the AI should find or draw itself with no link to the library.`;
+
+export const buildGalleryMatchTool = (names) => ({
+  type: 'function',
+  function: {
+    name: 'report_image_matches',
+    description: 'Report which images from the user\'s library the request refers to.',
+    parameters: {
+      type: 'object',
+      properties: {
+        matches: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              mentioned: { type: 'string', description: 'The user\'s words for the image, copied from the request.' },
+              image: { type: 'string', enum: [...names, ''], description: 'The matching image file name from the list, or "" when none matches or two match equally well.' },
+            },
+            required: ['mentioned', 'image'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['matches'],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+});
+
 export const BUILD_INTENT_SYSTEM_PROMPT = `You route messages a user types into a no-code app builder while it is in Build mode. Decide whether the latest message asks for a change to their project or only asks a question.
 - build: they want something created, added, changed, fixed or removed, even when it is phrased as a question ("can you add a dark mode?", "could you make the header blue?", "why is the button broken? fix it"), or they are answering a question the assistant just asked, or confirming an offer it made ("yes", "sure, do that").
 - question: they only want information, an explanation, advice or an opinion, and nothing in the project should change ("how does the score get saved?", "what font is this using?", "is this mobile friendly?", "what would make this look better?").
@@ -655,7 +695,7 @@ export const buildImageGalleryNote = (images, studioMode = 'app') => {
   const game = studioMode === 'game'
     ? ' In this game they are the one exception to the "no external image assets" rule: use them as sprites, backgrounds or title art when asked (in Phaser, this.load.image with the path).'
     : '';
-  return `USER IMAGES: The user uploaded these images to their project ("My images"). Use them when the user asks for them: by name, by what they show, or with phrases like "my images", "my photos", "my logo" or "all my images". Don't add them to places the user didn't ask for, and don't remove ones already in use unless asked. Refer to each image exactly by the relative path listed (in an <img src>, a CSS url() or a JavaScript string); never invent other paths under images/, never turn them into data: URLs or full URLs, and never use these paths for anything else. AppBlips shows them in the preview and ships them with the published or exported site. Give each one meaningful alt text and fit it to the layout with CSS (object-fit: cover or contain), keeping the listed proportions in mind.${game}
+  return `USER IMAGES: The user uploaded these images to their project ("My images"). Use them when the user asks for them: by name, by what they show, or with phrases like "my images", "my photos", "my logo" or "all my images". The user often names an image loosely: the file name without its extension or folder, a few of its words in another order or form, a typo, or what it shows (for example "team-photo", "the team picture" or "our summer party photo" can all mean images/team-photo.jpg). Before writing any path under images/, match the request to an actual image in the list below: take the one whose name, or else the user's note, matches it best. Never write a path that isn't in the list, never make one up from the user's words, and never use a stock photo or placeholder in its place. If two images match equally well, or none matches, don't add a guess: build the rest of the request, say which image was unclear, and list the image names they can choose from. Don't add them to places the user didn't ask for, and don't remove ones already in use unless asked. Refer to each image by its full relative path exactly as listed, character for character, written out whole as one literal string (in an <img src>, a CSS url() or a JavaScript string): always with the images/ folder and the listed extension and capitals, never a bare file name, another folder (assets/, ./img/) or another extension. Never build the path from parts (no \`images/\${name}\` template or "images/" + name; in a list of images, store the full path for each one), never import an image as a module, never turn it into a data: URL or full URL, and never use these paths for anything else. AppBlips shows them in the preview and ships them with the published or exported site. Give each one alt text that describes what it shows, based on the user's note when there is one, and fit it to the layout with CSS (object-fit: cover or contain), keeping the listed proportions in mind.${game}
 ${lines.join('\n')}`;
 };
 

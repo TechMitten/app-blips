@@ -1,14 +1,14 @@
 ---
 title: "Connectors"
 sidebarTitle: "Connectors"
-description: "Link Web3Forms, Umami, Plausible, tawk.to, Square or Pollinations, or use the built-in SEO and My images (beta) connectors, so the AI wires them into the websites and apps you build."
+description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations or Pixabay, or use the built-in SEO and My images (beta) connectors, so the AI wires them into the websites and apps you build."
 ---
 
-Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features.
+Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](#my-images-beta), and the AI uses them from there.
 
 SEO is different from the rest: it is built into AppBlips, so there is nothing to sign up for and no key to paste. You answer a few questions about your project instead (see [SEO](#seo)).
 
-Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)).
+Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)). Pixabay asks for your own API key, which AppBlips also keeps to itself and never writes into a page (see [Pixabay](#pixabay)).
 
 <Note>
   AppBlips has no partnership, sponsorship or affiliate arrangement with any of these services or the companies and developers behind them. They are offered because they work without a server or a secret key. Each one is a separate service with its own terms, prices and privacy policy, and questions about your account with it go to that service. Their names and logos belong to their owners.
@@ -207,6 +207,45 @@ If the budget runs out, or you delete the key, the features show "AI features ar
 
 In the Browser Game studio, ask for Pollinations images for things like the title screen, backgrounds or sprites; everything else in a game is still drawn in code. Imported sites don't use Pollinations.
 
+## Pixabay
+
+[Pixabay](https://pixabay.com/) is a library of millions of free photos. With your own free Pixabay key, you can search it from inside AppBlips and add the photos you like to the open project's [My images](#my-images-beta). The AI then uses them like pictures you uploaded yourself.
+
+An **API key** is a code that lets AppBlips search Pixabay on your behalf. Pixabay gives every account one for free.
+
+<Steps>
+  <Step title="Get your key">
+    1. Go to [pixabay.com](https://pixabay.com/) and click **Join** to create a free account, or **Log in** if you have one.
+    2. Open [pixabay.com/api/docs](https://pixabay.com/api/docs/).
+    3. Scroll to the **Parameters** section. Your key is shown next to **key**. Select it and copy it.
+  </Step>
+  <Step title="Add it to AppBlips">
+    1. Click **Settings**, then **Connectors**, then the **Pixabay** card.
+    2. Click the switch next to **Enable Pixabay**.
+    3. Paste the key into the **API key** box.
+    4. Click **Save key**. AppBlips checks the key with Pixabay. When it works, the page says "Connected with the key ending in …".
+  </Step>
+  <Step title="Find photos">
+    1. Open the project you want photos for.
+    2. On the Pixabay page, type what you are looking for in the search box, for example "mountain lake", and press Enter.
+    3. Click each photo you want. A tick marks the ones you picked. Click **Load more** to see more results. The first time you pick a photo, a note explains where your photos go; click **Got it!** to close it.
+    4. Click **Add to My images**. AppBlips downloads the photos into the project. If My images was off, it is switched on so the AI can use them.
+  </Step>
+  <Step title="Ask the AI to use them">
+    Each photo gets a name in My images, made from its tags, such as `mountain-lake-sunset`. You'll find it in the **Name** box under the photo on the **My images** page; click **Copy name** to copy it. To use a specific photo, close Settings and mention its name in the builder chat, for example "use mountain-lake-sunset as the hero background". The AI shows which image it matched; click **Yes, use it** to start the build.
+  </Step>
+</Steps>
+
+You can also search from the My images page: click **Find free photos on Pixabay** above your images.
+
+Each photo gets a name from its tags (such as `mountain-lake-sunset.jpg`) and a note saying what it shows and who took it, so the AI can pick the right one. You can change both, like any image in My images.
+
+- Pixabay photos are free to use, also commercially, under the [Pixabay Content License](https://pixabay.com/service/license-summary/). Crediting the photographer isn't required, but it is appreciated.
+- Your key stays inside AppBlips (in your system's keychain on the desktop app) and is never written into your projects. To stop using it, click **Remove key**.
+- Photos are copied into your project, so they keep working after you export or publish, even if they are later removed from Pixabay.
+- Searches are remembered for a day, as Pixabay asks. Pixabay limits how many searches a key can make each minute; if you see "Pixabay is busy", wait a minute and try again.
+- Imported sites don't use Pixabay, since they don't have My images.
+
 ## SEO
 
 SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector is built into AppBlips: there is no outside service, no account and no key. You answer a few plain questions about your project, and the AI adds professional SEO to its pages.
@@ -240,7 +279,7 @@ Good SEO helps search engines find and describe your site, but nobody can promis
 
 ## My images (beta)
 
-My images is built into AppBlips and is still in beta, so it may change and some things may not work smoothly yet. There is no account or key to set up: turn on **Enable My images** (it starts off) and use the upload box on the same page to add your own photos and logos to the project you have open. Then ask the AI to use them by name, for example "put team-photo in the hero section". The AI sees each image's name, size and your note, never the pictures. Turn the switch off and the AI ignores all your images. To ignore only some, click the eye on an image in the gallery: it is dimmed and marked **Hidden from the AI**, but pages that already show it keep showing it. For the full steps, see [Using your own images](/features/building-apps#using-your-own-images-beta). Imported sites don't use it.
+My images is built into AppBlips and is still in beta, so it may change and some things may not work smoothly yet. There is no account or key to set up: turn on **Enable My images** (it starts off) and use the upload box on the same page to add your own photos and logos to the project you have open. To use a specific image, mention its name (shown in the box under it) to the AI, for example "put team-photo in the hero section". The AI sees each image's name, size and your note, never the pictures. Turn the switch off and the AI ignores all your images. To ignore only some, click the eye on an image in the gallery: it is dimmed and marked **Hidden from the AI**, but pages that already show it keep showing it. With the [Pixabay](#pixabay) connector set up, click **Find free photos on Pixabay** on the same page to search free stock photos and add them. For the full steps, see [Using your own images](/features/building-apps#using-your-own-images-beta). Imported sites don't use it.
 
 ## Request a connector
 
@@ -256,4 +295,4 @@ Your request goes to the AppBlips team through Web3Forms. Nothing about your pro
 
 ## Privacy
 
-AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, and Pollinations as described in [Pollinations](#pollinations). The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in is the exception: it is kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
+AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), and Pixabay when you save your key, search or add photos. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and Pixabay key are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

@@ -17,7 +17,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -201,19 +201,24 @@ assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'))
 }
 
 // Every connector carries the text its "How it works" dialog shows, its
-// settings page wording and at least one prompt to copy into the chat.
+// settings page wording and at least one prompt to copy into the chat, except
+// Pixabay, which the AI never uses directly.
 for (const id of CONNECTOR_IDS) {
-  const { about, page, prompts } = CONNECTOR_DEFINITIONS[id];
-  assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
+  const { about, page, prompts = [] } = CONNECTOR_DEFINITIONS[id];
+  if (id === 'pixabay') assert.equal(CONNECTOR_DEFINITIONS[id].prompts, undefined, 'pixabay: no prompts');
+  else assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
   for (const prompt of prompts) assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: prompt text`);
   assert.equal(new Set(prompts).size, prompts.length, `${id}: prompts are unique (they are React keys)`);
-  // Sign-in connectors (Pollinations) have no key box, so no key wording, and
-  // native ones (SEO) have no service to connect to.
+  // Sign-in connectors (Pollinations) have no key box, so no key wording,
+  // native ones (SEO) have no service to connect to, and server-key ones
+  // (Pixabay) have their key checked by the service, not a local pattern.
   const fields = CONNECTOR_DEFINITIONS[id].native
     ? ['enableDescription']
     : CONNECTOR_DEFINITIONS[id].signIn
       ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
-      : ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey'];
+      : CONNECTOR_DEFINITIONS[id].serverKey
+        ? ['enableDescription', 'keyHelp', 'keyLinkLabel', 'connected', 'needsKey']
+        : ['enableDescription', 'keyHelp', 'keyLinkLabel', 'invalid', 'connected', 'needsKey'];
   for (const field of fields) {
     assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
   }
@@ -244,6 +249,19 @@ assert.deepEqual(getActiveConnectors(), []);
   assert.match(buildHtmlSystemPrompt('app', [], getActiveGallery()), /images\/a\.png/);
   assert.doesNotMatch(buildHtmlSystemPrompt('app', [], getActiveGallery()), /images\/b\.png/);
 }
+
+// Pixabay keeps its key server-side: connected once the server has a key
+// (`keyHint`), a pasted key in `key` counts for nothing, and the AI never
+// hears about it as a service (photos reach it through My images).
+saveConnectors({ pixabay: { enabled: true, key: 'pasted', keyHint: '' } });
+assert.equal(connectorStatus('pixabay'), 'needs-key');
+saveConnectors({ pixabay: { enabled: true, key: '', keyHint: '1a2b' } });
+assert.equal(connectorStatus('pixabay'), 'connected');
+assert.equal(loadConnectors().pixabay.keyHint, '1a2b');
+assert.deepEqual(getActiveConnectors(), []);
+saveConnectors({ pixabay: { enabled: false, key: '', keyHint: '1a2b' } });
+assert.equal(connectorStatus('pixabay'), 'off');
+saveConnectors({});
 
 console.log('ok');
 

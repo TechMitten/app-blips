@@ -40,6 +40,9 @@ export const isGalleryImageEnabled = (image) => image.enabled !== false;
 export const getActiveGallery = () => (loadConnectors().images?.enabled
   ? activeGallery.filter(isGalleryImageEnabled)
   : []);
+// Every image of the open project, hidden ones too (for telling a page's
+// existing use of a hidden image apart from a made-up name).
+export const getProjectGallery = () => activeGallery;
 
 const stemOf = (fileName) => String(fileName || '')
   .replace(/\.[a-z0-9]{1,5}$/i, '')
@@ -115,6 +118,181 @@ export function referencedGalleryImages(files, images) {
     if (typeof text === 'string') for (const [, name] of text.matchAll(REF_RE)) names.add(name);
   }
   return images.filter((image) => names.has(image.name));
+}
+
+// Words that say nothing about which picture is meant ("my photo", ".jpg").
+const FILLER_WORDS = new Set(['image', 'images', 'img', 'photo', 'photos', 'pic', 'picture', 'my', 'the', 'a', 'an', 'of', 'and', 'by', 'pixabay', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg']);
+const wordsOf = (text) => String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter((word) => word && !FILLER_WORDS.has(word));
+// "mountains" matches "mountain", "sunsets" "sunset"; short words must match exactly.
+const sameWord = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
+
+// The gallery image a loosely written name means ("mountain-lake" or
+// "lake-photo" for mountain-lake-sunset.jpg), or null. Words count fully
+// when they are in an image's name and half when only in its note (Pixabay
+// photos' notes list their tags). At least half of the words must match, and
+// a tie between two images is no match: guessing wrong is worse than saying so.
+export function closestGalleryImage(text, images) {
+  const wanted = [...new Set(wordsOf(String(text || '').replace(IMAGE_EXT_RE, '')))];
+  if (!wanted.length || !images?.length) return null;
+  const scored = images.map((image) => {
+    const nameWords = wordsOf(image.name.replace(/\.[^.]+$/, ''));
+    const noteWords = wordsOf(image.note);
+    let score = 0;
+    for (const word of wanted) {
+      if (nameWords.some((other) => sameWord(word, other))) score += 1;
+      else if (noteWords.some((other) => sameWord(word, other))) score += 0.5;
+    }
+    return { image, score: score / wanted.length };
+  }).sort((a, b) => b.score - a.score);
+  const [best, next] = scored;
+  if (best.score < 0.5 || (next && next.score === best.score)) return null;
+  return best.image;
+}
+
+// --- Confirming which image a request means ---
+// Before a build that uses My images, the AI's match is shown to the user,
+// who approves it before anything is built (llm.js matchGalleryImages,
+// App.jsx). These decide when to ask and word the question.
+
+const IMAGE_WORDS_RE = /\b(?:images?|photos?|pictures?|pics?|logos?|icons?|banners?|backgrounds?|hero|gallery|galleries|graphics?|illustrations?|avatars?|headshots?|portraits?|screenshots?|thumbnails?)\b/i;
+
+// Cheap check before asking the AI: does the request mention images at all,
+// or a word of one of the image names? Most edits don't, and skip the call.
+export function mightMentionGalleryImage(prompt, images) {
+  const text = String(prompt || '');
+  if (!images?.length || !text.trim()) return false;
+  if (IMAGE_WORDS_RE.test(text) || /\.(?:jpe?g|png|webp|gif|svg)\b/i.test(text)) return true;
+  const said = new Set(wordsOf(text));
+  return images.some((image) => wordsOf(image.name.replace(/\.[^.]+$/, '')).some((word) => word.length >= 3 && [...said].some((other) => sameWord(word, other))));
+}
+
+// "Yes", "ok, go ahead", or the approve button's text: the user accepted the
+// images shown, so the build starts without asking again.
+export const isImageApproval = (text) => /^\s*(?:yes|yep|yeah|yup|y|ok|okay|sure|correct|right|approve[ds]?|confirm(?:ed)?|go ahead|do it|sounds good|perfect|that'?s right|looks good)\b/i.test(String(text || ''));
+
+// What the approve button sends.
+export const imageApprovalText = (matches) => {
+  const names = [...new Set(matches.map((match) => match.image))];
+  return `Yes, use ${names.join(', ')}.`;
+};
+
+// The confirmation shown before building. `matches` is
+// [{ mentioned, image }] with image '' when nothing matched.
+// -> { reply, allMatched }
+export function buildImageConfirmReply(matches, images) {
+  const lines = matches.map(({ mentioned, image }) => (image
+    ? `- “${mentioned}” → **${image}**`
+    : `- “${mentioned}” → no image in My images matches this`));
+  const allMatched = matches.every((match) => match.image);
+  const names = images.map((image) => image.name).join(', ');
+  const several = new Set(matches.map((match) => match.image).filter(Boolean)).size > 1;
+  const reply = allMatched
+    ? `Before I start, please check the ${several ? 'images' : 'image'} I matched from My images:\n\n${lines.join('\n')}\n\nClick **${several ? 'Yes, use them' : 'Yes, use it'}** to go ahead, or tell me which image to use instead. Your images: ${names}.`
+    : `Before I start, I need to know which image you mean:\n\n${lines.join('\n')}\n\nTell me which one to use (the name is enough). Your images: ${names}.`;
+  return { reply, allMatched };
+}
+
+// Ways a user can name `image` in a request, for example prompts:
+// { name: 'mountain-lake-sunset.jpg', stem: 'mountain-lake-sunset',
+//   partial: 'mountain lake' }. `partial` is the fewest leading words of the
+// name that still find this image among `images` (closestGalleryImage), so
+// an example built from it really works.
+export function galleryNameForms(name, images = []) {
+  const stem = name.replace(/\.[^.]+$/, '');
+  const words = stem.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  const image = images.find((item) => item.name === name);
+  let partial = words.join(' ');
+  for (let count = 1; count < words.length; count++) {
+    const candidate = words.slice(0, Math.max(count, Math.ceil(words.length / 2))).join(' ');
+    if (!image || closestGalleryImage(candidate, images) === image) {
+      partial = candidate;
+      break;
+    }
+  }
+  return { name, stem, partial };
+}
+
+// References the AI writes for a gallery image that neither the preview nor
+// export would recognise. They become images/<name>, so preview, export and
+// publish all find the image:
+// - near misses: the bare file name the user pasted (src="team-photo.jpg"),
+//   another folder (assets/images/…), other capitals, a wrong or missing
+//   extension;
+// - loose names, when the user didn't give the exact one and the AI made one
+//   up (images/team.jpg for team-photo.jpg): the closest gallery image
+//   (closestGalleryImage), and with only one image in the gallery, any
+//   made-up name under images/, which is the gallery's own folder.
+// Only paths that clearly point at the gallery change: a bare name only right
+// after src=, poster=, href= or inside url() (a bare string elsewhere may be
+// joined onto "images/" by the code), a name without extension only inside a
+// folder, and a short name two images share (logo.png, logo.svg) only when
+// written with an extension. `images` are those the AI may use (the visible
+// ones); `allImages` adds hidden ones, whose exact names are left alone.
+const IMAGE_EXT_RE = /\.(?:jpe?g|png|webp|gif|svg)$/i;
+const NEAR_MISS_FOLDERS = new Set(['images', 'image', 'img', 'imgs', 'assets', 'static', 'public', 'photos', 'media', 'my-images', 'myimages', 'gallery', 'uploads', 'src']);
+const QUOTED_PATH_RE = /(\b(?:src|poster|href|srcSet|srcset)\s*=\s*\{?\s*)?(["'`])((?:\.{0,2}\/)?(?:[\w-]+\/)*)([\w-][\w.-]{0,79})\2/g;
+const URL_PATH_RE = /(url\(\s*)((?:\.{0,2}\/)?(?:[\w-]+\/)*)([\w-][\w.-]{0,79})(\s*\))/g;
+
+export function normalizeGalleryRefs(files, images, allImages = images) {
+  if (!images?.length) return files;
+  const byName = new Map(images.map((image) => [image.name.toLowerCase(), image]));
+  const otherNames = new Set(allImages.map((image) => image.name));
+  const byStem = new Map();
+  const sharedStems = new Set();
+  for (const image of images) {
+    const stem = image.name.replace(/\.[^.]+$/, '').toLowerCase();
+    if (byStem.has(stem)) sharedStems.add(stem);
+    byStem.set(stem, image);
+  }
+  // -> the corrected path, or null to leave the text alone.
+  const resolve = (dir, file, attribute) => {
+    const folders = dir.replace(/^(?:\.{0,2}\/)+/, '').split('/').filter(Boolean).map((part) => part.toLowerCase());
+    if (!folders.every((part) => NEAR_MISS_FOLDERS.has(part))) return null;
+    if (!folders.length && !attribute) return null;
+    if (otherNames.has(file) && !byName.has(file.toLowerCase())) return null;
+    const lower = file.toLowerCase();
+    let image = byName.get(lower);
+    if (!image) {
+      const hasExt = IMAGE_EXT_RE.test(lower);
+      if (!hasExt && (/\./.test(lower) || !folders.length)) return null;
+      const stem = lower.replace(IMAGE_EXT_RE, '');
+      if (sharedStems.has(stem)) return null;
+      image = byStem.get(stem)
+        || closestGalleryImage(stem, images)
+        || (images.length === 1 && folders.length === 1 && folders[0] === 'images' ? images[0] : null);
+    }
+    if (!image) return null;
+    // Already right: images/<name>, ./images/<name> or /images/<name>.
+    if (folders.length === 1 && folders[0] === 'images' && file === image.name && /^(?:\.\/|\/)?images\/$/.test(dir)) return null;
+    return galleryPath(image);
+  };
+  return Object.fromEntries(Object.entries(files || {}).map(([page, text]) => [
+    page,
+    typeof text === 'string'
+      ? text
+        .replace(QUOTED_PATH_RE, (match, attr = '', quote, dir, file) => {
+          const path = resolve(dir, file, Boolean(attr));
+          return path ? `${attr}${quote}${path}${quote}` : match;
+        })
+        .replace(URL_PATH_RE, (match, open, dir, file, close) => {
+          const path = resolve(dir, file, true);
+          return path ? `${open}${path}${close}` : match;
+        })
+      : text,
+  ]));
+}
+
+// The images/<name> paths pages use that aren't in the gallery, after
+// normalizeGalleryRefs: pictures the AI pointed at that don't exist, which
+// show as broken images.
+export function unmatchedGalleryRefs(files, images) {
+  const names = new Set((images || []).map((image) => image.name));
+  const missing = new Set();
+  for (const text of Object.values(files || {})) {
+    if (typeof text !== 'string') continue;
+    for (const [, name] of text.matchAll(REF_RE)) if (!names.has(name)) missing.add(`images/${name}`);
+  }
+  return [...missing];
 }
 
 // Rename: point every page at the new name.

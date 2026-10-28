@@ -26,6 +26,7 @@ import ShowcaseModal from './components/ShowcaseModal';
 import PublishDialog from './components/PublishDialog';
 import { surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
+import { forgetPixabayKey } from './lib/pixabay';
 import { creditsSignOut } from './lib/credits';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
@@ -81,7 +82,7 @@ import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
 import useCreditBalance from './hooks/useCreditBalance';
-import { galleryExportFiles, inlineGalleryImages, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
+import { galleryExportFiles, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
 import { changedFiles } from './lib/codebase/fileInfo';
@@ -437,6 +438,11 @@ export default function App({ coldStart = false }) {
     onRenamed: handleGalleryRenamed,
   });
   const previewGallery = gallery.previewGallery;
+  // My images for the chat's image-confirmation thumbnails.
+  const chatGallery = useMemo(
+    () => ({ images: galleryImages, bytesVersion: gallery.bytesVersion }),
+    [galleryImages, gallery.bytesVersion],
+  );
   const galleryUsedNames = useMemo(
     () => new Set(referencedGalleryImages(files, galleryImages).map((image) => image.name)),
     [files, galleryImages],
@@ -1459,6 +1465,13 @@ export default function App({ coldStart = false }) {
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
     const shouldAskClarifyingQuestions = !isAutoFix && !isReviewFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    // A request that uses My images waits for the user to confirm which image
+    // each mention means (llm.js matchGalleryImages). Approving ("yes", or the
+    // button) builds; any other answer is checked again as a correction.
+    const answeringImageConfirm = Boolean(prevVersion?.imageConfirm);
+    const confirmGalleryImages = !isAutoFix && !isReviewFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && studioMode !== 'codebase'
+      && !(answeringImageConfirm && isImageApproval(currentPrompt))
+      && (answeringImageConfirm ? 'answer' : true);
 
     setGenerationStatus(
       isAutoFix
@@ -1648,7 +1661,7 @@ export default function App({ coldStart = false }) {
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: buildReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1665,6 +1678,8 @@ export default function App({ coldStart = false }) {
         reply: isAutoFix ? AUTO_FIX_REPLY : generationResult.reply || null,
         // A question asked in Build mode is answered as an Ask turn.
         chatMode: generationResult.editMode === 'ask' ? 'ask' : chatMode,
+        // The images the user is asked to confirm before the build starts.
+        ...(generationResult.imageConfirm ? { imageConfirm: generationResult.imageConfirm } : {}),
         sessionId: currentChatSessionId,
         // Marks the build a review's report started, so reviewing it again is
         // worded as checking those fixes (see reviewBuild).
@@ -1932,6 +1947,13 @@ export default function App({ coldStart = false }) {
     const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, fixOffer: 'skipped' } : v));
     setVersions(finalVersions);
     saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex });
+  };
+
+  // The approve button under an image confirmation sends the approval as the
+  // next request, which starts the build (see confirmGalleryImages).
+  const handleApproveImages = (text) => {
+    if (isGeneratingRef.current) return;
+    handleGenerate(null, text);
   };
 
   const handleSkipReview = () => {
@@ -2480,6 +2502,9 @@ export default function App({ coldStart = false }) {
     // And the Pollinations connector's sign-in.
     const pollinations = await pollinationsSignOut();
     if (pollinations.error) logError('Could not sign out of Pollinations during reset', pollinations.error);
+    // And the Pixabay connector's key.
+    const pixabay = await forgetPixabayKey();
+    if (pixabay.error) logError('Could not remove the Pixabay key during reset', pixabay.error);
     // And the AppBlips AI Credits account. Saved credits count as a configured
     // provider (envProviderConfigured in main.js), so leaving them would also
     // skip first-run setup after the reload.
@@ -2871,6 +2896,8 @@ export default function App({ coldStart = false }) {
               canOfferFix={chatMode === 'build'}
               onFixReview={handleFixReview}
               onSkipFix={handleSkipFix}
+              onApproveImages={handleApproveImages}
+              gallery={chatGallery}
               projectId={currentProjectId}
               generatedCode={generatedCode}
               showStarterIdeas={showStarterIdeas}

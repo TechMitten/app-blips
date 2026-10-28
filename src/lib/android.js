@@ -19,7 +19,8 @@
 //   preset answers CORS for https://localhost) so replies still stream. Surge
 //   and Pollinations don't allow CORS, or hide the headers Pollinations needs,
 //   so they go through Capacitor's native HTTP, which doesn't stream but
-//   doesn't need to there.
+//   doesn't need to there. Pixabay does too, since its image CDN isn't
+//   promised to allow CORS.
 
 import { CapacitorHttp } from '@capacitor/core';
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
@@ -27,6 +28,7 @@ import { handleChatProxy } from '../../electron/server/chatProxy.js';
 import { handleProviderApi } from '../../electron/server/providerApi.js';
 import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
+import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { handleCreditsApi } from '../../electron/server/creditsApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
@@ -67,30 +69,42 @@ const toBase64 = (bytes) => {
   return btoa(binary);
 };
 
+const fromBase64 = (text) => Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
+
 // Statuses whose Response must have a null body.
 const NULL_BODY = new Set([101, 204, 205, 304]);
 
-// A fetch() over CapacitorHttp, covering what surgeApi.js and
-// pollinationsApi.js send: string or byte bodies, plain-object headers. The
-// response body is always text (JSON arrives parsed and is re-serialized).
+// A fetch() over CapacitorHttp, covering what surgeApi.js, pollinationsApi.js
+// and pixabayApi.js send: string or byte bodies, plain-object headers. The
+// response body is text (JSON arrives parsed and is re-serialized), except
+// when the request accepts only images (Pixabay's photo downloads): those
+// cross the bridge as base64 and become bytes again.
 // AbortSignal.timeout isn't honoured natively, so the same two minutes are
 // set as the native read timeout.
 async function nativeFetch(input, init = {}) {
   const url = typeof input === 'string' ? input : input.url;
   const body = init.body;
   const bytes = body instanceof Uint8Array ? body : body instanceof ArrayBuffer ? new Uint8Array(body) : null;
+  const headers = new Headers(init.headers || {});
+  const wantsImage = /^image\//i.test(headers.get('accept') || '');
   const response = await CapacitorHttp.request({
     url,
     method: init.method || 'GET',
-    headers: Object.fromEntries(new Headers(init.headers || {})),
+    headers: Object.fromEntries(headers),
     // Binary bodies (Surge's gzipped tarball) cross the bridge as base64.
     ...(bytes ? { data: toBase64(bytes), dataType: 'file' } : body != null ? { data: String(body) } : {}),
-    responseType: 'text',
+    responseType: wantsImage ? 'blob' : 'text',
     connectTimeout: 30_000,
     readTimeout: 120_000,
   });
   const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data ?? null);
-  return new Response(NULL_BODY.has(response.status) ? null : text, {
+  let responseBody = text;
+  if (wantsImage && response.status >= 200 && response.status < 300) {
+    try {
+      responseBody = fromBase64(text);
+    } catch { /* not base64 (an error page): pass the text on */ }
+  }
+  return new Response(NULL_BODY.has(response.status) ? null : responseBody, {
     status: response.status,
     headers: response.headers,
   });
@@ -100,11 +114,12 @@ async function nativeFetch(input, init = {}) {
 const ENV = {};
 
 export async function installAndroidApi() {
-  const [keys, surgeTokens, pollinationsKeys, creditsKeys] = await Promise.all([
+  const [keys, surgeTokens, pollinationsKeys, creditsKeys, pixabayKeys] = await Promise.all([
     createSecureKeyStore('provider-key'),
     createSecureKeyStore('surge-token'),
     createSecureKeyStore('pollinations-key'),
     createSecureKeyStore('credits-key'),
+    createSecureKeyStore('pixabay-key'),
   ]);
 
   // The same routes, in the same order, as server.js.
@@ -114,6 +129,7 @@ export async function installAndroidApi() {
     ['/api/provider', (request) => handleProviderApi(request, ENV, keys)],
     ['/api/surge', (request) => handleSurgeApi(request, ENV, surgeTokens, { fetch: nativeFetch })],
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],
+    ['/api/pixabay', (request) => handlePixabayApi(request, ENV, pixabayKeys, { fetch: nativeFetch })],
     ['/api/seo/scan', (request) => handleSeoScanApi(request, ENV, { fetch: nativeFetch })],
   ];
   const routeFor = (url) => (url.origin === window.location.origin

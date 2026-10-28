@@ -2,12 +2,13 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Images, Info, MessagesSquare, Plus, Search,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Images, Info, MessagesSquare, Plus, Search,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
 import PollinationsConnector from './PollinationsConnector';
+import PixabayConnector from './PixabayConnector';
 import SeoConnector from './SeoConnector';
 import ImagesConnector from './ImagesConnector';
 import PublishDialog from './PublishDialog';
@@ -15,20 +16,24 @@ import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
 import { surgeStatus } from '../lib/surge';
+import { galleryNameForms } from '../lib/galleryImages';
 
 // Settings → Connectors: a grid of services the AI can wire into new projects.
 // A card opens that service's page (switch, key, help). Changes save as you
 // type; llm.js reads the saved state when it builds, so there is no Save step.
 // To add a service: add its definition in lib/connectors.js (with the `page`
-// wording, the `prompts` users copy into the builder chat and the `about`
+// wording, the `prompts` users copy into the builder chat, if any, and the `about`
 // text the "How it works" dialog shows), its
 // instructions in prompts.js (CONNECTOR_DIRECTIVES), and its icon below.
 // Pollinations signs in instead of taking a key, so it has its own page
 // (PollinationsConnector.jsx). My images and SEO are native (no service): SEO's page is a
 // questionnaire about the open project (SeoConnector.jsx), saved on the project
 // by App.jsx rather than here, and `seoProject` is what it needs from App.
-// My images has a switch like SEO; `galleryProject` ({ count, onOpen }) lets its page
-// show the project's gallery on its page; App.jsx owns the images.
+// My images has a switch like SEO; `galleryProject` (useImageGallery's
+// actions and the images) lets its page show the project's gallery; App.jsx
+// owns the images. Pixabay keeps its key server-side (`serverKey`), so it has
+// its own page too (PixabayConnector.jsx); its photo search adds to the same
+// gallery, and is also offered on the My images page.
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -47,7 +52,7 @@ const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), seo: Search, images: Images,
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, seo: Search, images: Images,
 };
 
 const STATUS_BADGE = {
@@ -142,10 +147,24 @@ function ConnectorPage({ id, state, onChange }) {
   );
 }
 
+// The image named in My images' prompts when the project has no image the AI
+// can use yet.
+const SAMPLE_IMAGE_NAME = 'team-photo.jpg';
+
 // Ready-made requests (the definition's `prompts`) to paste into the builder
 // chat. The text is selectable too, for when the clipboard is blocked.
-function ConnectorPrompts({ id, connected }) {
-  const { name, prompts } = CONNECTOR_DEFINITIONS[id];
+// For My images, `{image}`, `{stem}` and `{partial}` become the full name,
+// the name without extension and a few words of one of `images` (the
+// visible ones), or of a sample name when there are none.
+function ConnectorPrompts({ id, connected, images = [] }) {
+  const { name, prompts: rawPrompts } = CONNECTOR_DEFINITIONS[id];
+  const usesImage = rawPrompts.some((prompt) => /\{(?:image|stem|partial)\}/.test(prompt));
+  const imageName = images[0]?.name || '';
+  const forms = galleryNameForms(imageName || SAMPLE_IMAGE_NAME, images);
+  const prompts = rawPrompts.map((prompt) => prompt
+    .replaceAll('{image}', forms.name)
+    .replaceAll('{stem}', forms.stem)
+    .replaceAll('{partial}', forms.partial));
   const [copied, setCopied] = useState(null);
   const [copyFailed, setCopyFailed] = useState(false);
 
@@ -172,6 +191,15 @@ function ConnectorPrompts({ id, connected }) {
         Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
         {!connected && ` They work once ${name} is connected.`}
       </p>
+      {usesImage && (
+        <p className="text-xs leading-snug text-slate-600">
+          To pick an image, name it in your request. The exact name is safest, but it can be shorter: without
+          {' '}“.{forms.name.split('.').pop()}”, or just a few of its words, like “{forms.partial}”.{' '}
+          {imageName
+            ? <>These use <strong>{imageName}</strong>, one of yours: swap in another image’s name (click <strong>Copy name</strong> on it) to use that one instead.</>
+            : <>Swap <strong>{SAMPLE_IMAGE_NAME}</strong> for the name of one of your images (click <strong>Copy name</strong> on it).</>}
+        </p>
+      )}
       <ul className="space-y-2">
         {prompts.map((prompt, index) => (
           <li key={prompt} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
@@ -261,13 +289,40 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
         </div>
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200 pt-4">
           {CONNECTOR_DEFINITIONS[openId].gallery
-            ? <ImagesConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} galleryProject={galleryProject} />
+            ? (
+              <ImagesConnector
+                key={openId}
+                state={connectors[openId]}
+                onChange={(fields) => update(openId, fields)}
+                galleryProject={galleryProject}
+                pixabayConnected={connectorStatus('pixabay', connectors) === 'connected'}
+                onOpenPixabay={() => setOpenId('pixabay')}
+              />
+            )
             : CONNECTOR_DEFINITIONS[openId].native
             ? <SeoConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} seoProject={seoProject} />
             : CONNECTOR_DEFINITIONS[openId].signIn
               ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
-              : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
-          <ConnectorPrompts key={`${openId}-prompts`} id={openId} connected={connectorStatus(openId, connectors) === 'connected'} />
+              : CONNECTOR_DEFINITIONS[openId].serverKey
+                ? (
+                  <PixabayConnector
+                    key={openId}
+                    state={connectors[openId]}
+                    onChange={(fields) => update(openId, fields)}
+                    galleryProject={galleryProject}
+                    imagesEnabled={connectors.images.enabled}
+                    onEnableImages={() => update('images', { enabled: true })}
+                  />
+                )
+                : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
+          {CONNECTOR_DEFINITIONS[openId].prompts?.length > 0 && (
+            <ConnectorPrompts
+              key={`${openId}-prompts`}
+              id={openId}
+              connected={connectorStatus(openId, connectors) === 'connected'}
+              images={galleryProject?.images.filter((image) => image.enabled !== false)}
+            />
+          )}
         </div>
         {/* Portaled out of the settings card: a fixed overlay inside it would be
             clipped by the card's overflow. */}

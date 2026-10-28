@@ -4,7 +4,9 @@ import { loadOutputTokenLimit } from './config';
 import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
 import { findImageRequests, resolveImages } from './pollinations';
 import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
-import { getActiveGallery } from './galleryImages';
+import {
+  buildImageConfirmReply, getActiveGallery, getProjectGallery, mightMentionGalleryImage, normalizeGalleryRefs, unmatchedGalleryRefs,
+} from './galleryImages';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
@@ -27,6 +29,8 @@ import {
   GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   GAME_ENGINE_ROUTER_SYSTEM_PROMPT,
   BUILD_INTENT_SYSTEM_PROMPT,
+  GALLERY_MATCH_SYSTEM_PROMPT,
+  buildGalleryMatchTool,
   parseBuildIntent,
   parseGameEngineChoice,
   buildGameEngineDirective,
@@ -205,6 +209,49 @@ export const isQuestionOnly = async ({ prompt, chatHistory = [], signal = null }
     if (err?.name === 'AbortError' || signal?.aborted) throw err;
     logWarn('Intent check failed, building as usual', err);
     return false;
+  }
+};
+
+// Which of the user's My images a build request refers to, so the user can
+// confirm the match before anything is built. -> [{ mentioned, image }]
+// (image '' when nothing matched), empty when the request uses none of them.
+// The tool's enum holds the image names, and names are checked again here,
+// since not every provider enforces it. Any failure returns [] and the build
+// goes ahead as before. `answering`: the latest message replies to an image
+// confirmation ("no, the beach one"), so it is checked even without image words.
+export const matchGalleryImages = async ({ prompt, chatHistory = [], images, signal = null, answering = false }) => {
+  if (!answering && !mightMentionGalleryImage(prompt, images)) return [];
+  const names = images.map((image) => image.name);
+  const library = images.map((image) => `- ${image.name}${image.note?.trim() ? ` (note: ${image.note.trim().replace(/\s+/g, ' ')})` : ''}`).join('\n');
+  const recent = chatHistory
+    .filter((m) => typeof m.content === 'string' && m.content.trim())
+    .slice(-4)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 800)}`)
+    .join('\n');
+  try {
+    const message = await requestModelText({
+      messages: [
+        { role: 'system', content: `${GALLERY_MATCH_SYSTEM_PROMPT}\n\nMy images:\n${library}` },
+        { role: 'user', content: `${recent ? `Recent conversation:\n${recent}\n\n` : ''}Latest message: ${prompt}` },
+      ],
+      tools: [buildGalleryMatchTool(names)],
+      tool_choice: 'auto',
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal,
+    });
+    const call = message?.tool_calls?.find((t) => t.function?.name === 'report_image_matches');
+    if (!call) return [];
+    const { matches } = JSON.parse(call.function.arguments || '{}');
+    if (!Array.isArray(matches)) return [];
+    const known = new Set(names);
+    return matches
+      .filter((match) => match && typeof match.mentioned === 'string' && match.mentioned.trim())
+      .map((match) => ({ mentioned: match.mentioned.trim().slice(0, 120), image: known.has(match.image) ? match.image : '' }))
+      .slice(0, 30);
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) throw err;
+    logWarn('Image match check failed, building as usual', err);
+    return [];
   }
 };
 
@@ -745,7 +792,11 @@ const generateAppCodeCore = async (
   // The SEO connector's one-time briefing (lib/seo.js buildSeoNote): added to
   // this request's user message only, so it isn't stored in the chat history
   // and later requests don't carry it.
-  seoNote = ''
+  seoNote = '',
+  // Ask the user to confirm which My images picture a request means before
+  // building: true, or 'answer' when the request replies to such a question.
+  // App.jsx passes false once the user has approved.
+  confirmGalleryImages = false
 ) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -805,6 +856,25 @@ const generateAppCodeCore = async (
       editSummary: prompt,
       reply: rawText
     };
+  }
+
+  // A request that uses My images stops here until the user approves which
+  // image each mention means, so the AI never builds with a wrong or made-up
+  // one. Their answer comes back as the next request.
+  const galleryImages = confirmGalleryImages && !isAutoFix ? getActiveGallery() : [];
+  if (galleryImages.length) {
+    if (onChunk) onChunk('Checking which of your images you mean…', 'status');
+    const matches = await matchGalleryImages({ prompt, chatHistory, images: galleryImages, signal, answering: confirmGalleryImages === 'answer' });
+    if (matches.length) {
+      const { reply, allMatched } = buildImageConfirmReply(matches, galleryImages);
+      return {
+        code: currentCode || '',
+        editMode: 'clarify',
+        editSummary: prompt,
+        reply,
+        imageConfirm: { matches, allMatched },
+      };
+    }
   }
 
   if (askClarifyingQuestions) {
@@ -1303,11 +1373,36 @@ const resolvePollinationsImages = async (result, { onChunk, signal }) => {
   return `Note: ${count} couldn't be made with Pollinations, so ${resolved.failed === 1 ? 'it shows' : 'they show'} as broken. ${resolved.error}`;
 };
 
+// The AI sometimes points at a My images picture with a path that neither the
+// preview nor export recognises: the bare name the user pasted, or a name it
+// made up from a loose description ("the lake photo"). normalizeGalleryRefs
+// in galleryImages.js corrects those to the matching or closest real image in
+// the saved files. Anything still not in the gallery shows as a broken image,
+// so the reply says so (returned note, or '').
+const fixGalleryRefs = (result, onChunk) => {
+  const images = getActiveGallery();
+  if (!images.length) return '';
+  const all = getProjectGallery();
+  const files = result.files || makeFiles(result.code);
+  const fixed = normalizeGalleryRefs(files, images, all);
+  if (Object.keys(files).some((page) => fixed[page] !== files[page])) {
+    // Single-page results may carry only `code`; keep that shape.
+    if (result.files) result.files = fixed;
+    result.code = getLanding(fixed);
+    reportChangedPages(onChunk, files, fixed);
+  }
+  const missing = unmatchedGalleryRefs(fixed, all);
+  if (!missing.length) return '';
+  const names = images.map((image) => image.name).join(', ');
+  return `Note: ${missing.length === 1 ? `${missing[0]} isn't` : `${missing.join(', ')} aren't`} in My images, so ${missing.length === 1 ? 'it shows' : 'they show'} as a broken image. Ask again with one of these names: ${names}.`;
+};
+
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
   const [prompt, currentCode, , onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
-  const imageNote = isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : '';
+  const galleryNote = isBuildResult ? fixGalleryRefs(result, onChunk) : '';
+  const imageNote = [galleryNote, isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : ''].filter(Boolean).join('\n\n');
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {

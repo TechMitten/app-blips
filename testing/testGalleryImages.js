@@ -103,6 +103,100 @@ assert.ok(srcDoc.includes('<img src="data:image/jpeg;base64,AQID">'));
 assert.ok(!srcDoc.includes('images/team-photo.jpg'));
 assert.ok(injectPreviewBridge(stored).srcDoc.includes('images/team-photo.jpg'));
 
+// Near misses the AI writes for a gallery image become images/<name>, so the
+// preview and export find it; anything not clearly one of them is left alone.
+{
+  const { normalizeGalleryRefs } = await import('../src/lib/galleryImages.js');
+  const logoPng = { ...logo, hash: 'c'.repeat(64), name: 'logo.png', type: 'image/png' };
+  const fix = (text) => normalizeGalleryRefs({ 'index.html': text }, [team, logo, logoPng])['index.html'];
+  assert.strictEqual(fix('<img src="team-photo.jpg" alt="Team">'), '<img src="images/team-photo.jpg" alt="Team">');
+  assert.strictEqual(fix('<img src={"team-photo.jpg"} />'), '<img src={"images/team-photo.jpg"} />');
+  assert.strictEqual(fix("<img src='images/team-photo.jpeg'>"), "<img src='images/team-photo.jpg'>");
+  assert.strictEqual(fix('<img src="images/team-photo">'), '<img src="images/team-photo.jpg">');
+  assert.strictEqual(fix('<img src="images/Team-Photo.JPG">'), '<img src="images/team-photo.jpg">');
+  assert.strictEqual(fix('<img src="./assets/images/team-photo.jpg">'), '<img src="images/team-photo.jpg">');
+  assert.strictEqual(fix('background: url(team-photo.jpg)'), 'background: url(images/team-photo.jpg)');
+  assert.strictEqual(fix("background: url('img/team-photo.webp')"), "background: url('images/team-photo.jpg')");
+  // Already right, not a gallery image, or not clearly one: unchanged.
+  for (const text of [
+    '<img src="images/team-photo.jpg">',
+    '<img src="/images/team-photo.jpg">',
+    '<img src="./images/team-photo.jpg">',
+    '<img src="other.jpg">',
+    '<img src="vendor/team-photo.jpg">',
+    '<img src="https://example.com/team-photo.jpg">',
+    '<img alt="team-photo" src="x.png">',
+    "const photos = [{ file: 'team-photo.jpg' }]; <img src={`images/${p.file}`} />",
+    '<img src="images/logo">',
+    '<img src="logo">',
+  ]) assert.strictEqual(fix(text), text, text);
+  assert.strictEqual(fix('<img src="images/logo.SVG">'), '<img src="images/logo.svg">');
+  const files = { 'index.html': '<p>x</p>' };
+  assert.strictEqual(normalizeGalleryRefs(files, []), files);
+}
+
+// Loose names the AI made up from the user's words find the closest real image.
+{
+  const { normalizeGalleryRefs, closestGalleryImage, unmatchedGalleryRefs } = await import('../src/lib/galleryImages.js');
+  const lake = { hash: 'd'.repeat(64), name: 'mountain-lake-sunset.jpg', type: 'image/jpeg', note: 'Pixabay photo by alice: mountain, lake, sunset, nature' };
+  const beach = { hash: 'e'.repeat(64), name: 'tropical-beach.jpg', type: 'image/jpeg', note: 'Pixabay photo: palm, sea, sand' };
+  const gallery = [team, lake, beach];
+  const fix = (text, images = gallery, all = images) => normalizeGalleryRefs({ 'index.html': text }, images, all)['index.html'];
+
+  assert.strictEqual(closestGalleryImage('mountain-lake', gallery), lake);
+  assert.strictEqual(closestGalleryImage('lake photo', gallery), lake);
+  assert.strictEqual(closestGalleryImage('mountains', gallery), lake);
+  assert.strictEqual(closestGalleryImage('sunset-lake-mountain', gallery), lake);
+  assert.strictEqual(closestGalleryImage('palm-sea', gallery), beach, 'note words count too');
+  assert.strictEqual(closestGalleryImage('team', gallery), team);
+  assert.strictEqual(closestGalleryImage('city-skyline', gallery), null, 'nothing close: no guess');
+  assert.strictEqual(closestGalleryImage('photo', gallery), null, 'filler words alone: no guess');
+  const twins = [{ ...lake, name: 'lake-day.jpg', note: '' }, { ...beach, name: 'lake-night.jpg', note: '' }];
+  assert.strictEqual(closestGalleryImage('lake', twins), null, 'a tie: no guess');
+
+  assert.strictEqual(fix('<img src="images/mountain-lake.jpg">'), '<img src="images/mountain-lake-sunset.jpg">');
+  assert.strictEqual(fix('<img src="images/lake.png">'), '<img src="images/mountain-lake-sunset.jpg">');
+  assert.strictEqual(fix('<div style="background:url(images/beach.jpg)">'), '<div style="background:url(images/tropical-beach.jpg)">');
+  assert.strictEqual(fix('<img src="images/city-skyline.jpg">'), '<img src="images/city-skyline.jpg">');
+  assert.strictEqual(fix('<img src="images/anything.jpg">', [lake]), '<img src="images/mountain-lake-sunset.jpg">', 'one image: the gallery folder means it');
+  assert.strictEqual(fix('<img src="assets/anything.jpg">', [lake]), '<img src="assets/anything.jpg">');
+  // A page already showing a hidden image keeps it; it is no match for guesses.
+  const hiddenLake = { ...lake, enabled: false };
+  assert.strictEqual(fix('<img src="images/mountain-lake-sunset.jpg">', [team, beach], [team, beach, hiddenLake]), '<img src="images/mountain-lake-sunset.jpg">');
+  assert.strictEqual(fix('<img src="images/mountain-lake.jpg">', [team, beach], [team, beach, hiddenLake]), '<img src="images/mountain-lake.jpg">');
+
+  assert.deepStrictEqual(unmatchedGalleryRefs({ 'index.html': '<img src="images/team-photo.jpg"><img src="images/city.jpg">' }, gallery), ['images/city.jpg']);
+  assert.deepStrictEqual(unmatchedGalleryRefs({ 'index.html': '<img src="images/mountain-lake-sunset.jpg">' }, [hiddenLake]), []);
+}
+
+// The name forms the My images example prompts use; the partial one still
+// finds its image when other images share words.
+{
+  const { galleryNameForms, closestGalleryImage } = await import('../src/lib/galleryImages.js');
+  const lake = { name: 'mountain-lake-sunset.jpg', note: '' };
+  assert.deepStrictEqual(galleryNameForms('mountain-lake-sunset.jpg', [lake]), { name: 'mountain-lake-sunset.jpg', stem: 'mountain-lake-sunset', partial: 'mountain lake' });
+  assert.deepStrictEqual(galleryNameForms('team-photo.jpg'), { name: 'team-photo.jpg', stem: 'team-photo', partial: 'team' });
+  assert.strictEqual(galleryNameForms('logo.svg', [{ name: 'logo.svg' }]).partial, 'logo');
+  const lakeNight = { name: 'mountain-lake-night.jpg', note: '' };
+  const forms = galleryNameForms(lake.name, [lake, lakeNight]);
+  assert.strictEqual(forms.partial, 'mountain lake sunset', 'shared words: more words until it is unambiguous');
+  assert.strictEqual(closestGalleryImage(forms.partial, [lake, lakeNight]), lake);
+}
+
+// The AI is told to match an actual listed image, never a made-up path.
+{
+  const note = buildImageGalleryNote([team]);
+  assert.match(note, /match the request to an actual image in the list/);
+  assert.match(note, /Never write a path that isn't in the list/);
+}
+
+// The AI is told to write the whole listed path, not a bare name or a built one.
+{
+  const note = buildImageGalleryNote([team]);
+  assert.match(note, /never a bare file name/);
+  assert.match(note, /never build the path from parts/i);
+}
+
 console.log('testGalleryImages: all passed');
 
 // --- Hidden images and the My images switch ---

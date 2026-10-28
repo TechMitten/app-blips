@@ -24,6 +24,7 @@ import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
+import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { handleCreditsApi } from './electron/server/creditsApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
@@ -46,6 +47,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const keys = createKeyFile({ file: defaultKeyFile() });
 const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-token.json') });
 const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pollinations-key.json') });
+const pixabayKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pixabay-key.json') });
 const creditsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'credits-key.json') });
 
 const sendText = (res, status, text, headers = {}) => {
@@ -152,6 +154,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
     toFetchRequest(req)
       .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
+    toFetchRequest(req)
+      .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
