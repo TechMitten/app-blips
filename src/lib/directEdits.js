@@ -1046,11 +1046,16 @@ const applyMoveTo = (code, element, target, position) => {
   return { ok: true, code: next, summary: `moved the ${what} ${position} the ${describeTarget(target)}` };
 };
 
-// Right-click "Add text container" / "Add image": the new element's markup.
-// Text is escaped (line breaks become <br>); the image keeps its natural
-// size as width/height so the page reserves its space, but never overflows
-// its column.
+// Right-click "Add text container" / "Add image" / "Paste": the new
+// element's markup. Text is escaped (line breaks become <br>); the image
+// keeps its natural size as width/height so the page reserves its space, but
+// never overflows its column. A paste is the copied element's own source
+// (copyElementSource), without ids like a duplicate.
 const insertHtml = (insert) => {
+  if (insert.kind === 'html') {
+    const html = String(insert.html ?? '').trim();
+    return html.startsWith('<') ? stripIds(html) : null;
+  }
   if (insert.kind === 'text') {
     const text = String(insert.text ?? '').trim();
     return text ? `<p>${escapeTextWithBreaks(text)}</p>` : null;
@@ -1078,8 +1083,10 @@ const applyInsert = (code, element, insert) => {
   let at;
   let text;
   if (slot.ownLine) {
+    // A pasted block's inner lines move from its old depth to this one.
+    const block = insert.kind === 'html' ? reindent(html, String(insert.indent ?? ''), slot.indent) : html;
     at = insert.position === 'before' ? slot.start : slot.end;
-    text = insert.position === 'after' && code[at - 1] !== '\n' ? `\n${slot.indent}${html}` : `${slot.indent}${html}\n`;
+    text = insert.position === 'after' && code[at - 1] !== '\n' ? `\n${slot.indent}${block}` : `${slot.indent}${block}\n`;
   } else if (insert.position === 'before') {
     at = blockStart(code, range.start);
     text = `${html} `;
@@ -1087,11 +1094,31 @@ const applyInsert = (code, element, insert) => {
     at = range.end;
     text = ` ${html}`;
   }
-  const what = insert.kind === 'image' ? 'an image' : 'a text container';
+  const what = { image: 'added an image', text: 'added a text container', html: 'pasted an element' }[insert.kind];
   return {
     ok: true,
     code: code.slice(0, at) + text + code.slice(at),
-    summary: `added ${what} ${insert.position} the ${describeTarget(element)}`,
+    summary: `${what} ${insert.position} the ${describeTarget(element)}`,
+  };
+};
+
+/**
+ * The exact source of an element, for the right-click menu's Copy and Cut
+ * (pasted back with `insert: { kind: 'html' }`). `indent` is the line indent
+ * it sat at, so a paste can re-indent its inner lines.
+ *
+ * @returns {{ ok: true, html: string, indent: string, label: string } | { ok: false, reason: string }}
+ */
+export const copyElementSource = (code, element) => {
+  if (!code || !element) return { ok: false, reason: 'invalid' };
+  if (PROTECTED_TAGS.has(String(element.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
+  const range = locateElement(code, element);
+  if (!range.ok) return range;
+  return {
+    ok: true,
+    html: code.slice(range.start, range.end),
+    indent: lineSpan(code, range.start, range.end).indent,
+    label: describeTarget(element),
   };
 };
 
@@ -1110,8 +1137,8 @@ const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo', 'insert'];
  *   target?: '_blank' | null, backgroundColor?: string, backgroundImage?: string,
  *   remove?: true, duplicate?: true, move?: -1 | 1,
  *   moveTo?: { target: object, position: 'before' | 'after' },
- *   insert?: { kind: 'text' | 'image', position: 'before' | 'after', text?: string,
- *     src?: string, alt?: string, width?: number, height?: number } }} changes
+ *   insert?: { kind: 'text' | 'image' | 'html', position: 'before' | 'after', text?: string,
+ *     src?: string, alt?: string, width?: number, height?: number, html?: string, indent?: string } }} changes
  *   (`moveTo.target` is a lite snapshot of the element dropped against)
  * @returns {{ ok: true, code: string, summary: string } | { ok: false, reason: string }}
  */

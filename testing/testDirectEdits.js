@@ -8,8 +8,8 @@
 
 import assert from 'node:assert';
 import {
-  applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure, locateElement,
-  removeElements,
+  applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, copyElementSource, describeDirectEditFailure,
+  locateElement, removeElements,
 } from '../src/lib/directEdits.js';
 
 const FIXTURE = `<!DOCTYPE html>
@@ -664,6 +664,31 @@ check('insert refuses empty text, unknown kinds, missing spots and bad positions
   const missing = applyDirectEdit(FIXTURE, el({ tag: 'p', text: 'Not on the page' }), { insert: { kind: 'text', text: 'x', position: 'after' } });
   assert.strictEqual(missing.reason, 'insert-target-not-found');
   assert.match(describeDirectEditFailure('insert-target-not-found'), /could not be found/);
+});
+
+check('copy + paste: the exact source goes in at the new spot, re-indented and without ids', () => {
+  const code = '<body>\n  <div class="card">\n    <p id="note">One\n      two</p>\n  </div>\n  <h2>Next</h2>\n</body>';
+  const copied = copyElementSource(code, el({ tag: 'p', role: 'text', text: 'One two', attributes: { id: 'note' } }));
+  assert.ok(copied.ok, `expected ok, got: ${copied.reason}`);
+  assert.strictEqual(copied.html, '<p id="note">One\n      two</p>');
+  assert.strictEqual(copied.indent, '    ');
+  assert.match(copied.label, /^text "One two"/);
+  const pasted = applyDirectEdit(code, el({ tag: 'h2', role: 'heading', text: 'Next' }), {
+    insert: { kind: 'html', html: copied.html, indent: copied.indent, position: 'after' },
+  });
+  assert.ok(pasted.ok, `expected ok, got: ${pasted.reason}`);
+  assert.strictEqual(
+    pasted.code,
+    '<body>\n  <div class="card">\n    <p id="note">One\n      two</p>\n  </div>\n  <h2>Next</h2>\n  <p>One\n    two</p>\n</body>',
+  );
+  assert.match(pasted.summary, /pasted an element after the heading "Next"/);
+});
+
+check('copy refuses the page root and elements it cannot find; paste refuses non-markup', () => {
+  assert.strictEqual(copyElementSource(FIXTURE, el({ tag: 'body', text: '' })).reason, 'protected-element');
+  assert.strictEqual(copyElementSource(FIXTURE, el({ tag: 'p', text: 'Not on the page' })).ok, false);
+  const heading = el({ tag: 'h1', role: 'heading', text: 'Fresh bread, every morning' });
+  assert.strictEqual(applyDirectEdit(FIXTURE, heading, { insert: { kind: 'html', html: 'plain words', position: 'after' } }).reason, 'invalid');
 });
 
 check('moveTo refuses nesting, missing targets, no-ops and bad payloads', () => {

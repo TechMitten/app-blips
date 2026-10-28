@@ -1,6 +1,7 @@
 // Headless-browser test for click-to-edit's right-click insert menu: a real
-// right-click in the sandboxed preview bridge reports where the menu opens
-// and the spot a new element goes beside (marked with an insertion line),
+// right-click in the sandboxed preview bridge reports where the menu opens,
+// the spot a new element goes beside (marked with an insertion line) and the
+// text or image under the pointer (outlined, for cut / copy / delete),
 // that spot is fed to the deterministic engine (applyDirectEdit's `insert`),
 // and using the page again dismisses the menu.
 //
@@ -12,7 +13,7 @@
 
 import { chromium } from '@playwright/test';
 import { injectPreviewBridge } from '../src/previewBridge.js';
-import { applyDirectEdit } from '../src/lib/directEdits.js';
+import { applyDirectEdit, copyElementSource } from '../src/lib/directEdits.js';
 
 const FIXTURE = `<!DOCTYPE html>
 <html lang="en">
@@ -117,6 +118,13 @@ try {
       `${menu?.spot?.target?.tag} ${menu?.spot?.position}`);
     const marks = await lines();
     check('an insertion line marks the spot', marks.length === 1 && marks[0].width > marks[0].height, JSON.stringify(marks));
+    check('the right-clicked heading is reported for cut / copy / delete',
+      menu?.element?.tag === 'h2' && menu?.element?.role === 'heading' && menu?.element?.text === 'Features', `${menu?.element?.tag} ${menu?.element?.role}`);
+    check('and outlined while the menu is open',
+      await frame.evaluate(() => /dashed/.test(document.querySelector('#features h2').style.outline)));
+    check('no outline paint leaks into the reported element', menu?.element && !/outline/.test(menu.element.outerHTML));
+    const copied = menu?.element && copyElementSource(FIXTURE, menu.element);
+    check('the reported heading is copyable', copied?.ok && copied.html === '<h2>Features</h2>', copied?.reason || copied?.html);
     check('the right-click does not select anything', (await page.evaluate(() => window.__selections.length)) === 0);
     const result = menu?.spot && applyDirectEdit(FIXTURE, menu.spot.target, { insert: { kind: 'text', text: 'Brand new', position: menu.spot.position } });
     check('insert applies', result?.ok, result?.reason || result?.summary);
@@ -126,6 +134,8 @@ try {
     // A second right-click moves the spot; still one line.
     const card = await rectOf('.card:nth-child(2)');
     const again = await rightClick(card.left + 6, card.top + 6);
+    check('the first outline is cleared when the menu moves',
+      await frame.evaluate(() => !document.querySelector('#features h2').style.outline));
     check('right-click on a card reports a spot inside it', again[0]?.spot?.target?.tag === 'h3' && again[0]?.spot?.position === 'before',
       `${again[0]?.spot?.target?.tag} ${again[0]?.spot?.position}`);
     check('only one insertion line at a time', (await lines()).length === 1);
@@ -135,6 +145,7 @@ try {
     await page.waitForTimeout(50);
     check('a click in the page dismisses the menu', (await page.evaluate(() => window.__dismissed)) === 1);
     check('the line is gone after dismissing', (await lines()).length === 0);
+    check('and so is the outline', await frame.evaluate(() => !document.querySelector('.card:nth-child(2) h3').style.outline));
   }
 
   // --- list items: the spot stays outside the list ---------------------------
@@ -143,6 +154,10 @@ try {
     const li = await rectOf('.steps li:first-child');
     const [menu] = await rightClick(li.left + 20, li.top + 4);
     check('a list item spot climbs to the list', menu?.spot?.target?.tag === 'ul', `${menu?.spot?.target?.tag}`);
+    check('a list item itself is the element (text)', menu?.element?.tag === 'li', `${menu?.element?.tag}`);
+    const cards = await rectOf('.cards');
+    const [gap] = await rightClick(cards.left + 2, cards.top + 2);
+    check('a container is not offered for cut / copy', gap?.element === null, `${gap?.element?.tag}`);
   }
 
   // --- parent clears the spot; scrolling dismisses -----------------------------

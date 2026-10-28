@@ -1,15 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Type, ImagePlus, Loader2, AlertTriangle } from 'lucide-react';
+import {
+  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move,
+} from 'lucide-react';
 
 const EDGE = 8;
 
-// Click-to-edit's right-click menu: add a text container or an uploaded
-// image at the spot the frame marked with its insertion line. Opens at the
-// pointer (screen coordinates from usePreviewBridge), portaled to <body> so
-// the device zoom and the preview pane's clipping don't reach it. Using the
-// page again closes it from the frame's side (insert-menu-dismissed).
-export default function InsertMenu({ menu, onAddText, onAddImage, onClose }) {
+const SUBJECT_LABELS = { heading: 'Heading', text: 'Text', image: 'Image' };
+
+// Click-to-edit's right-click menu. On text or an image (`menu.element`):
+// cut, copy, duplicate or delete it, or Move (turns drag mode on so it can
+// be dragged; already on, it just closes the menu). Anywhere: paste what was copied, or add
+// a text container or an uploaded image, at the spot the frame marked with
+// its insertion line. Opens at the pointer (screen coordinates from
+// usePreviewBridge), portaled to <body> so the device zoom and the preview
+// pane's clipping don't reach it. Using the page again closes it from the
+// frame's side (insert-menu-dismissed).
+export default function InsertMenu({
+  menu, canPaste = false, clipboardLabel = '', onElementAction, onAddText, onAddImage, onClose,
+}) {
   const [mode, setMode] = useState('menu');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -20,6 +29,7 @@ export default function InsertMenu({ menu, onAddText, onAddImage, onClose }) {
   const textRef = useRef(null);
   const fileRef = useRef(null);
   const canAdd = Boolean(menu.spot);
+  const subject = menu.element;
 
   // Kept on screen: flipped to the pointer's other side when it would run
   // off the right or bottom edge.
@@ -80,6 +90,27 @@ export default function InsertMenu({ menu, onAddText, onAddImage, onClose }) {
     }
   };
 
+  const runAction = (action) => {
+    if (busy) return;
+    setError(null);
+    const result = onElementAction(action);
+    if (result?.error) setError(result.error);
+  };
+
+  const item = (action, Icon, label, { disabled = false, danger = false, focus = false } = {}) => (
+    <button
+      ref={focus ? firstRef : undefined}
+      type="button"
+      role="menuitem"
+      className={`insert-menu-item${danger ? ' insert-menu-danger' : ''}`}
+      disabled={disabled || busy}
+      onClick={() => runAction(action)}
+    >
+      <Icon size={15} />
+      <span>{label}</span>
+    </button>
+  );
+
   const onMenuKeyDown = (e) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
@@ -96,9 +127,35 @@ export default function InsertMenu({ menu, onAddText, onAddImage, onClose }) {
       onContextMenu={(e) => e.preventDefault()}
     >
       {mode === 'menu' ? (
-        <div role="menu" aria-label="Add to the page" onKeyDown={onMenuKeyDown}>
+        <div role="menu" aria-label={subject ? 'Edit or add to the page' : 'Add to the page'} onKeyDown={onMenuKeyDown}>
+          {subject && (
+            <>
+              <div className="insert-menu-heading">{SUBJECT_LABELS[subject.role] || 'Element'}</div>
+              {item('cut', Scissors, 'Cut', { focus: true })}
+              {item('copy', Copy, 'Copy')}
+            </>
+          )}
           <button
-            ref={firstRef}
+            type="button"
+            role="menuitem"
+            className="insert-menu-item"
+            disabled={!canPaste || !canAdd || busy}
+            title={canPaste && clipboardLabel ? `Paste the ${clipboardLabel}` : undefined}
+            onClick={() => runAction('paste')}
+          >
+            <ClipboardPaste size={15} />
+            <span>Paste</span>
+          </button>
+          {subject && (
+            <>
+              {item('duplicate', CopyPlus, 'Duplicate')}
+              {item('move', Move, 'Move')}
+              {item('delete', Trash2, 'Delete', { danger: true })}
+            </>
+          )}
+          <div className="insert-menu-divider" role="separator" />
+          <button
+            ref={subject ? undefined : firstRef}
             type="button"
             role="menuitem"
             className="insert-menu-item"
@@ -129,7 +186,7 @@ export default function InsertMenu({ menu, onAddText, onAddImage, onClose }) {
               handleFile(file);
             }}
           />
-          {!canAdd && <p className="insert-menu-note">Nothing can be added at this spot. Right-click next to some text or an image.</p>}
+          {!canAdd && <p className="insert-menu-note">Nothing can be added or pasted at this spot. Right-click next to some text or an image.</p>}
         </div>
       ) : (
         <form

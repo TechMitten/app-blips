@@ -274,13 +274,14 @@ export default function usePreviewBridge({
           onElementDropRef.current({ element, target, position });
         }
       }
-      // Right-click while editing: where to open the insert menu and the
-      // spot (a lite snapshot + side) the new element goes beside, or null
-      // when nothing there can take one. The frame reports its own viewport
+      // Right-click while editing: where to open the insert menu, the spot
+      // (a lite snapshot + side) a new element goes beside, or null when
+      // nothing there can take one, and the text or image under the pointer
+      // (a full snapshot, or null) for cut / copy / duplicate / delete. The frame reports its own viewport
       // pixels; the device zoom scales them, so they are mapped onto the
       // iframe's on-screen box here.
       else if (data.type === 'insert-menu' && onInsertMenuRef.current) {
-        const { x, y, viewportWidth, spot, scroll } = data.payload || {};
+        const { x, y, viewportWidth, spot, element, scroll } = data.payload || {};
         if (![x, y, viewportWidth].every(Number.isFinite) || viewportWidth <= 0) return;
         const validSpot = spot && typeof spot === 'object' && spot.target && typeof spot.target === 'object'
           && (spot.position === 'before' || spot.position === 'after');
@@ -290,6 +291,7 @@ export default function usePreviewBridge({
           x: box.left + x * scale,
           y: box.top + y * scale,
           spot: validSpot ? { target: spot.target, position: spot.position } : null,
+          element: element && typeof element === 'object' && typeof element.tag === 'string' ? element : null,
           scroll: scroll && Number.isFinite(scroll.x) && Number.isFinite(scroll.y) ? { x: scroll.x, y: scroll.y } : null,
         });
       }

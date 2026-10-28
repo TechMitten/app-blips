@@ -522,6 +522,28 @@
 .insert-menu-item:hover:not(:disabled) svg,
 .insert-menu-item:focus-visible svg { color: currentColor; }
 .insert-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.insert-menu-item.insert-menu-danger:hover:not(:disabled),
+.insert-menu-item.insert-menu-danger:focus-visible {
+  color: var(--color-red-600);
+  background: rgb(from var(--color-red-500) r g b / 0.1);
+}
+
+/* Names what Cut / Copy / Duplicate / Delete act on. */
+.insert-menu-heading {
+  padding: 0.4rem 0.6rem 0.2rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-slate-500);
+}
+
+.insert-menu-divider {
+  height: 1px;
+  margin: 0.3rem 0.25rem;
+  background: var(--color-slate-200);
+}
+:is(html.dark, .force-dark) .insert-menu-divider { background: rgb(255 255 255 / 0.1); }
 
 .insert-menu-form { display: flex; flex-direction: column; gap: 0.5rem; }
 

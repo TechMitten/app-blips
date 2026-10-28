@@ -39,6 +39,7 @@ import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import {
   applyDirectEdit, removeElements, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure,
+  copyElementSource,
 } from './lib/directEdits';
 import {
   loadPreviewStorage,
@@ -231,9 +232,13 @@ export default function App({ coldStart = false }) {
   // element snapshot plus its current typography, for the text toolbar.
   const [textSession, setTextSession] = useState(null);
   // Right-click insert menu (bridge insert-menu): screen position, the spot
-  // the new element goes beside (or null) and the frame's scroll, plus a key
-  // that remounts the menu for every right-click.
+  // a new element goes beside (or null), the text or image right-clicked (or
+  // null) and the frame's scroll, plus a key that remounts the menu for every
+  // right-click.
   const [insertMenu, setInsertMenu] = useState(null);
+  // The menu's Copy / Cut: one element's exact source, pasted back only in
+  // the same project (its images/<name> paths mean nothing elsewhere).
+  const [elementClipboard, setElementClipboard] = useState(null);
   // Pending image attachment for the next prompt -- a screenshot of the
   // preview or a manually-picked file. Ephemeral: sent with the one request
   // and never written into `versions`/localStorage (keeps saved
@@ -1052,6 +1057,46 @@ export default function App({ coldStart = false }) {
     setElementEditError(null);
     return { ok: true };
   }, []);
+  // Cut / Copy / Paste / Duplicate / Delete on the right-clicked text or
+  // image, all direct edits like the toolbar's structure keys. Move only
+  // turns drag mode on: the drag itself is the existing drag-to-move.
+  const canPasteElement = Boolean(elementClipboard) && elementClipboard.projectId === currentProjectId;
+  const handleMenuElementAction = useCallback((action) => {
+    const menu = insertMenu;
+    if (isGeneratingRef.current) return { error: 'Wait for the current build to finish, then try again.' };
+    if (action === 'paste') {
+      if (!canPasteElement) return { error: 'Copy or cut some text or an image first.' };
+      return insertAtSpot(menu, { kind: 'html', html: elementClipboard.html, indent: elementClipboard.indent });
+    }
+    const element = menu?.element;
+    if (!element) return { error: 'Right-click some text or an image to do that.' };
+    if (action === 'move') {
+      if (!isDragMode) handleToggleDragMode();
+      closeInsertMenu();
+      return { ok: true };
+    }
+    if (action === 'copy' || action === 'cut') {
+      const copied = copyElementSource(activeCode, element);
+      if (!copied.ok) return { error: describeDirectEditFailure(copied.reason) };
+      if (action === 'cut') {
+        const result = applyElementChangesToSource(element, { remove: true });
+        if (!result.ok) return { error: describeDirectEditFailure(result.reason) };
+        setSelectedElement(null);
+        setElementEditError(null);
+      }
+      setElementClipboard({ html: copied.html, indent: copied.indent, label: copied.label, projectId: currentProjectId });
+      closeInsertMenu();
+      return { ok: true };
+    }
+    const changes = { duplicate: { duplicate: true }, delete: { remove: true } }[action];
+    if (!changes) return { error: 'That action is not available here.' };
+    const result = applyElementChangesToSource(element, changes);
+    if (!result.ok) return { error: describeDirectEditFailure(result.reason) };
+    setInsertMenu(null);
+    setSelectedElement(null);
+    setElementEditError(null);
+    return { ok: true };
+  }, [insertMenu, canPasteElement, elementClipboard, insertAtSpot, activeCode, applyElementChangesToSource, closeInsertMenu, currentProjectId, isDragMode, handleToggleDragMode]);
   const handleInsertText = useCallback((text) => insertAtSpot(insertMenu, { kind: 'text', text }), [insertMenu, insertAtSpot]);
   const handleInsertImage = useCallback(async (file) => {
     const menu = insertMenu;
@@ -3101,6 +3146,9 @@ export default function App({ coldStart = false }) {
               <InsertMenu
                 key={insertMenu.key}
                 menu={insertMenu}
+                canPaste={canPasteElement}
+                clipboardLabel={elementClipboard?.label || ''}
+                onElementAction={handleMenuElementAction}
                 onAddText={handleInsertText}
                 onAddImage={handleInsertImage}
                 onClose={closeInsertMenu}
