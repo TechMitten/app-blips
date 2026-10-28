@@ -278,7 +278,7 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 }
 
 const PLAN_OPTIONS = [
-  { id: 'credits', Icon: Coins, title: 'Purchase AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Start a 3-day free trial with 100 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
+  { id: 'credits', Icon: Coins, title: 'AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Already have a plan? Connect it on the next screen. New here? Start a 3-day free trial with 100 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
   { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
 ];
 
@@ -708,7 +708,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
-      <main className="desktop-onboarding-card is-setup">
+      <main className={`desktop-onboarding-card is-setup${isName ? ' is-welcome' : ''}`}>
         <header className="onboarding-topbar">
           <div className="onboarding-brand">
             <img src="/favicon.svg" alt="" aria-hidden="true" className="onboarding-brand-icon" />
@@ -729,7 +729,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             {!isName && cleanName(name) && (
               <div className="onboarding-greeting">
                 <ProfileAvatar avatar={avatar} size={22} />
-                <span>Hi, {cleanName(name)}</span>
+                <span>Hi, {cleanName(name)}!</span>
               </div>
             )}
             {isName ? (
