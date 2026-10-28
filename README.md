@@ -70,20 +70,31 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.20 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.21 (Click to expand)</strong></summary>
 <br />
 
 **New**
-- **Ask to add the apt source at install (Debian/Ubuntu):** the `.deb` now asks "Get AppBlips updates through apt?" during install. Say yes and new versions arrive with `sudo apt upgrade` and in your software center. The default is no.
-- **Fit an image to its replacement:** after you upload a new picture in click-to-edit, tick **Fit size to image** to keep the width and match the new picture's proportions.
-- **Build blueprint:** while a build runs, you now see a wireframe of your page assembling step by step, with the live code one click away.
+- **Password-protect a published site:** tick **Password protect this site** in **Publish** and visitors must type a password before they can see anything. Your pages are encrypted on your computer before upload, so neither the password nor your project's code is ever published. Use a long password, such as four random words.
+- **Right-click menu in click-to-edit:** right-click the preview to add a text container or an image, or to cut, copy, paste, duplicate, move or delete the element under the cursor. **Ask AI** in the same menu asks for a change at exactly that spot.
+- **Pixabay connector:** add your own Pixabay key in **Settings → Connectors**, search free photos and add the ones you pick to **My images**.
+- **My images confirmation:** before building with your images, the AI shows which one it matched, with thumbnails, and waits for your OK. Each image also has a **Copy name** button.
+- **Select several elements in click-to-edit** by dragging a box or holding Shift and clicking.
+- **Search engines are opt-in:** a new **Let search engines find this site** box in **Publish**, off by default. Unticked, your site asks search engines to stay away.
 
 **Improved**
-- **Alt text** opens in a small window with an Apply button, and the element id chip is gone from the editor bar.
-- **Update check** now asks GitHub every hour instead of every 12 hours.
+- The AI no longer picks broken or unrelated images from My images; made-up image paths are corrected to the closest real image.
+- Saved projects open with the build chat scrolled to the latest message.
+- The SEO questions end with **Send now** or **Maybe later**.
+- The onboarding option is now called **AppBlips AI Plan**, with a more welcoming first screen.
+- Touch screens: click-to-edit lets you scroll and move the cursor, and the phone view always shows on touch-only devices.
+
+**Fixed**
+- Gallery thumbnails no longer show as broken when My images opens.
+- A blank tooltip square no longer appears over preview icons on touch screens.
 
 **Look and feel**
-- The splash screen now plays a short silent animated video that fades in and out, with updated artwork.
+- The build blueprint fits small phones and landscape tablets, and the splash video is smaller.
+- The Space Shooter and Retro Snake starter presets were removed.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
 </details>
