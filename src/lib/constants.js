@@ -96,26 +96,11 @@ export const STARTER_PRESETS = [
     color: "text-sky-600 bg-sky-50"
   },
   {
-    title: "Space Shooter",
-    prompt: "A complete, fully functional arcade space shooter with touchscreen virtual controls and keyboard support. Features laser cannons, wave-based alien fleets, shield power-ups, and particle explosion effects.",
-    category: "Arcade",
-    icon: Rocket,
-    featured: true,
-    color: "text-violet-600 bg-violet-50"
-  },
-  {
     title: "Internet Radio",
     prompt: "A free live radio streaming app streaming real online radio stations across Lo-Fi, Jazz, Chillwave, and Classical, with an interactive tuner dial, playback controls, and live audio visualizer.",
     category: "Audio",
     icon: Radio,
     color: "text-amber-600 bg-amber-50"
-  },
-  {
-    title: "Retro Snake",
-    prompt: "A classic retro arcade Snake game with smooth grid navigation, growing tail mechanics, collectible golden apples, speed multipliers, particle food bursts, and high-score tracking.",
-    category: "Arcade",
-    icon: Worm,
-    color: "text-emerald-600 bg-emerald-50"
   },
   {
     title: "Typing Test",
@@ -133,27 +118,12 @@ export const STARTER_PRESETS = [
     color: "text-rose-600 bg-rose-50"
   },
   {
-    title: "2048 Puzzle",
-    prompt: "The addictive 2048 sliding number puzzle with animated tile merging, smooth swipe and keyboard arrow controls, score and best-score displays, undo move button, and victory celebration.",
-    category: "Puzzle",
-    icon: Dices,
-    featured: true,
-    color: "text-amber-600 bg-amber-50"
-  },
-  {
     title: "Focus Timer",
     prompt: "A Pomodoro-style focus timer with a smooth animated countdown ring, customizable work/break intervals, an ambient session soundtrack, daily streak tracking, and a running log of completed sessions.",
     category: "Productivity",
     icon: Timer,
     featured: true,
     color: "text-blue-600 bg-blue-50"
-  },
-  {
-    title: "Minesweeper",
-    prompt: "An authentic Minesweeper game featuring beginner, intermediate, and expert grid sizes, flag toggling, chord reveals, live bomb counter, and elapsed time stopwatch.",
-    category: "Classic",
-    icon: Bomb,
-    color: "text-rose-600 bg-rose-50"
   },
   {
     title: "Budget Planner",
@@ -177,25 +147,11 @@ export const STARTER_PRESETS = [
     color: "text-emerald-600 bg-emerald-50"
   },
   {
-    title: "Pixel Bird",
-    prompt: "A retro pixel-style bird flapping obstacle runner with one-tap physics, scrolling parallax pipes, collision detection, coin pickups, medal achievements, and instant restart.",
-    category: "Arcade",
-    icon: Bird,
-    color: "text-sky-600 bg-sky-50"
-  },
-  {
     title: "Drum Machine",
     prompt: "A playable step-sequencer drum machine with multiple synthesized drum kits, an adjustable BPM, a 16-step pattern grid, pattern save/load slots, and reactive visual pulses on each beat.",
     category: "Audio",
     icon: Drum,
     featured: true,
-    color: "text-violet-600 bg-violet-50"
-  },
-  {
-    title: "Memory Match",
-    prompt: "A colorful card matching memory game with 3D flip card animations, emoji pair themes, move counter, accuracy score, combo streak multipliers, and star rating on completion.",
-    category: "Memory",
-    icon: Shapes,
     color: "text-violet-600 bg-violet-50"
   },
   {
@@ -211,13 +167,6 @@ export const STARTER_PRESETS = [
     category: "Utility",
     icon: Ruler,
     color: "text-blue-600 bg-blue-50"
-  },
-  {
-    title: "Connect Four",
-    prompt: "A modern Connect Four board game with gravity piece-drop physics, unbeatable Minimax AI mode or local pass-and-play, winning 4-in-a-row highlight animations, and round win stats.",
-    category: "Strategy",
-    icon: Coins,
-    color: "text-rose-600 bg-rose-50"
   },
   {
     title: "Piano Keyboard",
@@ -308,34 +257,6 @@ export const STARTER_PRESETS = [
     prompt: "A hydration tracker with an animated filling bottle visual, one-tap glass and bottle quick-add buttons, a daily goal ring, streak tracking, and a weekly intake chart.",
     category: "Health",
     icon: Heart,
-    color: "text-sky-600 bg-sky-50"
-  },
-  {
-    title: "Word Grid",
-    prompt: "A Wordle-style word guessing game with six attempts, color-coded letter feedback, an on-screen keyboard that tracks used letters, daily-puzzle and unlimited modes, and a stats panel with guess distribution.",
-    category: "Word",
-    icon: WholeWord,
-    color: "text-emerald-600 bg-emerald-50"
-  },
-  {
-    title: "Sliding Puzzle",
-    prompt: "A sliding tile puzzle game with shuffled 3x3, 4x4, and 5x5 boards, numbered and photo modes, smooth tile animations, move and time counters, and a solvability check on shuffle.",
-    category: "Puzzle",
-    icon: Puzzle,
-    color: "text-indigo-600 bg-indigo-50"
-  },
-  {
-    title: "Tic-Tac-Toe AI",
-    prompt: "A sleek tic-tac-toe game with an unbeatable minimax AI plus easy and medium difficulties, a local two-player mode, win-line animations, and a running scoreboard across rounds.",
-    category: "Strategy",
-    icon: Gamepad2,
-    color: "text-rose-600 bg-rose-50"
-  },
-  {
-    title: "Sudoku",
-    prompt: "A full-featured Sudoku app with multiple difficulty levels, a note-taking mode, hints and mistake checking, a timer, undo, and auto-generated puzzles with a unique-solution guarantee.",
-    category: "Puzzle",
-    icon: Blocks,
     color: "text-sky-600 bg-sky-50"
   },
   {

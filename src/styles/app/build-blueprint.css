@@ -34,7 +34,11 @@
   overflow: hidden;
 }
 .build-blueprint-frame.is-touch {
-  width: min(128px, 46%);
+  /* Sized by the smaller of the column width and the screen height, so the
+     phone-shaped frame, the timeline and the footer all fit above the fold
+     on short phones and landscape tablets. */
+  width: min(60%, 22vh, 220px);
+  min-width: 112px;
   aspect-ratio: 9 / 16;
   border-radius: 14px;
 }
@@ -63,6 +67,16 @@
   background: var(--bp-fill);
 }
 .build-blueprint-block.is-on::after { animation: none; opacity: 0; }
+
+/* Tablet-width panes have room for a larger, easier-to-read version. */
+@container (min-width: 600px) {
+  .build-blueprint { width: min(460px, 100%); gap: 22px; }
+  .build-blueprint-frame.is-touch { width: min(60%, 26vh, 260px); }
+  .build-blueprint-steps { width: min(320px, 100%); gap: 12px; }
+  .build-blueprint-step { font-size: 15px; }
+  .build-blueprint-step-detail { font-size: 13px; }
+  .build-blueprint-footer { font-size: 13px; }
+}
 
 .build-blueprint-code { width: min(600px, 92cqi); }
 .build-blueprint-code .live-code-peek { width: 100%; min-height: clamp(220px, 32vh, 340px); }
