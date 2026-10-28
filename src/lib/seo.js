@@ -282,3 +282,24 @@ export const seoExtraFiles = ({ enabled, form }, pageNames) => {
   if (siteUrl || !indexable) files.push({ path: 'robots.txt', text: buildRobots(form) });
   return files;
 };
+
+// Publish's "Let search engines find this site" box decides crawling. Unticked:
+// robots.txt asks every crawler to stay away and no sitemap is made. Ticked:
+// the SEO connector's files, with its own indexing switch overridden.
+export const crawlExtraFiles = (seo, pageNames, allowCrawl) => {
+  if (!allowCrawl) return [{ path: 'robots.txt', text: 'User-agent: *\nDisallow: /\n' }];
+  return seoExtraFiles({ ...seo, form: seo.form && { ...seo.form, indexable: true } }, pageNames);
+};
+
+// robots.txt alone doesn't stop a page that is linked from elsewhere from
+// being listed, so unticked pages also carry a noindex tag.
+const NOINDEX_TAG = '<meta name="robots" content="noindex, nofollow">\n';
+
+export const addNoIndex = (html) => {
+  if (typeof html !== 'string') return html;
+  const open = /<head\b[^>]*>\s*/i.exec(html);
+  if (open) return html.slice(0, open.index + open[0].length) + NOINDEX_TAG + html.slice(open.index + open[0].length);
+  const doctype = /^\s*<!doctype[^>]*>\s*/i.exec(html);
+  const at = doctype ? doctype[0].length : 0;
+  return html.slice(0, at) + NOINDEX_TAG + html.slice(at);
+};

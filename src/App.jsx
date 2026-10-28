@@ -74,7 +74,7 @@ import { injectPollinationsHelper } from './lib/pollinationsHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
 import { getPollinationsHelperOptions, loadConnectors } from './lib/connectors';
 import {
-  SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, normalizeSeoForm, seoExtraFiles, seoPending,
+  SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, crawlExtraFiles, normalizeSeoForm, seoExtraFiles, seoPending,
 } from './lib/seo';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
@@ -2027,6 +2027,8 @@ export default function App({ coldStart = false }) {
   // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
   // the page list here rather than written by the AI. [] when it is off.
   const seoExtras = (pages) => seoExtraFiles({ enabled: loadConnectors().seo?.enabled === true, form: seoProfile?.form }, pageNames(pages));
+  // Publish only: its "let search engines find this site" box overrides the connector's indexing switch.
+  const publishExtras = (pages, allowCrawl) => crawlExtraFiles({ enabled: loadConnectors().seo?.enabled === true, form: seoProfile?.form }, pageNames(pages), allowCrawl);
 
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
@@ -2817,7 +2819,7 @@ export default function App({ coldStart = false }) {
           projectName={projectName}
           buildFiles={buildExportFiles}
           galleryFiles={(pages) => galleryExportFiles(pages, galleryImages, blobBytes)}
-          extraFiles={seoExtras}
+          extraFiles={publishExtras}
           onClose={() => setIsPublishOpen(false)}
           studioMode={studioMode}
         />

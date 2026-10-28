@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, Check, CircleAlert, CircleCheck, ClipboardCheck, Globe, Pencil, Search, Share2, Store, Users, X,
+  ArrowLeft, ArrowRight, Check, CircleAlert, CircleCheck, ClipboardCheck, Globe, Pencil, Search, Send, Share2, Store, Users, X,
 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { Switch, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
@@ -502,10 +502,16 @@ export default function SeoQuestionsModal({ project, onClose }) {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [unsaved, onClose]);
 
-  const save = () => {
-    onSave(normalized);
-    setDraft(normalized);
-    setConfirmClose(false);
+  // The two ways out of the last page: both keep the answers; Send now also
+  // asks the AI to apply them (a normal request in the usual chat).
+  const later = () => {
+    if (dirty) onSave(normalized);
+    onClose();
+  };
+  const sendNow = () => {
+    if (dirty) onSave(normalized);
+    onApply();
+    onClose();
   };
   const reset = () => {
     onSave(emptySeoForm());
@@ -549,7 +555,7 @@ export default function SeoQuestionsModal({ project, onClose }) {
               </p>
               <h3 className="text-lg font-bold leading-tight text-slate-900">{current ? current.title : 'Does this look right?'}</h3>
               <p className="mt-1 text-sm leading-snug text-slate-600">
-                {current ? current.hint : 'Save to keep these answers with this project. You can change them any time.'}
+                {current ? current.hint : 'Check your answers, then decide when the AI should use them. You can change them any time.'}
               </p>
             </div>
           </div>
@@ -582,26 +588,19 @@ export default function SeoQuestionsModal({ project, onClose }) {
             </div>
           ) : (
             <>
-              {!dirty && (
-                <div role="status" className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 animate-fade-in motion-reduce:animate-none">
-                  <CircleCheck size={18} className="mt-px shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                  <div className="min-w-0 text-sm leading-snug">
-                    <p className="font-semibold text-slate-900">Saved with this project</p>
-                    <p className="mt-0.5 text-xs text-slate-600">
-                      {pending
-                        ? hasCode
-                          ? 'The AI will add these to your project with your next request, or you can do it now.'
-                          : 'The AI will use these when it builds your project.'
+              <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 animate-fade-in motion-reduce:animate-none">
+                <Send size={17} className="mt-px shrink-0 text-red-600 dark:text-red-400" aria-hidden="true" />
+                <div className="min-w-0 text-sm leading-snug">
+                  <p className="font-semibold text-slate-900">Next: let the AI add SEO to your project</p>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {!hasCode
+                      ? 'Your answers are kept with this project, and the AI will use them when it builds it.'
+                      : pending || dirty
+                        ? 'Send your answers to the AI now and it will apply them to your pages in the chat. Or choose Maybe later: they stay saved, and you can ask for it from Settings → Connectors → SEO any time.'
                         : 'The AI already has these answers.'}
-                    </p>
-                    {pending && hasCode && (
-                      <button type="button" onClick={onApply} disabled={busy} className={`mt-2.5 ${SECONDARY_BUTTON}`}>
-                        {busy ? 'Wait for the current build to finish' : 'Apply to my site now'}
-                      </button>
-                    )}
-                  </div>
+                  </p>
                 </div>
-              )}
+              </div>
               <Review form={normalized} onEdit={go} />
               <div className="mt-4">
                 {confirmReset ? (
@@ -644,8 +643,15 @@ export default function SeoQuestionsModal({ project, onClose }) {
                 <button type="button" onClick={next} disabled={missing} className={PRIMARY_BUTTON}>
                   {step === REVIEW - 1 ? 'Review' : 'Next'}<ArrowRight size={15} aria-hidden="true" />
                 </button>
-              ) : dirty ? (
-                <button type="button" onClick={save} className={PRIMARY_BUTTON}><Check size={15} aria-hidden="true" />Save answers</button>
+              ) : dirty || (pending && hasCode) ? (
+                <>
+                  <button type="button" onClick={later} className={SECONDARY_BUTTON}>{hasCode ? 'Maybe later' : 'Save'}</button>
+                  {hasCode && (
+                    <button type="button" onClick={sendNow} disabled={busy} title={busy ? 'Wait for the current build to finish' : undefined} className={PRIMARY_BUTTON}>
+                      <Send size={15} aria-hidden="true" />Send now
+                    </button>
+                  )}
+                </>
               ) : (
                 <button type="button" onClick={onClose} className={PRIMARY_BUTTON}>Done</button>
               )}

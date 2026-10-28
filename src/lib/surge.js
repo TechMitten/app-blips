@@ -97,3 +97,27 @@ export const saveFavicon = (projectId, icon) => {
     return false;
   }
 };
+
+// Whether search engines may list a project's published site. Off unless the
+// user ticks the box in the publish window, so a draft is never crawled by default.
+const SEARCHABLE_KEY = 'orion-surge-searchable';
+
+const loadSearchableMap = () => {
+  try {
+    const parsed = JSON.parse(safeStorage('local')?.getItem(SEARCHABLE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+export const loadSearchable = (projectId) => (projectId ? loadSearchableMap()[projectId] === true : false);
+
+export const saveSearchable = (projectId, allowed) => {
+  if (!projectId) return;
+  const map = { ...loadSearchableMap(), [projectId]: allowed };
+  if (!allowed) delete map[projectId];
+  try {
+    safeStorage('local')?.setItem(SEARCHABLE_KEY, JSON.stringify(map));
+  } catch { /* not remembered: the box starts unticked next time */ }
+};

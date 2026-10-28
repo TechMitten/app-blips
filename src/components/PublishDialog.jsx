@@ -4,9 +4,10 @@ import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, Refr
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
-  SURGE_SUFFIX, loadFavicon, loadPublishedName, saveFavicon, savePublishedName, suggestSurgeName,
+  SURGE_SUFFIX, loadFavicon, loadPublishedName, loadSearchable, saveFavicon, savePublishedName, saveSearchable, suggestSurgeName,
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
+import { addNoIndex } from '../lib/seo';
 import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
 import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
@@ -25,6 +26,29 @@ function ShowcaseSubmitLink({ onClick, disabled = false }) {
       Proud of it?{' '}
       <button type="button" onClick={onClick} disabled={disabled} className={LINK_CLASS}>Submit it to the showcase</button>
     </p>
+  );
+}
+
+// Unticked (the default) tells search engines to stay away.
+function SearchableField({ checked, onChange, disabled }) {
+  return (
+    <label className="flex items-start gap-2.5 text-sm text-slate-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-indigo-600"
+      />
+      <span>
+        <span className="font-semibold text-slate-900">Let search engines find this site</span>
+        <span className="block text-xs leading-snug text-slate-500">
+          {checked
+            ? 'Your site can show up in Google and other search results.'
+            : 'Your site asks search engines to keep it out of their results. Anyone with the link can still open it.'}
+        </span>
+      </span>
+    </label>
   );
 }
 
@@ -112,6 +136,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const [account, setAccount] = useState('');
   const [name, setName] = useState(() => suggestSurgeName(projectName));
   const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
+  const [searchable, setSearchable] = useState(() => loadSearchable(projectId));
   // The address the showcase form is open for, or ''.
   const [submitUrl, setSubmitUrl] = useState('');
   const [error, setError] = useState('');
@@ -185,6 +210,9 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     setError('');
     if (from === 'ready') setStep('publishing');
     const pages = buildFiles();
+    if (!searchable) {
+      for (const name of Object.keys(pages)) if (name.endsWith('.html')) pages[name] = addNoIndex(pages[name]);
+    }
     const { images } = await collectSiteImages(pages);
     // The user's own images (My images) are already at images/<name> in the pages.
     const ownImages = galleryFiles ? galleryFiles(pages) : [];
@@ -193,7 +221,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     if (icon) uploads[FAVICON_PATH] = icon;
     const sitePages = pointAtCopies(pages, images);
     // sitemap.xml and robots.txt from the SEO connector (lib/seo.js).
-    const extras = Object.fromEntries((extraFiles ? extraFiles(pages) : []).map(({ path, text }) => [path, text]));
+    const extras = Object.fromEntries((extraFiles ? extraFiles(pages, searchable) : []).map(({ path, text }) => [path, text]));
     const result = await surgePublish(
       clean,
       icon ? withFavicon(sitePages) : sitePages,
@@ -216,6 +244,11 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const changeFavicon = (icon) => {
     setFavicon(icon);
     saveFavicon(projectId, icon);
+  };
+
+  const changeSearchable = (allowed) => {
+    setSearchable(allowed);
+    saveSearchable(projectId, allowed);
   };
 
   const publish = (event) => {
@@ -390,6 +423,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               <strong className="text-slate-800">Unpublish</strong> takes it offline.
             </p>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
+            <SearchableField checked={searchable} onChange={changeSearchable} disabled={busy} />
             <ShowcaseSubmitLink onClick={() => setSubmitUrl(publishedUrl)} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
@@ -499,6 +533,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               </p>
             </div>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
+            <SearchableField checked={searchable} onChange={changeSearchable} disabled={busy} />
             {errorLine}
             <p className="text-xs leading-snug text-slate-500">
               Anyone with the link can see your site. Signed in to Surge as <strong className="text-slate-700">{account}</strong>.{' '}

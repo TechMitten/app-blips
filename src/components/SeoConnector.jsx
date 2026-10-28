@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CircleCheck, ListChecks } from 'lucide-react';
+import { CircleCheck, ListChecks, Send } from 'lucide-react';
 import { SettingRow, Switch, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import SeoQuestionsModal from './SeoQuestionsModal';
 import { isSeoComplete, seoPending } from '../lib/seo';
@@ -35,10 +35,15 @@ export default function SeoConnector({ state, onChange, seoProject }) {
             title="Your answers"
             description={answered
               ? pending
-                ? 'Saved. The AI will use them with your next request.'
+                ? 'Saved. The AI will use them with your next request, or apply them now.'
                 : 'Saved, and the AI already has them.'
               : 'You haven’t answered the questions for this project yet.'}
           >
+            {pending && seoProject.hasCode && (
+              <button type="button" onClick={seoProject.onApply} disabled={seoProject.busy} className={`mr-2 ${PRIMARY_BUTTON}`}>
+                <Send size={15} aria-hidden="true" />Apply now
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setQuestionsOpen(true)}

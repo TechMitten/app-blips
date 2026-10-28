@@ -23,6 +23,9 @@ You need a free Surge account. AppBlips creates one for you the first time you s
   <Step title="Choose the web address">
     Under **Web address**, AppBlips suggests a name based on your project. Keep it or type your own. Use only lowercase letters, numbers and dashes.
   </Step>
+  <Step title="Decide whether search engines can find it">
+    Tick **Let search engines find this site** if you want Google and others to list it. Leave it unticked (the default) and AppBlips publishes a `robots.txt` and a "noindex" tag asking search engines to stay away. Anyone with the link can still open the site, and well-behaved search engines respect the request, but it isn't a password. AppBlips remembers your choice for each project, and you can change it later with **Update site**.
+  </Step>
   <Step title="Choose a site icon (optional)">
     Under **Site icon**, click **Choose image…** and pick a picture from your computer (PNG, JPEG, WebP, GIF, SVG or ICO). It's the small picture people see in the browser tab, in bookmarks and on a phone's home screen. A square image works best. To go back to no icon, click **Remove**.
   </Step>
@@ -79,5 +82,5 @@ AppBlips only remembers the last address you published each project to. To remov
 - Surge limits how often you can publish in a short time. If you see a "rate limited" message, wait 15 minutes and try again.
 - Surge's [terms](https://surge.sh/terms) apply to what you publish.
 - Images made with [Pollinations](/features/connectors#pollinations) are copied into your site when you publish, so they stay online as long as it does. Publish again after the AI changes an image.
-- If the [SEO connector](/features/connectors#seo) is on and has your website address, a `sitemap.xml` and `robots.txt` are published with the site.
+- If the [SEO connector](/features/connectors#seo) is on and has your website address, a `sitemap.xml` and `robots.txt` are published with the site, but only when **Let search engines find this site** is ticked. The box overrides the connector's own indexing switch when you publish.
 - Your own images from [My images](/features/building-apps#using-your-own-images-beta) are uploaded with the site, but only the ones your pages use. A site's images can be at most 60 MB in total.
