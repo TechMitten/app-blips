@@ -16,7 +16,7 @@ import { getEffectivePreviewBox } from '../lib/helpers';
 // Media-query store for useSyncExternalStore. Kept at module scope so the
 // MediaQueryList is created once and getSnapshot stays referentially stable --
 // React calls it during render, so it must not allocate.
-const NARROW_QUERY = '(max-width: 1023px)';
+const NARROW_QUERY = '(max-width: 1023px), (hover: none) and (pointer: coarse)';
 const narrowMql = typeof window !== 'undefined' ? window.matchMedia(NARROW_QUERY) : null;
 const subscribeNarrow = (onChange) => {
   if (!narrowMql) return () => {};
@@ -26,10 +26,22 @@ const subscribeNarrow = (onChange) => {
 const getNarrowSnapshot = () => (narrowMql ? narrowMql.matches : false);
 const getNarrowServerSnapshot = () => false;
 
+// A phone or tablet held in the hand: touch is the only input. Desktops and
+// laptops (even with a touchscreen, which still reports a hover-capable mouse
+// or trackpad) are excluded, so they keep the device presets.
+const TOUCH_ONLY_QUERY = '(hover: none) and (pointer: coarse)';
+const touchOnlyMql = typeof window !== 'undefined' ? window.matchMedia(TOUCH_ONLY_QUERY) : null;
+const subscribeTouchOnly = (onChange) => {
+  if (!touchOnlyMql) return () => {};
+  touchOnlyMql.addEventListener('change', onChange);
+  return () => touchOnlyMql.removeEventListener('change', onChange);
+};
+const getTouchOnlySnapshot = () => (touchOnlyMql ? touchOnlyMql.matches : false);
+
 export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop = false }) {
   const [containerNode, setContainerNode] = useState(null);
   const containerRef = useCallback((node) => setContainerNode(node), []);
-  const [previewMode, setPreviewMode] = useState(() => {
+  const [chosenPreviewMode, setPreviewMode] = useState(() => {
     const stored = localStorage.getItem('orion-preview-mode');
     return stored && PREVIEW_MODES[stored] ? stored : 'mobile';
   });
@@ -44,11 +56,18 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
   // because those are genuinely a different viewport from the one in hand.
   const isNarrowViewport = useSyncExternalStore(subscribeNarrow, getNarrowSnapshot, getNarrowServerSnapshot);
 
+  // On a touch-only device the preview is always the phone view, whatever the
+  // studio or a saved Tablet/Desktop/Full size choice says: those viewports
+  // can't be judged from a handset. The choice itself is left untouched, so
+  // it still applies when the same project is opened on a desktop.
+  const isForcedMobile = useSyncExternalStore(subscribeTouchOnly, getTouchOnlySnapshot, getNarrowServerSnapshot);
+  const previewMode = isForcedMobile ? 'mobile' : chosenPreviewMode;
+
   // Bare for the phone preset: Tablet/Desktop stay framed so the user can
   // still see what those viewports look like from a phone. Full size is bare
   // at every width -- dropping the frame is the point of it.
   const isFillMode = Boolean(PREVIEW_MODES[previewMode].isFill);
-  const isBareFill = (isNarrowViewport && previewMode === 'mobile') || isFillMode;
+  const isBareFill = ((isNarrowViewport || isForcedMobile) && previewMode === 'mobile') || isFillMode;
 
   const [orientationFlipClass, setOrientationFlipClass] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -63,8 +82,8 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
   };
 
   useEffect(() => {
-    localStorage.setItem('orion-preview-mode', previewMode);
-  }, [previewMode]);
+    localStorage.setItem('orion-preview-mode', chosenPreviewMode);
+  }, [chosenPreviewMode]);
 
   useEffect(() => {
     localStorage.setItem('orion-preview-orientation', previewOrientation);
@@ -168,6 +187,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
     containerRef,
     previewMode,
     setPreviewMode,
+    isForcedMobile,
     previewOrientation,
     handleToggleOrientation,
     orientationFlipClass,

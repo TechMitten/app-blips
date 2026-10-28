@@ -1,3 +1,4 @@
+import { WIDE_LAYOUT_QUERY } from '../lib/config';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -41,7 +42,7 @@ export default function Header({
     const previousInert = root?.inert;
     if (root) root.inert = true;
     menuRef.current?.querySelector('button')?.focus({ preventScroll: true });
-    const query = window.matchMedia('(min-width: 1024px)');
+    const query = window.matchMedia(WIDE_LAYOUT_QUERY);
     const onResize = () => { if (query.matches) setIsMobileMenuOpen(false); };
     const onKeyDown = (event) => {
       if (event.key === 'Escape') setIsMobileMenuOpen(false);

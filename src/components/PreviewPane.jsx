@@ -43,6 +43,7 @@ export default function PreviewPane({
   zoomLevel,
   fillSize,
   isBareFill = false,
+  isForcedMobile = false,
   isAutoZoom,
   onZoomIn,
   onZoomOut,
@@ -246,6 +247,7 @@ export default function PreviewPane({
         <div className="preview-center flex items-center gap-1.5 sm:gap-2">
           {activeTab === 'preview' && (
             <>
+              {!isForcedMobile && (<>
               <div data-tour="devices" className="preview-fold-device nav-segmented-group" role="group" aria-label="Device preset">
                 {DEVICE_PRESETS.map(({ mode, Icon }) => (
                   <button
@@ -289,6 +291,7 @@ export default function PreviewPane({
               >
                 <Expand size={16} />
               </button>
+              </>)}
               {/* The phone and tablet mockups have no browser bar, so this is
                   their only Reload key (desktop has a second one in its bar).
                   Not folded into the tools menu on narrow panes: reloading is
@@ -312,7 +315,7 @@ export default function PreviewPane({
           {/* Stands in for the presets once they fold away, so the two key
               groups still read as separate ranks. */}
           <span className="chrome-divider preview-header-divider" aria-hidden="true" />
-          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
+          <PreviewTools {...{ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, isForcedMobile, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }} />
 
           {/* Full size always shows the page at its real size, so there is
               nothing to zoom. The keys stay (disabled) so the bar doesn't shift. */}

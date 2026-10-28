@@ -194,7 +194,7 @@
   .history-sidebar-open { transform: translateX(0); }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1023px), ((hover: none) and (pointer: coarse)) {
   .app-header {
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
@@ -287,7 +287,7 @@
 }
 
 /* All dialog variants, including tall deployment/account forms, stay reachable. */
-@media (max-width: 1023px), (max-height: 600px) {
+@media (max-width: 1023px), (max-height: 600px), ((hover: none) and (pointer: coarse)) {
   .modal-scrim:not(.pointer-events-none) {
     top: var(--app-viewport-top, 0px);
     bottom: auto;
@@ -320,7 +320,7 @@
   .modal-card h2 { font-size: 18px; }
   .modal-card [role='tabpanel'] { padding: 16px; }
 }
-@media (max-height: 500px) and (max-width: 1023px) {
+@media (max-height: 500px) and ((max-width: 1023px) or ((hover: none) and (pointer: coarse))) {
   /* Landscape phone: the chrome gives back height, but all three bands still
      shrink together -- the token keeps the build panel and preview toolbar
      from drifting apart, which the old build-panel-only override allowed. */
@@ -570,7 +570,7 @@
    cannot be hidden with a `lg:hidden` utility: .nav-segmented-group and
    .nav-btn are unlayered, so their display would beat any Tailwind class.
    The descendant selector buys the specificity to turn them off instead. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
   .app-header .header-view-switch,
   .app-header .header-new-chat-key { display: none; }
 }

@@ -199,7 +199,7 @@
 }
 
 /* Collapsed rail: icon keys centered in the strip. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
   .hero-rail-item.is-collapsed {
     justify-content: center;
     padding-inline: 0;
@@ -213,7 +213,7 @@
 
 /* Rail tooltips open to the side (the shared bubble opens downward, which
    would land on the next key). */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
   .hero-rail [data-tip-side='right']::after {
     top: 50%;
     left: calc(100% + 0.6rem);
@@ -227,7 +227,7 @@
 }
 
 /* Below lg the rail is a compact top bar: icon keys only, no Recents. */
-@media (max-width: 1023px) {
+@media (max-width: 1023px), ((hover: none) and (pointer: coarse)) {
   .hero-rail {
     padding-top: max(0.5rem, env(safe-area-inset-top));
   }

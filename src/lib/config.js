@@ -15,6 +15,11 @@ export const safeStorage = (kind) => {
 export const THEME_KEY = 'orion-theme';
 // Mirrored by the pre-paint script in index.html -- keep both in sync.
 // Light matches the canvas token (--color-slate-50 in index.css).
+// The desktop layout (build and preview side by side). Touch-only devices
+// never get it, whatever their width. Mirrors the `lg` variant in index.css.
+export const WIDE_LAYOUT_QUERY = '(min-width: 1024px) and (not ((hover: none) and (pointer: coarse)))';
+export const isWideLayout = () => window.matchMedia(WIDE_LAYOUT_QUERY).matches;
+
 export const THEME_META_COLOR = { light: '#f1f3f5', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)

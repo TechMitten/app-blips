@@ -1,3 +1,4 @@
+import { WIDE_LAYOUT_QUERY } from '../lib/config';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -81,7 +82,7 @@ export function TourInvitation({ onStart }) {
 }
 
 export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeView, studioMode }) {
-  const wideScreen = useMediaQuery('(min-width: 1024px)');
+  const wideScreen = useMediaQuery(WIDE_LAYOUT_QUERY);
   const steps = useMemo(
     () => buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }),
     [wideScreen, hasCode, showCodeView, studioMode],

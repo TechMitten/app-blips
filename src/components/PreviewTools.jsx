@@ -2,7 +2,7 @@ import { SlidersHorizontal, Smartphone, Tablet, Monitor, Expand, RotateCcwSquare
 import { PREVIEW_MODES } from '../lib/constants';
 import useDetailsDismiss from '../hooks/useDetailsDismiss';
 
-export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }) {
+export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, isForcedMobile, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }) {
   const toolsRef = useDetailsDismiss();
 
   return (
@@ -11,7 +11,7 @@ export default function PreviewTools({ activeTab, previewMode, onPreviewModeChan
         <SlidersHorizontal size={16} />
       </summary>
       <div className="preview-tools-menu bg-surface border border-slate-200 rounded-lg shadow-xl">
-        {activeTab === 'preview' && (
+        {activeTab === 'preview' && !isForcedMobile && (
           <>
             <div className="nav-segmented-group" role="group" aria-label="Preview device">
               {/* All three presets in every studio -- the studio's default

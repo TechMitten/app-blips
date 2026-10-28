@@ -4,6 +4,11 @@
    it, so the dark variant is declared here instead. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* `lg` is the desktop layout (build and preview side by side). A touch-only
+   device never gets it, whatever its width: a 1032px tablet should still show
+   the phone layout. Keep in step with WIDE_LAYOUT_QUERY in src/lib/config.js. */
+@custom-variant lg (@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))));
+
 /* ---------------------------------------------------------------------------
    Semantic tokens.
 
