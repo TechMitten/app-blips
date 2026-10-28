@@ -2,13 +2,14 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Images, Info, MessagesSquare, Plus, Search,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
 import ConnectorRequestModal from './ConnectorRequestModal';
 import PollinationsConnector from './PollinationsConnector';
 import PixabayConnector from './PixabayConnector';
+import ServerKeyConnector from './ServerKeyConnector';
 import SeoConnector from './SeoConnector';
 import ImagesConnector from './ImagesConnector';
 import PublishDialog from './PublishDialog';
@@ -17,6 +18,7 @@ import {
 } from '../lib/connectors';
 import { surgeStatus } from '../lib/surge';
 import { galleryNameForms } from '../lib/galleryImages';
+import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
 
 // Settings → Connectors: a grid of services the AI can wire into new projects.
 // A card opens that service's page (switch, key, help). Changes save as you
@@ -33,7 +35,9 @@ import { galleryNameForms } from '../lib/galleryImages';
 // actions and the images) lets its page show the project's gallery; App.jsx
 // owns the images. Pixabay keeps its key server-side (`serverKey`), so it has
 // its own page too (PixabayConnector.jsx); its photo search adds to the same
-// gallery, and is also offered on the My images page.
+// gallery, and is also offered on the My images page. Tavily keeps its key the
+// same way and uses the plain server-key page (ServerKeyConnector.jsx); the AI
+// searches with it (lib/webSearch.js).
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -50,9 +54,11 @@ const colourIcon = (src) => function ColourIcon({ size }) {
 const Web3FormsIcon = colourIcon('/web3forms-logo.png');
 const SurgeIcon = colourIcon('/surge-logo.svg');
 
+const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTavilyKey };
+
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, seo: Search, images: Images,
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, tavily: Globe, seo: Search, images: Images,
 };
 
 const STATUS_BADGE = {
@@ -303,6 +309,8 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
             ? <SeoConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} seoProject={seoProject} />
             : CONNECTOR_DEFINITIONS[openId].signIn
               ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+              : openId === 'tavily'
+                ? <ServerKeyConnector key={openId} id={openId} api={TAVILY_API} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
               : CONNECTOR_DEFINITIONS[openId].serverKey
                 ? (
                   <PixabayConnector

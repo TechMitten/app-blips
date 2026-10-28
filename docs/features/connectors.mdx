@@ -1,14 +1,14 @@
 ---
 title: "Connectors"
 sidebarTitle: "Connectors"
-description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations or Pixabay, or use the built-in SEO and My images (beta) connectors, so the AI wires them into the websites and apps you build."
+description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations, Pixabay or Tavily, or use the built-in SEO and My images (beta) connectors, so the AI wires them into the websites and apps you build."
 ---
 
-Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](#my-images-beta), and the AI uses them from there.
+Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)).
 
 SEO is different from the rest: it is built into AppBlips, so there is nothing to sign up for and no key to paste. You answer a few questions about your project instead (see [SEO](#seo)).
 
-Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)). Pixabay asks for your own API key, which AppBlips also keeps to itself and never writes into a page (see [Pixabay](#pixabay)).
+Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)). Pixabay and Tavily ask for your own API key, which AppBlips also keeps to itself and never writes into a page (see [Pixabay](#pixabay) and [Tavily](#tavily)).
 
 <Note>
   AppBlips has no partnership, sponsorship or affiliate arrangement with any of these services or the companies and developers behind them. They are offered because they work without a server or a secret key. Each one is a separate service with its own terms, prices and privacy policy, and questions about your account with it go to that service. Their names and logos belong to their owners.
@@ -246,6 +246,36 @@ Each photo gets a name from its tags (such as `mountain-lake-sunset.jpg`) and a 
 - Searches are remembered for a day, as Pixabay asks. Pixabay limits how many searches a key can make each minute; if you see "Pixabay is busy", wait a minute and try again.
 - Imported sites don't use Pixabay, since they don't have My images.
 
+## Tavily
+
+[Tavily](https://www.tavily.com/) is a search engine made for AI. With your own Tavily key, the AI that builds your projects can search the web when it needs facts it doesn't know, such as the address and opening hours of a real business, current news, or how to use a service, instead of guessing.
+
+An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily's free plan includes 1,000 searches a month.
+
+<Steps>
+  <Step title="Get your key">
+    1. Go to [app.tavily.com](https://app.tavily.com/) and sign up for a free account, or sign in if you have one.
+    2. Your Tavily dashboard opens. Find your API key under **API Keys**. It starts with `tvly-`.
+    3. Click the copy button next to the key.
+  </Step>
+  <Step title="Add it to AppBlips">
+    1. Click **Settings**, then **Connectors**, then the **Tavily** card.
+    2. Click the switch next to **Enable Tavily**.
+    3. Paste the key into the **API key** box.
+    4. Click **Save key**. AppBlips checks the key with Tavily. When it works, the page says "Connected with the key ending in …".
+  </Step>
+  <Step title="Build as usual">
+    Close Settings and ask for what you want. When a request needs real or up-to-date facts, the AI searches the web first, and the chat shows "Searching the web…" while it does. This works before the first build of a new project and while the AI edits one, in every studio, including imported sites.
+
+    You can also ask for it directly, for example "search the web for the opening hours of Blue Door Café and add them to the contact section". The Tavily page in Settings has more prompts to copy.
+  </Step>
+</Steps>
+
+- Each search uses one Tavily credit. The AI makes at most 5 searches for each request (3 before a first build), and none when it doesn't need to.
+- Your key stays inside AppBlips (in your system's keychain on the desktop app) and is never written into your projects. Only the AI's search words go to Tavily, never your project's code. To stop using it, click **Remove key**.
+- Search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.
+- If Tavily stops accepting your key, the connector shows **Needs key** again and the AI carries on without searching. If you see "Your Tavily key has run out of credits or reached its plan limit", check your usage at app.tavily.com.
+
 ## SEO
 
 SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector is built into AppBlips: there is no outside service, no account and no key. You answer a few plain questions about your project, and the AI adds professional SEO to its pages.
@@ -295,4 +325,4 @@ Your request goes to the AppBlips team through Web3Forms. Nothing about your pro
 
 ## Privacy
 
-AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), and Pixabay when you save your key, search or add photos. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and Pixabay key are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
+AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), Pixabay when you save your key, search or add photos, and Tavily when you save your key or the AI searches the web. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and your Pixabay and Tavily keys are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

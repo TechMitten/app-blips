@@ -13,6 +13,10 @@ import { trackRequest } from './tokenUsage';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
+  MAX_RESEARCH_SEARCHES, WEB_RESEARCH_SYSTEM_PROMPT, WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL,
+  createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
+} from './webSearch';
+import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
 import {
@@ -677,12 +681,51 @@ const reportChangedPages = (onChunk, before, after) => {
 export const MAX_REFINEMENT_TURNS = 8;
 // Multi-page edits touch several files (one tool call per page), so give them more turns.
 export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
+// Before a new project's first build (one streamed reply with no tools), let
+// the model search the web for facts the request depends on, when the Tavily
+// connector is on. Returns a WEB RESEARCH block for the build request, or ''
+// when nothing was searched. Failures leave the build to go ahead without it.
+const MAX_RESEARCH_TURNS = 2;
+const researchForBuild = async ({ requestText, signal, onChunk }) => {
+  const budget = createWebSearchBudget(MAX_RESEARCH_SEARCHES);
+  const messages = [
+    { role: 'system', content: WEB_RESEARCH_SYSTEM_PROMPT },
+    { role: 'user', content: `Request:\n${requestText}` },
+  ];
+  const found = [];
+  for (let turn = 1; turn <= MAX_RESEARCH_TURNS && budget.left > 0; turn++) {
+    const message = await requestModelText({
+      messages,
+      tools: [WEB_SEARCH_TOOL],
+      tool_choice: 'auto',
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal,
+    });
+    const calls = (message.tool_calls || []).filter(isWebSearchCall);
+    if (!calls.length) break;
+    messages.push(assistantTurn(message));
+    for (const toolCall of message.tool_calls) {
+      if (!isWebSearchCall(toolCall)) {
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Only web_search is available.' }) });
+        continue;
+      }
+      if (onChunk) onChunk('Searching the web…', 'status');
+      const result = await executeWebSearch(toolCall, budget);
+      if (result.success) found.push({ query: result.query, results: result.results });
+      messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+    }
+  }
+  return formatWebResearch(found);
+};
+
 export const MAX_LINK_REPAIR_ATTEMPTS = 2;
+const MAX_WEB_SEARCH_TURNS = 3;
 export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
 export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
+  if (name === 'web_search') return 'Searching the web…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
   if (name === 'create_page') return 'Adding a page…';
@@ -963,6 +1006,19 @@ const generateAppCodeCore = async (
   if (routerNote && onChunk) onChunk(`${introReply ? '\n\n' : ''}${routerNote}`, 'reply');
 
   if (!currentCode) {
+    let research = '';
+    if (!isAutoFix && isWebSearchEnabled()) {
+      try {
+        research = await researchForBuild({
+          requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
+          signal,
+          onChunk,
+        });
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
+        logWarn('Web research before the build failed, building without it', err);
+      }
+    }
     const formattedChatHistory = chatHistory.map((msg, idx) => {
       if (idx === 0 && msg.role === 'user') {
         return { ...msg, content: buildInitialPrompt(msg.content) };
@@ -976,7 +1032,7 @@ const generateAppCodeCore = async (
       {
         role: 'user',
         content: buildUserContent(
-          withSeoNote(chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt), seoNote),
+          withSeoNote([chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt), research].filter(Boolean).join('\n\n'), seoNote),
           attachment
         )
       }
@@ -1075,7 +1131,8 @@ const generateAppCodeCore = async (
 
     let files = makeFiles(code);
     if (isWebsite) {
-      files = await createMissingPages({ files, request: prompt, signal, onChunk, projectName, reasoningEffort: buildEffort });
+      // The extra pages (a menu, a contact page) need the same facts.
+      files = await createMissingPages({ files, request: research ? `${prompt}\n\n${research}` : prompt, signal, onChunk, projectName, reasoningEffort: buildEffort });
     }
 
     return {
@@ -1102,8 +1159,11 @@ const generateAppCodeCore = async (
     return msg;
   });
 
+  // With the Tavily connector on, the model can also search the web.
+  const webSearch = isWebSearchEnabled() ? createWebSearchBudget() : null;
+  const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
   const messages = [
-    { role: 'system', content: buildHtmlSystemPrompt(studioMode, getActiveConnectors()) },
+    { role: 'system', content: webSearch ? `${systemPrompt}\n\n${WEB_SEARCH_GUIDANCE}` : systemPrompt },
     ...formattedChatHistory,
     {
       role: 'user',
@@ -1139,10 +1199,14 @@ const generateAppCodeCore = async (
     if (onChunk && !isAutoFix) onChunk(text, 'status');
   };
 
-  for (let turn = 1; turn <= maxTurns; turn++) {
+  // Turns spent only searching don't count against the edit turns.
+  let turnLimit = maxTurns;
+  for (let turn = 1; turn <= turnLimit; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-    const currentTools = getRefinementTools(studioMode);
+    const currentTools = webSearch && webSearch.left > 0
+      ? [...getRefinementTools(studioMode), WEB_SEARCH_TOOL]
+      : getRefinementTools(studioMode);
 
     // Once edits have applied cleanly, the next turn is normally just the model
     // confirming it is done (or tidying up).
@@ -1215,12 +1279,20 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+      if (isWebSearchCall(toolCall)) {
+        const result = webSearch
+          ? await executeWebSearch(toolCall, webSearch)
+          : { success: false, error: 'Web search is not available.' };
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+        continue;
+      }
       const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);
       workingFiles = nextFiles;
       if (applied) editsApplied = true;
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
     reportChangedPages(onChunk, turnStartFiles, workingFiles);
+    if (message.tool_calls.every(isWebSearchCall) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix

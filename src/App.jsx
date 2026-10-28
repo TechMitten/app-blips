@@ -28,6 +28,7 @@ import PublishDialog from './components/PublishDialog';
 import { surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
 import { forgetPixabayKey } from './lib/pixabay';
+import { forgetTavilyKey } from './lib/tavily';
 import { creditsSignOut } from './lib/credits';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
@@ -2627,6 +2628,9 @@ export default function App({ coldStart = false }) {
     // And the Pixabay connector's key.
     const pixabay = await forgetPixabayKey();
     if (pixabay.error) logError('Could not remove the Pixabay key during reset', pixabay.error);
+    // And the Tavily connector's key.
+    const tavily = await forgetTavilyKey();
+    if (tavily.error) logError('Could not remove the Tavily key during reset', tavily.error);
     // And the AppBlips AI Credits account. Saved credits count as a configured
     // provider (envProviderConfigured in main.js), so leaving them would also
     // skip first-run setup after the reload.

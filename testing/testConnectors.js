@@ -13,11 +13,12 @@ globalThis.window = { localStorage: {
 const {
   squareLinks, loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
   savePollinationsAccount,
+  saveTavilyKeyHint,
 } = await import('../src/lib/connectors.js');
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -261,6 +262,19 @@ assert.equal(loadConnectors().pixabay.keyHint, '1a2b');
 assert.deepEqual(getActiveConnectors(), []);
 saveConnectors({ pixabay: { enabled: false, key: '', keyHint: '1a2b' } });
 assert.equal(connectorStatus('pixabay'), 'off');
+saveConnectors({});
+
+// Tavily keeps its key the same way. It gives the AI a web_search tool rather
+// than a directive, so it isn't an active connector either; a rejected key
+// reported during a build clears the hint (saveTavilyKeyHint).
+saveConnectors({ tavily: { enabled: true, key: 'tvly-pasted', keyHint: '' } });
+assert.equal(connectorStatus('tavily'), 'needs-key');
+saveConnectors({ tavily: { enabled: true, key: '', keyHint: '9z8y' } });
+assert.equal(connectorStatus('tavily'), 'connected');
+assert.deepEqual(getActiveConnectors(), []);
+saveTavilyKeyHint('');
+assert.equal(connectorStatus('tavily'), 'needs-key');
+assert.equal(loadConnectors().tavily.enabled, true, 'a rejected key leaves the switch on');
 saveConnectors({});
 
 console.log('ok');

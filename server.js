@@ -25,6 +25,7 @@ import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
 import { handlePixabayApi } from './electron/server/pixabayApi.js';
+import { handleTavilyApi } from './electron/server/tavilyApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { handleCreditsApi } from './electron/server/creditsApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
@@ -48,6 +49,7 @@ const keys = createKeyFile({ file: defaultKeyFile() });
 const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-token.json') });
 const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pollinations-key.json') });
 const pixabayKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pixabay-key.json') });
+const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key.json') });
 const creditsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'credits-key.json') });
 
 const sendText = (res, status, text, headers = {}) => {
@@ -162,6 +164,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
     toFetchRequest(req)
       .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
+    toFetchRequest(req)
+      .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

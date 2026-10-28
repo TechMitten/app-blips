@@ -9,6 +9,7 @@ import { handleProviderApi } from './electron/server/providerApi.js'
 import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
+import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { handleCreditsApi } from './electron/server/creditsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
@@ -131,6 +132,17 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handlePixabayApi(await toFetchRequest(req), env, pixabayKeys)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The Tavily connector's web search for the AI, with the user's key kept the same way.
+      const tavilyKeys = createKeyFile({ file: defaultKeyFile(env, 'tavily-key.json') })
+      server.middlewares.use('/api/tavily', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Tavily web search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleTavilyApi(await toFetchRequest(req), env, tavilyKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.

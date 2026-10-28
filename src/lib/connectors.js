@@ -19,6 +19,10 @@
 // (electron/server/pixabayApi.js) and only its last four characters are kept
 // here, as `keyHint`. The AI never uses Pixabay directly: photos the user picks
 // are added to My images, so getActiveConnectors leaves it out.
+// Tavily is a server-key connector too, but for the AI: while it is connected
+// the build agent gets a web_search tool (lib/webSearch.js) that searches
+// through the server with the saved key. The tool carries its own
+// instructions, so it isn't in CONNECTOR_DIRECTIVES either.
 import { safeStorage } from './config.js';
 import { POLLINATIONS_EARNINGS, POLLINATIONS_FEE_NOTE } from './pollinationsApp.js';
 
@@ -405,6 +409,7 @@ export const CONNECTOR_DEFINITIONS = {
     keyUrl: 'https://pixabay.com/api/docs/',
     homeUrl: 'https://pixabay.com/',
     homeLinkLabel: 'Visit the Pixabay website',
+    keyLinkWhy: 'To copy your Pixabay API key. Pixabay shows it on its API documentation page once you are signed in.',
     isValidKey: () => false,
     page: {
       enableDescription: 'Search Pixabay’s free photos here and on the My images page, and add the ones you pick to your project.',
@@ -431,6 +436,50 @@ export const CONNECTOR_DEFINITIONS = {
         'Searches are remembered for a day, as Pixabay asks, and Pixabay limits how many searches a key can make each minute.',
         'Imported codebases don’t use it, since they don’t have My images.',
         'Pixabay is a separate service with its own terms.',
+      ],
+    },
+  },
+  tavily: {
+    id: 'tavily',
+    name: 'Tavily',
+    tagline: 'Let the AI search the web',
+    description: 'Web search for the AI. While it builds, the AI can look up real facts, such as a business’s opening hours, current news or how to use a service, instead of guessing.',
+    serverKey: true,
+    keyLabel: 'API key',
+    keyPlaceholder: 'tvly-…',
+    keyUrl: 'https://app.tavily.com/',
+    homeUrl: 'https://www.tavily.com/',
+    homeLinkLabel: 'Visit the Tavily website',
+    // Opened from the key help on the settings page (ServerKeyConnector.jsx).
+    keyLinkWhy: 'To copy your Tavily API key. Tavily shows it on its dashboard once you are signed in.',
+    isValidKey: () => false,
+    page: {
+      enableDescription: 'The AI can search the web while it builds and edits your projects, using your Tavily key.',
+      keyHelp: 'Sign in to Tavily and copy the API key shown on your dashboard (it starts with tvly-). It stays inside AppBlips and is never written into your projects.',
+      keyLinkLabel: 'Get your free key',
+      connected: 'The AI will search the web when a request needs real or up-to-date facts.',
+      needsKey: 'Add your key to finish setting up.',
+    },
+    prompts: [
+      'Search the web for the address, opening hours and phone number of my business and add them to the contact section.',
+      'Look up the latest news about this topic on the web and add a short “What’s new” section.',
+      'Search the web for how to embed a Google Map of my address and add one to the contact page.',
+    ],
+    about: {
+      what: 'Tavily is a search engine made for AI. With your own Tavily key, the AI that builds your projects can search the web when it needs facts it doesn’t know, such as details of a real business, current news or how to use a service, so it doesn’t have to guess.',
+      steps: [
+        'Create a free account at app.tavily.com, or sign in.',
+        'Copy the API key shown on your Tavily dashboard. It starts with tvly-.',
+        'Turn on Tavily here, paste the key into the API key box and click Save key.',
+        'From then on, when you ask for something that needs real or up-to-date facts, the AI searches the web first, both before the first build of a new project and while it edits. The chat shows “Searching the web…” while it does.',
+        'You can also ask for it directly, for example “search the web for our opening hours and add them”.',
+      ],
+      notes: [
+        'Each search uses one Tavily credit. Tavily’s free plan includes 1,000 credits a month. The AI makes at most 5 searches for each request, and none when it doesn’t need to.',
+        'Your key stays inside AppBlips and is never written into your projects. Only the AI’s search words go to Tavily, never your project’s code.',
+        'Search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.',
+        'It works in every studio, including imported codebases.',
+        'Tavily is a separate service with its own terms and limits.',
       ],
     },
   },
@@ -601,6 +650,17 @@ export const getPollinationsHelperOptions = (connectors = loadConnectors()) => {
 // Records the Pollinations account name after a sign-in, or clears it ('')
 // after a sign-out or when the server reports the sign-in expired. Without an
 // account the connector is switched off too, as in Settings.
+// Records the Tavily key's last four characters after it is saved, or clears
+// them ('') when the server reports the key was rejected or is gone, so the
+// connector shows that it needs a key again.
+export const saveTavilyKeyHint = (keyHint) => {
+  const connectors = loadConnectors();
+  if (connectors.tavily.keyHint === keyHint) return connectors;
+  const next = { ...connectors, tavily: { ...connectors.tavily, keyHint } };
+  saveConnectors(next);
+  return next;
+};
+
 export const savePollinationsAccount = (account) => {
   const connectors = loadConnectors();
   if (connectors.pollinations.account === account) return connectors;

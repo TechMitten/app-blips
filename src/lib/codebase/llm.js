@@ -6,6 +6,7 @@ import { asRoutedAnswerChunks, describeFileChanges, findSetupHints, generateChat
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
+import { WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL, createWebSearchBudget, executeWebSearch, isWebSearchCall, isWebSearchEnabled } from '../webSearch.js';
 
 export const MAX_CODEBASE_TURNS = 20;
 export const MAX_CODEBASE_ASK_TURNS = 8;
@@ -92,8 +93,10 @@ async function runCodebaseEdit({
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
+  // With the Tavily connector on, edits can also search the web.
+  const webSearch = !isAsk && isWebSearchEnabled() ? createWebSearchBudget() : null;
   const messages = [
-    { role: 'system', content: isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT },
+    { role: 'system', content: isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : webSearch ? `${CODEBASE_SYSTEM_PROMPT}\n\n${WEB_SEARCH_GUIDANCE}` : CODEBASE_SYSTEM_PROMPT },
     ...chatHistory,
     { role: 'user', content: userContent(`${context}\n\n## Request\n${prompt}`, attachment) },
   ];
@@ -188,7 +191,8 @@ async function runCodebaseEdit({
     if (turn === 1) status('Looking through your site\'s files…');
     const requireEdit = maxReadOnlyTurns > 0 && readOnlyTurns >= maxReadOnlyTurns
       && (!changed || buildErrors.length > 0) && !pendingFailures.size;
-    const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name)) : CODEBASE_TOOLS;
+    const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name))
+      : webSearch?.left > 0 ? [...CODEBASE_TOOLS, WEB_SEARCH_TOOL] : CODEBASE_TOOLS;
     if (requireEdit) {
       if (++forcedEditAttempts > 3) {
         throw new Error('The AI kept reviewing the site without applying the required changes. Your uploaded files are unchanged. Try preparing the site again.');
@@ -248,7 +252,9 @@ async function runCodebaseEdit({
     for (const toolCall of message.tool_calls) {
       status(describeCodebaseToolCall(toolCall));
       const allowed = availableTools.some((tool) => tool.function.name === toolCall.function?.name);
-      const outcome = !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
+      const outcome = isWebSearchCall(toolCall) && webSearch && !requireEdit
+        ? { state, applied: false, result: await executeWebSearch(toolCall, webSearch) }
+        : !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
         : { state, applied: false, result: { success: false, error: 'This tool is temporarily unavailable. Apply the requested edits using the file contents already provided.' } };
       diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });
       state = outcome.state;

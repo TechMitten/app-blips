@@ -344,6 +344,7 @@ function executeTool(state, toolCall, checkLimits = true) {
 export function describeCodebaseToolCall(toolCall) {
   const name = toolCall.function?.name;
   if (name === 'list_files' || name === 'read_file') return 'Reviewing your site…';
+  if (name === 'web_search') return 'Searching the web…';
   if (name === 'search_files') return 'Finding where to make the change…';
   if (name === 'apply_surgical_edits' || name === 'apply_file_changes') return 'Updating your site…';
   if (name === 'create_file') return 'Adding new content…';
