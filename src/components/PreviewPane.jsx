@@ -9,6 +9,7 @@ import PreviewTools from './PreviewTools';
 import BrowserBar from './BrowserBar';
 import PagePicker from './PagePicker';
 import ElementToolbar from './ElementToolbar';
+import ElementGroupToolbar from './ElementGroupToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
 import { PREVIEW_MODES, STUDIO_MODES } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -475,6 +476,16 @@ export default function PreviewPane({
               canRedo={Boolean(textSession.canRedo)}
               onUndo={onUndoText}
               onRedo={onRedoText}
+            />
+          ) : selectedElement.group ? (
+            <ElementGroupToolbar
+              key={selectionKey}
+              group={selectedElement}
+              isApplying={isApplyingElementEdit}
+              error={elementEditError}
+              onAction={onElementAction}
+              onEditWithAI={onElementEditWithAI}
+              onCancel={onCancelElementSelection}
             />
           ) : (
             <ElementToolbar

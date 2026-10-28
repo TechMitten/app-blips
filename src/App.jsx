@@ -35,7 +35,9 @@ import { compressImageDataUrl } from './lib/attachments';
 import { storeReviewPhotos } from './lib/reviewPhotos';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
-import { applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure } from './lib/directEdits';
+import {
+  applyDirectEdit, removeElements, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure,
+} from './lib/directEdits';
 import {
   loadPreviewStorage,
   savePreviewStorage,
@@ -212,8 +214,10 @@ export default function App({ coldStart = false }) {
     setCodeFile(null);
   }, []);
   // Website studio's click-to-edit picker state. `selectedElement` is the
-  // bridge's element-selected payload; `selectionKey` remounts the editor on
-  // every new selection so its local form state resets.
+  // bridge's element-selected payload, or `{ group: true, elements, truncated }`
+  // when several elements are picked at once (box select or Shift+click);
+  // `selectionKey` remounts the editor on every new selection so its local
+  // form state resets.
   const [isEditMode, setIsEditMode] = useState(false);
   // Drag mode lives inside click-to-edit: on, dragging an element in the
   // preview moves it; off, click-to-edit never drags.
@@ -910,7 +914,10 @@ export default function App({ coldStart = false }) {
   // in-place text-edit commit.
   const applyElementChangesToSource = useCallback((element, changes) => {
     if (!element || !activeCode) return { ok: false, reason: 'invalid' };
-    const result = applyDirectEdit(activeCode, element, changes);
+    // A group only supports deleting all of it; anything else goes through AI.
+    const result = element.group
+      ? (changes?.remove ? removeElements(activeCode, element.elements) : { ok: false, reason: 'invalid' })
+      : applyDirectEdit(activeCode, element, changes);
     if (!result.ok) return result;
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const newVersion = {
@@ -934,8 +941,9 @@ export default function App({ coldStart = false }) {
     });
     // The frame reloads from the edited source; put it back where the user
     // was working instead of at the top of the page.
-    if (element.scroll && typeof element.scroll.y === 'number') {
-      pendingScrollRef.current = { x: element.scroll.x || 0, y: element.scroll.y || 0 };
+    const scroll = element.group ? element.elements[0]?.scroll : element.scroll;
+    if (scroll && typeof scroll.y === 'number') {
+      pendingScrollRef.current = { x: scroll.x || 0, y: scroll.y || 0 };
     }
     return result;
   }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
@@ -951,7 +959,10 @@ export default function App({ coldStart = false }) {
         setElementEditError(null);
         return;
       }
-      setElementEditError(`${describeDirectEditFailure(result.reason)} Describe the change below to apply it with AI.`);
+      const why = selectedElement.group
+        ? 'One of the selected elements could not be found exactly in the page source, so they could not be deleted directly.'
+        : describeDirectEditFailure(result.reason);
+      setElementEditError(`${why} Describe the change below to apply it with AI.`);
       setSelectionKey((n) => n + 1);
       return;
     }
@@ -968,6 +979,8 @@ export default function App({ coldStart = false }) {
       if (!isGeneratingRef.current) undoRedoRef.current?.[action]?.();
       return;
     }
+    // A group selection can only be deleted together.
+    if (selectedElement?.group && action !== 'delete') return;
     const changes = {
       delete: { remove: true },
       duplicate: { duplicate: true },
@@ -975,7 +988,7 @@ export default function App({ coldStart = false }) {
       'move-down': { move: 1 },
     }[action];
     if (changes) handleApplyElementEdit(changes);
-  }, [handleApplyElementEdit]);
+  }, [selectedElement, handleApplyElementEdit]);
   elementActionRef.current = handleElementAction;
 
   // Drag-to-move in the preview: a `moveTo` direct edit. The dragged
@@ -1001,11 +1014,10 @@ export default function App({ coldStart = false }) {
   // exact source so the surgical edit can anchor on it.
   const handleElementEditWithAI = useCallback((instruction, { run = false } = {}) => {
     if (!selectedElement) return;
-    const prefill = buildElementEditPrompt(selectedElement, instruction, {
-      code: activeCode,
-      page: activePage,
-      multiPage: Object.keys(files).length > 1,
-    });
+    const context = { code: activeCode, page: activePage, multiPage: Object.keys(files).length > 1 };
+    const prefill = selectedElement.group
+      ? buildElementsEditPrompt(selectedElement.elements, instruction, context)
+      : buildElementEditPrompt(selectedElement, instruction, context);
     const canRun = run && String(instruction ?? '').trim() && chatMode !== 'ask'
       && !isGeneratingRef.current && !prompt.trim() && !attachment;
     deselectElement();

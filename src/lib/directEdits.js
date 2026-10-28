@@ -1131,6 +1131,40 @@ export const applyDirectEdit = (code, element, changes) => {
   return { ok: true, code: working, summary: `Inline edit: ${summaries.join(', ')}.` };
 };
 
+/**
+ * Remove several elements (a box or Shift+click selection) in one version.
+ * Every element is located in the untouched source first, then the blocks
+ * are cut from the end backwards so earlier offsets stay valid. All or
+ * nothing: one element that can't be located fails the whole delete.
+ *
+ * @param {string} code current generated HTML
+ * @param {object[]} elements the bridge's element-selected payloads
+ * @returns {{ ok: true, code: string, summary: string } | { ok: false, reason: string }}
+ */
+export const removeElements = (code, elements) => {
+  if (!code || !Array.isArray(elements) || !elements.length) return { ok: false, reason: 'invalid' };
+  const spans = [];
+  for (const element of elements) {
+    if (PROTECTED_TAGS.has(String(element?.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
+    const range = locateElement(code, element);
+    if (!range.ok) return range;
+    spans.push(lineSpan(code, blockStart(code, range.start), range.end));
+  }
+  spans.sort((a, b) => b.start - a.start);
+  let working = code;
+  let removed = 0;
+  let floor = Infinity;
+  for (const span of spans) {
+    // The frame never selects an element together with its ancestor, but two
+    // snapshots can still resolve to overlapping source; cut each byte once.
+    if (span.end > floor) continue;
+    working = working.slice(0, span.start) + working.slice(span.end);
+    floor = span.start;
+    removed += 1;
+  }
+  return { ok: true, code: working, summary: `Inline edit: removed ${removed} element${removed === 1 ? '' : 's'}.` };
+};
+
 const FAILURE_MESSAGES = {
   ambiguous: 'This element appears more than once in the page source, so it could not be edited directly.',
   'text-too-long': 'This text is too long to edit directly.',
@@ -1197,8 +1231,8 @@ const sectionNameBefore = (code, start) => {
  * @param {string} instruction what the user wants changed (may be empty)
  * @param {{ code?: string, page?: string, multiPage?: boolean }} context
  */
-export const buildElementEditPrompt = (element, instruction = '', context = {}) => {
-  if (!element) return instruction;
+// "the heading (<h2> class="…") that currently reads "…"", for the AI prompt.
+const elementPhrase = (element) => {
   const roleLabel = ROLE_LABELS[element.role] || 'element';
   const tag = element.tag || 'element';
   const parts = [`the ${roleLabel} (<${tag}>`];
@@ -1208,6 +1242,11 @@ export const buildElementEditPrompt = (element, instruction = '', context = {}) 
   if (element.attributes?.src && !element.attributes.src.startsWith('data:')) {
     parts.push(`with the image "${truncate(element.attributes.src, 100)}"`);
   }
+  return parts.join(' ');
+};
+
+export const buildElementEditPrompt = (element, instruction = '', context = {}) => {
+  if (!element) return instruction;
   const where = element.parentTag && element.parentTag !== 'body' ? ` (inside the <${element.parentTag}> section)` : '';
 
   const page = context.multiPage && context.page ? context.page : null;
@@ -1223,7 +1262,35 @@ export const buildElementEditPrompt = (element, instruction = '', context = {}) 
 
   const trimmed = String(instruction ?? '').trim();
   const ask = trimmed
-    ? `Directly edit ${parts.join(' ')}${where}: ${trimmed}`
-    : `Directly edit ${parts.join(' ')}${where}:`;
+    ? `Directly edit ${elementPhrase(element)}${where}: ${trimmed}`
+    : `Directly edit ${elementPhrase(element)}${where}:`;
   return [...lead, ask].join('\n');
+};
+
+/**
+ * The AI prompt for a group selection (box select or Shift+click): every
+ * element's exact source, numbered, then one instruction for all of them.
+ * An element that can't be located is still listed by its description.
+ *
+ * @param {object[]} elements the bridge's element-selected payloads
+ * @param {string} instruction what the user wants changed (may be empty)
+ * @param {{ code?: string, page?: string, multiPage?: boolean }} context
+ */
+export const buildElementsEditPrompt = (elements, instruction = '', context = {}) => {
+  if (!Array.isArray(elements) || !elements.length) return instruction;
+  if (elements.length === 1) return buildElementEditPrompt(elements[0], instruction, context);
+  const page = context.multiPage && context.page ? context.page : null;
+  const lines = [`Target elements (${elements.length})${page ? ` on ${page}` : ''}, as they appear in the source:`, ''];
+  elements.forEach((element, i) => {
+    const range = context.code ? locateElement(context.code, element) : null;
+    if (range?.ok) {
+      const section = sectionNameBefore(context.code, range.start);
+      lines.push(`${i + 1}.${section ? ` In the "${section}" section:` : ''}`, '```html', sourceSnippet(context.code, range), '```');
+    } else {
+      lines.push(`${i + 1}. ${elementPhrase(element)}`);
+    }
+  });
+  const trimmed = String(instruction ?? '').trim();
+  lines.push('', trimmed ? `Directly edit all ${elements.length} of these elements: ${trimmed}` : `Directly edit all ${elements.length} of these elements:`);
+  return lines.join('\n');
 };

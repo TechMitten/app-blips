@@ -237,6 +237,15 @@ export default function usePreviewBridge({
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
+      // Box select / Shift+click: several snapshots at once, handed on as one
+      // group selection (see `selectedElement` in App.jsx).
+      else if (data.type === 'elements-selected' && onElementSelectedRef.current) {
+        const elements = Array.isArray(data.payload?.elements)
+          ? data.payload.elements.filter((el) => el && typeof el === 'object').slice(0, 40)
+          : [];
+        if (elements.length > 1) onElementSelectedRef.current({ group: true, elements, truncated: !!data.payload.truncated });
+        else if (elements.length === 1) onElementSelectedRef.current(elements[0]);
+      }
       else if (data.type === 'element-deselected' && onElementDeselectedRef.current) onElementDeselectedRef.current();
       // Committed in-place text edit: payload is the element snapshot taken
       // BEFORE the typing (the match anchor) plus newText/editId/scroll.

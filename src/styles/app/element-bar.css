@@ -123,6 +123,18 @@
 
 .element-bar-grow { flex: 1 1 8rem; min-width: 0; }
 
+/* Group selection: how many elements the box or Shift+clicks picked. */
+.element-bar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-slate-700);
+}
+
 .element-bar-label {
   flex: none;
   font-size: 0.6875rem;

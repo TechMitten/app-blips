@@ -55,7 +55,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### Creation & Editing
 - **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
-- **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes, or ask the AI in plain English for deeper structural tweaks.
+- **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes (drag a box or Shift+click to select several at once), or ask the AI in plain English for deeper structural tweaks.
 - **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Connectors → My images and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
 - **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.

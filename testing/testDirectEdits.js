@@ -8,7 +8,8 @@
 
 import assert from 'node:assert';
 import {
-  applyDirectEdit, buildElementEditPrompt, describeDirectEditFailure, locateElement,
+  applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure, locateElement,
+  removeElements,
 } from '../src/lib/directEdits.js';
 
 const FIXTURE = `<!DOCTYPE html>
@@ -715,6 +716,69 @@ check('text edit across inline markup keeps the tags', () => {
   const styled = applyDirectEdit(page, heading, { text: 'Jenny & Al', style: { fontSize: '40px' } });
   assert.ok(styled.ok, styled.reason);
   assert.match(styled.code, /<h1 class="mt-6 font-display text-6xl" style="font-size: 40px;">\n {8}Jenny <span class="italic text-gold">&amp;<\/span> Al\n/);
+});
+
+console.log('\nremoveElements / buildElementsEditPrompt (group selection):');
+
+const navLink = (href, text) => el({
+  tag: 'a', role: 'link', text, parentTag: 'nav',
+  attributes: { href },
+  outerHTML: FIXTURE.match(new RegExp(`<a href="${href}"[^>]*>${text}</a>`))[0],
+});
+
+check('removes every element in one go, each with its own line', () => {
+  const result = removeElements(FIXTURE, [navLink('/home', 'Sunrise Bakery'), navLink('#contact', 'Order Now')]);
+  assert.ok(result.ok, result.reason);
+  assert.match(result.code, /<nav class="[^"]+">\n {4}<a href="\/menu" class="hover:text-amber-300">Menu<\/a>\n {2}<\/nav>/);
+  assert.strictEqual(result.summary, 'Inline edit: removed 2 elements.');
+});
+
+check('a section is removed with its landmark comment', () => {
+  const header = el({
+    tag: 'header', text: 'Fresh bread, every morning',
+    outerHTML: FIXTURE.slice(FIXTURE.indexOf('<header'), FIXTURE.indexOf('</header>') + 9),
+  });
+  const result = removeElements(FIXTURE, [header, navLink('/menu', 'Menu')]);
+  assert.ok(result.ok, result.reason);
+  assert.ok(!result.code.includes('@section: hero') && !result.code.includes('<header') && !result.code.includes('/menu'));
+  assert.ok(result.code.includes('@section: about'));
+});
+
+check('all or nothing: one element that cannot be found fails the delete', () => {
+  const ghost = el({ tag: 'p', role: 'text', text: 'Not in the page', outerHTML: '<p>Not in the page</p>' });
+  const result = removeElements(FIXTURE, [navLink('/menu', 'Menu'), ghost]);
+  assert.strictEqual(result.ok, false);
+  assert.strictEqual(result.reason, 'element-not-found');
+});
+
+check('the page root cannot be group-deleted', () => {
+  const result = removeElements(FIXTURE, [navLink('/menu', 'Menu'), el({ tag: 'body' })]);
+  assert.strictEqual(result.reason, 'protected-element');
+});
+
+check('the same element twice is removed once', () => {
+  const result = removeElements(FIXTURE, [navLink('/menu', 'Menu'), navLink('/menu', 'Menu')]);
+  assert.ok(result.ok, result.reason);
+  assert.strictEqual(result.summary, 'Inline edit: removed 1 element.');
+  assert.ok(result.code.includes('Order Now'));
+});
+
+check('group prompt quotes each element and names the page', () => {
+  const prompt = buildElementsEditPrompt(
+    [navLink('/home', 'Sunrise Bakery'), navLink('/menu', 'Menu')],
+    'make them bold',
+    { code: FIXTURE, page: 'index.html', multiPage: true },
+  );
+  assert.match(prompt, /^Target elements \(2\) on index\.html/);
+  assert.strictEqual((prompt.match(/```html/g) || []).length, 2);
+  assert.match(prompt, /1\. In the "nav" section:\n```html\n<a href="\/home"/);
+  assert.match(prompt, /Directly edit all 2 of these elements: make them bold$/);
+});
+
+check('group prompt lists an unlocatable element by description', () => {
+  const ghost = el({ tag: 'p', role: 'text', text: 'Script-made', outerHTML: '<p>Script-made</p>' });
+  const prompt = buildElementsEditPrompt([navLink('/menu', 'Menu'), ghost], '', { code: FIXTURE });
+  assert.match(prompt, /2\. the text \(<p> \) that currently reads "Script-made"/);
 });
 
 console.log(`\n${passed} checks passed${process.exitCode ? ' (with failures above)' : ''}`);
