@@ -10,6 +10,7 @@ import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
+import { handleComputerApi } from './electron/server/computerApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { handleCreditsApi } from './electron/server/creditsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
@@ -143,6 +144,17 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleTavilyApi(await toFetchRequest(req), env, tavilyKeys)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The agent computer (npm installs and build checks), with its install ID kept the same way.
+      const computerIds = createKeyFile({ file: defaultKeyFile(env, 'computer-id.json') })
+      server.middlewares.use('/api/computer', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('The agent computer is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleComputerApi(await toFetchRequest(req), env, computerIds)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.

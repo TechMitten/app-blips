@@ -1,0 +1,37 @@
+---
+title: "Agent computer"
+sidebarTitle: "Agent computer"
+description: "A small AppBlips computer in the cloud that the AI uses to install packages properly, check that they exist, and test that an imported site builds."
+---
+
+The agent computer is a small computer in the cloud that belongs to AppBlips (computer.appblips.com). The AI uses it for one job only: running **npm**, the tool that downloads code libraries (called packages). It has no desktop and you can't type commands into it. Nothing to install or set up: it is on by default for everyone.
+
+## What the AI uses it for
+
+- **Imported sites:** when you ask for a new library, such as "add framer-motion and animate the hero", the AI installs it with real npm, so both `package.json` and `package-lock.json` are updated properly. Before it finishes a change that adds packages, it can run your project's own **npm run build** to prove the site still builds.
+- **Apps, websites and games:** before the AI uses a library from a CDN (a public site that hosts code libraries, such as esm.sh), it can check that the package and version really exist and what they offer. This avoids made-up package names that would leave the preview blank.
+
+If the agent computer isn't available, the AI carries on the way it did before: it edits `package.json` itself and uses AppBlips' built-in checker.
+
+## What is sent
+
+- **Checking a package:** only the package name and version.
+- **Installing a package:** your `package.json` and `package-lock.json`.
+- **Testing a build:** the whole imported project's source code. Images and private `.env` files are never sent. AppBlips asks you the first time, once for each project, and the AI skips the build test if you say no.
+
+Each project gets its own computer. It sleeps after 5 minutes without use, and everything stored on it is deleted after 7 days without use. Installs never run a package's own setup scripts. The computer can only reach the npm registry, and it holds none of your keys.
+
+## Limits
+
+The agent computer is free to use but limited, so one install can't use it all up. Adding a library normally takes two runs: one install and one build test. Each copy of AppBlips can make 10 runs an hour and 20 a day, and people sharing one internet connection together can make 30 an hour. Package checks have their own, higher limit. When a limit is reached, the chat says "Agent computer limit reached" and how long to wait, and the AI carries on without it.
+
+## Turn it off
+
+1. Click **Settings**, then the **Connectors** tab.
+2. At the top, switch **Agent computer** off.
+
+With it off, nothing is ever sent to computer.appblips.com.
+
+## Self-hosting
+
+In the browser version, set `APPBLIPS_COMPUTER=off` in `.env` to switch the agent computer off for everyone who uses your copy, or `APPBLIPS_COMPUTER_ORIGIN` to use your own deployment of the Worker in `workers/computer` (in the AppBlips-Landing repository). See [Configuration](/self-hosting/configuration).

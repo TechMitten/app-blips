@@ -30,6 +30,7 @@ import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
 import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { handleTavilyApi } from '../../electron/server/tavilyApi.js';
+import { handleComputerApi } from '../../electron/server/computerApi.js';
 import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { handleCreditsApi } from '../../electron/server/creditsApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
@@ -115,13 +116,14 @@ async function nativeFetch(input, init = {}) {
 const ENV = {};
 
 export async function installAndroidApi() {
-  const [keys, surgeTokens, pollinationsKeys, creditsKeys, pixabayKeys, tavilyKeys] = await Promise.all([
+  const [keys, surgeTokens, pollinationsKeys, creditsKeys, pixabayKeys, tavilyKeys, computerIds] = await Promise.all([
     createSecureKeyStore('provider-key'),
     createSecureKeyStore('surge-token'),
     createSecureKeyStore('pollinations-key'),
     createSecureKeyStore('credits-key'),
     createSecureKeyStore('pixabay-key'),
     createSecureKeyStore('tavily-key'),
+    createSecureKeyStore('computer-id'),
   ]);
 
   // The same routes, in the same order, as server.js.
@@ -133,6 +135,7 @@ export async function installAndroidApi() {
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],
     ['/api/pixabay', (request) => handlePixabayApi(request, ENV, pixabayKeys, { fetch: nativeFetch })],
     ['/api/tavily', (request) => handleTavilyApi(request, ENV, tavilyKeys, { fetch: nativeFetch })],
+    ['/api/computer', (request) => handleComputerApi(request, ENV, computerIds, { fetch: nativeFetch })],
     ['/api/seo/scan', (request) => handleSeoScanApi(request, ENV, { fetch: nativeFetch })],
   ];
   const routeFor = (url) => (url.origin === window.location.origin

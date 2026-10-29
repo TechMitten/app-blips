@@ -27,6 +27,7 @@ import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
+import { handleComputerApi } from './server/computerApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
 import { handleCreditsApi, hasSavedCredits } from './server/creditsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
@@ -57,6 +58,7 @@ let surgeStore;
 let pollinationsStore;
 let pixabayStore;
 let tavilyStore;
+let computerStore;
 let creditsStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
@@ -110,7 +112,8 @@ async function writeSettings(patch) {
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
 // /api/pollinations/* the Pollinations key, /api/pixabay/* the Pixabay key and
-// /api/tavily/* the Tavily key.
+// /api/tavily/* the Tavily key, and /api/computer/* the install ID that
+// tells one install's agent computer from another's.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -222,6 +225,11 @@ async function handleAppRequest(request) {
       case '/api/tavily/key':
       case '/api/tavily/search':
         return withSecurityHeaders(await handleTavilyApi(request, process.env, tavilyStore));
+      case '/api/computer':
+      case '/api/computer/npm/install':
+      case '/api/computer/npm/build':
+      case '/api/computer/npm/inspect':
+        return withSecurityHeaders(await handleComputerApi(request, process.env, computerStore));
       case '/api/seo/scan':
         return withSecurityHeaders(await handleSeoScanApi(request, process.env));
       default:
@@ -506,6 +514,11 @@ app.whenReady().then(() => {
     file: join(app.getPath('userData'), 'tavily.json'),
     crypto: safeStorage,
     label: 'Tavily',
+  });
+  computerStore = createSurgeStore({
+    file: join(app.getPath('userData'), 'computer.json'),
+    crypto: safeStorage,
+    label: 'Agent computer',
   });
   creditsStore = createSurgeStore({
     file: join(app.getPath('userData'), 'credits.json'),

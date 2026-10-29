@@ -100,6 +100,14 @@ Most people never set these. They let a server you run bill AppBlips AI Credits 
   The folder where the server saves the API key you enter under **Settings → API** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
 </ParamField>
 
+<ParamField body="APPBLIPS_COMPUTER" type="string">
+  Set to `off` to switch the [agent computer](/features/agent-computer) off for everyone who uses this copy of AppBlips. Otherwise it is on, and the AI can run npm on computer.appblips.com.
+</ParamField>
+
+<ParamField body="APPBLIPS_COMPUTER_ORIGIN" type="string">
+  Where the agent computer lives. Defaults to `https://computer.appblips.com`. Set it to your own deployment of the Worker in `workers/computer` (AppBlips-Landing repository) to self-host it.
+</ParamField>
+
 <ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">
   Where LM Studio and Ollama run, when that isn't the same machine as the server. `docker-compose.yml` sets it to `host.docker.internal`, so a container can reach your computer; you rarely need to change it.
 </ParamField>
