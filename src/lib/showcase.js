@@ -19,6 +19,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'website',
     description: 'A garden-inspired flower shop with bouquet filters, subscriptions, wedding florals, and a delivery checker.',
     file: 'florist.html',
+    thumbnail: '/showcase/florist.webp',
     background: '#f7ecec',
   },
   {
@@ -27,6 +28,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'website',
     description: 'A luxury real estate website with property listings, neighborhood guides, and an interactive mortgage calculator.',
     file: 'realone.html',
+    thumbnail: '/showcase/realone.webp',
     background: '#0e1416',
   },
   {
@@ -35,6 +37,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'website',
     description: 'A cheerful pet grooming and daycare studio with service pricing, pet of the month gallery, and online booking.',
     file: 'petcare.html',
+    thumbnail: '/showcase/petcare.webp',
     background: '#fff8ee',
   },
   {
@@ -52,6 +55,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'game',
     description: 'Throw a paper plane with a drag-and-release launch, ride updrafts, dodge obstacles, collect stars, and beat your longest flight.',
     file: 'paperglide.html',
+    thumbnail: '/showcase/paperglide.webp',
     background: '#0b1020',
   },
   {
@@ -60,6 +64,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'game',
     description: 'A fast first-person 3D arena shooter where you survive escalating waves of hostile drones and aliens on desktop or phone.',
     file: 'shooter.html',
+    thumbnail: '/showcase/shooter.webp',
     background: '#05070f',
   },
   {
@@ -68,6 +73,7 @@ export const SHOWCASE_PROJECTS = [
     kind: 'website',
     description: 'An old-school Brooklyn barber shop website with service menus, barber profiles, an interactive map, and online chair booking.',
     file: 'ray-s-barber-shop.html',
+    thumbnail: '/showcase/ray-s-barber-shop.webp',
     background: '#0b0b0d',
   },
 ].map((project) => ({

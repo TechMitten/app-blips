@@ -46,29 +46,30 @@ function ShowcaseFrame({ project, title, sandbox, className, style, tabIndex, on
 }
 
 // A live, scaled-down 1280x800 render of the page (or its thumbnail image).
-// The frame only mounts once the card scrolls into view, so opening the
-// showcase doesn't start every game at once.
+// The frame only mounts while the card is in view, and unmounts when scrolled away,
+// so opening the showcase doesn't start every game at once.
 function ShowcaseThumbnail({ project }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(0.25);
   const [visible, setVisible] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const hasThumbnail = Boolean(project.thumbnail) && !imgFailed;
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || project.thumbnail) return undefined;
+    if (!container || hasThumbnail) return undefined;
     const resize = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / 1280));
     resize.observe(container);
     const reveal = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      setVisible(true);
-      reveal.disconnect();
-    }, { rootMargin: '200px' });
+      setVisible(entry.isIntersecting);
+    }, { rootMargin: '50px' });
     reveal.observe(container);
     return () => {
       resize.disconnect();
       reveal.disconnect();
     };
-  }, [project.thumbnail]);
+  }, [hasThumbnail]);
 
   return (
     <div
@@ -77,12 +78,13 @@ function ShowcaseThumbnail({ project }) {
       className="relative aspect-[16/10] w-full overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-white/10"
       style={{ backgroundColor: project.background }}
     >
-      {project.thumbnail ? (
+      {hasThumbnail ? (
         <img
           src={project.thumbnail}
           alt=""
           loading="lazy"
           decoding="async"
+          onError={() => setImgFailed(true)}
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : visible && (
