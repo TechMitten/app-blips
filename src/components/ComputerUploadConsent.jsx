@@ -32,7 +32,7 @@ export default function ComputerUploadConsent() {
       icon={CloudUpload}
     >
       <p className="text-sm leading-relaxed text-slate-600">
-        To prove your project still builds, the AI wants to run <strong>npm run build</strong> on a small AppBlips computer in the cloud (computer.appblips.com). That uploads this project&apos;s source code (not your images or private .env files). It is deleted after 7 days without use.
+        To prove your project still builds, the AI wants to run <strong>npm run build</strong> on a small AppBlips computer in the cloud (computer.appblips.com). That uploads this project&apos;s source code (not your images or private .env files). It is deleted as soon as the check finishes.
       </p>
       <p className="text-sm leading-relaxed text-slate-600">
         If you say no, AppBlips still checks the project with the built-in checker. You can turn the agent computer off in Settings → Connectors.

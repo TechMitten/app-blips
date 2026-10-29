@@ -6,6 +6,7 @@ import {
   handleCreditsApi,
   handleCreditsChat,
   calculateCreditsFromUsage,
+  billableCredits,
   createCreditToken,
   verifyCreditToken,
   recordPolarUsage,
@@ -192,7 +193,7 @@ test('connect, status, chat deduction, and sign-out work end to end against Pola
   );
   assert.equal(exhaustedRes.status, 429);
   const exhaustedBody = await exhaustedRes.json();
-  assert.match(exhaustedBody.error, /0 AppBlips AI Credits remaining/);
+  assert.match(exhaustedBody.error, /no AppBlips AI Credits left \(0 of 1,000 left\)/);
 
   // 5. Sign out clears the token
   const outRes = await handleCreditsApi(req('/api/credits', { method: 'DELETE' }), env, tokens, { fetch: mockFetch });
@@ -483,4 +484,12 @@ test('recordPolarUsage posts an ai_usage event and never throws', async () => {
   } finally {
     console.warn = warn;
   }
+});
+
+test('a request is never billed past the balance it started with', () => {
+  const big = { prompt_tokens: 8000, completion_tokens: 0 }; // 2 credits
+  assert.equal(billableCredits(big, 10), 2);
+  assert.equal(billableCredits(big, 1), 1, 'the last credit covers the last request: 100 of 100, never 101');
+  assert.equal(billableCredits(big, 0), 0);
+  assert.equal(billableCredits(undefined, 5), 1);
 });

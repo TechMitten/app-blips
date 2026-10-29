@@ -159,6 +159,15 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
   };
 
   const signedIn = Boolean(info?.signedIn);
+  // Polar takes the trial's credits back when it ends (cancelled or not
+  // renewed), so the balance then reads 0 granted with the trial's use still
+  // counted. Show it against the trial's size instead: "0 of 100 left", not
+  // "100 of 0".
+  const total = info?.totalGranted > 0 ? info.totalGranted : info?.trialExpired ? FREE_TRIAL_PACK.credits : 0;
+  const used = Math.min(info?.totalUsed || 0, total);
+  // Something to cancel: a running trial, or this period's paid credits. A
+  // cancelled plan leaves only the account (Polar keeps it, with its history).
+  const hasPlan = Boolean(info?.trialActive || info?.totalGranted > 0);
 
   // Until the first status arrives we can't tell signed in from signed out,
   // and guessing signed out flashes the connect form for connected users.
@@ -181,16 +190,14 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
             {typeof info.remaining === 'number' && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
                 <Sparkles size={12} />
-                {info.remaining.toLocaleString()} Credits left
+                {info.remaining.toLocaleString()} {info.remaining === 1 ? 'Credit' : 'Credits'} left
               </span>
             )}
           </div>
-          {typeof info.totalGranted === 'number' && info.totalGranted > 0 && (
-            <CreditUsageBar used={info.totalUsed || 0} total={info.totalGranted} />
-          )}
+          {total > 0 && <CreditUsageBar used={used} total={total} />}
           {typeof info.totalGranted === 'number' && (
             <p className="text-xs text-slate-500">
-              Used {(info.totalUsed || 0).toLocaleString()} of {info.totalGranted.toLocaleString()} total credits.
+              {total > 0 ? `${(total - used).toLocaleString()} of ${total.toLocaleString()} credits left.` : 'No active plan.'}
               {info.trialActive && info.trialExpiresAt
                 ? ` 3-day free trial active until ${new Date(info.trialExpiresAt).toLocaleDateString()}, then $10/month for 1,000 credits a month unless you cancel.`
                 : info.trialExpired && !info.remaining
@@ -213,9 +220,15 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
             <button type="button" onClick={signOut} disabled={Boolean(busy)} className={SECONDARY_BUTTON}>
               Disconnect
             </button>
-            <ConfirmedLink href={POLAR_PORTAL_URL} site="Polar" why="To cancel your subscription in the Polar customer portal, where billing is managed." className={SECONDARY_BUTTON}>
-              Cancel subscription <ExternalLink size={12} />
-            </ConfirmedLink>
+            {hasPlan ? (
+              <ConfirmedLink href={POLAR_PORTAL_URL} site="Polar" why="To cancel your subscription in the Polar customer portal, where billing is managed." className={SECONDARY_BUTTON}>
+                Cancel subscription <ExternalLink size={12} />
+              </ConfirmedLink>
+            ) : (
+              <ConfirmedLink href={POLAR_PORTAL_URL} site="Polar" why="To see your account, orders and invoices in the Polar customer portal, where billing is managed." className={SECONDARY_BUTTON}>
+                Manage account <ExternalLink size={12} />
+              </ConfirmedLink>
+            )}
           </div>
         </div>
       ) : (

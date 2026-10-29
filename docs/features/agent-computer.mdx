@@ -19,7 +19,7 @@ If the agent computer isn't available, the AI carries on the way it did before: 
 - **Installing a package:** your `package.json` and `package-lock.json`.
 - **Testing a build:** the whole imported project's source code. Images and private `.env` files are never sent. AppBlips asks you the first time, once for each project, and the AI skips the build test if you say no.
 
-Each project gets its own computer. It sleeps after 5 minutes without use, and everything stored on it is deleted after 7 days without use. Installs never run a package's own setup scripts. The computer can only reach the npm registry, and it holds none of your keys.
+Each project gets its own computer, and no two people ever share one. Your files are deleted from it as soon as each install or build check finishes, and it switches off after 5 minutes without use. Installs never run a package's own setup scripts. The computer can only download from the npm registry (it can't upload anything there or reach any other site), and it holds none of your keys.
 
 ## Limits
 

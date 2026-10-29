@@ -183,6 +183,14 @@ export function calculateCreditsFromUsage(usage) {
   return Math.max(1, Math.ceil(weighted / 4000));
 }
 
+// What one request is billed: its usage, but never more than the balance had
+// left when the request started, so a final request can't take the meter past
+// the plan (100 trial credits used as 101). Not airtight: two requests started
+// on the same last credits are each billed up to it.
+export function billableCredits(usage, remaining) {
+  return Math.min(calculateCreditsFromUsage(usage), Math.max(0, Math.floor(Number(remaining) || 0)));
+}
+
 const MAX_GRANT_PAGES = 10;
 
 /**
@@ -772,8 +780,9 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
       const expiredTrialNote = balance.trialExpired && balance.totalGranted === 0
         ? 'Your 3-day free trial has expired. '
         : '';
+      const left = balance.totalGranted > 0 ? ` (0 of ${balance.totalGranted.toLocaleString('en-US')} left)` : '';
       return json({
-        error: `${expiredTrialNote}You have 0 AppBlips AI Credits remaining (${balance.totalUsed} of ${balance.totalGranted} used). Choose a plan in Settings → Account & Usage to keep building.`,
+        error: `${expiredTrialNote}You have no AppBlips AI Credits left${left}. Choose a plan in Settings → Account & Usage to keep building.`,
         source: 'provider',
       }, 429);
     }
@@ -799,7 +808,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
 
     if (!bodyObj.stream || !upstream.body) {
       const data = await upstream.json();
-      const creditsUsed = calculateCreditsFromUsage(data?.usage);
+      const creditsUsed = billableCredits(data?.usage, balance.remaining);
       await recordPolarUsage(polarToken, balance.customerId, creditsUsed, bodyObj.model, data?.usage, fetchImpl);
       return json(data, 200);
     }
@@ -814,7 +823,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
         try {
           const { done, value } = await reader.read();
           if (done) {
-            const creditsUsed = calculateCreditsFromUsage(capturedUsage);
+            const creditsUsed = billableCredits(capturedUsage, balance.remaining);
             await recordPolarUsage(polarToken, balance.customerId, creditsUsed, bodyObj.model, capturedUsage, fetchImpl);
             controller.close();
             return;
