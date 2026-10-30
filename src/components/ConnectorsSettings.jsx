@@ -12,7 +12,7 @@ import PixabayConnector from './PixabayConnector';
 import ServerKeyConnector from './ServerKeyConnector';
 import SeoConnector from './SeoConnector';
 import ImagesConnector from './ImagesConnector';
-import AgentComputerSetting from './AgentComputerSetting';
+// import AgentComputerSetting from './AgentComputerSetting'; (hidden for now)
 import PublishDialog from './PublishDialog';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
@@ -348,7 +348,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
       <p className="mb-4 text-xs leading-snug text-slate-600">
         Connect services and the AI will wire them into your projects. Pick one to set it up.
       </p>
-      <AgentComputerSetting />
+      {/* Hidden for now: <AgentComputerSetting /> */}
       {/* The cards and the modal are both bg-surface, so they sit on a recessed
           tray to read as separate, raised tiles. On dark, shadows barely show
           and surface equals the modal, so the cards also get a lighter fill. */}

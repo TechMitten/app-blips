@@ -33,8 +33,7 @@
               "features/exporting",
               "features/publishing",
               "features/showcase",
-              "features/importing-sites",
-              "features/agent-computer"
+              "features/importing-sites"
             ]
           },
           {
