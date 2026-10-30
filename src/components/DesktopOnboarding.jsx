@@ -278,12 +278,12 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
 }
 
 const PLAN_OPTIONS = [
-  { id: 'credits', Icon: Coins, title: 'AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Already have a plan? Connect it on the next screen. New here? Start a 3-day free trial with 100 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
+  { id: 'credits', Icon: Coins, title: 'AppBlips AI Plan', text: 'Build with AppBlips-hosted AI. Already have a plan? Connect it on the next screen. New here? Start a 7-day free trial with 500 AI credits, then the Starter Plan at $10/month (plus applicable taxes), or pick a monthly plan with up to 6,000 credits. Cancel anytime.' },
   { id: 'key', Icon: KeyRound, title: 'Bring my own API key', text: 'Use your Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter account, or LM Studio or Ollama on this computer. Your provider bills you.' },
 ];
 
 const CREDITS_OPTIONS = [
-  { id: 'new', Icon: Sparkles, title: 'Purchase AI Credits', text: 'See the plans on appblips.com and start a free 3-day trial or choose a monthly plan.' },
+  { id: 'new', Icon: Sparkles, title: 'Purchase AI Credits', text: 'See the plans on appblips.com and start a free 7-day trial or choose a monthly plan.' },
   { id: 'existing', Icon: Mail, title: 'I already have AI Credits', text: 'You started a trial or subscribed to a plan. Connect it with the email you used at checkout.' },
 ];
 

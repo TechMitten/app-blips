@@ -161,8 +161,8 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
   const signedIn = Boolean(info?.signedIn);
   // Polar takes the trial's credits back when it ends (cancelled or not
   // renewed), so the balance then reads 0 granted with the trial's use still
-  // counted. Show it against the trial's size instead: "0 of 100 left", not
-  // "100 of 0".
+  // counted. Show it against the trial's size instead: "0 of 500 left", not
+  // "500 of 0".
   const total = info?.totalGranted > 0 ? info.totalGranted : info?.trialExpired ? FREE_TRIAL_PACK.credits : 0;
   const used = Math.min(info?.totalUsed || 0, total);
   // Something to cancel: a running trial, or this period's paid credits. A
@@ -199,9 +199,9 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
             <p className="text-xs text-slate-500">
               {total > 0 ? `${(total - used).toLocaleString()} of ${total.toLocaleString()} credits left.` : 'No active plan.'}
               {info.trialActive && info.trialExpiresAt
-                ? ` 3-day free trial active until ${new Date(info.trialExpiresAt).toLocaleDateString()}, then $10/month for 1,000 credits a month unless you cancel.`
+                ? ` 7-day free trial active until ${new Date(info.trialExpiresAt).toLocaleDateString()}, then $10/month for 1,000 credits a month unless you cancel.`
                 : info.trialExpired && !info.remaining
-                  ? ' Your 3-day free trial has expired — choose a plan below to continue.'
+                  ? ' Your 7-day free trial has expired — choose a plan below to continue.'
                   : ''}
             </p>
           )}
@@ -316,7 +316,7 @@ function AppBlipsCreditsRow({ byokActive, onClearByok, onLoaded }) {
             disabled={Boolean(busy)}
             className={PRIMARY_BUTTON}
           >
-            {busy === FREE_TRIAL_PACK.id ? 'Starting…' : <>Start 3-Day Free Trial <ExternalLink size={12} /></>}
+            {busy === FREE_TRIAL_PACK.id ? 'Starting…' : <>Start 7-Day Free Trial <ExternalLink size={12} /></>}
           </button>
         </div>
       )}

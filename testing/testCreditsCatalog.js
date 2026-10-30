@@ -105,5 +105,5 @@ test('live Polar products are unarchived monthly plans at the listed prices', { 
   assert.equal(trial.is_recurring, true, 'the trial must be a subscription in Polar');
   assert.equal(trial.is_archived, false, 'the trial must not be archived in Polar');
   assert.equal(trial.trial_interval, 'day', 'the trial should be measured in days');
-  assert.equal(trial.trial_interval_count, 3, 'the trial should last 3 days');
+  assert.equal(trial.trial_interval_count, 7, 'the trial should last 7 days');
 });

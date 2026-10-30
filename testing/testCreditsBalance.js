@@ -96,7 +96,7 @@ test('credits stop counting once the newest paid order is over a billing period 
   assert.equal(balance.totalGranted, 0);
 });
 
-test('an active trial grants its 100 credits', async () => {
+test('an active trial grants its 500 credits', async () => {
   const { fetchImpl } = mockFetch({
     grants: [{ customer_id: 'cust_1', benefit_id: TRIAL_BENEFIT, granted_at: daysAgo(1), customer: { email: 'a@b.com' } }],
   });
@@ -104,7 +104,7 @@ test('an active trial grants its 100 credits', async () => {
   const balance = await lookupPolarBalance('token', { email: 'a@b.com' }, fetchImpl);
 
   assert.equal(balance.found, true);
-  assert.equal(balance.totalGranted, 100);
+  assert.equal(balance.totalGranted, 500);
   assert.equal(balance.trialActive, true);
   assert.equal(balance.hasTrial, true);
 });
@@ -187,7 +187,7 @@ test('a revoked trial still lets an active paid plan count, and reads as expired
 
 test('an expired trial with no plan is found and marked expired', async () => {
   const { fetchImpl } = mockFetch({
-    grants: [{ customer_id: 'cust_1', benefit_id: TRIAL_BENEFIT, granted_at: daysAgo(5), customer: { email: 'a@b.com' } }],
+    grants: [{ customer_id: 'cust_1', benefit_id: TRIAL_BENEFIT, granted_at: daysAgo(9), customer: { email: 'a@b.com' } }],
   });
 
   const balance = await lookupPolarBalance('token', { email: 'a@b.com' }, fetchImpl);

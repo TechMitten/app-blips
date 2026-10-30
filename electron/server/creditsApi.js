@@ -25,28 +25,28 @@ export const DEFAULT_CREDITS_ORIGIN = 'https://appblips.com';
 export const POLAR_METER_ID = '4a375eb5-d47f-4160-89d9-c3b19be1e13e';
 export const DEFAULT_CREDITS_MODEL = 'deepseek-v4-pro';
 
-// The trial is a $10/month subscription with a 3-day trial period. When it
+// The trial is a $10/month subscription with a 7-day trial period. When it
 // starts, the webhook schedules it to switch to the Starter plan at the end of
 // the trial, so the first charge buys Starter's credits.
 export const TRIAL_PRODUCT_ID = '785150d6-39ca-45da-8cf2-f60aebcb8ee9';
 export const STARTER_PRODUCT_ID = '69c500c9-8114-4efd-a1c4-2cf6c62ebd5d';
 export const TRIAL_BENEFIT_ID = '3ceded01-ad19-4ec0-a544-f97d7f66572f';
-export const TRIAL_CREDITS = 100;
-export const TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+export const TRIAL_CREDITS = 500;
+export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const FREE_TRIAL_PACK = {
   id: 'trial',
-  name: '3-Day Free Trial — 100 AI Credits',
-  shortName: '3-Day Free Trial',
+  name: '7-Day Free Trial — 500 AI Credits',
+  shortName: '7-Day Free Trial',
   priceUsd: 0,
   credits: TRIAL_CREDITS,
   bonusCredits: 0,
-  badge: 'Free · 3 Days',
+  badge: 'Free · 7 Days',
   isTrial: true,
-  trialDays: 3,
+  trialDays: 7,
   productId: TRIAL_PRODUCT_ID,
   benefitId: TRIAL_BENEFIT_ID,
-  description: '100 AI credits for 3 days. Card required. Then you are charged for the Starter Plan at $10/month (plus taxes) unless you cancel before the trial ends. Unused credits do not roll over.',
+  description: '500 AI credits for 7 days. Card required. Then you are charged for the Starter Plan at $10/month (plus taxes) unless you cancel before the trial ends. Unused credits do not roll over.',
 };
 
 export const CREDIT_PACKS = [
@@ -185,7 +185,7 @@ export function calculateCreditsFromUsage(usage) {
 
 // What one request is billed: its usage, but never more than the balance had
 // left when the request started, so a final request can't take the meter past
-// the plan (100 trial credits used as 101). Not airtight: two requests started
+// the plan (500 trial credits used as 501). Not airtight: two requests started
 // on the same last credits are each billed up to it.
 export function billableCredits(usage, remaining) {
   return Math.min(calculateCreditsFromUsage(usage), Math.max(0, Math.floor(Number(remaining) || 0)));
@@ -259,7 +259,7 @@ async function paidOrderCredits(customerId, headers, fetchImpl) {
 /**
  * Looks up a customer's granted credits and meter usage in Polar using
  * `/v1/benefit-grants`, `/v1/orders` and `/v1/meters/{id}/quantities`.
- * Enforces the 3-day expiration window and 1-per-customer limit on the Free Trial benefit.
+ * Enforces the 7-day expiration window and 1-per-customer limit on the Free Trial benefit.
  */
 export async function lookupPolarBalance(polarToken, { email = '', customerId = '' }, fetchImpl = globalThis.fetch) {
   const targetEmail = String(email || '').trim().toLowerCase();
@@ -663,8 +663,8 @@ export async function handleCreditsApi(request, env, tokens, { fetch: fetchImpl 
             if (existing.hasTrial) {
               return json({
                 error: existing.trialActive
-                  ? `Your 3-day free trial is already active for ${email} (${existing.remaining} credits remaining). Click Connect Credits to use it.`
-                  : `The 3-day free trial has already been used for ${email}. Pick a credit pack to continue building.`,
+                  ? `Your 7-day free trial is already active for ${email} (${existing.remaining} credits remaining). Click Connect Credits to use it.`
+                  : `The 7-day free trial has already been used for ${email}. Pick a credit pack to continue building.`,
               }, 400);
             }
           } catch { /* proceed if balance check fails */ }
@@ -778,7 +778,7 @@ export async function handleCreditsChat(payload, env, tokens, { fetch: fetchImpl
 
     if (!balance.found || balance.remaining <= 0) {
       const expiredTrialNote = balance.trialExpired && balance.totalGranted === 0
-        ? 'Your 3-day free trial has expired. '
+        ? 'Your 7-day free trial has expired. '
         : '';
       const left = balance.totalGranted > 0 ? ` (0 of ${balance.totalGranted.toLocaleString('en-US')} left)` : '';
       return json({

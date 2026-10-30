@@ -209,7 +209,7 @@ test('foreign origins cannot access /api/credits', async () => {
   }
 });
 
-test('3-day free trial grants 100 credits while active and expires after 3 days', async () => {
+test('7-day free trial grants 500 credits while active and expires after 7 days', async () => {
   const tokens = memoryTokens();
   const env = { POLAR_TOKEN: 'polar_test_token', DEEPSEEK_API_KEY: 'ds_test_key' };
   let grantCreatedAt = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(); // 1 day ago (active)
@@ -246,14 +246,14 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
     return assert.fail(`Unexpected fetch URL: ${u}`);
   };
 
-  // Active trial (1 day old): 100 granted, 10 used -> 90 remaining
+  // Active trial (1 day old): 500 granted, 10 used -> 490 remaining
   const activeRes = await connectWithCode('trial@example.com', env, tokens, mockFetch);
   assert.equal(activeRes.status, 200);
   const activeBody = await activeRes.json();
   assert.equal(activeBody.trialActive, true);
   assert.equal(activeBody.trialExpired, false);
-  assert.equal(activeBody.totalGranted, 100);
-  assert.equal(activeBody.remaining, 90);
+  assert.equal(activeBody.totalGranted, 500);
+  assert.equal(activeBody.remaining, 490);
 
   // Duplicate trial checkout for the same email is blocked
   const dupCheckout = await handleCreditsApi(
@@ -264,8 +264,8 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
   );
   assert.equal(dupCheckout.status, 400);
 
-  // Expired trial (4 days old): 0 granted, 0 remaining, chat returns 429 mentioning expired trial
-  grantCreatedAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+  // Expired trial (8 days old): 0 granted, 0 remaining, chat returns 429 mentioning expired trial
+  grantCreatedAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
   const expiredStatus = await handleCreditsApi(req('/api/credits'), env, tokens, { fetch: mockFetch });
   const expiredBody = await expiredStatus.json();
   assert.equal(expiredBody.trialActive, false);
@@ -281,7 +281,7 @@ test('3-day free trial grants 100 credits while active and expires after 3 days'
   );
   assert.equal(expiredChat.status, 429);
   const expiredChatBody = await expiredChat.json();
-  assert.match(expiredChatBody.error, /3-day free trial has expired/);
+  assert.match(expiredChatBody.error, /7-day free trial has expired/);
 });
 
 test('connecting through the AppBlips credits server needs the emailed code', async () => {
