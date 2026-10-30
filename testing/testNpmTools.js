@@ -66,6 +66,48 @@ test('a hit limit turns every tool off and leaves a one-line note', async () => 
   assert.deepEqual(npmToolsLeft(budget), { install: false, build: false, inspect: false });
 });
 
+test('an install reply without a usable package.json is a fallback, never written into the project', async () => {
+  for (const reply of [{}, { ok: true }, { ok: true, packageJson: 42 }]) {
+    const budget = createNpmBudget();
+    const { result, files } = await executeNpmInstall(call('npm_install', { add: [{ name: 'a', version: null }], remove: [], dev: false }), budget, { files: FILES, projectId: 'p' }, { install: async () => reply });
+    assert.equal(result.success, false, JSON.stringify(reply));
+    assert.match(result.error, /Continue without/);
+    assert.equal(files, FILES, 'the working copy is untouched');
+    assert.deepEqual(npmToolsLeft(budget), { install: false, build: false, inspect: false });
+  }
+});
+
+test('an unavailable computer turns every tool off for the rest of the request', async () => {
+  const down = async () => ({ error: 'The agent computer isn’t reachable right now.', unavailable: true });
+  const budget = createNpmBudget();
+  const install = await executeNpmInstall(call('npm_install', { add: [{ name: 'a', version: null }], remove: [], dev: false }), budget, { files: FILES, projectId: 'p' }, { install: down });
+  assert.match(install.result.error, /unavailable.*Continue without/);
+  assert.equal(install.files, FILES);
+  assert.deepEqual(npmToolsLeft(budget), { install: false, build: false, inspect: false });
+  assert.equal(budget.limitNote, null, 'an outage is not announced as a limit');
+  const build = await executeRunBuild(call('run_build', {}), createNpmBudget(), { files: FILES, projectId: 'p' }, { build: down, confirm: async () => true });
+  assert.match(build.error, /unavailable/);
+});
+
+test('the page treats a bad relay answer as the computer being unavailable', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    for (const make of [
+      () => { throw new TypeError('network down'); },
+      () => new Response('<html>404</html>', { status: 404 }),
+      () => new Response('null', { status: 200 }),
+      () => new Response('[1]', { status: 200 }),
+    ]) {
+      globalThis.fetch = async () => make();
+      const answer = await computer.npmInstall({ projectId: 'p', packageJson: '{}', add: [], remove: [], dev: false });
+      assert.equal(answer.unavailable, true);
+      assert.ok(answer.error);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test('bad arguments and empty installs are answered, not thrown', async () => {
   const budget = createNpmBudget();
   const never = async () => { throw new Error('should not run'); };

@@ -69,11 +69,17 @@ async function call(path, { method = 'POST', body } = {}) {
   } catch {
     return { error: 'The agent computer isn’t reachable right now.', unavailable: true };
   }
+  let answer;
   try {
-    return await response.json();
+    answer = await response.json();
   } catch {
     return { error: `The agent computer request failed (error ${response.status}).`, unavailable: true };
   }
+  // Callers read fields off the answer, so anything but an object counts as no answer.
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) {
+    return { error: `The agent computer sent back something unexpected (error ${response.status}).`, unavailable: true };
+  }
+  return answer;
 }
 
 // -> { available }

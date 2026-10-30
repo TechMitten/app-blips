@@ -148,6 +148,8 @@ export async function executeNpmInstall(toolCall, budget, { files, projectId }, 
   // npm ran and said no (ok: false, with its log), or the computer didn't run it.
   if (response.ok === false) return { result: { success: false, error: response.error || 'npm could not install that.', note: UNTRUSTED_NPM_NOTE, log: response.log }, files };
   if (response.error) return { result: failure(response, budget, 'the install'), files };
+  // A reply without a usable package.json is not an install: never write it into the project.
+  if (response.ok !== true || typeof response.packageJson !== 'string') return { result: failure({ unavailable: true }, budget, 'the install'), files };
   const next = { ...files, 'package.json': response.packageJson };
   if (typeof response.packageLock === 'string') next['package-lock.json'] = response.packageLock;
   return {
