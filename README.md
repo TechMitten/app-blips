@@ -72,22 +72,35 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.23 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.24 (Click to expand)</strong></summary>
 <br />
 
-*Covers v0.1.22 and v0.1.23.*
+### v0.1.24
+
+**New**
+- **Edit code by hand:** open the **Code** tab (or **Files** for an imported project), click **Edit** and type your own changes, with the syntax colours lined up under the cursor. Save with the **Save** button or **Ctrl+S**: each save is a normal version, so undo and history work as usual. Unsaved changes are kept if you switch to the Preview tab, and AppBlips asks before you switch page or file.
+- **Code autocomplete:** while you edit, suggested words appear under the cursor (words from your file, plus JavaScript, CSS and HTML names). Use the arrow keys to pick and **Enter** or **Tab** to insert, or **Esc** to close. Suggestions are worked out on your computer; the AI is never called. On by default; switch it off in **Settings → Workspace → Code autocomplete**.
+
+**Improved**
+- **Your own edits stay yours:** if code you saved by hand has an error, AppBlips now shows the error and its line in the chat instead of having the AI rewrite your change automatically (which also spent tokens you didn't ask for). Saving again clears it.
+- **Clearer updates for Linux .deb installs:** the update notice and **Settings → Check** now show the right steps for how you installed AppBlips, with a command to copy: `apt upgrade` (or your software center) if you added the AppBlips package source, otherwise installing the downloaded .deb.
+- **Desktop preview opens full size:** the **Desktop** button now shows the preview at full size. The framed desktop window is one click away on the **Full size** toggle, and pressing **Desktop** again keeps the view you chose.
+- **Agent computer removed:** the AI no longer runs npm on computer.appblips.com, so nothing is sent there anymore and the **Agent computer** switch is gone from **Settings → Connectors**. For imported sites, the AI edits `package.json` itself and AppBlips' built-in build check tests the result.
+
+**Look and feel**
+- The buttons on the building screen (app header, Build panel, preview toolbar, embedded browser and click-to-edit bar) now look like raised keys that lift on hover and press down when clicked, with selected options shown held down. Works in light and dark themes and on phones.
+
+### v0.1.22 and v0.1.23
 
 **New**
 - **Tavily web search connector:** add your own Tavily key in **Settings → Connectors** and the AI can search the web while it builds, for facts it doesn't know (a real business's address and opening hours, current news, how to use a service) instead of guessing. Tavily's free plan includes 1,000 searches a month.
 
-**Changed**
+**Improved**
 - **Bring your own key only:** AppBlips AI Credits have been removed. Builds always use the AI provider you set up in **Settings**, and AppBlips itself is free. First-run setup is now three short steps (name, avatar, AI provider), and **Settings → Account & Usage** and the credits badge in the Build pane are gone. Any credits sign-in saved by an older version is deleted on startup.
 - **Your AI model's own safeguards only:** AppBlips no longer adds its own content rules on top of the model you choose, and Pixabay search no longer forces safe search. Refusals from your provider still show as before.
-
-**Improved**
 - The Showcase uses lightweight still thumbnails, so browsing it uses less memory and CPU.
 
-**Security**
+**For developers**
 - Updated build tools and dependencies (Electron Builder, Capacitor CLI, ESLint, minimatch, glob) to fix known security issues.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
