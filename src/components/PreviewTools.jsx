@@ -1,5 +1,5 @@
 import { SlidersHorizontal, Smartphone, Tablet, Monitor, Expand, RotateCcwSquare, ZoomOut, ZoomIn, Undo2, Redo2 } from 'lucide-react';
-import { PREVIEW_MODES } from '../lib/constants';
+import { PREVIEW_MODES, presetTarget } from '../lib/constants';
 import useDetailsDismiss from '../hooks/useDetailsDismiss';
 
 export default function PreviewTools({ activeTab, previewMode, onPreviewModeChange, onToggleOrientation, isForcedMobile, zoomLevel, isAutoZoom, onZoomOut, onZoomIn, onResetZoom, versions, currentVersionIndex, onUndo, onRedo }) {
@@ -25,7 +25,7 @@ export default function PreviewTools({ activeTab, previewMode, onPreviewModeChan
                 // Full size is a variant of Desktop, so Desktop stays lit.
                 const active = previewMode === mode || (mode === 'desktop' && PREVIEW_MODES[previewMode].isFill);
                 return (
-                <button key={mode} type="button" onClick={() => onPreviewModeChange(mode)} aria-label={label} title={label} aria-pressed={active} className={'nav-segmented-btn nav-segmented-btn-icon ' + (active ? 'nav-segmented-btn-active' : '')}>
+                <button key={mode} type="button" onClick={() => onPreviewModeChange(presetTarget(mode, previewMode))} aria-label={label} title={label} aria-pressed={active} className={'nav-segmented-btn nav-segmented-btn-icon ' + (active ? 'nav-segmented-btn-active' : '')}>
                   <Icon size={16} />
                 </button>
                 );

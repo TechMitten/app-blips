@@ -1918,5 +1918,13 @@ export const PREVIEW_MODES = {
   }
 };
 
+// Where a device key leads. Desktop opens Full size by default (the framed
+// desktop window is one click away on the Full size toggle); pressing it while
+// already in either desktop view keeps the one the user picked.
+export const presetTarget = (mode, previewMode) => {
+  if (mode !== 'desktop') return mode;
+  return previewMode === 'desktop' || PREVIEW_MODES[previewMode]?.isFill ? previewMode : 'fill';
+};
+
 // Desktop has no orientation concept (it's a browser window, not a rotatable
 // device), so only touch-chrome modes (mobile/tablet) swap width/height here.

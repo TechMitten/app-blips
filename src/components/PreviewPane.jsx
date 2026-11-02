@@ -11,7 +11,7 @@ import PagePicker from './PagePicker';
 import ElementToolbar from './ElementToolbar';
 import ElementGroupToolbar from './ElementGroupToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
-import { PREVIEW_MODES, STUDIO_MODES } from '../lib/constants';
+import { PREVIEW_MODES, STUDIO_MODES, presetTarget } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 
 // Icon-only in the bar; PREVIEW_MODES supplies the name and the viewport
@@ -255,7 +255,7 @@ export default function PreviewPane({
                 {DEVICE_PRESETS.map(({ mode, Icon }) => (
                   <button
                     key={mode}
-                    onClick={() => onPreviewModeChange(mode)}
+                    onClick={() => onPreviewModeChange(presetTarget(mode, previewMode))}
                     aria-label={PREVIEW_MODES[mode].label}
                     aria-pressed={isPresetActive(mode, previewMode)}
                     data-tip={`${PREVIEW_MODES[mode].label} \u2014 ${PREVIEW_MODES[mode].width} \u00d7 ${PREVIEW_MODES[mode].height}`}
