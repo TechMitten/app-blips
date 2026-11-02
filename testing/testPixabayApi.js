@@ -126,7 +126,8 @@ test('search returns only the fields the page needs, drops foreign URLs and is c
   }]);
   const asked = new URL(seen[0]);
   assert.equal(asked.searchParams.get('q'), 'mountain lake');
-  assert.equal(asked.searchParams.get('safesearch'), 'true');
+  // No safesearch filter: only the AI model's own safeguards apply.
+  assert.equal(asked.searchParams.get('safesearch'), null);
   assert.equal(asked.searchParams.get('image_type'), 'photo');
 
   await call('/api/pixabay/search', { method: 'POST', body: { q: 'mountain lake', page: 1 } }, tokens, fetch);

@@ -153,7 +153,6 @@ async function search({ q, page }, tokens, fetchImpl) {
   const params = {
     q: typeof q === 'string' ? q.trim().replace(/\s+/g, ' ').slice(0, MAX_QUERY) : '',
     image_type: 'photo',
-    safesearch: 'true',
     per_page: String(PER_PAGE),
     page: String(Math.min(MAX_PAGE, Math.max(1, Number.isSafeInteger(page) ? page : 1))),
   };
