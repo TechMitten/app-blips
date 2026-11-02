@@ -19,8 +19,7 @@
               "introduction",
               "quickstart-desktop",
               "quickstart-source",
-              "self-hosting/docker",
-              "reference/plans-billing"
+              "self-hosting/docker"
             ]
           },
           {
@@ -112,6 +111,10 @@
     {
       "source": "/pricing",
       "destination": "/quickstart-desktop"
+    },
+    {
+      "source": "/reference/plans-billing",
+      "destination": "/reference/faq"
     }
   ]
 }

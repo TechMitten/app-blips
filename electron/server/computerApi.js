@@ -3,7 +3,7 @@
 // install or remove packages (updating package-lock.json for real), run
 // `npm run build` on an imported codebase, and look up package details. Used by
 // every host (electron/main.js, server.js, the Vite dev server, android.js), so
-// Fetch primitives only, like creditsApi.js.
+// Fetch primitives only, like surgeApi.js.
 //
 //   GET  /api/computer              -> { available }
 //   POST /api/computer/npm/install  { projectId, packageJson, packageLock, add, remove, dev }

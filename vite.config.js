@@ -12,7 +12,6 @@ import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleComputerApi } from './electron/server/computerApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
-import { handleCreditsApi } from './electron/server/creditsApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -70,7 +69,6 @@ function llmProxyDevMiddleware(mode) {
       // computer (or a host in APPBLIPS_ALLOWED_HOSTS), never by another device
       // or a DNS-rebinding page.
       const keys = createKeyFile({ file: defaultKeyFile(env) })
-      const creditsKeys = createKeyFile({ file: defaultKeyFile(env, 'credits-key.json') })
       const noKeys = { keyFor: () => '', describe: () => ({ id: '', hasKey: false }) }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
@@ -80,17 +78,7 @@ function llmProxyDevMiddleware(mode) {
         }
         const allowed = hostAllowed(req.headers.host || '', env)
         const savedKeys = allowed ? keys : noKeys
-        const savedCredits = allowed ? creditsKeys : noKeys
-        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env, savedCredits)
-        sendWebResponse(res, response, {}, '[dev-proxy]')
-      }))
-      server.middlewares.use('/api/credits', guarded(async (req, res) => {
-        if (!hostAllowed(req.headers.host || '', env)) {
-          res.statusCode = 403
-          res.end('AppBlips Credits sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
-          return
-        }
-        const response = await handleCreditsApi(await toFetchRequest(req), env, creditsKeys)
+        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {

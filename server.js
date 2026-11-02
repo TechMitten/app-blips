@@ -14,7 +14,7 @@
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './electron/server/chatProxy.js';
@@ -28,7 +28,6 @@ import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleTavilyApi } from './electron/server/tavilyApi.js';
 import { handleComputerApi } from './electron/server/computerApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
-import { handleCreditsApi } from './electron/server/creditsApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
@@ -52,7 +51,9 @@ const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'poll
 const pixabayKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pixabay-key.json') });
 const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key.json') });
 const computerIds = createKeyFile({ file: defaultKeyFile(process.env, 'computer-id.json') });
-const creditsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'credits-key.json') });
+// AppBlips AI Credits were removed; delete the sign-in token older versions
+// saved, so no credential is left behind that nothing uses.
+rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -125,19 +126,12 @@ const server = createServer((req, res) => {
     }
     toChatRequest(req)
       .then((request) => withSavedProvider(request, keys))
-      .then((request) => handleChatProxy(request, process.env, creditsKeys))
+      .then((request) => handleChatProxy(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
   }
 
-  if (req.url === '/api/credits' || req.url.startsWith('/api/credits/')) {
-    toFetchRequest(req)
-      .then((request) => handleCreditsApi(request, process.env, creditsKeys))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
-      .catch(fail);
-    return;
-  }
 
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
     toFetchRequest(req)

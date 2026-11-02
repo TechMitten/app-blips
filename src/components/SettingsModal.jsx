@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info, UserRound } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import { ConfirmedLink } from './ExternalLinkConfirm';
@@ -10,7 +10,6 @@ import AboutSettings from './AboutSettings';
 import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
 import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
-import CreditsSettings from './CreditsSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import {
   SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
@@ -25,17 +24,14 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
 // AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects),
-// API (your own AI provider), Account & Usage (AppBlips AI Credits and usage), Data (project backup and
-// the desktop projects folder), Legal, Licenses (open source credits) and About (logo,
-// version, copyright). AppBlips is single-user, so Account & Usage is the AI Credits
-// connection.
+// API (your own AI provider), Data (project backup and the desktop projects folder),
+// Legal, Licenses (open source credits) and About (logo, version, copyright).
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
 const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', high: 'High' };
 
 const TABS = [
-  { id: 'credits', label: 'Account & Usage', Icon: UserRound },
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
@@ -396,7 +392,6 @@ export default function SettingsModal({
             <DesktopProviderSettings guardRef={providerGuardRef} />
           )}
 
-          {tab === 'credits' && <CreditsSettings />}
         </div>
       </div>
 

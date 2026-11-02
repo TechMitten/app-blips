@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
 
 **AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds. 
 
-It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama) or use built-in **AppBlips AI Credits**. No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
+It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
 
 ## Three Studios, One Workflow
 
@@ -61,7 +61,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key or Use Credits** — Connect your own API keys (or local models) for free, or subscribe to **AppBlips AI Credits** (starts with a 7-day, 500-credit trial; converts to the $10/mo Starter Plan for 1,000 credits/mo unless cancelled).
+- **Bring Your Own Key** — Connect your own API keys (or local models). AppBlips itself is free; your provider bills you for what you use.
 <!-- Hidden for now:
 - **Agent computer** — The AI can run real npm on a small AppBlips computer in the cloud: it installs packages properly (updating `package-lock.json`), checks that a library exists before using it, and tests that an imported site builds. On by default; package names and versions are sent, and testing a build asks before uploading your source. Switch it off in **Settings → Connectors**.
 -->
@@ -111,7 +111,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. Debian/Ubuntu users can also add the [AppBlips package source](https://docs.appblips.com/quickstart-desktop) to update with `sudo apt upgrade`. *(For AppImage: right-click → Properties → allow executing as a program).*
 - **macOS:** No native installer yet—use Docker or run from source below.
 
-> **First run:** Choose where to save your projects, then either connect **AppBlips AI Credits** or paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). Keys are encrypted using your OS system keychain.
+> **First run:** Choose where to save your projects, then paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). Keys are encrypted using your OS system keychain.
 
 ### 2. Docker (All Platforms)
 With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run from the project root:
@@ -186,11 +186,6 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 - **Privacy & Export:** The AI only receives image file paths, dimensions, and user notes (`buildImageGalleryNote` in `src/lib/prompts.js`)—never raw pixels. At render time, `images/<name>` swaps to `appblips://assets` or `data:` URLs, and bundles cleanly on export/publish.
 - **Test:** `node testing/testGalleryImages.js`.
 
-#### AppBlips AI Credits
-- **Billing & Auth:** Managed via [Polar](https://polar.sh) (`electron/server/creditsApi.js`, `src/lib/credits.js`). Users authenticate via emailed one-time codes (`/api/credits/connect` and `/api/credits/verify`). Credits route requests to DeepSeek (~4,000 weighted tokens per credit; output weighted 3x).
-- **Host Relay vs. Direct:** Packaged apps relay through `appblips.com`; self-hosters can set `POLAR_TOKEN` (with `orders:read`) and `DEEPSEEK_API_KEY` in `.env` for direct mode. Tokens are stored encrypted on desktop (`credits.json`) or `0600` (`credits-key.json`) on server.
-- **Test:** `npm run test:credits` (add `POLAR_TOKEN` and `APPBLIPS_POLAR_CONTRACT=1` for live contract verification).
-
 #### Pollinations Connector
 - **Integration:** Uses Pollinations' device flow (`electron/server/pollinationsApi.js`). Keyless `gen.pollinations.ai` URLs are resolved server-side after build into public `media.pollinations.ai` assets and bundled on export.
 - **In-App AI:** Injects `window.Pollinations` (`chat`, `image`, `mountConnect`) via `src/lib/pollinationsHelper.js`. Supports visitor-paid device flow (default) or a budget-capped site key.
@@ -209,7 +204,7 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 
 - **Strict Sandboxing:** Generated apps run inside a sandboxed iframe (`sandbox` without `allow-same-origin`) using an opaque origin, isolating them completely from the parent app.
 - **Local-First Keys:** The desktop app opens zero network ports and encrypts API keys in your OS keychain. The browser/Docker server binds strictly to `127.0.0.1` (`localhost`) and stores keys on disk (`~/.appblips` or `appblips-data` volume with restricted permissions)—never in browser storage.
-- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider, opt into AppBlips AI Credits (which routes prompts through AppBlips' proxy to DeepSeek), or explicitly click **Publish** to upload static files to Surge.
+- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider or explicitly click **Publish** to upload static files to Surge.
 
 ## License
 

@@ -11,7 +11,7 @@
 // keychain (providerStore.js); the renderer reaches both only through the
 // narrow IPC surface in preload.cjs.
 import { app, BrowserWindow, Menu, dialog, ipcMain, protocol, safeStorage, session, shell } from 'electron';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, rm, stat } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +29,6 @@ import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
 import { handleComputerApi } from './server/computerApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
-import { handleCreditsApi, hasSavedCredits } from './server/creditsApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
@@ -59,7 +58,6 @@ let pollinationsStore;
 let pixabayStore;
 let tavilyStore;
 let computerStore;
-let creditsStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
@@ -200,12 +198,7 @@ async function handleAppRequest(request) {
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env, creditsStore));
-      case '/api/credits':
-      case '/api/credits/connect':
-      case '/api/credits/verify':
-      case '/api/credits/checkout':
-        return withSecurityHeaders(await handleCreditsApi(request, process.env, creditsStore));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env));
       case '/api/surge':
       case '/api/surge/login':
       case '/api/surge/publish':
@@ -263,8 +256,8 @@ function handle(channel, fn) {
 }
 
 // Whether any provider is usable without Settings → AI (env vars set by a
-// power user launching from a terminal, or connected AppBlips AI Credits).
-const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error || hasSavedCredits(creditsStore);
+// power user launching from a terminal).
+const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error;
 
 function registerIpc() {
   handle('desktop:browser:input', (args) => executeBrowserInput(mainWindow, args));
@@ -520,11 +513,9 @@ app.whenReady().then(() => {
     crypto: safeStorage,
     label: 'Agent computer',
   });
-  creditsStore = createSurgeStore({
-    file: join(app.getPath('userData'), 'credits.json'),
-    crypto: safeStorage,
-    label: 'AppBlips Credits',
-  });
+  // AppBlips AI Credits were removed; delete the sign-in token older versions
+  // saved, so no credential is left behind that nothing uses.
+  rm(join(app.getPath('userData'), 'credits.json'), { force: true }).catch(() => {});
 
   updater = createUpdater({
     app,

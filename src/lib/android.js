@@ -32,7 +32,6 @@ import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { handleTavilyApi } from '../../electron/server/tavilyApi.js';
 import { handleComputerApi } from '../../electron/server/computerApi.js';
 import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
-import { handleCreditsApi } from '../../electron/server/creditsApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
 
@@ -116,11 +115,10 @@ async function nativeFetch(input, init = {}) {
 const ENV = {};
 
 export async function installAndroidApi() {
-  const [keys, surgeTokens, pollinationsKeys, creditsKeys, pixabayKeys, tavilyKeys, computerIds] = await Promise.all([
+  const [keys, surgeTokens, pollinationsKeys, pixabayKeys, tavilyKeys, computerIds] = await Promise.all([
     createSecureKeyStore('provider-key'),
     createSecureKeyStore('surge-token'),
     createSecureKeyStore('pollinations-key'),
-    createSecureKeyStore('credits-key'),
     createSecureKeyStore('pixabay-key'),
     createSecureKeyStore('tavily-key'),
     createSecureKeyStore('computer-id'),
@@ -128,8 +126,7 @@ export async function installAndroidApi() {
 
   // The same routes, in the same order, as server.js.
   const routes = [
-    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV, creditsKeys))],
-    ['/api/credits', (request) => handleCreditsApi(request, ENV, creditsKeys, { fetch: nativeFetch })],
+    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV))],
     ['/api/provider', (request) => handleProviderApi(request, ENV, keys)],
     ['/api/surge', (request) => handleSurgeApi(request, ENV, surgeTokens, { fetch: nativeFetch })],
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],

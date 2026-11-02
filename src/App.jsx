@@ -30,7 +30,6 @@ import { surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
 import { forgetPixabayKey } from './lib/pixabay';
 import { forgetTavilyKey } from './lib/tavily';
-import { creditsSignOut } from './lib/credits';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { generateAppCode, reviewBuild } from './lib/llm';
@@ -85,7 +84,6 @@ import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
-import useCreditBalance from './hooks/useCreditBalance';
 import { galleryExportFiles, galleryPath, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
@@ -121,7 +119,6 @@ export default function App({ coldStart = false }) {
     return window.matchMedia('(min-width: 1280px)').matches && stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState(null);
   // Desktop first run gets a dedicated introduction and AI setup. The main
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
@@ -146,7 +143,6 @@ export default function App({ coldStart = false }) {
       logWarn('Could not read the AI settings to prefill setup', err);
     }
     setIsSettingsOpen(false);
-    setSettingsInitialTab(null);
     setDesktopOnboarding({ loading: false, info, replay: true });
   };
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -260,8 +256,6 @@ export default function App({ coldStart = false }) {
   // attachmentForRequest capture in handleGenerate.
   const [pendingAttachment, setPendingAttachment] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  // Shown in the Build header for AI Credits users; null otherwise.
-  const creditsRemaining = useCreditBalance(isGenerating || isSettingsOpen);
   // Every version stores `files` (page filename -> HTML); `index.html` is the
   // landing page. `generatedCode` is the landing page's HTML, which the
   // generation and export paths still treat as "the app"; `activeCode` is
@@ -2632,11 +2626,6 @@ export default function App({ coldStart = false }) {
     // And the Tavily connector's key.
     const tavily = await forgetTavilyKey();
     if (tavily.error) logError('Could not remove the Tavily key during reset', tavily.error);
-    // And the AppBlips AI Credits account. Saved credits count as a configured
-    // provider (envProviderConfigured in main.js), so leaving them would also
-    // skip first-run setup after the reload.
-    const credits = await creditsSignOut();
-    if (credits.error) logError('Could not sign out of AppBlips AI Credits during reset', credits.error);
     localStorage.clear();
     window.location.reload();
   };
@@ -2667,13 +2656,7 @@ export default function App({ coldStart = false }) {
       <>
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
-        onComplete={(opts) => {
-          setDesktopOnboarding(null);
-          if (opts?.openAccount) {
-            setSettingsInitialTab('credits');
-            setIsSettingsOpen(true);
-          }
-        }}
+        onComplete={() => setDesktopOnboarding(null)}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
       />
       <UpdateNotice aboveOverlay />
@@ -2697,7 +2680,6 @@ export default function App({ coldStart = false }) {
   // "Apply to my site now": an ordinary build request, which carries the note.
   const handleApplySeo = () => {
     setIsSettingsOpen(false);
-    setSettingsInitialTab(null);
     handleGenerateRef.current?.(null, SEO_APPLY_PROMPT);
   };
   // The SEO page needs a workspace to attach its answers to; imported
@@ -2733,8 +2715,7 @@ export default function App({ coldStart = false }) {
   // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
-          onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
-          initialTab={settingsInitialTab}
+          onClose={() => setIsSettingsOpen(false)}
           themePreference={themePreference}
           onThemePreferenceChange={setThemePreference}
           resolvedTheme={resolvedTheme}
@@ -3063,8 +3044,6 @@ export default function App({ coldStart = false }) {
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
               onNewChat={handleStartNewChat}
-              creditsRemaining={creditsRemaining}
-              onOpenCredits={() => { setSettingsInitialTab('credits'); setIsSettingsOpen(true); }}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}
               chatBottomRef={chatBottomRef}

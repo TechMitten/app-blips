@@ -1,4 +1,4 @@
-import { TriangleAlert, RotateCcw, X, Plus, History, Sparkles } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Plus, History } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
@@ -54,8 +54,6 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
-  creditsRemaining = null,
-  onOpenCredits,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
 
@@ -69,20 +67,6 @@ export default function BuildPanel({
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
       <div className="build-panel-header relative h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         <h2 className="build-panel-title text-sm font-semibold text-slate-900 dark:text-white">Build</h2>
-        {/* Centred on the header itself, not in the gap between title and buttons. */}
-        {typeof creditsRemaining === 'number' && (
-          <button
-            type="button"
-            onClick={onOpenCredits}
-            className={`credits-header-badge absolute left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${creditsRemaining > 0 ? 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20' : 'bg-red-500/10 text-red-700 hover:bg-red-500/20'}`}
-            aria-label={`${creditsRemaining.toLocaleString()} AI Credits left. Open Account & Usage`}
-            title="AI Credits left. Click for Settings → Account & Usage"
-          >
-            <Sparkles size={12} aria-hidden="true" />
-            {creditsRemaining.toLocaleString()}
-            <span className="hidden @min-[22rem]:inline">credits left</span>
-          </button>
-        )}
         {/* Quick actions */}
         <div className="flex items-center">
           <button
