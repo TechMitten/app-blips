@@ -26,7 +26,6 @@ import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
 import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleTavilyApi } from './electron/server/tavilyApi.js';
-import { handleComputerApi } from './electron/server/computerApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
@@ -50,7 +49,6 @@ const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-tok
 const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pollinations-key.json') });
 const pixabayKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pixabay-key.json') });
 const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key.json') });
-const computerIds = createKeyFile({ file: defaultKeyFile(process.env, 'computer-id.json') });
 // AppBlips AI Credits were removed; delete the sign-in token older versions
 // saved, so no credential is left behind that nothing uses.
 rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
@@ -168,14 +166,6 @@ const server = createServer((req, res) => {
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     toFetchRequest(req)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
-      .catch(fail);
-    return;
-  }
-
-  if (req.url === '/api/computer' || req.url.startsWith('/api/computer/')) {
-    toFetchRequest(req)
-      .then((request) => handleComputerApi(request, process.env, computerIds))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

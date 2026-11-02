@@ -6,10 +6,6 @@ import { asRoutedAnswerChunks, describeFileChanges, findSetupHints, generateChat
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
-import {
-  CODEBASE_NPM_GUIDANCE, CODEBASE_NPM_TOOLS, INSPECT_TOOL_NAME, NPM_INSTALL_TOOL_NAME, RUN_BUILD_TOOL_NAME, createNpmBudget,
-  describeNpmToolCall, executeInspect, executeNpmInstall, executeRunBuild, isNpmEnabled, isNpmToolCall, npmToolsLeft,
-} from '../npmTools.js';
 import { WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL, createWebSearchBudget, executeWebSearch, isWebSearchCall, isWebSearchEnabled } from '../webSearch.js';
 
 export const MAX_CODEBASE_TURNS = 20;
@@ -87,7 +83,7 @@ export async function generateCodebaseEdit(options) {
 }
 
 async function runCodebaseEdit({
-  prompt, files, assets = {}, meta, chatHistory = [], onChunk = null, signal = null, projectId = null,
+  prompt, files, assets = {}, meta, chatHistory = [], onChunk = null, signal = null,
   attachment = null, isAsk = false, routedFromBuild = false, isAutoFix = false, buildCheck, diagnostics,
   // The user's reasoning setting, used for edit turns; Ask answers stay off.
   reasoningEffort = 'none',
@@ -99,12 +95,8 @@ async function runCodebaseEdit({
   const context = formatCodebaseContext(files, assets, meta);
   // With the Tavily connector on, edits can also search the web.
   const webSearch = !isAsk && isWebSearchEnabled() ? createWebSearchBudget() : null;
-  // The agent computer (lib/computer.js) lets edits run real npm. Without a
-  // project id there is no computer to name, so it is off.
-  const npm = !isAsk && projectId != null && isNpmEnabled() ? createNpmBudget() : null;
-  let npmLimitShown = false;
   const systemPrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT)
-    : [CODEBASE_SYSTEM_PROMPT, npm && CODEBASE_NPM_GUIDANCE, webSearch && WEB_SEARCH_GUIDANCE].filter(Boolean).join('\n\n');
+    : [CODEBASE_SYSTEM_PROMPT, webSearch && WEB_SEARCH_GUIDANCE].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system', content: systemPrompt },
     ...chatHistory,
@@ -168,27 +160,6 @@ async function runCodebaseEdit({
   let readOnlyTurns = 0;
   let forcedEditAttempts = 0;
 
-  // npm_install replaces package.json and the lockfile in the working copy;
-  // that is the one way the lockfile changes (the edit tools refuse it), and
-  // it counts as a change, so the build check below runs after it.
-  const runNpmTool = async (toolCall) => {
-    const name = toolCall.function?.name;
-    let outcome;
-    if (name === NPM_INSTALL_TOOL_NAME) {
-      const { result, files: nextFiles } = await executeNpmInstall(toolCall, npm, { files: state.files, projectId });
-      outcome = { state: nextFiles === state.files ? state : { ...state, files: nextFiles }, applied: result.success === true, result };
-    } else if (name === RUN_BUILD_TOOL_NAME) {
-      outcome = { state, applied: false, result: await executeRunBuild(toolCall, npm, { files: state.files, projectId }) };
-    } else {
-      outcome = { state, applied: false, result: await executeInspect(toolCall, npm) };
-    }
-    if (npm.limitNote && !npmLimitShown) {
-      npmLimitShown = true;
-      status(npm.limitNote);
-    }
-    return outcome;
-  };
-
   const runBuildCheck = async () => {
     if (!buildCheck) {
       diagnostics.warn('Build check skipped: no checker supplied');
@@ -222,12 +193,8 @@ async function runCodebaseEdit({
     if (turn === 1) status('Looking through your site\'s files…');
     const requireEdit = maxReadOnlyTurns > 0 && readOnlyTurns >= maxReadOnlyTurns
       && (!changed || buildErrors.length > 0) && !pendingFailures.size;
-    const npmLeft = npm ? npmToolsLeft(npm) : null;
-    const npmTools = npm ? CODEBASE_NPM_TOOLS.filter((tool) => ({
-      [NPM_INSTALL_TOOL_NAME]: npmLeft.install, [RUN_BUILD_TOOL_NAME]: npmLeft.build, [INSPECT_TOOL_NAME]: npmLeft.inspect,
-    })[tool.function.name]) : [];
     const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name))
-      : [...CODEBASE_TOOLS, ...(webSearch?.left > 0 ? [WEB_SEARCH_TOOL] : []), ...npmTools];
+      : webSearch?.left > 0 ? [...CODEBASE_TOOLS, WEB_SEARCH_TOOL] : CODEBASE_TOOLS;
     if (requireEdit) {
       if (++forcedEditAttempts > 3) {
         throw new Error('The AI kept reviewing the site without applying the required changes. Your uploaded files are unchanged. Try preparing the site again.');
@@ -285,12 +252,10 @@ async function runCodebaseEdit({
 
     let changedThisTurn = false;
     for (const toolCall of message.tool_calls) {
-      status(isNpmToolCall(toolCall) ? describeNpmToolCall(toolCall) : describeCodebaseToolCall(toolCall));
+      status(describeCodebaseToolCall(toolCall));
       const allowed = availableTools.some((tool) => tool.function.name === toolCall.function?.name);
       const outcome = isWebSearchCall(toolCall) && webSearch && !requireEdit
         ? { state, applied: false, result: await executeWebSearch(toolCall, webSearch) }
-        : isNpmToolCall(toolCall) && npm && !requireEdit
-        ? await runNpmTool(toolCall)
         : !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
         : { state, applied: false, result: { success: false, error: 'This tool is temporarily unavailable. Apply the requested edits using the file contents already provided.' } };
       diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });

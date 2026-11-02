@@ -64,9 +64,6 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect your own API keys (or local models). AppBlips itself is free; your provider bills you for what you use.
-<!-- Hidden for now:
-- **Agent computer** — The AI can run real npm on a small AppBlips computer in the cloud: it installs packages properly (updating `package-lock.json`), checks that a library exists before using it, and tests that an imported site builds. On by default; package names and versions are sent, and testing a build asks before uploading your source. Switch it off in **Settings → Connectors**.
--->
 - **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Connectors**. The built-in **SEO** connector needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting

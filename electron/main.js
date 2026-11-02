@@ -27,7 +27,6 @@ import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
-import { handleComputerApi } from './server/computerApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
@@ -57,7 +56,6 @@ let surgeStore;
 let pollinationsStore;
 let pixabayStore;
 let tavilyStore;
-let computerStore;
 let updater;
 // Set once queued project writes are on disk, so the next quit goes ahead.
 let flushed = false;
@@ -110,8 +108,7 @@ async function writeSettings(patch) {
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
 // /api/pollinations/* the Pollinations key, /api/pixabay/* the Pixabay key and
-// /api/tavily/* the Tavily key, and /api/computer/* the install ID that
-// tells one install's agent computer from another's.
+// /api/tavily/* the Tavily key.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -218,11 +215,6 @@ async function handleAppRequest(request) {
       case '/api/tavily/key':
       case '/api/tavily/search':
         return withSecurityHeaders(await handleTavilyApi(request, process.env, tavilyStore));
-      case '/api/computer':
-      case '/api/computer/npm/install':
-      case '/api/computer/npm/build':
-      case '/api/computer/npm/inspect':
-        return withSecurityHeaders(await handleComputerApi(request, process.env, computerStore));
       case '/api/seo/scan':
         return withSecurityHeaders(await handleSeoScanApi(request, process.env));
       default:
@@ -508,14 +500,11 @@ app.whenReady().then(() => {
     crypto: safeStorage,
     label: 'Tavily',
   });
-  computerStore = createSurgeStore({
-    file: join(app.getPath('userData'), 'computer.json'),
-    crypto: safeStorage,
-    label: 'Agent computer',
-  });
-  // AppBlips AI Credits were removed; delete the sign-in token older versions
-  // saved, so no credential is left behind that nothing uses.
+  // AppBlips AI Credits and the agent computer were removed; delete the
+  // sign-in token and install ID older versions saved, so nothing is left
+  // behind that no code uses.
   rm(join(app.getPath('userData'), 'credits.json'), { force: true }).catch(() => {});
+  rm(join(app.getPath('userData'), 'computer.json'), { force: true }).catch(() => {});
 
   updater = createUpdater({
     app,

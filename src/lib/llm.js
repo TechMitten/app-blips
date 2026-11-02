@@ -17,9 +17,6 @@ import {
   createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
 } from './webSearch';
 import {
-  INSPECT_GUIDANCE, INSPECT_TOOL, INSPECT_TOOL_NAME, createNpmBudget, describeNpmToolCall, executeInspect, isNpmEnabled,
-} from './npmTools';
-import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
 import {
@@ -1164,13 +1161,9 @@ const generateAppCodeCore = async (
 
   // With the Tavily connector on, the model can also search the web.
   const webSearch = isWebSearchEnabled() ? createWebSearchBudget() : null;
-  // Package checks (the agent computer, lib/computer.js) look a library up on
-  // npm before the model writes an esm.sh import map entry for it.
-  const npm = isNpmEnabled() ? createNpmBudget() : null;
-  const isInspectCall = (toolCall) => toolCall?.function?.name === INSPECT_TOOL_NAME;
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
   const messages = [
-    { role: 'system', content: [systemPrompt, webSearch && WEB_SEARCH_GUIDANCE, npm && INSPECT_GUIDANCE].filter(Boolean).join('\n\n') },
+    { role: 'system', content: webSearch ? `${systemPrompt}\n\n${WEB_SEARCH_GUIDANCE}` : systemPrompt },
     ...formattedChatHistory,
     {
       role: 'user',
@@ -1211,11 +1204,9 @@ const generateAppCodeCore = async (
   for (let turn = 1; turn <= turnLimit; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-    const currentTools = [
-      ...getRefinementTools(studioMode),
-      ...(webSearch && webSearch.left > 0 ? [WEB_SEARCH_TOOL] : []),
-      ...(npm && npm.inspect > 0 ? [INSPECT_TOOL] : []),
-    ];
+    const currentTools = webSearch && webSearch.left > 0
+      ? [...getRefinementTools(studioMode), WEB_SEARCH_TOOL]
+      : getRefinementTools(studioMode);
 
     // Once edits have applied cleanly, the next turn is normally just the model
     // confirming it is done (or tidying up).
@@ -1287,14 +1278,7 @@ const generateAppCodeCore = async (
         };
       }
 
-      if (onChunk) onChunk(isInspectCall(toolCall) ? describeNpmToolCall(toolCall) : describeToolCall(toolCall), 'status');
-      if (isInspectCall(toolCall)) {
-        const result = npm
-          ? await executeInspect(toolCall, npm)
-          : { success: false, error: 'Package checks are not available.' };
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-        continue;
-      }
+      if (onChunk) onChunk(describeToolCall(toolCall), 'status');
       if (isWebSearchCall(toolCall)) {
         const result = webSearch
           ? await executeWebSearch(toolCall, webSearch)
@@ -1308,7 +1292,7 @@ const generateAppCodeCore = async (
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
     reportChangedPages(onChunk, turnStartFiles, workingFiles);
-    if (message.tool_calls.every((call) => isWebSearchCall(call) || isInspectCall(call)) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
+    if (message.tool_calls.every(isWebSearchCall) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix

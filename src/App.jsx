@@ -16,7 +16,6 @@ import ProjectsListModal from './components/ProjectsListModal';
 import NamingModal from './components/NamingModal';
 import { isProjectNameTaken } from './lib/projectsStorage';
 import ConfirmModal from './components/ConfirmModal';
-import ComputerUploadConsent from './components/ComputerUploadConsent';
 
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
@@ -2907,8 +2906,6 @@ export default function App({ coldStart = false }) {
           onDeleteProject={handleDeleteProject}
         />
       )}
-
-      <ComputerUploadConsent />
 
       {isExitConfirmOpen && (
         <ConfirmModal
