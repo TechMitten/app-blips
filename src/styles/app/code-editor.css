@@ -59,6 +59,7 @@
 }
 
 .code-editor-stack {
+  position: relative;
   display: grid;
   flex: 1;
 }
@@ -103,4 +104,39 @@
 
 .code-editor-input::selection {
   background: rgba(59, 130, 246, 0.4);
+}
+
+/* Autocomplete list under the caret (Settings → Workspace → Code autocomplete). */
+.code-complete {
+  position: absolute;
+  z-index: 20;
+  min-width: 12rem;
+  max-width: 24rem;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: #111114;
+  border: 1px solid #2f2f37;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  white-space: pre;
+}
+
+.code-complete li {
+  overflow: hidden;
+  padding: 1px 8px;
+  border-radius: 4px;
+  color: #cfd8f3;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.code-complete li[aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.35);
+  color: #ffffff;
+}
+
+.code-complete-match {
+  color: #61afef;
+  font-weight: 600;
 }

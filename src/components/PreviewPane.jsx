@@ -81,6 +81,7 @@ export default function PreviewPane({
   copied,
   onCopyCode,
   onSaveCode,
+  codeAutocomplete = true,
   autoFollowCode,
   studioMode = 'app',
   isEditMode = false,
@@ -580,6 +581,7 @@ export default function PreviewPane({
             copied={copied}
             onCopy={onCopyCode}
             onSaveCode={onSaveCode}
+            autocomplete={codeAutocomplete}
             autoFollow={autoFollowCode}
           />
         )}

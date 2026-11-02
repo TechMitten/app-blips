@@ -39,13 +39,19 @@ These settings control how the preview and build experience behaves during and a
 ### Code view
 
 <ParamField body="Code view" type="toggle" default="On">
-  When enabled, a **Code** tab appears in the preview toolbar. Select it to inspect the raw HTML of your generated app at any time. Turn it off if you'd rather keep the interface focused on the live preview. Imported sites always show a **Files** tab instead, whatever this is set to.
+  When enabled, a **Code** tab appears in the preview toolbar. Select it to inspect the raw HTML of your generated app at any time, or click **Edit** to change it yourself (see [Edit the code yourself](/features/live-preview#edit-the-code-yourself)). Turn it off if you'd rather keep the interface focused on the live preview. Imported sites always show a **Files** tab instead, whatever this is set to.
 </ParamField>
 
 ### Auto Follow Code
 
 <ParamField body="Auto Follow Code" type="toggle" default="On">
   When enabled, the **Code** tab automatically scrolls to keep the most recently written line visible as AppBlips streams in the generated code. Disable this if you want to scroll back and read earlier sections while generation is still in progress.
+</ParamField>
+
+### Code autocomplete
+
+<ParamField body="Code autocomplete" type="toggle" default="On">
+  When enabled, editing code in the **Code** tab (after clicking **Edit**) shows a short list of suggested words as you type. Use the up and down arrow keys to pick one, then press Enter or Tab to insert it, or keep typing to ignore the list. Escape closes it. Suggestions come from words already in your code plus common keywords, HTML tags and CSS properties. They are worked out on your computer: nothing is sent to the AI and no tokens are used. Turn it off if you'd rather type without a list popping up.
 </ParamField>
 
 ### Live code preview

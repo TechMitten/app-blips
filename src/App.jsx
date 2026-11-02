@@ -61,7 +61,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -111,6 +111,7 @@ export default function App({ coldStart = false }) {
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
+  const [codeAutocomplete, setCodeAutocomplete] = useState(loadCodeAutocomplete);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
   const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort());
@@ -635,6 +636,13 @@ export default function App({ coldStart = false }) {
     }
   }, [scheduleReloadSettlement]);
 
+  // Id of the current version when it is a hand edit from the code view (see
+  // handleSaveCode), else null; read by handleRuntimeError.
+  const handEditRef = useRef(null);
+  const handEditErrorShownRef = useRef(null);
+  const currentVersionForHandEdit = versions[currentVersionIndex];
+  handEditRef.current = currentVersionForHandEdit?.handEdit ? currentVersionForHandEdit.id : null;
+
   const handleRuntimeError = useCallback((payload) => {
     // Browser-review errors are returned to that review's tool loop. Do not
     // start a competing auto-fix run against the previously saved version.
@@ -664,13 +672,29 @@ export default function App({ coldStart = false }) {
       return;
     }
 
-    runtimeErrorRetriesRef.current += 1;
     const errorDetails = payload?.message || 'Runtime error detected';
     const errorPage = activePageRef.current;
     // The frame reports lines of the preview document, which has the bridge
     // and shims spliced in above the app's own code; translate back to the
     // source the model edits, or it hunts for line 2483 in a 400-line file.
     const sourceLine = payload?.line ? payload.line - previewLineOffsetRef.current : 0;
+
+    // Code the user edited by hand is never "fixed" by the AI on its own: that
+    // would overwrite what they just typed and spend their tokens unasked.
+    // Say what broke (once per version) and leave the fix to them or the chat.
+    const handEdit = handEditRef.current;
+    if (handEdit) {
+      if (handEditErrorShownRef.current !== handEdit) {
+        handEditErrorShownRef.current = handEdit;
+        const where = studioModeRef.current === 'codebase'
+          ? ''
+          : `${errorPage !== LANDING_PAGE ? ` on ${errorPage}` : ''}${sourceLine > 0 ? ` at line ${sourceLine}` : ''}`;
+        setError(`Your code edit has an error${where}: ${errorDetails}. Fix it in the Code tab, or ask the AI to fix it.`);
+      }
+      return;
+    }
+
+    runtimeErrorRetriesRef.current += 1;
     let promptText = `Fix this runtime error${errorPage !== LANDING_PAGE ? ` on the page ${errorPage} (pass file: "${errorPage}" when editing it)` : ''}:\n${errorDetails}${sourceLine > 0 ? ` at line ${sourceLine}` : ''}`;
     if (studioModeRef.current === 'codebase') {
       // The line is in the preview bundle; its source map names the project file.
@@ -1369,6 +1393,10 @@ export default function App({ coldStart = false }) {
   useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
   }, [autoFollowCode]);
+
+  useEffect(() => {
+    localStorage.setItem(CODE_AUTOCOMPLETE_KEY, codeAutocomplete);
+  }, [codeAutocomplete]);
 
   useEffect(() => {
     localStorage.setItem(LIVE_CODE_PREVIEW_KEY, liveCodePreview);
@@ -2500,9 +2528,13 @@ export default function App({ coldStart = false }) {
       reply: null,
       chatMode: 'build',
       sessionId: currentChatSessionId,
+      // Errors in a hand edit are reported, not auto-fixed (handleRuntimeError).
+      handEdit: true,
       ...(isCodebase ? { assets: currentAssets || {} } : {}),
     };
     const finalVersions = [...updatedVersions, newVersion];
+    // A message about the previous version's error no longer applies.
+    setError(null);
     setFiles(nextFiles);
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
@@ -2773,6 +2805,8 @@ export default function App({ coldStart = false }) {
           onSkipSplashChange={setSkipSplash}
           autoFollowCode={autoFollowCode}
           onAutoFollowCodeChange={setAutoFollowCode}
+          codeAutocomplete={codeAutocomplete}
+          onCodeAutocompleteChange={setCodeAutocomplete}
           liveCodePreview={liveCodePreview}
           onLiveCodePreviewChange={setLiveCodePreview}
           buildPaneSide={buildPaneSide}
@@ -3166,6 +3200,7 @@ export default function App({ coldStart = false }) {
               copied={copied}
               onCopyCode={handleCopyCode}
               onSaveCode={handleSaveCode}
+              codeAutocomplete={codeAutocomplete}
               autoFollowCode={autoFollowCode}
               studioMode={studioMode}
               isEditMode={isEditMode}

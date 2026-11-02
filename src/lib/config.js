@@ -176,6 +176,20 @@ export const loadAutoFollowCode = () => {
   }
 };
 
+export const CODE_AUTOCOMPLETE_KEY = 'orion-code-autocomplete';
+
+// Boolean: whether the code view's hand editor suggests words as you type
+// (lib/codeComplete.js, local only). On by default; an explicitly saved user
+// choice is preserved.
+export const loadCodeAutocomplete = () => {
+  try {
+    const stored = safeStorage('local')?.getItem(CODE_AUTOCOMPLETE_KEY);
+    return stored === null || stored === undefined ? true : stored === 'true';
+  } catch {
+    return true;
+  }
+};
+
 export const LIVE_CODE_PREVIEW_KEY = 'orion-live-code-preview';
 
 // Boolean: whether the build overlay in the preview pane shows the streaming

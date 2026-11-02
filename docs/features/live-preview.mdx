@@ -44,9 +44,11 @@ If you'd rather not see the code, turn off **Live code preview** in **Settings �
 
 ## Code View
 
-Once generation is complete, you can inspect the generated HTML using the **Code** tab in the preview toolbar. It always shows each page's full source, including after small edits.
+Once generation is complete, you can inspect the generated HTML using the **Code** tab in the preview toolbar. It always shows each page's full source, including after small edits. You can also [edit the code yourself](#edit-the-code-yourself).
 
 The **Code** tab appears in the preview toolbar alongside the preview itself. It is shown by default; to hide it, go to **Settings → Workspace** and turn off the **Code view** toggle.
+
+You can also turn on **Auto Follow Code** (also in **Settings → Workspace**) to have the code panel automatically scroll to follow the latest line during generation.
 
 ### Edit the code yourself
 
@@ -57,9 +59,29 @@ You can change a page's code by hand:
 3. Type your changes. Tab indents the line.
 4. Click **Save** (or press Ctrl+S, ⌘S on Mac).
 
-Your change is saved as a new version, so **Previous version** undoes it like any other edit. Click **Cancel** to throw your changes away. You can't edit while the AI is working; wait for it to finish first. If you switch to the preview before saving, your unsaved changes are kept until you come back. Switching to another page first asks whether to discard them.
+To throw your changes away instead, click **Cancel**. You can't edit while the AI is working, so wait for it to finish first.
 
-You can also turn on **Auto Follow Code** (also in **Settings → Workspace**) to have the code panel automatically scroll to follow the latest line during generation.
+#### Autocomplete
+
+While you type, a short list of suggested words appears under the cursor:
+
+- Press the **up** and **down** arrow keys to pick a suggestion.
+- Press **Enter** or **Tab** to insert it, or click it.
+- Keep typing to ignore the list, or press **Escape** to close it.
+- Press Ctrl+Z (⌘Z on Mac) to undo an inserted suggestion.
+
+Suggestions come from words already in your code, plus common JavaScript keywords, HTML tags and attributes, and CSS properties (inside `<style>` blocks and CSS files). The list doesn't pop up when you type in the middle of a word.
+
+Everything is worked out on your computer. Nothing is sent to the AI, and no tokens (the units your AI provider bills you for) are used.
+
+Autocomplete is on by default. To turn it off, open **Settings → Workspace** and switch off **Code autocomplete**.
+
+#### Saving and errors
+
+- Each save becomes a new version, so **Previous version** undoes it like any other edit.
+- If you switch to the preview before saving, your unsaved changes are kept until you come back. Switching to another page first asks whether to discard them.
+- If your change has a JavaScript error, the chat shows where it is, for example: "Your code edit has an error at line 18: Uncaught ReferenceError: score is not defined. Fix it in the Code tab, or ask the AI to fix it."
+- AppBlips doesn't ask the AI to fix errors in your own edits automatically (it does for the AI's own builds). That way your edit is never overwritten and no tokens are spent without you asking. Fix it in the **Code** tab, or ask the AI in the chat.
 
 For an [imported site](/features/importing-sites), this tab is always shown and is called **Files**. See [Browse the project's files](/features/importing-sites#browse-the-projects-files).
 

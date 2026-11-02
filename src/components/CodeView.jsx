@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Code2, Check, Copy, FileQuestion, Image as ImageIcon, Loader2, PanelLeftClose, PanelLeftOpen, Pencil, Save, X } from 'lucide-react';
 import { highlightSource, highlightTokens } from '../lib/sourceHighlight';
+import { caretPosition, getCompletions } from '../lib/codeComplete';
 import { describeFile, mediaKind } from '../lib/codebase/fileInfo';
 import { formatBytes, utf8Length } from '../lib/codebase/paths';
 import FileExplorer, { FileIcon } from './FileExplorer';
@@ -132,7 +133,7 @@ export default function CodeView({
   pages = [], activePage = 'index.html', writingPage = null, onSelectPage,
   files = null, activeFile = null, activeFileIsBinary = false, onSelectFile,
   fileChanges = {}, entryFile = null, projectKey = 'default', assetUrl = null,
-  onSaveCode = null,
+  onSaveCode = null, autocomplete = true,
 }) {
   const hasTabs = pages.length > 1;
   const hasFileList = Array.isArray(files);
@@ -159,6 +160,9 @@ export default function CodeView({
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef(null);
+  const editorLayerRef = useRef(null);
+  // Open autocomplete list: { start, prefix, items, index, top, left }.
+  const [suggest, setSuggest] = useState(null);
   const isEditing = Boolean(editing && editing.target === editTarget);
   const isDirty = isEditing && editing.draft !== editing.base;
   const editingRef = useRef(editing);
@@ -224,7 +228,73 @@ export default function CodeView({
     }
   };
 
+  const completionPath = hasFileList ? activeFile : editTarget;
+
+  // Where to show the list: just under the caret. The editor is monospaced
+  // with a known line height, so line/column maths is enough (no DOM probing
+  // of the text area, which browsers don't expose).
+  const updateSuggestions = (el) => {
+    if (!autocomplete || !el || el.selectionStart !== el.selectionEnd) { setSuggest(null); return; }
+    const caret = el.selectionStart;
+    const result = getCompletions(el.value, caret, completionPath);
+    const layer = editorLayerRef.current;
+    if (!result || !layer) { setSuggest(null); return; }
+    const style = getComputedStyle(layer);
+    const lineHeight = parseFloat(style.lineHeight) || 21;
+    const ctx = document.createElement('canvas').getContext('2d');
+    let charWidth = 7.8;
+    if (ctx) { ctx.font = `${style.fontSize} ${style.fontFamily}`; charWidth = ctx.measureText('0000000000').width / 10 || charWidth; }
+    const { line, column } = caretPosition(el.value, result.start, 2);
+    setSuggest({
+      ...result,
+      index: 0,
+      top: (line + 1) * lineHeight,
+      left: (parseFloat(style.paddingLeft) || 0) + column * charWidth,
+    });
+  };
+
+  const acceptSuggestion = (word) => {
+    const el = textareaRef.current;
+    if (!el || !suggest) return;
+    const caret = el.selectionStart;
+    setSuggest(null);
+    el.focus({ preventScroll: true });
+    // Replace the typed prefix with the whole word. execCommand keeps native
+    // undo (Ctrl+Z) working; the fallback edits the draft directly.
+    el.setSelectionRange(suggest.start, caret);
+    if (!document.execCommand?.('insertText', false, word)) {
+      const next = `${el.value.slice(0, suggest.start)}${word}${el.value.slice(caret)}`;
+      setEditing((cur) => ({ ...cur, draft: next }));
+      const end = suggest.start + word.length;
+      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = end; });
+    }
+  };
+
+  useEffect(() => {
+    if (!autocomplete || !isEditing) setSuggest(null);
+  }, [autocomplete, isEditing]);
+
   const handleEditorKeyDown = (e) => {
+    if (suggest && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setSuggest((cur) => cur && { ...cur, index: (cur.index + step + cur.items.length) % cur.items.length });
+        return;
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) {
+        e.preventDefault();
+        acceptSuggestion(suggest.items[suggest.index]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        // Closes the list only; a second Escape leaves edit mode as before.
+        e.preventDefault();
+        setSuggest(null);
+        return;
+      }
+      if (['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) setSuggest(null);
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
       saveEditing();
@@ -356,14 +426,25 @@ export default function CodeView({
     <div className="code-editing flex min-w-max py-4 font-mono text-[13px] leading-relaxed">
       <div aria-hidden="true" className="code-editor-gutter">{editorLineNumbers}</div>
       <div className="code-editor-stack">
-        <pre aria-hidden="true" className="code-editor-layer" dangerouslySetInnerHTML={{ __html: editorHighlighted }} />
+        <pre ref={editorLayerRef} aria-hidden="true" className="code-editor-layer" dangerouslySetInnerHTML={{ __html: editorHighlighted }} />
         <textarea
           ref={textareaRef}
           value={editing.draft}
           onChange={(e) => {
             const next = e.target.value;
             setEditing((cur) => ({ ...cur, draft: next }));
+            // Only typing opens suggestions; deleting, pasting or a line
+            // break closes them.
+            const inputType = e.nativeEvent?.inputType || '';
+            if (autocomplete && (inputType === 'insertText' || inputType === 'insertCompositionText')) updateSuggestions(e.target);
+            else setSuggest(null);
           }}
+          onMouseDown={() => setSuggest(null)}
+          onBlur={() => setSuggest(null)}
+          aria-autocomplete={autocomplete ? 'list' : undefined}
+          aria-controls={suggest ? 'code-complete-list' : undefined}
+          aria-expanded={autocomplete ? Boolean(suggest) : undefined}
+          aria-activedescendant={suggest ? `code-complete-${suggest.index}` : undefined}
           onKeyDown={handleEditorKeyDown}
           // The box is always as big as its text (it shares the grid cell
           // with the <pre>), so any inner scroll is a browser nudge that
@@ -378,6 +459,24 @@ export default function CodeView({
           aria-label={`Edit the code of ${editTarget}`}
           className="code-editor-layer code-editor-input"
         />
+        {suggest && (
+          <ul id="code-complete-list" role="listbox" aria-label="Suggestions" className="code-complete" style={{ top: suggest.top, left: suggest.left }}>
+            {suggest.items.map((word, i) => (
+              <li
+                key={word}
+                id={`code-complete-${i}`}
+                role="option"
+                aria-selected={i === suggest.index}
+                // mousedown, not click, and no focus change: the text area
+                // keeps the caret where the word goes.
+                onMouseDown={(e) => { e.preventDefault(); acceptSuggestion(word); }}
+                onMouseEnter={() => setSuggest((cur) => cur && { ...cur, index: i })}
+              >
+                <span className="code-complete-match">{word.slice(0, suggest.prefix.length)}</span>{word.slice(suggest.prefix.length)}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

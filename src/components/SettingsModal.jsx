@@ -100,6 +100,8 @@ export default function SettingsModal({
   onSkipSplashChange,
   autoFollowCode,
   onAutoFollowCodeChange,
+  codeAutocomplete,
+  onCodeAutocompleteChange,
   liveCodePreview,
   onLiveCodePreviewChange,
   buildPaneSide,
@@ -261,11 +263,14 @@ export default function SettingsModal({
 
           {tab === 'workspace' && (
             <>
-              <SettingRow id="set-code" title="Code view" description="Show the Code tab in the preview toolbar to inspect the generated HTML.">
+              <SettingRow id="set-code" title="Code view" description="Show the Code tab in the preview toolbar to inspect and edit the generated code.">
                 <Switch checked={showCodeView} onChange={onShowCodeViewChange} labelledBy="set-code" />
               </SettingRow>
               <SettingRow id="set-follow" title="Auto Follow Code" description="Auto-scroll the Code tab to follow the latest line as the app is generated.">
                 <Switch checked={autoFollowCode} onChange={onAutoFollowCodeChange} labelledBy="set-follow" />
+              </SettingRow>
+              <SettingRow id="set-autocomplete" title="Code autocomplete" description="Suggest words as you type when editing code in the Code tab. Suggestions come from your own code and common keywords, never the AI.">
+                <Switch checked={codeAutocomplete} onChange={onCodeAutocompleteChange} labelledBy="set-autocomplete" />
               </SettingRow>
               <SettingRow id="set-livecode" title="Live code preview" description="Show the code being written in the preview pane while an app is generated.">
                 <Switch checked={liveCodePreview} onChange={onLiveCodePreviewChange} labelledBy="set-livecode" />
