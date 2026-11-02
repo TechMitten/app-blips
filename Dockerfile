@@ -18,6 +18,8 @@ COPY scripts/fetch-whisper-model.js scripts/
 RUN node scripts/fetch-whisper-model.js
 
 COPY package.json package-lock.json ./
+# package.json overrides minimatch with this local folder (see its README).
+COPY vendor/minimatch-compat vendor/minimatch-compat
 RUN npm ci
 
 COPY . .

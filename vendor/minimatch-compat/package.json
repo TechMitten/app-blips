@@ -1,0 +1,15 @@
+{
+  "name": "minimatch",
+  "version": "11.0.4-compat.1",
+  "description": "Patched minimatch 11 with the old callable export, for tools still on minimatch 3/5/9/10 (see README.md)",
+  "license": "BlueOak-1.0.0",
+  "private": true,
+  "main": "./index.cjs",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  }
+}
