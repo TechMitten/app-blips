@@ -1,0 +1,185 @@
+/* --- Raised toolbar keys --------------------------------------------------
+   Every control in the building screen's bars (app header, preview toolbar,
+   Build panel header,
+   embedded browser bar, click-to-edit bar) is a physical key: a top-lit
+   gradient body, a bright crown and a darker lip on the inside, and a
+   three-step drop shadow (contact, near, ambient) under it. Hover lifts the
+   key a pixel and lengthens the shadow; pressing sinks it. Segmented groups
+   become recessed wells the keys sit in, and an "on" toggle or selected
+   segment is drawn pressed in, so state reads as depth rather than a tint.
+
+   The filled brand keys (.brand-fill-text: Publish, Apply, a filled Export)
+   and the header's New App key keep their own treatment.
+
+   This sheet is imported after responsive.css and has to beat a stack of
+   older flat rules, several of them !important or (0,6,1) deep, including
+   the phone fold that flattens these bars. Rather than an !important on
+   every property, each selector carries :not(#_) -- it matches every element
+   (nothing has id "_") but adds ID-level specificity. !important remains only
+   where the rule it beats already uses it (selected segments). */
+
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar) {
+  --key-bg: linear-gradient(180deg, #ffffff 0%, #eef2f7 100%);
+  --key-bg-hover: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+  --key-border: rgb(15 23 42 / 0.14);
+  --key-border-hover: rgb(15 23 42 / 0.2);
+  --key-ink: var(--color-slate-700);
+  --key-ink-hover: var(--color-slate-900);
+  --key-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 1),
+    inset 0 -2px 0 rgb(15 23 42 / 0.06),
+    0 1px 1px rgb(15 23 42 / 0.1),
+    0 2px 4px -1px rgb(15 23 42 / 0.12),
+    0 6px 12px -6px rgb(15 23 42 / 0.25);
+  --key-shadow-hover:
+    inset 0 1px 0 rgb(255 255 255 / 1),
+    inset 0 -2px 0 rgb(15 23 42 / 0.06),
+    0 2px 2px rgb(15 23 42 / 0.1),
+    0 4px 8px -2px rgb(15 23 42 / 0.16),
+    0 12px 20px -8px rgb(15 23 42 / 0.3);
+  --key-pressed-bg: linear-gradient(180deg, #e2e8f0 0%, #edf1f6 100%);
+  --key-shadow-pressed:
+    inset 0 2px 4px rgb(15 23 42 / 0.18),
+    inset 0 1px 1px rgb(15 23 42 / 0.1),
+    0 1px 0 rgb(255 255 255 / 0.9);
+  --key-on-ink: var(--color-brand);
+  --key-on-rim: rgb(from var(--color-accent) r g b / 0.45);
+  --well-bg: rgb(15 23 42 / 0.06);
+  --well-border: rgb(15 23 42 / 0.08);
+  --well-shadow:
+    inset 0 1px 3px rgb(15 23 42 / 0.14),
+    0 1px 0 rgb(255 255 255 / 0.85);
+}
+
+/* Dark bars (the header is always dark). Depth on near-black has to come from
+   lightness: a wider gradient and a real rim, or the drop shadow vanishes. */
+:is(html.dark, .force-dark) :is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar),
+.force-dark:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar) {
+  --key-bg: linear-gradient(180deg, #424242 0%, #2a2a2a 100%);
+  --key-bg-hover: linear-gradient(180deg, #4e4e4e 0%, #333333 100%);
+  --key-border: rgb(255 255 255 / 0.12);
+  --key-border-hover: rgb(255 255 255 / 0.2);
+  --key-ink: rgb(255 255 255 / 0.8);
+  --key-ink-hover: #ffffff;
+  --key-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -2px 0 rgb(0 0 0 / 0.28),
+    0 1px 1px rgb(0 0 0 / 0.6),
+    0 3px 6px -1px rgb(0 0 0 / 0.55),
+    0 8px 16px -8px rgb(0 0 0 / 0.75);
+  --key-shadow-hover:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    inset 0 -2px 0 rgb(0 0 0 / 0.28),
+    0 2px 2px rgb(0 0 0 / 0.6),
+    0 5px 10px -2px rgb(0 0 0 / 0.6),
+    0 14px 22px -8px rgb(0 0 0 / 0.8);
+  --key-pressed-bg: linear-gradient(180deg, #161616 0%, #222222 100%);
+  --key-shadow-pressed:
+    inset 0 2px 5px rgb(0 0 0 / 0.65),
+    inset 0 0 0 1px rgb(0 0 0 / 0.35),
+    0 1px 0 rgb(255 255 255 / 0.07);
+  --key-on-ink: #ffffff;
+  --key-on-rim: rgb(57 135 208 / 0.6);
+  --well-bg: rgb(0 0 0 / 0.45);
+  --well-border: rgb(255 255 255 / 0.06);
+  --well-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 0.55),
+    0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* Wells. The sliders dropdown is a floating panel inside the toolbar and
+   keeps its own seated tracks. */
+:is(.app-header, .preview-pane-header, .element-bar) .nav-segmented-group:not(#_) {
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: var(--well-bg);
+  border: 1px solid var(--well-border);
+  box-shadow: var(--well-shadow);
+}
+
+/* Keys at rest. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .header-menu-key, .header-new-chat-key, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) {
+  background: var(--key-bg);
+  border: 1px solid var(--key-border);
+  color: var(--key-ink);
+  box-shadow: var(--key-shadow);
+  transition:
+    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+/* Lift. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .header-menu-key, .header-new-chat-key, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):hover:not(:disabled) {
+  background: var(--key-bg-hover);
+  border-color: var(--key-border-hover);
+  color: var(--key-ink-hover);
+  box-shadow: var(--key-shadow-hover);
+  transform: translateY(-1px);
+  /* Tailwind 4's scale-* utilities set the separate `scale` property, which
+     would stack on the lift (the new-chat key carries hover:scale-110). */
+  scale: none;
+}
+
+/* Press: the key sinks into the bar instead of shrinking. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .header-menu-key, .header-new-chat-key, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):active:not(:disabled) {
+  background: var(--key-pressed-bg);
+  box-shadow: var(--key-shadow-pressed);
+  transform: translateY(1px);
+}
+
+/* On / selected: held down, with accent ink and a faint accent rim. The
+   !important pair outranks .nav-segmented-btn-active's own. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_),
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_):hover:not(:disabled) {
+  background: var(--key-pressed-bg) !important;
+  border-color: var(--key-on-rim);
+  color: var(--key-on-ink) !important;
+  font-weight: 600;
+  box-shadow: var(--key-shadow-pressed), 0 0 0 1px var(--key-on-rim);
+  transform: translateY(1px);
+}
+
+/* The selected device keeps the red of the logo's dot. */
+.preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active:not(#_) {
+  color: #ec6452 !important;
+}
+
+/* Delete keys warn on hover. */
+.element-bar .nav-ghost.element-bar-danger:not(#_):hover:not(:disabled) {
+  color: var(--color-red-600);
+}
+
+/* Unavailable keys sit flat and faded, so they never read as pressable. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn):not(.brand-fill-text):not(#_):disabled {
+  opacity: 0.45;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* The box-shadow above replaces .nav-btn:focus-visible's ring; put it back
+   on top of the key's own shadow. */
+:is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .header-menu-key, .header-new-chat-key, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):focus-visible {
+  outline: none;
+  box-shadow:
+    var(--key-shadow),
+    0 0 0 2px var(--focus-halo),
+    0 0 0 4px rgb(from var(--color-accent) r g b / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.app-header, .preview-pane-header, .build-panel-header, .embedded-browser-bar, .element-bar)
+    :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .header-menu-key, .header-new-chat-key, .history-header-toggle, .new-chat-btn):not(#_) {
+    transform: none !important;
+  }
+}
