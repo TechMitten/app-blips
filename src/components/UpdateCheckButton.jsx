@@ -2,6 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { SECONDARY_BUTTON } from './SettingControls';
+import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { UPDATE_GUIDE_URL } from '../lib/updates';
 import { logError } from '../lib/errorLog';
@@ -57,7 +58,12 @@ export function UpdateCheckResult({ result }) {
           </button>
         </div>
       )}
-      {result.status === 'available' && (
+      {result.status === 'available' && isDesktop && result.deb && (
+        <div className="mt-1.5">
+          <DebUpdateHelp update={result} Link={ConfirmedLink} />
+        </div>
+      )}
+      {result.status === 'available' && !(isDesktop && result.deb) && (
         <div className="mt-2 flex flex-wrap gap-2">
           <ConfirmedLink href={isDesktop && result.downloadUrl ? result.downloadUrl : result.url} why={result.store ? 'To get the update from the Microsoft Store.' : isDesktop ? 'To download the newer version of AppBlips from the AppBlips release page.' : 'To read what changed in the newest version of AppBlips.'} className={SECONDARY_BUTTON}>
             {result.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}

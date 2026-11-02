@@ -122,6 +122,10 @@ AppBlips checks for new versions when it starts, and again every hour while it's
 
 - **Microsoft Store:** the Store updates AppBlips for you. When a new version is out, AppBlips also tells you and links to its Store page, so you can update straight away. A new version can take a day or two to appear in the Store.
 - **AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
-- **.deb:** if you added the AppBlips package source (see [Install](#install) above, or said yes when the installer asked), new versions arrive with `sudo apt update && sudo apt upgrade` and in your software center. Otherwise AppBlips tells you a new version is out and links to the download; install it the same way as the first time (`sudo apt install ./AppBlips-*.deb`). Either way your projects and settings stay as they are.
+- **.deb:** AppBlips tells you when a new version is out and shows the steps for your setup, with a command you can copy. AppBlips can't install it for you, because that needs your password.
+  - If you added the AppBlips package source (see [Install](#install) above, or said yes when the installer asked): install the update from the **Updates** section of your software center, or run `sudo apt update && sudo apt upgrade` in a terminal. A new version can take a little while to reach apt after it's announced; if it isn't offered yet, try again later or click **Download installer**.
+  - Otherwise: click **Download**, then open the downloaded file to install it with your software center. Or run `sudo apt install ~/Downloads/AppBlips-*.deb` in a terminal (change `~/Downloads` if your browser saved it somewhere else).
+
+  Either way your projects and settings stay as they are.
 
 To check straight away, go to **Settings → Workspace → Check for updates** and click **Check now**. To turn the automatic check off, use the switch next to it. The check asks GitHub, where releases are published, so GitHub sees your IP address.

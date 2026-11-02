@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  compareVersions, parseLatestRelease, checkForUpdate, CHECK_CACHE_KEY, CHECK_INTERVAL_MS, RELEASES_URL,
+  compareVersions, parseLatestRelease, checkForUpdate, debUpdateCommand, CHECK_CACHE_KEY, CHECK_INTERVAL_MS, RELEASES_URL,
 } from '../src/lib/updates.js';
+import { debInstall, APT_SOURCE_FILES } from '../electron/debInstall.js';
 
 const memoryStorage = () => {
   const map = new Map();
@@ -75,4 +76,23 @@ test('a forced check (Settings → Check now) skips the cache and reports failur
   assert.equal(forced.version, '0.3.0');
   await assert.rejects(checkForUpdate({ current: '0.1.0', storage, force: true, fetchImpl: github(403, { message: 'rate limited' }) }));
   assert.equal(await checkForUpdate({ current: '0.1.0', force: true, fetchImpl: github(404, { message: 'Not Found' }) }), null);
+});
+
+test('debUpdateCommand: apt upgrade with the source, else the downloaded .deb by name', () => {
+  assert.equal(debUpdateCommand({ apt: true, downloadUrl: 'https://github.com/TechMitten/app-blips/releases/download/v0.2.0/AppBlips-0.2.0.deb' }), 'sudo apt update && sudo apt upgrade');
+  assert.equal(debUpdateCommand({ downloadUrl: 'https://github.com/TechMitten/app-blips/releases/download/v0.2.0/AppBlips-0.2.0.deb' }), 'sudo apt install ~/Downloads/AppBlips-0.2.0.deb');
+  // Anything that isn't a plain file name never reaches the command.
+  assert.equal(debUpdateCommand({ downloadUrl: 'https://github.com/x/y/releases/download/v1/a%3Brm%20-rf.deb' }), 'sudo apt install ~/Downloads/AppBlips-*.deb');
+  assert.equal(debUpdateCommand({ downloadUrl: 'https://github.com/x/y/releases/download/v1/%E0%A4%A' }), 'sudo apt install ~/Downloads/AppBlips-*.deb');
+  assert.equal(debUpdateCommand({}), 'sudo apt install ~/Downloads/AppBlips-*.deb');
+});
+
+test('debInstall: only packaged non-AppImage Linux, apt when the source file exists', () => {
+  const has = (files) => (f) => files.includes(f);
+  assert.equal(debInstall({ isPackaged: false, platform: 'linux', env: {}, exists: has([]) }), null);
+  assert.equal(debInstall({ isPackaged: true, platform: 'win32', env: {}, exists: has([]) }), null);
+  assert.equal(debInstall({ isPackaged: true, platform: 'linux', env: { APPIMAGE: '/x.AppImage' }, exists: has([]) }), null);
+  assert.deepEqual(debInstall({ isPackaged: true, platform: 'linux', env: {}, exists: has([]) }), { deb: true, apt: false });
+  assert.deepEqual(debInstall({ isPackaged: true, platform: 'linux', env: {}, exists: has([APT_SOURCE_FILES[0]]) }), { deb: true, apt: true });
+  assert.deepEqual(debInstall({ isPackaged: true, platform: 'linux', env: {}, exists: () => { throw new Error('EACCES'); } }), { deb: true, apt: false });
 });

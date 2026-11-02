@@ -16,6 +16,9 @@ export const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases/latest`;
 // Only the browser version (from source or Docker) links here; the desktop
 // app updates itself or links to the installer.
 export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#updating';
+// .deb installs can't update themselves (it needs the user's password), so
+// their notice spells out the steps and links here for the long version.
+export const DESKTOP_UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-desktop#updates';
 // Microsoft Store installs link to their Store page instead of the release.
 export const STORE_URL = 'https://apps.microsoft.com/detail/9nk9ss4v2n1k';
 // Hourly, so a new release reaches people soon after it is published. One
@@ -106,4 +109,19 @@ export async function checkForUpdate({
     try { storage?.setItem(CHECK_CACHE_KEY, JSON.stringify({ checkedAt: now, release })); } catch { /* storage unavailable */ }
   }
   return release && compareVersions(release.version, current) > 0 ? release : null;
+}
+
+// The terminal command a .deb install's update notice offers to copy. With the
+// AppBlips apt source, a normal upgrade picks the new version up; without it,
+// the .deb the Download button saved is installed by hand. Browsers save to
+// ~/Downloads by default; the file name comes from the release, and only a
+// plain name is used so nothing odd ends up in a command people paste.
+export function debUpdateCommand({ apt, downloadUrl } = {}) {
+  if (apt) return 'sudo apt update && sudo apt upgrade';
+  let name = '';
+  try {
+    name = decodeURIComponent(String(downloadUrl || '').split('/').pop() || '');
+  } catch { /* malformed escape: use the pattern below */ }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+-]*\.deb$/.test(name)) name = 'AppBlips-*.deb';
+  return `sudo apt install ~/Downloads/${name}`;
 }

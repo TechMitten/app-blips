@@ -11,13 +11,15 @@
 //
 // Other installs can't replace themselves without a password prompt (.deb) or
 // aren't installs at all (`npm run desktop`), so check() answers
-// { auto: false } and the renderer falls back to its notify-only check
+// { auto: false } (plus { deb, apt } on a .deb, see debInstall.js, so the
+// notice can say how to update) and the renderer falls back to its notify-only check
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
 // { auto: false, store: true }: the renderer still runs the GitHub check, but
 // its notice links to the Store page instead of the release.
 import electronUpdater from 'electron-updater';
+import { debInstall } from './debInstall.js';
 
 const RECHECK_MS = 60 * 60 * 1000;
 
@@ -60,7 +62,7 @@ export function createUpdater({ app, send, beforeInstall }) {
       const force = options?.force === true;
       const result = { auto, version: app.getVersion() };
       if (process.windowsStore) return { ...result, store: true };
-      if (!auto) return result;
+      if (!auto) return { ...result, ...debInstall({ isPackaged: app.isPackaged }) };
       const busy = state.status === 'downloading' || state.status === 'ready';
       if (!busy && (force || Date.now() - lastCheck > RECHECK_MS)) {
         lastCheck = Date.now();

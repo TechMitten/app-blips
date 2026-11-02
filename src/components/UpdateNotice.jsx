@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
+import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { checkForUpdate, CHECK_INTERVAL_MS, STORE_URL, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
@@ -14,14 +15,21 @@ import { logError, logWarn } from '../lib/errorLog';
 //     the Store page instead of GitHub.
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
-//     download the new installer, source to the update instructions.
+//     download the new installer, source to the update instructions. A .deb
+//     also gets the steps to install it (DebUpdateHelp), which differ when
+//     the AppBlips apt source is set up.
 // Closing a release notice hides that version for good; "Later" on a
 // downloaded desktop update only hides it until next launch (it installs
 // when the app quits anyway).
 // `aboveOverlay` lifts it over the full-screen onboarding (z-index 1000), so a
 // fresh install hears about an update before setup is finished.
+// The notice's links open straight away, like its other buttons.
+function NoticeLink({ href, className, children }) {
+  return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>;
+}
+
 export default function UpdateNotice({ aboveOverlay = false }) {
-  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, store? }
+  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, store?, deb?, apt? }
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
 
@@ -31,9 +39,12 @@ export default function UpdateNotice({ aboveOverlay = false }) {
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });
     };
-    const checkReleases = (store = false) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
+    // `desktop` is the desktop updater's answer: store, or a .deb with or
+    // without the apt source.
+    const checkReleases = (desktop = null) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
       if (cancelled || !release || release.version === loadDismissedUpdate()) return;
-      setUpdate(store ? { kind: 'notify', version: release.version, url: STORE_URL, store } : { kind: 'notify', ...release });
+      if (desktop?.store) setUpdate({ kind: 'notify', version: release.version, url: STORE_URL, store: true });
+      else setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
     });
     const run = async () => {
       if (isDesktop) {
@@ -42,13 +53,15 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           return null;
         });
         if (result?.store) {
-          checkReleases(true);
+          checkReleases(result);
           return;
         }
         if (result?.auto) {
           fromDesktop(result.state);
           return;
         }
+        checkReleases(result);
+        return;
       }
       checkReleases();
     };
@@ -80,6 +93,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
   };
 
   const ready = update.kind === 'ready';
+  const deb = !ready && isDesktop && update.deb;
 
   return (
     <div
@@ -93,6 +107,11 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           <p className="font-semibold text-slate-900">
             {ready ? 'Update ready' : `AppBlips ${update.version} is available`}
           </p>
+          {deb ? (
+            <div className="mt-0.5">
+              <DebUpdateHelp update={update} Link={NoticeLink} />
+            </div>
+          ) : (
           <p className="mt-0.5 text-xs text-slate-600 leading-snug">
             {ready
               ? `AppBlips ${update.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`
@@ -102,11 +121,13 @@ export default function UpdateNotice({ aboveOverlay = false }) {
                   ? 'Download the new installer and install it over this version. Your projects stay where they are.'
                   : 'See what changed, and how to update your copy.'}
           </p>
+          )}
           {installFailed && (
             <p className="mt-1.5 text-xs text-red-600 leading-snug">
               The update couldn't start. Close AppBlips to install it, or download the new installer from the releases page.
             </p>
           )}
+          {!deb && (
           <div className="mt-2.5 flex flex-wrap gap-2">
             {ready ? (
               <>
@@ -128,6 +149,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
               </>
             )}
           </div>
+          )}
         </div>
         {!ready && (
           <button

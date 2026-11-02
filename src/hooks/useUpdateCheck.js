@@ -12,7 +12,7 @@ import { logWarn } from '../lib/errorLog';
 // Microsoft Store links to the Store, everything else links to the release.
 // A dismissed notice doesn't hide the answer here, since the user asked.
 export function useUpdateCheck() {
-  const [result, setResult] = useState(null); // { status, version?, url?, store? }
+  const [result, setResult] = useState(null); // { status, version?, url?, store?, deb?, apt? }
 
   // A self-updating build finishes downloading after the check returns.
   useEffect(() => (isDesktop ? desktopBridge.updates.onStatus((state) => {
@@ -37,7 +37,7 @@ export function useUpdateCheck() {
         const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
         setResult(!release ? { status: 'current' }
           : desktop?.store ? { status: 'available', version: release.version, url: STORE_URL, store: true }
-            : { status: 'available', ...release });
+            : { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
         return;
       }
       const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
