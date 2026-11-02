@@ -6,6 +6,50 @@ rss: true
 
 Each entry lists what changed in that version of AppBlips, newest first. To get the latest version, see [Install the desktop app](/quickstart-desktop) or [Run from source](/quickstart-source). Downloads for every release are on [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
+<Update label="0.1.23" description="November 2, 2026" tags={["For developers"]}>
+  ## For developers
+
+  - Updated build tools and dependencies (Electron Builder, Capacitor CLI, ESLint, minimatch and glob) to fix known security issues. Nothing changes in how AppBlips looks or works.
+</Update>
+
+<Update label="0.1.22" description="November 2, 2026" tags={["New", "Improved"]}>
+  ## New
+
+  - **Tavily web search connector.** Add your own Tavily key in **Settings → Connectors** and the AI can search the web while it builds, for facts it doesn't know (a real business's address and opening hours, current news, how to use a service) instead of guessing. Tavily's free plan includes 1,000 searches a month. See [Tavily](/features/connectors#tavily).
+
+  ## Improved
+
+  - **Bring your own key only.** AppBlips AI Credits have been removed. Builds always use the AI provider you set up in **Settings**, and AppBlips itself is free. First-run setup is now three short steps (name, avatar, AI provider), and **Settings → Account & Usage** and the credits badge in the Build pane are gone. Any credits sign-in saved by an older version is deleted on startup.
+  - **Your AI model's own safeguards only.** AppBlips no longer adds its own content rules on top of the model you choose, and Pixabay search no longer forces safe search. Refusals from your provider still show as before.
+  - The Showcase uses lightweight still thumbnails, so browsing it uses less memory and CPU.
+</Update>
+
+<Update label="0.1.21" description="October 28, 2026" tags={["New", "Improved", "Look and feel"]}>
+  ## New
+
+  - **Password-protect a published site.** Tick **Password protect this site** in **Publish** and visitors must type a password before they can see anything. Your pages are encrypted on your computer before upload, so neither the password nor your project's code is ever published. Use a long password, such as four random words. See [Publish to the web](/features/publishing).
+  - **Right-click menu in click-to-edit.** Right-click the preview to add a text container or an image, or to cut, copy, paste, duplicate, move or delete the element under the cursor. **Ask AI** in the same menu asks for a change at exactly that spot.
+  - **Pixabay connector.** Add your own Pixabay key in **Settings → Connectors**, search free photos and add the ones you pick to **My images**. See [Pixabay](/features/connectors#pixabay).
+  - **My images confirmation.** Before building with your images, the AI shows which one it matched, with thumbnails, and waits for your OK. Each image also has a **Copy name** button.
+  - **Select several elements in click-to-edit** by dragging a box or holding Shift and clicking.
+  - **Search engines are opt-in.** A new **Let search engines find this site** box in **Publish**, off by default. Unticked, your site asks search engines to stay away.
+
+  ## Improved
+
+  - The AI no longer picks broken or unrelated images from My images; made-up image paths are corrected to the closest real image.
+  - Saved projects open with the build chat scrolled to the latest message.
+  - The SEO questions end with **Send now** or **Maybe later**.
+  - The onboarding option is now called **AppBlips AI Plan**, with a more welcoming first screen.
+  - Touch screens: click-to-edit lets you scroll and move the cursor, and the phone view always shows on touch-only devices.
+  - Gallery thumbnails no longer show as broken when My images opens.
+  - A blank tooltip square no longer appears over preview icons on touch screens.
+
+  ## Look and feel
+
+  - The build blueprint fits small phones and landscape tablets, and the splash video is smaller.
+  - The Space Shooter and Retro Snake starter presets were removed.
+</Update>
+
 <Update label="0.1.20" description="October 27, 2026" tags={["New", "Improved", "Look and feel"]}>
   ## New
 
