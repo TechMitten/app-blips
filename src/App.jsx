@@ -50,7 +50,8 @@ import {
 } from './lib/previewStorage';
 import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
-import { LANDING_PAGE, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
+import { LANDING_PAGE, checkFilesLimits, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
+import { MAX_TEXT_FILE_BYTES, formatBytes, utf8Length } from './lib/codebase/paths';
 import { formatSyntaxErrors } from './lib/syntaxCheck';
 import { AUTO_FIX_PROMPT, AUTO_FIX_REPLY, AUTO_FIX_FAILURE, automaticRepairStatus, isAutomaticRepair } from './lib/buildMessages';
 import { checkSyntaxFiles } from './lib/pageTools';
@@ -2472,6 +2473,43 @@ export default function App({ coldStart = false }) {
     isBusy: isGenerating,
   });
 
+  // Code edited by hand in the code view is saved as a normal version (like
+  // click-to-edit changes), so undo/redo, history and saving all just work.
+  // It goes into `files` as-is: the preview sandbox treats it exactly like
+  // AI-written code.
+  const handleSaveCode = useCallback((target, newCode) => {
+    if (isGeneratingRef.current) return { ok: false, error: 'Wait for the AI to finish before saving.' };
+    if (typeof newCode !== 'string' || !target || !(target in files)) return { ok: false, error: 'This file is no longer in the project.' };
+    if (files[target] === newCode) return { ok: true };
+    const nextFiles = { ...files, [target]: newCode };
+    if (isCodebase) {
+      if (utf8Length(newCode) > MAX_TEXT_FILE_BYTES) return { ok: false, error: `A file can be at most ${formatBytes(MAX_TEXT_FILE_BYTES)}.` };
+    } else {
+      const limitError = checkFilesLimits(nextFiles);
+      if (limitError) return { ok: false, error: limitError };
+    }
+    const summary = `Edited the code of ${target} by hand`;
+    const updatedVersions = versions.slice(0, currentVersionIndex + 1);
+    const newVersion = {
+      id: Date.now(),
+      prompt: summary,
+      files: nextFiles,
+      timestamp: new Date().toLocaleTimeString(),
+      editMode: 'surgical',
+      editSummary: summary,
+      reply: null,
+      chatMode: 'build',
+      sessionId: currentChatSessionId,
+      ...(isCodebase ? { assets: currentAssets || {} } : {}),
+    };
+    const finalVersions = [...updatedVersions, newVersion];
+    setFiles(nextFiles);
+    setVersions(finalVersions);
+    setCurrentVersionIndex(updatedVersions.length);
+    saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
+    return { ok: true };
+  }, [files, isCodebase, versions, currentVersionIndex, currentChatSessionId, currentAssets, saveProject]);
+
   const handleCopyCode = async () => {
     if (!codePanelCode) return;
     try {
@@ -3127,6 +3165,7 @@ export default function App({ coldStart = false }) {
               code={codePanelCode}
               copied={copied}
               onCopyCode={handleCopyCode}
+              onSaveCode={handleSaveCode}
               autoFollowCode={autoFollowCode}
               studioMode={studioMode}
               isEditMode={isEditMode}

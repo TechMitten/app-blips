@@ -128,10 +128,23 @@ function languageOf(path) {
   return 'text';
 }
 
+function tokensFor(code, path) {
+  const lang = languageOf(path || '');
+  return lang === 'text' ? [[null, code]] : lang === 'html' ? tokenizeHtml(code) : tokenize(code, lang);
+}
+
+// Flat highlighted HTML (no line wrappers or numbers) for the layer under the
+// code view's editor: it must lay out exactly like the text area's plain text.
+export function highlightTokens(code, path) {
+  if (!code) return '';
+  return tokensFor(code, path)
+    .map(([cls, text]) => (cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text)))
+    .join('');
+}
+
 export function highlightSource(code, path) {
   if (!code) return '';
-  const lang = languageOf(path || '');
-  const tokens = lang === 'text' ? [[null, code]] : lang === 'html' ? tokenizeHtml(code) : tokenize(code, lang);
+  const tokens = tokensFor(code, path);
   // A token can span lines (block comments, template strings), so each line
   // closes and reopens its span to keep every .code-line self-contained.
   const lines = [''];

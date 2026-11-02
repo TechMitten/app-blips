@@ -80,6 +80,7 @@ export default function PreviewPane({
   code,
   copied,
   onCopyCode,
+  onSaveCode,
   autoFollowCode,
   studioMode = 'app',
   isEditMode = false,
@@ -578,6 +579,7 @@ export default function PreviewPane({
             isGenerating={isGenerating}
             copied={copied}
             onCopy={onCopyCode}
+            onSaveCode={onSaveCode}
             autoFollow={autoFollowCode}
           />
         )}

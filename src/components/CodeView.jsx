@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Code2, Check, Copy, FileQuestion, Image as ImageIcon, Loader2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { highlightSource } from '../lib/sourceHighlight';
+import { ChevronRight, Code2, Check, Copy, FileQuestion, Image as ImageIcon, Loader2, PanelLeftClose, PanelLeftOpen, Pencil, Save, X } from 'lucide-react';
+import { highlightSource, highlightTokens } from '../lib/sourceHighlight';
 import { describeFile, mediaKind } from '../lib/codebase/fileInfo';
 import { formatBytes, utf8Length } from '../lib/codebase/paths';
 import FileExplorer, { FileIcon } from './FileExplorer';
@@ -10,6 +10,11 @@ const EXPLORER_WIDTH_KEY = 'orion-file-explorer-width';
 const EXPLORER_OPEN_KEY = 'orion-file-explorer-open';
 const MIN_EXPLORER = 180;
 const MAX_EXPLORER = 480;
+
+// Unsaved edits survive switching to the Preview tab (which unmounts this
+// view) for the rest of the session, keyed by project and file. They are
+// only restored while the file still matches what the edit started from.
+const unsavedDrafts = new Map();
 
 function readStored(key, fallback) {
   try {
@@ -119,13 +124,15 @@ function Breadcrumbs({ path, onReveal }) {
   );
 }
 
-// Editor-styled read-only view of the generated (or streaming) HTML, or, for
-// imported codebases, a file explorer beside the selected file.
+// Editor-styled view of the generated (or streaming) HTML, or, for imported
+// codebases, a file explorer beside the selected file. Read-only until the
+// user presses Edit; saving goes through onSaveCode as a new version.
 export default function CodeView({
   code, isGenerating, copied, onCopy, autoFollow = true,
   pages = [], activePage = 'index.html', writingPage = null, onSelectPage,
   files = null, activeFile = null, activeFileIsBinary = false, onSelectFile,
   fileChanges = {}, entryFile = null, projectKey = 'default', assetUrl = null,
+  onSaveCode = null,
 }) {
   const hasTabs = pages.length > 1;
   const hasFileList = Array.isArray(files);
@@ -141,6 +148,103 @@ export default function CodeView({
   });
   const [revealRequest, setRevealRequest] = useState(null);
   const [svgAsCode, setSvgAsCode] = useState(false);
+  // Hand editing: `target` is the page or file being edited, `base` the code
+  // it started from (to notice the AI or undo changing it underneath).
+  const editTarget = hasFileList ? activeFile : activePage;
+  const draftKey = `${projectKey}\u0000${editTarget}`;
+  const [editing, setEditing] = useState(() => {
+    const stashed = unsavedDrafts.get(draftKey);
+    return stashed && stashed.base === code ? stashed : null;
+  });
+  const [saveError, setSaveError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef(null);
+  const isEditing = Boolean(editing && editing.target === editTarget);
+  const isDirty = isEditing && editing.draft !== editing.base;
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+
+  // Keep unsaved work if this view goes away (switching to Preview).
+  useEffect(() => () => {
+    const current = editingRef.current;
+    if (current && current.draft !== current.base) unsavedDrafts.set(current.key, current);
+  }, []);
+
+  // Switching page/file some other way (undo, the AI) ends the edit; the
+  // switches made in this view ask first (see confirmLeave).
+  useEffect(() => {
+    if (editing && editing.target !== editTarget) {
+      setEditing(null);
+      setSaveError(null);
+    }
+  }, [editing, editTarget]);
+
+  const confirmLeave = () => !isDirty || window.confirm('You have unsaved code changes. Discard them?');
+  const guard = (fn) => (arg) => {
+    if (!confirmLeave()) return;
+    if (editing) unsavedDrafts.delete(editing.key);
+    setEditing(null);
+    setSaveError(null);
+    fn?.(arg);
+  };
+
+  const startEditing = () => {
+    setSaveError(null);
+    setEditing({ key: draftKey, target: editTarget, base: code || '', draft: code || '' });
+    requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }));
+  };
+
+  const cancelEditing = () => {
+    if (!confirmLeave()) return;
+    unsavedDrafts.delete(draftKey);
+    setEditing(null);
+    setSaveError(null);
+  };
+
+  const saveEditing = async () => {
+    if (!isEditing || saving || isGenerating) return;
+    if (!isDirty) { setEditing(null); return; }
+    if ((code || '') !== editing.base
+      && !window.confirm('This code changed since you started editing (for example an AI edit or undo). Save your version anyway?')) return;
+    setSaving(true);
+    try {
+      const result = await onSaveCode(editing.target, editing.draft);
+      if (result && result.ok === false) {
+        setSaveError(result.error || 'Could not save your changes.');
+        return;
+      }
+      unsavedDrafts.delete(draftKey);
+      setEditing(null);
+      setSaveError(null);
+    } catch (err) {
+      logError('Could not save hand-edited code', err);
+      setSaveError('Could not save your changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditorKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      saveEditing();
+    } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Indent instead of leaving the editor. execCommand keeps the browser's
+      // own undo history working; Shift+Tab still moves focus out.
+      if (e.shiftKey) return;
+      e.preventDefault();
+      if (!document.execCommand?.('insertText', false, '  ')) {
+        const el = e.currentTarget;
+        const { selectionStart: start, selectionEnd: end, value } = el;
+        const next = `${value.slice(0, start)}  ${value.slice(end)}`;
+        setEditing((cur) => ({ ...cur, draft: next }));
+        requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + 2; });
+      }
+    } else if (e.key === 'Escape' && !isDirty) {
+      e.preventDefault();
+      cancelEditing();
+    }
+  };
 
   useLayoutEffect(() => {
     if (isGenerating) stickToBottomRef.current = true;
@@ -205,9 +309,23 @@ export default function CodeView({
 
   const isSvgText = hasFileList && !activeFileIsBinary && /\.svg$/i.test(activeFile || '') && Boolean(code);
   const highlighted = useMemo(
-    () => highlightSource(code, hasFileList ? activeFile : 'index.html'),
-    [code, hasFileList, activeFile],
+    () => (isEditing ? '' : highlightSource(code, hasFileList ? activeFile : 'index.html')),
+    [isEditing, code, hasFileList, activeFile],
   );
+  const draft = isEditing ? editing.draft : '';
+  // A text area ending in a newline shows an empty last line; a <pre> doesn't,
+  // so the layer gets a space there to keep the same number of lines.
+  const editorHighlighted = useMemo(
+    () => (isEditing ? highlightTokens(draft, hasFileList ? activeFile : 'index.html') + (draft === '' || draft.endsWith('\n') ? ' ' : '') : ''),
+    [isEditing, draft, hasFileList, activeFile],
+  );
+  const editorLineNumbers = useMemo(() => {
+    if (!isEditing) return '';
+    const count = draft.split('\n').length;
+    return Array.from({ length: count }, (_, i) => i + 1).join('\n');
+  }, [isEditing, draft]);
+  const canEdit = Boolean(onSaveCode) && !activeFileIsBinary && !(isSvgText && !svgAsCode)
+    && !(hasFileList ? !activeFile : false);
   const fileStats = useMemo(() => {
     if (!hasFileList || activeFileIsBinary || !code) return null;
     const lines = code.split('\n').length;
@@ -227,6 +345,41 @@ export default function CodeView({
       className="py-4 font-mono text-[13px] leading-relaxed whitespace-pre min-w-max text-[#cfd8f3]"
       dangerouslySetInnerHTML={{ __html: highlighted }}
     />
+  );
+
+  // A transparent text area over the highlighted code: the user types into
+  // the text area and sees the colours underneath. Both layers share the
+  // `.code-editor-layer` class (font, padding, tab size, white-space) and the
+  // same grid cell, so every character and the caret line up. The gutter is a
+  // separate column, so it can't shift the text.
+  const editorBody = isEditing && (
+    <div className="code-editing flex min-w-max py-4 font-mono text-[13px] leading-relaxed">
+      <div aria-hidden="true" className="code-editor-gutter">{editorLineNumbers}</div>
+      <div className="code-editor-stack">
+        <pre aria-hidden="true" className="code-editor-layer" dangerouslySetInnerHTML={{ __html: editorHighlighted }} />
+        <textarea
+          ref={textareaRef}
+          value={editing.draft}
+          onChange={(e) => {
+            const next = e.target.value;
+            setEditing((cur) => ({ ...cur, draft: next }));
+          }}
+          onKeyDown={handleEditorKeyDown}
+          // The box is always as big as its text (it shares the grid cell
+          // with the <pre>), so any inner scroll is a browser nudge that
+          // would slide the text away from the colours: undo it. The code
+          // panel around it does the real scrolling.
+          onScroll={(e) => { e.currentTarget.scrollTop = 0; e.currentTarget.scrollLeft = 0; }}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          wrap="off"
+          aria-label={`Edit the code of ${editTarget}`}
+          className="code-editor-layer code-editor-input"
+        />
+      </div>
+    </div>
   );
 
   return (
@@ -262,7 +415,7 @@ export default function CodeView({
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => onSelectPage?.(name)}
+                  onClick={() => { if (name !== activePage) guard(onSelectPage)(name); }}
                   className={`flex shrink-0 items-center gap-1.5 rounded-t-md border-b-2 px-3 py-1.5 font-mono text-xs transition-colors ${
                     isActive
                       ? 'border-blue-400 bg-neutral-900 text-white'
@@ -294,7 +447,43 @@ export default function CodeView({
             ))}
           </div>
         )}
-        {code && !activeFileIsBinary && (
+        {isEditing ? (
+          <>
+            {saveError && <span className="min-w-0 truncate text-xs text-red-400" role="alert" title={saveError}>{saveError}</span>}
+            {isDirty && !saveError && <span className="shrink-0 text-xs text-amber-300">Unsaved changes</span>}
+            <button
+              type="button"
+              onClick={cancelEditing}
+              className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-400 hover:bg-white/10 hover:text-white"
+              title={isDirty ? 'Discard your changes' : 'Stop editing'}
+            >
+              <X size={14} />
+              <span>Cancel</span>
+            </button>
+            <button
+              type="button"
+              onClick={saveEditing}
+              disabled={saving || isGenerating || !isDirty}
+              className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              title={isGenerating ? 'Wait for the AI to finish before saving' : 'Save as a new version (Ctrl+S)'}
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              <span>Save</span>
+            </button>
+          </>
+        ) : canEdit && (
+          <button
+            type="button"
+            onClick={startEditing}
+            disabled={isGenerating}
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-slate-400 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            title={isGenerating ? 'Wait for the AI to finish before editing' : hasFileList ? 'Edit this file' : 'Edit this page\'s code'}
+          >
+            <Pencil size={14} />
+            <span>Edit</span>
+          </button>
+        )}
+        {code && !activeFileIsBinary && !isEditing && (
           <button
             onClick={onCopy}
             className={`flex shrink-0 items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all ${
@@ -328,7 +517,7 @@ export default function CodeView({
             <FileExplorer
               files={files}
               activeFile={activeFile}
-              onSelect={onSelectFile}
+              onSelect={(path) => { if (path !== activeFile) guard(onSelectFile)(path); }}
               changes={fileChanges}
               entry={entryFile}
               projectKey={projectKey}
@@ -352,7 +541,7 @@ export default function CodeView({
         </>
       )}
       <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-w-0 overflow-auto bg-black custom-scrollbar">
-        {activeFileIsBinary ? (
+        {isEditing ? editorBody : activeFileIsBinary ? (
           hasFileList ? <MediaPreview key={activeFile} path={activeFile} url={binaryUrl} /> : (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 font-mono text-sm">
               <ImageIcon size={36} className="mb-3 text-slate-500" />

@@ -44,3 +44,63 @@
   color: #cfd8f3;
   padding-left: 0.5rem;
 }
+
+/* Hand editing (CodeView): a transparent text area stacked on a highlighted
+   <pre> in one grid cell. Everything that affects where a character lands is
+   set here, identically for both layers, so the caret matches the colours. */
+.code-editor-gutter {
+  flex-shrink: 0;
+  min-width: 3.5rem;
+  padding-right: 1rem;
+  text-align: right;
+  white-space: pre;
+  color: #858b98;
+  user-select: none;
+}
+
+.code-editor-stack {
+  display: grid;
+  flex: 1;
+}
+
+.code-editor-layer {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0;
+  padding: 0 2rem 0 0.5rem;
+  font: inherit;
+  font-style: normal;
+  font-weight: 400;
+  line-height: inherit;
+  letter-spacing: normal;
+  word-spacing: normal;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  color: #cfd8f3;
+  background: transparent;
+}
+
+/* Bold/italic tokens can have different glyph widths in some fonts. */
+.code-editor-layer span {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.code-editor-input {
+  /* Fill the shared cell exactly (form controls don't always stretch). */
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  resize: none;
+  outline: none;
+  color: transparent;
+  caret-color: #ffffff;
+}
+
+.code-editor-input::selection {
+  background: rgba(59, 130, 246, 0.4);
+}
