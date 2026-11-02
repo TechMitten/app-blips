@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { resolveUserProvider, providerLabel } from './providers.js';
+import { resolveUserProvider, providerLabel, isUncensoredModel } from './providers.js';
 import { listAnthropicModels } from './anthropic.js';
 
 // Shared by the main-process IPC handler and the browser version's server
@@ -57,6 +57,7 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch, 
     // catalogs without that field (the other providers) are left as they are.
     const outputs = model.architecture?.output_modalities;
     if (Array.isArray(outputs) && !(outputs.length === 1 && outputs[0] === 'text')) continue;
+    if (provider.id === 'openrouter' && isUncensoredModel(model.id, model.name)) continue;
     models.set(model.id, { id: model.id, label: typeof model.name === 'string' && model.name.trim() ? model.name : model.id });
   }
   return [...models.values()].sort((a, b) => a.label.localeCompare(b.label));

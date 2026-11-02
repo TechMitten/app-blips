@@ -250,3 +250,13 @@ test('user-selected OpenAI sends its key and model to the official endpoint', as
   }), { ...builderEnv, OPENAI_LLM_MAX_TOKENS: '4096' });
   assert.equal(response.status, 200);
 });
+
+test('uncensored OpenRouter models are refused, typed in or from .env', async () => {
+  const { resolveUserProvider: resolve, isOpenRouter, isUncensoredModel } = await import('../electron/server/providers.js');
+  assert.match(resolve({ id: 'openrouter', apiKey: 'k', model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition' }).error, /Uncensored/);
+  assert.match(resolve({ id: 'openrouter', apiKey: 'k', model: 'x/model-ABLITERATED' }).error, /Uncensored/);
+  assert.equal(resolve({ id: 'openrouter', apiKey: 'k', model: 'anthropic/claude-opus-5.5' }).error, undefined);
+  assert.ok(isOpenRouter({ id: 'deepseek', baseUrl: 'https://openrouter.ai/api/v1' }));
+  assert.ok(!isOpenRouter({ id: 'deepseek', baseUrl: 'https://api.deepseek.com' }));
+  assert.ok(isUncensoredModel('venice/uncensored'));
+});

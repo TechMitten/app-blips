@@ -173,6 +173,20 @@ export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
 }));
 export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 
+// OpenRouter lists models sold as uncensored (Venice's "Uncensored", the
+// "abliterated" fine-tunes that have their refusals stripped out). AppBlips
+// doesn't offer them: they're hidden from the model list and refused if typed
+// in by hand. Matched on the model's id and name only; descriptions mention
+// other models and words like "uncensored" in passing.
+const UNCENSORED_MODEL = /uncensor|venice|abliterat/i;
+export const isUncensoredModel = (...names) => names.some((name) => typeof name === 'string' && UNCENSORED_MODEL.test(name));
+// OpenRouter as a preset, or as the endpoint behind the .env provider.
+export const isOpenRouter = (provider) => {
+  if (provider?.id === 'openrouter') return true;
+  try { return /(^|\.)openrouter\.ai$/i.test(new URL(provider?.baseUrl).hostname); } catch { return false; }
+};
+export const UNCENSORED_ERROR = 'Uncensored models are not available in AppBlips. Choose a different model.';
+
 const MAX_USER_KEY_LENGTH = 512;
 const MAX_USER_MODEL_LENGTH = 200;
 
@@ -195,6 +209,7 @@ export const resolveUserProvider = (input) => {
   if (allowedModels.length && !allowedModels.some((option) => option.id === model)) {
     return { error: `Choose one of the supported ${providerLabel(id)} models.` };
   }
+  if (id === 'openrouter' && isUncensoredModel(model)) return { error: UNCENSORED_ERROR };
   const preset = PROVIDERS[id];
   let baseUrl = preset.baseUrl;
   if (preset.local && input.baseUrl) {

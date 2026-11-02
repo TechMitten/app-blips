@@ -113,3 +113,13 @@ test('browser discovery reuses the matching saved key on the server', async (t) 
   const local = await list({ id: 'lmstudio', baseUrl: 'http://localhost:1234/v1' }, { APPBLIPS_LOCAL_AI_HOST: 'host.docker.internal' });
   assert.equal(local.status, 200);
 });
+
+test('OpenRouter hides uncensored models, matched on id and name only', async () => {
+  const models = await listProviderModels({ id: 'openrouter' }, { fetchImpl: async () => Response.json({ data: [
+    { id: 'cognitivecomputations/dolphin-mistral-24b-venice-edition', name: 'Venice: Uncensored' },
+    { id: 'someone/llama-3-abliterated', name: 'Llama 3' },
+    { id: 'someone/plain', name: 'Totally Uncensored Chat' },
+    { id: 'ok/model', name: 'Fine', description: 'Better than uncensored Venice models' },
+  ] }) });
+  assert.deepEqual(models, [{ id: 'ok/model', label: 'Fine' }]);
+});

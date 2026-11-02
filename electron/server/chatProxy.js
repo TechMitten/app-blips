@@ -15,7 +15,7 @@
 // (electron/main.js withSavedProvider); in the dev server the renderer may send
 // its own `user_provider`. Anything else uses the env provider.
 
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 
@@ -74,6 +74,7 @@ const pickProvider = (env, payload) => {
       ),
     };
   }
+  if (isOpenRouter(provider) && isUncensoredModel(provider.model)) return { response: configError(env, UNCENSORED_ERROR) };
   return { provider };
 };
 
