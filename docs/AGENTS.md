@@ -24,7 +24,7 @@ Most readers are beginners who have never used an API key or a terminal.
 - **AppBlips** for the product. Never "the tool" or "the platform"
 - **Desktop app** (installed on Windows or Linux) and **browser version** (run from source with `npm start`, or with Docker). Say "from source or Docker" when both are meant
 - **Microsoft Store version** and **installer from GitHub** when the two Windows installs behave differently (signing, updates)
-- Studios, exactly as on screen: **Mobile & Web App**, **Responsive Website**, **Browser Game**, **Projects & templates**, **Import a site**, **Showcase**. In running text, "the App studio", "the Website studio" and "the Game studio" are fine
+- Studios, exactly as on screen: **Mobile & Web App**, **Responsive Website**, **Browser Game**, **My projects**, **Import a site**, **Showcase**. In running text, "the App studio", "the Website studio" and "the Game studio" are fine
 - **App** for what the user builds, **project** for what is saved (a project holds every version and the chat)
 - **Imported site** for a React + Vite project opened from a `.zip`
 - **AI provider**, **API key** and **model**. Not "LLM", "endpoint" or "backend" in user-facing text
