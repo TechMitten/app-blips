@@ -64,7 +64,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect your own API keys. AppBlips itself is free; your provider bills you for what you use.
-- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Connectors**. React Bits (free animated components you ask for by name) is coming soon. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. React Bits (free animated components you ask for by name) is coming soon. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
@@ -190,12 +190,12 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 - **Privacy & Export:** The AI only receives image file paths, dimensions, and user notes (`buildImageGalleryNote` in `src/lib/prompts.js`)—never raw pixels. At render time, `images/<name>` swaps to `appblips://assets` or `data:` URLs, and bundles cleanly on export/publish.
 - **Test:** `node testing/testGalleryImages.js`.
 
-#### Pollinations Connector
+#### Pollinations Extension
 - **Integration:** Uses Pollinations' device flow (`electron/server/pollinationsApi.js`). Keyless `gen.pollinations.ai` URLs are resolved server-side after build into public `media.pollinations.ai` assets and bundled on export.
 - **In-App AI:** Injects `window.Pollinations` (`chat`, `image`, `mountConnect`) via `src/lib/pollinationsHelper.js`. Supports visitor-paid device flow (default) or a budget-capped site key.
 - **Test:** `node testing/testPollinations.js` (offline; stubbed).
 
-#### Pixabay Connector
+#### Pixabay Extension
 - **Integration:** The user's own Pixabay API key is checked and stored server-side (`electron/server/pixabayApi.js`; OS keychain on desktop, `pixabay-key.json` in the browser version). The page only sees its last four characters. Search results are sanitized and cached for 24 hours, as Pixabay's API terms ask.
 - **Flow:** Picked photos are downloaded by id through the server (never by URL) and added to the project's My images via `useImageGallery`'s `addFiles`, with a note built from their tags. The AI never calls Pixabay.
 - **Test:** `node testing/testPixabayApi.js` (offline; stubbed).

@@ -1,4 +1,4 @@
-// Connectors: third-party services the user links in Settings → Connectors so
+// Connectors: third-party services the user links in Settings → Extensions so
 // the AI can wire them into new projects. Framework-free (llm.js reads it at
 // generation time; the settings UI reads and writes it).
 //
@@ -510,7 +510,7 @@ export const CONNECTOR_DEFINITIONS = {
     // No `prompts`: the page's own text gives an example, and a list here
     // would sit below the 200-odd component cards.
     about: {
-      what: 'React Bits (reactbits.dev) is a free, open-source library of animated React components, such as text animations, moving backgrounds, buttons and menus. With this connector on, the AI adds the real component to your project instead of imitating it.',
+      what: 'React Bits (reactbits.dev) is a free, open-source library of animated React components, such as text animations, moving backgrounds, buttons and menus. With this extension on, the AI adds the real component to your project instead of imitating it.',
       steps: [
         'Turn on React Bits here.',
         'Browse the components on this page. Click one to open its page on the React Bits website, where you can see it moving and try its settings.',

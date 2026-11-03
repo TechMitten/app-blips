@@ -78,7 +78,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
-  { id: 'connectors', label: 'Connectors', Icon: Plug },
+  { id: 'connectors', label: 'Extensions', Icon: Plug },
   { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'about', label: 'About', Icon: Info },

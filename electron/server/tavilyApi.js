@@ -36,8 +36,8 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 const UNREACHABLE = 'Couldn’t reach Tavily. Check your internet connection and try again.';
 const BUSY = 'Tavily is busy (too many searches in a short time). Try again in a minute.';
 const NO_CREDITS = 'Your Tavily key has run out of credits or reached its plan limit. Check your usage at app.tavily.com.';
-const NO_KEY = 'Add your Tavily API key first, in Settings → Connectors → Tavily.';
-const BAD_KEY = 'Tavily didn’t accept your API key. Check it in Settings → Connectors → Tavily.';
+const NO_KEY = 'Add your Tavily API key first, in Settings → Extensions → Tavily.';
+const BAD_KEY = 'Tavily didn’t accept your API key. Check it in Settings → Extensions → Tavily.';
 
 const savedKey = (tokens) => {
   const { id, hasKey } = tokens.describe();

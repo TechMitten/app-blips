@@ -1,4 +1,4 @@
-// "Request a connector" (Settings → Connectors) emails the AppBlips team
+// "Request a connector" (Settings → Extensions) emails the AppBlips team
 // through Web3Forms (lib/appblipsInbox.js).
 import { COOLDOWN_MS, EMAIL_RE, looksLikeBot, postToAppBlipsInbox } from './appblipsInbox.js';
 
@@ -31,7 +31,7 @@ export const sendConnectorRequest = async (
   }
   const name = service.trim().slice(0, MAX_SERVICE_LENGTH);
   const fields = {
-    subject: `Connector request: ${name}`,
+    subject: `Extension request: ${name}`,
     service: name,
     details: details.trim().slice(0, MAX_DETAILS_LENGTH) || '(none)',
   };

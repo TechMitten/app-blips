@@ -1,10 +1,10 @@
 ---
-title: "Connectors"
-sidebarTitle: "Connectors"
+title: "Extensions"
+sidebarTitle: "Extensions"
 description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations, Pixabay or Tavily, so the AI wires them into the websites and apps you build."
 ---
 
-Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](/features/tools#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)). React Bits, which adds ready-made animated components, is coming soon (see [React Bits](#react-bits)).
+Extensions link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](/features/tools#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)). React Bits, which adds ready-made animated components, is coming soon (see [React Bits](#react-bits)).
 
 Looking for SEO or My images? They are built into AppBlips rather than outside services, so they live in **Settings → Tools** (see [Tools](/features/tools)).
 
@@ -14,11 +14,11 @@ Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is s
   AppBlips has no partnership, sponsorship or affiliate arrangement with any of these services or the companies and developers behind them. They are offered because they work without a server or a secret key. Each one is a separate service with its own terms, prices and privacy policy, and questions about your account with it go to that service. Their names and logos belong to their owners.
 </Note>
 
-## Set up a connector
+## Set up an extension
 
 <Steps>
-  <Step title="Open Connectors">
-    Click **Settings**, then the **Connectors** tab. You see a card for each service.
+  <Step title="Open Extensions">
+    Click **Settings**, then the **Extensions** tab. You see a card for each service.
   </Step>
   <Step title="Pick a service">
     Click its card. Click **How it works** at the top if you'd like an explanation of the service before you start.
@@ -31,23 +31,23 @@ Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is s
   </Step>
 </Steps>
 
-Changes save as you type, so there is no Save button. Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
+Changes save as you type, so there is no Save button. Click **Extensions** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
 
-## Use a connector in a project
+## Use an extension in a project
 
 You don't have to mention a connected service in your requests. If Web3Forms is connected and you ask for "a contact form", the AI sets it up to email you. If Square is connected and you ask for "a buy button", it opens your Square checkout.
 
 Projects you built before you connected a service don't change on their own. To add the service to one:
 
 1. Open the project.
-2. Click **Settings**, then **Connectors**, then the service's card.
+2. Click **Settings**, then **Extensions**, then the service's card.
 3. Under **Prompts to try**, click **Copy** next to the request you want.
 4. Close Settings and paste the request into the builder chat.
 5. Send it.
 
 If you change your key or link later, use a prompt the same way to update a project you already built.
 
-The Browser Game studio only uses the connectors that count visitors. Forms, chat and payments are for the Responsive Website and Mobile & Web App studios.
+The Browser Game studio only uses the extensions that count visitors. Forms, chat and payments are for the Responsive Website and Mobile & Web App studios.
 
 ## Web3Forms
 
@@ -137,7 +137,7 @@ Using Pollinations through AppBlips costs 25% more than using it directly. The e
 
 <Steps>
   <Step title="Open Pollinations">
-    Click **Settings**, then the **Connectors** tab, then the **Pollinations** card.
+    Click **Settings**, then the **Extensions** tab, then the **Pollinations** card.
   </Step>
   <Step title="Start the sign-in">
     Click **Sign in with Pollinations**. A Pollinations page opens in your web browser. If it doesn't, click **open it here** in AppBlips.
@@ -171,7 +171,7 @@ Ask for them in the builder chat, for example "Add a hero image made with Pollin
 
 ### AI features in your sites
 
-AI features, such as a chatbot or an image generator, run in your visitors' browsers, so something has to pay each time a visitor uses one. Your sign-in is never used for this. Under **AI features in your sites** in **Settings → Connectors → Pollinations**, choose who pays. The AI builds the features to match your choice.
+AI features, such as a chatbot or an image generator, run in your visitors' browsers, so something has to pay each time a visitor uses one. Your sign-in is never used for this. Under **AI features in your sites** in **Settings → Extensions → Pollinations**, choose who pays. The AI builds the features to match your choice.
 
 - **Visitors use their own Pollen (safer)** is the default. The feature shows a **Connect Pollinations** button. The visitor approves AppBlips on Pollinations' website with their own account, and their use comes from their own Pollen. Nothing secret goes into your sites.
 - **My key pays (the key goes in my sites' code)** lets visitors use the features without an account. Your **site key** pays: a separate Pollinations key with a small budget, shared by all your sites. Until you add one, the AI won't add AI features. If you ask for one, it builds the rest of your request and tells you how to add the key.
@@ -196,7 +196,7 @@ To make a safe key:
 
 Then add it to AppBlips:
 
-1. In **Settings → Connectors → Pollinations**, under **AI features in your sites**, choose **My key pays (the key goes in my sites' code)**.
+1. In **Settings → Extensions → Pollinations**, under **AI features in your sites**, choose **My key pays (the key goes in my sites' code)**.
 2. Paste the key into the **Site key** box.
 3. Click **Check key**. AppBlips asks Pollinations about the key and refuses it if it has no budget or can manage your account.
 4. Read the warnings, then tick **I understand that anyone can find this key in my sites and spend its Pollen.**
@@ -220,7 +220,7 @@ An **API key** is a code that lets AppBlips search Pixabay on your behalf. Pixab
     3. Scroll to the **Parameters** section. Your key is shown next to **key**. Select it and copy it.
   </Step>
   <Step title="Add it to AppBlips">
-    1. Click **Settings**, then **Connectors**, then the **Pixabay** card.
+    1. Click **Settings**, then **Extensions**, then the **Pixabay** card.
     2. Click the switch next to **Enable Pixabay**.
     3. Paste the key into the **API key** box.
     4. Click **Save key**. AppBlips checks the key with Pixabay. When it works, the page says "Connected with the key ending in …".
@@ -259,7 +259,7 @@ An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily
     3. Click the copy button next to the key.
   </Step>
   <Step title="Add it to AppBlips">
-    1. Click **Settings**, then **Connectors**, then the **Tavily** card.
+    1. Click **Settings**, then **Extensions**, then the **Tavily** card.
     2. Click the switch next to **Enable Tavily**.
     3. Paste the key into the **API key** box.
     4. Click **Save key**. AppBlips checks the key with Tavily. When it works, the page says "Connected with the key ending in …".
@@ -274,19 +274,19 @@ An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily
 - Each search uses one Tavily credit. The AI makes at most 5 searches for each request (3 before a first build), and none when it doesn't need to.
 - Your key stays inside AppBlips (in your system's keychain on the desktop app) and is never written into your projects. Only the AI's search words go to Tavily, never your project's code. To stop using it, click **Remove key**.
 - Search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.
-- If Tavily stops accepting your key, the connector shows **Needs key** again and the AI carries on without searching. If you see "Your Tavily key has run out of credits or reached its plan limit", check your usage at app.tavily.com.
+- If Tavily stops accepting your key, the extension shows **Needs key** again and the AI carries on without searching. If you see "Your Tavily key has run out of credits or reached its plan limit", check your usage at app.tavily.com.
 
 ## React Bits
 
-**Coming soon.** React Bits, a free library of animated components (text animations, moving backgrounds, buttons and menus), will let you ask the AI for a ready-made component by name. Its card in **Settings → Connectors** shows **Coming soon** until it's available.
+**Coming soon.** React Bits, a free library of animated components (text animations, moving backgrounds, buttons and menus), will let you ask the AI for a ready-made component by name. Its card in **Settings → Extensions** shows **Coming soon** until it's available.
 
-{/* React Bits: coming soon. Restore when the React Bits connector is unlocked:
+{/* React Bits: coming soon. Restore when the React Bits extension is unlocked:
 
-[React Bits](https://reactbits.dev/) is a free, open-source library of animated React components: text animations, moving backgrounds, buttons, menus and more. With this connector on, you pick a component you like and the AI adds the real component to your project, instead of building a look-alike. Nothing needs an account or a key.
+[React Bits](https://reactbits.dev/) is a free, open-source library of animated React components: text animations, moving backgrounds, buttons, menus and more. With this extension on, you pick a component you like and the AI adds the real component to your project, instead of building a look-alike. Nothing needs an account or a key.
 
 <Steps>
   <Step title="Turn it on">
-    1. Click **Settings**, then **Connectors**, then the **React Bits** card.
+    1. Click **Settings**, then **Extensions**, then the **React Bits** card.
     2. Click the switch next to **Enable React Bits**.
   </Step>
   <Step title="Find a component">
@@ -309,12 +309,12 @@ An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily
 - The licence asks for its notice wherever its code goes, so AppBlips handles that for you. A one-line copyright comment sits above each component in your code; AppBlips puts it back if the AI leaves it out. When you export or publish, pages that use a component get the licence's full text in a comment at the top. A Vite project or imported-site download gets it as a file, `REACT-BITS-LICENSE.md`. Keep these if you copy the code elsewhere.
 */}
 
-## Request a connector
+## Request an extension
 
 Missing a service?
 
-1. Click **Settings**, then **Connectors**.
-2. Click **Request a connector** at the end of the cards.
+1. Click **Settings**, then **Extensions**.
+2. Click **Request an extension** at the end of the cards.
 3. Enter the service and what you'd like it to do.
 4. Add your email only if you'd like a reply.
 5. Click **Send request**.
@@ -323,4 +323,4 @@ Your request goes to the AppBlips team through Web3Forms. Nothing about your pro
 
 ## Privacy
 
-AppBlips saves your connector settings on your computer. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), Pixabay when you save your key, search or add photos, and Tavily when you save your key or the AI searches the web. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and your Pixabay and Tavily keys are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
+AppBlips saves your extension settings on your computer. AppBlips never contacts the other services itself, except Web3Forms when you send an extension request, Pollinations as described in [Pollinations](#pollinations), Pixabay when you save your key, search or add photos, and Tavily when you save your key or the AI searches the web. The pages you build contact them, including in the preview, and anything an extension needs is written into those pages and any HTML you export. Your Pollinations sign-in and your Pixabay and Tavily keys are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

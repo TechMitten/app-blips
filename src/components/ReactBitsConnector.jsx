@@ -6,7 +6,7 @@ import { CONNECTOR_DEFINITIONS } from '../lib/connectors';
 import { REACT_BITS_CATALOG } from '../lib/reactBitsCatalog';
 import { REACT_BITS_CATEGORIES, reactBitsPageUrl } from '../lib/reactBits';
 
-// Settings → Connectors → React Bits: the switch, then every free component in
+// Settings → Extensions → React Bits: the switch, then every free component in
 // the catalog (lib/reactBitsCatalog.js) as a card. A card opens the
 // component's page on reactbits.dev, where it can be seen moving; nothing is
 // shown or run from React Bits inside AppBlips. "Copy name" copies the words a

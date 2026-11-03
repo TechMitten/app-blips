@@ -41,7 +41,7 @@ function PixabayIntroModal({ onClose }) {
         </span>
         <h2 id="pixabay-intro-title" className="text-base font-semibold text-slate-900">Your photos go to My images</h2>
         <p className="text-sm leading-snug text-slate-700">
-          When you click <strong>Add to My images</strong>, the photos you selected are added to the <strong>My images</strong> connector,
+          When you click <strong>Add to My images</strong>, the photos you selected are added to the <strong>My images</strong> tool,
           the image library of the project you have open.
         </p>
         <p className="text-sm leading-snug text-slate-700">

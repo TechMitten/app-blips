@@ -1,5 +1,5 @@
 // Web search for the AI build agent, through the Tavily connector
-// (Settings → Connectors → Tavily, electron/server/tavilyApi.js). Offered as
+// (Settings → Extensions → Tavily, electron/server/tavilyApi.js). Offered as
 // the web_search tool in the edit loops (llm.js, codebase/llm.js) and in the
 // short research step before a new project's first build (llm.js
 // researchForBuild). Framework-free so it can be tested with plain node.

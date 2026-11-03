@@ -21,7 +21,7 @@ import { surgeStatus } from '../lib/surge';
 import { galleryNameForms } from '../lib/galleryImages';
 import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
 
-// Settings → Connectors: a grid of services the AI can wire into new projects.
+// Settings → Extensions: a grid of services the AI can wire into new projects.
 // Settings → Tools is the same component with `kind="tools"`: the native
 // connectors (`native: true`, no service or key: SEO and My images), which
 // share the connector state and pages but have no connection to show, so their
@@ -254,7 +254,7 @@ function ConnectorPrompts({ id, connected, images = [] }) {
   );
 }
 
-const TAB_NAMES = { services: 'Connectors', tools: 'Tools' };
+const TAB_NAMES = { services: 'Extensions', tools: 'Tools' };
 
 export default function ConnectorsSettings({ kind = 'services', seoProject = null, galleryProject = null }) {
   const [connectors, setConnectors] = useState(loadConnectors);
@@ -420,7 +420,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
             <Plus size={20} aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-slate-900">Request a connector</span>
+            <span className="block text-sm font-semibold text-slate-900">Request an extension</span>
             <span className="mt-0.5 block text-xs leading-snug text-slate-600">Missing a service? Tell us which one.</span>
           </span>
         </button>

@@ -101,7 +101,7 @@ test('nothing is downloaded unless the user said React Bits and the connector is
   assert.equal(await prepareReactBitsNote({ text: 'Add a flying button', fetchComponent }), '');
   saveConnectors({});
   const off = await prepareReactBitsNote({ text: 'Add React Bits Flying Button', fetchComponent });
-  assert.match(off, /connector is off/);
+  assert.match(off, /extension is off/);
   assert.deepEqual(asked, []);
   saveConnectors({ reactbits: { enabled: true, key: '' } });
   assert.match(await prepareReactBitsNote({ text: 'Add React Bits Flying Button', studioMode: 'game', fetchComponent }), /Browser Game studio/);

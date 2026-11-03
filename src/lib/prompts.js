@@ -596,7 +596,7 @@ const MULTI_PAGE_PROMPT = `MULTIPLE PAGES:
 - Initial generation: output only index.html. If the request needs other pages, link to them from the navigation by filename; they are created in a follow-up step.
 - Editing: use list_pages to see the pages, and pass file to view_code, list_sections and apply_surgical_edits to target a page (omit it for index.html). Use create_page for a new page and delete_page to remove one, then fix any links that pointed at it.`;
 
-// Instructions for the services linked in Settings → Connectors (see
+// Instructions for the services linked in Settings → Extensions (see
 // connectors.js). `connectors` is [{ id, key }], already validated. Games have
 // no forms to wire up, a chat bubble would cover play and they sell nothing,
 // but they still get analytics. The Web3Forms text says it
@@ -623,7 +623,7 @@ const POLLINATIONS_AI_API = `Never write your own Pollinations or AI API code, n
 const POLLINATIONS_AI_FEATURES = {
   visitors: `  AI FEATURES: AppBlips adds a ready-made window.Pollinations object to the page. Each visitor uses their own Pollinations account: next to every AI feature put an empty <div> and call Pollinations.mountConnect(thatDiv) once the page has loaded. It draws a "Connect Pollinations" button and the sign-in steps; don't build your own. Disable the feature's controls until Pollinations.isConnected() is true, and re-check in Pollinations.onChange(fn). ${POLLINATIONS_AI_API}`,
   site: `  AI FEATURES: AppBlips adds a ready-made window.Pollinations object to the page, paid for by the site owner, so visitors never sign in: don't add a sign-in or connect button, and don't call mountConnect. ${POLLINATIONS_AI_API}`,
-  none: `  AI FEATURES are not set up yet: the user chose to pay with their own site key but hasn't added it. If the user asks for one, do NOT build it, fake it or use another AI service. Build the rest of the request, and in your reply tell the user to add the key in Settings, under Connectors, Pollinations, "AI features in your sites", or to choose "Visitors use their own Pollen" there, then ask again.`,
+  none: `  AI FEATURES are not set up yet: the user chose to pay with their own site key but hasn't added it. If the user asks for one, do NOT build it, fake it or use another AI service. Build the rest of the request, and in your reply tell the user to add the key in Settings, under Extensions, Pollinations, "AI features in your sites", or to choose "Visitors use their own Pollen" there, then ask again.`,
 };
 
 // Games otherwise draw every sprite in code (rule 13 of the game prompt), so
@@ -677,7 +677,7 @@ export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBu
   const pollinations = ids.includes('pollinations')
     ? ` With Pollinations connected, a build can add AI-generated images (AppBlips makes them with the user's Pollinations account after the build, so they appear in the ${noun} automatically) and AI features such as a chatbot. Never say Pollinations can't be used, and never ask the user to paste image URLs or code in by hand.`
     : '';
-  return `\n\nThe user has connected these services in Settings → Connectors, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
+  return `\n\nThe user has connected these services in Settings → Extensions, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
 };
 
 // The user's own uploaded images ("My images", lib/galleryImages.js). The AI

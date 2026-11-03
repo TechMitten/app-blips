@@ -42,7 +42,7 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 
 const UNREACHABLE = 'Couldn’t reach Pixabay. Check your internet connection and try again.';
 const BUSY = 'Pixabay is busy (too many searches in a short time). Try again in a minute.';
-const NO_KEY = 'Add your Pixabay API key first, in Settings → Connectors → Pixabay.';
+const NO_KEY = 'Add your Pixabay API key first, in Settings → Extensions → Pixabay.';
 
 // API responses per token store (one per host), keyed by the query string
 // without the key. Cleared whenever the key changes.
@@ -98,7 +98,7 @@ async function apiCall(key, params, tokens, fetchImpl) {
   if (!response.ok) {
     // Pixabay answers a bad key with a plain-text 400: [ERROR 400] "key" is invalid.
     const message = await response.text().catch(() => '');
-    if (/key/i.test(message)) return { status: 401, error: 'Pixabay didn’t accept your API key. Check it in Settings → Connectors → Pixabay.', badKey: true };
+    if (/key/i.test(message)) return { status: 401, error: 'Pixabay didn’t accept your API key. Check it in Settings → Extensions → Pixabay.', badKey: true };
     return { status: 502, error: `Pixabay couldn’t answer (error ${response.status}). Try again.` };
   }
   let body;

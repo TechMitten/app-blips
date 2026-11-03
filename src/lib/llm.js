@@ -1450,7 +1450,7 @@ const resolvePollinationsImages = async (result, { onChunk, signal }) => {
   const wanted = findImageRequests(files).length;
   if (!wanted) return '';
   if (connectorStatus('pollinations') !== 'connected') {
-    return `Note: ${wanted === 1 ? 'an image' : `${wanted} images`} in this build use Pollinations, which isn't connected, so they can't be made. Sign in to Pollinations in Settings → Connectors, then ask again.`;
+    return `Note: ${wanted === 1 ? 'an image' : `${wanted} images`} in this build use Pollinations, which isn't connected, so they can't be made. Sign in to Pollinations in Settings → Extensions, then ask again.`;
   }
   const progress = (done, total) => onChunk?.(`Making images with Pollinations (${done} of ${total})…`, 'status');
   progress(0, Math.min(wanted, MAX_IMAGES_PER_BUILD));

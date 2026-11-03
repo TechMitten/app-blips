@@ -45,7 +45,7 @@ export default function ImagesConnector({ state, onChange, galleryProject, pixab
                   <p className="text-xs leading-snug text-slate-600">
                     Want free stock photos?{' '}
                     <button type="button" onClick={onOpenPixabay} className="font-semibold text-indigo-600 hover:underline">
-                      Set up the Pixabay connector
+                      Set up the Pixabay extension
                     </button>
                     {' '}to search them from here.
                   </p>

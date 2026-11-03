@@ -165,7 +165,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`}. You can replay this tour here any time.`,
         tips: [
           'Settings: theme, chat font, Code tab, AI provider and reasoning.',
-          'Settings → Connectors adds services like contact forms, payments, analytics, live chat and AI images; Settings → Tools has SEO and My images.',
+          'Settings → Extensions adds services like contact forms, payments, analytics, live chat and AI images; Settings → Tools has SEO and My images.',
           `Help (${SHORTCUT_HINTS.help}) opens the full docs.`,
         ],
       },
@@ -182,7 +182,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`} to begin.`,
       tips: [
         'Apps: reopen, rename, or delete saved projects.',
-        'History, Settings (including Connectors and Tools), and Help live here too.',
+        'History, Settings (including Extensions and Tools), and Help live here too.',
         'Take the tour replays this walkthrough.',
       ],
     });

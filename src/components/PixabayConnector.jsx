@@ -4,7 +4,7 @@ import { forgetPixabayKey, pixabayStatus, savePixabayKey } from '../lib/pixabay'
 
 const PIXABAY_API = { status: pixabayStatus, save: savePixabayKey, forget: forgetPixabayKey };
 
-// Settings → Connectors → Pixabay: the shared server-key page
+// Settings → Extensions → Pixabay: the shared server-key page
 // (ServerKeyConnector.jsx), plus the photo search once connected.
 export default function PixabayConnector({ state, onChange, galleryProject, imagesEnabled, onEnableImages }) {
   return (

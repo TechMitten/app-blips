@@ -178,7 +178,7 @@ function SiteIconField({ icon, onChange, disabled }) {
 // so they stay online as long as it does.
 // A project that is already online opens on 'manage' instead: update the
 // site, unpublish it, or publish to a different address.
-// `connectOnly` (Settings → Connectors) is the same window with nothing to
+// `connectOnly` (Settings → Extensions) is the same window with nothing to
 // publish: it signs in or out of Surge and stops at 'account'.
 // Once a project is online, "Submit to the showcase" opens the showcase form
 // with its address filled in; `studioMode` pre-picks app/website/game.

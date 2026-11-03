@@ -45,7 +45,7 @@ assert.equal(calls[0].url, 'https://api.web3forms.com/submit');
 assert.equal(calls[0].init.method, 'POST');
 const { body } = calls[0];
 assert.equal(body.access_key, 'c0b38db4-3383-420f-aaff-4da44dad333b');
-assert.equal(body.subject, 'Connector request: Calendly');
+assert.equal(body.subject, 'Extension request: Calendly');
 assert.equal(body.service, 'Calendly');
 assert.equal(body.details.length, MAX_DETAILS_LENGTH);
 assert.ok(!('email' in body));

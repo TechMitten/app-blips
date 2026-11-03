@@ -66,7 +66,7 @@ export default function ConnectorRequestModal({ onClose }) {
     >
       <div className="shrink-0 px-6 py-5 border-b border-slate-100 flex items-center justify-between">
         <h2 id="connector-request-title" className="text-base 2xl:text-lg font-semibold text-slate-900">
-          Request a connector
+          Request an extension
         </h2>
         <ModalCloseButton onClick={onClose} />
       </div>

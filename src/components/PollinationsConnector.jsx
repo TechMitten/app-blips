@@ -9,7 +9,7 @@ import {
   checkSiteKey, pollinationsCheckLogin, pollinationsSignOut, pollinationsStartLogin, pollinationsStatus,
 } from '../lib/pollinations';
 
-// Settings → Connectors → Pollinations. Unlike the other connectors there is
+// Settings → Extensions → Pollinations. Unlike the other connectors there is
 // no key to paste: the user signs in (device flow, run server-side by
 // electron/server/pollinationsApi.js) and the page only ever learns the
 // account name. Below it the user picks who pays for AI features in their

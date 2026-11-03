@@ -185,7 +185,7 @@ async function generateImage({ url }, tokens, fetchImpl) {
     // Expired (after the days chosen at sign-in) or revoked: forget it so
     // Settings asks to sign in again.
     await tokens.clear();
-    return json({ error: 'Your Pollinations sign-in has expired. Sign in again in Settings → Connectors.', signedOut: true }, 401);
+    return json({ error: 'Your Pollinations sign-in has expired. Sign in again in Settings → Extensions.', signedOut: true }, 401);
   }
   if (response.status === 402) {
     return json({ error: 'Your Pollinations sign-in has used up its Pollen budget, or your account is out of Pollen.' }, 402);

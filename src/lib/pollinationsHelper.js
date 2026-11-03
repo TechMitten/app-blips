@@ -4,7 +4,7 @@
 // the AI only writes calls to it, so the helper is always this exact code and
 // a key never sits in the project's source.
 //
-// Who pays is the user's choice (Settings → Connectors → Pollinations):
+// Who pays is the user's choice (Settings → Extensions → Pollinations):
 //  - visitors (default, safer): each visitor connects their own Pollinations
 //    account with the device flow and spends their own Pollen. The flow sends
 //    AppBlips' publishable App Key, so the approval page names AppBlips; it

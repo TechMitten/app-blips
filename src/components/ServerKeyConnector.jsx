@@ -4,7 +4,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { SettingRow, Switch, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { CONNECTOR_DEFINITIONS } from '../lib/connectors';
 
-// Settings → Connectors page for a connector whose key is kept server-side
+// Settings → Extensions page for a connector whose key is kept server-side
 // (`serverKey`: Pixabay, Tavily). The key is sent once to the connector's
 // /api/<id>/key, which checks it with the service and keeps it out of the
 // page; the connector state only records its last four characters

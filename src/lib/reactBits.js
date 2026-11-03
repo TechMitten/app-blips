@@ -1,4 +1,4 @@
-// The React Bits connector (Settings → Connectors → React Bits): when a build
+// The React Bits connector (Settings → Extensions → React Bits): when a build
 // request says "React Bits" and names components from the free catalog
 // (reactBitsCatalog.js), their official source is downloaded through
 // /api/react-bits/component (electron/server/reactBitsApi.js) and added to
@@ -223,12 +223,12 @@ ${JSON.stringify(map, null, 2)}
 // `text` is the user's own words; `files` is the project (for the variant).
 export async function prepareReactBitsNote({ text, studioMode = 'app', files = {}, connectors, signal, onChunk, fetchComponent = fetchReactBitsComponent } = {}) {
   if (!mentionsReactBits(text)) return '';
-  const pick = 'The user can browse the free components in Settings → Connectors → React Bits.';
+  const pick = 'The user can browse the free components in Settings → Extensions → React Bits.';
   if (CONNECTOR_DEFINITIONS.reactbits.comingSoon) {
-    return 'REACT BITS: The user mentioned React Bits, but AppBlips doesn\'t offer React Bits components yet (the connector is coming soon), so nothing was downloaded. If they asked for a React Bits component, don\'t build a look-alike: say in your reply that React Bits is coming soon to AppBlips. Make the rest of the requested changes as usual.';
+    return 'REACT BITS: The user mentioned React Bits, but AppBlips doesn\'t offer React Bits components yet (the extension is coming soon), so nothing was downloaded. If they asked for a React Bits component, don\'t build a look-alike: say in your reply that React Bits is coming soon to AppBlips. Make the rest of the requested changes as usual.';
   }
   if (connectorStatus('reactbits', connectors) !== 'connected') {
-    return 'REACT BITS: The user mentioned React Bits, but the React Bits connector is off, so no component was downloaded. If they asked for a React Bits component, don\'t build a look-alike: say in your reply that they can turn on React Bits in Settings → Connectors and ask again. Make the rest of the requested changes as usual.';
+    return 'REACT BITS: The user mentioned React Bits, but the React Bits extension is off, so no component was downloaded. If they asked for a React Bits component, don\'t build a look-alike: say in your reply that they can turn on React Bits in Settings → Extensions and ask again. Make the rest of the requested changes as usual.';
   }
   if (!STUDIOS.has(studioMode)) {
     return 'REACT BITS: The user mentioned React Bits, but its components are React code and the Browser Game studio doesn\'t use them. If they asked for one, say so in your reply, and build a similar effect without React only if that fits the request.';
