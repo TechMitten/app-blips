@@ -89,7 +89,7 @@ function StatusBadge({ status, tool = false }) {
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
 }
 
-// Same pill as Code Review's in Settings → AI; `beta` is set in the definition.
+// Same pill as Review's in Settings → AI; `beta` is set in the definition.
 function BetaBadge() {
   return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span>;
 }

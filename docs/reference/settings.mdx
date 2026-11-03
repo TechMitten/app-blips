@@ -94,6 +94,8 @@ With **Anthropic**, AppBlips turns on prompt caching automatically, so the repea
 
 <ParamField body="API key" type="string">
   Your key from [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys).
+
+  Once saved, the box shows **Saved (encrypted)** and the key itself is never shown. To use a different key, click the box and then **Replace key**, paste the new key and click **Save**. Until you save, the old key keeps working.
 </ParamField>
 
 <ParamField body="Model" type="select">
@@ -148,10 +150,10 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
   When enabled, AppBlips may ask you a clarifying question before generating — for example, to confirm the intended behavior of an ambiguous feature. This helps the AI understand your intent and can reduce back-and-forth editing, but adds a step before the first build begins.
 </ParamField>
 
-### Code Review (beta)
+### Review (beta)
 
-<ParamField body="Code Review" type="toggle" default="Off">
-  Code Review is a beta feature, so it is off by default. When enabled, AppBlips asks after every build or edit whether anything looks wrong on screen. Choose **Looks wrong** and the AI tests the project in the built-in browser, reads the code, and writes a report; it takes a screenshot only when it finds a problem a picture would help confirm or show you, and adds it to the report as evidence. Choose **Looks fine** and it tests the project and reads the code the same way, but never takes screenshots. It doesn't change anything itself. If the report lists problems, AppBlips asks whether to fix them. Choose **Fix problems** and a new chat starts with the report as its task, and the AI fixes them as a normal edit, or choose **Not now** to leave things as they are. Choose **Looks fine but doesn't work** when the screen is right but something you tried misbehaves, and the AI focuses on clicking through controls and flows and reading the code behind them, again without screenshots. Choose **Looks and works fine** to move on without a review. Reviews can use a lot of extra tokens, so they only run when you say yes. Leave this off to skip both the question and the review.
+<ParamField body="Review" type="toggle" default="Off">
+  Review is a beta feature, so it is off by default. When enabled, AppBlips asks after every build or edit whether anything looks wrong on screen. Choose **Looks wrong** and the AI tests the project in the built-in browser, reads the code, and writes a report; it takes a screenshot only when it finds a problem a picture would help confirm or show you, and adds it to the report as evidence. Choose **Looks fine** and it tests the project and reads the code the same way, but never takes screenshots. It doesn't change anything itself. If the report lists problems, AppBlips asks whether to fix them. Choose **Fix problems** and a new chat starts with the report as its task, and the AI fixes them as a normal edit, or choose **Not now** to leave things as they are. Choose **Looks fine but doesn't work** when the screen is right but something you tried misbehaves, and the AI focuses on clicking through controls and flows and reading the code behind them, again without screenshots. Choose **Looks and works fine** to move on without a review. Reviews can use a lot of extra tokens, so they only run when you say yes. Leave this off to skip both the question and the review.
 </ParamField>
 
 ### Smart game engine

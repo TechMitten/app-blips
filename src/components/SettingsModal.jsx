@@ -393,13 +393,13 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              <SettingRow id="set-ask-review" title={<>Code Review <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span></>} description="After each build or edit, ask whether anything looks wrong. The AI then tests it in the browser, with screenshots only if something does, and reports problems. If it finds any, you choose whether a new chat fixes them. Reviews use extra tokens, so one only runs when you say yes.">
+              <SettingRow id="set-ask-review" title={<>Review <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span></>} description="After each build or edit, offer to have the AI test it and report problems. Uses extra tokens, so it only runs if you say yes.">
                 <Switch checked={askToReview} onChange={onAskToReviewChange} labelledBy="set-ask-review" />
               </SettingRow>
-              <SettingRow id="set-engine-router" title="Smart game engine" description="Before building a game, the AI picks the best engine: Phaser for platformers, shooters and RPGs, Three.js for 3D, or none for simple games. Naming an engine in your prompt always wins. Off lets the builder choose.">
+              <SettingRow id="set-engine-router" title="Smart game engine" description="The AI picks an engine for each game, like Phaser or Three.js. An engine named in your prompt always wins.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />
               </SettingRow>
-              <SettingRow id="set-addon-router" title="Smart website add-ons" description="Before building a website, the AI picks suitable libraries, such as Swiper, GSAP, Chart.js or Leaflet. Simple sites get none. Naming a library in your prompt always wins. Off uses plain JavaScript only.">
+              <SettingRow id="set-addon-router" title="Smart website add-ons" description="The AI adds libraries a website needs, like GSAP or Chart.js. Off uses plain JavaScript only.">
                 <Switch checked={websiteAddonRouter} onChange={onWebsiteAddonRouterChange} labelledBy="set-addon-router" />
               </SettingRow>
             </>

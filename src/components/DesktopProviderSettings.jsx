@@ -1,5 +1,5 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
@@ -32,6 +32,11 @@ export default function DesktopProviderSettings({ guardRef }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // A saved key is locked behind a confirm so a stray click or keypress
+  // can't start overwriting it; `replaceKey` is set once the user agrees.
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [replaceKey, setReplaceKey] = useState(false);
+  const keyInputRef = useRef(null);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
   const modelList = useProviderModels({
     ...draft,
@@ -51,11 +56,23 @@ export default function DesktopProviderSettings({ guardRef }) {
   }, []);
 
   const update = (fields) => {
+    // Another provider has its own saved key (or none), so ask again.
+    if ('id' in fields) setReplaceKey(false);
     setDraft((d) => ({ ...d, ...fields }));
     setStatus(null);
   };
 
   const keepsSavedKey = Boolean(saved?.hasKey && saved.id === draft.id);
+  // The field is empty and stands for the saved key.
+  const showsSavedKey = keepsSavedKey && !draft.apiKey;
+  const keyLocked = keepsSavedKey && !replaceKey;
+  const askToReplace = () => { if (keyLocked) setConfirmReplace(true); };
+  const allowReplace = () => {
+    setConfirmReplace(false);
+    setReplaceKey(true);
+    // After the dialog unmounts, so focus lands back in the field.
+    requestAnimationFrame(() => keyInputRef.current?.focus());
+  };
   const complete = draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
   const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
   const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
@@ -84,6 +101,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       setSaved((prev) => ({ ...prev, ...next }));
       setDraft((d) => ({ ...d, model: d.model.trim(), apiKey: '' }));
       setShowKey(false);
+      setReplaceKey(false);
       setStatus({ kind: 'ok', text: 'Saved.' });
       return true;
     } catch (err) {
@@ -127,6 +145,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       setSaved((prev) => ({ ...prev, ...next }));
       setDraft(EMPTY_DRAFT);
       setShowKey(false);
+      setReplaceKey(false);
       setStatus(null);
     } catch (err) {
       logError('Could not clear the AI provider settings', err);
@@ -163,22 +182,38 @@ export default function DesktopProviderSettings({ guardRef }) {
             {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
             <div className="relative">
               <input
+                ref={keyInputRef}
                 type={showKey ? 'text' : 'password'}
                 value={draft.apiKey}
                 onChange={(e) => update({ apiKey: e.target.value })}
+                readOnly={keyLocked}
+                onClick={askToReplace}
+                onPaste={(e) => { if (keyLocked) { e.preventDefault(); askToReplace(); } }}
+                onKeyDown={(e) => {
+                  // Typing, Enter or Space asks; Tab and shortcuts pass through.
+                  if (!keyLocked || e.ctrlKey || e.metaKey || e.altKey) return;
+                  if (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Delete') {
+                    e.preventDefault();
+                    askToReplace();
+                  }
+                }}
                 placeholder={keepsSavedKey ? 'Saved (encrypted) — type to replace' : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
                 autoComplete="off"
                 spellCheck={false}
-                className={`${INPUT_CLASS} pr-11`}
+                className={`${INPUT_CLASS} ${showsSavedKey ? '' : 'pr-11'} ${keyLocked ? 'cursor-pointer' : ''}`}
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute inset-y-0 right-0 mt-1.5 flex items-center px-3.5 text-slate-400 hover:text-slate-700 transition-colors"
-                aria-label={showKey ? 'Hide API key' : 'Show API key'}
-              >
-                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              {/* The saved key never reaches the page, so there is nothing to
+                  reveal: the eye only appears once a new key is typed. */}
+              {!showsSavedKey && (
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute inset-y-0 right-0 mt-1.5 flex items-center px-3.5 text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                >
+                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              )}
             </div>
           </label>
           <p className="text-xs text-slate-500 leading-snug">
@@ -246,6 +281,21 @@ export default function DesktopProviderSettings({ guardRef }) {
     />
     {/* Portaled out of the settings card: a fixed overlay inside it would be
         clipped by the card's overflow. */}
+    {confirmReplace && createPortal(
+      <ConfirmModal
+        title="Replace saved API key?"
+        subtitle={`Your ${providerLabel(draft.id)} key is saved and encrypted.`}
+        onClose={() => setConfirmReplace(false)}
+        onConfirm={allowReplace}
+        confirmLabel="Replace key"
+        confirmClass="brand-fill-text rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+      >
+        <p className="text-sm text-slate-600 leading-relaxed">
+          You can type or paste a new key. The saved key keeps working until you click <strong>Save</strong>, and if you leave the box empty it isn't changed.
+        </p>
+      </ConfirmModal>,
+      document.body,
+    )}
     {confirmClear && createPortal(
       <ConfirmModal
         title="Clear AI provider?"

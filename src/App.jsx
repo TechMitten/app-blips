@@ -519,7 +519,7 @@ export default function App({ coldStart = false }) {
   // Auto-fix attempts are spent. Before reporting failure, run the full
   // review once per build: it has many more turns, browser testing, and the
   // whole project in view, which is what used to repair these builds when it
-  // ran after every build. Only when Code Review is on: the review takes
+  // ran after every build. Only when Review is on: the review takes
   // screenshots and spends tokens the user opted out of. Imported codebases
   // have no review yet.
   const autoReviewRanRef = useRef(false);
