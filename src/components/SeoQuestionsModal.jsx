@@ -9,7 +9,7 @@ import {
 } from '../lib/seo';
 import { scanSite } from '../lib/seoScan';
 
-// The SEO questions, in their own dialog opened from Settings → Connectors →
+// The SEO questions, in their own dialog opened from Settings → Tools →
 // SEO (SeoConnector.jsx). A few questions a page (the steps are data: lib/seo.js
 // SEO_STEPS), ending on a review page with the only Save. Answers are a draft
 // until then. Saving stores them with the project (App.jsx handleSaveSeo); the
@@ -194,7 +194,7 @@ function Field({ field, form, onChange, images, onEnter, className = '' }) {
       </select>
     ) : (
       <p id={id} className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs leading-snug text-slate-600">
-        You haven’t uploaded any images yet. Add some in Settings → Connectors → My images, then come back to pick one.
+        You haven’t uploaded any images yet. Add some in Settings → Tools → My images, then come back to pick one.
       </p>
     );
   } else if (field.type === 'textarea' || field.type === 'lines') {
@@ -596,7 +596,7 @@ export default function SeoQuestionsModal({ project, onClose }) {
                     {!hasCode
                       ? 'Your answers are kept with this project, and the AI will use them when it builds it.'
                       : pending || dirty
-                        ? 'Send your answers to the AI now and it will apply them to your pages in the chat. Or choose Maybe later: they stay saved, and you can ask for it from Settings → Connectors → SEO any time.'
+                        ? 'Send your answers to the AI now and it will apply them to your pages in the chat. Or choose Maybe later: they stay saved, and you can ask for it from Settings → Tools → SEO any time.'
                         : 'The AI already has these answers.'}
                   </p>
                 </div>

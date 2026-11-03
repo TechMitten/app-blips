@@ -21,7 +21,10 @@ import { galleryNameForms } from '../lib/galleryImages';
 import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
 
 // Settings → Connectors: a grid of services the AI can wire into new projects.
-// A card opens that service's page (switch, key, help). Changes save as you
+// Settings → Tools is the same component with `kind="tools"`: the native
+// connectors (`native: true`, no service or key: SEO and My images), which
+// share the connector state and pages but have no connection to show, so their
+// cards say On/Off. A card opens that service's page (switch, key, help). Changes save as you
 // type; llm.js reads the saved state when it builds, so there is no Save step.
 // To add a service: add its definition in lib/connectors.js (with the `page`
 // wording, the `prompts` users copy into the builder chat, if any, and the `about`
@@ -68,8 +71,18 @@ const STATUS_BADGE = {
   off: { label: 'Not connected', className: 'bg-slate-500/10 text-slate-600' },
 };
 
-function StatusBadge({ status }) {
+// Tools have nothing to connect, so their cards only say whether they're on.
+const TOOL_BADGE = {
+  connected: { label: 'On', className: STATUS_BADGE.connected.className },
+  off: { label: 'Off', className: STATUS_BADGE.off.className },
+};
+
+function StatusBadge({ status, tool = false }) {
   if (!status) return null;
+  if (tool) {
+    const { label, className } = TOOL_BADGE[status];
+    return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
+  }
   const { label, className } = STATUS_BADGE[status];
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{label}</span>;
 }
@@ -79,7 +92,7 @@ function BetaBadge() {
   return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span>;
 }
 
-function ConnectorCard({ name, tagline, Icon, status, beta = false, onClick }) {
+function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, onClick }) {
   return (
     <button
       type="button"
@@ -90,7 +103,7 @@ function ConnectorCard({ name, tagline, Icon, status, beta = false, onClick }) {
         <span className="flex h-10 w-10 items-center justify-center rounded-lg text-indigo-600">
           <Icon size={20} aria-hidden="true" />
         </span>
-        <StatusBadge status={status} />
+        <StatusBadge status={status} tool={tool} />
       </span>
       <span>
         <span className="block text-sm font-semibold text-slate-900">{name}{beta && <BetaBadge />}</span>
@@ -163,7 +176,7 @@ const SAMPLE_IMAGE_NAME = 'team-photo.jpg';
 // the name without extension and a few words of one of `images` (the
 // visible ones), or of a sample name when there are none.
 function ConnectorPrompts({ id, connected, images = [] }) {
-  const { name, prompts: rawPrompts } = CONNECTOR_DEFINITIONS[id];
+  const { name, native, prompts: rawPrompts } = CONNECTOR_DEFINITIONS[id];
   const usesImage = rawPrompts.some((prompt) => /\{(?:image|stem|partial)\}/.test(prompt));
   const imageName = images[0]?.name || '';
   const forms = galleryNameForms(imageName || SAMPLE_IMAGE_NAME, images);
@@ -195,7 +208,7 @@ function ConnectorPrompts({ id, connected, images = [] }) {
       <h4 className="text-sm font-semibold text-slate-900">Prompts to try</h4>
       <p className="text-xs leading-snug text-slate-600">
         Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
-        {!connected && ` They work once ${name} is connected.`}
+        {!connected && ` They work once ${name} is ${native ? 'turned on' : 'connected'}.`}
       </p>
       {usesImage && (
         <p className="text-xs leading-snug text-slate-600">
@@ -231,9 +244,21 @@ function ConnectorPrompts({ id, connected, images = [] }) {
   );
 }
 
-export default function ConnectorsSettings({ seoProject = null, galleryProject = null }) {
+const TAB_NAMES = { services: 'Connectors', tools: 'Tools' };
+
+export default function ConnectorsSettings({ kind = 'services', seoProject = null, galleryProject = null }) {
   const [connectors, setConnectors] = useState(loadConnectors);
-  const [openId, setOpenId] = useState(null);
+  // The open pages, newest last. My images links to Pixabay (a service, from
+  // the Tools tab), so Back returns to the page it came from, not the grid.
+  const [pageStack, setPageStack] = useState([]);
+  const openId = pageStack.at(-1) ?? null;
+  const setOpenId = (id) => setPageStack((stack) => (id ? [...stack, id] : []));
+  const goBack = () => setPageStack((stack) => stack.slice(0, -1));
+  const backLabel = pageStack.length > 1 ? CONNECTOR_DEFINITIONS[pageStack.at(-2)].name : TAB_NAMES[kind];
+  // SEO is switched on per project, so its state is the open project's, not
+  // the shared connector settings (always Off with no project open).
+  const statusOf = (id) => (id === 'seo' ? (seoProject?.enabled ? 'connected' : 'off') : connectorStatus(id, connectors));
+  const ids = CONNECTOR_IDS.filter((id) => Boolean(CONNECTOR_DEFINITIONS[id].native) === (kind === 'tools'));
   const [infoOpen, setInfoOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   // Surge isn't an AI connector: it's the account Publish uses, so its card
@@ -265,11 +290,11 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
       <div>
         <button
           type="button"
-          onClick={() => setOpenId(null)}
+          onClick={goBack}
           className="-ml-2 mb-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           <ArrowLeft size={14} aria-hidden="true" />
-          Connectors
+          {backLabel}
         </button>
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-indigo-600">
@@ -306,7 +331,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
               />
             )
             : CONNECTOR_DEFINITIONS[openId].native
-            ? <SeoConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} seoProject={seoProject} />
+            ? <SeoConnector key={openId} seoProject={seoProject} />
             : CONNECTOR_DEFINITIONS[openId].signIn
               ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
               : openId === 'tavily'
@@ -327,7 +352,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
             <ConnectorPrompts
               key={`${openId}-prompts`}
               id={openId}
-              connected={connectorStatus(openId, connectors) === 'connected'}
+              connected={statusOf(openId) === 'connected'}
               images={galleryProject?.images.filter((image) => image.enabled !== false)}
             />
           )}
@@ -345,23 +370,27 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
   return (
     <div>
       <p className="mb-4 text-xs leading-snug text-slate-600">
-        Connect services and the AI will wire them into your projects. Pick one to set it up.
+        {kind === 'tools'
+          ? 'Built into AppBlips, with no account or key to set up. Turn one on and the AI uses it in your projects.'
+          : 'Connect services and the AI will wire them into your projects. Pick one to set it up.'}
       </p>
       {/* The cards and the modal are both bg-surface, so they sit on a recessed
           tray to read as separate, raised tiles. On dark, shadows barely show
           and surface equals the modal, so the cards also get a lighter fill. */}
       <div className="grid grid-cols-1 gap-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-200/70 sm:grid-cols-2 sm:p-4">
-        {CONNECTOR_IDS.map((id) => (
+        {ids.map((id) => (
           <ConnectorCard
             key={id}
             name={CONNECTOR_DEFINITIONS[id].name}
             tagline={CONNECTOR_DEFINITIONS[id].tagline}
             Icon={ICONS[id]}
             beta={CONNECTOR_DEFINITIONS[id].beta}
-            status={connectorStatus(id, connectors)}
+            status={statusOf(id)}
+            tool={kind === 'tools'}
             onClick={() => setOpenId(id)}
           />
         ))}
+        {kind === 'services' && <>
         <ConnectorCard
           name="Surge"
           tagline="Free hosting that Publish uses to put your sites online."
@@ -382,6 +411,7 @@ export default function ConnectorsSettings({ seoProject = null, galleryProject =
             <span className="mt-0.5 block text-xs leading-snug text-slate-600">Missing a service? Tell us which one.</span>
           </span>
         </button>
+        </>}
       </div>
       {surgeOpen && createPortal(
         <PublishDialog connectOnly onClose={() => setSurgeOpen(false)} />,

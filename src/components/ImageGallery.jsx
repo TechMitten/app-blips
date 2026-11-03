@@ -144,7 +144,7 @@ function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onToggle, 
 }
 
 // "My images": the project's uploaded images (lib/galleryImages.js), shown
-// inside Settings → Connectors → My images (ImagesConnector.jsx). Uploads are
+// inside Settings → Tools → My images (ImagesConnector.jsx). Uploads are
 // processed and stored by useImageGallery.
 export default function ImageGallery({ images, bytesVersion, usedNames, isGenerating, onAddFiles, onRename, onNote, onToggle, onRemove }) {
   const inputRef = useRef(null);

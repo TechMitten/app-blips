@@ -4,7 +4,7 @@ import { SettingRow, Switch, SECONDARY_BUTTON } from './SettingControls';
 import ImageGallery from './ImageGallery';
 import PixabaySearch from './PixabaySearch';
 
-// Settings → Connectors → My images. The switch is global (it decides whether
+// Settings → Tools → My images. The switch is global (it decides whether
 // the AI hears about any image). The gallery belongs to the open project
 // (App.jsx owns the bytes through useImageGallery), so it sits right on this
 // page, where each image can also be hidden from the AI. With the Pixabay

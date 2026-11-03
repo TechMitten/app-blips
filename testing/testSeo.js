@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   SEO_STEPS, buildRobots, buildSeoNote, buildSitemap, emptySeoForm, hashSeoForm, isSeoComplete, normalizeSeoForm,
-  normalizeSeoProfile, normalizeSeoScan, seoExtraFiles, seoOrigin, seoPending,
+  isSeoEnabled, normalizeSeoProfile, normalizeSeoScan, seoExtraFiles, seoOrigin, seoPending,
 } from '../src/lib/seo.js';
 
 const FORM = {
@@ -106,6 +106,20 @@ test('a saved profile loads back clean, and garbage loads as nothing', () => {
   assert.equal(p.sentHash, '');
   assert.equal(p.sentSessionId, null);
   assert.equal(p.form.name, FORM.name);
+});
+
+test('SEO is on per project: off unless the project turned it on', () => {
+  assert.equal(isSeoEnabled(null), false);
+  assert.equal(isSeoEnabled(normalizeSeoProfile({ enabled: false, form: FORM })), false);
+  assert.equal(isSeoEnabled(normalizeSeoProfile({ enabled: true, form: FORM })), true);
+  // Turned on before answering: kept, with no answers yet.
+  const fresh = normalizeSeoProfile({ enabled: true });
+  assert.equal(fresh.enabled, true);
+  assert.equal(fresh.form, null);
+  assert.equal(normalizeSeoProfile({ enabled: false }), null);
+  // Saved before the switch was per project: answered, so on.
+  assert.equal(normalizeSeoProfile({ form: FORM }).enabled, true);
+  assert.equal(normalizeSeoProfile({ enabled: 'yes', form: FORM }).enabled, true);
 });
 
 test('the note carries the answers as data and the checklist, and leaves sitemap/robots to AppBlips', () => {

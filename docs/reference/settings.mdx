@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **Data**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **Tools**, **Data**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -212,15 +212,21 @@ The **Surge** card is the account [Publish to the web](/features/publishing) use
   Lets the AI search the web while it builds and edits your projects. Needs your free Tavily API key: paste it and click **Save key**. Each search uses one Tavily credit. The key stays inside AppBlips; click **Remove key** to forget it. See [Tavily](/features/connectors#tavily).
 </ParamField>
 
+Missing a service? Click **Request a connector** at the end of the cards.
+
+---
+
+## Tools
+
+Tools are built into AppBlips: they need no outside service, account or key. Each card shows **On** or **Off**; click one to open its page, with an **Enable** switch, a **How it works** button and **Prompts to try**. See [Tools](/features/tools).
+
 <ParamField body="Enable My images" type="toggle" default="Off">
   Built into AppBlips (beta). Turn it on so the AI can use your images; while it is off the AI ignores your images. Below the switch is the picture gallery of the project you have open, where you upload your own photos and logos for the AI to use. Click the eye on an image to hide just that one from the AI. With Pixabay set up, **Find free photos on Pixabay** searches free photos to add. See [Using your own images](/features/building-apps#using-your-own-images-beta).
 </ParamField>
 
 <ParamField body="Enable SEO" type="toggle" default="Off">
-  Built into AppBlips, with nothing to sign up for. Opens a short set of questions about the project you have open in their own window, two or three per page, ending with **Send now** (the AI applies them straight away) or **Maybe later** (saved for when you ask). If you type your website address, it asks before scanning that page. Click **Review answers** to see or change them later. The AI applies good search-engine optimization once after you save or change them. See [SEO](/features/connectors#seo).
+  Built into AppBlips, with nothing to sign up for. Set separately for each project: it is off until you turn it on in that project, and can't be used with no project open. Opens a short set of questions about the project you have open in their own window, two or three per page, ending with **Send now** (the AI applies them straight away) or **Maybe later** (saved for when you ask). If you type your website address, it asks before scanning that page. Click **Review answers** to see or change them later. The AI applies good search-engine optimization once after you save or change them. See [SEO](/features/tools#seo).
 </ParamField>
-
-Missing a service? Click **Request a connector** at the end of the cards.
 
 ---
 

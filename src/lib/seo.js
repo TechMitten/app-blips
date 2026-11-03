@@ -169,20 +169,28 @@ export const hashSeoForm = (form) => {
   return hash.toString(16).padStart(8, '0');
 };
 
-// The profile a project row keeps: the saved answers, plus what the AI was
-// last told. `sentSessionId` ties that to a chat session: a new chat (or a
-// restored checkpoint from another session) starts with no memory of the note.
+// The profile a project row keeps: whether SEO is on for this project, the
+// saved answers (null until answered), plus what the AI was last told.
+// `sentSessionId` ties that to a chat session: a new chat (or a restored
+// checkpoint from another session) starts with no memory of the note.
+// SEO is per project and off until turned on there. Profiles saved before the
+// switch moved here have no `enabled`; they only exist for projects whose
+// answers were filled in, so they count as on.
 export const normalizeSeoProfile = (raw) => {
-  if (!raw || typeof raw !== 'object' || !raw.form) return null;
+  if (!raw || typeof raw !== 'object' || (!raw.form && raw.enabled !== true)) return null;
   return {
-    form: normalizeSeoForm(raw.form),
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : Boolean(raw.form),
+    form: raw.form ? normalizeSeoForm(raw.form) : null,
     sentHash: typeof raw.sentHash === 'string' ? raw.sentHash : '',
     sentSessionId: typeof raw.sentSessionId === 'string' ? raw.sentSessionId : null,
   };
 };
 
-// The AI should be told about the form on the next build when the connector is
-// on, the form is complete and what it was last told is out of date: the form
+// Whether SEO is on for the project this profile belongs to.
+export const isSeoEnabled = (profile) => profile?.enabled === true;
+
+// The AI should be told about the form on the next build when SEO is on for
+// the project, the form is complete and what it was last told is out of date: the form
 // changed, or this is a different chat session.
 export const seoPending = ({ enabled, profile, sessionId }) => Boolean(
   enabled && profile?.form && isSeoComplete(profile.form)
@@ -237,7 +245,7 @@ export const buildSeoNote = (form, studioMode = 'website') => {
   ].filter(Boolean);
   const isApp = studioMode === 'app';
   const isGame = studioMode === 'game';
-  return `SEO DETAILS FROM THE USER (they just saved these in Settings → Connectors → SEO). Apply professional, honest SEO to every page of the ${isApp ? 'app' : isGame ? 'game' : 'site'} as part of this request:
+  return `SEO DETAILS FROM THE USER (they just saved these in Settings → Tools → SEO). Apply professional, honest SEO to every page of the ${isApp ? 'app' : isGame ? 'game' : 'site'} as part of this request:
 ${lines.map((line) => `- ${line}`).join('\n')}
 
 Do this in the HTML of every page:

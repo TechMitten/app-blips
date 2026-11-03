@@ -1,12 +1,12 @@
 ---
 title: "Connectors"
 sidebarTitle: "Connectors"
-description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations, Pixabay or Tavily, or use the built-in SEO and My images (beta) connectors, so the AI wires them into the websites and apps you build."
+description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations, Pixabay or Tavily, so the AI wires them into the websites and apps you build."
 ---
 
-Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)).
+Connectors link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](/features/tools#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)).
 
-SEO is different from the rest: it is built into AppBlips, so there is nothing to sign up for and no key to paste. You answer a few questions about your project instead (see [SEO](#seo)).
+Looking for SEO or My images? They are built into AppBlips rather than outside services, so they live in **Settings → Tools** (see [Tools](/features/tools)).
 
 Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is safe to put in a web page: a public key, tracking code or a link. AppBlips never needs a password or a secret key for any of them. Pollinations works differently: you sign in to it, and AppBlips keeps that sign-in to itself (see [Pollinations](#pollinations)). Pixabay and Tavily ask for your own API key, which AppBlips also keeps to itself and never writes into a page (see [Pixabay](#pixabay) and [Tavily](#tavily)).
 
@@ -31,7 +31,7 @@ Web3Forms, Umami, Plausible, tawk.to and Square only ask for something that is s
   </Step>
 </Steps>
 
-Changes save as you type, so there is no Save button. (The one exception is the [SEO](#seo) questions, which end with a **Send now** / **Maybe later** choice.) Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
+Changes save as you type, so there is no Save button. Click **Connectors** at the top to go back to the cards. Each card shows **Connected**, **Needs key** or **Not connected**.
 
 ## Use a connector in a project
 
@@ -209,7 +209,7 @@ In the Browser Game studio, ask for Pollinations images for things like the titl
 
 ## Pixabay
 
-[Pixabay](https://pixabay.com/) is a library of millions of free photos. With your own free Pixabay key, you can search it from inside AppBlips and add the photos you like to the open project's [My images](#my-images-beta). The AI then uses them like pictures you uploaded yourself.
+[Pixabay](https://pixabay.com/) is a library of millions of free photos. With your own free Pixabay key, you can search it from inside AppBlips and add the photos you like to the open project's [My images](/features/tools#my-images-beta). The AI then uses them like pictures you uploaded yourself.
 
 An **API key** is a code that lets AppBlips search Pixabay on your behalf. Pixabay gives every account one for free.
 
@@ -276,41 +276,6 @@ An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily
 - Search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.
 - If Tavily stops accepting your key, the connector shows **Needs key** again and the AI carries on without searching. If you see "Your Tavily key has run out of credits or reached its plan limit", check your usage at app.tavily.com.
 
-## SEO
-
-SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector is built into AppBlips: there is no outside service, no account and no key. You answer a few plain questions about your project, and the AI adds professional SEO to its pages.
-
-<Steps>
-  <Step title="Open a project">
-    The answers belong to one project, so open the project first. Each project has its own.
-  </Step>
-  <Step title="Turn it on">
-    Click **Settings**, then **Connectors**, then the **SEO** card. Click the switch next to **Enable SEO**. The questions open in their own window. (If you've already answered them for this project, click **Review answers** instead.)
-  </Step>
-  <Step title="Answer the questions">
-    The questions come two or three at a time, one page after another, with a bar at the top showing how far along you are. Click **Next** to move on, **Back** to go back, or **Skip** on a page you'd rather leave. You can also click a part of the bar to jump back to a page you've already seen. Only the first page has questions you must answer.
-    - **Tell us about your site:** its name, what it does, and its website address (leave the address blank if you don't have one yet). If you type an address, AppBlips asks **Is it OK to scan** your site? Click **Yes, scan it** and AppBlips visits that one page, once, and reads its title, description and headings, so the AI can match what your site already says. Click **No thanks** and nothing is read. AppBlips only scans sites on the public internet, not addresses on your own network. After a scan you can click **Scan again** or **Forget it**.
-    - **Who is it for?** Your visitors, the kind of site it is, and where you are based.
-    - **How should people find you?** The phrases people might search for, your language or country, and whether search engines may list the site. Turn that off while the site is still a draft.
-    - **When someone shares your link:** your other profiles, such as Instagram, and a preview picture chosen from [My images](/features/building-apps#using-your-own-images-beta).
-  </Step>
-  <Step title="Check and save">
-    The last page shows your answers. Click **Edit** next to a group to change it. The page then explains the next step, letting the AI add SEO from your answers, and gives you two buttons: **Send now** saves them and sends them to the AI, and you wait for its reply in the usual chat. **Maybe later** saves them and closes the window. If you close the window with the X before choosing, AppBlips asks first, since unsaved answers are lost.
-  </Step>
-</Steps>
-
-Once saved, the AI hears about your answers once. If you chose **Maybe later**, they go with your next request, or you can open Settings → Connectors → SEO and click **Apply now** whenever you're ready. The AI then adds a title and description for every page, the tags that make your link look good when it's shared, a proper heading structure, descriptions for your images, and structured data (JSON-LD) that tells search engines what your business is.
-
-What a scan read is saved with your answers, and goes to the AI with them, as information about your site rather than instructions. Your answers are not sent again with every message. They go again only if you save a change, or after you start a **New chat**, which forgets earlier messages.
-
-If you gave a website address, **Export** and **Publish** also add a `sitemap.xml` and a `robots.txt` file to the site. The sitemap lists your pages, and the robots file points search engines to it. If you turned off **Let search engines list this site**, they instead ask search engines to stay away. Because these are separate files, an export with them downloads as a `.zip`, even for a single page.
-
-Good SEO helps search engines find and describe your site, but nobody can promise where it will rank. Imported sites don't use the SEO connector.
-
-## My images (beta)
-
-My images is built into AppBlips and is still in beta, so it may change and some things may not work smoothly yet. There is no account or key to set up: turn on **Enable My images** (it starts off) and use the upload box on the same page to add your own photos and logos to the project you have open. To use a specific image, mention its name (shown in the box under it) to the AI, for example "put team-photo in the hero section". The AI sees each image's name, size and your note, never the pictures. Turn the switch off and the AI ignores all your images. To ignore only some, click the eye on an image in the gallery: it is dimmed and marked **Hidden from the AI**, but pages that already show it keep showing it. With the [Pixabay](#pixabay) connector set up, click **Find free photos on Pixabay** on the same page to search free stock photos and add them. For the full steps, see [Using your own images](/features/building-apps#using-your-own-images-beta). Imported sites don't use it.
-
 ## Request a connector
 
 Missing a service?
@@ -325,4 +290,4 @@ Your request goes to the AppBlips team through Web3Forms. Nothing about your pro
 
 ## Privacy
 
-AppBlips saves your connector settings on your computer. The SEO connector uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), Pixabay when you save your key, search or add photos, and Tavily when you save your key or the AI searches the web. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and your Pixabay and Tavily keys are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.
+AppBlips saves your connector settings on your computer. AppBlips never contacts the other services itself, except Web3Forms when you send a connector request, Pollinations as described in [Pollinations](#pollinations), Pixabay when you save your key, search or add photos, and Tavily when you save your key or the AI searches the web. The pages you build contact them, including in the preview, and anything a connector needs is written into those pages and any HTML you export. Your Pollinations sign-in and your Pixabay and Tavily keys are the exceptions: they are kept like your AI key and never written into a page. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

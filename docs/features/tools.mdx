@@ -1,0 +1,56 @@
+---
+title: "Tools"
+sidebarTitle: "Tools"
+description: "SEO and My images (beta) are built into AppBlips: turn them on in Settings → Tools, with no account or key to set up."
+---
+
+Tools are features built into AppBlips that the AI uses in your projects. Unlike [connectors](/features/connectors), they don't link an outside service, so there is nothing to sign up for and no key to paste.
+
+## Turn on a tool
+
+1. Click **Settings**, then the **Tools** tab. You see a card for each tool, marked **On** or **Off**.
+2. Click its card. Click **How it works** at the top if you'd like an explanation first.
+3. Click the switch next to **Enable** and the tool's name, for example **Enable SEO**.
+
+Changes save as you type. (The one exception is the [SEO](#seo) questions, which end with a **Send now** / **Maybe later** choice.) Click **Tools** at the top to go back to the cards. Under **Prompts to try**, click **Copy** next to a request, then close Settings and paste it into the builder chat to use the tool in a project you already built.
+
+## SEO
+
+SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. SEO is built into AppBlips: there is no outside service, no account and no key. You answer a few plain questions about your project, and the AI adds professional SEO to its pages.
+
+<Steps>
+  <Step title="Open a project">
+    The answers belong to one project, so open the project first. Each project has its own.
+  </Step>
+  <Step title="Turn it on">
+    Click **Settings**, then **Tools**, then the **SEO** card. Click the switch next to **Enable SEO**. The questions open in their own window. (If you've already answered them for this project, click **Review answers** instead.) SEO is off for every project until you turn it on there, and the switch only works while a project is open. Turning it off keeps your answers, so you don't have to fill them in again if you turn it back on.
+  </Step>
+  <Step title="Answer the questions">
+    The questions come two or three at a time, one page after another, with a bar at the top showing how far along you are. Click **Next** to move on, **Back** to go back, or **Skip** on a page you'd rather leave. You can also click a part of the bar to jump back to a page you've already seen. Only the first page has questions you must answer.
+    - **Tell us about your site:** its name, what it does, and its website address (leave the address blank if you don't have one yet). If you type an address, AppBlips asks **Is it OK to scan** your site? Click **Yes, scan it** and AppBlips visits that one page, once, and reads its title, description and headings, so the AI can match what your site already says. Click **No thanks** and nothing is read. AppBlips only scans sites on the public internet, not addresses on your own network. After a scan you can click **Scan again** or **Forget it**.
+    - **Who is it for?** Your visitors, the kind of site it is, and where you are based.
+    - **How should people find you?** The phrases people might search for, your language or country, and whether search engines may list the site. Turn that off while the site is still a draft.
+    - **When someone shares your link:** your other profiles, such as Instagram, and a preview picture chosen from [My images](/features/building-apps#using-your-own-images-beta).
+  </Step>
+  <Step title="Check and save">
+    The last page shows your answers. Click **Edit** next to a group to change it. The page then explains the next step, letting the AI add SEO from your answers, and gives you two buttons: **Send now** saves them and sends them to the AI, and you wait for its reply in the usual chat. **Maybe later** saves them and closes the window. If you close the window with the X before choosing, AppBlips asks first, since unsaved answers are lost.
+  </Step>
+</Steps>
+
+Once saved, the AI hears about your answers once. If you chose **Maybe later**, they go with your next request, or you can open Settings → Tools → SEO and click **Apply now** whenever you're ready. The AI then adds a title and description for every page, the tags that make your link look good when it's shared, a proper heading structure, descriptions for your images, and structured data (JSON-LD) that tells search engines what your business is.
+
+What a scan read is saved with your answers, and goes to the AI with them, as information about your site rather than instructions. Your answers are not sent again with every message. They go again only if you save a change, or after you start a **New chat**, which forgets earlier messages.
+
+If you gave a website address, **Export** and **Publish** also add a `sitemap.xml` and a `robots.txt` file to the site. The sitemap lists your pages, and the robots file points search engines to it. If you turned off **Let search engines list this site**, they instead ask search engines to stay away. Because these are separate files, an export with them downloads as a `.zip`, even for a single page.
+
+The **SEO** card shows **On** or **Off** for the project you have open.
+
+Good SEO helps search engines find and describe your site, but nobody can promise where it will rank. Imported sites don't use SEO.
+
+## My images (beta)
+
+My images is built into AppBlips and is still in beta, so it may change and some things may not work smoothly yet. There is no account or key to set up: turn on **Enable My images** (it starts off) and use the upload box on the same page to add your own photos and logos to the project you have open. To use a specific image, mention its name (shown in the box under it) to the AI, for example "put team-photo in the hero section". The AI sees each image's name, size and your note, never the pictures. Turn the switch off and the AI ignores all your images. To ignore only some, click the eye on an image in the gallery: it is dimmed and marked **Hidden from the AI**, but pages that already show it keep showing it. With the [Pixabay](/features/connectors#pixabay) connector set up, click **Find free photos on Pixabay** on the same page to search free stock photos and add them. For the full steps, see [Using your own images](/features/building-apps#using-your-own-images-beta). Imported sites don't use it.
+
+## Privacy
+
+SEO uses no outside service. The one thing it can do is read your own website, and only after you say yes (see [SEO](#seo)). Your answers are saved with the project on your computer, and reach only the AI provider you already use for building, as part of a request. My images keeps your pictures with the project on your computer; the AI gets each image's name, size and note, never the picture. See [What does AppBlips connect to?](/reference/faq) in the FAQ.

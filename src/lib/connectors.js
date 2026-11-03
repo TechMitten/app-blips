@@ -502,7 +502,7 @@ export const CONNECTOR_DEFINITIONS = {
       'Add structured data (JSON-LD) to every page that matches my saved SEO details.',
     ],
     about: {
-      what: 'SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This connector turns a short, friendly questionnaire into that work, done by the AI.',
+      what: 'SEO (search engine optimization) is what helps Google and other search engines understand your site and show it to the right people. This tool turns a short, friendly questionnaire into that work, done by the AI.',
       steps: [
         'Turn on SEO and open a project.',
         'Answer the questions, two or three at a time: what your site is called and does, who it is for, the phrases people might search for, and how it should look when shared.',

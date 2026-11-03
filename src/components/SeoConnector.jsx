@@ -5,18 +5,23 @@ import { SettingRow, Switch, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingC
 import SeoQuestionsModal from './SeoQuestionsModal';
 import { isSeoComplete, seoPending } from '../lib/seo';
 
-// Settings → Connectors → SEO. The switch, plus where this project's answers
-// stand. The questions themselves have their own dialog (SeoQuestionsModal.jsx),
+// Settings → Tools → SEO. The switch, plus where this project's answers
+// stand. Both belong to the open project (seoProject, from App.jsx), not to
+// the shared connector settings: with no project open the switch is off and
+// can't be used. The questions themselves have their own dialog (SeoQuestionsModal.jsx),
 // which opens by itself the first time SEO is turned on for a project with no
 // answers yet.
-export default function SeoConnector({ state, onChange, seoProject }) {
+export default function SeoConnector({ seoProject }) {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const answered = Boolean(seoProject?.profile?.form && isSeoComplete(seoProject.profile.form));
   const pending = answered && seoPending({ enabled: true, profile: seoProject.profile, sessionId: seoProject.sessionId });
 
-  const toggle = (enabled) => {
-    onChange({ enabled });
-    if (enabled && seoProject && !answered) setQuestionsOpen(true);
+  const enabled = Boolean(seoProject?.enabled);
+
+  const toggle = (on) => {
+    if (!seoProject) return;
+    seoProject.onToggle(on);
+    if (on && !answered) setQuestionsOpen(true);
   };
 
   return (
@@ -24,12 +29,12 @@ export default function SeoConnector({ state, onChange, seoProject }) {
       <SettingRow
         id="set-seo"
         title="Enable SEO"
-        description="Answer a few questions about the project you have open, and the AI will apply good SEO to it."
+        description="For the project you have open. Answer a few questions about it, and the AI will apply good SEO to it. Each project has its own switch and answers."
       >
-        <Switch checked={state.enabled} onChange={toggle} labelledBy="set-seo" />
+        <Switch checked={enabled} onChange={toggle} disabled={!seoProject} labelledBy="set-seo" />
       </SettingRow>
-      {state.enabled && (seoProject
-        ? (
+      {seoProject
+        ? enabled && (
           <SettingRow
             id="set-seo-answers"
             title="Your answers"
@@ -57,9 +62,9 @@ export default function SeoConnector({ state, onChange, seoProject }) {
         )
         : (
           <p className="py-4 text-sm leading-snug text-slate-600">
-            Open or start a project first. The answers belong to one project, so each can have its own.
+            Open or start a project first. SEO is set up for one project at a time, so each can have its own.
           </p>
-        ))}
+        )}
       {/* Portaled out of the settings card: a fixed overlay inside it would be
           clipped by the card's overflow. */}
       {questionsOpen && seoProject && createPortal(

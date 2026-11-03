@@ -29,6 +29,7 @@
               "features/live-preview",
               "features/editing-apps",
               "features/connectors",
+              "features/tools",
               "features/exporting",
               "features/publishing",
               "features/showcase",

@@ -57,14 +57,14 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 ### Creation & Editing
 - **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
 - **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes (drag a box or Shift+click to select several at once, or right-click to ask the AI for a change right there, add text or an image, or cut, copy, paste, duplicate, move or delete), or ask the AI in plain English for deeper structural tweaks.
-- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Connectors → My images (or search free Pixabay stock photos with your own Pixabay key and add the ones you pick) and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
+- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Tools → My images (or search free Pixabay stock photos with your own Pixabay key and add the ones you pick) and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
 - **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
 - **Built-in Code Editor** — Open the **Code** tab, click **Edit** and change the code yourself, with syntax colours and autocomplete (word suggestions worked out on your computer, never by the AI; on by default, switch off in **Settings → Workspace → Code autocomplete**). Each save becomes a new version you can undo, and an error in your own edit is reported, not silently rewritten by the AI.
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect your own API keys (or local models). AppBlips itself is free; your provider bills you for what you use.
-- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Connectors**. The built-in **SEO** connector needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Connectors**. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.

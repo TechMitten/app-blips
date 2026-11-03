@@ -75,9 +75,9 @@ import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
 import { injectPollinationsHelper } from './lib/pollinationsHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
-import { getPollinationsHelperOptions, loadConnectors } from './lib/connectors';
+import { getPollinationsHelperOptions } from './lib/connectors';
 import {
-  SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, crawlExtraFiles, normalizeSeoForm, seoExtraFiles, seoPending,
+  SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, crawlExtraFiles, isSeoEnabled, normalizeSeoForm, seoExtraFiles, seoPending,
 } from './lib/seo';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
@@ -186,8 +186,8 @@ export default function App({ coldStart = false }) {
   // [{ hash, name, type, width, height, size, note }], saved with the project
   // row (not per version); useImageGallery manages the bytes.
   const [galleryImages, setGalleryImages] = useState([]);
-  // The SEO connector's answers for this project (lib/seo.js): { form,
-  // sentHash, sentSessionId } or null. Saved with the project row, not per version.
+  // SEO for this project (lib/seo.js): { enabled, form, sentHash,
+  // sentSessionId } or null (off, never set up). Saved with the project row, not per version.
   const [seoProfile, setSeoProfile] = useState(null);
   const seoProfileRef = useRef(seoProfile);
   seoProfileRef.current = seoProfile;
@@ -1652,7 +1652,7 @@ export default function App({ coldStart = false }) {
     // forgets them. Marked as sent only when the request really built or edited
     // (below), so a question, clarification or failure sends them next time.
     const seoNote = !isAutoFix && chatMode !== 'ask' && studioMode !== 'codebase'
-      && seoPending({ enabled: loadConnectors().seo?.enabled === true, profile: seoProfileRef.current, sessionId: currentChatSessionId })
+      && seoPending({ enabled: isSeoEnabled(seoProfileRef.current), profile: seoProfileRef.current, sessionId: currentChatSessionId })
       ? buildSeoNote(seoProfileRef.current.form, studioMode)
       : '';
     const seoSentHash = seoNote ? hashSeoForm(seoProfileRef.current.form) : '';
@@ -2177,9 +2177,9 @@ export default function App({ coldStart = false }) {
 
   // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
   // the page list here rather than written by the AI. [] when it is off.
-  const seoExtras = (pages) => seoExtraFiles({ enabled: loadConnectors().seo?.enabled === true, form: seoProfile?.form }, pageNames(pages));
+  const seoExtras = (pages) => seoExtraFiles({ enabled: isSeoEnabled(seoProfile), form: seoProfile?.form }, pageNames(pages));
   // Publish only: its "let search engines find this site" box overrides the connector's indexing switch.
-  const publishExtras = (pages, allowCrawl) => crawlExtraFiles({ enabled: loadConnectors().seo?.enabled === true, form: seoProfile?.form }, pageNames(pages), allowCrawl);
+  const publishExtras = (pages, allowCrawl) => crawlExtraFiles({ enabled: isSeoEnabled(seoProfile), form: seoProfile?.form }, pageNames(pages), allowCrawl);
 
   // The new tab is a blob: page with AppBlips' own origin, so the generated
   // code must not run in it directly: it would reach AppBlips' storage
@@ -2740,15 +2740,24 @@ export default function App({ coldStart = false }) {
     );
   }
 
-  // Settings → Connectors → SEO. Saving keeps what the AI was last told, so
+  // Settings → Tools → SEO. Saving keeps what the AI was last told, so
   // only a real change makes the answers pending again (lib/seo.js).
   const handleSaveSeo = (form) => {
     const previous = seoProfileRef.current;
     const next = {
+      enabled: true,
       form: normalizeSeoForm(form),
       sentHash: previous?.sentHash || '',
       sentSessionId: previous?.sentSessionId ?? null,
     };
+    seoProfileRef.current = next;
+    setSeoProfile(next);
+    if (currentProjectId) saveProject({ seoToSave: next, force: true });
+  };
+  // The Enable SEO switch, for this project only. Turning it off keeps the
+  // answers, so turning it back on doesn't mean answering again.
+  const handleToggleSeo = (enabled) => {
+    const next = { form: null, sentHash: '', sentSessionId: null, ...seoProfileRef.current, enabled };
     seoProfileRef.current = next;
     setSeoProfile(next);
     if (currentProjectId) saveProject({ seoToSave: next, force: true });
@@ -2763,6 +2772,8 @@ export default function App({ coldStart = false }) {
   const seoProject = studioMode && studioMode !== 'codebase' && !isStudioChoiceOpen
     ? {
       profile: seoProfile,
+      enabled: isSeoEnabled(seoProfile),
+      onToggle: handleToggleSeo,
       images: galleryImages,
       hasCode: Boolean(generatedCode),
       busy: isGenerating,
@@ -2772,7 +2783,7 @@ export default function App({ coldStart = false }) {
     }
     : null;
 
-  // My images lives in Settings → Connectors; imported codebases keep their
+  // My images lives in Settings → Tools; imported codebases keep their
   // own image files, so no gallery there (seoProject is null for them).
   const galleryProject = seoProject
     ? {

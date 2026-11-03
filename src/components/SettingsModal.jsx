@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, RotateCcw, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import ConnectorsSettings from './ConnectorsSettings';
@@ -23,7 +23,8 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
 // AI (your own AI provider, then reasoning, clarifying questions, review offers),
-// Connectors (services the AI wires into projects), Data (project backup and the desktop projects folder),
+// Connectors (services the AI wires into projects), Tools (built-in extras
+// like SEO and My images, the native connectors), Data (project backup and the desktop projects folder),
 // and About (logo, version, copyright, then the legal links and open source licenses).
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
@@ -78,6 +79,7 @@ const TABS = [
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
   { id: 'connectors', label: 'Connectors', Icon: Plug },
+  { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'about', label: 'About', Icon: Info },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
@@ -403,7 +405,9 @@ export default function SettingsModal({
             </>
           )}
 
-          {tab === 'connectors' && <ConnectorsSettings seoProject={seoProject} galleryProject={galleryProject} />}
+          {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} />}
+
+          {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} />}
 
         </div>
       </div>
