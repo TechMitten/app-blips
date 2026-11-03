@@ -15,8 +15,12 @@ const BUG_REPORT_URL = `${REPO_URL}/issues/new`;
 const LEGAL_LINKS = [
   { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', why: 'The Privacy Policy is published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/privacy' },
   { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', why: 'The Terms of Service are published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/terms' },
+  // A service, not shipped code (Publish talks to Surge's API with AppBlips'
+  // own client, electron/server/surgeApi.js), so its terms go here, not under
+  // Licenses.
+  { id: 'legal-surge', title: 'Surge Terms of Service', description: 'Publish puts your sites online with Surge, a hosting service. Surge\u2019s own terms apply to what you publish. No Surge code is included in AppBlips.', why: 'Surge\u2019s own terms apply to what you publish, and they are hosted by Surge.', href: 'https://surge.sh/terms' },
 ];
-// scroll-mt keeps a heading clear of the panel's top edge after a jump.
+// h3: the dialog's own title is the h2. scroll-mt keeps a heading clear of the panel's top edge after a jump.
 const SECTION_CLASS = 'mt-8 mb-1 scroll-mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500 focus:outline-none';
 const SECTIONS = [
   { id: 'about-legal', label: 'Legal' },
@@ -79,9 +83,9 @@ export default function AboutSettings() {
       </p>
     </div>
 
-    <h2 id="about-legal" tabIndex={-1} className={SECTION_CLASS}>Legal</h2>
+    <h3 id="about-legal" tabIndex={-1} className={SECTION_CLASS}>Legal</h3>
     {LEGAL_LINKS.map(({ id, title, description, href, why }) => (
-      <SettingRow key={id} id={id} title={title} description={description}>
+      <SettingRow key={id} id={id} title={title} description={description} headingLevel={4}>
         <ConfirmedLink href={href} why={why} className={SECONDARY_BUTTON}>
           <ExternalLink size={14} aria-hidden="true" />
           View
@@ -89,7 +93,7 @@ export default function AboutSettings() {
       </SettingRow>
     ))}
 
-    <h2 id="about-licenses" tabIndex={-1} className={SECTION_CLASS}>Licenses</h2>
+    <h3 id="about-licenses" tabIndex={-1} className={SECTION_CLASS}>Licenses</h3>
     <LicensesSettings />
     </>
   );

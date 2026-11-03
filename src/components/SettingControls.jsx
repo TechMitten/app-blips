@@ -10,12 +10,15 @@ export const SECONDARY_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg bor
 // One setting: label + helper text on the left, control on the right. Stacks on
 // narrow widths so segmented controls never squeeze the copy. `details` is
 // optional full-width content below the row (e.g. fields revealed by a switch).
-export function SettingRow({ id, title, description, children, details }) {
+// headingLevel: rows sit under the dialog's h2 by default; a tab that groups
+// rows under its own section headings (About) passes 4.
+export function SettingRow({ id, title, description, children, details, headingLevel = 3 }) {
+  const Heading = `h${headingLevel}`;
   return (
     <div className="py-4 first:pt-0 last:pb-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-x-6 gap-y-2.5">
         <div className="min-w-0 sm:max-w-[60%]">
-          <h3 id={id} className="text-sm font-semibold text-slate-900">{title}</h3>
+          <Heading id={id} className="text-sm font-semibold text-slate-900">{title}</Heading>
           {description && <p className="mt-0.5 text-xs text-slate-600 leading-snug">{description}</p>}
         </div>
         {children && <div className="shrink-0">{children}</div>}

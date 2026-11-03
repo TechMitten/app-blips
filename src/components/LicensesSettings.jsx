@@ -1,7 +1,7 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ExternalLink, Search } from 'lucide-react';
-import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
+import { SettingRow, FIELD_CLASS } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 import { REACT_BITS_LICENSE } from '../lib/reactBitsCatalog';
 
@@ -9,7 +9,6 @@ import { REACT_BITS_LICENSE } from '../lib/reactBitsCatalog';
 // source code it ships. The package list is generated from what each build
 // actually bundles (scripts/licenses.js) and loaded only when About opens, since
 // the full license texts are tens of kilobytes.
-const REPO_URL = 'https://github.com/TechMitten/app-blips';
 
 // Loaded from Google Fonts at runtime rather than shipped, so they have no
 // license text here, only a credit.
@@ -93,10 +92,12 @@ export default function LicensesSettings() {
 
   return (
     <>
+      {/* The Source code button and the MIT line are at the top of About, so
+          this row only offers the license text itself. */}
       <SettingRow
         id="licenses-appblips"
         title="AppBlips"
-        description="AppBlips is open source under the MIT License. You can read, change and share its code."
+        headingLevel={4}
         details={data && (
           <details className="group">
             <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline [&::-webkit-details-marker]:hidden">
@@ -106,15 +107,10 @@ export default function LicensesSettings() {
             <div className="mt-2"><LicenseText text={data.appblips} license="MIT" /></div>
           </details>
         )}
-      >
-        <ConfirmedLink href={REPO_URL} why="To show you the AppBlips source code, which is public on GitHub." className={SECONDARY_BUTTON}>
-          <ExternalLink size={14} />
-          Source code
-        </ConfirmedLink>
-      </SettingRow>
+      />
 
       <div className="py-4">
-        <h3 className="text-sm font-semibold text-slate-900">Open source packages</h3>
+        <h4 className="text-sm font-semibold text-slate-900">Open source packages</h4>
         <p className="mt-0.5 text-xs leading-snug text-slate-600">
           AppBlips is built with {data ? `these ${data.packages.length}` : 'these'} open source projects. Thank you to everyone who makes them. Click one to read its license.
         </p>
@@ -142,7 +138,7 @@ export default function LicensesSettings() {
       </div>
 
       <div className="py-4 last:pb-0">
-        <h3 className="text-sm font-semibold text-slate-900">Other credits</h3>
+        <h4 className="text-sm font-semibold text-slate-900">Other credits</h4>
         <div className="mt-1 divide-y divide-slate-200">
           {(data?.extras || []).map((entry) => <LicenseEntry key={entry.name} {...entry} />)}
           <LicenseEntry {...REACT_BITS} />
@@ -154,22 +150,6 @@ export default function LicensesSettings() {
               </p>
             </div>
           )}
-          {/* A service, not shipped code: Publish talks to Surge's API with
-              AppBlips' own client (electron/server/surgeApi.js). */}
-          <div className="py-2.5">
-            <p className="text-sm font-semibold text-slate-900">Surge</p>
-            <p className="mt-0.5 text-xs leading-snug text-slate-600">
-              Publish puts your sites online with Surge, a hosting service. No Surge code is included in AppBlips. Surge&rsquo;s own terms apply to what you publish.
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-              <ConfirmedLink href="https://surge.sh" why="To read about Surge, the hosting service Publish uses." className={LINK_CLASS}>
-                surge.sh<ExternalLink size={11} aria-hidden="true" />
-              </ConfirmedLink>
-              <ConfirmedLink href="https://surge.sh/terms" why="Surge's own terms apply to what you publish, and they are hosted by Surge." className={LINK_CLASS}>
-                Surge terms<ExternalLink size={11} aria-hidden="true" />
-              </ConfirmedLink>
-            </div>
-          </div>
           <div className="py-2.5">
             <p className="text-sm font-semibold text-slate-900">Fonts</p>
             <p className="mt-0.5 text-xs leading-snug text-slate-600">
