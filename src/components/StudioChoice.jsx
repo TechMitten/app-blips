@@ -4,6 +4,10 @@ import {
   Moon, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
+import BorderGlow from './reactbits/BorderGlow';
+import DotGrid from './reactbits/DotGrid';
+import RotatingText from './reactbits/RotatingText';
+import StudioArt from './StudioArt';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -48,14 +52,47 @@ const STUDIOS = [
     description: '2D and 3D games with touch and keyboard controls that run in the browser.',
     cta: 'Build a game',
   },
-  {
-    key: 'projects',
-    Icon: LibraryBig,
-    title: 'Quick Start & Library',
-    description: 'Pick up where you left off, or start from a ready-made template.',
-    cta: 'Browse templates',
-  },
 ];
+
+// The heading's rotating word ("Build an app", "Build a website", ...).
+const ROTATING_STUDIOS = ['an app', 'a website', 'a game'];
+
+// Hover glow on every card (React Bits' BorderGlow; the glass-card tweaks are
+// in studio-choice.css). Dark keeps the picker's monochrome-plus-brand-red
+// look, so every card glows in the wordmark's red family. Light gives each
+// card its own --tint (same hues as studio-choice.css) so the glow matches
+// the icon tile and call to action.
+const GLOW_DARK = { glowColor: '8 90 74', colors: ['#ec6452', '#f59e0b', '#f472b6'] };
+const GLOW_LIGHT = {
+  app: { glowColor: '221 83 53', colors: ['#2563eb', '#60a5fa', '#818cf8'] },
+  website: { glowColor: '192 82 31', colors: ['#0e7490', '#22d3ee', '#38bdf8'] },
+  game: { glowColor: '17 88 40', colors: ['#c2410c', '#fb923c', '#f43f5e'] },
+  projects: { glowColor: '163 94 24', colors: ['#047857', '#34d399', '#2dd4bf'] },
+  import: { glowColor: '215 25 27', colors: ['#334155', '#94a3b8', '#64748b'] },
+  showcase: { glowColor: '336 74 42', colors: ['#be185d', '#f472b6', '#fb7185'] },
+};
+
+function GlowCard({ studio, isDark, children }) {
+  const { glowColor, colors } = isDark ? GLOW_DARK : GLOW_LIGHT[studio];
+  return (
+    <BorderGlow
+      className="studio-glow-card"
+      // Only picks the blend mode (plus-lighter on dark, normal on light):
+      // the card's own glass background shows, not this colour.
+      backgroundColor={isDark ? '#080808' : '#ffffff'}
+      borderRadius={16}
+      glowRadius={24}
+      edgeSensitivity={30}
+      coneSpread={25}
+      glowIntensity={isDark ? 1 : 0.8}
+      fillOpacity={isDark ? 0.2 : 0.15}
+      glowColor={glowColor}
+      colors={colors}
+    >
+      {children}
+    </BorderGlow>
+  );
+}
 
 // Colours come from the studio-* classes (studio-choice.css), not Tailwind's
 // white/black utilities, so each one has a dark and a light value.
@@ -76,9 +113,48 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
 
+  const isDark = resolvedTheme === 'dark';
+
   const handleOpenProjects = () => {
     onOpenProjects?.();
   };
+
+  const EXTRA_ROWS = [
+    {
+      key: 'projects',
+      Icon: LibraryBig,
+      title: 'Projects & templates',
+      description: 'Pick up where you left off, or start from a template.',
+      label: 'Projects and templates: open a saved project or start from a template',
+      onClick: handleOpenProjects,
+      badge: savedAppsCount > 0 && (
+        <span className="studio-saved-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+          {savedAppsCount} saved
+        </span>
+      ),
+    },
+    {
+      key: 'import',
+      Icon: FolderUp,
+      title: 'Import a site',
+      description: 'Open a React + Vite project from a .zip and keep editing it with AI.',
+      label: 'Import a site: open a React + Vite project from a .zip',
+      onClick: onImportSite,
+      hidden: !onImportSite,
+      badge: (
+        <span className="studio-beta-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Beta</span>
+      ),
+    },
+    {
+      key: 'showcase',
+      Icon: Sparkles,
+      title: 'Showcase',
+      description: 'See what people built with one prompt, and share your own.',
+      label: 'Showcase: see what people have built with AppBlips',
+      onClick: onOpenShowcase,
+      hidden: !onOpenShowcase,
+    },
+  ];
 
   return (
     <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
@@ -175,7 +251,23 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
           <div className="relative flex flex-1 flex-col">
             <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-            <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true" />
+            {/* Interactive dot grid (React Bits' DotGrid, WebGL2): dots swell
+                and ripple around the pointer, and a click sends a shock wave.
+                It listens on the window, so the cards above it don't block it,
+                and stops drawing once everything has settled. Without WebGL2
+                it simply draws nothing. */}
+            <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true">
+              <DotGrid
+                dotSize={2.5}
+                gap={20}
+                baseColor={isDark ? '#262626' : '#b9c2d0'}
+                activeColor={isDark ? '#ec6452' : '#d9472f'}
+                proximity={130}
+                shockRadius={260}
+                shockStrength={3}
+                glow={isDark ? 0.6 : 0.2}
+              />
+            </div>
 
             <div className="studio-main relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
@@ -184,107 +276,94 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   Describe it. Watch it build.
                 </span>
 
+                {/* The visible heading cycles through the three studios; screen
+                    readers get one stable sentence instead of a changing one. */}
                 <h1 className="studio-title mt-5 text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:mt-6 sm:text-5xl md:text-6xl">
-                  What will you build?
+                  <span className="sr-only">What will you build? An app, a website or a game.</span>
+                  <span className="studio-title-line" aria-hidden="true">
+                    <span>Build</span>
+                    <RotatingText
+                      texts={ROTATING_STUDIOS}
+                      mainClassName="studio-rotate"
+                      highlight
+                      highlightColor={isDark ? '#ec6452' : '#d9472f'}
+                      effect="slide"
+                      splitBy="characters"
+                      staggerDuration={0.02}
+                      staggerFrom="last"
+                      rotationInterval={2600}
+                    />
+                  </span>
                 </h1>
                 <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
                   Describe what you want in plain English. AppBlips builds a working app,
                   website or game you can preview and refine.
                 </p>
-
               </header>
 
-              <div className="studio-grid mt-10 grid grid-cols-1 gap-4 animate-stagger-3 sm:mt-12 sm:grid-cols-2 sm:gap-5">
-                {STUDIOS.map(({ key, Icon, title, description, cta }) => {
-                  const isProjects = key === 'projects';
-                  return (
+              {/* The three ways to make something new: big cards, each with a
+                  small scene of what that studio makes. */}
+              <div className="studio-grid mt-10 grid animate-stagger-3">
+                {STUDIOS.map(({ key, Icon, title, description, cta }) => (
+                  <GlowCard key={key} studio={key} isDark={isDark}>
                     <button
-                      key={key}
                       type="button"
-                      onClick={isProjects ? handleOpenProjects : () => onSelectStudio(key)}
+                      onClick={() => onSelectStudio(key)}
                       aria-label={`${cta}: ${title}`}
                       data-studio={key}
-                      className={`studio-card group relative flex items-start gap-4 rounded-2xl p-5 text-left sm:flex-col sm:gap-0 sm:p-6 ${FOCUS_RING}`}
+                      className={`studio-card group relative flex flex-col rounded-2xl text-left ${FOCUS_RING}`}
                     >
-                      <span className="studio-icon-tile relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:mb-5 sm:h-12 sm:w-12">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                      {isProjects && savedAppsCount > 0 && (
-                        <span className="studio-saved-badge absolute right-3 top-3 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold sm:right-4 sm:top-4">
-                          {savedAppsCount} saved
+                      <StudioArt studio={key} />
+                      <span className="studio-card-body flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center gap-3">
+                          <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
+                            <Icon className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
                         </span>
-                      )}
-
-                      <span className="flex min-w-0 flex-1 flex-col self-stretch">
-                        <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
-                        <span className="studio-card-desc mt-1.5 block text-sm leading-relaxed studio-text-soft">{description}</span>
-                        <span className="studio-card-cta mt-4 inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong sm:mt-auto sm:pt-6" aria-hidden="true">
-                          {cta}
+                        <span className="studio-card-desc mt-2 block text-sm leading-relaxed studio-text-soft">{description}</span>
+                        <span className="studio-card-cta inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong" aria-hidden="true">
+                          <span className="studio-cta-label">{cta}</span>
                           <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                         </span>
                       </span>
                     </button>
-                  );
-                })}
+                  </GlowCard>
+                ))}
               </div>
 
-              {/* Importing an existing React + Vite project and the Showcase are
-                  the less common paths, so they sit under the studios as wide
-                  rows, side by side once the studios fit on one line. */}
-              {(onImportSite || onOpenShowcase) && (
-              <div className="studio-extra-rows mt-4 grid grid-cols-1 gap-4 sm:mt-5 sm:gap-5">
-              {onImportSite && (
-                <button
-                  type="button"
-                  onClick={onImportSite}
-                  aria-label="Import a site: open a React + Vite project from a .zip"
-                  data-studio="import"
-                  className={`studio-card group flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:px-6 ${FOCUS_RING}`}
-                >
-                  <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-                    <FolderUp className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="flex items-center gap-2">
-                      <span className="block text-base font-semibold studio-text-strong">Import a site</span>
-                      <span className="studio-beta-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Beta</span>
-                    </span>
-                    <span className="studio-card-desc mt-0.5 block text-sm leading-relaxed studio-text-soft">
-                      Got a React + Vite project from your web designer? Open its .zip and keep editing it with AI.
-                    </span>
-                  </span>
-                  <span className="studio-card-cta hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
-                    Import .zip
-                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
-                  </span>
-                </button>
-              )}
-
-              {onOpenShowcase && (
-                <button
-                  type="button"
-                  onClick={onOpenShowcase}
-                  aria-label="Showcase: see what people have built with AppBlips"
-                  data-studio="showcase"
-                  className={`studio-card group flex items-center gap-4 rounded-2xl p-4 text-left animate-stagger-3 sm:px-6 ${FOCUS_RING}`}
-                >
-                  <span className="studio-icon-tile flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-                    <Sparkles className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="block text-base font-semibold studio-text-strong">Showcase</span>
-                    <span className="studio-card-desc mt-0.5 block text-sm leading-relaxed studio-text-soft">
-                      See what people have built with one prompt, and submit your own published project.
-                    </span>
-                  </span>
-                  <span className="studio-card-cta hidden items-center gap-1.5 text-sm font-semibold studio-text-strong sm:inline-flex" aria-hidden="true">
-                    Explore
-                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
-                  </span>
-                </button>
-              )}
+              {/* Starting from something that already exists: your projects
+                  and templates, an imported site, or the Showcase. Slimmer
+                  rows so the studios above stay the obvious first choice. */}
+              <div className="studio-extra-rows grid animate-stagger-3">
+                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick, badge }) => (
+                  <GlowCard key={key} studio={key} isDark={isDark}>
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      aria-label={label}
+                      data-studio={key}
+                      className={`studio-card group flex items-center gap-3 rounded-2xl text-left ${FOCUS_RING}`}
+                    >
+                      <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex items-center gap-2">
+                          <span className="block truncate text-base font-semibold studio-text-strong">{title}</span>
+                          {badge}
+                        </span>
+                        <span className="studio-card-desc mt-0.5 block text-sm leading-snug studio-text-soft">{description}</span>
+                      </span>
+                      {/* Arrow only: the row's title already says what it does,
+                          and a label would squeeze the text at three across. */}
+                      <span className="studio-card-cta inline-flex shrink-0 studio-text-strong" aria-hidden="true">
+                        <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </span>
+                    </button>
+                  </GlowCard>
+                ))}
               </div>
-              )}
             </div>
           </div>
 

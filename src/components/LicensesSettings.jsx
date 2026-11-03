@@ -19,11 +19,12 @@ const FONTS = [
   { name: 'IBM Plex Mono', author: 'IBM', href: 'https://fonts.google.com/specimen/IBM+Plex+Mono' },
 ];
 
-// Not bundled as code: AppBlips ships React Bits' component list (names,
-// descriptions, links) and downloads a component only when a request asks for
-// it (lib/reactBits.js), so it's credited here by hand.
+// Not an npm package, so scripts/licenses.js can't see it: AppBlips ships
+// React Bits' component list (names, descriptions, links), downloads a
+// component only when a request asks for it (lib/reactBits.js), and its own
+// UI uses a few of them (components/reactbits/), so it's credited here by hand.
 const REACT_BITS = {
-  name: 'React Bits (component list and downloads)',
+  name: 'React Bits (BorderGlow, DotGrid, RotatingText, component list and downloads)',
   author: 'David Haz',
   license: 'MIT + Commons Clause',
   homepage: 'https://reactbits.dev/',

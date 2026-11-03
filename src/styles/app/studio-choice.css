@@ -164,16 +164,15 @@
 }
 
 .studio-dots {
-  opacity: 0.6;
-  background-image: radial-gradient(var(--sc-dot) 1px, transparent 1px);
-  background-size: 20px 20px;
+  /* Holds the DotGrid canvas (StudioChoice.jsx); the mask fades it out
+     towards the edges like the old static dots. */
   -webkit-mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
   mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
 }
 
 /* Light theme: a modern SaaS backdrop instead of the dark glow. Soft pastel
    colour blobs (sky, cyan, peach, mint -- no purple, per the brand) drift very
-   slowly behind a fine line grid that fades out towards the edges, plus a
+   slowly behind the dot grid, which fades out towards the edges, plus a
    white wash at the top so the hero text sits on the calmest part. */
 :root:not(.dark) .studio-glow {
   overflow: hidden;
@@ -212,12 +211,6 @@
 }
 
 :root:not(.dark) .studio-dots {
-  opacity: 1;
-  background-image:
-    linear-gradient(to right, rgb(15 23 42 / 0.085) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(15 23 42 / 0.085) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center top;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
   mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
 }
@@ -296,6 +289,7 @@
 .studio-card[data-studio="game"]     { --tint: 194 65 12; }
 .studio-card[data-studio="projects"] { --tint: 4 120 87; }
 .studio-card[data-studio="import"]   { --tint: 51 65 85; }
+.studio-card[data-studio="showcase"] { --tint: 190 24 93; }
 
 :root:not(.dark) .studio-card {
   background-image:
@@ -353,8 +347,64 @@
   color: rgb(var(--tint));
 }
 
+/* BorderGlow (components/reactbits/BorderGlow) around each card. Upstream it
+   is the card itself, with an opaque background; here the button inside
+   stays the card, so the wrapper drops its own border, fill and shadow and
+   is just the glow layers. */
+.studio-glow-card.border-glow-card {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  transition: transform 0.2s ease;
+}
+
+/* Upstream hides the gradient's middle behind an opaque --card-bg layer,
+   leaving a 1px ring. Our cards are see-through glass, so the ring is cut
+   with a mask instead (border box minus padding box), intersected with the
+   pointer-following cone. */
+.studio-glow-card.border-glow-card::before {
+  background:
+    var(--gradient-one) border-box,
+    var(--gradient-two) border-box,
+    var(--gradient-three) border-box,
+    var(--gradient-four) border-box,
+    var(--gradient-five) border-box,
+    var(--gradient-six) border-box,
+    var(--gradient-seven) border-box,
+    var(--gradient-base) border-box;
+  mask-image:
+    conic-gradient(
+      from var(--cursor-angle) at center,
+      black calc(var(--cone-spread) * 1%),
+      transparent calc((var(--cone-spread) + 15) * 1%),
+      transparent calc((100 - var(--cone-spread) - 15) * 1%),
+      black calc((100 - var(--cone-spread)) * 1%)
+    ),
+    linear-gradient(#000 0 0),
+    linear-gradient(#000 0 0);
+  mask-clip: border-box, padding-box, border-box;
+  mask-composite: intersect, exclude;
+}
+
+/* The inner wrapper would clip the focus outline and the card's own shadow,
+   and the button has to fill the grid cell like it did before the wrapper. */
+.studio-glow-card > .border-glow-inner { overflow: visible; }
+.studio-glow-card > .border-glow-inner > .studio-card { flex: 1 1 auto; }
+
+/* Lift the wrapper rather than the card, so the glow moves with it. */
+.studio-glow-card .studio-card:hover,
+.studio-glow-card .studio-card:focus-visible { transform: none; }
+.studio-glow-card.border-glow-card:hover,
+.studio-glow-card.border-glow-card:focus-within { transform: translate3d(0, -2px, 0.01px); }
+
 @media (prefers-reduced-motion: reduce) {
   :root:not(.dark) .studio-glow::before { animation: none; }
+  .studio-glow-card.border-glow-card,
+  .studio-glow-card.border-glow-card:hover,
+  .studio-glow-card.border-glow-card:focus-within {
+    transition: none;
+    transform: translate3d(0, 0, 0.01px);
+  }
   .studio-choice .animate-stagger-1,
   .studio-choice .animate-stagger-2,
   .studio-choice .animate-stagger-3 {
@@ -369,13 +419,145 @@
   }
 }
 
+/* Heading: "Build" plus React Bits' RotatingText cycling an app / a website /
+   a game in a brand-red pill. The pill resizes to each word, so the line
+   re-centres as it rotates. */
+.studio-title-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28em;
+  white-space: nowrap;
+}
+.studio-rotate {
+  border-radius: 0.22em;
+  padding-bottom: 0.14em;
+}
+
+/* Studio illustrations (StudioArt.jsx). Every colour is a variable so dark
+   stays monochrome with the brand red and light takes each card's --tint. */
+.studio-art {
+  --art-accent: var(--sc-red);
+  --art-device: rgb(255 255 255 / 0.04);
+  --art-panel: rgb(255 255 255 / 0.06);
+  --art-line: var(--sc-line-strong);
+  --art-muted: rgb(255 255 255 / 0.16);
+  --art-strong: rgb(255 255 255 / 0.5);
+  --art-coin: #f2b84b;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(80% 90% at 50% 100%, color-mix(in srgb, var(--art-accent) 10%, transparent), transparent 70%),
+    var(--sc-fill);
+}
+:root:not(.dark) .studio-art {
+  --art-accent: rgb(var(--tint));
+  --art-device: #ffffff;
+  --art-panel: rgb(var(--tint) / 0.07);
+  --art-line: rgb(15 23 42 / 0.2);
+  --art-muted: rgb(15 23 42 / 0.13);
+  --art-strong: rgb(15 23 42 / 0.42);
+  --art-coin: #d97706;
+  border-color: rgb(var(--tint) / 0.18);
+  background:
+    radial-gradient(80% 90% at 50% 100%, rgb(var(--tint) / 0.12), transparent 70%),
+    rgb(var(--tint) / 0.04);
+}
+.studio-art svg { display: block; width: 100%; height: 100%; }
+
+.art-device { fill: var(--art-device); stroke: var(--art-line); stroke-width: 1.2; }
+.art-panel { fill: var(--art-panel); stroke: var(--art-line); stroke-width: 0.8; }
+.art-muted { fill: var(--art-muted); }
+.art-strong { fill: var(--art-strong); }
+.art-accent { fill: var(--art-accent); }
+.art-divider { stroke: var(--art-line); stroke-width: 1; }
+.art-hill { fill: color-mix(in srgb, var(--art-accent) 45%, transparent); }
+.art-track { fill: none; stroke: var(--art-muted); stroke-width: 5; }
+.art-ring {
+  fill: none;
+  stroke: var(--art-accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 40;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.art-bar {
+  fill: var(--art-accent);
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transform: scaleY(0.55);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.art-bar-2 { transition-delay: 0.05s; }
+.art-bar-3 { transition-delay: 0.1s; }
+.art-bar-4 { transition-delay: 0.15s; }
+.art-pop, .art-row { transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.art-row-2 { transition-delay: 0.05s; }
+.art-row-3 { transition-delay: 0.1s; }
+.art-scroll { transition: transform 1.6s cubic-bezier(0.45, 0, 0.2, 1); }
+.art-star { fill: var(--art-strong); opacity: 0.6; }
+.art-ground { stroke: var(--art-line); stroke-width: 2; }
+.art-enemy { fill: var(--art-strong); }
+.art-eye { fill: var(--sc-bg); }
+.art-coin {
+  fill: var(--art-coin);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.art-player, .art-enemy { transform-box: fill-box; }
+
+/* Hover or keyboard focus brings each scene to life. */
+.studio-card:is(:hover, :focus-visible) .art-ring { stroke-dashoffset: 12; }
+.studio-card:is(:hover, :focus-visible) .art-bar { transform: scaleY(1); }
+.studio-card:is(:hover, :focus-visible) .art-pop-left { transform: translate(-3px, -3px); }
+.studio-card:is(:hover, :focus-visible) .art-pop-right { transform: translate(3px, -4px); }
+.studio-card:is(:hover, :focus-visible) .art-row { transform: translateX(2px); }
+.studio-card:is(:hover, :focus-visible) .art-scroll { transform: translateY(-44px); }
+.studio-card:is(:hover, :focus-visible) .art-player { animation: art-jump 1.1s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
+.studio-card:is(:hover, :focus-visible) .art-coin { animation: art-spin 1.2s linear infinite; }
+.studio-card:is(:hover, :focus-visible) .art-coin-2 { animation-delay: -0.6s; }
+.studio-card:is(:hover, :focus-visible) .art-enemy { animation: art-patrol 1.8s ease-in-out infinite alternate; }
+.studio-card:is(:hover, :focus-visible) .art-star { animation: art-twinkle 1.6s ease-in-out infinite alternate; }
+
+@keyframes art-jump {
+  0%, 100% { transform: translateY(0) scale(1.06, 0.94); }
+  12% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(-26px) scale(0.96, 1.04); }
+  80% { transform: translateY(0) scale(1); }
+}
+@keyframes art-spin {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.15); }
+}
+@keyframes art-patrol {
+  from { transform: translateX(0); }
+  to { transform: translateX(-22px); }
+}
+@keyframes art-twinkle {
+  from { opacity: 0.25; }
+  to { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-art *,
+  .studio-card:is(:hover, :focus-visible) .studio-art * {
+    transition: none;
+    animation: none;
+  }
+}
+
 /* Fit the whole picker in the window without scrolling, at any size. The
    Tailwind classes give the roomy layout; everything here is unlayered, so it
-   wins. Spacing and the heading follow the window height instead of fixed
-   steps, the four studios stay in a 2 x 2 grid until they fit on one row
-   (900px), and shorter windows drop the eyebrow pill, then the card
-   descriptions, then the intro line. The outer wrapper still scrolls as a last
-   resort for windows too tiny to fit even that. */
+   wins. Spacing, the heading and the illustrations follow the window height
+   instead of fixed steps. The three studios sit side by side from 640px (one
+   column on phones, without illustrations); the three slim rows follow them
+   from 900px. Shorter windows drop, in order, the eyebrow pill, the row
+   descriptions, the illustrations, the card descriptions and the intro line.
+   The outer wrapper still scrolls as a last resort for windows too tiny to fit
+   even that. */
 .studio-main { padding-block: clamp(0.5rem, 3vh, 3.5rem); }
 .studio-title {
   margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
@@ -385,38 +567,59 @@
   margin-top: clamp(0.375rem, 1.8vh, 1.25rem);
   font-size: clamp(0.875rem, 2.2vh, 1.125rem);
 }
+
 .studio-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(0.5rem, 1.6vh, 1.25rem);
   margin-top: clamp(0.75rem, 3.5vh, 3rem);
 }
-.studio-grid .studio-card {
-  flex-direction: column;
-  gap: 0;
-  padding: clamp(0.75rem, 2.4vh, 1.5rem);
+.studio-grid .studio-card { padding: clamp(0.625rem, 2vh, 1.25rem); }
+.studio-grid .studio-art {
+  display: none;
+  height: clamp(4.5rem, 15vh, 9.5rem);
+  margin-bottom: clamp(0.5rem, 1.8vh, 1.125rem);
 }
-.studio-grid .studio-icon-tile { margin-bottom: clamp(0.5rem, 1.8vh, 1.25rem); }
-.studio-grid .studio-card-cta { margin-top: auto; padding-top: clamp(0.5rem, 2vh, 1.5rem); }
+.studio-grid .studio-icon-tile { width: 2.25rem; height: 2.25rem; }
+.studio-grid .studio-card-cta { margin-top: auto; padding-top: clamp(0.5rem, 1.6vh, 1rem); }
+
 .studio-extra-rows {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(0.5rem, 1.6vh, 1.25rem);
   margin-top: clamp(0.5rem, 1.8vh, 1.25rem);
 }
-.studio-extra-rows .studio-card { padding: clamp(0.5rem, 1.6vh, 1rem) clamp(0.75rem, 2vw, 1.5rem); gap: 0.75rem; }
-.studio-extra-rows .studio-card-cta { display: none; }
+.studio-extra-rows .studio-card { padding: clamp(0.5rem, 1.4vh, 0.875rem) clamp(0.75rem, 1.6vw, 1.25rem); }
+.studio-extra-rows .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 .studio-footer-inner { padding-block: 0.375rem; }
 
-@media (min-width: 900px) {
-  .studio-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .studio-grid .studio-card-title { font-size: 1rem; }
-  .studio-extra-rows .studio-card-cta { display: inline-flex; }
+/* Phones: the studios become compact rows like the ones under them, with the
+   call to action reduced to an arrow on the right. */
+@media (max-width: 639px) {
+  .studio-grid .studio-card { padding-right: 2.75rem; }
+  .studio-grid .studio-card-cta {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    padding-top: 0;
+    transform: translateY(-50%);
+  }
+  .studio-cta-label { display: none; }
 }
 
-/* Narrower wide windows: the cards are only ~200px across, so win back width
-   before height. The rows' own labels repeat what the whole row already does. */
+@media (min-width: 640px) {
+  .studio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .studio-extra-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .studio-grid .studio-art { display: block; }
+  .studio-grid .studio-card-title { font-size: 1rem; }
+  .studio-extra-rows .studio-card-desc { display: none; }
+}
+
+@media (min-width: 900px) {
+  .studio-grid .studio-card-title { font-size: 1.125rem; }
+  .studio-extra-rows .studio-card-desc { display: block; }
+}
+
 @media (min-width: 900px) and (max-width: 1199px) {
   .studio-main { padding-inline: 1.5rem; }
-  .studio-extra-rows .studio-card-cta { display: none; }
 }
 
 @media (max-height: 820px) {
@@ -428,14 +631,18 @@
   .studio-title { margin-top: 0; }
 }
 
-/* Short windows: the card titles and calls to action explain themselves. */
+/* Short windows: the titles and calls to action explain themselves. */
 @media (max-height: 700px) {
   .studio-extra-rows .studio-card-desc { display: none; }
-  .studio-grid .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
+}
+
+@media (max-height: 600px) {
+  .studio-grid .studio-art { display: none; }
 }
 
 @media (max-width: 899px) and (max-height: 860px) {
-  .studio-grid .studio-card-desc { display: none; }
+  .studio-grid .studio-card-desc,
+  .studio-extra-rows .studio-card-desc { display: none; }
 }
 
 @media (max-height: 620px) {
