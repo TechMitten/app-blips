@@ -26,26 +26,33 @@ const LAYOUT_TOUCH = [
   [6, 75, 42, 9], [52, 75, 42, 9], [6, 90, 88, 6],
 ];
 
-const STEPS = ['Understanding your idea', 'Writing the code', 'Checking for errors', 'Finishing up'];
+const STEPS = ['Understanding your idea', 'Reasoning', 'Writing the code', 'Checking for errors', 'Finishing up'];
+const REASONING = 1;
+const CHECKING = 3;
 
 // The stream gives no percentage, so progress is estimated from how much code
 // has arrived and eases toward (never reaches) the end until the build moves
 // on. It only needs to feel honest, not be exact.
 const CHARS_FOR_TWO_THIRDS = 9000;
 
-// Where in the build we are, from the signals the overlay already has. The
-// stage never moves backwards (a repair pass inside "Writing" must not
-// un-tick earlier steps).
-function rawStage({ isThinking, status }) {
+// How far the build has got, from the signals the overlay already has. The
+// caller keeps the furthest value, so a repair pass inside "Writing" must not
+// un-tick earlier steps. "Writing" needs real code (or, without a code stream
+// to watch, any status past analysing), so the first moments of a request
+// aren't mislabelled as writing before the model has produced anything.
+function rawStage({ isThinking, status, hasCode, canSeeCode }) {
   const s = (status || '').toLowerCase();
-  if (s.startsWith('writing a summary')) return 3;
-  if (s.includes('syntax') || s.includes('fixing') || s.includes('verifying') || s.includes('checking')) return 2;
-  if (isThinking || s.startsWith('analyzing')) return 0;
-  return 1;
+  if (s.startsWith('writing a summary')) return 4;
+  if (s.includes('syntax') || s.includes('fixing') || s.includes('verifying') || s.includes('checking')) return CHECKING;
+  if (hasCode) return 2;
+  if (isThinking) return REASONING;
+  if (s.startsWith('analyzing')) return 0;
+  if (!canSeeCode && s) return 2;
+  return 0;
 }
 
 // Replaces the plain spinner while a build runs: a wireframe that fills in, a
-// four-step timeline and a quiet footer. The raw code stays one click away
+// step timeline and a quiet footer. The raw code stays one click away
 // (`codeSlot`), since some people like watching it. Presentational only: it
 // reads the stream text through a ref and never touches generatedCode.
 export default function BuildBlueprint({
@@ -63,7 +70,10 @@ export default function BuildBlueprint({
   const [chars, setChars] = useState(0);
   const [lines, setLines] = useState(0);
   const [showCode, setShowCode] = useState(false);
-  const [stage, setStage] = useState(0);
+  const [furthest, setFurthest] = useState(0);
+  // The Reasoning step is listed only once the model has actually reasoned, so
+  // builds with reasoning off don't tick a step that never happened.
+  const [hasReasoned, setHasReasoned] = useState(false);
 
   // Five reads a second is plenty for a counter and a progress estimate.
   useEffect(() => {
@@ -78,18 +88,23 @@ export default function BuildBlueprint({
     return () => clearInterval(id);
   }, [codeRef]);
 
-  const next = rawStage({ isThinking, status });
-  if (next > stage) setStage(next);
+  if (isThinking && !hasReasoned) setHasReasoned(true);
+  const next = rawStage({ isThinking, status, hasCode: chars > 0 || Boolean(page?.page), canSeeCode: Boolean(codeRef) });
+  if (next > furthest) setFurthest(next);
+  // The model reasons again before each tool-calling turn, so "Reasoning" is
+  // the active step whenever it is thinking, until the build reaches checks
+  // (a repair pass that thinks stays on "Checking for errors").
+  const stage = isThinking && furthest < CHECKING ? REASONING : furthest;
 
-  const progress = stage >= 2
+  const progress = furthest >= CHECKING
     ? 1
     : 1 - Math.exp(-(codeRef ? chars / CHARS_FOR_TWO_THIRDS : seconds / 40) * 1.1);
   const blocks = isTouch ? LAYOUT_TOUCH : (LAYOUTS[studioMode] || LAYOUTS.app);
 
   const detail = (index) => {
     if (index !== stage) return null;
-    if (index === 0 && isThinking) return <>Reasoning · <ThinkingElapsed since={thinkingSince} /></>;
-    if (index === 1 && page?.page) {
+    if (index === REASONING && isThinking) return <><ThinkingElapsed since={thinkingSince} /> elapsed</>;
+    if (index === 2 && page?.page) {
       return page.total > 1 ? `${page.page} · page ${page.step} of ${page.total}` : page.page;
     }
     if (status && status !== 'Synthesizing your app from your prompt.') return status;
@@ -117,6 +132,7 @@ export default function BuildBlueprint({
 
       <ol className="build-blueprint-steps">
         {STEPS.map((label, i) => {
+          if (i === REASONING && !hasReasoned) return null;
           const state = i < stage ? 'done' : i === stage ? 'active' : 'todo';
           const extra = detail(i);
           return (
