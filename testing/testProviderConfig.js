@@ -122,7 +122,9 @@ for (const id of ['lmstudio', 'ollama']) {
     assert.equal(provider.baseUrl, 'http://127.0.0.1:12345/v1');
     const body = { temperature: 0, reasoning_effort: 'high', stream_options: { include_usage: true }, tool_choice: { type: 'function', function: { name: 'edit' } } };
     applyProviderSettings(body, provider, { effort: 'high' });
-    assert.deepEqual(body, { temperature: 0, tool_choice: 'auto' });
+    // Ollama takes the reasoning level (reasoning.js); LM Studio only
+    // documents it on its Responses API, so it is dropped there.
+    assert.deepEqual(body, id === 'ollama' ? { reasoning_effort: 'high', tool_choice: 'auto' } : { temperature: 0, tool_choice: 'auto' });
     for (const baseUrl of ['https://evil.invalid/v1', 'file:///tmp/model', 'http://localhost:1234/v1?key=secret', 'http://user:password@localhost:1234/v1']) {
       assert.ok(resolveUserProvider({ id, model: 'local-coder', baseUrl }).error);
     }
@@ -225,7 +227,9 @@ test('OpenAI adapts token limits and model-specific reasoning parameters', () =>
       assert.equal(body.max_tokens, undefined);
       assert.equal(body.max_completion_tokens, 4096);
       assert.equal(body.thinking, undefined);
-      assert.equal(body.reasoning_effort, model === 'gpt-4.1' || effort === 'none' ? undefined : 'high');
+      // Off: models that can't turn reasoning off get their lowest level.
+      const lowest = { 'gpt-5-mini': 'minimal', 'o3-mini': 'low' }[model];
+      assert.equal(body.reasoning_effort, model === 'gpt-4.1' ? undefined : effort === 'none' ? lowest : 'high');
       if (model !== 'gpt-4.1') assert.equal(body.temperature, undefined);
       assert.equal(body.tool_choice, 'required');
       assert.deepEqual(body.stream_options, { include_usage: true });

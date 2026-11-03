@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ipcErrorMessage, providerApi } from '../lib/desktop';
 import { logError } from '../lib/errorLog';
+import { rememberModelReasoning } from '../lib/modelReasoning';
 
 const EMPTY_MODELS = [];
 
@@ -19,6 +20,8 @@ export default function useProviderModels({ id, apiKey = '', baseUrl = '', hasSa
       setResult({ requestKey, loading: true, models: EMPTY_MODELS, error: '' });
       try {
         const models = await providerApi.listModels({ id, apiKey: apiKey.trim(), baseUrl: baseUrl.trim() });
+        // The levels each model accepts, for Settings → AI → Reasoning.
+        rememberModelReasoning(id, models);
         if (!cancelled) setResult({ requestKey, loading: false, models, error: models.length ? '' : 'No models were returned. You can enter a model ID manually.' });
       } catch (err) {
         logError(`Could not load the model list for ${id}`, err);

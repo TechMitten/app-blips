@@ -104,9 +104,21 @@ Changes save as you type. Click **Use default** (or **Use provider default**) to
 
 Reasoning applies whenever the AI writes code: building a new app, editing one, and fixing errors.
 
-<ParamField body="Reasoning" type="Off | Low | High" default="Low">
-  Lets the AI reason before it writes code, for new apps and for changes. **Off** is fastest. **Low** thinks a little first. **High** thinks harder for complex apps but takes longer.
+<ParamField body="Reasoning" type="Off | Minimal | Low | Medium | High | Extra high | Max" default="Low">
+  How long the AI thinks before it writes code, for new apps and for changes. Lower levels are faster and cheaper; higher levels think harder for complex apps but take longer and use more tokens.
+
+  Only the levels your provider and model support are shown, so the choices change when you pick a different model in **Settings → API**. The model's own default is marked. If you switch to a model that doesn't have the level you picked, AppBlips uses the closest one it does have, and goes back to your choice when you switch back.
 </ParamField>
+
+| Provider | Levels you can pick |
+|----------|---------------------|
+| Anthropic | Low, Medium, High, Extra high and Max on current Claude models. Off is offered where the model can stop thinking (not on Claude Opus 5.5). Older Claude models have no levels. |
+| OpenAI | Depends on the model, for example Off to Max on GPT-6.1 Terra, Low to Max on GPT-6 Astra, Minimal to High on GPT-5. Models that don't reason have no levels. |
+| Gemini | Depends on the model, for example Low and High on Gemini 3 Pro, Minimal to High on Gemini 3 Flash. Only Gemini 2.5 Flash and Flash-Lite can turn reasoning Off. |
+| DeepSeek | Off, Low, High and Max. |
+| OpenRouter | The levels each model lists in OpenRouter's catalog. Off is hidden for models that always reason. |
+| Ollama | Off, Low, Medium and High. Ollama uses the model's own default for any level it doesn't support. |
+| LM Studio | None: set reasoning in LM Studio's own model settings. |
 
 <Tip>
   Chat-only replies (clarifying questions and Ask-mode answers) always run with reasoning off, so they stay quick.

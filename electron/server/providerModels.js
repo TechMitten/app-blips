@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { resolveUserProvider, providerLabel, isUncensoredModel } from './providers.js';
 import { listAnthropicModels } from './anthropic.js';
+import { parseDeepSeekEffort, parseOpenRouterReasoning } from './reasoning.js';
 
 // Shared by the main-process IPC handler and the browser version's server
 // (providerApi.js). Model discovery needs credentials and an endpoint, but
@@ -58,7 +59,16 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch, 
     const outputs = model.architecture?.output_modalities;
     if (Array.isArray(outputs) && !(outputs.length === 1 && outputs[0] === 'text')) continue;
     if (provider.id === 'openrouter' && isUncensoredModel(model.id, model.name)) continue;
-    models.set(model.id, { id: model.id, label: typeof model.name === 'string' && model.name.trim() ? model.name : model.id });
+    // The reasoning levels a model accepts, where the catalog says
+    // (reasoning.js); Settings → AI falls back to its own table otherwise.
+    const reasoning = provider.id === 'openrouter' ? parseOpenRouterReasoning(model.reasoning)
+      : provider.id === 'deepseek' ? parseDeepSeekEffort(model.effort)
+        : undefined;
+    models.set(model.id, {
+      id: model.id,
+      label: typeof model.name === 'string' && model.name.trim() ? model.name : model.id,
+      ...(reasoning ? { reasoning } : {}),
+    });
   }
   return [...models.values()].sort((a, b) => a.label.localeCompare(b.label));
 }

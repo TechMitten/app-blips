@@ -218,4 +218,23 @@ export const webProviderStore = {
   }
 };
 
-export const providerApi = bridge?.provider || webProviderStore;
+const providerStore = bridge?.provider || webProviderStore;
+const providerListeners = new Set();
+const notifyProviderChange = (result) => {
+  for (const listener of providerListeners) listener();
+  return result;
+};
+
+// Called after the saved provider changes (Settings → API, onboarding,
+// Reset), so things that depend on it, like the reasoning levels, refresh.
+export const onProviderChange = (listener) => {
+  providerListeners.add(listener);
+  return () => providerListeners.delete(listener);
+};
+
+export const providerApi = {
+  get: () => providerStore.get(),
+  set: (info) => providerStore.set(info).then(notifyProviderChange),
+  clear: (options) => providerStore.clear(options).then(notifyProviderChange),
+  listModels: (input) => providerStore.listModels(input),
+};

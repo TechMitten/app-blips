@@ -1,3 +1,5 @@
+import { EFFORT_SCALE } from '../../electron/server/reasoning.js';
+
 // There is no way to hide a key from the machine that types it in a
 // backend-less SPA. What the sandboxed preview frame buys us is the part that
 // matters: generated code can no longer read it. This toggle is the remaining
@@ -267,14 +269,14 @@ export const isStartFresh = () => {
 // Legacy single setting, read only to seed the build key below.
 export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // Reasoning for every code-writing call (builds, edits, error repair, imported
-// codebase edits). Sent to /api/chat as `reasoning_effort`; an Off/Low/High
-// choice where Off is sent as 'none'. Low is the default. Chat-only calls
-// (clarifying questions, replies, Ask mode) always run with reasoning off.
+// codebase edits). Sent to /api/chat as `reasoning_effort`: one of the levels
+// in EFFORT_SCALE (electron/server/reasoning.js), where Off is 'none'.
+// Settings only offers the levels the active provider and model accept, and
+// builds use the nearest of those, so the saved choice survives switching
+// providers. Low is the default. Chat-only calls (clarifying questions,
+// replies, Ask mode) always run with reasoning off.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
-export const REASONING_EFFORT_OPTIONS = ['none', 'low', 'high'];
-// Older saved efforts (including the legacy combined key): the top ones map
-// to High, and unrecognised values fall back to Low.
-const HIGH_EFFORTS = ['medium', 'high'];
+export const REASONING_EFFORT_OPTIONS = EFFORT_SCALE;
 
 // Output limits are optional device settings. No saved value means the
 // provider chooses its limit, independently for building and Ask mode.
@@ -321,15 +323,13 @@ export const saveChatMode = (mode) => {
 };
 
 // The reasoning setting. Falls back to the legacy single setting, so users who
-// had already picked an effort keep it. Older saved 'medium' migrates to High;
-// missing or unrecognised values default to Low.
+// had already picked an effort keep it; missing or unrecognised values
+// default to Low.
 export const loadReasoningEffort = () => {
   try {
     const storage = safeStorage('local');
     const stored = storage?.getItem(BUILD_REASONING_EFFORT_KEY) ?? storage?.getItem(REASONING_EFFORT_KEY);
-    if (stored === 'none' || stored === 'low' || stored === 'high') return stored;
-    if (HIGH_EFFORTS.includes(stored)) return 'high';
-    return 'low';
+    return EFFORT_SCALE.includes(stored) ? stored : 'low';
   } catch {
     return 'low';
   }

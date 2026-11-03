@@ -12,13 +12,14 @@ import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import {
-  SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
+  FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 import {
-  CHAT_FONT_OPTIONS, REASONING_EFFORT_OPTIONS,
+  CHAT_FONT_OPTIONS,
   loadCheckUpdates, saveCheckUpdates,
 } from '../lib/config';
+import { EFFORT_LABELS, nearestLevel, staticReasoningLevels } from '../../electron/server/reasoning.js';
 import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
@@ -29,7 +30,50 @@ import { CURRENT_VERSION } from '../lib/updates';
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
-const REASONING_EFFORT_LABELS = { none: 'Off', low: 'Low', high: 'High' };
+const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
+// More levels than this don't fit side by side at phone width.
+const MAX_SEGMENTS = 4;
+const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', deepseek: 'DeepSeek', openrouter: 'OpenRouter', ollama: 'Ollama', lmstudio: 'LM Studio' };
+
+// The levels the active provider and model accept (useReasoningLevels in
+// App). The saved choice isn't overwritten when it isn't offered: the
+// nearest offered level is shown and used until the user picks one.
+function ReasoningSetting({ value, onChange, reasoning }) {
+  const { levels, defaultLevel, note, providerId, model } = reasoning;
+  const source = providerId ? `${PROVIDER_NAMES[providerId] || providerId} · ${model}` : null;
+  const shown = nearestLevel(value, levels);
+  const options = levels.map((level) => ({
+    value: level,
+    label: EFFORT_LABELS[level],
+    ariaLabel: level === defaultLevel ? `${EFFORT_LABELS[level]} (the model's default)` : undefined,
+  }));
+  const description = levels.length
+    ? <>How long the AI thinks before it writes code, whether building, editing or fixing. Lower is faster and cheaper; higher suits complex apps. {source ? <>Showing the levels <strong>{source}</strong> supports{defaultLevel ? <>, where {EFFORT_LABELS[defaultLevel]} is its default</> : null}.</> : 'Choose a provider in the API tab to see the levels its models support.'}</>
+    : <>{note}{source ? <> ({source})</> : null}</>;
+  return (
+    <SettingRow id="set-reasoning-build" title="Reasoning" description={description}>
+      {!levels.length ? null : levels.length > MAX_SEGMENTS ? (
+        <select
+          aria-label="Reasoning"
+          value={shown}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${FIELD_CLASS} w-auto`}
+          style={SELECT_COLORS}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value} style={SELECT_COLORS}>
+              {option.label}{option.value === defaultLevel ? ' (default)' : ''}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <Segmented label="Reasoning" value={shown} onChange={onChange} options={options} />
+      )}
+    </SettingRow>
+  );
+}
+
+const GENERIC_REASONING = { ...staticReasoningLevels(null), providerId: null, model: null };
 
 const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
@@ -108,6 +152,7 @@ export default function SettingsModal({
   onBuildPaneSideChange,
   buildReasoningEffort = 'low',
   onBuildReasoningEffortChange,
+  reasoningLevels = GENERIC_REASONING,
   onDeleteAllProjects,
   onResetApp,
   onRestartOnboarding,
@@ -364,18 +409,7 @@ export default function SettingsModal({
           {tab === 'ai' && (
             <>
               <OutputTokenSettings />
-              <SettingRow
-                id="set-reasoning-build"
-                title="Reasoning"
-                description="Let the AI think before it writes code, whether building, editing or fixing. Low is faster and cheaper; High suits complex apps."
-              >
-                <Segmented
-                  label="Reasoning"
-                  value={buildReasoningEffort}
-                  onChange={onBuildReasoningEffortChange}
-                  options={REASONING_EFFORT_OPTIONS.map((value) => ({ value, label: REASONING_EFFORT_LABELS[value] }))}
-                />
-              </SettingRow>
+              <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>

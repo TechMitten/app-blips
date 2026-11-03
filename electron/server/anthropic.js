@@ -9,6 +9,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
+import { ADAPTIVE_CLAUDE as ADAPTIVE_MODEL, parseAnthropicCapabilities } from './reasoning.js';
 
 // Claude's thinking blocks carry signatures and must be sent back exactly as
 // they arrived (same order, same bytes) on the next tool-calling turn. The
@@ -17,10 +18,8 @@ import { DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 // under this type and is reused verbatim when the turn comes back.
 const CONTENT_DETAIL = 'anthropic.content';
 
-// Model families with adaptive thinking and output_config.effort (Opus/Sonnet
-// 4.6 and later, Haiku 5 and later, Fable, Mythos). Older models (Haiku 4.5,
-// ...) get neither.
-const ADAPTIVE_MODEL = /^claude-(?:(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[6-9])|haiku-[5-9])/;
+// ADAPTIVE_MODEL (reasoning.js): families with adaptive thinking and
+// output_config.effort. Older models (Haiku 4.5, ...) get neither.
 // Opus/Sonnet 4.7 and later and Haiku 5 and later reject temperature/top_p/
 // top_k with a 400. Haiku 4.5 still accepts them.
 const NO_SAMPLING_MODEL = /^claude-(?:(?:opus|sonnet|fable|mythos)-(?:[5-9]|4-[7-9])|haiku-[5-9])/;
@@ -32,6 +31,10 @@ const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 // Prompt caching: cached input is billed at a tenth of the normal price or
 // less, and a write costs 1.25x, so a prefix pays for itself on its second use.
 const CACHE = { type: 'ephemeral' };
+
+// output_config.effort values. Which a model accepts is in its Models API
+// capabilities; Settings only offers those (reasoning.js).
+const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 const FINISH_REASONS = { end_turn: 'stop', stop_sequence: 'stop', tool_use: 'tool_calls', max_tokens: 'length', refusal: 'content_filter' };
 const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → API.';
@@ -143,9 +146,10 @@ const toAnthropicTools = (tools) => (Array.isArray(tools) ? tools : [])
 const toAnthropicToolChoice = (choice) => (choice === 'none' ? { type: 'none' } : { type: 'auto' });
 
 // The OpenAI-style request body (after applyProviderSettings) to Messages API
-// params. reasoning_effort is the user's setting: absent means "reasoning
-// off", which on current models means the lowest effort (Opus 5.5 can't turn
-// thinking off at all).
+// params. reasoning_effort is the user's level (reasoning.js), sent as
+// Claude's own effort. Absent or 'none' means "reasoning off": the lowest
+// effort with no thinking config, where Claude mostly skips thinking (Opus
+// 5.5 can't turn thinking off at all, so Settings doesn't offer Off there).
 export const toAnthropicParams = (body) => {
   const { system, messages } = toAnthropicMessages(body.messages);
   const model = String(body.model || '');
@@ -169,12 +173,10 @@ export const toAnthropicParams = (body) => {
     params.cache_control = CACHE;
   }
   if (ADAPTIVE_MODEL.test(model)) {
-    // Off already takes Claude's lowest effort, and at that effort adaptive
-    // thinking mostly decides not to think, so Low starts one step up
-    // (medium) or it would behave exactly like Off.
-    params.output_config = { effort: effort === 'high' ? 'high' : effort ? 'medium' : 'low' };
+    const level = CLAUDE_EFFORTS.includes(effort) ? effort : effort === 'minimal' ? 'low' : null;
+    params.output_config = { effort: level || 'low' };
     // A readable summary keeps the "Thinking" indicator fed while it works.
-    if (effort) params.thinking = { type: 'adaptive', display: 'summarized' };
+    if (level) params.thinking = { type: 'adaptive', display: 'summarized' };
   }
   if (typeof body.temperature === 'number' && !NO_SAMPLING_MODEL.test(model) && !params.thinking) {
     params.temperature = body.temperature;
@@ -404,7 +406,10 @@ export async function listAnthropicModels(apiKey, baseUrl, { fetchImpl = globalT
   });
   const models = [];
   for await (const model of client.models.list({ limit: 100 })) {
-    models.push({ id: model.id, label: model.display_name || model.id });
+    // capabilities lists the effort levels and thinking modes each model
+    // accepts, so Settings → AI can offer exactly those.
+    const reasoning = parseAnthropicCapabilities(model.capabilities);
+    models.push({ id: model.id, label: model.display_name || model.id, ...(reasoning ? { reasoning } : {}) });
   }
   return models;
 }

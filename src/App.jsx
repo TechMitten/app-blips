@@ -84,6 +84,8 @@ import { buildViteProject } from './lib/reactProject';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
+import useReasoningLevels from './hooks/useReasoningLevels';
+import { nearestLevel } from '../electron/server/reasoning.js';
 import { galleryExportFiles, galleryPath, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
 import { generateCodebaseEdit } from './lib/codebase/llm';
 import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
@@ -114,6 +116,11 @@ export default function App({ coldStart = false }) {
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
   const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort());
+  // The levels the active provider and model accept. The saved choice is kept
+  // as picked (so switching back to a provider restores it); requests use the
+  // nearest level this model accepts, or Off when it has no levels.
+  const reasoning = useReasoningLevels();
+  const effectiveReasoningEffort = nearestLevel(buildReasoningEffort, reasoning.levels) ?? 'none';
   const [isHistoryOpen, setIsHistoryOpen] = useState(() => {
     const stored = localStorage.getItem('orion-history-open');
 
@@ -1803,9 +1810,9 @@ export default function App({ coldStart = false }) {
               ...options, verifyRuntime: isAutoFix && codebaseMeta?.environmentResolution === 'ai',
             }),
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
-            reasoningEffort: buildReasoningEffort,
+            reasoningEffort: effectiveReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: buildReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -2811,6 +2818,7 @@ export default function App({ coldStart = false }) {
           buildPaneSide={buildPaneSide}
           onBuildPaneSideChange={setBuildPaneSide}
           buildReasoningEffort={buildReasoningEffort}
+          reasoningLevels={reasoning}
           onBuildReasoningEffortChange={setBuildReasoningEffort}
           onDeleteAllProjects={handleDeleteAllProjects}
           onResetApp={handleResetApp}
@@ -2858,7 +2866,7 @@ export default function App({ coldStart = false }) {
             onImported={handleImportedSite}
             onCancel={() => setIsImportSiteOpen(false)}
             isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
-            reasoningEffort={buildReasoningEffort}
+            reasoningEffort={effectiveReasoningEffort}
           />
         )}
       </div>

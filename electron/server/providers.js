@@ -48,6 +48,8 @@ const PROVIDERS = {
   },
 };
 
+import { staticReasoningLevels, nearestLevel } from './reasoning.js';
+
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
 
 // The plain APPBLIPS_LLM_* variables: any OpenAI-compatible endpoint.
@@ -249,8 +251,22 @@ const missingVars = (provider) => [
 // relaxes forced tool choices where unsupported (including DeepSeek with
 // thinking on). Returns { reasoningEnabled }.
 export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
-  const raw = effort ?? 'none';
-  const off = OFF_EFFORTS.has(raw);
+  let raw = effort ?? 'none';
+  let off = OFF_EFFORTS.has(raw);
+  if (off) raw = 'none';
+
+  // Settings → AI only offers the levels the model accepts (reasoning.js) and
+  // the renderer clamps to them. This repeats that for levels the model is
+  // known to reject (e.g. Extra high on Opus 4.6, Off on Gemini 3), using
+  // the static rules only: unrecognised models get the level as asked.
+  // Chat-only calls ask for Off; a model that can't turn reasoning off gets
+  // its lowest level instead of its (often high) default.
+  const model = bodyObj.model || provider.model;
+  const rules = staticReasoningLevels(provider.id, model);
+  if (rules.known && rules.levels.length && !['anthropic', 'deepseek'].includes(provider.id)) {
+    raw = nearestLevel(raw, rules.levels);
+    off = raw === 'none';
+  }
 
   if (provider.id === 'openai') {
     // Modern OpenAI models require max_completion_tokens. Reasoning effort
@@ -259,27 +275,43 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
       bodyObj.max_completion_tokens = bodyObj.max_tokens;
       delete bodyObj.max_tokens;
     }
-    const reasoningModel = /^(?:o\d(?:-|$)|gpt-(?:[5-9]|\d{2}))/i.test(bodyObj.model || provider.model);
-    if (reasoningModel) {
-      if (!off) bodyObj.reasoning_effort = raw;
-      // Omission keeps the model default when thinking cannot be disabled.
+    if (rules.levels.length) {
+      // 'none' is sent when the model accepts it (GPT-5.1 and later);
+      // otherwise Off was already clamped to the model's lowest level.
+      // An unrecognised model gets no effort on Off, keeping its default.
+      if (!off || rules.levels.includes('none')) bodyObj.reasoning_effort = raw;
       // Sampling parameters are unsupported by many reasoning models.
       delete bodyObj.temperature;
     } else {
       delete bodyObj.reasoning_effort;
     }
   } else if (provider.id === 'deepseek') {
+    // DeepSeek maps the in-between levels itself (medium and xhigh → high).
     bodyObj.thinking = { type: off ? 'disabled' : 'enabled' };
     if (!off) bodyObj.reasoning_effort = raw;
-  } else if (['openrouter', 'gemini', 'anthropic'].includes(provider.id) && !off) {
-    // These accept reasoning_effort (anthropic.js maps it to Claude's
-    // thinking and effort settings). Omit
-    // it when reasoning is off: some always-thinking models reject an
+  } else if (provider.id === 'anthropic') {
+    // anthropic.js maps this to Claude's effort and thinking settings;
+    // absent means reasoning off.
+    if (!off) {
+      const known = staticReasoningLevels('anthropic', model);
+      bodyObj.reasoning_effort = known.levels.length ? nearestLevel(raw, known.levels.filter((level) => level !== 'none')) : raw;
+    }
+  } else if (provider.id === 'gemini') {
+    // Off is only accepted by Gemini 2.5 Flash / Flash-Lite (clamped above);
+    // elsewhere it is omitted, which keeps the model's default.
+    if (!off || rules.levels.includes('none')) bodyObj.reasoning_effort = raw;
+  } else if (provider.id === 'openrouter' && !off) {
+    // Omit it when reasoning is off: some always-thinking models reject an
     // explicit "none", while omission uses the model default.
+    bodyObj.reasoning_effort = raw;
+  } else if (provider.id === 'ollama') {
+    // Ollama resolves levels against the model's own metadata and maps
+    // "none" to thinking off; unknown levels fall back to the model default.
     bodyObj.reasoning_effort = raw;
   }
 
-  if (provider.local) delete bodyObj.reasoning_effort;
+  // LM Studio only documents reasoning effort on its Responses API.
+  if (provider.id === 'lmstudio') delete bodyObj.reasoning_effort;
   if (provider.streamUsage === false) delete bodyObj.stream_options;
   // DeepSeek supports thinking + tools, but thinking rejects "required"
   // and named choices. Keep thinking enabled and retain the offered tools.
@@ -288,7 +320,7 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
     bodyObj.tool_choice = 'auto';
   }
 
-  const reasoningEnabled = !off && !provider.local;
+  const reasoningEnabled = !off && provider.id !== 'lmstudio';
 
   // Thinking models often get stuck in endless reasoning loops
   // if temperature is forced to 0 (which the proxy does for syntax repairs).
