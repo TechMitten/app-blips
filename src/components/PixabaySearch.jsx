@@ -256,7 +256,7 @@ export default function PixabaySearch({ galleryProject, imagesEnabled, onEnableI
       )}
 
       {message?.done.length > 0 && (
-        <ul role="status" className="space-y-1 text-sm text-emerald-700 dark:text-emerald-300">
+        <ul role="status" className="space-y-1 text-sm text-emerald-700">
           {message.done.map((line) => <li key={line}>{line}</li>)}
         </ul>
       )}

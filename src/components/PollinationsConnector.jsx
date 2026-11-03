@@ -229,7 +229,7 @@ function SiteKey({ state, onChange }) {
             Key checked: {formatPollen(check.budget)} left{check.expiresAt ? `, ends ${new Date(check.expiresAt).toLocaleDateString()}` : ''}.
           </p>
           {check.warnings.map((warning) => (
-            <p key={warning} className="inline-flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+            <p key={warning} className="inline-flex items-start gap-1.5 text-xs text-amber-700">
               <TriangleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />{warning}
             </p>
           ))}

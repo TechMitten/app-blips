@@ -67,9 +67,9 @@ const ICONS = {
 };
 
 const STATUS_BADGE = {
-  connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  'needs-key': { label: 'Needs key', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  'needs-sign-in': { label: 'Needs sign-in', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  connected: { label: 'Connected', className: 'bg-emerald-500/15 text-emerald-700' },
+  'needs-key': { label: 'Needs key', className: 'bg-amber-500/15 text-amber-700' },
+  'needs-sign-in': { label: 'Needs sign-in', className: 'bg-amber-500/15 text-amber-700' },
   off: { label: 'Not connected', className: 'bg-slate-500/10 text-slate-600' },
 };
 
@@ -91,13 +91,13 @@ function StatusBadge({ status, tool = false }) {
 
 // Same pill as Code Review's in Settings → AI; `beta` is set in the definition.
 function BetaBadge() {
-  return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15 dark:text-indigo-300">Beta</span>;
+  return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span>;
 }
 
 // A locked connector (`comingSoon` in its definition) shows its card dimmed,
 // with a Coming soon badge, and doesn't open.
 function ComingSoonBadge() {
-  return <span className="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">Coming soon</span>;
+  return <span className="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">Coming soon</span>;
 }
 
 function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, comingSoon = false, onClick }) {
@@ -238,7 +238,7 @@ function ConnectorPrompts({ id, connected, images = [] }) {
               onClick={() => copy(index)}
               aria-label={copied === index ? 'Copied' : `Copy prompt: ${prompt}`}
               className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
-                copied === index ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'text-indigo-600 hover:bg-indigo-500/10'
+                copied === index ? 'bg-emerald-500/15 text-emerald-700' : 'text-indigo-600 hover:bg-indigo-500/10'
               }`}
             >
               {copied === index ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}

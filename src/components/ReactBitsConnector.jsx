@@ -34,7 +34,7 @@ function CopyNameButton({ title }) {
       onClick={copy}
       aria-label={state === 'copied' ? 'Copied' : `Copy name: React Bits ${title}`}
       className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
-        state === 'copied' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'text-indigo-600 hover:bg-indigo-500/10'
+        state === 'copied' ? 'bg-emerald-500/15 text-emerald-700' : 'text-indigo-600 hover:bg-indigo-500/10'
       }`}
     >
       {state === 'copied' ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}

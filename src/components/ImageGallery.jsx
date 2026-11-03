@@ -100,7 +100,7 @@ function GalleryTile({ image, url, inUse, disabled, onRename, onNote, onToggle, 
               aria-label={copied ? `Copied ${image.name}` : `Copy the name ${image.name}`}
               title="Copy the name to use in a prompt"
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
-                copied ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'text-indigo-600 hover:bg-indigo-500/10'
+                copied ? 'bg-emerald-500/15 text-emerald-700' : 'text-indigo-600 hover:bg-indigo-500/10'
               }`}
             >
               {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}

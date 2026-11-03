@@ -191,7 +191,7 @@ export default function ShowcaseModal({ onClose }) {
           <>
             <div className="flex shrink-0 items-start justify-between gap-4 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
               <div className="min-w-0">
-                <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600 dark:text-indigo-300">
+                <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600">
                   <Sparkles size={13} aria-hidden="true" />
                   Built with AppBlips
                 </p>
@@ -261,7 +261,7 @@ export default function ShowcaseModal({ onClose }) {
                         </span>
                         <span className="mt-1 text-base font-semibold text-slate-900">{project.name}</span>
                         <span className="mt-1 text-sm leading-relaxed text-slate-600">{project.description}</span>
-                        <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-semibold text-indigo-600 dark:text-indigo-300" aria-hidden="true">
+                        <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-semibold text-indigo-600" aria-hidden="true">
                           {showcaseAction(project)}
                           <ArrowUpRight size={15} className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                         </span>
