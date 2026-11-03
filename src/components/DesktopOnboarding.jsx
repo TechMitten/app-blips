@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff,
-  FolderOpen, Info, KeyRound, Laptop, Loader2, Sparkles, UserRound, X,
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Eye, EyeOff,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, Plug, Sparkles, UserRound, X,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
+import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import Modal from './Modal';
@@ -13,8 +14,6 @@ import ProfileAvatar from './ProfileAvatar';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
-
-const defaultProvider = USER_PROVIDER_OPTIONS[0];
 
 // One labelled field. `error` appears only after the user has tried to
 // continue, so an untouched form doesn't open covered in red.
@@ -43,7 +42,9 @@ function ProviderGlyph({ id }) {
 // A native <select> here let some phone browsers open their picker at the top
 // of the screen, nowhere near the field (the page scrolls inside a fixed
 // layer), so this is a small listbox placed the same way as the model list.
-function ProviderSelect({ value, onChange }) {
+// Nothing is chosen until the user picks (a replay starts on the saved one),
+// so the button shows a placeholder rather than quietly defaulting.
+function ProviderSelect({ value, onChange, invalid }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef(null);
@@ -51,7 +52,7 @@ function ProviderSelect({ value, onChange }) {
   const listRef = useRef(null);
   const listId = useId();
   const [position, place] = useAnchoredList(wrapRef, listRef, open);
-  const selected = USER_PROVIDER_OPTIONS.find((option) => option.id === value) || defaultProvider;
+  const selected = USER_PROVIDER_OPTIONS.find((option) => option.id === value) || null;
 
   const openList = () => {
     place();
@@ -97,13 +98,15 @@ function ProviderSelect({ value, onChange }) {
 
   return (
     <span ref={wrapRef} className="onboarding-select-wrap">
-      <ProviderGlyph id={selected.id} />
+      <ProviderGlyph id={selected?.id} />
       <button
         ref={buttonRef}
         type="button"
         className="onboarding-select"
         role="combobox"
         aria-label="AI provider"
+        aria-invalid={invalid || undefined}
+        data-field="provider"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
@@ -111,7 +114,7 @@ function ProviderSelect({ value, onChange }) {
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
       >
-        {selected.label}
+        {selected ? selected.label : <span className="onboarding-select-placeholder">Select a provider</span>}
       </button>
       <ChevronDown size={18} />
       {open && position && createPortal(
@@ -126,7 +129,7 @@ function ProviderSelect({ value, onChange }) {
               onMouseMove={() => { if (index !== active) setActive(index); }}
               onClick={() => choose(option)}
             >
-              <span className="model-combobox-text"><span className="model-combobox-label">{option.label}</span></span>
+              <span className="model-combobox-text"><span className="model-combobox-label">{option.label}{option.id === 'anthropic' && <span className="onboarding-provider-recommended"> (recommended)</span>}</span></span>
               {option.id === value && <Check size={14} className="model-combobox-check" />}
             </li>
           ))}
@@ -137,11 +140,15 @@ function ProviderSelect({ value, onChange }) {
   );
 }
 
-// Shown when the model list is opened before a key is entered: the list comes
-// from the provider, so it can't load without one. Portaled to <body> because
+// Shown when the model list is opened before a provider and key are chosen:
+// the list comes from the provider, so it can't load without them. Portaled to <body> because
 // the setup card's backdrop-filter would otherwise trap a fixed overlay inside
 // it; force-dark keeps it in the page's look even when the app theme is light.
 function NeedKeyModal({ providerLabel, onClose }) {
+  // No label = no provider chosen yet.
+  const copy = providerLabel
+    ? { title: 'Add your API key first', text: `AppBlips gets the list of models from ${providerLabel}, so it needs your ${providerLabel} API key before you can choose one. Paste your key in the API key box, then pick a model.`, action: 'Add my key' }
+    : { title: 'Choose a provider first', text: 'AppBlips gets the list of models from your AI provider, so choose a provider and paste its API key before you pick a model.', action: 'Choose a provider' };
   return createPortal(
     <Modal
       zIndex={1200}
@@ -156,35 +163,65 @@ function NeedKeyModal({ providerLabel, onClose }) {
       }}
     >
       <span className="onboarding-info-icon"><Info size={22} /></span>
-      <h2 id="onboarding-need-key-title">Add your API key first</h2>
-      <p id="onboarding-need-key-text">
-        AppBlips gets the list of models from {providerLabel}, so it needs your {providerLabel} API key before you can choose one. Paste your key in the API key box, then pick a model.
-      </p>
-      <button type="button" className="onboarding-next" onClick={onClose} autoFocus>Add my key</button>
+      <h2 id="onboarding-need-key-title">{copy.title}</h2>
+      <p id="onboarding-need-key-text">{copy.text}</p>
+      <button type="button" className="onboarding-next" onClick={onClose} autoFocus>{copy.action}</button>
     </Modal>,
     document.body,
   );
 }
 
 function SetupForm({ formRef, onSubmit, provider, setProviderId, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
-  const modelList = useProviderModels({ id: provider.id, apiKey });
+  // `provider` is null until one is picked; the empty id and key keep the
+  // model list from loading for no provider.
+  const modelList = useProviderModels({ id: provider?.id || '', apiKey: provider ? apiKey : '' });
   const [needKey, setNeedKey] = useState(false);
+  // The result belongs to the provider, key and model it was run with, so
+  // editing any of them hides it rather than leaving a stale "Connected".
+  const testFor = `${provider?.id || ''}\n${model.trim()}\n${apiKey.trim()}`;
+  const [test, setTest] = useState(null); // { for, kind: 'busy' | 'ok' | 'error', text }
+  const testShown = test?.for === testFor ? test : null;
+  const canTest = Boolean(provider && apiKey.trim() && model.trim()) && testShown?.kind !== 'busy';
+
+  // The same one-word request as Settings → AI's "Test connection", sent with
+  // the typed (unsaved) key, so a wrong key or model shows up here instead of
+  // on the first build.
+  const runTest = async () => {
+    if (!canTest) return;
+    const runFor = testFor;
+    setTest({ for: runFor, kind: 'busy', text: `Testing ${provider.label}…` });
+    try {
+      await requestModelText({
+        messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
+        askMode: true,
+        // As in Settings: 'none' would make always-thinking models reject a
+        // working setup.
+        reasoningEffort: CHAT_REASONING_EFFORT,
+        userProvider: { id: provider.id, model: model.trim(), apiKey: apiKey.trim() },
+        retry: false,
+      });
+      setTest((t) => (t?.for === runFor ? { for: runFor, kind: 'ok', text: 'Connected' } : t));
+    } catch (err) {
+      logError(`AI provider test request failed during setup (${provider.id}, ${model.trim()})`, err);
+      setTest((t) => (t?.for === runFor ? { for: runFor, kind: 'error', text: 'Connection failed' } : t));
+    }
+  };
 
   const canOpenModels = () => {
-    if (apiKey.trim()) return true;
+    if (provider && apiKey.trim()) return true;
     setNeedKey(true);
     return false;
   };
   const closeNeedKey = () => {
     setNeedKey(false);
-    formRef.current?.querySelector('[data-field="key"]')?.focus();
+    formRef.current?.querySelector(provider ? '[data-field="key"]' : '[data-field="provider"]')?.focus();
   };
-  const keyUrl = provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : provider.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://openrouter.ai/settings/keys';
+  const keyUrl = !provider ? null : provider.id === 'gemini' ? 'https://aistudio.google.com/apikey' : provider.id === 'deepseek' ? 'https://platform.deepseek.com/api_keys' : provider.id === 'openai' ? 'https://platform.openai.com/api-keys' : provider.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://openrouter.ai/settings/keys';
 
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <SetupField title="Provider">
-        <ProviderSelect value={provider.id} onChange={setProviderId} />
+      <SetupField title="Provider" error={errors.provider}>
+        <ProviderSelect value={provider?.id || ''} onChange={setProviderId} invalid={Boolean(errors.provider)} />
       </SetupField>
 
       <SetupField title="API key" error={errors.key}>
@@ -194,8 +231,8 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, model, setModel
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder={`Your ${provider.label} API key`}
-            aria-label={`${provider.label} API key`}
+            placeholder={provider ? `Your ${provider.label} API key` : 'Your API key'}
+            aria-label={provider ? `${provider.label} API key` : 'API key'}
             aria-invalid={Boolean(errors.key)}
             data-field="key"
             autoComplete="off"
@@ -208,7 +245,7 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, model, setModel
         </span>
         <p className="onboarding-key-help">
           {isDesktop ? 'Stays on this computer.' : 'Saved by AppBlips on this computer, not in the browser.'}
-          <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>
+          {keyUrl && <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>}
         </p>
         {isDesktop && weakEncryption && (
           <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
@@ -229,7 +266,22 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, model, setModel
         </div>
         {modelList.error && <p className="onboarding-key-help" role="status">{modelList.error} Type a model ID to continue.</p>}
       </SetupField>
-      {needKey && <NeedKeyModal providerLabel={provider.label} onClose={closeNeedKey} />}
+
+      <div className="onboarding-test">
+        <button type="button" className="onboarding-test-button" onClick={runTest} disabled={!canTest}>
+          {testShown?.kind === 'busy' ? <Loader2 size={17} className="animate-spin" /> : <Plug size={17} />}
+          Test connection
+        </button>
+        <p
+          className={`onboarding-test-status${testShown ? ` is-${testShown.kind}` : ''}`}
+          role={testShown?.kind === 'error' ? 'alert' : 'status'}
+        >
+          {testShown?.kind === 'ok' && <CircleCheck size={15} />}
+          {testShown?.kind === 'error' && <CircleAlert size={15} />}
+          {testShown ? testShown.text : 'Optional: test your connection before you start.'}
+        </p>
+      </div>
+      {needKey && <NeedKeyModal providerLabel={provider?.label} onClose={closeNeedKey} />}
     </form>
   );
 }
@@ -340,11 +392,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const leave = (done) => (folderChanged ? () => window.location.reload() : done);
   const onComplete = leave(finishSetup);
   const onExit = exitSetup && leave(exitSetup);
-  const [providerId, setProviderId] = useState(providerInfo?.id || defaultProvider.id);
-  const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === providerId) || defaultProvider;
+  const [providerId, setProviderId] = useState(providerInfo?.id || '');
+  const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === providerId) || null;
   const changeProvider = (id) => { setProviderId(id); setModel(''); setApiKey(''); };
   const [model, setModel] = useState(
-    (providerInfo?.id === provider.id && providerInfo?.model) || provider.models[0]?.id || '',
+    (provider && providerInfo?.id === provider.id && providerInfo?.model) || provider?.models[0]?.id || '',
   );
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -398,19 +450,21 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     setStep('ai');
   };
 
+  const needsProvider = !provider;
   const needsKey = !apiKey.trim();
   const needsModel = !model.trim();
   const errors = attempted ? {
-    key: needsKey ? `Paste your ${provider.label} API key here.` : '',
+    provider: needsProvider ? 'Choose your AI provider.' : '',
+    key: needsKey ? (provider ? `Paste your ${provider.label} API key here.` : 'Paste your API key here.') : '',
     model: needsModel ? 'Choose a model, or type its ID.' : '',
   } : {};
   const busy = status?.kind === 'busy' || status?.kind === 'ok';
 
   const save = async () => {
     if (busy) return;
-    if (needsKey || needsModel) {
+    if (needsProvider || needsKey || needsModel) {
       setAttempted(true);
-      const first = formRef.current?.querySelector(needsKey ? '[data-field="key"]' : '[data-field="model"] input');
+      const first = formRef.current?.querySelector(needsProvider ? '[data-field="provider"]' : needsKey ? '[data-field="key"]' : '[data-field="model"] input');
       first?.focus();
       return;
     }

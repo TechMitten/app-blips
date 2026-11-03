@@ -324,6 +324,9 @@
 .onboarding-select-wrap > svg:first-child { left: 18px; }
 .onboarding-select-wrap > svg:last-child { right: 18px; color: #c7c7c7; }
 .onboarding-select-wrap .onboarding-select { display: flex; align-items: center; padding: 0 48px 0 58px; text-align: left; cursor: pointer; }
+.onboarding-select-placeholder { color: #8a8a8a; }
+/* Plain grey, not var(--ob-muted): the list is portaled to <body>, outside .desktop-onboarding. */
+.onboarding-provider-recommended { color: #a3a3a3; font-weight: 400; }
 /* The provider list sits next to a 52px field, so give its rows a finger-sized height. */
 .onboarding-provider-option { min-height: 40px; }
 .onboarding-provider-option .model-combobox-label { font-size: 0.9rem; }
@@ -374,6 +377,7 @@
 
 /* Shown only after "Start building" was pressed with this field empty. */
 .onboarding-field.is-invalid .onboarding-key-input,
+.onboarding-field.is-invalid .onboarding-select,
 .onboarding-field.is-invalid .model-combobox { border-color: #f87171; box-shadow: 0 0 0 3px rgb(248 113 113 / 0.2); }
 .onboarding-field.is-invalid .onboarding-field-label { color: #fecaca; }
 .onboarding-field-error { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #fca5a5; font-size: 0.88rem; font-weight: 600; }
@@ -406,6 +410,56 @@
 .onboarding-folder button:hover { background: var(--ob-soft); }
 .onboarding-folder button:focus-visible { outline: 2px solid #ffffff; outline-offset: -2px; }
 .onboarding-key-help.is-error { color: #fca5a5; }
+
+/* AI step: "Test connection" under the model, styled like the folder's
+   Change button so it reads as secondary to "Start building". */
+.onboarding-test { display: flex; align-items: center; gap: 14px; }
+.onboarding-test-button { position: relative; height: 42px; flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; border: 0; border-radius: 12px; color: #f5f5f5; font-size: 0.92rem; font-weight: 600; letter-spacing: -0.005em; cursor: pointer;
+  /* A raised dark keycap: lit top face, a solid 4px "side" underneath (the
+     first hard shadow) and a soft drop shadow, so it sits above the card.
+     Kept dark so the white "Start building" slab stays the primary action. */
+  background: linear-gradient(180deg, #3a3a3a 0%, #232323 55%, #1b1b1b 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    inset 0 -2px 4px rgb(0 0 0 / 0.35),
+    0 4px 0 #0b0b0b,
+    0 5px 0 rgb(255 255 255 / 0.05),
+    0 10px 18px -4px rgb(0 0 0 / 0.75),
+    0 18px 32px -12px rgb(0 0 0 / 0.6);
+  transform: translateY(-2px);
+  transition: transform .14s ease, box-shadow .14s ease, background .18s ease, opacity .18s ease; }
+/* A glossy sheen across the top half of the face. */
+.onboarding-test-button::before { content: ''; position: absolute; inset: 1px 1px 50% 1px; border-radius: 11px 11px 6px 6px; background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0)); pointer-events: none; }
+.onboarding-test-button > svg { position: relative; color: var(--ob-red); filter: drop-shadow(0 0 6px rgb(236 100 82 / 0.45)); }
+.onboarding-test-button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #444444 0%, #2a2a2a 55%, #1f1f1f 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    inset 0 -2px 4px rgb(0 0 0 / 0.35),
+    0 5px 0 #0b0b0b,
+    0 6px 0 rgb(255 255 255 / 0.05),
+    0 14px 22px -4px rgb(0 0 0 / 0.8),
+    0 24px 40px -12px rgb(0 0 0 / 0.65);
+  transform: translateY(-3px); }
+/* Pressed: the cap sinks onto its side, as a real key would. */
+.onboarding-test-button:active:not(:disabled) {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    inset 0 2px 6px rgb(0 0 0 / 0.5),
+    0 1px 0 #0b0b0b,
+    0 3px 6px -2px rgb(0 0 0 / 0.6);
+  transform: translateY(1px); }
+.onboarding-test-button:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+.onboarding-test-button:disabled { cursor: not-allowed; opacity: .45; transform: none; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 2px 0 #0b0b0b; }
+.onboarding-test-button:disabled > svg { filter: none; }
+.onboarding-test-status { min-width: 0; display: flex; align-items: center; gap: 6px; color: #a3a3a3; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
+.onboarding-test-status svg { flex: none; }
+.onboarding-test-status.is-ok { color: #86efac; }
+.onboarding-test-status.is-error { color: #fca5a5; }
 .onboarding-footer-start { display: flex; align-items: center; gap: 6px; }
 .onboarding-footer-start .onboarding-skip { display: inline-flex; align-items: center; gap: 6px; }
 
@@ -463,6 +517,8 @@
   .onboarding-model-copy small, .onboarding-recommended { display: none; }
   .desktop-onboarding-setup { padding: 1.1rem; }
   .onboarding-avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .onboarding-test { flex-direction: column; align-items: stretch; gap: 8px; }
+  .onboarding-test-button { justify-content: center; }
   .onboarding-footer { padding-inline: 1rem; }
   .onboarding-actions { gap: 10px; }
   .onboarding-next { min-width: 0; height: 46px; gap: 8px; padding: 0 14px; font-size: 0.95rem; }
@@ -491,5 +547,6 @@
 @media (prefers-reduced-motion: reduce) {
   .onboarding-stage { animation: none; }
   .onboarding-next, .onboarding-next > svg:last-child { transition: none; }
+  .onboarding-test-button { transition: none; }
   .desktop-onboarding-setup { animation: none; }
 }

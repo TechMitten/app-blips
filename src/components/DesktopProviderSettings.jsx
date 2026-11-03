@@ -23,15 +23,20 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
 const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
+// No provider until one is chosen (as in onboarding), so an unset Settings → AI
+// shows "Select a provider" rather than quietly defaulting to the first.
+const EMPTY_DRAFT = { id: '', model: '', apiKey: '' };
 
 export default function DesktopProviderSettings({ guardRef }) {
   const [saved, setSaved] = useState(null); // provider.get() result
-  const [draft, setDraft] = useState({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
   const modelList = useProviderModels({
     ...draft,
+    // No provider: an empty key keeps the list from loading for nothing.
+    ...(draft.id ? {} : { apiKey: '' }),
     hasSavedKey: Boolean(saved?.hasKey && saved.id === draft.id),
   });
 
@@ -51,11 +56,11 @@ export default function DesktopProviderSettings({ guardRef }) {
   };
 
   const keepsSavedKey = Boolean(saved?.hasKey && saved.id === draft.id);
-  const complete = draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
+  const complete = draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
   const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
   const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
   // Anything typed that Save hasn't stored yet.
-  const base = saved?.id ? { id: saved.id, model: saved.model } : { id: USER_PROVIDER_OPTIONS[0].id, model: '' };
+  const base = saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
   const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || Boolean(draft.apiKey.trim()));
 
   const summary = !saved
@@ -120,7 +125,7 @@ export default function DesktopProviderSettings({ guardRef }) {
     try {
       const next = await providerApi.clear();
       setSaved((prev) => ({ ...prev, ...next }));
-      setDraft({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
+      setDraft(EMPTY_DRAFT);
       setShowKey(false);
       setStatus(null);
     } catch (err) {
@@ -141,18 +146,27 @@ export default function DesktopProviderSettings({ guardRef }) {
         <div className="space-y-3">
           <label className="block text-sm text-slate-600">
             Provider
-            <select value={draft.id} onChange={(e) => update({ id: e.target.value, model: '', apiKey: '' })} className={INPUT_CLASS} style={SELECT_COLORS}>
+            <select
+              value={draft.id}
+              onChange={(e) => update({ id: e.target.value, model: '', apiKey: '' })}
+              className={INPUT_CLASS}
+              // Placeholder text is muted; each option keeps SELECT_COLORS so
+              // the open list isn't grey too.
+              style={draft.id ? SELECT_COLORS : { ...SELECT_COLORS, color: 'var(--color-slate-500)' }}
+            >
+              {/* Disabled: once a provider is chosen there's no going back to none (Clear does that). */}
+              <option value="" disabled style={SELECT_COLORS}>Select a provider</option>
               {USER_PROVIDER_OPTIONS.map((p) => <option key={p.id} value={p.id} style={SELECT_COLORS}>{p.label}</option>)}
             </select>
           </label>
           <label className="block text-sm text-slate-600">
-            {providerLabel(draft.id)} API key
+            {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
                 value={draft.apiKey}
                 onChange={(e) => update({ apiKey: e.target.value })}
-                placeholder={keepsSavedKey ? 'Saved (encrypted) — type to replace' : `Your ${providerLabel(draft.id)} API key`}
+                placeholder={keepsSavedKey ? 'Saved (encrypted) — type to replace' : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
                 autoComplete="off"
                 spellCheck={false}
                 className={`${INPUT_CLASS} pr-11`}
