@@ -143,6 +143,7 @@ const DotGrid = ({
   intro = true,
   mouseInteraction = true,
   clickShock = true,
+  ignoreSelector = '',
   paused = false,
   dpr,
   className = '',
@@ -171,6 +172,7 @@ const DotGrid = ({
     intro,
     mouseInteraction,
     clickShock,
+    ignoreSelector,
     paused,
     dpr
   };
@@ -526,8 +528,19 @@ const DotGrid = ({
       return [event.clientX - rect.left, event.clientY - rect.top];
     };
 
+    // Pointer over an element matching ignoreSelector (e.g. the picker's
+    // cards) counts as having left the grid, so the dots stay calm there.
+    const overIgnored = event => {
+      const sel = settingsRef.current.ignoreSelector;
+      return !!sel && event.target instanceof Element && !!event.target.closest(sel);
+    };
+
     const onMove = event => {
       if (!settingsRef.current.mouseInteraction) return;
+      if (overIgnored(event)) {
+        if (pointer.inside) onLeave();
+        return;
+      }
       const [x, y] = locate(event);
       const inside = x >= 0 && y >= 0 && x <= view.width && y <= view.height;
       const time = event.timeStamp || performance.now();
@@ -561,7 +574,7 @@ const DotGrid = ({
     };
 
     const onDown = event => {
-      if (!settingsRef.current.clickShock || reduced) return;
+      if (!settingsRef.current.clickShock || reduced || overIgnored(event)) return;
       const [x, y] = locate(event);
       if (x < 0 || y < 0 || x > view.width || y > view.height) return;
       shocks.push({ x, y, start: performance.now() });

@@ -251,10 +251,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
           <div className="relative flex flex-1 flex-col">
             <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-            {/* Interactive dot grid (React Bits' DotGrid, WebGL2): dots swell
-                and ripple around the pointer, and a click sends a shock wave.
-                It listens on the window, so the cards above it don't block it,
-                and stops drawing once everything has settled. Without WebGL2
+            {/* Dot grid (React Bits' DotGrid, WebGL2). Pointer hover and click
+                effects are off, so it is just a quiet backdrop. Without WebGL2
                 it simply draws nothing. */}
             <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true">
               <DotGrid
@@ -266,6 +264,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 shockRadius={260}
                 shockStrength={3}
                 glow={isDark ? 0.6 : 0.2}
+                mouseInteraction={false}
+                clickShock={false}
               />
             </div>
 
@@ -286,6 +286,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       texts={ROTATING_STUDIOS}
                       mainClassName="studio-rotate"
                       highlight
+                      fixedWidth
                       highlightColor={isDark ? '#ec6452' : '#d9472f'}
                       effect="slide"
                       splitBy="characters"

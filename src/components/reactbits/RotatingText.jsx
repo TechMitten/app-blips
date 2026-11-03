@@ -108,6 +108,7 @@ const RotatingText = forwardRef((props, ref) => {
     effect = 'slide',
     direction = 'up',
     highlight = false,
+    fixedWidth = false,
     highlightColor = '#a855f7',
     animatePresenceMode = 'wait',
     animatePresenceInitial = false,
@@ -136,6 +137,7 @@ const RotatingText = forwardRef((props, ref) => {
   onNextRef.current = onNext;
 
   const contentRef = useRef(null);
+  const sizerRef = useRef(null);
   const width = useMotionValue('auto');
   const reduceMotion = useReducedMotion();
 
@@ -228,7 +230,9 @@ const RotatingText = forwardRef((props, ref) => {
   }, [next, rotationInterval, auto, paused, activeIndex]);
 
   useIsomorphicLayoutEffect(() => {
-    const content = contentRef.current;
+    // fixedWidth sizes the box to the widest text, so it never resizes
+    // between words.
+    const content = fixedWidth ? sizerRef.current : contentRef.current;
     if (!highlight || !content) {
       width.set('auto');
       return undefined;
@@ -252,7 +256,7 @@ const RotatingText = forwardRef((props, ref) => {
       observer?.disconnect();
       controls?.stop();
     };
-  }, [highlight, reduceMotion, width]);
+  }, [highlight, fixedWidth, reduceMotion, width]);
 
   const handleMouseEnter = event => {
     if (pauseOnHover) setHovered(true);
@@ -277,7 +281,7 @@ const RotatingText = forwardRef((props, ref) => {
   const charStyle = effect === 'flip' ? FLIP_STYLE : undefined;
 
   const blockStyle = highlight
-    ? { ...style, width, backgroundColor: highlightColor, color: readableText(highlightColor) ?? style?.color }
+    ? { ...style, width, ...(fixedWidth ? { position: 'relative' } : null), backgroundColor: highlightColor, color: readableText(highlightColor) ?? style?.color }
     : style;
 
   const presence = (
@@ -328,6 +332,11 @@ const RotatingText = forwardRef((props, ref) => {
         transition={transition ?? LAYOUT_SPRING}
       >
         <span className="text-rotate-sr-only">{texts[activeIndex]}</span>
+        {highlight && fixedWidth && (
+          <span ref={sizerRef} className="text-rotate-sizer" aria-hidden="true">
+            {texts.map((text, i) => <span key={i}>{text}</span>)}
+          </span>
+        )}
         {highlight ? (
           <span ref={contentRef} className="text-rotate-highlight-content">
             {presence}

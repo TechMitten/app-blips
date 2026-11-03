@@ -52,3 +52,16 @@
   flex-shrink: 0;
   white-space: pre;
 }
+
+/* Invisible copy of every text, stacked, so fixedWidth can measure the widest. */
+.text-rotate-sizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+}
