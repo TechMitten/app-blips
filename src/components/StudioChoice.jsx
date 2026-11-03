@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, MonitorSmartphone,
-  Moon, Settings, Smartphone, Sparkles, Sun, X,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
+  Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import BorderGlow from './reactbits/BorderGlow';
-import DotGrid from './reactbits/DotGrid';
 import RotatingText from './reactbits/RotatingText';
 import StudioArt from './StudioArt';
 
@@ -100,18 +99,29 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
+const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
+
 export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
+  // Mobile slide-out menu. Escape closes it before it would close the picker.
+  const [menuOpen, setMenuOpen] = useState(false);
+
   useEffect(() => {
-    if (!onCancel) return;
+    if (!onCancel && !menuOpen) return;
     const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) onCancel();
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (menuOpen) setMenuOpen(false);
+      else onCancel?.();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  }, [onCancel, menuOpen]);
+
+  // Runs the action after the panel has started closing, so a modal (Settings)
+  // doesn't open over a menu that is still on screen.
+  const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
 
   const isDark = resolvedTheme === 'dark';
 
@@ -123,9 +133,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
     {
       key: 'projects',
       Icon: LibraryBig,
-      title: 'Projects & templates',
-      description: 'Pick up where you left off, or start from a template.',
-      label: 'Projects and templates: open a saved project or start from a template',
+      title: 'My projects',
+      description: 'Pick up where you left off.',
+      label: 'My projects: open a saved project',
       onClick: handleOpenProjects,
       badge: savedAppsCount > 0 && (
         <span className="studio-saved-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
@@ -158,7 +168,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
   return (
     <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
-      <div className="relative h-full overflow-y-auto">
+      {/* overflow-x-hidden: the glow's outer layer extends 24px past each card,
+          which on a phone sticks out of the viewport and gave this scroller
+          sideways slack. Clipping here keeps the glow on desktop widths. */}
+      <div className="relative h-full overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
               (md+), GitHub, theme and settings on the right. */}
@@ -170,37 +183,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className="studio-logo-img studio-logo-light" />
               </span>
 
-              <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
-                <button type="button" onClick={handleOpenProjects} className={NAV_LINK}>My projects</button>
-                {onOpenShowcase && (
-                  <button type="button" onClick={onOpenShowcase} className={NAV_LINK}>Showcase</button>
-                )}
-                <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={NAV_LINK}>Help</a>
-              </div>
 
               <div className="flex items-center gap-2">
-                <a
-                  href={GITHUB_URL}
-                  draggable={false}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="AppBlips on GitHub"
-                  title="AppBlips on GitHub"
-                  className={`${GHOST_BTN} h-9 w-9`}
-                >
-                  <Github size={17} aria-hidden="true" />
-                </a>
-                <a
-                  href={DISCORD_URL}
-                  draggable={false}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Join the AppBlips Discord"
-                  title="Join the AppBlips Discord"
-                  className={`${GHOST_BTN} h-9 w-9`}
-                >
-                  <DiscordIcon size={17} />
-                </a>
                 <a
                   href={DOCS_URL}
                   draggable={false}
@@ -208,7 +192,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   rel="noopener noreferrer"
                   aria-label="Help and documentation"
                   title="Help and documentation"
-                  className={`${GHOST_BTN} h-9 w-9 md:hidden`}
+                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
@@ -218,7 +202,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     onClick={onToggleTheme}
                     aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
                     title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                    className={`${GHOST_BTN} h-9 w-9`}
+                    className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
                   >
                     {resolvedTheme === 'dark' ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
                   </button>
@@ -229,11 +213,21 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     onClick={onOpenSettings}
                     aria-label="Settings"
                     title="Settings"
-                    className={`${GHOST_BTN} h-9 w-9`}
+                    className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
                   >
                     <Settings size={17} aria-hidden="true" />
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(true)}
+                  aria-label="Open menu"
+                  aria-expanded={menuOpen}
+                  aria-controls="studio-mobile-menu"
+                  className={`${GHOST_BTN} h-9 w-9 md:hidden`}
+                >
+                  <Menu size={18} aria-hidden="true" />
+                </button>
                 {onCancel && (
                   <button
                     type="button"
@@ -251,23 +245,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
           <div className="relative flex flex-1 flex-col">
             <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-            {/* Dot grid (React Bits' DotGrid, WebGL2). Pointer hover and click
-                effects are off, so it is just a quiet backdrop. Without WebGL2
-                it simply draws nothing. */}
-            <div className="studio-dots pointer-events-none absolute inset-0" aria-hidden="true">
-              <DotGrid
-                dotSize={2.5}
-                gap={20}
-                baseColor={isDark ? '#262626' : '#b9c2d0'}
-                activeColor={isDark ? '#ec6452' : '#d9472f'}
-                proximity={130}
-                shockRadius={260}
-                shockStrength={3}
-                glow={isDark ? 0.6 : 0.2}
-                mouseInteraction={false}
-                clickShock={false}
-              />
-            </div>
 
             <div className="studio-main relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
@@ -370,7 +347,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
           <footer className="studio-footer relative shrink-0">
             <div className="studio-footer-inner flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
-              <nav aria-label="Footer links" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap sm:gap-x-6">
+              <nav aria-label="Footer links" className="flex-wrap max-md:hidden flex items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap sm:gap-x-6">
                 <a
                   href={GITHUB_URL}
                   target="_blank"
@@ -414,6 +391,61 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             </div>
           </footer>
         </div>
+      </div>
+
+      {/* Mobile slide-out menu (below md): everything the header and footer
+          drop at that width. Always mounted so it can animate; `inert` keeps
+          the closed panel out of tab order and the accessibility tree. */}
+      <div className="md:hidden" data-open={menuOpen}>
+        <div className="studio-menu-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+        <aside
+          id="studio-mobile-menu"
+          className="studio-menu-panel"
+          aria-label="Menu"
+          inert={!menuOpen}
+        >
+          <div className="studio-menu-head">
+            <span className="text-sm font-semibold studio-text-strong">Menu</span>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
+              className={`${GHOST_BTN} h-9 w-9`}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="studio-menu-list">
+            {onOpenSettings && (
+              <button type="button" className={MENU_ITEM} onClick={fromMenu(onOpenSettings)}>
+                <Settings size={18} aria-hidden="true" /> Settings
+              </button>
+            )}
+            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <CircleHelp size={18} aria-hidden="true" /> Help
+            </a>
+            {onToggleTheme && (
+              <button type="button" className={MENU_ITEM} onClick={onToggleTheme}>
+                {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+                {isDark ? 'Light theme' : 'Dark theme'}
+              </button>
+            )}
+            <div className="studio-menu-sep" role="separator" />
+            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <Github size={18} aria-hidden="true" /> GitHub
+            </a>
+            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <DiscordIcon size={18} /> Discord
+            </a>
+            <div className="studio-menu-sep" role="separator" />
+            <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
+            </a>
+            <a href="https://www.appblips.com/terms" target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <ScrollText size={18} aria-hidden="true" /> Terms of Service
+            </a>
+          </div>
+        </aside>
       </div>
     </div>
   );

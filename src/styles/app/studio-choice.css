@@ -1,6 +1,6 @@
 /* Studio choice gate (StudioChoice.jsx): the project-type picker shown before
    a workspace exists. It mirrors the appblips.com landing page so the jump
-   from marketing site to studio feels seamless: flat ground, a faint dot grid
+   from marketing site to studio feels seamless: flat ground, a soft glow
    under a soft glow, light glass cards and a solid primary button. Only what
    Tailwind can't express lives here.
 
@@ -20,7 +20,6 @@
   --sc-topbar-bg: rgb(8 8 8 / 0.85);
   --sc-topbar-line: rgb(255 255 255 / 0.07);
   --sc-glow: rgb(255 255 255 / 0.06);
-  --sc-dot: rgb(255 255 255 / 0.04);
   --sc-primary-bg: #ffffff;
   --sc-primary-bg-hover: #e4e4e7;
   --sc-primary-fg: #000000;
@@ -66,7 +65,6 @@
   --sc-topbar-bg: rgb(232 237 245 / 0.85);
   --sc-topbar-line: rgb(15 23 42 / 0.12);
   --sc-glow: rgb(255 255 255 / 0.9);
-  --sc-dot: rgb(0 0 0 / 0.07);
   --sc-primary-bg: #0b1220;
   --sc-primary-bg-hover: #27272a;
   --sc-primary-fg: #ffffff;
@@ -163,16 +161,9 @@
   background: radial-gradient(60% 50% at 75% 30%, var(--sc-glow), transparent 70%);
 }
 
-.studio-dots {
-  /* Holds the DotGrid canvas (StudioChoice.jsx); the mask fades it out
-     towards the edges like the old static dots. */
-  -webkit-mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
-  mask-image: radial-gradient(ellipse at center, #000, transparent 75%);
-}
-
 /* Light theme: a modern SaaS backdrop instead of the dark glow. Soft pastel
    colour blobs (sky, cyan, peach, mint -- no purple, per the brand) drift very
-   slowly behind the dot grid, which fades out towards the edges, plus a
+   slowly behind the content, plus a
    white wash at the top so the hero text sits on the calmest part. */
 :root:not(.dark) .studio-glow {
   overflow: hidden;
@@ -208,11 +199,6 @@
 @keyframes studio-mesh-drift {
   from { transform: translate3d(-2%, -1.5%, 0) scale(1); }
   to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
-}
-
-:root:not(.dark) .studio-dots {
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
 }
 
 .studio-pill {
@@ -258,7 +244,7 @@
   transform: scale(0.98);
 }
 
-/* Light glass: a faint top-lit gradient over the glow and dot grid, a
+/* Light glass: a faint top-lit gradient over the glow, a
    backdrop blur to frost them, and a brighter top edge where light catches.
    Kept subtle so the cards still read as the landing page's flat style. */
 .studio-card {
@@ -647,4 +633,70 @@
 
 @media (max-height: 620px) {
   .studio-lead { display: none; }
+}
+
+/* Mobile slide-out menu (rendered below md only). Absolute inside
+   .studio-choice rather than fixed: the top bar's backdrop blur would
+   otherwise trap fixed children, and the picker already fills the screen. */
+.studio-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.studio-menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(20rem, 85%);
+  display: flex;
+  flex-direction: column;
+  background: var(--sc-bg);
+  border-left: 1px solid var(--sc-line-strong);
+  box-shadow: -12px 0 32px rgb(0 0 0 / 0.35);
+  transform: translateX(100%);
+  visibility: hidden;
+  /* visibility waits for the slide-out to finish when closing. */
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.3s;
+}
+[data-open="true"] > .studio-menu-backdrop { opacity: 1; pointer-events: auto; }
+[data-open="true"] > .studio-menu-panel {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+}
+.studio-menu-head {
+  display: flex;
+  height: 4rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--sc-line);
+}
+.studio-menu-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.studio-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--sc-text-strong);
+  text-align: left;
+}
+.studio-menu-item:hover { background: var(--sc-fill-hover); }
+.studio-menu-sep { height: 1px; margin: 0.5rem 0.75rem; background: var(--sc-line); }
+@media (prefers-reduced-motion: reduce) {
+  .studio-menu-backdrop,
+  .studio-menu-panel,
+  [data-open="true"] > .studio-menu-panel { transition: none; }
 }

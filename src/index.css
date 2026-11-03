@@ -477,6 +477,19 @@
     background: var(--color-slate-50);
   }
 
+  /* Stop the page panning sideways on phones when something is a few pixels
+     wider than the screen. `clip` (not `hidden`) so sticky/fixed children and
+     the vertical scroll keep working. */
+  html,
+  body {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    /* Phones can still pan the page sideways when nothing overflows (e.g. iOS
+       Safari ignores overscroll-behavior). Allow only vertical pan and pinch
+       zoom on the page; inner scrollers (chip rows, code) set their own. */
+    touch-action: pan-y pinch-zoom;
+  }
+
   body {
     font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.5;
