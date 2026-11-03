@@ -1,22 +1,8 @@
 // LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini, DeepSeek or a local server through Settings.
+// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini or DeepSeek through Settings.
 // Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
-  lmstudio: {
-    label: 'LM Studio',
-    baseUrl: 'http://localhost:1234/v1',
-    local: true,
-    forcedToolChoice: false,
-    streamUsage: false,
-  },
-  ollama: {
-    label: 'Ollama',
-    baseUrl: 'http://localhost:11434/v1',
-    local: true,
-    forcedToolChoice: false,
-    streamUsage: false,
-  },
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
@@ -165,11 +151,10 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 
 // User-selected providers are separate from the server-owned environment provider.
 // The first entry is the default in onboarding and Settings.
-export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'lmstudio', 'ollama', 'openrouter'];
+export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
-  local: Boolean(PROVIDERS[id].local),
   baseUrl: PROVIDERS[id].baseUrl,
   models: [],
 }));
@@ -201,7 +186,7 @@ export const resolveUserProvider = (input) => {
   const apiKey = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
   const model = typeof input.model === 'string' ? input.model.trim() : '';
   if (!USER_PROVIDER_IDS.includes(id)) return { error: `Choose one of: ${USER_PROVIDER_OPTIONS.map((p) => p.label).join(', ')}.` };
-  if (!apiKey && !PROVIDERS[id].local) return { error: 'The API key is empty.' };
+  if (!apiKey) return { error: 'The API key is empty.' };
   // eslint-disable-next-line no-control-regex
   if (apiKey.length > MAX_USER_KEY_LENGTH || /[\s\x00-\x1f\x7f]/.test(apiKey)) return { error: 'The API key is not valid.' };
   if (!model) return { error: 'The model is empty.' };
@@ -213,25 +198,13 @@ export const resolveUserProvider = (input) => {
   }
   if (id === 'openrouter' && isUncensoredModel(model)) return { error: UNCENSORED_ERROR };
   const preset = PROVIDERS[id];
-  let baseUrl = preset.baseUrl;
-  if (preset.local && input.baseUrl) {
-    try {
-      const url = new URL(input.baseUrl);
-      if (!['http:', 'https:'].includes(url.protocol)
-        || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-        || url.username || url.password || url.search || url.hash) throw new Error();
-      baseUrl = url.href.replace(/\/$/, '');
-    } catch {
-      return { error: 'Use a local server URL such as http://localhost:1234/v1.' };
-    }
-  }
   return {
     id,
     ...PRESET_DEFAULTS,
     ...preset,
-    apiKey: apiKey || 'local',
+    apiKey,
     model,
-    baseUrl,
+    baseUrl: preset.baseUrl,
     reasoningParam: preset.reasoningParam,
     alsoConfigured: [],
     missing: [],
@@ -304,14 +277,8 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
     // Omit it when reasoning is off: some always-thinking models reject an
     // explicit "none", while omission uses the model default.
     bodyObj.reasoning_effort = raw;
-  } else if (provider.id === 'ollama') {
-    // Ollama resolves levels against the model's own metadata and maps
-    // "none" to thinking off; unknown levels fall back to the model default.
-    bodyObj.reasoning_effort = raw;
   }
 
-  // LM Studio only documents reasoning effort on its Responses API.
-  if (provider.id === 'lmstudio') delete bodyObj.reasoning_effort;
   if (provider.streamUsage === false) delete bodyObj.stream_options;
   // DeepSeek supports thinking + tools, but thinking rejects "required"
   // and named choices. Keep thinking enabled and retain the offered tools.
@@ -320,7 +287,7 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
     bodyObj.tool_choice = 'auto';
   }
 
-  const reasoningEnabled = !off && provider.id !== 'lmstudio';
+  const reasoningEnabled = !off;
 
   // Thinking models often get stuck in endless reasoning loops
   // if temperature is forced to 0 (which the proxy does for syntax repairs).

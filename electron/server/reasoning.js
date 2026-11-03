@@ -13,9 +13,6 @@
 // - DeepSeek: low/high/max ("none" turns thinking off); /models lists
 //   `effort.supported_levels` per model.
 // - OpenRouter: /models lists `reasoning.supported_efforts` and `mandatory`.
-// - Ollama: reasoning_effort, resolved against the model's own metadata.
-// - LM Studio: effort is only documented on /v1/responses, which AppBlips
-//   doesn't use, so there is no control.
 
 // Lowest to highest. 'none' is Off.
 export const EFFORT_SCALE = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -85,8 +82,6 @@ export const staticReasoningLevels = (providerId, model = '') => {
     case 'gemini': return geminiLevels(id);
     case 'deepseek': return guess(['none', 'low', 'high', 'max'], 'high');
     case 'openrouter': return guess(['none', 'low', 'medium', 'high']);
-    case 'ollama': return guess(['none', 'low', 'medium', 'high']);
-    case 'lmstudio': return none('LM Studio sets reasoning in its own model settings. Change it there.');
     default: return guess(['none', 'low', 'medium', 'high']);
   }
 };

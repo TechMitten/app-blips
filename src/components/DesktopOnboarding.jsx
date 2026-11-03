@@ -18,10 +18,10 @@ const defaultProvider = USER_PROVIDER_OPTIONS[0];
 
 // One labelled field. `error` appears only after the user has tried to
 // continue, so an untouched form doesn't open covered in red.
-function SetupField({ title, optional, error, children }) {
+function SetupField({ title, error, children }) {
   return (
     <div className={`onboarding-field ${error ? 'is-invalid' : ''}`}>
-      <span className="onboarding-field-label">{title}{optional && <em>Optional</em>}</span>
+      <span className="onboarding-field-label">{title}</span>
       {children}
       {error && <p className="onboarding-field-error" role="alert"><CircleAlert size={15} /> {error}</p>}
     </div>
@@ -166,13 +166,12 @@ function NeedKeyModal({ providerLabel, onClose }) {
   );
 }
 
-function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
-  const modelList = useProviderModels({ id: provider.id, apiKey, baseUrl });
+function SetupForm({ formRef, onSubmit, provider, setProviderId, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
+  const modelList = useProviderModels({ id: provider.id, apiKey });
   const [needKey, setNeedKey] = useState(false);
 
-  // Local servers (LM Studio, Ollama) list models without a key.
   const canOpenModels = () => {
-    if (provider.local || apiKey.trim()) return true;
+    if (apiKey.trim()) return true;
     setNeedKey(true);
     return false;
   };
@@ -186,22 +185,16 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <SetupField title="Provider">
         <ProviderSelect value={provider.id} onChange={setProviderId} />
-        {provider.local && (
-          <>
-            <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={provider.baseUrl} className="onboarding-select onboarding-url" aria-label="Local server URL" />
-            <p className="onboarding-key-help">Start your local server and load a model that supports tool calling.</p>
-          </>
-        )}
       </SetupField>
 
-      <SetupField title="API key" optional={provider.local} error={errors.key}>
+      <SetupField title="API key" error={errors.key}>
         <span className="onboarding-key-input">
           <KeyRound size={19} />
           <input
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder={provider.local ? 'Optional API key' : `Your ${provider.label} API key`}
+            placeholder={`Your ${provider.label} API key`}
             aria-label={`${provider.label} API key`}
             aria-invalid={Boolean(errors.key)}
             data-field="key"
@@ -213,13 +206,11 @@ function SetupForm({ formRef, onSubmit, provider, setProviderId, baseUrl, setBas
             {showKey ? <EyeOff size={19} /> : <Eye size={19} />}
           </button>
         </span>
-        {!provider.local && (
-          <p className="onboarding-key-help">
-            {isDesktop ? 'Stays on this computer.' : 'Saved by AppBlips on this computer, not in the browser.'}
-            <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>
-          </p>
-        )}
-        {!provider.local && isDesktop && weakEncryption && (
+        <p className="onboarding-key-help">
+          {isDesktop ? 'Stays on this computer.' : 'Saved by AppBlips on this computer, not in the browser.'}
+          <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>
+        </p>
+        {isDesktop && weakEncryption && (
           <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
         )}
       </SetupField>
@@ -351,8 +342,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const onExit = exitSetup && leave(exitSetup);
   const [providerId, setProviderId] = useState(providerInfo?.id || defaultProvider.id);
   const provider = USER_PROVIDER_OPTIONS.find((option) => option.id === providerId) || defaultProvider;
-  const [baseUrl, setBaseUrl] = useState(providerInfo?.baseUrl || '');
-  const changeProvider = (id) => { setProviderId(id); setModel(''); setApiKey(''); setBaseUrl(''); };
+  const changeProvider = (id) => { setProviderId(id); setModel(''); setApiKey(''); };
   const [model, setModel] = useState(
     (providerInfo?.id === provider.id && providerInfo?.model) || provider.models[0]?.id || '',
   );
@@ -408,7 +398,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     setStep('ai');
   };
 
-  const needsKey = !provider.local && !apiKey.trim();
+  const needsKey = !apiKey.trim();
   const needsModel = !model.trim();
   const errors = attempted ? {
     key: needsKey ? `Paste your ${provider.label} API key here.` : '',
@@ -426,7 +416,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     }
     setStatus({ kind: 'busy', text: 'Saving your AI setup…' });
     try {
-      await providerApi.set({ enabled: true, id: provider.id, model: model.trim(), baseUrl: baseUrl.trim(), apiKey: apiKey.trim() });
+      await providerApi.set({ enabled: true, id: provider.id, model: model.trim(), apiKey: apiKey.trim() });
       setStatus({ kind: 'ok', text: 'You’re ready.' });
       window.setTimeout(onComplete, 350);
     } catch (error) {
@@ -504,7 +494,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
             ) : (
-              <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter, or use LM Studio or Ollama on this computer. You can change this later in Settings.</p>
+              <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter. You can change this later in Settings.</p>
             )}
           </section>
           <section className="onboarding-visual-wrap">
@@ -523,7 +513,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 onSubmit={save}
                 provider={provider}
                 setProviderId={changeProvider}
-                {...{ baseUrl, setBaseUrl, model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}
+                {...{ model, setModel, apiKey, setApiKey, showKey, setShowKey, errors }}
                 weakEncryption={providerInfo?.weakEncryption}
               />
             )}

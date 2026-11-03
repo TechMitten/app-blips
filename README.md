@@ -40,7 +40,7 @@ https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
 
 **AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds. 
 
-It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
+It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
 
 ## Three Studios, One Workflow
 
@@ -63,7 +63,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key** — Connect your own API keys (or local models). AppBlips itself is free; your provider bills you for what you use.
+- **Bring Your Own Key** — Connect your own API keys. AppBlips itself is free; your provider bills you for what you use.
 - **One-Click Connectors** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Connectors**. React Bits (free animated components you ask for by name) is coming soon. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
@@ -115,7 +115,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. Debian/Ubuntu users can also add the [AppBlips package source](https://docs.appblips.com/quickstart-desktop) to update with `sudo apt upgrade`. *(For AppImage: right-click → Properties → allow executing as a program).*
 - **macOS:** No native installer yet—use Docker or run from source below.
 
-> **First run:** Choose where to save your projects, then paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, or local LM Studio/Ollama). Keys are encrypted using your OS system keychain.
+> **First run:** Choose where to save your projects, then paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). Keys are encrypted using your OS system keychain.
 
 ### 2. Docker (All Platforms)
 With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run from the project root:

@@ -32,7 +32,7 @@ const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'te
 const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
 // More levels than this don't fit side by side at phone width.
 const MAX_SEGMENTS = 4;
-const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', deepseek: 'DeepSeek', openrouter: 'OpenRouter', ollama: 'Ollama', lmstudio: 'LM Studio' };
+const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', deepseek: 'DeepSeek', openrouter: 'OpenRouter' };
 
 // The levels the active provider and model accept (useReasoningLevels in
 // App). The saved choice isn't overwritten when it isn't offered: the

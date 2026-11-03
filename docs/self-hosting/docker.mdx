@@ -100,20 +100,6 @@ OPENAI_LLM_MODEL=deepseek-v4-pro
 
 Run `docker compose up -d` after changing `.env` so the container picks up the new values. See the [Configuration reference](/self-hosting/configuration) for every setting.
 
-## Local models (LM Studio and Ollama)
-
-AppBlips can use LM Studio or Ollama running on your computer. Choose it in **Settings → AI** as usual and leave the server URL as it is: the container reaches your computer through the name `host.docker.internal` by itself.
-
-- **Windows and macOS (Docker Desktop):** this works as it is.
-- **Linux:** the local server has to accept connections from the container, not only from your own computer:
-  - **Ollama:** start it with `OLLAMA_HOST=0.0.0.0`. For the system service, run `sudo systemctl edit ollama`, add `Environment="OLLAMA_HOST=0.0.0.0"` under `[Service]`, save, and run `sudo systemctl restart ollama`.
-  - **LM Studio:** in the **Developer** tab, turn on **Serve on Local Network**.
-  - If it still can't connect, your firewall may be blocking the container. Running [from source](/quickstart-source) avoids this.
-
-<Warning>
-  "Serve on local network" and `OLLAMA_HOST=0.0.0.0` also let other devices on your network use your local model. Only do this on a network you trust.
-</Warning>
-
 ## Keep it on your computer
 
 `docker-compose.yml` publishes AppBlips as `127.0.0.1:3000`, so only your own computer can open it.

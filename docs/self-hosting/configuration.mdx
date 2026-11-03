@@ -23,7 +23,7 @@ When it starts, AppBlips prints which AI provider it found. It never prints your
 These give the server its own provider. It's used whenever **Settings → AI** has no provider saved; a provider saved in the app always wins.
 
 <Warning>
-  These settings only work with DeepSeek or a service that speaks the OpenAI chat-completions API (such as OpenRouter or Ollama). An **Anthropic** key doesn't work here. To use Anthropic, the default provider, leave these blank and enter your key in the app under **Settings → AI**.
+  These settings only work with DeepSeek or a service that speaks the OpenAI chat-completions API (such as OpenRouter). An **Anthropic** key doesn't work here. To use Anthropic, the default provider, leave these blank and enter your key in the app under **Settings → AI**.
 </Warning>
 
 <ParamField body="OPENAI_API_KEY" type="string">
@@ -35,7 +35,7 @@ These give the server its own provider. It's used whenever **Settings → AI** h
 </ParamField>
 
 <ParamField body="OPENAI_BASE_URL" type="string">
-  The address of any service that speaks the OpenAI chat-completions API, such as OpenRouter, Ollama, vLLM, LM Studio, LiteLLM or Groq. Blank means DeepSeek.
+  The address of any service that speaks the OpenAI chat-completions API, such as OpenRouter, vLLM, LiteLLM or Groq. Blank means DeepSeek.
 </ParamField>
 
 <ParamField body="OPENAI_LLM_VISION_MODEL" type="string">
@@ -76,10 +76,6 @@ These give the server its own provider. It's used whenever **Settings → AI** h
   The folder where the server saves the API key you enter under **Settings → AI** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
 </ParamField>
 
-<ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">
-  Where LM Studio and Ollama run, when that isn't the same machine as the server. `docker-compose.yml` sets it to `host.docker.internal`, so a container can reach your computer; you rarely need to change it.
-</ParamField>
-
 ## Example `.env` files
 
 <CodeGroup>
@@ -94,17 +90,6 @@ OPENAI_API_KEY=sk-or-...
 OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
 ```
 
-```bash Ollama (from source)
-OPENAI_BASE_URL=http://localhost:11434/v1
-OPENAI_API_KEY=ollama
-OPENAI_LLM_MODEL=llama3.1
-```
-
-```bash Ollama (Docker)
-OPENAI_BASE_URL=http://host.docker.internal:11434/v1
-OPENAI_API_KEY=ollama
-OPENAI_LLM_MODEL=llama3.1
-```
 </CodeGroup>
 
 AppBlips sends requests in DeepSeek's format, including its reasoning setting. If another service rejects builds, set **Reasoning** to **Off** in [Settings → AI](/reference/settings#reasoning).

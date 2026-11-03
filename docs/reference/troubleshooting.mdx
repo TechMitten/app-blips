@@ -71,9 +71,6 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
     Then run `npm run desktop` again. Don't use `--no-sandbox` instead.
   </Accordion>
 
-  <Accordion title="Docker can't reach LM Studio or Ollama">
-    On Linux, the local server has to accept connections from the container. Start Ollama with `OLLAMA_HOST=0.0.0.0`, or turn on **Serve on Local Network** in LM Studio. If it still fails, a firewall may block the container. See [Local models](/self-hosting/docker#local-models-lm-studio-and-ollama).
-  </Accordion>
 </AccordionGroup>
 
 ---
@@ -149,8 +146,7 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
     AppBlips couldn't connect to your AI provider at all. Check that:
 
     - Your computer is online.
-    - If you use **LM Studio** or **Ollama**, its local server is running. Start it again if you closed it.
-    - The **Local server URL** in **Settings → AI** is right, or empty to use the usual address.
+    - No firewall, VPN or proxy is blocking your provider's website.
   </Accordion>
 
   <Accordion title="Build hangs, or &quot;Stream stalled&quot;">

@@ -1,4 +1,5 @@
 import { logError, logWarn } from './errorLog.js';
+import { USER_PROVIDER_IDS } from '../../electron/server/providers.js';
 
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
 // exposes window.appblipsDesktop and project data lives on disk instead of in
@@ -116,7 +117,14 @@ const WEB_PROVIDER_KEY = 'appblips-web-provider';
 const readWebProvider = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(WEB_PROVIDER_KEY) || '{}');
-    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+    // A provider AppBlips no longer offers (LM Studio, Ollama) counts as not
+    // set, so Settings → AI asks for a new one.
+    if (saved.id && !USER_PROVIDER_IDS.includes(saved.id)) return saved.onboardingComplete ? { enabled: false, onboardingComplete: true } : {};
+    // Only local servers had a URL.
+    delete saved.baseUrl;
+    delete saved.local;
+    return saved;
   } catch (err) {
     // Not the error itself: a JSON SyntaxError's message can quote the saved data.
     if (err?.name === 'SyntaxError') logWarn('Saved AI provider settings are not valid JSON, treating them as not set');
@@ -170,9 +178,9 @@ export const webProviderStore = {
   // goes as given, with its typed key or an empty one meaning "the saved key".
   forRequest(input = null) {
     if (input) return input;
-    const { enabled, id, model, baseUrl } = readWebProvider();
+    const { enabled, id, model } = readWebProvider();
     if (!enabled || !id || !model) return null;
-    return { id, model, baseUrl: baseUrl || '' };
+    return { id, model };
   },
   async listModels(input) {
     await moveLegacyKey();
@@ -198,11 +206,9 @@ export const webProviderStore = {
     }
     // The server checks the settings (with the saved key when none is typed)
     // and keeps the key; only the rest is saved here.
-    const saved = await providerRequest('/api/provider', 'PUT', info);
+    await providerRequest('/api/provider', 'PUT', info);
     writeWebProvider({
       ...info,
-      baseUrl: saved.baseUrl,
-      local: Boolean(saved.local),
       onboardingComplete: Boolean(previous.onboardingComplete || info.enabled),
     });
     return this.get();

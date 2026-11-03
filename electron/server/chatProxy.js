@@ -25,24 +25,6 @@ const toChatCompletionsUrl = (baseUrl) => {
   return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
 };
 
-// Settings → AI only accepts localhost for LM Studio and Ollama, but inside a
-// Docker container localhost is the container itself. APPBLIPS_LOCAL_AI_HOST
-// names the machine that runs them instead (docker-compose.yml sets
-// host.docker.internal). Only the server-side request changes: the browser
-// still lists models from localhost directly.
-export const localServerUrl = (env, provider) => {
-  const host = String(env.APPBLIPS_LOCAL_AI_HOST || '').trim();
-  if (!provider.local || !host) return provider.baseUrl;
-  try {
-    const url = new URL(provider.baseUrl);
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return provider.baseUrl;
-    url.hostname = host;
-    return url.href.replace(/\/$/, '');
-  } catch {
-    return provider.baseUrl;
-  }
-};
-
 const badRequest = (error, status = 400) => new Response(JSON.stringify({ error }), {
   status,
   headers: { 'content-type': 'application/json' },
@@ -186,7 +168,7 @@ export async function handleChatProxy(request, env) {
   const picked = pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
-  const url = toChatCompletionsUrl(localServerUrl(env, provider));
+  const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
   const model = routeModel(env, provider, payload);
 
@@ -213,11 +195,9 @@ export async function handleChatProxy(request, env) {
     bodyObj.stream_options = { include_usage: true };
   }
 
-  // Local servers are left alone: 64K can exceed a small local model's
-  // context, and they stream until done without a limit anyway. Anthropic
-  // requires a limit, so its Ask requests get the default here too, where a
-  // rejection can be retried.
-  const defaultLimit = maxTokens == null && !provider.local && (payload.ask !== true || provider.id === 'anthropic');
+  // Anthropic requires a limit, so its Ask requests get the default here too,
+  // where a rejection can be retried.
+  const defaultLimit = maxTokens == null && (payload.ask !== true || provider.id === 'anthropic');
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
   else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
 

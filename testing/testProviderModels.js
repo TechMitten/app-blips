@@ -46,11 +46,10 @@ test('OpenRouter image and audio generators are left out of the model list', asy
   assert.deepEqual(models.map((m) => m.id), ['chat', 'plain']);
 });
 
-test('discovery validates credentials and local URLs before fetching', async () => {
+test('discovery validates credentials before fetching', async () => {
   const fetchImpl = () => { assert.fail('Invalid settings must not reach fetch'); };
   for (const input of [
-    { id: 'unknown' }, { id: 'openai' }, { id: 'gemini', apiKey: 'bad key' },
-    { id: 'ollama', baseUrl: 'https://evil.invalid/v1' }, { id: 'lmstudio', baseUrl: 'http://localhost:1234/v1?key=secret' },
+    { id: 'unknown' }, { id: 'openai' }, { id: 'gemini', apiKey: 'bad key' }, { id: 'ollama' }, { id: 'lmstudio' },
   ]) await assert.rejects(listProviderModels(input, { fetchImpl }));
 });
 
@@ -62,7 +61,7 @@ test('discovery reports auth, network, HTTP and malformed-response errors withou
     [async () => new Response('not json'), /invalid model list/],
     [async () => new Response('{}'), /invalid model list/],
   ]) await assert.rejects(listProviderModels({ id: 'deepseek', apiKey: 'secret' }, { fetchImpl }), message);
-  assert.deepEqual(await listProviderModels({ id: 'ollama' }, { fetchImpl: async () => new Response('{"data":[]}') }), []);
+  assert.deepEqual(await listProviderModels({ id: 'openrouter' }, { fetchImpl: async () => new Response('{"data":[]}') }), []);
 });
 
 test('desktop discovery reuses only the matching saved key and accepts draft replacement keys', async (t) => {
@@ -93,15 +92,14 @@ test('browser discovery reuses the matching saved key on the server', async (t) 
   t.after(() => rm(dir, { recursive: true, force: true }));
   const keys = createKeyFile({ file: join(dir, 'provider-key.json') });
   await keys.save('gemini', 'saved-key');
-  const list = (body, env = {}) => handleProviderApi(new Request('http://localhost:3000/api/provider/models', {
+  const list = (body) => handleProviderApi(new Request('http://localhost:3000/api/provider/models', {
     method: 'POST',
     headers: { origin: 'http://localhost:3000', 'content-type': 'application/json' },
     body: JSON.stringify(body),
-  }), env, keys);
+  }), {}, keys);
   t.mock.method(globalThis, 'fetch', async (url, options) => {
-    if (String(url).includes('generativelanguage')) assert.equal(options.headers.Authorization, 'Bearer saved-key');
-    // Docker: LM Studio on the host, not in the container.
-    else assert.equal(url, 'http://host.docker.internal:1234/v1/models');
+    assert.match(String(url), /generativelanguage/);
+    assert.equal(options.headers.Authorization, 'Bearer saved-key');
     return catalog();
   });
   const gemini = await list({ id: 'gemini' });
@@ -110,8 +108,6 @@ test('browser discovery reuses the matching saved key on the server', async (t) 
   const openai = await list({ id: 'openai' });
   assert.equal(openai.status, 400);
   assert.match((await openai.json()).error, /key is empty/);
-  const local = await list({ id: 'lmstudio', baseUrl: 'http://localhost:1234/v1' }, { APPBLIPS_LOCAL_AI_HOST: 'host.docker.internal' });
-  assert.equal(local.status, 200);
 });
 
 test('OpenRouter hides uncensored models, matched on id and name only', async () => {

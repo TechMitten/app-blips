@@ -17,7 +17,7 @@ const MAX_FIELD = 512;
 const clean = (value) => String(value ?? '').trim().slice(0, MAX_FIELD);
 
 export function createProviderStore({ file, crypto }) {
-  let state = { enabled: false, id: '', model: '', baseUrl: '', key: null, onboardingComplete: false }; // key: { cipher } | { plain }
+  let state = { enabled: false, id: '', model: '', key: null, onboardingComplete: false }; // key: { cipher } | { plain }
 
   try {
     const saved = JSON.parse(readFileSync(file, 'utf8'));
@@ -25,7 +25,6 @@ export function createProviderStore({ file, crypto }) {
       enabled: saved.enabled === true,
       id: PROVIDER_IDS.has(saved.id) ? saved.id : '',
       model: typeof saved.model === 'string' ? saved.model : '',
-      baseUrl: typeof saved.baseUrl === 'string' ? saved.baseUrl : '',
       key: saved.key && typeof saved.key === 'object' ? saved.key : null,
       // provider.json did not exist before somebody used AI settings. Treat
       // every legacy file as already onboarded, including one left behind by
@@ -67,8 +66,6 @@ export function createProviderStore({ file, crypto }) {
         enabled: state.enabled,
         id: state.id,
         model: state.model,
-        baseUrl: state.baseUrl,
-        local: Boolean(USER_PROVIDER_OPTIONS.find((p) => p.id === state.id)?.local),
         hasKey: Boolean(state.key),
         weakEncryption: weakEncryption(),
         onboardingComplete: state.onboardingComplete,
@@ -77,24 +74,22 @@ export function createProviderStore({ file, crypto }) {
 
     // Partial update. An empty/missing apiKey keeps the saved key, unless the
     // provider changes: a key never carries over to a different provider.
-    async set({ enabled, id, model, apiKey, baseUrl, onboardingComplete } = {}) {
+    async set({ enabled, id, model, apiKey, onboardingComplete } = {}) {
       const next = { ...state };
       // "Skip for now" in onboarding: remember it without saving a provider.
       if (onboardingComplete === true) next.onboardingComplete = true;
       if (enabled !== undefined) next.enabled = enabled === true;
       if (id !== undefined) {
         if (!PROVIDER_IDS.has(id)) throw new Error('Unknown provider.');
-        if (id !== state.id) { next.key = null; next.baseUrl = ''; }
+        if (id !== state.id) next.key = null;
         next.id = id;
       }
       if (model !== undefined) next.model = clean(model);
-      if (baseUrl !== undefined) next.baseUrl = clean(baseUrl);
       const key = clean(apiKey);
       if (key) next.key = encryptKey(key);
       if (next.enabled) {
         const resolved = resolveUserProvider({ ...next, apiKey: key || (next.id === state.id ? decryptKey() : '') });
         if (resolved.error) throw new Error(resolved.error);
-        next.baseUrl = resolved.baseUrl;
         next.onboardingComplete = true;
       }
       state = next;
@@ -106,7 +101,7 @@ export function createProviderStore({ file, crypto }) {
     // first-run setup again; a plain clear keeps the flag.
     async clear({ resetOnboarding = false } = {}) {
       const onboardingComplete = resetOnboarding !== true && state.onboardingComplete;
-      state = { enabled: false, id: '', model: '', baseUrl: '', key: null, onboardingComplete };
+      state = { enabled: false, id: '', model: '', key: null, onboardingComplete };
       await persist();
       return this.describe();
     },
@@ -115,7 +110,7 @@ export function createProviderStore({ file, crypto }) {
     active() {
       if (!state.enabled || !state.id || !state.model) return null;
       const apiKey = decryptKey();
-      const input = { id: state.id, model: state.model, baseUrl: state.baseUrl, apiKey };
+      const input = { id: state.id, model: state.model, apiKey };
       return resolveUserProvider(input).error ? null : input;
     },
 

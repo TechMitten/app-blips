@@ -35,11 +35,8 @@ test('static levels follow each provider\'s documented table', () => {
   assert.deepEqual(levelsOf('gemini', 'gemini-3-flash-preview'), ['minimal', 'low', 'medium', 'high']);
   assert.deepEqual(levelsOf('gemini', 'gemini-3.5-flash-lite'), ['minimal', 'low', 'medium', 'high']);
   assert.deepEqual(levelsOf('gemini', 'gemini-4-argon'), ['low', 'medium', 'high']);
-  // DeepSeek, local servers
+  // DeepSeek
   assert.deepEqual(levelsOf('deepseek', 'deepseek-flash'), ['none', 'low', 'high', 'max']);
-  assert.deepEqual(levelsOf('ollama', 'qwen3'), ['none', 'low', 'medium', 'high']);
-  assert.deepEqual(levelsOf('lmstudio', 'openai/gpt-oss-20b'), []);
-  assert.ok(staticReasoningLevels('lmstudio', 'x').note);
 });
 
 test('discovered levels win over the static table', () => {
@@ -97,7 +94,7 @@ test('model discovery attaches the levels', async () => {
 });
 
 const apply = (id, model, effort, extra = {}) => {
-  const provider = resolveUserProvider({ id, model, apiKey: 'k', ...(id === 'lmstudio' || id === 'ollama' ? { apiKey: '' } : {}) });
+  const provider = resolveUserProvider({ id, model, apiKey: 'k' });
   assert.equal(provider.error, undefined);
   const body = { model, temperature: 0, ...extra };
   applyProviderSettings(body, provider, { effort });
@@ -123,8 +120,4 @@ test('the proxy clamps levels the model is known to reject', () => {
   assert.equal(apply('anthropic', 'claude-opus-5-5', 'xhigh').reasoning_effort, 'xhigh');
   // DeepSeek maps in-between levels itself.
   assert.equal(apply('deepseek', 'deepseek-flash', 'medium').reasoning_effort, 'medium');
-  // Ollama gets the level (Off included); LM Studio gets none.
-  assert.equal(apply('ollama', 'qwen3', 'none').reasoning_effort, 'none');
-  assert.equal(apply('ollama', 'qwen3', 'high').reasoning_effort, 'high');
-  assert.equal(apply('lmstudio', 'gpt-oss', 'high').reasoning_effort, undefined);
 });

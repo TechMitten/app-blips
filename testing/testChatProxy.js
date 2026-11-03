@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleChatProxy, smallerOutputLimit, localServerUrl } from '../electron/server/chatProxy.js';
+import { handleChatProxy, smallerOutputLimit } from '../electron/server/chatProxy.js';
 
 const env = {
   OPENAI_BASE_URL: 'https://llm.example/v1',
@@ -180,15 +180,14 @@ test('output limits come from Settings requests and ignore environment caps', as
   }
 });
 
-test('hosted providers get the 64K build default; local servers and Ask do not', async (t) => {
-  for (const id of ['openai', 'openrouter', 'gemini', 'deepseek', 'lmstudio', 'ollama']) {
+test('providers get the 64K build default; Ask does not', async (t) => {
+  for (const id of ['openai', 'openrouter', 'gemini', 'deepseek']) {
     const field = id === 'openai' ? 'max_completion_tokens' : 'max_tokens';
-    const local = id === 'lmstudio' || id === 'ollama';
     for (const ask of [false, true]) {
       const payload = { ask, user_provider: { id, apiKey: 'test-key', model: 'test-model' } };
       const defaultLimit = await runWith(t, { OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '1' }, payload);
       assert.equal(defaultLimit.response.status, 200);
-      assert.equal(defaultLimit.upstream.body[field], ask || local ? undefined : 64000);
+      assert.equal(defaultLimit.upstream.body[field], ask ? undefined : 64000);
       const custom = await runWith(t, {}, { ...payload, max_tokens: 12345 });
       assert.equal(custom.upstream.body[field], 12345);
     }
@@ -379,11 +378,3 @@ test('builder requests are not rate limited', async (t) => {
   for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `request ${i + 1}`);
 });
 
-test('APPBLIPS_LOCAL_AI_HOST points local servers at another machine (Docker), and nothing else', () => {
-  const env = { APPBLIPS_LOCAL_AI_HOST: 'host.docker.internal' };
-  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://localhost:11434/v1' }), 'http://host.docker.internal:11434/v1');
-  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://127.0.0.1:1234/v1' }), 'http://host.docker.internal:1234/v1');
-  assert.equal(localServerUrl(env, { local: true, baseUrl: 'http://[::1]:1234/v1' }), 'http://host.docker.internal:1234/v1');
-  assert.equal(localServerUrl({}, { local: true, baseUrl: 'http://localhost:11434/v1' }), 'http://localhost:11434/v1');
-  assert.equal(localServerUrl(env, { local: false, baseUrl: 'https://api.deepseek.com' }), 'https://api.deepseek.com');
-});

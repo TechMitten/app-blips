@@ -5,9 +5,8 @@ import { parseDeepSeekEffort, parseOpenRouterReasoning } from './reasoning.js';
 
 // Shared by the main-process IPC handler and the browser version's server
 // (providerApi.js). Model discovery needs credentials and an endpoint, but
-// does not require a selected model. `baseUrlFor` lets the Docker server reach
-// LM Studio and Ollama on the host (localServerUrl in chatProxy.js).
-export async function listProviderModels(input, { fetchImpl = globalThis.fetch, baseUrlFor = (provider) => provider.baseUrl } = {}) {
+// does not require a selected model.
+export async function listProviderModels(input, { fetchImpl = globalThis.fetch } = {}) {
   const provider = resolveUserProvider({
     ...input,
     model: 'model-discovery',
@@ -29,10 +28,10 @@ export async function listProviderModels(input, { fetchImpl = globalThis.fetch, 
   if (typeof input?.apiKey === 'string' && input.apiKey.trim()) headers.Authorization = `Bearer ${provider.apiKey}`;
   let response;
   try {
-    response = await fetchImpl(`${baseUrlFor(provider).replace(/\/+$/, '')}/models`, {
+    response = await fetchImpl(`${provider.baseUrl.replace(/\/+$/, '')}/models`, {
       headers,
       signal: AbortSignal.timeout(15000),
-      // Keep credentials on the validated endpoint, including local servers.
+      // Keep credentials on the provider's own endpoint.
       redirect: 'error',
     });
   } catch (err) {

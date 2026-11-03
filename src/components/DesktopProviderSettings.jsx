@@ -26,7 +26,7 @@ const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.la
 
 export default function DesktopProviderSettings({ guardRef }) {
   const [saved, setSaved] = useState(null); // provider.get() result
-  const [draft, setDraft] = useState({ id: USER_PROVIDER_OPTIONS[0].id, model: '', baseUrl: '', apiKey: '' });
+  const [draft, setDraft] = useState({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
   const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
@@ -38,7 +38,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   useEffect(() => {
     providerApi.get().then((info) => {
       setSaved(info);
-      if (info.id) setDraft({ id: info.id, model: info.model, baseUrl: info.baseUrl || '', apiKey: '' });
+      if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
     }).catch((err) => {
       logError('Could not read the AI settings', err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' });
@@ -50,15 +50,13 @@ export default function DesktopProviderSettings({ guardRef }) {
     setStatus(null);
   };
 
-  const option = USER_PROVIDER_OPTIONS.find((p) => p.id === draft.id);
-  const local = option.local;
   const keepsSavedKey = Boolean(saved?.hasKey && saved.id === draft.id);
-  const complete = draft.model.trim() && (local || draft.apiKey.trim() || keepsSavedKey);
-  const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || (saved.baseUrl || '') !== draft.baseUrl.trim() || Boolean(draft.apiKey.trim());
-  const active = saved?.enabled && saved.id && saved.model && (saved.local || saved.hasKey);
+  const complete = draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
+  const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
+  const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
   // Anything typed that Save hasn't stored yet.
   const base = saved?.id ? { id: saved.id, model: saved.model } : { id: USER_PROVIDER_OPTIONS[0].id, model: '' };
-  const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || draft.baseUrl.trim() !== (saved?.baseUrl || '') || Boolean(draft.apiKey.trim()));
+  const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || Boolean(draft.apiKey.trim()));
 
   const summary = !saved
     ? 'Loading…'
@@ -76,11 +74,10 @@ export default function DesktopProviderSettings({ guardRef }) {
         enabled: true,
         id: draft.id,
         model: draft.model.trim(),
-        baseUrl: draft.baseUrl.trim(),
         ...(draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
       });
       setSaved((prev) => ({ ...prev, ...next }));
-      setDraft((d) => ({ ...d, model: d.model.trim(), baseUrl: next.baseUrl || '', apiKey: '' }));
+      setDraft((d) => ({ ...d, model: d.model.trim(), apiKey: '' }));
       setShowKey(false);
       setStatus({ kind: 'ok', text: 'Saved.' });
       return true;
@@ -108,7 +105,7 @@ export default function DesktopProviderSettings({ guardRef }) {
         // some models to switch thinking off, which always-thinking models
         // (e.g. Z.ai glm-5.3-flash) reject, failing a working setup.
         reasoningEffort: CHAT_REASONING_EFFORT,
-        userProvider: { id: draft.id, model: draft.model.trim(), baseUrl: draft.baseUrl.trim(), apiKey: draft.apiKey.trim() },
+        userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
         retry: false,
       });
       setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });
@@ -123,7 +120,7 @@ export default function DesktopProviderSettings({ guardRef }) {
     try {
       const next = await providerApi.clear();
       setSaved((prev) => ({ ...prev, ...next }));
-      setDraft({ id: USER_PROVIDER_OPTIONS[0].id, model: '', baseUrl: '', apiKey: '' });
+      setDraft({ id: USER_PROVIDER_OPTIONS[0].id, model: '', apiKey: '' });
       setShowKey(false);
       setStatus(null);
     } catch (err) {
@@ -144,16 +141,12 @@ export default function DesktopProviderSettings({ guardRef }) {
         <div className="space-y-3">
           <label className="block text-sm text-slate-600">
             Provider
-            <select value={draft.id} onChange={(e) => update({ id: e.target.value, model: '', apiKey: '', baseUrl: '' })} className={INPUT_CLASS} style={SELECT_COLORS}>
+            <select value={draft.id} onChange={(e) => update({ id: e.target.value, model: '', apiKey: '' })} className={INPUT_CLASS} style={SELECT_COLORS}>
               {USER_PROVIDER_OPTIONS.map((p) => <option key={p.id} value={p.id} style={SELECT_COLORS}>{p.label}</option>)}
             </select>
           </label>
-          {local && <label className="block text-sm text-slate-600">
-            Local server URL
-            <input value={draft.baseUrl} onChange={(e) => update({ baseUrl: e.target.value })} placeholder={option.baseUrl} className={INPUT_CLASS} />
-          </label>}
           <label className="block text-sm text-slate-600">
-            {local ? 'API key (optional)' : `${providerLabel(draft.id)} API key`}
+            {providerLabel(draft.id)} API key
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
@@ -175,14 +168,14 @@ export default function DesktopProviderSettings({ guardRef }) {
             </div>
           </label>
           <p className="text-xs text-slate-500 leading-snug">
-            {local ? 'Start your local server and load a model that supports tool calling. The server URL must include /v1. No API key is required unless your server uses authentication.' : <>{isDesktop
+            {isDesktop
               ? 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
-              : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}</>}
+              : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}
           </p>
           {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
           </p>}
-          {!local && saved?.weakEncryption && (
+          {saved?.weakEncryption && (
             <p className="flex items-start gap-1.5 text-xs text-amber-600 leading-snug">
               <TriangleAlert size={14} className="shrink-0 mt-px" />
               No system keychain was found, so the key is stored with weak encryption. Installing GNOME Keyring or KWallet protects it properly.

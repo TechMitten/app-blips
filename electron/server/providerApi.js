@@ -5,11 +5,11 @@
 // questions over IPC instead (electron/main.js).
 //
 //   GET    /api/provider          -> { id, hasKey }
-//   PUT    /api/provider          -> save { id, model, baseUrl, apiKey, enabled }
+//   PUT    /api/provider          -> save { id, model, apiKey, enabled }
 //   DELETE /api/provider          -> forget the key
-//   POST   /api/provider/models   -> [{ id, label }] for { id, baseUrl, apiKey? }
-import { isForeignOrigin, localServerUrl } from './chatProxy.js';
-import { resolveUserProvider, USER_PROVIDER_OPTIONS } from './providers.js';
+//   POST   /api/provider/models   -> [{ id, label }] for { id, apiKey? }
+import { isForeignOrigin } from './chatProxy.js';
+import { resolveUserProvider } from './providers.js';
 import { listProviderModels } from './providerModels.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -20,8 +20,6 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 // resolveUserProvider's limit; checked here too because a disabled provider
 // is saved without resolving it.
 const MAX_KEY_LENGTH = 512;
-
-const isLocal = (id) => Boolean(USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.local);
 
 export async function handleProviderApi(request, env, keys) {
   // Only AppBlips' own page may change or use the key. A JSON body also
@@ -52,16 +50,13 @@ export async function handleProviderApi(request, env, keys) {
       if (typed.length > MAX_KEY_LENGTH) return json({ error: 'The API key is not valid.' }, 400);
       // An empty key keeps the saved one, unless the provider changes.
       const apiKey = typed || keys.keyFor(id);
-      let baseUrl = typeof info.baseUrl === 'string' ? info.baseUrl : '';
       if (info.enabled === true) {
         const resolved = resolveUserProvider({ ...info, apiKey });
         if (resolved.error) return json({ error: resolved.error }, 400);
-        baseUrl = resolved.baseUrl;
       }
-      // Local servers need no key; keeping none means none is sent.
-      if (apiKey && !isLocal(id)) await keys.save(id, apiKey);
+      if (apiKey) await keys.save(id, apiKey);
       else await keys.clear();
-      return json({ ...keys.describe(), baseUrl, local: isLocal(id) });
+      return json(keys.describe());
     }
     return json({ error: 'Method not allowed.' }, 405);
   }
@@ -72,11 +67,7 @@ export async function handleProviderApi(request, env, keys) {
     if (!input) return json({ error: 'Invalid provider settings.' }, 400);
     const typed = typeof input.apiKey === 'string' ? input.apiKey.trim() : '';
     try {
-      const models = await listProviderModels(
-        { ...input, apiKey: typed || keys.keyFor(input.id) },
-        // In Docker, LM Studio and Ollama run on the host, not in the container.
-        { baseUrlFor: (provider) => localServerUrl(env, provider) },
-      );
+      const models = await listProviderModels({ ...input, apiKey: typed || keys.keyFor(input.id) });
       return json(models);
     } catch (err) {
       return json({ error: err?.message || 'Could not load models.' }, 400);
