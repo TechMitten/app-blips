@@ -20,7 +20,8 @@
 //   and Pollinations don't allow CORS, or hide the headers Pollinations needs,
 //   so they go through Capacitor's native HTTP, which doesn't stream but
 //   doesn't need to there. Pixabay does too, since its image CDN isn't
-//   promised to allow CORS, and so does Tavily, whose docs don't promise it.
+//   promised to allow CORS, and so do Tavily, whose docs don't promise it,
+//   and React Bits' component downloads, which send no CORS headers.
 
 import { CapacitorHttp } from '@capacitor/core';
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
@@ -30,6 +31,7 @@ import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
 import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { handleTavilyApi } from '../../electron/server/tavilyApi.js';
+import { handleReactBitsApi } from '../../electron/server/reactBitsApi.js';
 import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
@@ -131,6 +133,7 @@ export async function installAndroidApi() {
     ['/api/pixabay', (request) => handlePixabayApi(request, ENV, pixabayKeys, { fetch: nativeFetch })],
     ['/api/tavily', (request) => handleTavilyApi(request, ENV, tavilyKeys, { fetch: nativeFetch })],
     ['/api/seo/scan', (request) => handleSeoScanApi(request, ENV, { fetch: nativeFetch })],
+    ['/api/react-bits', (request) => handleReactBitsApi(request, ENV, { fetch: nativeFetch })],
   ];
   const routeFor = (url) => (url.origin === window.location.origin
     ? routes.find(([path]) => url.pathname === path || url.pathname.startsWith(`${path}/`))?.[1]

@@ -16,6 +16,7 @@ import {
   MAX_RESEARCH_SEARCHES, WEB_RESEARCH_SYSTEM_PROMPT, WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL,
   createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
 } from './webSearch';
+import { addReactBitsNotices, prepareReactBitsNote, requestedReactBits } from './reactBits';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
@@ -1005,6 +1006,17 @@ const generateAppCodeCore = async (
   }
   if (routerNote && onChunk) onChunk(`${introReply ? '\n\n' : ''}${routerNote}`, 'reply');
 
+  // React Bits components the user's own words name, downloaded for this
+  // request only (lib/reactBits.js). It rides along with the SEO note, so
+  // neither is stored in the chat history.
+  if (!isAutoFix) {
+    const reactBitsNote = await prepareReactBitsNote({
+      text: typeof galleryCheckPrompt === 'string' ? galleryCheckPrompt : prompt,
+      studioMode, files: startFiles, signal, onChunk,
+    });
+    if (reactBitsNote) seoNote = [seoNote, reactBitsNote].filter(Boolean).join('\n\n');
+  }
+
   if (!currentCode) {
     let research = '';
     if (!isAutoFix && isWebSearchEnabled()) {
@@ -1481,6 +1493,15 @@ const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
   const [prompt, currentCode, , onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
+  // React Bits' licence notice above each component this request added, in
+  // case the AI dropped it (lib/reactBits.js).
+  if (isBuildResult && !isAutoFix) {
+    const galleryCheckPrompt = args[18];
+    const components = requestedReactBits(typeof galleryCheckPrompt === 'string' ? galleryCheckPrompt : prompt, studioMode);
+    const before = result.files || makeFiles(result.code);
+    const after = addReactBitsNotices(before, components);
+    if (after !== before) Object.assign(result, { files: after, code: getLanding(after) });
+  }
   const galleryNote = isBuildResult ? fixGalleryRefs(result, onChunk) : '';
   const imageNote = [galleryNote, isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : ''].filter(Boolean).join('\n\n');
   // Auto-fix passes stay silent: they repair a build the user already got

@@ -10,6 +10,7 @@ import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
+import { handleReactBitsApi } from './electron/server/reactBitsApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
@@ -131,6 +132,16 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleTavilyApi(await toFetchRequest(req), env, tavilyKeys)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The React Bits connector's component downloads (no key).
+      server.middlewares.use('/api/react-bits', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('React Bits downloads are only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleReactBitsApi(await toFetchRequest(req), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.

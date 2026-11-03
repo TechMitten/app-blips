@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ExternalLink, Search } from 'lucide-react';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
+import { REACT_BITS_LICENSE } from '../lib/reactBitsCatalog';
 
 // Settings → About → Licenses: AppBlips' own license and credits for the open
 // source code it ships. The package list is generated from what each build
@@ -18,6 +19,17 @@ const FONTS = [
   { name: 'Inter', author: 'Rasmus Andersson', href: 'https://fonts.google.com/specimen/Inter' },
   { name: 'IBM Plex Mono', author: 'IBM', href: 'https://fonts.google.com/specimen/IBM+Plex+Mono' },
 ];
+
+// Not bundled as code: AppBlips ships React Bits' component list (names,
+// descriptions, links) and downloads a component only when a request asks for
+// it (lib/reactBits.js), so it's credited here by hand.
+const REACT_BITS = {
+  name: 'React Bits (component list and downloads)',
+  author: 'David Haz',
+  license: 'MIT + Commons Clause',
+  homepage: 'https://reactbits.dev/',
+  text: REACT_BITS_LICENSE,
+};
 
 const LINK_CLASS = 'inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline';
 
@@ -133,6 +145,7 @@ export default function LicensesSettings() {
         <h3 className="text-sm font-semibold text-slate-900">Other credits</h3>
         <div className="mt-1 divide-y divide-slate-200">
           {(data?.extras || []).map((entry) => <LicenseEntry key={entry.name} {...entry} />)}
+          <LicenseEntry {...REACT_BITS} />
           {isDesktop && (
             <div className="py-2.5">
               <p className="text-sm font-semibold text-slate-900">Chromium</p>

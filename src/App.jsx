@@ -81,6 +81,7 @@ import {
 } from './lib/seo';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
+import { reactBitsLicenseFile, withReactBitsLicense } from './lib/reactBits';
 import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
@@ -2169,10 +2170,11 @@ export default function App({ coldStart = false }) {
 
   // Pages as they leave the app in an export: JSX is compiled and loop
   // protection (and, for pages with AI features, the Pollinations helper)
-  // added per page here, never stored in `files`.
+  // added per page here, never stored in `files`. Pages with React Bits code
+  // also get its licence's full text, as the licence requires (lib/reactBits.js).
   const buildExportFiles = () => {
     const pollinations = getPollinationsHelperOptions();
-    return mapPages(files, (html) => injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations));
+    return mapPages(files, (html) => withReactBitsLicense(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations)));
   };
 
   // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
@@ -2245,6 +2247,8 @@ export default function App({ coldStart = false }) {
       entries.push({ name: `${baseName}/public/${path}`, data: bytes });
     }
     for (const { path, text } of seoExtras(files)) entries.push({ name: `${baseName}/public/${path}`, data: text });
+    const license = reactBitsLicenseFile(files);
+    if (license) entries.push({ name: `${baseName}/${license.path}`, data: license.text });
     const url = URL.createObjectURL(createZip(entries));
     const link = document.createElement('a');
     link.href = url;
@@ -2323,7 +2327,11 @@ export default function App({ coldStart = false }) {
       await ensureBlobs(currentProjectId, Object.values(assets));
       const { exportCodebaseZip, dependencyChanges } = await import('./lib/codebase/export');
       const baseName = slugifyName(projectName) || 'site';
-      const { zip, missing } = exportCodebaseZip({ files, assets, bytesOf: blobBytes, folder: baseName });
+      // React Bits code needs its licence alongside (lib/reactBits.js); the
+      // project's own files are exported untouched.
+      const license = reactBitsLicenseFile(files);
+      const exported = license && !(license.path in files) ? { ...files, [license.path]: license.text } : files;
+      const { zip, missing } = exportCodebaseZip({ files: exported, assets, bytesOf: blobBytes, folder: baseName });
       const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
       const link = document.createElement('a');
       link.href = url;

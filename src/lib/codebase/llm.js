@@ -7,6 +7,7 @@ import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeC
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
 import { WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL, createWebSearchBudget, executeWebSearch, isWebSearchCall, isWebSearchEnabled } from '../webSearch.js';
+import { addReactBitsNotices, prepareReactBitsNote, requestedReactBits } from '../reactBits.js';
 
 export const MAX_CODEBASE_TURNS = 20;
 export const MAX_CODEBASE_ASK_TURNS = 8;
@@ -71,6 +72,11 @@ export async function generateCodebaseEdit(options) {
   });
   try {
     const result = await runCodebaseEdit({ ...options, diagnostics });
+    // React Bits' licence notice above each component this request added, in
+    // case the AI dropped it (lib/reactBits.js).
+    if (!options.isAsk && !options.isAutoFix && result.files) {
+      result.files = addReactBitsNotices(result.files, requestedReactBits(options.prompt, 'codebase'));
+    }
     diagnostics.info('Completed', {
       changedFiles: changedProjectPaths(result.files, result.assets, options.files, options.assets || {}),
     });
@@ -145,6 +151,18 @@ async function runCodebaseEdit({
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
       diagnostics.warn('Acknowledgement failed; continuing edits', { error: err });
+    }
+  }
+
+  // React Bits components the request names, downloaded for this request
+  // only (lib/reactBits.js), so their source isn't kept in the chat history.
+  if (!isAutoFix) {
+    const note = await prepareReactBitsNote({ text: prompt, studioMode: 'codebase', files, signal, onChunk });
+    if (note) {
+      const request = messages[messages.length - 1];
+      request.content = Array.isArray(request.content)
+        ? request.content.map((part, index) => (index === 0 ? { ...part, text: `${part.text}\n\n${note}` } : part))
+        : `${request.content}\n\n${note}`;
     }
   }
 

@@ -26,6 +26,7 @@ import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
 import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleTavilyApi } from './electron/server/tavilyApi.js';
+import { handleReactBitsApi } from './electron/server/reactBitsApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
@@ -166,6 +167,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     toFetchRequest(req)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url.startsWith('/api/react-bits/')) {
+    toFetchRequest(req)
+      .then((request) => handleReactBitsApi(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
