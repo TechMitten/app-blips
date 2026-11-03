@@ -255,11 +255,11 @@
 /* The full wordmark, same art as the studio picker's top bar. Only the
    light-lettering file is needed: the header is always dark (force-dark). */
 .app-header .header-logo {
-  height: 1.25rem;
+  height: 0.875rem;
   width: auto;
 }
 
-/* The app icon in front of the wordmark, as tall as the lettering. */
+/* The app icon in front of the wordmark; the wordmark is ~70% of its height. */
 .app-header .header-logo-icon {
   height: 1.25rem;
   width: 1.25rem;

@@ -122,12 +122,13 @@
    dark lettering on the light one. */
 .studio-logo-img {
   display: block;
-  width: 6.5rem;
+  width: 4.6rem;
   height: auto;
 }
 
-/* The app icon in front of the wordmark, as tall as the lettering (the
-   wordmark's height is its width x 276/1203). */
+/* The app icon in front of the wordmark. The wordmark is about 70% of the
+   icon's height (its height is its width x 276/1203, descenders included):
+   at full icon height the lettering looked oversized next to the icon. */
 .studio-logo {
   display: flex;
   align-items: center;
@@ -144,7 +145,7 @@
 :root:not(.dark) .studio-logo-light { display: block; }
 
 @media (min-width: 640px) {
-  .studio-logo-img { width: 8rem; }
+  .studio-logo-img { width: 5.65rem; }
   .studio-logo-icon { width: 1.85rem; height: 1.85rem; }
 }
 
