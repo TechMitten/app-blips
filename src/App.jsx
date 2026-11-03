@@ -128,6 +128,8 @@ export default function App({ coldStart = false }) {
     return window.matchMedia('(min-width: 1280px)').matches && stored !== null ? stored === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Tab to open Settings on (e.g. the hero rail's Extensions link); null = last used.
+  const [settingsInitialTab, setSettingsInitialTab] = useState(null);
   // Desktop first run gets a dedicated introduction and AI setup. The main
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
@@ -2810,7 +2812,8 @@ export default function App({ coldStart = false }) {
   // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
         <SettingsModal
-          onClose={() => setIsSettingsOpen(false)}
+          initialTab={settingsInitialTab}
+          onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
           themePreference={themePreference}
           onThemePreferenceChange={setThemePreference}
           resolvedTheme={resolvedTheme}
@@ -3070,6 +3073,7 @@ export default function App({ coldStart = false }) {
           recents={myProjects}
           onLoadProject={loadProject}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
         />
       ) : (
       <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">

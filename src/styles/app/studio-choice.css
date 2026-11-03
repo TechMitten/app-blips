@@ -201,18 +201,6 @@
   to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
 }
 
-.studio-pill {
-  border: 1px solid var(--sc-line);
-  background-color: var(--sc-fill);
-  color: var(--sc-text-muted);
-}
-
-/* The brand-red dot in the eyebrow pill, with a faint halo. */
-.studio-eyebrow-dot {
-  background-color: var(--sc-red);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-red) 22%, transparent);
-}
-
 .studio-ghost-btn {
   border: 1px solid var(--sc-line);
   background-color: var(--sc-fill);
@@ -228,6 +216,14 @@
   color: var(--sc-text-strong);
   border-color: var(--sc-line-strong);
   background-color: var(--sc-fill-hover);
+}
+
+/* Header icon buttons: no outline and no fill; only the icon colour changes
+   on hover. */
+.studio-topbar .studio-ghost-btn,
+.studio-topbar .studio-ghost-btn:hover {
+  border-color: transparent;
+  background-color: transparent;
 }
 
 .studio-primary-btn {
@@ -540,8 +536,8 @@
    wins. Spacing, the heading and the illustrations follow the window height
    instead of fixed steps. The three studios sit side by side from 640px (one
    column on phones, without illustrations); the three slim rows follow them
-   from 900px. Shorter windows drop, in order, the eyebrow pill, the row
-   descriptions, the illustrations, the card descriptions and the intro line.
+   from 900px. Shorter windows drop, in order, the row descriptions, the
+   illustrations, the card descriptions and the intro line.
    The outer wrapper still scrolls as a last resort for windows too tiny to fit
    even that. */
 .studio-main { padding-block: clamp(0.5rem, 3vh, 3.5rem); }
@@ -610,11 +606,6 @@
 
 @media (max-height: 820px) {
   .studio-topbar-inner { height: 4rem; }
-}
-
-@media (max-height: 760px) {
-  .studio-choice .studio-pill { display: none; }
-  .studio-title { margin-top: 0; }
 }
 
 /* Short windows: the titles and calls to action explain themselves. */

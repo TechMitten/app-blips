@@ -7,7 +7,7 @@ import { loadHeroRailCollapsed, saveHeroRailCollapsed } from '../lib/config';
 
 const COPY = {
   ask: {
-    title: 'What would you like to know?',
+    title: 'Ask AI any question.',
     subtitle: 'Ask about your app, or anything else.',
   },
   website: {

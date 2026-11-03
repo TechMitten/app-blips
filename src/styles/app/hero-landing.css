@@ -14,6 +14,10 @@
    dead-centre. In dark the root also carries `dark force-dark`, so the
    composer and chips take their dark styles. */
 .hero-landing {
+  /* Positioning context for the mobile slide-out menu (absolute, like the
+     studio picker's, so no ancestor transform can trap it). */
+  position: relative;
+  overflow: hidden;
   background: var(--hero-ground);
   --hero-ground: #080808;
   --hero-title: #fff;
@@ -29,7 +33,7 @@
   --hero-rail-fg: rgb(255 255 255 / 0.72);
   --hero-rail-fg-strong: #fff;
   --hero-rail-hover: rgb(255 255 255 / 0.08);
-  --hero-rail-primary: rgb(235 97 80 / 0.16);
+  --hero-rail-primary: transparent;
   --hero-rail-muted: rgb(255 255 255 / 0.5);
   --hero-chip-bg: rgb(10 8 8 / 0.5);
   --hero-chip-bg-hover: rgb(10 8 8 / 0.72);
@@ -101,11 +105,11 @@
   transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.hero-rail-wordmark {
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
-  color: var(--hero-rail-fg-strong);
+/* Wordmark images; the .studio-logo-dark/-light classes (studio-choice.css)
+   pick the one that matches the theme. */
+.hero-rail-wordmark-img {
+  width: 4.6rem;
+  height: auto;
 }
 
 .hero-rail-toggle,
@@ -334,4 +338,36 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hero-landing:not(.dark) .starter-chip:hover { transform: none; }
+}
+
+/* The slide-out menu reuses the studio picker's panel classes, which read
+   --sc-* variables; map them onto the hero's own palette here. */
+.hero-menu {
+  --sc-bg: var(--hero-ground);
+  --sc-text-strong: var(--hero-rail-fg-strong);
+  --sc-fill-hover: var(--hero-rail-hover);
+  --sc-line: color-mix(in srgb, var(--hero-rail-fg-strong) 10%, transparent);
+  --sc-line-strong: color-mix(in srgb, var(--hero-rail-fg-strong) 20%, transparent);
+  color: var(--hero-rail-fg-strong);
+}
+
+/* Menu open/close keys. Separate from .hero-rail-toggle, which the mobile
+   block above hides (that one is the desktop collapse control). The
+   unlayered display here also beats Tailwind's `lg:hidden`, so the
+   desktop hide is repeated in a media query. */
+.hero-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.6rem;
+  color: var(--hero-rail-fg-strong);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.hero-menu-btn:hover { background: var(--hero-rail-hover); }
+.hero-menu-btn:focus-visible { outline: 2px solid var(--color-indigo-500); outline-offset: 1px; }
+@media (min-width: 1024px) {
+  .hero-rail .hero-menu-btn { display: none; }
 }
