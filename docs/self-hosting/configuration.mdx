@@ -5,10 +5,10 @@ description: "Every .env setting for running AppBlips in a browser from source o
 ---
 
 <Note>
-  Using the [desktop app](/quickstart-desktop)? You don't need any of this: set your AI provider in the app under **Settings → API**.
+  Using the [desktop app](/quickstart-desktop)? You don't need any of this: set your AI provider in the app under **Settings → AI**.
 </Note>
 
-When you run AppBlips in a browser, [from source](/quickstart-source) or with [Docker](/self-hosting/docker), you can configure it with a `.env` file in the AppBlips folder. **Everything here is optional.** The simplest setup is no `.env` at all: pick your provider, key and model in the app under **Settings → API**.
+When you run AppBlips in a browser, [from source](/quickstart-source) or with [Docker](/self-hosting/docker), you can configure it with a `.env` file in the AppBlips folder. **Everything here is optional.** The simplest setup is no `.env` at all: pick your provider, key and model in the app under **Settings → AI**.
 
 To create the file:
 
@@ -20,10 +20,10 @@ When it starts, AppBlips prints which AI provider it found. It never prints your
 
 ## AI provider for the server
 
-These give the server its own provider. It's used whenever **Settings → API** has no provider saved; a provider saved in the app always wins.
+These give the server its own provider. It's used whenever **Settings → AI** has no provider saved; a provider saved in the app always wins.
 
 <Warning>
-  These settings only work with DeepSeek or a service that speaks the OpenAI chat-completions API (such as OpenRouter or Ollama). An **Anthropic** key doesn't work here. To use Anthropic, the default provider, leave these blank and enter your key in the app under **Settings → API**.
+  These settings only work with DeepSeek or a service that speaks the OpenAI chat-completions API (such as OpenRouter or Ollama). An **Anthropic** key doesn't work here. To use Anthropic, the default provider, leave these blank and enter your key in the app under **Settings → AI**.
 </Warning>
 
 <ParamField body="OPENAI_API_KEY" type="string">
@@ -73,7 +73,7 @@ These give the server its own provider. It's used whenever **Settings → API** 
 </ParamField>
 
 <ParamField body="APPBLIPS_DATA_DIR" type="string">
-  The folder where the server saves the API key you enter under **Settings → API** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
+  The folder where the server saves the API key you enter under **Settings → AI** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
 </ParamField>
 
 <ParamField body="APPBLIPS_LOCAL_AI_HOST" type="string">

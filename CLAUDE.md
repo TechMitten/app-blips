@@ -25,7 +25,7 @@ npm run lint             # ESLint (CI runs lint + build only)
 npm run check            # type check (scripts/typecheck.js), then lint if it passes
 npm start                # vite build --mode desktop + node server.js: browser version on 127.0.0.1:3000
 npm run build:server     # bundle server.js into dist-server/server.mjs (used by the Dockerfile)
-npm run licenses         # rebuild everything and regenerate src/lib/thirdPartyLicenses.json (Settings → Licenses)
+npm run licenses         # rebuild everything and regenerate src/lib/thirdPartyLicenses.json (Settings → About → Licenses)
 docker compose up -d     # browser version in a container, published on 127.0.0.1:3000
 npm run desktop          # vite build --mode desktop + bundle Electron main + launch Electron
 npm run desktop:dist     # installers into dist-desktop/ (see RELEASING.md)
@@ -110,4 +110,4 @@ The browser builds each page's final HTML (`buildExportFiles` in App.jsx injects
   - **What's new:** also before a release, add the new version's notes at the top of the README's **What's new** section, written for users (plain language, grouped as New / Improved / Look and feel / For developers, from `git log <last v* tag>..HEAD`). Keep only the latest few versions there; older ones live in the docs changelog and on GitHub Releases. The same text goes in the GitHub release notes.
   - **Changelog:** also before a release, add the new version at the top of `docs/changelog.mdx` as an `<Update label="x.y.z" description="<release date>" tags={[...]}>` block, from the same `git log` (read commit bodies, not just subjects). Same groups and plain language as What's new; leave out internal-only changes (tests, CI, refactors). Entries are never removed.
 - `.orig` files in `src/components/` are stray merge leftovers, not source.
-- Settings → Licenses reads `src/lib/thirdPartyLicenses.json`, generated from what each bundle (app + voice worker, desktop main, Docker server) actually contains (`scripts/licenses.js`). Every build checks it and fails when a dependency is added, removed or updated; run `npm run licenses` and commit the JSON.
+- Settings → About → Licenses reads `src/lib/thirdPartyLicenses.json`, generated from what each bundle (app + voice worker, desktop main, Docker server) actually contains (`scripts/licenses.js`). Every build checks it and fails when a dependency is added, removed or updated; run `npm run licenses` and commit the JSON.

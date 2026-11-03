@@ -220,4 +220,4 @@ AppBlips is provided "as is", without warranty of any kind, as set out in the [M
 
 ## License
 
-Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available inside the app under **Settings → Licenses**.
+Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available inside the app under **Settings → About → Licenses**.

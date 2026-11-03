@@ -1,5 +1,5 @@
 // Run: node testing/testLicenses.js
-// Settings → Licenses data (src/lib/thirdPartyLicenses.json) and the build
+// Settings → About → Licenses data (src/lib/thirdPartyLicenses.json) and the build
 // check in scripts/licenses.js that keeps it in step with the bundles.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

@@ -37,7 +37,7 @@ const CACHE = { type: 'ephemeral' };
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 const FINISH_REASONS = { end_turn: 'stop', stop_sequence: 'stop', tool_use: 'tool_calls', max_tokens: 'length', refusal: 'content_filter' };
-const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → API.';
+const REFUSAL_TEXT = 'Claude declined this request. Try rewording it, or choose another model in Settings → AI.';
 
 const nonBlank = (text) => typeof text === 'string' && text.trim() !== '';
 

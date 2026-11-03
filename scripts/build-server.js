@@ -10,7 +10,7 @@ const bundle = await rolldown({
   input: 'server.js',
   platform: 'node',
   logLevel: 'warn',
-  // Checks the Settings → Licenses list covers what was bundled.
+  // Checks the Settings → About → Licenses list covers what was bundled.
   plugins: [licensePlugin('server')],
 });
 // codeSplitting: false keeps it one file even though dependencies (the

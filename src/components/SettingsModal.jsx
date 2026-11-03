@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, FileText, ExternalLink, Network, Plug, RotateCcw, Scale, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, RotateCcw, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import { ConfirmedLink } from './ExternalLinkConfirm';
 import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
-import LicensesSettings from './LicensesSettings';
 import AboutSettings from './AboutSettings';
 import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
 import { useUpdateCheck } from '../hooks/useUpdateCheck';
@@ -24,9 +22,9 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (reasoning, clarifying questions, review offers), Connectors (services the AI wires into projects),
-// API (your own AI provider), Data (project backup and the desktop projects folder),
-// Legal, Licenses (open source credits) and About (logo, version, copyright).
+// AI (your own AI provider, then reasoning, clarifying questions, review offers),
+// Connectors (services the AI wires into projects), Data (project backup and the desktop projects folder),
+// and About (logo, version, copyright, then the legal links and open source licenses).
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -48,7 +46,7 @@ function ReasoningSetting({ value, onChange, reasoning }) {
     ariaLabel: level === defaultLevel ? `${EFFORT_LABELS[level]} (the model's default)` : undefined,
   }));
   const description = levels.length
-    ? <>How long the AI thinks before it writes code, whether building, editing or fixing. Lower is faster and cheaper; higher suits complex apps. {source ? <>Showing the levels <strong>{source}</strong> supports{defaultLevel ? <>, where {EFFORT_LABELS[defaultLevel]} is its default</> : null}.</> : 'Choose a provider in the API tab to see the levels its models support.'}</>
+    ? <>How long the AI thinks before it writes code, whether building, editing or fixing. Lower is faster and cheaper; higher suits complex apps. {source ? <>Showing the levels <strong>{source}</strong> supports{defaultLevel ? <>, where {EFFORT_LABELS[defaultLevel]} is its default</> : null}.</> : 'Choose a provider above to see the levels its models support.'}</>
     : <>{note}{source ? <> ({source})</> : null}</>;
   return (
     <SettingRow id="set-reasoning-build" title="Reasoning" description={description}>
@@ -80,18 +78,17 @@ const TABS = [
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
   { id: 'connectors', label: 'Connectors', Icon: Plug },
-  { id: 'api', label: 'API', Icon: Network },
   { id: 'data', label: 'Data', Icon: HardDrive },
-  { id: 'licenses', label: 'Licenses', Icon: Scale },
   { id: 'about', label: 'About', Icon: Info },
-  { id: 'legal', label: 'Legal', Icon: FileText },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
 
 const loadTab = () => {
   try {
-    const stored = sessionStorage.getItem(TAB_STORAGE_KEY);
+    // Tabs that were merged into another: API into AI, Legal and Licenses into About.
+    const raw = sessionStorage.getItem(TAB_STORAGE_KEY);
+    const stored = { api: 'ai', legal: 'about', licenses: 'about' }[raw] || raw;
     return TABS.some((t) => t.id === stored) ? stored : TABS[0].id;
   } catch {
     return TABS[0].id;
@@ -117,11 +114,6 @@ function Segmented({ label, value, options, onChange, renderOption }) {
     </div>
   );
 }
-
-const LEGAL_LINKS = [
-  { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', why: 'The Privacy Policy is published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/privacy' },
-  { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', why: 'The Terms of Service are published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/terms' },
-];
 
 export default function SettingsModal({
   onClose,
@@ -352,21 +344,6 @@ export default function SettingsModal({
 
           {tab === 'data' && <DataSettings />}
 
-          {tab === 'legal' && (
-            <>
-              {LEGAL_LINKS.map(({ id, title, description, href, why }) => (
-                <SettingRow key={id} id={id} title={title} description={description}>
-                  <ConfirmedLink href={href} why={why} className={SECONDARY_BUTTON}>
-                    <ExternalLink size={14} />
-                    View
-                  </ConfirmedLink>
-                </SettingRow>
-              ))}
-            </>
-          )}
-
-          {tab === 'licenses' && <LicensesSettings />}
-
           {tab === 'about' && <AboutSettings />}
 
           {tab === 'danger' && (
@@ -408,6 +385,7 @@ export default function SettingsModal({
 
           {tab === 'ai' && (
             <>
+              <DesktopProviderSettings guardRef={providerGuardRef} />
               <OutputTokenSettings />
               <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">
@@ -426,10 +404,6 @@ export default function SettingsModal({
           )}
 
           {tab === 'connectors' && <ConnectorsSettings seoProject={seoProject} galleryProject={galleryProject} />}
-
-          {tab === 'api' && (
-            <DesktopProviderSettings guardRef={providerGuardRef} />
-          )}
 
         </div>
       </div>

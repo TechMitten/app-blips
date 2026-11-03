@@ -41,7 +41,7 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
   </Accordion>
 
   <Accordion title="&quot;AppBlips isn't set up yet&quot;">
-    No AI provider is set up. Open **Settings → API**, choose a provider, enter your API key and choose a model, then click **Save**. (If you run AppBlips from source or Docker, you can set a provider in `.env` instead; see [Configuration](/self-hosting/configuration).)
+    No AI provider is set up. Open **Settings → AI**, choose a provider, enter your API key and choose a model, then click **Save**. (If you run AppBlips from source or Docker, you can set a provider in `.env` instead; see [Configuration](/self-hosting/configuration).)
   </Accordion>
 
   <Accordion title="&quot;Browser storage is full&quot;">
@@ -133,9 +133,9 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
 
 <AccordionGroup>
   <Accordion title="&quot;rejected the API key&quot; or another API error">
-    A message such as "Anthropic rejected the API key in Settings → API" means your AI provider didn't accept the key. Other API errors during a build almost always point to a wrong or invalid provider setting too.
+    A message such as "Anthropic rejected the API key in Settings → AI" means your AI provider didn't accept the key. Other API errors during a build almost always point to a wrong or invalid provider setting too.
 
-    **Open Settings → API and check that:**
+    **Open Settings → AI and check that:**
 
     - An API key is filled in, and it is valid and active for your provider
     - The model is a name your provider recognizes and your key has access to
@@ -150,7 +150,7 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
 
     - Your computer is online.
     - If you use **LM Studio** or **Ollama**, its local server is running. Start it again if you closed it.
-    - The **Local server URL** in **Settings → API** is right, or empty to use the usual address.
+    - The **Local server URL** in **Settings → AI** is right, or empty to use the usual address.
   </Accordion>
 
   <Accordion title="Build hangs, or &quot;Stream stalled&quot;">
@@ -171,7 +171,7 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
     1. Open **Settings → AI** and look at **Output tokens: building**. If you typed a number there, clear the field to go back to the default of 64,000.
     2. Ask for the rest in a follow-up prompt, for example `Finish the parts that are missing`.
     3. For a very large app, build it in smaller steps: start with the main screen, then add features one prompt at a time.
-    4. Some models have a low limit of their own. If this keeps happening, choose a different model in **Settings → API**.
+    4. Some models have a low limit of their own. If this keeps happening, choose a different model in **Settings → AI**.
   </Accordion>
 
   <Accordion title="Rate limit or &quot;turned the request down&quot; error">
@@ -182,7 +182,7 @@ AppBlips is distributed on Windows only through the [Microsoft Store](https://ap
   </Accordion>
 
   <Accordion title="&quot;Claude declined this request&quot;">
-    Claude's safety checks turned the request down. This sometimes happens by mistake with ordinary requests. Reword your prompt, or choose another model in **Settings → API**.
+    Claude's safety checks turned the request down. This sometimes happens by mistake with ordinary requests. Reword your prompt, or choose another model in **Settings → AI**.
   </Accordion>
 </AccordionGroup>
 

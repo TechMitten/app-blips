@@ -40,7 +40,7 @@ It's the same app as the [browser version from source](/quickstart-source#run-it
     Go to [http://localhost:3000](http://localhost:3000) in your browser.
   </Step>
   <Step title="Set up your AI provider">
-    A first screen asks for your name, and a second for a chat avatar; click **Continue** on each. Then a setup screen asks for your AI provider, API key and model. Click **Start building** when you're done. You can change them later in **Settings → API**. If your `.env` file already sets a provider, this screen is skipped.
+    A first screen asks for your name, and a second for a chat avatar; click **Continue** on each. Then a setup screen asks for your AI provider, API key and model. Click **Start building** when you're done. You can change them later in **Settings → AI**. If your `.env` file already sets a provider, this screen is skipped.
   </Step>
   <Step title="Build your first app">
     Click a studio, such as **Mobile & Web App**, type what you want in plain English, and press Enter. See [Build your first app](/quickstart-desktop#build-your-first-app).
@@ -91,7 +91,7 @@ Projects are saved per address, so moving to a new port starts with an empty pro
 
 ## Give the server an AI provider (optional)
 
-Instead of entering your provider in the app, you can put it in the same `.env` file. This works with DeepSeek or another OpenAI-compatible service, not Anthropic: for Anthropic, enter your key in the app under **Settings → API**. For example, with a DeepSeek key:
+Instead of entering your provider in the app, you can put it in the same `.env` file. This works with DeepSeek or another OpenAI-compatible service, not Anthropic: for Anthropic, enter your key in the app under **Settings → AI**. For example, with a DeepSeek key:
 
 ```bash
 OPENAI_API_KEY=sk-...
@@ -102,7 +102,7 @@ Run `docker compose up -d` after changing `.env` so the container picks up the n
 
 ## Local models (LM Studio and Ollama)
 
-AppBlips can use LM Studio or Ollama running on your computer. Choose it in **Settings → API** as usual and leave the server URL as it is: the container reaches your computer through the name `host.docker.internal` by itself.
+AppBlips can use LM Studio or Ollama running on your computer. Choose it in **Settings → AI** as usual and leave the server URL as it is: the container reaches your computer through the name `host.docker.internal` by itself.
 
 - **Windows and macOS (Docker Desktop):** this works as it is.
 - **Linux:** the local server has to accept connections from the container, not only from your own computer:

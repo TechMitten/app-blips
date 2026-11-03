@@ -225,7 +225,7 @@ const notifyProviderChange = (result) => {
   return result;
 };
 
-// Called after the saved provider changes (Settings → API, onboarding,
+// Called after the saved provider changes (Settings → AI, onboarding,
 // Reset), so things that depend on it, like the reasoning levels, refresh.
 export const onProviderChange = (listener) => {
   providerListeners.add(listener);

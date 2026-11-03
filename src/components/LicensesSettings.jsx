@@ -4,9 +4,9 @@ import { ChevronDown, ExternalLink, Search } from 'lucide-react';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 
-// Settings → Licenses: AppBlips' own license and credits for the open source
-// code it ships. The package list is generated from what each build actually
-// bundles (scripts/licenses.js) and loaded only when this tab opens, since
+// Settings → About → Licenses: AppBlips' own license and credits for the open
+// source code it ships. The package list is generated from what each build
+// actually bundles (scripts/licenses.js) and loaded only when About opens, since
 // the full license texts are tens of kilobytes.
 const REPO_URL = 'https://github.com/TechMitten/app-blips';
 

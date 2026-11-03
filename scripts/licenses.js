@@ -1,4 +1,4 @@
-// Third-party license credits for Settings → Licenses. Each build (the
+// Third-party license credits for Settings → About → Licenses. Each build (the
 // renderer and its voice-input worker, the desktop main process, the Docker
 // server) reports the npm packages that actually ended up in its bundle, so
 // the list is exactly what ships, not everything in package.json.

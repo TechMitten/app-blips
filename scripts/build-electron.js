@@ -12,7 +12,7 @@ const bundle = await rolldown({
   platform: 'node',
   external: ['electron'],
   logLevel: 'warn',
-  // Checks the Settings → Licenses list covers what was bundled.
+  // Checks the Settings → About → Licenses list covers what was bundled.
   plugins: [licensePlugin('desktop')],
 });
 // codeSplitting: false keeps it one file even though dependencies (the

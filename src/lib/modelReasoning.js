@@ -1,6 +1,6 @@
 // Per-model reasoning levels learned from model discovery (Anthropic's
 // capabilities, DeepSeek's effort, OpenRouter's reasoning metadata; see
-// electron/server/reasoning.js). Settings → API and onboarding load the model
+// electron/server/reasoning.js). Settings → AI and onboarding load the model
 // list anyway, so the levels are remembered here instead of fetching the list
 // again just to draw the Reasoning setting. Missing entries fall back to the
 // static table in reasoning.js.

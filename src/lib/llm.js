@@ -413,7 +413,7 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
-      throw new Error('The AI provider rejected the request. Check the provider and key in Settings → API.');
+      throw new Error('The AI provider rejected the request. Check the provider and key in Settings → AI.');
     }
 
     if (response.status === 429) {

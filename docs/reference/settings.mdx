@@ -4,7 +4,7 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **API**, **Data**, **Licenses**, **About**, **Legal**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Connectors**, **Data**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
 
 ---
 
@@ -84,7 +84,31 @@ Desktop app only. Click **Replay** to see the setup screens again: your name, ch
 
 ## AI
 
-These settings influence how the AI model reasons and communicates before and during generation.
+The provider that builds your apps comes first, then settings that influence how the AI model reasons and communicates before and during generation.
+
+### Your own provider
+
+Choose the AI provider that builds your apps: **Anthropic** (the default), **OpenAI**, **Gemini**, **DeepSeek**, **LM Studio**, **Ollama**, or **OpenRouter**. Your provider is used for building, editing, reviews, and Ask mode.
+
+With **Anthropic**, AppBlips turns on prompt caching automatically, so the repeated parts of a build cost less. See the [FAQ](/reference/faq) for how it works.
+
+<ParamField body="API key" type="string">
+  Your key from [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). Local servers only need a key if you turned on authentication.
+</ParamField>
+
+<ParamField body="Local server URL" type="string">
+  Only for LM Studio and Ollama. The address of your local server, ending in `/v1`. Leave it empty to use the usual address.
+</ParamField>
+
+<ParamField body="Model" type="select">
+  Select a model from your provider's live model list. Enter your API key first for cloud providers; local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, use a model that supports tool calling through Chat Completions. For local servers, load a model that supports tool calling. On OpenRouter, uncensored models (such as Venice's) aren't listed and can't be used.
+</ParamField>
+
+Click **Test connection** to check the settings, then **Save**. **Clear** removes the saved provider and key after you confirm. If you leave the tab with unsaved changes, AppBlips asks whether to save or discard them.
+
+<Note>
+  In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), AppBlips' own server saves it on your computer, never in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
+</Note>
 
 ### Output tokens
 
@@ -107,7 +131,7 @@ Reasoning applies whenever the AI writes code: building a new app, editing one, 
 <ParamField body="Reasoning" type="Off | Minimal | Low | Medium | High | Extra high | Max" default="Low">
   How long the AI thinks before it writes code, for new apps and for changes. Lower levels are faster and cheaper; higher levels think harder for complex apps but take longer and use more tokens.
 
-  Only the levels your provider and model support are shown, so the choices change when you pick a different model in **Settings → API**. The model's own default is marked. If you switch to a model that doesn't have the level you picked, AppBlips uses the closest one it does have, and goes back to your choice when you switch back.
+  Only the levels your provider and model support are shown, so the choices change when you pick a different model in **Settings → AI**. The model's own default is marked. If you switch to a model that doesn't have the level you picked, AppBlips uses the closest one it does have, and goes back to your choice when you switch back.
 </ParamField>
 
 | Provider | Levels you can pick |
@@ -200,32 +224,6 @@ Missing a service? Click **Request a connector** at the end of the cards.
 
 ---
 
-## API
-
-### Your own provider
-
-Choose the AI provider that builds your apps: **Anthropic** (the default), **OpenAI**, **Gemini**, **DeepSeek**, **LM Studio**, **Ollama**, or **OpenRouter**. Your provider is used for building, editing, reviews, and Ask mode.
-
-With **Anthropic**, AppBlips turns on prompt caching automatically, so the repeated parts of a build cost less. See the [FAQ](/reference/faq) for how it works.
-
-<ParamField body="API key" type="string">
-  Your key from [Anthropic](https://platform.claude.com/settings/keys), [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [DeepSeek](https://platform.deepseek.com/api_keys), or [OpenRouter](https://openrouter.ai/settings/keys). Local servers only need a key if you turned on authentication.
-</ParamField>
-
-<ParamField body="Local server URL" type="string">
-  Only for LM Studio and Ollama. The address of your local server, ending in `/v1`. Leave it empty to use the usual address.
-</ParamField>
-
-<ParamField body="Model" type="select">
-  Select a model from your provider's live model list. Enter your API key first for cloud providers; local providers load models from your running server. Click **Refresh models** to reload the list, or type an exact model ID if the list can't load. For OpenAI, use a model that supports tool calling through Chat Completions. For local servers, load a model that supports tool calling. On OpenRouter, uncensored models (such as Venice's) aren't listed and can't be used.
-</ParamField>
-
-Click **Test connection** to check the settings, then **Save**. **Clear** removes the saved provider and key after you confirm. If you leave the tab with unsaved changes, AppBlips asks whether to save or discard them.
-
-<Note>
-  In the desktop app, your key is encrypted with your system keychain and only the app's background process uses it. In the browser version (from source or Docker), AppBlips' own server saves it on your computer, never in your browser. It is never stored in your projects. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider) and [Security](/self-hosting/security#your-api-key).
-</Note>
-
 ---
 
 ## Data
@@ -240,27 +238,23 @@ See [Back up or move your projects](/quickstart-desktop#back-up-or-move-your-pro
 
 ---
 
-## Legal
+## About
+
+The AppBlips logo, the version you're running (and whether it's the desktop app or the browser version), links to the AppBlips website and source code, a **Report a bug** link that opens a new issue on GitHub, and the copyright notice. Below them are the legal links and the open source licenses; click **Legal** or **Licenses** under the buttons to jump to either.
+
+### Legal
 
 Links to the **Privacy Policy** and the **Terms of Service**.
 
 Every button or link in Settings that leaves AppBlips for another website first asks if that's okay. The prompt names the website and says why it's needed. Click **Continue** to open it in your web browser, or **Cancel** to stay.
 
----
-
-## Licenses
+### Licenses
 
 Credits for the open source code inside AppBlips.
 
 - **AppBlips:** AppBlips itself is open source under the MIT License. Click **Show license** to read it, or **Source code** to open the project on GitHub.
 - **Open source packages:** every open source package that ships inside AppBlips, with its version and license. Click a package to read its full license text and open its website. Type in **Search packages** to find one by name, license or author.
 - **Other credits:** the Whisper speech model that voice input uses, the fonts in the interface, Surge (the hosting service **Publish** uses; no Surge code is included), and, in the desktop app, Chromium. Chromium's own list of licenses is in the file `LICENSES.chromium.html` in the AppBlips install folder.
-
----
-
-## About
-
-The AppBlips logo, the version you're running (and whether it's the desktop app or the browser version), links to the AppBlips website and source code, a **Report a bug** link that opens a new issue on GitHub, and the copyright notice.
 
 ---
 
