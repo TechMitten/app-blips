@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "creem": {
+        "type": "local",
+        "command": [
+          "sh",
+          "-c",
+          "set -a; . ./.env; set +a; exec npx -y --package creem -- mcp start --api-key \"$CREEM_API_KEY\" --server prod"
+        ]
+      }
+    }
+  }
+}
