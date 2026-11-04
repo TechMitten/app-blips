@@ -6,7 +6,6 @@ import {
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import BorderGlow from './reactbits/BorderGlow';
 import RotatingText from './reactbits/RotatingText';
-import StudioArt from './StudioArt';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -274,8 +273,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </p>
               </header>
 
-              {/* The three ways to make something new: big cards, each with a
-                  small scene of what that studio makes. */}
+              {/* The three ways to make something new: big cards. */}
               <div className="studio-grid mt-10 grid animate-stagger-3">
                 {STUDIOS.map(({ key, Icon, title, description, cta }) => (
                   <GlowCard key={key} studio={key} isDark={isDark}>
@@ -286,7 +284,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       data-studio={key}
                       className={`studio-card group relative flex flex-col rounded-2xl text-left ${FOCUS_RING}`}
                     >
-                      <StudioArt studio={key} />
                       <span className="studio-card-body flex min-w-0 flex-1 flex-col">
                         <span className="flex items-center gap-3">
                           <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
