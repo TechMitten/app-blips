@@ -25,6 +25,7 @@ const IMAGE_ID_PATTERN = /^sbb-[0-9a-v]{20}$/;
 // In-flight provisioning promises keyed by userId, so concurrent tool calls
 // from the same user share one sandbox creation instead of racing.
 const inflightByUser = new Map();
+let cachedWorkspaceByKey = { apiKey: '', workspaceId: '' };
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -34,7 +35,25 @@ const json = (status, body) => new Response(JSON.stringify(body), {
 export const renderBaseUrl = (env) => String(env?.RENDER_API_BASE_URL || 'https://api.render.com/v1').replace(/\/+$/, '');
 export const renderApiKey = (env) => String(env?.RENDER_API_KEY || '').trim();
 export const renderWorkspaceId = (env) => String(env?.RENDER_WORKSPACE_ID || '').trim();
-export const renderSandboxConfigured = (env) => Boolean(renderApiKey(env) && renderWorkspaceId(env));
+export const renderSandboxConfigured = (env) => Boolean(renderApiKey(env));
+
+export async function resolveRenderWorkspaceId(env, { signal } = {}) {
+  const explicit = renderWorkspaceId(env);
+  if (explicit) return explicit;
+  const apiKey = renderApiKey(env);
+  if (!apiKey) throw new Error('RENDER_API_KEY is not configured on this server.');
+  if (cachedWorkspaceByKey.apiKey === apiKey && cachedWorkspaceByKey.workspaceId) {
+    return cachedWorkspaceByKey.workspaceId;
+  }
+  const res = await renderRequest(env, 'GET', '/owners?limit=20', undefined, { signal });
+  const list = Array.isArray(res.data) ? res.data : [];
+  const ownerId = list.map((item) => item?.owner?.id || item?.id).find((id) => typeof id === 'string' && id.startsWith('tea-'));
+  if (!ownerId) {
+    throw new Error('Could not find a Render workspace (tea-...) for this RENDER_API_KEY. Set RENDER_WORKSPACE_ID explicitly.');
+  }
+  cachedWorkspaceByKey = { apiKey, workspaceId: ownerId };
+  return ownerId;
+}
 
 function cleanWorkspacePath(relPath) {
   if (typeof relPath !== 'string' || !relPath.trim()) {
@@ -70,7 +89,7 @@ export async function renderRequest(env, method, path, body, { signal } = {}) {
 }
 
 export async function getSandbox(env, sandboxId, { signal } = {}) {
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   return renderRequest(
     env,
     'GET',
@@ -81,8 +100,7 @@ export async function getSandbox(env, sandboxId, { signal } = {}) {
 }
 
 export async function createSandbox(env, { snapshotId = null, signal } = {}) {
-  const ownerId = renderWorkspaceId(env);
-  if (!ownerId) throw new Error('RENDER_WORKSPACE_ID is not configured on this server.');
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
 
   const image = String(env?.RENDER_SANDBOX_IMAGE || '').trim();
   const groupId = String(env?.RENDER_SANDBOX_GROUP_ID || '').trim();
@@ -107,7 +125,7 @@ export async function createSandbox(env, { snapshotId = null, signal } = {}) {
 }
 
 export async function terminateSandbox(env, sandboxId, { signal } = {}) {
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   return renderRequest(
     env,
     'POST',
@@ -118,7 +136,7 @@ export async function terminateSandbox(env, sandboxId, { signal } = {}) {
 }
 
 export async function createSandboxSnapshot(env, sandboxId, { kind = 'filesystem', name, signal } = {}) {
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   return renderRequest(
     env,
     'POST',
@@ -159,7 +177,7 @@ export async function waitUntilSandboxRunning(
     }
     if (sandbox?.status === 'suspended' && !wokeSuspended) {
       wokeSuspended = true;
-      const ownerId = renderWorkspaceId(env);
+      const ownerId = await resolveRenderWorkspaceId(env, { signal });
       await renderRequest(
         env,
         'POST',
@@ -302,7 +320,7 @@ async function* parseRenderSse(stream) {
 // Runs a shell command inside the sandbox using Render's two-step stream
 // connect token flow.
 export async function execSandboxCommand(env, sandboxId, command, { onOutput, signal } = {}) {
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   const tokenRes = await renderRequest(
     env,
     'POST',
@@ -373,7 +391,7 @@ export async function uploadSandboxFile(
   { contentType = 'application/octet-stream', signal } = {},
 ) {
   const { full } = cleanWorkspacePath(relPath);
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   const tokenRes = await renderRequest(
     env,
     'POST',
@@ -404,7 +422,7 @@ export async function uploadSandboxFile(
 
 export async function downloadSandboxFile(env, sandboxId, relPath, { signal } = {}) {
   const { full, relative } = cleanWorkspacePath(relPath);
-  const ownerId = renderWorkspaceId(env);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
   const tokenRes = await renderRequest(
     env,
     'POST',

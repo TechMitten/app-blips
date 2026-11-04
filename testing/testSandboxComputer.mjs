@@ -67,6 +67,13 @@ globalThis.fetch = async (url, init = {}) => {
     });
   }
 
+  if (href === 'https://api.render.test/v1/owners?limit=20') {
+    return new Response(JSON.stringify([{ owner: { id: 'tea-autodiscovered', type: 'team' } }]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
   // Route local /api/sandbox/* calls from client helpers into handleSandbox
   if (href.startsWith('/api/sandbox') || href.startsWith('http://localhost/api/sandbox')) {
     const fullUrl = href.startsWith('/') ? `http://localhost${href}` : href;
@@ -301,6 +308,12 @@ try {
     body: JSON.stringify({ path: '../etc/passwd', content: 'nope' }),
   }), env, store);
   assert.equal(badUpload.status, 502);
+
+  // Auto-discovers workspace ID from /v1/owners when RENDER_WORKSPACE_ID is omitted
+  const keyOnlyEnv = { ...env, RENDER_WORKSPACE_ID: '' };
+  const autoDiscovered = await ensureUserSandbox('user_autodiscover', keyOnlyEnv, store);
+  assert.ok(autoDiscovered.sandboxId);
+  assert.equal(createCalls.at(-1).ownerId, 'tea-autodiscovered');
 
   console.log('Sandbox computer checks passed: 1:1 user provisioning, isolation, auto-wake, snapshot recovery, SSE exec, and preview file sync.');
 } finally {
