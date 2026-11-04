@@ -64,7 +64,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect your own API keys. AppBlips itself is free; your provider bills you for what you use.
-- **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. React Bits (free animated components you ask for by name) is coming soon. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.

@@ -483,51 +483,6 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
-  // React Bits (`keyless: true`): a service, but with nothing to sign in to or
-  // paste, so the switch alone connects it. Its page lists the free components
-  // (lib/reactBitsCatalog.json, ReactBitsConnector.jsx). The AI never gets a
-  // directive or a tool for it: when a build request names "React Bits" and a
-  // component, llm.js downloads that component's source for the request
-  // (lib/reactBits.js), so getActiveConnectors leaves it out.
-  reactbits: {
-    id: 'reactbits',
-    name: 'React Bits',
-    tagline: 'Animated components for your projects',
-    description: 'A free library of animated React components: text effects, backgrounds, buttons, menus and more. Browse them here, then ask the AI to add one by name.',
-    keyless: true,
-    // Locked until React Bits' author confirms AppBlips may offer it: the card
-    // shows "Coming soon" and can't be opened, the status is always off (even
-    // if it was switched on before), and lib/reactBits.js downloads nothing.
-    // Delete this line to unlock it, and restore the docs hidden in comments
-    // (grep docs/ for "React Bits: coming soon").
-    comingSoon: true,
-    homeUrl: 'https://reactbits.dev/',
-    homeLinkLabel: 'Visit the React Bits website',
-    page: {
-      enableDescription: 'When you name a React Bits component in the builder chat, the AI downloads it from reactbits.dev and adds it to your app, website or imported site.',
-      connected: 'Pick a component below to see it on the React Bits website, then ask for it by name in the builder chat.',
-    },
-    // No `prompts`: the page's own text gives an example, and a list here
-    // would sit below the 200-odd component cards.
-    about: {
-      what: 'React Bits (reactbits.dev) is a free, open-source library of animated React components, such as text animations, moving backgrounds, buttons and menus. With this extension on, the AI adds the real component to your project instead of imitating it.',
-      steps: [
-        'Turn on React Bits here.',
-        'Browse the components on this page. Click one to open its page on the React Bits website, where you can see it moving and try its settings.',
-        'In the builder chat, ask for it by name and say “React Bits”, for example “Add the React Bits Flying Button to the hero section”.',
-        'AppBlips downloads that component’s code from reactbits.dev and the AI adds it to your project, with the packages it needs.',
-      ],
-      notes: [
-        'It works in the Mobile & Web App and Responsive Website studios and in imported sites. The Browser Game studio doesn’t use it.',
-        'Mention “React Bits” in your request along with the component’s name. Without it, AppBlips doesn’t download anything, and the AI may build a look-alike instead.',
-        'Up to three components can be added in one request.',
-        'Websites are plain HTML, so in a website the component runs on its own small piece of React, and the text it animates stays in the page for search engines.',
-        'Only the free components are listed. React Bits Pro isn’t available in AppBlips.',
-        'React Bits’ licence lets you use the components in your own apps and websites, including paid ones, but not sell or share the components themselves. It asks for its notice wherever its code goes, so AppBlips keeps a copyright comment above each component and adds the full licence to your exports.',
-        'Downloading a component needs an internet connection. Your request text isn’t sent to React Bits, only the name of the component.',
-      ],
-    },
-  },
   // The one native connector (`native: true`): no service and no key. Only the
   // on/off switch is global; the answers are per project (lib/seo.js) and reach
   // the AI once after they are saved or changed, not through
@@ -643,13 +598,13 @@ export const saveConnectors = (connectors) => {
   } catch { /* storage blocked: the setting just won't persist */ }
 };
 
-// 'connected' (on, valid key or signed in: used by the AI; native and keyless
-// connectors only need to be on; server-key ones need a saved key), 'needs-key' (on, key
+// 'connected' (on, valid key or signed in: used by the AI; native connectors
+// only need to be on; server-key ones need a saved key), 'needs-key' (on, key
 // missing or malformed: not used yet), 'needs-sign-in' or 'off'.
 export const connectorStatus = (id, connectors = loadConnectors()) => {
   const { enabled, key = '', account, keyHint } = connectors[id] || {};
-  if (!enabled || CONNECTOR_DEFINITIONS[id].comingSoon) return 'off';
-  if (CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].keyless) return 'connected';
+  if (!enabled) return 'off';
+  if (CONNECTOR_DEFINITIONS[id].native) return 'connected';
   if (CONNECTOR_DEFINITIONS[id].serverKey) return keyHint ? 'connected' : 'needs-key';
   if (CONNECTOR_DEFINITIONS[id].signIn) return account ? 'connected' : 'needs-sign-in';
   return CONNECTOR_DEFINITIONS[id].isValidKey(key.trim()) ? 'connected' : 'needs-key';
@@ -661,7 +616,7 @@ export const connectorStatus = (id, connectors = loadConnectors()) => {
 // how AI features are paid for, so the AI builds them to match: 'visitors',
 // 'site', or 'none' (site key chosen but not added yet: no AI features).
 export const getActiveConnectors = (connectors = loadConnectors()) => CONNECTOR_IDS
-  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey && !CONNECTOR_DEFINITIONS[id].keyless
+  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey
     && connectorStatus(id, connectors) === 'connected')
   .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : connectors[id].key.trim() }));
 

@@ -4,7 +4,7 @@ sidebarTitle: "Extensions"
 description: "Link Web3Forms, Umami, Plausible, tawk.to, Square, Pollinations, Pixabay or Tavily, so the AI wires them into the websites and apps you build."
 ---
 
-Extensions link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](/features/tools#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)). React Bits, which adds ready-made animated components, is coming soon (see [React Bits](#react-bits)).
+Extensions link outside services to your projects. Once a service is connected, the AI uses it every time it builds or edits a project: contact forms email you, pages count their visitors, a chat bubble lets visitors message you, and buy buttons take payments. Pollinations is the exception: the AI only uses it when you ask for generated images or AI features. Pixabay is different again: you search it yourself and add the photos you like to [My images](/features/tools#my-images-beta), and the AI uses them from there. Tavily doesn't go into your pages at all: it lets the AI search the web while it builds (see [Tavily](#tavily)).
 
 Looking for SEO or My images? They are built into AppBlips rather than outside services, so they live in **Settings → Tools** (see [Tools](/features/tools)).
 
@@ -275,39 +275,6 @@ An **API key** is a code that lets AppBlips search Tavily on your behalf. Tavily
 - Your key stays inside AppBlips (in your system's keychain on the desktop app) and is never written into your projects. Only the AI's search words go to Tavily, never your project's code. To stop using it, click **Remove key**.
 - Search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.
 - If Tavily stops accepting your key, the extension shows **Needs key** again and the AI carries on without searching. If you see "Your Tavily key has run out of credits or reached its plan limit", check your usage at app.tavily.com.
-
-## React Bits
-
-**Coming soon.** React Bits, a free library of animated components (text animations, moving backgrounds, buttons and menus), will let you ask the AI for a ready-made component by name. Its card in **Settings → Extensions** shows **Coming soon** until it's available.
-
-{/* React Bits: coming soon. Restore when the React Bits extension is unlocked:
-
-[React Bits](https://reactbits.dev/) is a free, open-source library of animated React components: text animations, moving backgrounds, buttons, menus and more. With this extension on, you pick a component you like and the AI adds the real component to your project, instead of building a look-alike. Nothing needs an account or a key.
-
-<Steps>
-  <Step title="Turn it on">
-    1. Click **Settings**, then **Extensions**, then the **React Bits** card.
-    2. Click the switch next to **Enable React Bits**.
-  </Step>
-  <Step title="Find a component">
-    1. Scroll through the cards under **Free components**, or type in the search box (for example "text", "button" or "background"). The buttons above the cards show one category at a time: **Text Animations**, **Animations**, **Components**, **Backgrounds** or **Micro Interactions**.
-    2. Click a card to open that component's page on the React Bits website, where you can see it moving and try its settings. AppBlips asks before it opens your web browser.
-    3. Found one you like? Click **Copy name** on its card. This copies its full name, for example "React Bits Flying Button".
-  </Step>
-  <Step title="Ask for it">
-    In the builder chat, ask for the component by name and say where it goes, for example "Add the React Bits Flying Button to the hero section". The chat shows "Downloading React Bits Flying Button…" while AppBlips fetches it, then the AI adds it to your project.
-  </Step>
-</Steps>
-
-- Always say "React Bits" in your request, along with the component's name. Without it, AppBlips doesn't download anything, and the AI may build something similar of its own instead.
-- It works in the **Mobile & Web App** and **Responsive Website** studios and in imported sites. The **Browser Game** studio doesn't use it.
-- You can ask for up to three components in one request. A very large component may need a request of its own; the AI tells you when that happens.
-- Websites are plain HTML, so in a website the component runs on its own small copy of React, loaded only on the pages that use it. The text it animates stays in the page for search engines.
-- In an imported site, the AI saves the component in your components folder and adds the packages it needs to `package.json`. Run `npm install` after you export to update your lock file.
-- Only the free components are listed. React Bits Pro isn't available in AppBlips.
-- React Bits' licence (MIT + Commons Clause) lets you use its components in your own apps and websites, including ones you sell, but not sell or share the components themselves, for example as a component pack or template.
-- The licence asks for its notice wherever its code goes, so AppBlips handles that for you. A one-line copyright comment sits above each component in your code; AppBlips puts it back if the AI leaves it out. When you export or publish, pages that use a component get the licence's full text in a comment at the top. A Vite project or imported-site download gets it as a file, `REACT-BITS-LICENSE.md`. Keep these if you copy the code elsewhere.
-*/}
 
 ## Request an extension
 

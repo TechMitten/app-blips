@@ -18,7 +18,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, reactbits: { enabled: false, key: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -203,22 +203,18 @@ assert.equal(buildHtmlSystemPrompt('game', chat), buildHtmlSystemPrompt('game'))
 
 // Every connector carries the text its "How it works" dialog shows, its
 // settings page wording and at least one prompt to copy into the chat, except
-// Pixabay, which the AI never uses directly, and React Bits, whose page gives
-// its example above the component cards instead.
+// Pixabay, which the AI never uses directly.
 for (const id of CONNECTOR_IDS) {
   const { about, page, prompts = [] } = CONNECTOR_DEFINITIONS[id];
-  if (id === 'pixabay' || id === 'reactbits') assert.equal(CONNECTOR_DEFINITIONS[id].prompts, undefined, `${id}: no prompts`);
+  if (id === 'pixabay') assert.equal(CONNECTOR_DEFINITIONS[id].prompts, undefined, `${id}: no prompts`);
   else assert.ok(Array.isArray(prompts) && prompts.length > 0, `${id}: prompts`);
   for (const prompt of prompts) assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: prompt text`);
   assert.equal(new Set(prompts).size, prompts.length, `${id}: prompts are unique (they are React keys)`);
   // Sign-in connectors (Pollinations) have no key box, so no key wording,
   // native ones (SEO) have no service to connect to, and server-key ones
   // (Pixabay) have their key checked by the service, not a local pattern.
-  // Keyless ones (React Bits) only have the switch.
   const fields = CONNECTOR_DEFINITIONS[id].native
     ? ['enableDescription']
-    : CONNECTOR_DEFINITIONS[id].keyless
-      ? ['enableDescription', 'connected']
     : CONNECTOR_DEFINITIONS[id].signIn
       ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
       : CONNECTOR_DEFINITIONS[id].serverKey
@@ -231,23 +227,6 @@ for (const id of CONNECTOR_IDS) {
   assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
   assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);
 }
-
-// React Bits needs only its switch, and never reaches the AI as a directive:
-// lib/reactBits.js adds downloaded components to the request instead. While it
-// is locked (`comingSoon`), it stays off even when switched on.
-assert.equal(connectorStatus('reactbits'), 'off');
-saveConnectors({ reactbits: { enabled: true, key: '' } });
-assert.equal(connectorStatus('reactbits'), CONNECTOR_DEFINITIONS.reactbits.comingSoon ? 'off' : 'connected');
-{
-  const locked = CONNECTOR_DEFINITIONS.reactbits.comingSoon;
-  CONNECTOR_DEFINITIONS.reactbits.comingSoon = true;
-  assert.equal(connectorStatus('reactbits'), 'off', 'locked: off even when switched on');
-  CONNECTOR_DEFINITIONS.reactbits.comingSoon = false;
-  assert.equal(connectorStatus('reactbits'), 'connected', 'unlocked: the switch alone connects it');
-  CONNECTOR_DEFINITIONS.reactbits.comingSoon = locked;
-}
-assert.deepEqual(getActiveConnectors(), []);
-saveConnectors({});
 
 // My images starts off like every connector, can be switched on, and never
 // reaches the AI as a service.

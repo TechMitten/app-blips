@@ -26,7 +26,6 @@ npm run check            # type check (scripts/typecheck.js), then lint if it pa
 npm start                # vite build --mode desktop + node server.js: browser version on 127.0.0.1:3000
 npm run build:server     # bundle server.js into dist-server/server.mjs (used by the Dockerfile)
 npm run licenses         # rebuild everything and regenerate src/lib/thirdPartyLicenses.json (Settings → About → Licenses)
-node scripts/react-bits-catalog.js  # refresh src/lib/reactBitsCatalog.js (React Bits connector's component list + licence) from reactbits.dev; run before each release
 docker compose up -d     # browser version in a container, published on 127.0.0.1:3000
 npm run desktop          # vite build --mode desktop + bundle Electron main + launch Electron
 npm run desktop:dist     # installers into dist-desktop/ (see RELEASING.md)
@@ -46,7 +45,7 @@ There is **no test runner** (`npm test` doesn't exist). `testing/` holds standal
 
 To run all of them without stopping at the first failure: `for f in testing/*.js; do node "$f" >/dev/null 2>&1 && echo "ok   $f" || echo "FAIL $f"; done`.
 
-Config comes from `.env` (read by `npm run dev`, `server.js` and Docker's compose file; never by the desktop app, which takes its provider from Settings → AI). `.env.example` documents every variable, all optional. Releases: bump `package.json` version, push a `v*` tag, the Desktop workflow makes a draft GitHub release (see [RELEASING.md](RELEASING.md)). `npm run release` automates this but commits and pushes to master, so it needs the user's go-ahead like any other push; it refuses to run on a dirty or unsynced tree. Before a release, also run `node scripts/react-bits-catalog.js` and commit `src/lib/reactBitsCatalog.js` if it changed: AppBlips ships a snapshot of React Bits' component list, so new components only appear after this, and renamed or removed ones fail to download until then.
+Config comes from `.env` (read by `npm run dev`, `server.js` and Docker's compose file; never by the desktop app, which takes its provider from Settings → AI). `.env.example` documents every variable, all optional. Releases: bump `package.json` version, push a `v*` tag, the Desktop workflow makes a draft GitHub release (see [RELEASING.md](RELEASING.md)). `npm run release` automates this but commits and pushes to master, so it needs the user's go-ahead like any other push; it refuses to run on a dirty or unsynced tree.
 
 ## Git: one branch only
 

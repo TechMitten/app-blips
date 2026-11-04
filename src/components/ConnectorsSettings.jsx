@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sparkles,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -12,7 +12,6 @@ import PixabayConnector from './PixabayConnector';
 import ServerKeyConnector from './ServerKeyConnector';
 import SeoConnector from './SeoConnector';
 import ImagesConnector from './ImagesConnector';
-import ReactBitsConnector from './ReactBitsConnector';
 import PublishDialog from './PublishDialog';
 import {
   CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
@@ -41,8 +40,7 @@ import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
 // its own page too (PixabayConnector.jsx); its photo search adds to the same
 // gallery, and is also offered on the My images page. Tavily keeps its key the
 // same way and uses the plain server-key page (ServerKeyConnector.jsx); the AI
-// searches with it (lib/webSearch.js). React Bits has no key (`keyless`): its
-// page is the switch and the component catalog (ReactBitsConnector.jsx).
+// searches with it (lib/webSearch.js).
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -63,7 +61,7 @@ const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTa
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, tavily: Globe, reactbits: Sparkles, seo: Search, images: Images,
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, tavily: Globe, seo: Search, images: Images,
 };
 
 const STATUS_BADGE = {
@@ -94,26 +92,18 @@ function BetaBadge() {
   return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span>;
 }
 
-// A locked connector (`comingSoon` in its definition) shows its card dimmed,
-// with a Coming soon badge, and doesn't open.
-function ComingSoonBadge() {
-  return <span className="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">Coming soon</span>;
-}
-
-function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, comingSoon = false, onClick }) {
+function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, onClick }) {
   return (
     <button
       type="button"
-      onClick={comingSoon ? undefined : onClick}
-      disabled={comingSoon}
-      aria-label={comingSoon ? `${name}: coming soon` : undefined}
+      onClick={onClick}
       className="group flex flex-col items-start gap-3 rounded-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:active:translate-y-0 disabled:active:scale-100 border border-slate-200 bg-surface p-4 text-left shadow-[0_1px_2px_rgb(15_23_42/0.06),0_4px_12px_-2px_rgb(15_23_42/0.10)] transition-[transform,box-shadow] duration-100 active:translate-y-px active:scale-[0.98] active:shadow-[0_1px_2px_rgb(15_23_42/0.08)] dark:border-white/10 dark:bg-[#1f1f1f] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_8px_20px_-6px_rgb(0_0_0/0.8)] dark:active:shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_2px_6px_-2px_rgb(0_0_0/0.8)] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
       <span className="flex w-full items-start justify-between gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg text-indigo-600">
           <Icon size={20} aria-hidden="true" />
         </span>
-        {comingSoon ? <ComingSoonBadge /> : <StatusBadge status={status} tool={tool} />}
+        <StatusBadge status={status} tool={tool} />
       </span>
       <span>
         <span className="block text-sm font-semibold text-slate-900">{name}{beta && <BetaBadge />}</span>
@@ -344,8 +334,6 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
             ? <SeoConnector key={openId} seoProject={seoProject} />
             : CONNECTOR_DEFINITIONS[openId].signIn
               ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
-              : openId === 'reactbits'
-                ? <ReactBitsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
               : openId === 'tavily'
                 ? <ServerKeyConnector key={openId} id={openId} api={TAVILY_API} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
               : CONNECTOR_DEFINITIONS[openId].serverKey
@@ -397,7 +385,6 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
             tagline={CONNECTOR_DEFINITIONS[id].tagline}
             Icon={ICONS[id]}
             beta={CONNECTOR_DEFINITIONS[id].beta}
-            comingSoon={CONNECTOR_DEFINITIONS[id].comingSoon}
             status={statusOf(id)}
             tool={kind === 'tools'}
             onClick={() => setOpenId(id)}

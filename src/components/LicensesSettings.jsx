@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ExternalLink, Search } from 'lucide-react';
 import { SettingRow, FIELD_CLASS } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
-import { REACT_BITS_LICENSE } from '../lib/reactBitsCatalog';
+import { REACT_BITS_LICENSE } from '../lib/reactBitsLicense';
 
 // Settings → About → Licenses: AppBlips' own license and credits for the open
 // source code it ships. The package list is generated from what each build
@@ -19,12 +19,11 @@ const FONTS = [
   { name: 'IBM Plex Mono', author: 'IBM', href: 'https://fonts.google.com/specimen/IBM+Plex+Mono' },
 ];
 
-// Not an npm package, so scripts/licenses.js can't see it: AppBlips ships
-// React Bits' component list (names, descriptions, links), downloads a
-// component only when a request asks for it (lib/reactBits.js), and its own
-// UI uses a few of them (components/reactbits/), so it's credited here by hand.
+// Not an npm package, so scripts/licenses.js can't see it: AppBlips' own UI
+// uses a few React Bits components (components/reactbits/), so it's credited
+// here by hand.
 const REACT_BITS = {
-  name: 'React Bits (BorderGlow, RotatingText, component list and downloads)',
+  name: 'React Bits (BorderGlow, RotatingText)',
   author: 'David Haz',
   license: 'MIT + Commons Clause',
   homepage: 'https://reactbits.dev/',

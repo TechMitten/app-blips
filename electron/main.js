@@ -27,7 +27,6 @@ import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
-import { handleReactBitsApi } from './server/reactBitsApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
@@ -109,7 +108,7 @@ async function writeSettings(patch) {
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
 // /api/pollinations/* the Pollinations key, /api/pixabay/* the Pixabay key and
-// /api/tavily/* the Tavily key. /api/react-bits/* needs no key.
+// /api/tavily/* the Tavily key.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -218,8 +217,6 @@ async function handleAppRequest(request) {
         return withSecurityHeaders(await handleTavilyApi(request, process.env, tavilyStore));
       case '/api/seo/scan':
         return withSecurityHeaders(await handleSeoScanApi(request, process.env));
-      case '/api/react-bits/component':
-        return withSecurityHeaders(await handleReactBitsApi(request, process.env));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });
