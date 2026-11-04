@@ -11,6 +11,8 @@ import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
+import { handleSandbox, renderSandboxConfigured } from './electron/server/hosted/sandbox.js'
+import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -141,6 +143,19 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleSeoScanApi(await toFetchRequest(req), env)
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // Per-user Render Sandbox computer (when RENDER_API_KEY + RENDER_WORKSPACE_ID are set).
+      const sandboxStore = (String(env.APPBLIPS_HOSTED || '') === '1' || renderSandboxConfigured(env))
+        ? openStore(defaultDatabasePath(env))
+        : null
+      server.middlewares.use('/api/sandbox', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Sandbox access is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleSandbox(await toFetchRequest(req), env, sandboxStore)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
+import { fetchSandboxStatus } from '../lib/sandboxComputer';
 
 const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
@@ -19,6 +20,7 @@ export default function SubscriptionGate({ children }) {
       if (cancelled) return;
       if (!config.hosted) {
         setStatus('open');
+        fetchSandboxStatus();
         return;
       }
       setPlans(config.plans || []);
@@ -31,6 +33,7 @@ export default function SubscriptionGate({ children }) {
           return;
         }
         setStatus(me.active ? 'open' : 'gated');
+        if (me.active) fetchSandboxStatus();
       });
     });
     return () => { cancelled = true; };

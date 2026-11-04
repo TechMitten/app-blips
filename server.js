@@ -32,6 +32,7 @@ import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { handleBilling } from './electron/server/hosted/billing.js';
 import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js';
+import { handleSandbox, renderSandboxConfigured } from './electron/server/hosted/sandbox.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
@@ -60,7 +61,7 @@ rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() =>
 // requires a Clerk session, picks the model by plan, and (for paid plans)
 // debits Creem build credits. Off by default so local/desktop use is unchanged.
 const hosted = String(process.env.APPBLIPS_HOSTED || '') === '1';
-const store = hosted ? openStore(defaultDatabasePath(process.env)) : null;
+const store = (hosted || renderSandboxConfigured(process.env)) ? openStore(defaultDatabasePath(process.env)) : null;
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -134,6 +135,14 @@ const server = createServer((req, res) => {
     toFetchRequest(req)
       .then((request) => handleBilling(request, process.env, store))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[billing]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/sandbox' || req.url.startsWith('/api/sandbox/')) {
+    toFetchRequest(req)
+      .then((request) => handleSandbox(request, process.env, store))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[sandbox]'))
       .catch(fail);
     return;
   }

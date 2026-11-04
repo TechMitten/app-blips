@@ -75,6 +75,20 @@ export default function PlanSettings() {
         </span>
       </SettingRow>
 
+      {active && (
+        <SettingRow
+          id="set-sandbox-computer"
+          title="Agent computer"
+          description={me?.sandboxId
+            ? `Dedicated Linux sandbox (${me.sandboxId}) — auto-sleeps after 5 minutes of inactivity.`
+            : 'Dedicated Linux sandbox — provisions automatically on your next build and auto-sleeps when idle.'}
+        >
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {me?.sandboxId ? 'Provisioned' : 'Ready'}
+          </span>
+        </SettingRow>
+      )}
+
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {
         const details = plan.monthlyCredits == null
           ? 'unlimited builds during the beta'

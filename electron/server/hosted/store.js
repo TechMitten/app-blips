@@ -20,6 +20,8 @@ export function openStore(file) {
       credit_account_id text,
       plan text not null default 'basic',
       active integer not null default 0,
+      sandbox_id text,
+      sandbox_snapshot_id text,
       updated_at text not null
     );
     create unique index if not exists accounts_customer on accounts(creem_customer_id)
@@ -30,17 +32,23 @@ export function openStore(file) {
     );
   `);
 
-  // Older stores predate the subscription flag: add it in place.
+  // Older stores predate the subscription and sandbox columns: add them in place.
   const columns = db.prepare('pragma table_info(accounts)').all().map((column) => column.name);
   if (!columns.includes('active')) {
     db.exec('alter table accounts add column active integer not null default 0');
+  }
+  if (!columns.includes('sandbox_id')) {
+    db.exec('alter table accounts add column sandbox_id text');
+  }
+  if (!columns.includes('sandbox_snapshot_id')) {
+    db.exec('alter table accounts add column sandbox_snapshot_id text');
   }
 
   const byUser = db.prepare('select * from accounts where user_id = ?');
   const byCustomer = db.prepare('select * from accounts where creem_customer_id = ?');
   const insert = db.prepare(`
-    insert into accounts (user_id, creem_customer_id, credit_account_id, plan, active, updated_at)
-    values (?, ?, ?, ?, ?, ?)
+    insert into accounts (user_id, creem_customer_id, credit_account_id, plan, active, sandbox_id, sandbox_snapshot_id, updated_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const update = db.prepare(`
     update accounts
@@ -48,11 +56,14 @@ export function openStore(file) {
            credit_account_id = coalesce(?, credit_account_id),
            plan = ?,
            active = ?,
+           sandbox_id = coalesce(?, sandbox_id),
+           sandbox_snapshot_id = coalesce(?, sandbox_snapshot_id),
            updated_at = ?
      where user_id = ?
   `);
   const setPlanSql = db.prepare('update accounts set plan = ?, active = ?, updated_at = ? where user_id = ?');
   const setPlanByCustomerSql = db.prepare('update accounts set plan = ?, active = ?, updated_at = ? where creem_customer_id = ?');
+  const setSandboxSql = db.prepare('update accounts set sandbox_id = ?, sandbox_snapshot_id = ?, updated_at = ? where user_id = ?');
   const insertEvent = db.prepare('insert or ignore into webhook_events (id, received_at) values (?, ?)');
 
   const getAccount = (userId) => {
@@ -68,13 +79,13 @@ export function openStore(file) {
   // Creates or updates the row for a user, preserving fields the caller
   // doesn't know yet. `active` is the subscription gate: without it the
   // user has no AI access.
-  const saveAccount = ({ userId, customerId = null, creditAccountId = null, plan = 'basic', active = false }) => {
+  const saveAccount = ({ userId, customerId = null, creditAccountId = null, plan = 'basic', active = false, sandboxId = null, snapshotId = null }) => {
     if (!userId) return null;
     const existing = getAccount(userId);
     if (existing) {
-      update.run(customerId, creditAccountId, plan, active ? 1 : 0, now(), userId);
+      update.run(customerId, creditAccountId, plan, active ? 1 : 0, sandboxId, snapshotId, now(), userId);
     } else {
-      insert.run(userId, customerId, creditAccountId, plan, active ? 1 : 0, now());
+      insert.run(userId, customerId, creditAccountId, plan, active ? 1 : 0, sandboxId, snapshotId, now());
     }
     return getAccount(userId);
   };
@@ -89,6 +100,17 @@ export function openStore(file) {
     setPlanByCustomerSql.run(plan, active ? 1 : 0, now(), customerId);
   };
 
+  // Links a user to their dedicated Render sandbox and latest filesystem
+  // snapshot. Pass `null` for `sandboxId` when clearing a terminated sandbox.
+  const setSandbox = (userId, { sandboxId, snapshotId } = {}) => {
+    if (!userId) return null;
+    const existing = getAccount(userId) || saveAccount({ userId });
+    const nextSandboxId = sandboxId === undefined ? existing.sandbox_id : sandboxId;
+    const nextSnapshotId = snapshotId === undefined ? existing.sandbox_snapshot_id : snapshotId;
+    setSandboxSql.run(nextSandboxId ?? null, nextSnapshotId ?? null, now(), userId);
+    return getAccount(userId);
+  };
+
   // True only the first time an event id is seen.
   const claimEvent = (id) => {
     if (!id) return false;
@@ -96,7 +118,7 @@ export function openStore(file) {
     return result.changes > 0;
   };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, claimEvent, close: () => db.close() };
+  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, close: () => db.close() };
 }
 
 export const defaultDatabasePath = (env) => {

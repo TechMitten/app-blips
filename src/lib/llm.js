@@ -18,6 +18,10 @@ import {
   createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
 } from './webSearch';
 import {
+  SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
+  executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
+} from './sandboxComputer';
+import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
 import {
@@ -729,6 +733,7 @@ export const MAX_EMPTY_GENERATION_RETRIES = 2;
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
   if (name === 'web_search') return 'Searching the web…';
+  if (name === 'run_sandbox_command') return 'Running command on your computer…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
   if (name === 'create_page') return 'Adding a page…';
@@ -1164,9 +1169,15 @@ const generateAppCodeCore = async (
 
   // With the Tavily connector on, the model can also search the web.
   const webSearch = isWebSearchEnabled() ? createWebSearchBudget() : null;
+  const sandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
+  const fullSystemPrompt = [
+    systemPrompt,
+    webSearch && WEB_SEARCH_GUIDANCE,
+    sandboxBudget && SANDBOX_COMPUTER_GUIDANCE,
+  ].filter(Boolean).join('\n\n');
   const messages = [
-    { role: 'system', content: webSearch ? `${systemPrompt}\n\n${WEB_SEARCH_GUIDANCE}` : systemPrompt },
+    { role: 'system', content: fullSystemPrompt },
     ...formattedChatHistory,
     {
       role: 'user',
@@ -1207,9 +1218,11 @@ const generateAppCodeCore = async (
   for (let turn = 1; turn <= turnLimit; turn++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-    const currentTools = webSearch && webSearch.left > 0
-      ? [...getRefinementTools(studioMode), WEB_SEARCH_TOOL]
-      : getRefinementTools(studioMode);
+    const currentTools = [
+      ...getRefinementTools(studioMode),
+      ...(webSearch && webSearch.left > 0 ? [WEB_SEARCH_TOOL] : []),
+      ...(sandboxBudget && sandboxBudget.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
+    ];
 
     // Once edits have applied cleanly, the next turn is normally just the model
     // confirming it is done (or tidying up).
@@ -1287,6 +1300,17 @@ const generateAppCodeCore = async (
           ? await executeWebSearch(toolCall, webSearch)
           : { success: false, error: 'Web search is not available.' };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+        continue;
+      }
+      if (isSandboxToolCall(toolCall)) {
+        if (!sandboxBudget) {
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Sandbox computer is not available.' }) });
+          continue;
+        }
+        const outcome = await executeSandboxToolCall({ files: workingFiles }, toolCall, sandboxBudget, { onChunk, signal });
+        workingFiles = outcome.state.files;
+        if (outcome.applied) editsApplied = true;
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
         continue;
       }
       const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);

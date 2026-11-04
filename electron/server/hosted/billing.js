@@ -60,6 +60,8 @@ async function handleMe(request, env, store) {
     unlimited,
     credits,
     monthlyCredits: plan.monthlyCredits,
+    sandboxId: account?.sandbox_id || null,
+    sandboxSnapshotId: account?.sandbox_snapshot_id || null,
     plans: publicCatalog(),
   });
 }
