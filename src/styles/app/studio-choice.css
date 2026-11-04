@@ -17,8 +17,6 @@
   --sc-line-strong: rgb(255 255 255 / 0.2);
   --sc-fill: rgb(255 255 255 / 0.05);
   --sc-fill-hover: rgb(255 255 255 / 0.1);
-  --sc-topbar-bg: rgb(8 8 8 / 0.85);
-  --sc-topbar-line: rgb(255 255 255 / 0.07);
   --sc-glow: rgb(255 255 255 / 0.06);
   --sc-primary-bg: #ffffff;
   --sc-primary-bg-hover: #e4e4e7;
@@ -62,8 +60,6 @@
   --sc-line-strong: rgb(15 23 42 / 0.28);
   --sc-fill: rgb(255 255 255 / 0.8);
   --sc-fill-hover: #ffffff;
-  --sc-topbar-bg: rgb(232 237 245 / 0.85);
-  --sc-topbar-line: rgb(15 23 42 / 0.12);
   --sc-glow: rgb(255 255 255 / 0.9);
   --sc-primary-bg: #0b1220;
   --sc-primary-bg-hover: #27272a;
@@ -103,18 +99,17 @@
   outline: 2px solid var(--sc-ring);
   outline-offset: 3px;
 }
+.studio-row.studio-focus:focus-visible { outline-offset: 1px; border-radius: 0.875rem; }
 
+/* No strip: the top bar floats on the page's backdrop. */
 .studio-topbar {
-  border-bottom: 1px solid var(--sc-topbar-line);
-  background-color: var(--sc-topbar-bg);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+  background-color: transparent;
 }
 
 .studio-footer {
-  border-top: 1px solid var(--sc-topbar-line);
-  background-color: var(--sc-topbar-bg);
+  font-size: 0.8125rem;
 }
+.studio-footer .studio-nav-link { font-size: 0.8125rem; }
 
 /* Two wordmarks, one visible per theme: white lettering on the dark picker,
    dark lettering on the light one. */
@@ -158,7 +153,17 @@
 
 /* Same ambient light as the landing hero. */
 .studio-glow {
-  background: radial-gradient(60% 50% at 75% 30%, var(--sc-glow), transparent 70%);
+  background:
+    radial-gradient(50% 40% at 50% 0%, rgb(236 100 82 / 0.12), transparent 70%),
+    radial-gradient(60% 50% at 75% 30%, var(--sc-glow), transparent 70%);
+}
+.dark .studio-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(70% 60% at 50% 40%, #000 20%, transparent 75%);
 }
 
 /* Light theme: a modern SaaS backdrop instead of the dark glow. Soft pastel
@@ -240,63 +245,21 @@
   transform: scale(0.98);
 }
 
-/* Light glass: a faint top-lit gradient over the glow, a
-   backdrop blur to frost them, and a brighter top edge where light catches.
-   Kept subtle so the cards still read as the landing page's flat style. */
-.studio-card {
-  border: 1px solid var(--sc-card-line);
-  border-top-color: var(--sc-card-top);
-  background-color: var(--sc-card-bg);
-  background-image: linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
-  box-shadow: inset 0 1px 0 var(--sc-card-inset), var(--sc-card-shadow);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
-  backdrop-filter: blur(12px) saturate(130%);
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
+/* Tint per item (an RGB triplet): light mode accents, the glow and the art. */
+.studio-choice [data-studio="app"]      { --tint: 37 99 235; }
+.studio-choice [data-studio="website"]  { --tint: 14 116 144; }
+.studio-choice [data-studio="game"]     { --tint: 194 65 12; }
+.studio-choice [data-studio="projects"] { --tint: 4 120 87; }
+.studio-choice [data-studio="import"]   { --tint: 51 65 85; }
+.studio-choice [data-studio="showcase"] { --tint: 190 24 93; }
 
-.studio-card:hover,
-.studio-card:focus-visible {
-  border-color: var(--sc-card-line-hover);
-  border-top-color: var(--sc-card-top-hover);
-  background-color: var(--sc-card-bg-hover);
-  box-shadow: inset 0 1px 0 var(--sc-card-inset-hover), var(--sc-card-shadow-hover);
-  transform: translateY(-2px);
-}
-
-/* Light theme: each card carries one accent (--tint, an RGB triplet set per
-   studio via data-studio): a soft corner wash on the card and a tinted icon
-   tile. Dark keeps the landing page's monochrome look. */
-.studio-card[data-studio="app"]      { --tint: 37 99 235; }
-.studio-card[data-studio="website"]  { --tint: 14 116 144; }
-.studio-card[data-studio="game"]     { --tint: 194 65 12; }
-.studio-card[data-studio="projects"] { --tint: 4 120 87; }
-.studio-card[data-studio="import"]   { --tint: 51 65 85; }
-.studio-card[data-studio="showcase"] { --tint: 190 24 93; }
-
-:root:not(.dark) .studio-card {
-  background-image:
-    radial-gradient(130% 90% at 0% 0%, rgb(var(--tint) / 0.11), transparent 58%),
-    linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
-}
-
-:root:not(.dark) .studio-card:hover,
-:root:not(.dark) .studio-card:focus-visible {
-  background-image:
-    radial-gradient(130% 90% at 0% 0%, rgb(var(--tint) / 0.18), transparent 62%),
-    linear-gradient(160deg, var(--sc-card-sheen) 0%, transparent 60%);
-  border-color: rgb(var(--tint) / 0.42);
-}
-
-:root:not(.dark) .studio-card .studio-icon-tile {
+:root:not(.dark) .studio-row .studio-icon-tile,
+:root:not(.dark) .studio-chip svg {
   border-color: rgb(var(--tint) / 0.3);
   background-color: rgb(var(--tint) / 0.13);
   color: rgb(var(--tint));
 }
-
-/* The call to action picks up the card's accent (all five clear 4.5:1 on white). */
-:root:not(.dark) .studio-card .studio-card-cta {
-  color: rgb(var(--tint));
-}
+:root:not(.dark) .studio-chip svg { background: none; border: 0; }
 
 .studio-icon-tile {
   border: 1px solid var(--sc-line);
@@ -304,10 +267,9 @@
   color: var(--sc-text-strong);
 }
 
-/* Dark theme: the card icons and CTA arrows take the brand red, like the
-   onboarding page's icons. Light mode keeps each card's own --tint instead. */
-.dark .studio-card .studio-icon-tile { color: var(--sc-red); }
-.dark .studio-card .studio-card-cta svg { color: var(--sc-red); }
+/* Dark theme: icons take the brand red, like the onboarding page's. */
+.dark .studio-row .studio-icon-tile,
+.dark .studio-chip svg { color: var(--sc-red); }
 
 .studio-saved-badge {
   border: 1px solid var(--sc-line-strong);
@@ -329,72 +291,15 @@
   color: rgb(var(--tint));
 }
 
-/* BorderGlow (components/reactbits/BorderGlow) around each card. Upstream it
-   is the card itself, with an opaque background; here the button inside
-   stays the card, so the wrapper drops its own border, fill and shadow and
-   is just the glow layers. */
-.studio-glow-card.border-glow-card {
-  border: 0;
-  background: none;
-  box-shadow: none;
-  transition: transform 0.2s ease;
-}
-
-/* Upstream hides the gradient's middle behind an opaque --card-bg layer,
-   leaving a 1px ring. Our cards are see-through glass, so the ring is cut
-   with a mask instead (border box minus padding box), intersected with the
-   pointer-following cone. */
-.studio-glow-card.border-glow-card::before {
-  background:
-    var(--gradient-one) border-box,
-    var(--gradient-two) border-box,
-    var(--gradient-three) border-box,
-    var(--gradient-four) border-box,
-    var(--gradient-five) border-box,
-    var(--gradient-six) border-box,
-    var(--gradient-seven) border-box,
-    var(--gradient-base) border-box;
-  mask-image:
-    conic-gradient(
-      from var(--cursor-angle) at center,
-      black calc(var(--cone-spread) * 1%),
-      transparent calc((var(--cone-spread) + 15) * 1%),
-      transparent calc((100 - var(--cone-spread) - 15) * 1%),
-      black calc((100 - var(--cone-spread)) * 1%)
-    ),
-    linear-gradient(#000 0 0),
-    linear-gradient(#000 0 0);
-  mask-clip: border-box, padding-box, border-box;
-  mask-composite: intersect, exclude;
-}
-
-/* The inner wrapper would clip the focus outline and the card's own shadow,
-   and the button has to fill the grid cell like it did before the wrapper. */
-.studio-glow-card > .border-glow-inner { overflow: visible; }
-.studio-glow-card > .border-glow-inner > .studio-card { flex: 1 1 auto; }
-
-/* Lift the wrapper rather than the card, so the glow moves with it. */
-.studio-glow-card .studio-card:hover,
-.studio-glow-card .studio-card:focus-visible { transform: none; }
-.studio-glow-card.border-glow-card:hover,
-.studio-glow-card.border-glow-card:focus-within { transform: translate3d(0, -2px, 0.01px); }
-
 @media (prefers-reduced-motion: reduce) {
   :root:not(.dark) .studio-glow::before { animation: none; }
-  .studio-glow-card.border-glow-card,
-  .studio-glow-card.border-glow-card:hover,
-  .studio-glow-card.border-glow-card:focus-within {
-    transition: none;
-    transform: translate3d(0, 0, 0.01px);
-  }
   .studio-choice .animate-stagger-1,
   .studio-choice .animate-stagger-2,
   .studio-choice .animate-stagger-3 {
     animation: none;
   }
-  .studio-card,
-  .studio-card:hover,
-  .studio-card:focus-visible,
+  .studio-row,
+  .studio-chip,
   .studio-primary-btn:active {
     transition: none;
     transform: none;
@@ -492,17 +397,17 @@
 .art-player, .art-enemy { transform-box: fill-box; }
 
 /* Hover or keyboard focus brings each scene to life. */
-.studio-card:is(:hover, :focus-visible) .art-ring { stroke-dashoffset: 12; }
-.studio-card:is(:hover, :focus-visible) .art-bar { transform: scaleY(1); }
-.studio-card:is(:hover, :focus-visible) .art-pop-left { transform: translate(-3px, -3px); }
-.studio-card:is(:hover, :focus-visible) .art-pop-right { transform: translate(3px, -4px); }
-.studio-card:is(:hover, :focus-visible) .art-row { transform: translateX(2px); }
-.studio-card:is(:hover, :focus-visible) .art-scroll { transform: translateY(-44px); }
-.studio-card:is(:hover, :focus-visible) .art-player { animation: art-jump 1.1s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
-.studio-card:is(:hover, :focus-visible) .art-coin { animation: art-spin 1.2s linear infinite; }
-.studio-card:is(:hover, :focus-visible) .art-coin-2 { animation-delay: -0.6s; }
-.studio-card:is(:hover, :focus-visible) .art-enemy { animation: art-patrol 1.8s ease-in-out infinite alternate; }
-.studio-card:is(:hover, :focus-visible) .art-star { animation: art-twinkle 1.6s ease-in-out infinite alternate; }
+.studio-stage .art-ring { stroke-dashoffset: 12; }
+.studio-stage .art-bar { transform: scaleY(1); }
+.studio-stage .art-pop-left { transform: translate(-3px, -3px); }
+.studio-stage .art-pop-right { transform: translate(3px, -4px); }
+.studio-stage .art-row { transform: translateX(2px); }
+.studio-stage .art-scroll { transform: translateY(-44px); }
+.studio-stage .art-player { animation: art-jump 1.1s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
+.studio-stage .art-coin { animation: art-spin 1.2s linear infinite; }
+.studio-stage .art-coin-2 { animation-delay: -0.6s; }
+.studio-stage .art-enemy { animation: art-patrol 1.8s ease-in-out infinite alternate; }
+.studio-stage .art-star { animation: art-twinkle 1.6s ease-in-out infinite alternate; }
 
 @keyframes art-jump {
   0%, 100% { transform: translateY(0) scale(1.06, 0.94); }
@@ -525,106 +430,236 @@
 
 @media (prefers-reduced-motion: reduce) {
   .studio-art *,
-  .studio-card:is(:hover, :focus-visible) .studio-art * {
+  .studio-stage .studio-art * {
     transition: none;
     animation: none;
   }
 }
 
-/* Fit the whole picker in the window without scrolling, at any size. The
-   Tailwind classes give the roomy layout; everything here is unlayered, so it
-   wins. Spacing, the heading and the illustrations follow the window height
-   instead of fixed steps. The three studios sit side by side from 640px (one
-   column on phones, without illustrations); the three slim rows follow them
-   from 900px. Shorter windows drop, in order, the row descriptions, the
-   illustrations, the card descriptions and the intro line.
-   The outer wrapper still scrolls as a last resort for windows too tiny to fit
-   even that. */
-.studio-main { padding-block: clamp(0.5rem, 3vh, 3.5rem); }
+/* Layout. Spacing and type follow the window height so the picker fits
+   without scrolling; the outer wrapper still scrolls as a last resort. */
+.studio-main {
+  padding-block: clamp(0.5rem, 3vh, 3.5rem);
+  padding-top: clamp(0.25rem, 1.8vh, 2rem);
+}
 .studio-title {
   margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
   font-size: clamp(1.75rem, min(6.5vh, 9vw), 3.75rem);
+  letter-spacing: -0.03em;
 }
 .studio-lead {
+  max-width: 40rem;
   margin-top: clamp(0.375rem, 1.8vh, 1.25rem);
   font-size: clamp(0.875rem, 2.2vh, 1.125rem);
 }
-
-.studio-grid {
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(0.5rem, 1.6vh, 1.25rem);
-  margin-top: clamp(0.75rem, 3.5vh, 3rem);
-}
-.studio-grid .studio-card { padding: clamp(0.625rem, 2vh, 1.25rem); }
-.studio-grid .studio-art {
-  display: none;
-  height: clamp(4.5rem, 15vh, 9.5rem);
-  margin-bottom: clamp(0.5rem, 1.8vh, 1.125rem);
-}
-.studio-grid .studio-icon-tile { width: 2.25rem; height: 2.25rem; }
-.studio-grid .studio-card-cta { margin-top: auto; padding-top: clamp(0.5rem, 1.6vh, 1rem); }
-
-.studio-extra-rows {
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(0.5rem, 1.6vh, 1.25rem);
-  margin-top: clamp(0.5rem, 1.8vh, 1.25rem);
-}
-.studio-extra-rows .studio-card { padding: clamp(0.5rem, 1.4vh, 0.875rem) clamp(0.75rem, 1.6vw, 1.25rem); }
-.studio-extra-rows .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 .studio-footer-inner { padding-block: 0.375rem; }
+@media (max-height: 620px) { .studio-lead { display: none; } }
+@media (max-height: 820px) { .studio-topbar-inner { height: 4rem; } }
+@media (min-width: 900px) and (max-width: 1199px) { .studio-main { padding-inline: 1.5rem; } }
 
-/* Phones: the studios become compact rows like the ones under them, with the
-   call to action reduced to an arrow on the right. */
+/* The picker: one frosted panel. From 900px, a live preview of the highlighted
+   studio sits above the list of the three studios. */
+.studio-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: clamp(2rem, 7vh, 4.5rem);
+  overflow: hidden;
+  border: 1px solid var(--sc-card-line);
+  border-top-color: var(--sc-card-top);
+  border-radius: 1.25rem;
+  background-color: var(--sc-card-bg);
+  box-shadow: inset 0 1px 0 var(--sc-card-inset), var(--sc-card-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: blur(14px) saturate(130%);
+}
+.studio-list {
+  --list-pad: 0.5rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: var(--list-pad);
+}
+.studio-indicator {
+  position: absolute;
+  top: 0;
+  left: var(--list-pad);
+  right: var(--list-pad);
+  border: 1px solid var(--sc-line);
+  border-radius: 0.875rem;
+  background-color: var(--sc-fill-hover);
+  box-shadow: inset 0 1px 0 var(--sc-card-inset);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), height 0.35s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.3s ease, border-color 0.3s ease;
+  pointer-events: none;
+}
+:root:not(.dark) .studio-indicator {
+  border-color: rgb(var(--tint) / 0.25);
+  background-color: rgb(var(--tint) / 0.07);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+.studio-kbd {
+  display: none;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sc-line);
+  border-bottom-width: 2px;
+  border-radius: 0.375rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--sc-text-soft);
+  transition: opacity 0.2s ease;
+}
+.studio-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: clamp(0.625rem, 1.8vh, 1rem) 0.875rem;
+  border: 1px solid transparent;
+  border-radius: 0.875rem;
+  text-align: left;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.studio-row .studio-icon-tile { width: 2.75rem; height: 2.75rem; }
+.studio-row-title { font-size: 1rem; font-weight: 600; line-height: 1.25; }
+.studio-row-desc { margin-top: 0.125rem; font-size: 0.875rem; line-height: 1.4; }
+.studio-row-arrow {
+  color: var(--sc-text-soft);
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+}
+.studio-row:active { transform: scale(0.99); }
+.studio-row[data-active="true"] .studio-kbd { opacity: 0; }
+.studio-row[data-active="true"] .studio-row-arrow {
+  opacity: 1;
+  color: var(--sc-red);
+  transform: translateX(3px);
+}
+:root:not(.dark) .studio-row[data-active="true"] .studio-row-arrow { color: rgb(var(--tint)); }
+
+/* Phones: titles only, the arrow carries the action. */
 @media (max-width: 639px) {
-  .studio-grid .studio-card { padding-right: 2.75rem; }
-  .studio-grid .studio-card-cta {
-    position: absolute;
-    top: 50%;
-    right: 1rem;
-    padding-top: 0;
-    transform: translateY(-50%);
-  }
-  .studio-cta-label { display: none; }
+  .studio-row-desc { display: none; }
+  .studio-row .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 }
 
-@media (min-width: 640px) {
-  .studio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .studio-extra-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .studio-grid .studio-art { display: block; }
-  .studio-grid .studio-card-title { font-size: 1rem; }
-  .studio-extra-rows .studio-card-desc { display: none; }
-}
+.studio-stage { display: none; }
 
 @media (min-width: 900px) {
-  .studio-grid .studio-card-title { font-size: 1.125rem; }
-  .studio-extra-rows .studio-card-desc { display: block; }
+  .studio-list { --list-pad: 0.75rem; justify-content: center; }
+  .studio-kbd { display: inline-flex; }
+  .studio-row-title { font-size: 1.0625rem; }
+  .studio-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(0.5rem, 2vh, 1.25rem);
+    padding: clamp(0.75rem, 3vh, 1.75rem);
+    border-bottom: 1px solid var(--sc-line);
+    background:
+      radial-gradient(70% 80% at 50% 0%, color-mix(in srgb, var(--sc-red) 14%, transparent), transparent 70%),
+      var(--sc-fill);
+  }
+  :root:not(.dark) .studio-stage {
+    background:
+      radial-gradient(70% 80% at 50% 0%, rgb(var(--tint) / 0.16), transparent 70%),
+      rgb(var(--tint) / 0.04);
+  }
+  .studio-stage .studio-art {
+    height: clamp(7rem, 26vh, 15rem);
+    animation: studio-stage-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .studio-stage-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .studio-stage-copy { animation: studio-copy-in 0.3s ease; }
+  .studio-stage-hint { margin-top: 0.125rem; font-size: 0.875rem; }
 }
-
-@media (min-width: 900px) and (max-width: 1199px) {
-  .studio-main { padding-inline: 1.5rem; }
+@keyframes studio-copy-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
-
-@media (max-height: 820px) {
-  .studio-topbar-inner { height: 4rem; }
+@keyframes studio-stage-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
 }
-
-/* Short windows: the titles and calls to action explain themselves. */
+@media (prefers-reduced-motion: reduce) {
+  .studio-stage .studio-art,
+  .studio-stage-copy { animation: none; }
+  .studio-indicator { transition: none; }
+}
+@media (hover: none) {
+  .studio-kbd { display: none; }
+}
 @media (max-height: 700px) {
-  .studio-extra-rows .studio-card-desc { display: none; }
+  .studio-row { padding-block: 0.5rem; }
+  .studio-row-desc { display: none; }
+  .studio-chips { margin-top: 0.5rem; }
 }
-
 @media (max-height: 600px) {
-  .studio-grid .studio-art { display: none; }
+  .studio-stage .studio-art { height: clamp(5rem, 22vh, 8rem); }
+  .studio-stage-hint { display: none; }
 }
 
-@media (max-width: 899px) and (max-height: 860px) {
-  .studio-grid .studio-card-desc,
-  .studio-extra-rows .studio-card-desc { display: none; }
-}
+/* Secondary entry points: compact pills under the panel. */
+.studio-chips-label { margin-right: 0.25rem; font-size: 0.8125rem; font-weight: 500; }
+@media (max-width: 639px) { .studio-chips-label { display: none; } }
 
-@media (max-height: 620px) {
-  .studio-lead { display: none; }
+.studio-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3125rem 0.75rem 0.3125rem 0.625rem;
+  border: 1px solid var(--sc-line);
+  border-radius: 9999px;
+  background-color: var(--sc-fill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sc-text-muted);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
+.studio-eyebrow-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  background-color: var(--sc-red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-red) 22%, transparent);
+}
+@media (max-height: 700px) { .studio-eyebrow { display: none; } }
+.studio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: clamp(0.625rem, 2.4vh, 1.5rem);
+}
+.studio-chip {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--sc-line);
+  border-radius: 9999px;
+  background-color: var(--sc-fill);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.studio-chip:hover { background-color: var(--sc-fill-hover); border-color: var(--sc-line-strong); transform: translateY(-1px); }
+.studio-chip:active { transform: scale(0.98); }
+@media (hover: none) { .studio-chip:hover { transform: none; } }
 
 /* Mobile slide-out menu (rendered below md only). Absolute inside
    .studio-choice rather than fixed: the top bar's backdrop blur would

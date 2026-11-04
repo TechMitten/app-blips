@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, LogOut, Menu, MonitorSmartphone,
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
+import { Show, SignOutButton } from '@clerk/react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
-import BorderGlow from './reactbits/BorderGlow';
 import RotatingText from './reactbits/RotatingText';
+import StudioArt from './StudioArt';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -35,6 +36,7 @@ const STUDIOS = [
     title: 'Mobile & Web App',
     description: 'Interactive tools, dashboards and utilities that work on any device.',
     cta: 'Build an app',
+    tagline: 'Habit trackers, calculators, dashboards and planners.',
   },
   {
     key: 'website',
@@ -42,6 +44,7 @@ const STUDIOS = [
     title: 'Responsive Website',
     description: 'Multi-page sites that look sharp on every screen, ready to share.',
     cta: 'Build a website',
+    tagline: 'Portfolios, landing pages, shops and local businesses.',
   },
   {
     key: 'game',
@@ -49,48 +52,12 @@ const STUDIOS = [
     title: 'Browser Game',
     description: '2D and 3D games with touch and keyboard controls that run in the browser.',
     cta: 'Build a game',
+    tagline: 'Platformers, puzzles, arcade classics and 3D worlds.',
   },
 ];
 
 // The heading's rotating word ("Build an app", "Build a website", ...).
 const ROTATING_STUDIOS = ['an app', 'a website', 'a game'];
-
-// Hover glow on every card (React Bits' BorderGlow; the glass-card tweaks are
-// in studio-choice.css). Dark keeps the picker's monochrome-plus-brand-red
-// look, so every card glows in the wordmark's red family. Light gives each
-// card its own --tint (same hues as studio-choice.css) so the glow matches
-// the icon tile and call to action.
-const GLOW_DARK = { glowColor: '8 90 74', colors: ['#ec6452', '#f59e0b', '#f472b6'] };
-const GLOW_LIGHT = {
-  app: { glowColor: '221 83 53', colors: ['#2563eb', '#60a5fa', '#818cf8'] },
-  website: { glowColor: '192 82 31', colors: ['#0e7490', '#22d3ee', '#38bdf8'] },
-  game: { glowColor: '17 88 40', colors: ['#c2410c', '#fb923c', '#f43f5e'] },
-  projects: { glowColor: '163 94 24', colors: ['#047857', '#34d399', '#2dd4bf'] },
-  import: { glowColor: '215 25 27', colors: ['#334155', '#94a3b8', '#64748b'] },
-  showcase: { glowColor: '336 74 42', colors: ['#be185d', '#f472b6', '#fb7185'] },
-};
-
-function GlowCard({ studio, isDark, children }) {
-  const { glowColor, colors } = isDark ? GLOW_DARK : GLOW_LIGHT[studio];
-  return (
-    <BorderGlow
-      className="studio-glow-card"
-      // Only picks the blend mode (plus-lighter on dark, normal on light):
-      // the card's own glass background shows, not this colour.
-      backgroundColor={isDark ? '#080808' : '#ffffff'}
-      borderRadius={16}
-      glowRadius={24}
-      edgeSensitivity={30}
-      coneSpread={25}
-      glowIntensity={isDark ? 1 : 0.8}
-      fillOpacity={isDark ? 0.2 : 0.15}
-      glowColor={glowColor}
-      colors={colors}
-    >
-      {children}
-    </BorderGlow>
-  );
-}
 
 // Colours come from the studio-* classes (studio-choice.css), not Tailwind's
 // white/black utilities, so each one has a dark and a light value.
@@ -106,6 +73,53 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
   // picker (e.g. Settings) handles its own Escape first.
   // Mobile slide-out menu. Escape closes it before it would close the picker.
   const [menuOpen, setMenuOpen] = useState(false);
+  // The studio previewed on the right: follows hover and keyboard focus.
+  const [active, setActive] = useState('app');
+  const activeStudio = STUDIOS.find((s) => s.key === active) || STUDIOS[0];
+  const rowRefs = useRef({});
+  const [indicator, setIndicator] = useState(null);
+
+  // The highlight is one element that slides to the active row. It is
+  // measured from the DOM because row heights change with the window
+  // (descriptions wrap or hide).
+  useLayoutEffect(() => {
+    const row = rowRefs.current[active];
+    if (!row) return undefined;
+    const measure = () => setIndicator({ top: row.offsetTop, height: row.offsetHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row.parentElement);
+    return () => observer.disconnect();
+  }, [active]);
+
+  // Number keys 1-3 start a studio from anywhere on the picker, unless a
+  // field or a modal has the keyboard.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || menuOpen) return;
+      if (event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      const studio = STUDIOS[Number(event.key) - 1];
+      if (!studio) return;
+      event.preventDefault();
+      onSelectStudio(studio.key);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onSelectStudio, menuOpen]);
+
+  // Up/Down (and Home/End) move between the studio rows, like a menu.
+  const onListKeyDown = (event) => {
+    const index = STUDIOS.findIndex((studio) => studio.key === active);
+    const next = {
+      ArrowDown: (index + 1) % STUDIOS.length,
+      ArrowUp: (index - 1 + STUDIOS.length) % STUDIOS.length,
+      Home: 0,
+      End: STUDIOS.length - 1,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    rowRefs.current[STUDIOS[next].key]?.focus();
+  };
 
   useEffect(() => {
     if (!onCancel && !menuOpen) return;
@@ -167,9 +181,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
   return (
     <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
-      {/* overflow-x-hidden: the glow's outer layer extends 24px past each card,
-          which on a phone sticks out of the viewport and gave this scroller
-          sideways slack. Clipping here keeps the glow on desktop widths. */}
+      {/* Behind everything, top bar and footer included, so they float on it. */}
+      <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="relative h-full overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
@@ -217,13 +230,25 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     <Settings size={17} aria-hidden="true" />
                   </button>
                 )}
+                <Show when="signed-in">
+                  <SignOutButton>
+                    <button
+                      type="button"
+                      aria-label="Sign out"
+                      title="Sign out"
+                      className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                    >
+                      <LogOut size={17} aria-hidden="true" />
+                    </button>
+                  </SignOutButton>
+                </Show>
                 <button
                   type="button"
                   onClick={() => setMenuOpen(true)}
                   aria-label="Open menu"
                   aria-expanded={menuOpen}
                   aria-controls="studio-mobile-menu"
-                  className={`${GHOST_BTN} h-9 w-9 md:hidden`}
+                  className={`${GHOST_BTN} h-11 w-11 md:hidden`}
                 >
                   <Menu size={18} aria-hidden="true" />
                 </button>
@@ -243,10 +268,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
           </nav>
 
           <div className="relative flex flex-1 flex-col">
-            <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
 
-            <div className="studio-main relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
+            <div className="studio-main relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
+                <span className="studio-eyebrow">
+                  <span className="studio-eyebrow-dot" aria-hidden="true" />
+                  {onCancel ? 'New project' : 'Welcome to AppBlips'}
+                </span>
                 {/* The visible heading cycles through the three studios; screen
                     readers get one stable sentence instead of a changing one. */}
                 <h1 className="studio-title text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:text-5xl md:text-6xl">
@@ -268,70 +296,77 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   </span>
                 </h1>
                 <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
-                  Describe what you want in plain English. AppBlips builds a working app,
-                  website or game you can preview and refine.
+                  Pick a studio, describe your idea in plain English, and watch it come to life.
                 </p>
               </header>
 
-              {/* The three ways to make something new: big cards. */}
-              <div className="studio-grid mt-10 grid animate-stagger-3">
-                {STUDIOS.map(({ key, Icon, title, description, cta }) => (
-                  <GlowCard key={key} studio={key} isDark={isDark}>
+              {/* The three ways to make something new: a live preview of the
+                  highlighted one above the list (900px+). Hover or focus
+                  previews, click starts. On smaller screens it is just the list. */}
+              <div className="studio-panel animate-stagger-3">
+                <div className="studio-stage" data-studio={active}>
+                  <StudioArt key={active} studio={active} />
+                  <div className="studio-stage-foot">
+                    <div key={active} className="studio-stage-copy min-w-0">
+                      <p className="studio-stage-hint studio-text-soft">{activeStudio.tagline}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="studio-list" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown}>
+                  {indicator && (
+                    <span
+                      className="studio-indicator"
+                      data-studio={active}
+                      style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {STUDIOS.map(({ key, Icon, title, description, cta }, index) => (
                     <button
+                      key={key}
+                      ref={(node) => { rowRefs.current[key] = node; }}
                       type="button"
+                      aria-keyshortcuts={String(index + 1)}
                       onClick={() => onSelectStudio(key)}
+                      onMouseEnter={() => setActive(key)}
+                      onFocus={() => setActive(key)}
                       aria-label={`${cta}: ${title}`}
                       data-studio={key}
-                      className={`studio-card group relative flex flex-col rounded-2xl text-left ${FOCUS_RING}`}
-                    >
-                      <span className="studio-card-body flex min-w-0 flex-1 flex-col">
-                        <span className="flex items-center gap-3">
-                          <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
-                            <Icon className="h-5 w-5" aria-hidden="true" />
-                          </span>
-                          <span className="studio-card-title block text-base font-semibold studio-text-strong sm:text-lg">{title}</span>
-                        </span>
-                        <span className="studio-card-desc mt-2 block text-sm leading-relaxed studio-text-soft">{description}</span>
-                        <span className="studio-card-cta inline-flex items-center gap-1.5 text-sm font-semibold studio-text-strong" aria-hidden="true">
-                          <span className="studio-cta-label">{cta}</span>
-                          <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
-                        </span>
-                      </span>
-                    </button>
-                  </GlowCard>
-                ))}
-              </div>
-
-              {/* Starting from something that already exists: your projects
-                  and templates, an imported site, or Explore. Slimmer
-                  rows so the studios above stay the obvious first choice. */}
-              <div className="studio-extra-rows grid animate-stagger-3">
-                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick, badge }) => (
-                  <GlowCard key={key} studio={key} isDark={isDark}>
-                    <button
-                      type="button"
-                      onClick={onClick}
-                      aria-label={label}
-                      data-studio={key}
-                      className={`studio-card group flex items-center gap-3 rounded-2xl text-left ${FOCUS_RING}`}
+                      data-active={active === key}
+                      className={`studio-row group ${FOCUS_RING}`}
                     >
                       <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
                         <Icon className="h-5 w-5" aria-hidden="true" />
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="flex items-center gap-2">
-                          <span className="block truncate text-base font-semibold studio-text-strong">{title}</span>
-                          {badge}
-                        </span>
-                        <span className="studio-card-desc mt-0.5 block text-sm leading-snug studio-text-soft">{description}</span>
+                        <span className="studio-row-title studio-text-strong">{title}</span>
+                        <span className="studio-row-desc studio-text-soft">{description}</span>
                       </span>
-                      {/* Arrow only: the row's title already says what it does,
-                          and a label would squeeze the text at three across. */}
-                      <span className="studio-card-cta inline-flex shrink-0 studio-text-strong" aria-hidden="true">
-                        <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
-                      </span>
+                      <kbd className="studio-kbd" aria-hidden="true">{index + 1}</kbd>
+                      <ArrowRight size={18} className="studio-row-arrow shrink-0" aria-hidden="true" />
                     </button>
-                  </GlowCard>
+                  ))}
+                </div>
+              </div>
+
+              {/* Starting from something that already exists. */}
+              <div className="studio-chips animate-stagger-3">
+                <span className="studio-chips-label studio-text-soft">Or start from</span>
+                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick, badge }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={onClick}
+                    aria-label={label}
+                    title={description}
+                    data-studio={key}
+                    className={`studio-chip ${FOCUS_RING}`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="studio-text-strong">{title}</span>
+                    {badge}
+                  </button>
                 ))}
               </div>
             </div>
@@ -422,6 +457,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 {isDark ? 'Light theme' : 'Dark theme'}
               </button>
             )}
+            <Show when="signed-in">
+              <SignOutButton>
+                <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
+                  <LogOut size={18} aria-hidden="true" /> Sign out
+                </button>
+              </SignOutButton>
+            </Show>
             <div className="studio-menu-sep" role="separator" />
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <Github size={18} aria-hidden="true" /> GitHub
