@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, Lock, RefreshCw, Share2, Sparkles, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, Lock, RefreshCw, Share2, Smartphone, Sparkles, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
-  SURGE_SUFFIX, loadFavicon, loadProtected, loadPublishedName, loadSearchable, saveFavicon, saveProtected, savePublishedName, saveSearchable, suggestSurgeName,
+  SURGE_SUFFIX, loadFavicon, loadProtected, loadPublishedName, loadPwa, loadSearchable, saveFavicon, saveProtected, savePublishedName, savePwa, saveSearchable, suggestSurgeName,
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { addNoIndex } from '../lib/seo';
+import { buildPwaManifest, buildServiceWorker, defaultPwaIconBase64, injectPwaPrompt } from '../lib/pwa';
 import { MIN_GATE_PASSWORD_LENGTH, checkGatePassword } from '../lib/passwordGate';
 import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
@@ -47,6 +48,31 @@ function SearchableField({ checked, onChange, disabled }) {
           {checked
             ? 'Your site can show up in Google and other search results.'
             : 'Your site asks search engines to keep it out of their results. Anyone with the link can still open it.'}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+// Unticked (the default) does not inject the PWA install notification.
+function PwaField({ checked, onChange, disabled }) {
+  return (
+    <label className="flex items-start gap-2.5 text-sm text-slate-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-indigo-600"
+      />
+      <span>
+        <span className="flex items-center gap-1.5 font-semibold text-slate-900">
+          <Smartphone size={13} aria-hidden="true" />Prompt visitors to install as an app
+        </span>
+        <span className="block text-xs leading-snug text-slate-500">
+          {checked
+            ? 'Visitors will see a notification inviting them to install this site on their device as an app (PWA).'
+            : 'Keep the site as a regular web page without an app install notification.'}
         </span>
       </span>
     </label>
@@ -197,6 +223,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const [name, setName] = useState(() => suggestSurgeName(projectName));
   const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
   const [searchable, setSearchable] = useState(() => loadSearchable(projectId));
+  const [pwaPrompt, setPwaPrompt] = useState(() => loadPwa(projectId));
   // Never stored: only whether the site is protected is remembered.
   const [locked, setLocked] = useState(() => loadProtected(projectId));
   const wasLocked = useRef(locked).current;
@@ -285,15 +312,25 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     if (!searchable || locked) {
       for (const name of Object.keys(pages)) if (name.endsWith('.html')) pages[name] = addNoIndex(pages[name]);
     }
+    if (pwaPrompt) {
+      for (const name of Object.keys(pages)) if (name.endsWith('.html')) pages[name] = injectPwaPrompt(pages[name], { projectName });
+    }
     const { images } = await collectSiteImages(pages);
     // The user's own images (My images) are already at images/<name> in the pages.
     const ownImages = galleryFiles ? galleryFiles(pages) : [];
     const uploads = Object.fromEntries([...images, ...ownImages].map(({ path, bytes }) => [path, bytesToBase64(bytes)]));
-    const icon = faviconBase64(favicon);
+    let icon = faviconBase64(favicon);
+    if (!icon && pwaPrompt) {
+      icon = defaultPwaIconBase64(projectName);
+    }
     if (icon) uploads[FAVICON_PATH] = icon;
     const sitePages = pointAtCopies(pages, images);
     // sitemap.xml and robots.txt from the SEO connector (lib/seo.js).
     const extras = Object.fromEntries((extraFiles && !locked ? extraFiles(pages, searchable) : []).map(({ path, text }) => [path, text]));
+    if (pwaPrompt) {
+      extras['manifest.webmanifest'] = buildPwaManifest(projectName);
+      extras['sw.js'] = buildServiceWorker();
+    }
     const result = await surgePublish(
       clean,
       icon ? withFavicon(sitePages) : sitePages,
@@ -310,6 +347,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     }
     savePublishedName(projectId, clean);
     saveProtected(projectId, locked);
+    savePwa(projectId, pwaPrompt);
     setSitePassword('');
     setSiteConfirm('');
     setPublished(clean);
@@ -325,6 +363,11 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const changeSearchable = (allowed) => {
     setSearchable(allowed);
     saveSearchable(projectId, allowed);
+  };
+
+  const changePwaPrompt = (enabled) => {
+    setPwaPrompt(enabled);
+    savePwa(projectId, enabled);
   };
 
   const publish = (event) => {
@@ -501,6 +544,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
             </p>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
             <SearchableField checked={searchable && !locked} onChange={changeSearchable} disabled={busy || locked} />
+            <PwaField checked={pwaPrompt} onChange={changePwaPrompt} disabled={busy} />
             <PasswordField
               on={locked}
               onToggle={setLocked}
@@ -621,6 +665,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
             </div>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
             <SearchableField checked={searchable && !locked} onChange={changeSearchable} disabled={busy || locked} />
+            <PwaField checked={pwaPrompt} onChange={changePwaPrompt} disabled={busy} />
             <PasswordField
               on={locked}
               onToggle={setLocked}

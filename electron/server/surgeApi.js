@@ -147,8 +147,8 @@ const decodeImages = (images) => {
   return entries;
 };
 
-// The SEO connector's two text files (src/lib/seo.js), by name only.
-const EXTRA_FILE_NAMES = ['sitemap.xml', 'robots.txt'];
+// Extra text files: SEO connector (sitemap.xml, robots.txt) and PWA (manifest, service worker).
+const EXTRA_FILE_NAMES = ['sitemap.xml', 'robots.txt', 'manifest.webmanifest', 'manifest.json', 'sw.js'];
 const MAX_EXTRA_BYTES = 200_000;
 
 // { name: text } -> [{ name, data }], or an error message.
@@ -198,7 +198,8 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
       return json({ error: 'Couldn’t lock the site. Try again.' }, 500);
     }
     if (icon) pages = Object.fromEntries(Object.entries(pages).map(([name, html]) => [name, addFaviconLinks(html)]));
-    uploads = icon ? [icon] : [];
+    const pwaFiles = extraEntries.filter((entry) => entry.name === 'site/manifest.webmanifest' || entry.name === 'site/manifest.json' || entry.name === 'site/sw.js');
+    uploads = icon ? [icon, ...pwaFiles] : [...pwaFiles];
   }
 
   // Surge drops the first folder of every path, so pages go in as site/<name>.

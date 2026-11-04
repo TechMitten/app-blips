@@ -2,8 +2,8 @@
 // (electron/server/surgeApi.js). The same fetch works in every host: the
 // desktop app answers it in-process, server.js and the Vite dev server over
 // HTTP. The Surge token never reaches the page; only the account email does.
-import { safeStorage } from './config';
-import { slugifyName } from './helpers';
+import { safeStorage } from './config.js';
+import { slugifyName } from './helpers.js';
 
 export const SURGE_SUFFIX = '.surge.sh';
 const DOMAINS_KEY = 'orion-surge-domains';
@@ -145,4 +145,27 @@ export const saveProtected = (projectId, on) => {
   try {
     safeStorage('local')?.setItem(PROTECTED_KEY, JSON.stringify(map));
   } catch { /* not remembered: the box starts unticked next time */ }
+};
+
+// Whether a project's published site prompts visitors to install as a PWA.
+const PWA_KEY = 'orion-surge-pwa';
+
+const loadPwaMap = () => {
+  try {
+    const parsed = JSON.parse(safeStorage('local')?.getItem(PWA_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+export const loadPwa = (projectId) => (projectId ? loadPwaMap()[projectId] === true : false);
+
+export const savePwa = (projectId, enabled) => {
+  if (!projectId) return;
+  const map = { ...loadPwaMap(), [projectId]: enabled };
+  if (!enabled) delete map[projectId];
+  try {
+    safeStorage('local')?.setItem(PWA_KEY, JSON.stringify(map));
+  } catch { /* not remembered */ }
 };
