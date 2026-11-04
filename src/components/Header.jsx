@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, Menu, X, Power
+  Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut
 } from 'lucide-react';
+import { Show, SignInButton, SignUpButton, UserButton, SignOutButton } from '@clerk/react';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
 import { isDesktop, desktopBridge } from '../lib/desktop';
@@ -216,7 +217,36 @@ export default function Header({
           </button>
         </div>
 
-        {/* Rank 4: theme and exit */}
+        {/* Rank 4: account -- Clerk sign-in when signed out, the profile
+            menu when signed in. Hidden entirely while Clerk loads. */}
+        <span className="chrome-divider" aria-hidden="true" />
+        <div className="nav-rank">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button type="button" className="nav-btn nav-ghost" data-tip="Sign in">
+                <LogIn size={16} />
+                <span>Sign in</span>
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button type="button" className="nav-btn nav-btn-secondary" data-tip="Create an account">
+                <UserPlus size={16} />
+                <span>Sign up</span>
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton afterSignOutUrl="/" />
+            <SignOutButton>
+              <button type="button" className="nav-btn nav-ghost nav-btn-icon" data-tip="Sign out" aria-label="Sign out">
+                <LogOut size={16} />
+                <span className="hidden xl:inline">Sign out</span>
+              </button>
+            </SignOutButton>
+          </Show>
+        </div>
+
+        {/* Rank 5: theme and exit */}
         <span className="chrome-divider" aria-hidden="true" />
         <div className="nav-rank">
           {/* Theme toggle -- the icon names the destination, not the current state */}
@@ -362,6 +392,32 @@ export default function Header({
                 <Compass size={16} />
                 <span>Take the tour</span>
               </button>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <button type="button" onClick={closeMobileMenu} className="mobile-menu-item">
+                    <LogIn size={16} />
+                    <span>Sign in</span>
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button type="button" onClick={closeMobileMenu} className="mobile-menu-item mobile-menu-item-primary">
+                    <UserPlus size={16} />
+                    <span>Sign up</span>
+                  </button>
+                </SignUpButton>
+              </Show>
+              <Show when="signed-in">
+                <div className="mobile-menu-item">
+                  <UserButton afterSignOutUrl="/" />
+                  <span>Account</span>
+                </div>
+                <SignOutButton>
+                  <button type="button" onClick={closeMobileMenu} className="mobile-menu-item">
+                    <LogOut size={16} />
+                    <span>Sign out</span>
+                  </button>
+                </SignOutButton>
+              </Show>
               <button
                 type="button"
                 onClick={() => runMobileAction(onToggleTheme)}

@@ -17,6 +17,7 @@ export async function toChatRequest(req) {
     headers: {
       'content-type': 'application/json',
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
     },
     body: Buffer.concat(chunks),
   });
@@ -34,6 +35,8 @@ export async function toFetchRequest(req) {
     headers: {
       ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+      ...(req.headers['creem-signature'] ? { 'creem-signature': req.headers['creem-signature'] } : {}),
     },
     ...(hasBody ? { body: Buffer.concat(chunks) } : {}),
   });

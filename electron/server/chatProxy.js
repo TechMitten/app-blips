@@ -134,6 +134,11 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // model is theirs to choose.
 const routeModel = (env, provider, payload) => {
   if (provider.userSupplied) return provider.model;
+  // Hosted mode: the plan decides the model (the gate sets this after auth).
+  // Ignored outside hosted mode, so a client can't pin a model with it.
+  if (String(env?.APPBLIPS_HOSTED || '') === '1' && payload?.hosted_model_override) {
+    return String(payload.hosted_model_override);
+  }
   if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;
   return provider.model;
 };

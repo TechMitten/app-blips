@@ -26,11 +26,13 @@ import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
 import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleTavilyApi } from './electron/server/tavilyApi.js';
-import { handleReactBitsApi } from './electron/server/reactBitsApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
+import { handleBilling } from './electron/server/hosted/billing.js';
+import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js';
+import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
 // settings as real environment variables instead; those win over the file.
@@ -53,6 +55,12 @@ const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key
 // AppBlips AI Credits were removed; delete the sign-in token older versions
 // saved, so no credential is left behind that nothing uses.
 rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
+
+// Hosted mode turns this single-user server into a multi-user API: /api/chat
+// requires a Clerk session, picks the model by plan, and (for paid plans)
+// debits Creem build credits. Off by default so local/desktop use is unchanged.
+const hosted = String(process.env.APPBLIPS_HOSTED || '') === '1';
+const store = hosted ? openStore(defaultDatabasePath(process.env)) : null;
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -118,16 +126,43 @@ const server = createServer((req, res) => {
     else res.destroy();
   };
 
+  if (req.url === '/api/billing' || req.url.startsWith('/api/billing/') || req.url === '/api/webhooks/creem') {
+    if (!hosted) {
+      sendText(res, 404, 'Hosted billing is not enabled.');
+      return;
+    }
+    toFetchRequest(req)
+      .then((request) => handleBilling(request, process.env, store))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[billing]'))
+      .catch(fail);
+    return;
+  }
+
   if (req.url === '/api/chat') {
     if (req.method !== 'POST') {
       sendText(res, 405, 'Method not allowed');
       return;
     }
-    toChatRequest(req)
-      .then((request) => withSavedProvider(request, keys))
-      .then((request) => handleChatProxy(request, process.env))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
-      .catch(fail);
+    const handle = async () => {
+      let request = await toChatRequest(req);
+      let charge = null;
+      if (hosted) {
+        const gated = await gateChat(request, process.env, store);
+        if (gated.response) {
+          sendWebResponse(res, gated.response, SECURITY_HEADERS, '[billing]');
+          return;
+        }
+        request = gated.request;
+        charge = gated.charge;
+      } else {
+        request = await withSavedProvider(request, keys);
+      }
+      const response = await handleChatProxy(request, process.env);
+      // A rejected request didn't produce a build; don't charge for it.
+      if (charge && !response.ok) await refundBuildCredit(process.env, charge);
+      sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
+    };
+    handle().catch(fail);
     return;
   }
 
@@ -167,14 +202,6 @@ const server = createServer((req, res) => {
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     toFetchRequest(req)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
-      .catch(fail);
-    return;
-  }
-
-  if (req.url.startsWith('/api/react-bits/')) {
-    toFetchRequest(req)
-      .then((request) => handleReactBitsApi(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

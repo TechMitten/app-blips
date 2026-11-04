@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info, CreditCard } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import ConnectorsSettings from './ConnectorsSettings';
@@ -9,6 +9,7 @@ import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
 import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
+import PlanSettings from './PlanSettings';
 import {
   FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
@@ -78,6 +79,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  { id: 'plan', label: 'Plan', Icon: CreditCard },
   { id: 'connectors', label: 'Extensions', Icon: Plug },
   { id: 'tools', label: 'Tools', Icon: Wrench },
   { id: 'data', label: 'Data', Icon: HardDrive },
@@ -406,6 +408,7 @@ export default function SettingsModal({
           )}
 
           {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} />}
+          {tab === 'plan' && <PlanSettings />}
 
           {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} />}
 

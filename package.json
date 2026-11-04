@@ -36,6 +36,7 @@
     "@anthropic-ai/sdk": "^0.133.0",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@clerk/react": "^6.18.5",
     "@huggingface/transformers": "^3.8.1",
     "acorn": "^8.18.0",
     "acorn-jsx": "^5.3.2",
