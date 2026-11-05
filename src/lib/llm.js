@@ -879,6 +879,7 @@ const generateAppCodeCore = async (
   }
   if (isAskMode || routedFromBuild) {
     if (routedFromBuild && onChunk) onChunk('Answering your question…', 'status');
+    const askSandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget(3) : null;
     const messages = [
       {
         role: 'system',
@@ -889,6 +890,7 @@ const generateAppCodeCore = async (
             : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.')
           + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
           + (getActiveGallery().length ? `\n\n${buildImageGalleryNote(getActiveGallery(), studioMode)}` : '')
+          + (askSandboxBudget ? `\n\n${SANDBOX_COMPUTER_GUIDANCE}` : '')
       },
       ...chatHistory,
       {
@@ -899,14 +901,31 @@ const generateAppCodeCore = async (
         )
       }
     ];
-    const message = await requestModelText({
-      messages,
-      onChunk: routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk,
-      signal,
-      reasoningEffort: CHAT_REASONING_EFFORT,
-      askMode: true
-    });
-    const rawText = (message.content || message).trim();
+    const forward = routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk;
+    let rawText = '';
+    for (let turn = 1; turn <= 4; turn++) {
+      const last = turn === 4 || !askSandboxBudget || askSandboxBudget.left <= 0;
+      const message = await requestModelText({
+        messages,
+        tools: last ? undefined : [SANDBOX_EXEC_TOOL],
+        onChunk: forward,
+        signal,
+        reasoningEffort: CHAT_REASONING_EFFORT,
+        askMode: true
+      });
+      if (!message.tool_calls?.length) {
+        rawText = String(message.content || message || '').trim();
+        break;
+      }
+      messages.push(assistantTurn(message));
+      for (const toolCall of message.tool_calls) {
+        if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+        const outcome = isSandboxToolCall(toolCall) && askSandboxBudget
+          ? await executeSandboxToolCall({ files: currentCode ? startFiles : {} }, toolCall, askSandboxBudget, { onChunk, signal })
+          : { result: { success: false, error: 'Tool not available in Ask mode.' } };
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
+      }
+    }
     return {
       code: currentCode || '',
       editMode: 'ask',

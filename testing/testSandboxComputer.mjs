@@ -17,6 +17,7 @@ import {
   sandboxNetworkPolicy,
   sandboxPlanForTier,
 } from '../electron/server/hosted/sandbox.js';
+import { createServer as createViteServer } from 'vite';
 import {
   clearSandboxTerminalLog,
   createSandboxBudget,
@@ -25,6 +26,8 @@ import {
   fetchSandboxStatus,
   getSandboxTerminalLog,
   isSandboxComputerEnabled,
+  SANDBOX_COMPUTER_GUIDANCE,
+  SANDBOX_EXEC_TOOL_NAME,
   snapshotSandboxComputer,
   subscribeSandboxTerminal,
 } from '../src/lib/sandboxComputer.js';
@@ -88,6 +91,7 @@ let snapshotCounter = 1;
 const sandboxes = new Map(); // id -> { id, status, createBody, files: Map }
 const createCalls = [];
 const deletedSnapshots = [];
+const lastChatCalls = [];
 
 globalThis.fetch = async (url, init = {}) => {
   const href = String(url);
@@ -96,6 +100,38 @@ globalThis.fetch = async (url, init = {}) => {
     return new Response(JSON.stringify({ keys: [publicJwk] }), {
       headers: { 'content-type': 'application/json' },
     });
+  }
+
+  // Mock /api/chat for testing agent awareness and usage of run_sandbox_command
+  if (href === '/api/chat' || href === 'http://localhost/api/chat') {
+    const body = JSON.parse(init.body);
+    lastChatCalls.push(body);
+    const hasToolResult = body.messages.some((m) => m.role === 'tool');
+    if (!hasToolResult && Array.isArray(body.tools) && body.tools.some((t) => t.function?.name === SANDBOX_EXEC_TOOL_NAME)) {
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'call_sbx_1',
+              type: 'function',
+              function: {
+                name: SANDBOX_EXEC_TOOL_NAME,
+                arguments: JSON.stringify({ command: 'uname -a', sync_files_back: false }),
+              },
+            }],
+          },
+          finish_reason: 'tool_calls',
+        }],
+      }), { headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({
+      choices: [{
+        message: { role: 'assistant', content: 'I ran uname -a on my Linux sandbox computer.' },
+        finish_reason: 'stop',
+      }],
+    }), { headers: { 'content-type': 'application/json' } });
   }
 
   if (href === 'https://api.render.test/v1/owners?limit=20') {
@@ -396,7 +432,34 @@ try {
   assert.ok(autoDiscovered.sandboxId);
   assert.equal(createCalls.at(-1).ownerId, 'tea-autodiscovered');
 
-  console.log('Sandbox computer checks passed: tar bulk upload, snapshot cleanup, plan tiers, egress rules, terminal log, and preview file sync.');
+  // ---- 5. Agent awareness & tool usage in Ask mode --------------------------
+  const viteServer = await createViteServer({ configFile: false, server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
+  try {
+    const { setSandboxComputerEnabled: setSbxEnabled } = await viteServer.ssrLoadModule('/src/lib/sandboxComputer.js');
+    const { setAuthTokenGetter: setSsrTokenGetter } = await viteServer.ssrLoadModule('/src/lib/authToken.js');
+    const { generateAppCode } = await viteServer.ssrLoadModule('/src/lib/llm.js');
+    setSbxEnabled(true);
+    setSsrTokenGetter(async () => token1);
+
+    lastChatCalls.length = 0;
+    const askReply = await generateAppCode(
+      'What OS is your computer running?',
+      '<h1>Existing App</h1>',
+      [],
+      null,
+      'both',
+      null,
+      true, // isAskMode
+    );
+    assert.equal(askReply.editMode, 'ask');
+    assert.ok(askReply.reply.includes('Linux sandbox computer'));
+    assert.ok(lastChatCalls[0].messages[0].content.includes(SANDBOX_COMPUTER_GUIDANCE), 'agent system prompt includes sandbox guidance');
+    assert.ok(lastChatCalls[0].tools.some((t) => t.function?.name === SANDBOX_EXEC_TOOL_NAME), 'agent tools include run_sandbox_command');
+  } finally {
+    await viteServer.close();
+  }
+
+  console.log('Sandbox computer checks passed: tar bulk upload, snapshot cleanup, plan tiers, egress rules, terminal log, agent awareness, and preview file sync.');
 } finally {
   clearSandboxTerminalLog();
   setAuthTokenGetter(null);
