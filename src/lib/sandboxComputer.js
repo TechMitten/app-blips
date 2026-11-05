@@ -1,11 +1,11 @@
-// Client-side bridge and AI tool for the user's dedicated Render Sandbox
-// computer (/api/sandbox/*).
+// Client-side bridge, terminal log store, and AI tool for the user's dedicated
+// Render Sandbox computer (/api/sandbox/*).
 //
 // Each signed-in user has their own isolated Linux sandbox on Render with
 // auto-idle suspension and filesystem snapshots. Commands run inside
-// `/workspace`, stream stdout/stderr live to the builder UI, and sync any
-// modified text files back into the project's in-memory file map so the
-// existing sandboxed browser preview updates immediately.
+// `/workspace`, stream stdout/stderr live to the builder UI and terminal log,
+// and sync any modified text files back into the project's in-memory file map
+// so the existing sandboxed browser preview updates immediately.
 
 import { getAuthToken } from './authToken.js';
 import { invalidArgumentsError } from './edits.js';
@@ -14,12 +14,13 @@ import { logWarn } from './errorLog.js';
 export const SANDBOX_EXEC_TOOL_NAME = 'run_sandbox_command';
 export const MAX_SANDBOX_COMMANDS_PER_REQUEST = 8;
 const MAX_TOOL_OUTPUT_CHARS = 12_000;
+const MAX_TERMINAL_LOG_ENTRIES = 50;
 
 export const SANDBOX_EXEC_TOOL = {
   type: 'function',
   function: {
     name: SANDBOX_EXEC_TOOL_NAME,
-    description: 'Run a shell command in the user\'s dedicated Linux sandbox computer (working directory /workspace, containing the project\'s files). Use this to run scripts, tests, linters, builds, or inspect/transform files with standard CLI tools. Any text files created or modified in /workspace are synced back to the live preview.',
+    description: 'Run a shell command in the user\'s dedicated Linux sandbox computer (working directory /workspace, containing the project\'s files). Use this to run scripts, tests, linters, builds, install npm packages, or inspect/transform files with standard CLI tools. Any text files created or modified in /workspace are synced back to the live preview.',
     parameters: {
       type: 'object',
       properties: {
@@ -39,9 +40,51 @@ export const SANDBOX_EXEC_TOOL = {
   },
 };
 
-export const SANDBOX_COMPUTER_GUIDANCE = 'SANDBOX COMPUTER: You have access to the user\'s dedicated Linux computer via `run_sandbox_command` (working directory `/workspace`). The project\'s files are synced into `/workspace` before your command runs, and any text files created or modified inside `/workspace` are synced back into the live preview when `sync_files_back` is true.';
+export const SANDBOX_COMPUTER_GUIDANCE = 'SANDBOX COMPUTER: You have access to the user\'s dedicated Linux computer via `run_sandbox_command` (working directory `/workspace`). The project\'s files are synced into `/workspace` in a single archive before your command runs, and any text files created or modified inside `/workspace` are synced back into the live preview when `sync_files_back` is true.';
 
 let sandboxComputerEnabled = false;
+let terminalEntries = [];
+let nextEntryId = 1;
+const terminalListeners = new Set();
+
+const notifyTerminalListeners = () => {
+  for (const listener of terminalListeners) {
+    try { listener(terminalEntries); } catch { /* ignore listener error */ }
+  }
+};
+
+export const getSandboxTerminalLog = () => terminalEntries;
+
+export const clearSandboxTerminalLog = () => {
+  terminalEntries = [];
+  notifyTerminalListeners();
+};
+
+export const subscribeSandboxTerminal = (listener) => {
+  if (typeof listener !== 'function') return () => {};
+  terminalListeners.add(listener);
+  return () => { terminalListeners.delete(listener); };
+};
+
+function appendTerminalEntry(command) {
+  const entry = {
+    id: nextEntryId++,
+    command,
+    stdout: '',
+    stderr: '',
+    exitCode: null,
+    running: true,
+    startedAt: new Date().toISOString(),
+  };
+  terminalEntries = [...terminalEntries.slice(-(MAX_TERMINAL_LOG_ENTRIES - 1)), entry];
+  notifyTerminalListeners();
+  return entry.id;
+}
+
+function updateTerminalEntry(id, patch) {
+  terminalEntries = terminalEntries.map((item) => (item.id === id ? { ...item, ...patch } : item));
+  notifyTerminalListeners();
+}
 
 export const isSandboxComputerEnabled = () => sandboxComputerEnabled;
 
@@ -51,7 +94,7 @@ export const setSandboxComputerEnabled = (enabled) => {
 
 export const isSandboxToolCall = (toolCall) => toolCall?.function?.name === SANDBOX_EXEC_TOOL_NAME;
 
-export const createSandboxBudget = (max = MAX_SANDBOX_COMMANDS_PER_REQUEST) => ({ left: max });
+export const createSandboxBudget = (max = MAX_SANDBOX_COMMANDS_PER_REQUEST) => ({ left: max, used: 0 });
 
 const withAuth = async (init = {}) => {
   const token = await getAuthToken();
@@ -167,29 +210,61 @@ export async function execInSandboxComputer({
   onOutput,
   signal,
 } = {}) {
-  const res = await fetch('/api/sandbox/exec', await withAuth({
-    method: 'POST',
-    headers: { accept: 'text/event-stream' },
-    body: JSON.stringify({ command, files, syncBack, stream: true }),
-    signal,
-  }));
+  const entryId = appendTerminalEntry(command);
+  let liveStdout = '';
+  let liveStderr = '';
 
-  const contentType = res.headers.get('content-type') || '';
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => null);
-    throw new Error(errBody?.error || `Sandbox command failed (${res.status}).`);
+  const recordOutput = (chunk) => {
+    if (chunk.stream === 'stderr') liveStderr += chunk.data;
+    else liveStdout += chunk.data;
+    updateTerminalEntry(entryId, { stdout: liveStdout, stderr: liveStderr });
+    onOutput?.(chunk);
+  };
+
+  try {
+    const res = await fetch('/api/sandbox/exec', await withAuth({
+      method: 'POST',
+      headers: { accept: 'text/event-stream' },
+      body: JSON.stringify({ command, files, syncBack, stream: true }),
+      signal,
+    }));
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      throw new Error(errBody?.error || `Sandbox command failed (${res.status}).`);
+    }
+
+    if (contentType.includes('text/event-stream') && res.body) {
+      const exitPayload = await readSandboxSse(res.body, { onOutput: recordOutput });
+      if (!exitPayload) throw new Error('Sandbox stream ended without an exit event.');
+      updateTerminalEntry(entryId, {
+        stdout: exitPayload.stdout ?? liveStdout,
+        stderr: exitPayload.stderr ?? liveStderr,
+        exitCode: exitPayload.exitCode ?? 0,
+        running: false,
+      });
+      return exitPayload;
+    }
+
+    const data = await res.json();
+    if (data?.stdout) recordOutput({ stream: 'stdout', data: data.stdout });
+    if (data?.stderr) recordOutput({ stream: 'stderr', data: data.stderr });
+    updateTerminalEntry(entryId, {
+      stdout: data?.stdout ?? liveStdout,
+      stderr: data?.stderr ?? liveStderr,
+      exitCode: data?.exitCode ?? 0,
+      running: false,
+    });
+    return data;
+  } catch (err) {
+    updateTerminalEntry(entryId, {
+      stderr: `${liveStderr}${liveStderr ? '\n' : ''}${err instanceof Error ? err.message : String(err)}`,
+      exitCode: 1,
+      running: false,
+    });
+    throw err;
   }
-
-  if (contentType.includes('text/event-stream') && res.body) {
-    const exitPayload = await readSandboxSse(res.body, { onOutput });
-    if (!exitPayload) throw new Error('Sandbox stream ended without an exit event.');
-    return exitPayload;
-  }
-
-  const data = await res.json();
-  if (data?.stdout) onOutput?.({ stream: 'stdout', data: data.stdout });
-  if (data?.stderr) onOutput?.({ stream: 'stderr', data: data.stderr });
-  return data;
 }
 
 const truncateOutput = (text) => {
@@ -229,7 +304,10 @@ export async function executeSandboxToolCall(
       },
     };
   }
-  if (budget) budget.left--;
+  if (budget) {
+    budget.left--;
+    budget.used = (budget.used || 0) + 1;
+  }
 
   const syncBack = args.sync_files_back !== false;
   onChunk?.(`Running on your computer: ${command.slice(0, 80)}${command.length > 80 ? '…' : ''}`, 'status');

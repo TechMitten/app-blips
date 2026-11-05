@@ -10,6 +10,7 @@ import { WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL, createWebSearchBudget, executeWeb
 import {
   SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
   executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
+  snapshotSandboxComputer,
 } from '../sandboxComputer.js';
 
 export const MAX_CODEBASE_TURNS = 20;
@@ -330,6 +331,10 @@ async function runCodebaseEdit({
     reply = [intro, completion].filter(Boolean).join('\n\n');
   } else if (completionText) {
     onChunk?.(`${intro ? '\n\n' : ''}${completionText}`, 'reply');
+  }
+
+  if (sandboxBudget?.used > 0) {
+    snapshotSandboxComputer().catch(() => {});
   }
 
   return {

@@ -20,6 +20,7 @@ import {
 import {
   SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
   executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
+  snapshotSandboxComputer,
 } from './sandboxComputer';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -1260,6 +1261,9 @@ const generateAppCodeCore = async (
           if (onChunk) onChunk('Fixing links between pages…', 'status');
           messages.push({ role: 'user', content: buildBrokenLinkInstruction(brokenLinks) });
           continue;
+        }
+        if (sandboxBudget?.used > 0) {
+          snapshotSandboxComputer().catch(() => {});
         }
         return {
           ...filesResult(),

@@ -1,14 +1,146 @@
 import { useEffect, useState } from 'react';
 import { fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
-import { SettingRow, PRIMARY_BUTTON } from './SettingControls';
+import {
+  clearSandboxTerminalLog,
+  execInSandboxComputer,
+  fetchSandboxStatus,
+  getSandboxTerminalLog,
+  snapshotSandboxComputer,
+  subscribeSandboxTerminal,
+} from '../lib/sandboxComputer';
+import { SettingRow, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 
 const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
-// Plan and credit status for hosted AppBlips. Local/desktop installs answer
-// "not hosted" and show a short note instead of plan controls.
+function SandboxComputerSection({ sandboxId: initialSandboxId, snapshotId: initialSnapshotId }) {
+  const [sandboxId, setSandboxId] = useState(initialSandboxId || null);
+  const [snapshotId, setSnapshotId] = useState(initialSnapshotId || null);
+  const [entries, setEntries] = useState(() => getSandboxTerminalLog());
+  const [command, setCommand] = useState('');
+  const [running, setRunning] = useState(false);
+  const [snapshotting, setSnapshotting] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => subscribeSandboxTerminal(setEntries), []);
+
+  const runManualCommand = async (event) => {
+    event.preventDefault();
+    const trimmed = command.trim();
+    if (!trimmed || running) return;
+    setRunning(true);
+    setNotice('');
+    setCommand('');
+    try {
+      const res = await execInSandboxComputer({ command: trimmed, syncBack: false });
+      if (res?.sandboxId) setSandboxId(res.sandboxId);
+    } catch (err) {
+      setNotice(err.message || 'Command failed.');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const handleSnapshot = async () => {
+    if (snapshotting) return;
+    setSnapshotting(true);
+    setNotice('');
+    try {
+      const snap = await snapshotSandboxComputer();
+      if (snap?.sandboxId) setSandboxId(snap.sandboxId);
+      if (snap?.snapshotId) setSnapshotId(snap.snapshotId);
+      setNotice(`Saved filesystem snapshot (${snap.snapshotId}).`);
+    } catch (err) {
+      setNotice(err.message || 'Could not save snapshot.');
+    } finally {
+      setSnapshotting(false);
+    }
+  };
+
+  return (
+    <>
+      <SettingRow
+        id="set-sandbox-computer"
+        title="Agent computer"
+        description={sandboxId
+          ? `Dedicated Linux sandbox (${sandboxId})${snapshotId ? ` · latest snapshot ${snapshotId}` : ''} — auto-sleeps after 5 minutes of inactivity.`
+          : 'Dedicated Linux sandbox — provisions automatically on your next build and auto-sleeps when idle.'}
+      >
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {sandboxId ? 'Provisioned' : 'Ready'}
+          </span>
+          {sandboxId && (
+            <button
+              type="button"
+              onClick={handleSnapshot}
+              disabled={snapshotting}
+              className={SECONDARY_BUTTON}
+            >
+              {snapshotting ? 'Saving…' : 'Save snapshot'}
+            </button>
+          )}
+        </div>
+      </SettingRow>
+
+      <div className="px-4 pb-4">
+        <form onSubmit={runManualCommand} className="flex gap-2">
+          <input
+            type="text"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="Run a command in /workspace (e.g. node -v or ls -la)…"
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={running || !command.trim()}
+            className={SECONDARY_BUTTON}
+          >
+            {running ? 'Running…' : 'Run'}
+          </button>
+          {entries.length > 0 && (
+            <button
+              type="button"
+              onClick={clearSandboxTerminalLog}
+              className={SECONDARY_BUTTON}
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        {notice && <p className="mt-2 text-xs text-slate-600">{notice}</p>}
+
+        {entries.length > 0 && (
+          <div
+            className="mt-3 max-h-56 overflow-y-auto rounded-xl bg-slate-950 p-3 font-mono text-xs text-slate-200"
+            aria-label="Agent computer terminal output"
+          >
+            {entries.map((entry) => (
+              <div key={entry.id} className="mb-2.5 last:mb-0">
+                <div className="flex items-center justify-between text-indigo-300">
+                  <span>$ {entry.command}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {entry.running ? 'running…' : `exit ${entry.exitCode ?? 0}`}
+                  </span>
+                </div>
+                {entry.stdout && <pre className="mt-1 whitespace-pre-wrap break-words text-slate-200">{entry.stdout}</pre>}
+                {entry.stderr && <pre className="mt-1 whitespace-pre-wrap break-words text-amber-300">{entry.stderr}</pre>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// Plan and credit status for hosted AppBlips, plus the user's Render Sandbox
+// agent computer controls.
 export default function PlanSettings() {
   const [config, setConfig] = useState(null);
   const [me, setMe] = useState(null);
+  const [sandboxStatus, setSandboxStatus] = useState(null);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -16,9 +148,13 @@ export default function PlanSettings() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const nextConfig = await fetchBillingConfig();
+      const [nextConfig, nextSandbox] = await Promise.all([
+        fetchBillingConfig(),
+        fetchSandboxStatus(),
+      ]);
       if (cancelled) return;
       setConfig(nextConfig);
+      setSandboxStatus(nextSandbox);
       if (nextConfig.hosted) {
         const nextMe = await fetchBillingMe();
         if (!cancelled) setMe(nextMe);
@@ -31,10 +167,18 @@ export default function PlanSettings() {
   if (loading) return <p className="p-4 text-sm text-slate-500">Loading plan…</p>;
   if (!config?.hosted) {
     return (
-      <p className="p-4 text-sm leading-relaxed text-slate-500">
-        Plans and credits are available on AppBlips Cloud. This install uses your own AI provider,
-        so there is nothing to bill.
-      </p>
+      <>
+        <p className="p-4 text-sm leading-relaxed text-slate-500">
+          Plans and credits are available on AppBlips Cloud. This install uses your own AI provider,
+          so there is nothing to bill.
+        </p>
+        {sandboxStatus?.configured && (
+          <SandboxComputerSection
+            sandboxId={sandboxStatus.sandboxId}
+            snapshotId={sandboxStatus.snapshotId}
+          />
+        )}
+      </>
     );
   }
 
@@ -75,18 +219,11 @@ export default function PlanSettings() {
         </span>
       </SettingRow>
 
-      {active && (
-        <SettingRow
-          id="set-sandbox-computer"
-          title="Agent computer"
-          description={me?.sandboxId
-            ? `Dedicated Linux sandbox (${me.sandboxId}) — auto-sleeps after 5 minutes of inactivity.`
-            : 'Dedicated Linux sandbox — provisions automatically on your next build and auto-sleeps when idle.'}
-        >
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            {me?.sandboxId ? 'Provisioned' : 'Ready'}
-          </span>
-        </SettingRow>
+      {active && sandboxStatus?.configured && (
+        <SandboxComputerSection
+          sandboxId={me?.sandboxId || sandboxStatus?.sandboxId}
+          snapshotId={me?.sandboxSnapshotId || sandboxStatus?.snapshotId}
+        />
       )}
 
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {

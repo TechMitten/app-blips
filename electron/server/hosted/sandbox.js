@@ -7,6 +7,10 @@
 // automatically on the next command or file transfer). If a sandbox is ever
 // terminated or replaced, the next session restores from `sandbox_snapshot_id`.
 //
+// Project files are synced into `/workspace` in a single request using a POSIX
+// ustar `.tar` archive (`application/x-tar`), so multi-file codebases upload in
+// one round-trip with no separate mkdir pass.
+//
 // Uses plain Fetch primitives so the server bundle (scripts/build-server.js)
 // stays a single file with no extra runtime node_modules.
 
@@ -36,6 +40,29 @@ export const renderBaseUrl = (env) => String(env?.RENDER_API_BASE_URL || 'https:
 export const renderApiKey = (env) => String(env?.RENDER_API_KEY || '').trim();
 export const renderWorkspaceId = (env) => String(env?.RENDER_WORKSPACE_ID || '').trim();
 export const renderSandboxConfigured = (env) => Boolean(renderApiKey(env));
+
+// Picks the Render compute plan for a user's subscription tier (`basic`,
+// `silver`, `max`), falling back to `RENDER_SANDBOX_PLAN`.
+export function sandboxPlanForTier(env, tier = 'basic') {
+  const key = `RENDER_SANDBOX_PLAN_${String(tier || 'basic').toUpperCase()}`;
+  const specific = String(env?.[key] || '').trim();
+  if (specific) return specific;
+  return String(env?.RENDER_SANDBOX_PLAN || '').trim();
+}
+
+// Builds a Render networkPolicy when `RENDER_SANDBOX_ALLOW_DOMAINS` is set
+// (comma-separated domains, e.g. "registry.npmjs.org,*.npmjs.org,esm.sh").
+export function sandboxNetworkPolicy(env) {
+  const raw = String(env?.RENDER_SANDBOX_ALLOW_DOMAINS || '').trim();
+  if (!raw) return null;
+  if (raw.toLowerCase() === 'deny-all') return { type: 'deny-all' };
+  const domains = raw.split(',').map((d) => d.trim()).filter(Boolean);
+  if (!domains.length) return null;
+  return {
+    type: 'allow-list',
+    rules: domains.map((domain) => ({ domain })),
+  };
+}
 
 export async function resolveRenderWorkspaceId(env, { signal } = {}) {
   const explicit = renderWorkspaceId(env);
@@ -69,6 +96,55 @@ function cleanWorkspacePath(relPath) {
   return { relative: trimmed, full };
 }
 
+// Packs `{ [relativePath]: string | Buffer }` into an uncompressed POSIX ustar
+// tar archive so an entire project uploads to `/workspace` in one HTTP request.
+export function packTarArchive(files) {
+  const blocks = [];
+  const mtimeOctal = Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0';
+
+  for (const [rawPath, content] of Object.entries(files)) {
+    const { relative } = cleanWorkspacePath(rawPath);
+    const data = Buffer.isBuffer(content) ? content : Buffer.from(String(content), 'utf8');
+    const header = Buffer.alloc(512, 0);
+
+    let name = relative;
+    let prefix = '';
+    if (Buffer.byteLength(name, 'utf8') > 100) {
+      const slash = name.lastIndexOf('/');
+      if (slash > 0) {
+        prefix = name.slice(0, slash);
+        name = name.slice(slash + 1);
+      }
+    }
+
+    header.write(name, 0, Math.min(100, Buffer.byteLength(name)), 'utf8');
+    header.write('0000644\0', 100, 8, 'ascii');
+    header.write('0000000\0', 108, 8, 'ascii');
+    header.write('0000000\0', 116, 8, 'ascii');
+    header.write(data.length.toString(8).padStart(11, '0') + '\0', 124, 12, 'ascii');
+    header.write(mtimeOctal, 136, 12, 'ascii');
+    header.write('        ', 148, 8, 'ascii');
+    header.write('0', 156, 1, 'ascii');
+    header.write('ustar\0', 257, 6, 'ascii');
+    header.write('00', 263, 2, 'ascii');
+    if (prefix) {
+      header.write(prefix, 345, Math.min(155, Buffer.byteLength(prefix)), 'utf8');
+    }
+
+    let sum = 0;
+    for (let i = 0; i < 512; i++) sum += header[i];
+    header.write(sum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii');
+
+    blocks.push(header);
+    blocks.push(data);
+    const pad = (512 - (data.length % 512)) % 512;
+    if (pad) blocks.push(Buffer.alloc(pad, 0));
+  }
+
+  blocks.push(Buffer.alloc(1024, 0));
+  return Buffer.concat(blocks);
+}
+
 export async function renderRequest(env, method, path, body, { signal } = {}) {
   const apiKey = renderApiKey(env);
   if (!apiKey) throw new Error('RENDER_API_KEY is not configured on this server.');
@@ -99,12 +175,13 @@ export async function getSandbox(env, sandboxId, { signal } = {}) {
   );
 }
 
-export async function createSandbox(env, { snapshotId = null, signal } = {}) {
+export async function createSandbox(env, { snapshotId = null, tier = 'basic', signal } = {}) {
   const ownerId = await resolveRenderWorkspaceId(env, { signal });
 
   const image = String(env?.RENDER_SANDBOX_IMAGE || '').trim();
   const groupId = String(env?.RENDER_SANDBOX_GROUP_ID || '').trim();
-  const plan = String(env?.RENDER_SANDBOX_PLAN || '').trim();
+  const plan = sandboxPlanForTier(env, tier);
+  const networkPolicy = sandboxNetworkPolicy(env);
 
   const body = {
     ownerId,
@@ -112,6 +189,7 @@ export async function createSandbox(env, { snapshotId = null, signal } = {}) {
     idleTimeoutSeconds: DEFAULT_IDLE_TIMEOUT_SECONDS,
     ...(groupId ? { sandboxGroupId: groupId } : {}),
     ...(plan ? { plan } : {}),
+    ...(networkPolicy ? { networkPolicy } : {}),
   };
 
   if (snapshotId) {
@@ -144,6 +222,47 @@ export async function createSandboxSnapshot(env, sandboxId, { kind = 'filesystem
     { kind, ...(name ? { name } : {}) },
     { signal },
   );
+}
+
+export async function deleteSandboxSnapshot(env, sandboxGroupId, snapshotId, { signal } = {}) {
+  if (!sandboxGroupId || !snapshotId) return { ok: false, status: 400 };
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
+  return renderRequest(
+    env,
+    'DELETE',
+    `/sandbox-groups/${encodeURIComponent(sandboxGroupId)}/snapshots/${encodeURIComponent(snapshotId)}?ownerId=${encodeURIComponent(ownerId)}`,
+    undefined,
+    { signal },
+  );
+}
+
+// Captures a new filesystem snapshot for the user's sandbox, saves it to SQLite,
+// and deletes the user's superseded snapshot so snapshots never accumulate.
+export async function captureUserSandboxSnapshot(userId, env, store, { signal } = {}) {
+  const account = store?.getAccount(userId) || null;
+  const previousSnapshotId = account?.sandbox_snapshot_id || null;
+  const ensured = await ensureUserSandbox(userId, env, store, { signal });
+  const snapRes = await createSandboxSnapshot(env, ensured.sandboxId, {
+    kind: 'filesystem',
+    signal,
+  });
+  if (!snapRes.ok || !snapRes.data?.id) {
+    throw new Error(snapRes.data?.message || 'Failed to capture sandbox snapshot.');
+  }
+  const newSnapshotId = snapRes.data.id;
+  const groupId = snapRes.data.sandboxGroupId || String(env?.RENDER_SANDBOX_GROUP_ID || '').trim();
+  store?.setSandbox(userId, { sandboxId: ensured.sandboxId, snapshotId: newSnapshotId });
+
+  if (previousSnapshotId && previousSnapshotId !== newSnapshotId && groupId) {
+    await deleteSandboxSnapshot(env, groupId, previousSnapshotId, { signal }).catch(() => {});
+  }
+
+  return {
+    sandboxId: ensured.sandboxId,
+    snapshotId: newSnapshotId,
+    replacedSnapshotId: previousSnapshotId !== newSnapshotId ? previousSnapshotId : null,
+    status: snapRes.data.status,
+  };
 }
 
 // Polls until the sandbox reaches `running`. If the sandbox is `suspended`,
@@ -199,7 +318,7 @@ export async function waitUntilSandboxRunning(
 export async function ensureUserSandbox(userId, env, store, { signal, waitOptions } = {}) {
   if (!userId) throw new Error('userId is required.');
   if (!renderSandboxConfigured(env)) {
-    throw new Error('Render Sandboxes are not configured on this server (missing RENDER_API_KEY or RENDER_WORKSPACE_ID).');
+    throw new Error('Render Sandboxes are not configured on this server (missing RENDER_API_KEY).');
   }
 
   const inflight = inflightByUser.get(userId);
@@ -209,6 +328,7 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
     const account = store?.getAccount(userId) || null;
     const existingId = account?.sandbox_id || null;
     const snapshotId = account?.sandbox_snapshot_id || null;
+    const tier = account?.plan || 'basic';
 
     if (existingId) {
       try {
@@ -227,13 +347,13 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
       }
     }
 
-    let createRes = await createSandbox(env, { snapshotId, signal });
+    let createRes = await createSandbox(env, { snapshotId, tier, signal });
     let restoredFromSnapshot = Boolean(snapshotId);
     // If the saved snapshot expired or was deleted on Render, fall back to a
     // clean base sandbox rather than locking the user out.
     if (!createRes.ok && snapshotId && (createRes.status === 404 || createRes.status === 400 || createRes.status === 409)) {
       store?.setSandbox(userId, { sandboxId: null, snapshotId: null });
-      createRes = await createSandbox(env, { snapshotId: null, signal });
+      createRes = await createSandbox(env, { snapshotId: null, tier, signal });
       restoredFromSnapshot = false;
     }
     if (!createRes.ok || !createRes.data?.id) {
@@ -457,26 +577,49 @@ export async function downloadSandboxFile(env, sandboxId, relPath, { signal } = 
   };
 }
 
+// Uploads all files in `files` to `/workspace` in a single request using a
+// POSIX ustar `.tar` archive (`Content-Type: application/x-tar`).
 export async function syncFilesToSandbox(env, sandboxId, files, { signal } = {}) {
   if (!files || typeof files !== 'object') return [];
   const entries = Object.entries(files).filter(([, value]) => typeof value === 'string');
   if (!entries.length) return [];
 
-  // Ensure parent directories exist inside /workspace before uploading files.
-  const dirs = new Set([WORKSPACE_ROOT]);
-  for (const [relPath] of entries) {
-    const { full } = cleanWorkspacePath(relPath);
-    const dir = posix.dirname(full);
-    if (dir && dir !== '.') dirs.add(dir);
-  }
-  const mkdirCmd = `mkdir -p ${[...dirs].map((d) => `'${d.replace(/'/g, "'\\''")}'`).join(' ')}`;
-  await execSandboxCommand(env, sandboxId, mkdirCmd, { signal });
-
+  const validated = {};
   const uploaded = [];
   for (const [relPath, text] of entries) {
-    await uploadSandboxFile(env, sandboxId, relPath, text, { signal });
-    uploaded.push(cleanWorkspacePath(relPath).relative);
+    const { relative } = cleanWorkspacePath(relPath);
+    validated[relative] = text;
+    uploaded.push(relative);
   }
+
+  const tarBuffer = packTarArchive(validated);
+  const ownerId = await resolveRenderWorkspaceId(env, { signal });
+  const tokenRes = await renderRequest(
+    env,
+    'POST',
+    `/sandboxes/${encodeURIComponent(sandboxId)}/files/upload/token?ownerId=${encodeURIComponent(ownerId)}&path=${encodeURIComponent(WORKSPACE_ROOT)}`,
+    undefined,
+    { signal },
+  );
+  if (!tokenRes.ok || !tokenRes.data?.uri || !tokenRes.data?.token) {
+    throw new Error(tokenRes.data?.message || `Failed to obtain workspace tar upload token (${tokenRes.status}).`);
+  }
+
+  const uploadRes = await fetch(tokenRes.data.uri, {
+    method: tokenRes.data.method || 'PUT',
+    headers: {
+      authorization: `Bearer ${tokenRes.data.token}`,
+      'content-type': 'application/x-tar',
+    },
+    body: tarBuffer,
+    signal,
+  });
+
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text().catch(() => '');
+    throw new Error(text || `Failed to upload workspace tar archive (${uploadRes.status}).`);
+  }
+
   return uploaded;
 }
 
@@ -575,7 +718,7 @@ export async function handleSandbox(request, env, store) {
 
   if (!renderSandboxConfigured(env)) {
     return json(503, {
-      error: 'Render Sandboxes are not configured on this server. Set RENDER_API_KEY and RENDER_WORKSPACE_ID.',
+      error: 'Render Sandboxes are not configured on this server. Set RENDER_API_KEY.',
       code: 'sandbox_not_configured',
     });
   }
@@ -694,20 +837,8 @@ export async function handleSandbox(request, env, store) {
 
     if (pathname === '/api/sandbox/snapshot') {
       if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
-      const ensured = await ensureUserSandbox(userId, env, store, { signal: request.signal });
-      const snapRes = await createSandboxSnapshot(env, ensured.sandboxId, {
-        kind: 'filesystem',
-        signal: request.signal,
-      });
-      if (!snapRes.ok || !snapRes.data?.id) {
-        return json(502, { error: snapRes.data?.message || 'Failed to capture sandbox snapshot.' });
-      }
-      store?.setSandbox(userId, { sandboxId: ensured.sandboxId, snapshotId: snapRes.data.id });
-      return json(200, {
-        sandboxId: ensured.sandboxId,
-        snapshotId: snapRes.data.id,
-        status: snapRes.data.status,
-      });
+      const snap = await captureUserSandboxSnapshot(userId, env, store, { signal: request.signal });
+      return json(200, snap);
     }
 
     return json(404, { error: 'Not found.' });
