@@ -5,7 +5,8 @@ import { LogOut, Trash2 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { AuthButton } from './AccountDialogs';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, SettingRow } from './SettingControls';
-import { deleteAccountOnServer, fetchBillingMe } from '../lib/billing';
+import { deleteAccountOnServer, untilText } from '../lib/billing';
+import { useBillingMe } from '../hooks/useBillingMe';
 import { useRequestSignOut } from '../lib/accountDialogs';
 import { CancelPlanRow } from './PlanSettings';
 import { logError } from '../lib/errorLog';
@@ -24,11 +25,6 @@ const DANGER_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg border border
 
 const longDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
-// "3 h 20 min" / "12 min", like the server's cooldown message (chat.js).
-const untilText = (ms) => {
-  const minutes = Math.max(1, Math.ceil(ms / 60000));
-  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
-};
 
 // Clerk errors carry their readable text in errors[0]; ours in message.
 const errorText = (err, fallback) => err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || fallback;
@@ -416,23 +412,6 @@ function DeleteAccountRow({ user, me, loading }) {
       )}
     </SettingRow>
   );
-}
-
-// Reads the signed-in account's plan (/api/billing/me) once per mount.
-function useBillingMe(isSignedIn) {
-  const [me, setMe] = useState(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    if (!isSignedIn) return undefined;
-    let cancelled = false;
-    fetchBillingMe().then((account) => {
-      if (cancelled) return;
-      setMe(account);
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [isSignedIn]);
-  return { me, setMe, loading };
 }
 
 // Settings → Danger Zone, above deleting projects and the factory reset:

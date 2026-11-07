@@ -10,6 +10,7 @@ import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
 import StudioArt from './StudioArt';
+import StudioAccountMenu from './StudioAccountMenu';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -70,7 +71,7 @@ const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-
 
 const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onOpenAccount = null, onOpenPlans = null, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
   const accounts = useAccounts();
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
@@ -101,7 +102,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || menuOpen) return;
-      if (event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if (event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return;
       const studio = STUDIOS[Number(event.key) - 1];
       if (!studio) return;
       event.preventDefault();
@@ -246,17 +247,12 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     </AuthButton>
                   </Show>
                 )}
+                {/* Signed in: who, with the plan and the account
+                    actions one click away (StudioAccountMenu). Shown at every
+                    width: the picture alone below md. */}
                 {accounts && (
                   <Show when="signed-in">
-                    <button
-                      type="button"
-                      onClick={requestSignOut}
-                      aria-label="Sign out"
-                      title="Sign out"
-                      className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                    >
-                      <LogOut size={17} aria-hidden="true" />
-                    </button>
+                    <StudioAccountMenu onOpenAccount={onOpenAccount} onOpenPlans={onOpenPlans} />
                   </Show>
                 )}
                 <button

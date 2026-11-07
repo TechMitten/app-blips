@@ -2893,6 +2893,8 @@ export default function App({ coldStart = false }) {
           savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenAccount={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
+          onOpenPlans={openPlanSettings}
           resolvedTheme={resolvedTheme}
           onToggleTheme={handleToggleTheme}
         />

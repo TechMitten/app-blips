@@ -118,3 +118,9 @@ export async function deleteAccountOnServer(token) {
   if (!res.ok) throw new Error(data?.error || 'Could not delete your account.');
   return data;
 }
+
+// "3 h 20 min" / "12 min", like the server's cooldown message (chat.js).
+export const untilText = (ms) => {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+};
