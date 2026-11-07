@@ -38,8 +38,8 @@ import { setAuthTokenGetter } from '../src/lib/authToken.js';
 
 const env = {
   VITE_CLERK_PUBLISHABLE_KEY: `pk_test_${Buffer.from('clerk.test$').toString('base64')}`,
-  // A Creem key with the Clerk key turns hosted mode on (hosted/mode.js).
-  CREEM_TEST_API_KEY: 'creem_test_placeholder',
+  // A Polar token with the Clerk key turns hosted mode on (hosted/mode.js).
+  POLAR_ACCESS_TOKEN: 'polar_oat_placeholder',
   RENDER_API_KEY: 'rnd_test_secret',
   RENDER_WORKSPACE_ID: 'tea-workspace123',
   RENDER_API_BASE_URL: 'https://api.render.test/v1',
@@ -340,7 +340,7 @@ try {
 
   // A server without accounts (local installs, own-key users) never hands
   // out the computer, even with RENDER_API_KEY set: it is a paid-plan feature.
-  const { CREEM_TEST_API_KEY: _creem, ...localEnv } = env;
+  const { POLAR_ACCESS_TOKEN: _polar, ...localEnv } = env;
   for (const path of ['/api/sandbox/status', '/api/sandbox/exec']) {
     const localRes = await handleSandbox(new Request(`http://localhost${path}`, {
       method: path.endsWith('exec') ? 'POST' : 'GET',

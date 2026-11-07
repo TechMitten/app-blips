@@ -1,21 +1,21 @@
-// Hosted billing endpoints: plan/credit status, Creem checkout, and the
-// Creem webhook that keeps each user's plan current.
+// Hosted billing endpoints: plan status, Polar checkout, cancelling, and the
+// Polar webhook that keeps each user's plan current.
 //
-// Everything is driven by Creem: its customer-credit ledger is the source of
-// truth for paid-tier balances, and its webhooks are the source of truth for
-// subscriptions. The local store only keeps the Clerk-user <-> Creem-customer
-// link and a webhook idempotency set.
+// Polar's webhooks are the source of truth for subscriptions. The local
+// store keeps each Clerk user's plan and their Polar customer and
+// subscription ids. Every row is keyed by the Clerk user
+// id, which only a verified Clerk token (requests) or a signed Polar webhook
+// (external_customer_id, set by checkout below) can supply. Nothing is ever
+// looked up by email.
 
 import { PLANS, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog } from './plans.js';
 import { verifyClerkToken } from './clerk.js';
-import { cancelSubscription, createCheckout, findCreditAccount, findCustomerSubscription, getCreditBalance, verifyCreemSignature, creemWebhookSecret } from './creem.js';
+import { cancelSubscription, createCheckout, findUserSubscription, getSubscription, polarWebhookSecret, verifyPolarWebhook } from './polar.js';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { 'content-type': 'application/json' },
 });
-
-const idOf = (value) => (typeof value === 'string' ? value : value?.id || null);
 
 async function requireUser(request, env) {
   const header = request.headers.get('authorization') || '';
@@ -38,27 +38,14 @@ async function handleMe(request, env, store) {
   const account = await store.getAccount(auth.userId);
   const planId = planOf(account);
   const plan = PLANS[planId];
-  const unlimited = plan.monthlyCredits == null;
-
-  let credits = null;
-  if (!unlimited && account?.creem_customer_id) {
-    let walletId = account.credit_account_id;
-    if (!walletId) {
-      const wallet = await findCreditAccount(env, account.creem_customer_id).catch(() => null);
-      if (wallet) {
-        walletId = wallet.id;
-        await store.saveAccount({ userId: auth.userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
-      }
-    }
-    if (walletId) credits = await getCreditBalance(env, walletId).catch(() => null);
-  }
 
   return json(200, {
     plan: planId,
     planName: plan.name,
     active: Boolean(account?.active),
-    unlimited,
-    credits,
+    unlimited: plan.monthlyCredits == null,
+    // Monthly build credits (Silver, Max) aren't sold yet, so none to report.
+    credits: null,
     monthlyCredits: plan.monthlyCredits,
     sandboxId: account?.sandbox_id || null,
     sandboxSnapshotId: account?.sandbox_snapshot_id || null,
@@ -91,29 +78,31 @@ async function handleCheckout(request, env) {
     clerkUserId: auth.userId,
     successUrl,
   }).catch(() => null);
-  if (!result?.ok) return json(502, { error: 'Could not start checkout. Please try again.' });
+  if (!result?.ok) {
+    console.error('[billing] checkout failed:', result?.status, String(result?.text || '').slice(0, 300));
+    return json(502, { error: 'Could not start checkout. Please try again.' });
+  }
 
-  const url = result.data?.checkout_url || result.data?.checkoutUrl;
+  const url = result.data?.url;
   if (!url) return json(502, { error: 'Checkout did not return a URL.' });
   return json(200, { url });
 }
 
 // Settings → Plan → Cancel subscription. Cancels at the end of the paid
-// period (creem.js cancelSubscription): the plan stays active until then and
-// is switched off by the subscription.canceled webhook when it ends.
+// period (polar.js cancelSubscription): the plan stays active until then and
+// is switched off by the subscription.revoked webhook when it ends.
 async function handleCancel(request, env, store) {
   const auth = await requireUser(request, env);
   if (auth.response) return auth.response;
   const account = await store.getAccount(auth.userId);
-  if (!account?.active || !account.creem_customer_id) {
+  if (!account?.active) {
     return json(409, { error: 'You don’t have an active plan to cancel.' });
   }
   if (account.cancel_at) return json(200, { cancelAt: account.cancel_at });
 
   let subscriptionId = account.subscription_id;
   if (!subscriptionId) {
-    // Subscribed before subscription ids were stored: look it up once.
-    const found = await findCustomerSubscription(env, account.creem_customer_id).catch(() => null);
+    const found = await findUserSubscription(env, auth.userId).catch(() => null);
     subscriptionId = found?.id || null;
   }
   if (!subscriptionId) {
@@ -124,60 +113,57 @@ async function handleCancel(request, env, store) {
   if (!result?.ok) {
     return json(502, { error: 'Could not cancel your subscription. Please try again, or contact support@appblips.com.' });
   }
-  const cancelAt = result.data?.current_period_end_date || null;
-  await store.setSubscriptionId(account.creem_customer_id, subscriptionId);
+  const cancelAt = result.data?.ends_at || result.data?.current_period_end || null;
+  await store.setSubscriptionId(auth.userId, subscriptionId);
   // Unknown end date: still mark it, so Settings shows it as cancelled.
-  await store.setCancelAt(account.creem_customer_id, cancelAt || new Date().toISOString());
+  await store.setCancelAt(auth.userId, cancelAt || new Date().toISOString());
   return json(200, { cancelAt });
 }
 
-async function applyCheckoutCompleted(object, env, store) {
-  const customerId = idOf(object.customer);
-  const userId = object.metadata?.clerk_user_id || object.metadata?.clerkUserId;
-  const productId = idOf(object.product) || object.product_id || object.subscription?.product;
-  const planId = planForProductId(env, productId) || 'basic';
-  if (!userId || !customerId) return;
-  await store.saveAccount({ userId, customerId, plan: planId, active: true });
-  // Kept so Settings can cancel it (Creem can't look it up by customer).
-  await store.setSubscriptionId(customerId, idOf(object.subscription));
-  await store.setCancelAt(customerId, null);
-}
+// Polar statuses that still give access. A subscription cancelled for the
+// period end stays "active" (cancel_at_period_end) until it's revoked.
+const LIVE_STATUSES = new Set(['active', 'trialing']);
 
-async function applySubscription(object, type, env, store) {
-  const customerId = idOf(object.customer);
-  if (!customerId) return;
-  const productId = idOf(object.product) || object.product_id;
-  const planId = planForProductId(env, productId);
+// Returns false when the event couldn't be applied yet (Polar retries it).
+async function applySubscription(eventSub, env, store) {
+  if (!eventSub?.id) return true;
+  // Deliveries can arrive late or out of order (retries), so the event only
+  // says which subscription changed: its current state comes from Polar.
+  const fresh = await getSubscription(env, eventSub.id).catch(() => null);
+  if (!fresh?.ok || !fresh.data?.id) return false;
+  const sub = fresh.data;
 
-  await store.setSubscriptionId(customerId, object.id);
+  // Set by our own checkout (createCheckout); a subscription made any other
+  // way (for example by hand in Polar's dashboard) has no Clerk user to
+  // attach to and is ignored.
+  const userId = sub.customer?.external_id || null;
+  if (!userId) return true;
 
-  // subscription.canceled also fires when a scheduled cancel takes effect at
-  // the end of the paid period, so access ends exactly then.
-  const ended = ['subscription.canceled', 'subscription.expired', 'subscription.unpaid', 'subscription.paused'].includes(type);
-  if (ended) {
-    await store.setPlanByCustomer(customerId, 'basic', false);
-    await store.setCancelAt(customerId, null);
-    return;
-  }
-  // Cancelled for the end of the period: still active until then.
-  if (type === 'subscription.scheduled_cancel' || object.status === 'scheduled_cancel') {
-    await store.setCancelAt(customerId, object.current_period_end_date || new Date().toISOString());
-    return;
-  }
-  if (['subscription.active', 'subscription.paid', 'subscription.trialing', 'subscription.update'].includes(type)) {
-    await store.setPlanByCustomer(customerId, planId || 'basic', true);
-    // Renewing (or resumed) again: no end date.
-    if (object.status === 'active' || object.status === 'trialing') await store.setCancelAt(customerId, null);
-  }
+  const active = LIVE_STATUSES.has(sub.status) && !sub.ended_at;
+  const account = await store.getAccount(userId);
+  // An older subscription ending must not switch off a newer one.
+  if (!active && account?.active && account.subscription_id && account.subscription_id !== sub.id) return true;
+
+  const planId = planForProductId(env, sub.product_id) || 'basic';
+  await store.saveAccount({ userId, customerId: sub.customer_id || sub.customer?.id || null, plan: planId, active });
+  await store.setSubscriptionId(userId, sub.id);
+  const cancelAt = active && sub.cancel_at_period_end ? (sub.ends_at || sub.current_period_end || null) : null;
+  await store.setCancelAt(userId, cancelAt);
+  return true;
 }
 
 async function handleWebhook(request, env, store) {
-  const secret = creemWebhookSecret(env);
+  const secret = polarWebhookSecret(env);
   if (!secret) return json(503, { error: 'Webhooks are not configured.' });
 
   const raw = Buffer.from(await request.arrayBuffer());
-  if (!verifyCreemSignature(raw, request.headers.get('creem-signature'), secret)) {
-    return json(401, { error: 'Invalid webhook signature.' });
+  const headers = {
+    id: request.headers.get('webhook-id'),
+    timestamp: request.headers.get('webhook-timestamp'),
+    signature: request.headers.get('webhook-signature'),
+  };
+  if (!verifyPolarWebhook(raw, headers, secret)) {
+    return json(403, { error: 'Invalid webhook signature.' });
   }
 
   let event;
@@ -187,22 +173,19 @@ async function handleWebhook(request, env, store) {
     return json(400, { error: 'Invalid webhook body.' });
   }
 
-  const eventId = event?.id || event?.event_id || event?.data?.id;
-  if (eventId && !(await store.claimEvent(eventId))) {
-    return json(200, { received: true, duplicate: true });
+  // Applying an event re-reads the subscription's current state, so a
+  // repeated delivery is harmless; no idempotency record is needed.
+  const type = String(event?.type || '');
+  if (type.startsWith('subscription.') && !(await applySubscription(event.data, env, store))) {
+    return json(503, { error: 'Could not read the subscription from Polar. Retry later.' });
   }
 
-  const type = event?.eventType || event?.type || '';
-  const object = event?.object || event?.data?.object || event?.data || {};
-  if (type === 'checkout.completed') await applyCheckoutCompleted(object, env, store);
-  else if (type.startsWith('subscription.')) await applySubscription(object, type, env, store);
-
-  return json(200, { received: true });
+  return json(202, { received: true });
 }
 
 export async function handleBilling(request, env, store) {
   const { pathname } = new URL(request.url);
-  if (pathname === '/api/webhooks/creem') {
+  if (pathname === '/api/webhooks/polar') {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
     return handleWebhook(request, env, store);
   }

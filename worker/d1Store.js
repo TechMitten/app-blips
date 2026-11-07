@@ -14,27 +14,21 @@ export function d1Store(db) {
     return (await db.prepare('select * from accounts where user_id = ?').bind(userId).first()) || null;
   };
 
-  const getAccountByCustomer = async (customerId) => {
-    if (!customerId) return null;
-    return (await db.prepare('select * from accounts where creem_customer_id = ?').bind(customerId).first()) || null;
-  };
-
   // One upsert instead of read-then-write, so two requests for a new user
   // can't both insert. Fields the caller doesn't know (null) keep their value.
-  const saveAccount = async ({ userId, customerId = null, creditAccountId = null, plan = 'basic', active = false, sandboxId = null, snapshotId = null }) => {
+  const saveAccount = async ({ userId, customerId = null, plan = 'basic', active = false, sandboxId = null, snapshotId = null }) => {
     if (!userId) return null;
     await db.prepare(`
-      insert into accounts (user_id, creem_customer_id, credit_account_id, plan, active, sandbox_id, sandbox_snapshot_id, updated_at)
-      values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+      insert into accounts (user_id, customer_id, plan, active, sandbox_id, sandbox_snapshot_id, updated_at)
+      values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
       on conflict(user_id) do update set
-        creem_customer_id = coalesce(?2, creem_customer_id),
-        credit_account_id = coalesce(?3, credit_account_id),
-        plan = ?4,
-        active = ?5,
-        sandbox_id = coalesce(?6, sandbox_id),
-        sandbox_snapshot_id = coalesce(?7, sandbox_snapshot_id),
-        updated_at = ?8
-    `).bind(userId, customerId, creditAccountId, plan, active ? 1 : 0, sandboxId, snapshotId, now()).run();
+        customer_id = coalesce(?2, customer_id),
+        plan = ?3,
+        active = ?4,
+        sandbox_id = coalesce(?5, sandbox_id),
+        sandbox_snapshot_id = coalesce(?6, sandbox_snapshot_id),
+        updated_at = ?7
+    `).bind(userId, customerId, plan, active ? 1 : 0, sandboxId, snapshotId, now()).run();
     return getAccount(userId);
   };
 
@@ -42,12 +36,6 @@ export function d1Store(db) {
     if (!userId) return;
     await db.prepare('update accounts set plan = ?, active = ?, updated_at = ? where user_id = ?')
       .bind(plan, active ? 1 : 0, now(), userId).run();
-  };
-
-  const setPlanByCustomer = async (customerId, plan, active = true) => {
-    if (!customerId) return;
-    await db.prepare('update accounts set plan = ?, active = ?, updated_at = ? where creem_customer_id = ?')
-      .bind(plan, active ? 1 : 0, now(), customerId).run();
   };
 
   // Pass `null` for `sandboxId` when clearing a terminated sandbox; leave a
@@ -80,13 +68,13 @@ export function d1Store(db) {
     await db.prepare(RELEASE_BUILD_SQL).bind(userId).run();
   };
 
-  // The Creem subscription (subscriptionSql.js); columns from migrations/0003.
-  const setSubscriptionId = async (customerId, subscriptionId) => {
-    if (customerId && subscriptionId) await db.prepare(SET_SUBSCRIPTION_ID_SQL).bind(subscriptionId, now(), customerId).run();
+  // The Polar subscription (subscriptionSql.js); columns from migrations/0003.
+  const setSubscriptionId = async (userId, subscriptionId) => {
+    if (userId && subscriptionId) await db.prepare(SET_SUBSCRIPTION_ID_SQL).bind(subscriptionId, now(), userId).run();
   };
-  const setCancelAt = async (customerId, cancelAt) => {
-    if (customerId) await db.prepare(SET_CANCEL_AT_SQL).bind(cancelAt || null, now(), customerId).run();
+  const setCancelAt = async (userId, cancelAt) => {
+    if (userId) await db.prepare(SET_CANCEL_AT_SQL).bind(cancelAt || null, now(), userId).run();
   };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => {} };
+  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => {} };
 }

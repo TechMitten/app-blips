@@ -78,7 +78,7 @@ These give the server its own provider. It's used whenever **Settings → AI** h
 
 ## Accounts and plans
 
-AppBlips has no accounts unless you set them up. If your `.env` contains both a Clerk publishable key (`VITE_CLERK_PUBLISHABLE_KEY`) and a Creem API key (`CREEM_API_KEY`, or `CREEM_TEST_API_KEY` when `CREEM_SERVER` isn't `prod`), the server turns on sign-in and paid plans by itself: signed-in subscribers build with the server's AI provider, and everyone else keeps using their own key. There is no separate switch. For a normal install, leave both keys out.
+AppBlips has no accounts unless you set them up. If your `.env` contains both a Clerk publishable key (`VITE_CLERK_PUBLISHABLE_KEY`) and a Polar access token (`POLAR_ACCESS_TOKEN`), the server turns on sign-in and paid plans by itself: signed-in subscribers build with the server's AI provider, and everyone else keeps using their own key. There is no separate switch. For a normal install, leave both keys out.
 
 ## Example `.env` files
 

@@ -3,7 +3,7 @@
 //
 // Accounts are on only when both halves exist: the build has a Clerk
 // publishable key, and the server answering /api/* says it is hosted (it has
-// Clerk and Creem keys, see electron/server/hosted/mode.js). In the desktop
+// a Clerk key and a Polar token, see electron/server/hosted/mode.js). In the desktop
 // app that server is the AppBlips Worker (electron/hostedApi.js), so desktop
 // has accounts whenever it is online at startup. Anything else —
 // Pinokio and other source installs with no .env, Docker, the Android app,

@@ -57,16 +57,11 @@ export const planModel = (env, planId) => {
   return String(env?.[plan.modelEnv] || '').trim();
 };
 
-// The Creem product id configured for a plan, in the active environment
-// (test and production have separate product catalogs).
-export const planProductId = (env, planId) => {
-  const prefix = String(env?.CREEM_SERVER || 'test').toLowerCase() === 'test'
-    ? 'CREEM_TEST_PRODUCT'
-    : 'CREEM_PRODUCT';
-  return String(env?.[`${prefix}_${planId.toUpperCase()}`] || '').trim();
-};
+// The Polar product id configured for a plan (POLAR_PRODUCT_BASIC, ...).
+// Polar's sandbox has its own products: set these to the sandbox ids there.
+export const planProductId = (env, planId) => String(env?.[`POLAR_PRODUCT_${planId.toUpperCase()}`] || '').trim();
 
-// The plan a Creem product id maps to, from the environment's product ids.
+// The plan a Polar product id maps to, from the environment's product ids.
 export const planForProductId = (env, productId) => {
   if (!productId) return null;
   for (const id of PLAN_IDS) {
@@ -76,7 +71,7 @@ export const planForProductId = (env, productId) => {
 };
 
 // What the browser may know: tier names, prices and allowances. Never model
-// ids, and never Creem product ids (checkout is created server-side).
+// ids, and never Polar product ids (checkout is created server-side).
 export const publicCatalog = () => PLAN_IDS.map((id) => ({
   id,
   name: PLANS[id].name,

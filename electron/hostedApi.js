@@ -1,4 +1,4 @@
-// AppBlips plans in the desktop app. The plan side (Clerk sign-in, Creem
+// AppBlips plans in the desktop app. The plan side (Clerk sign-in, Polar
 // checkout, the server's AI key) lives in the Cloudflare Worker (worker/),
 // because its secret keys can't ship in the app. The renderer keeps calling
 // the same relative /api/* paths as everywhere else; main forwards the plan

@@ -75,7 +75,7 @@ function llmProxyDevMiddleware(mode) {
       const keys = createKeyFile({ file: defaultKeyFile(env) })
       const noKeys = { keyFor: () => '', describe: () => ({ id: '', hasKey: false }) }
       // Same rule as server.js: hosted (Clerk sign-in, plans, the server's AI
-      // key) exactly when the Clerk and Creem keys are set (hosted/mode.js),
+      // key) exactly when the Clerk key and Polar token are set (hosted/mode.js),
       // so `npm run dev` behaves like `npm start` with the same .env.
       const hosted = isHosted(env)
       // The account store is always open.
@@ -104,7 +104,7 @@ function llmProxyDevMiddleware(mode) {
         const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // Plans, checkout and Creem's payment notices. Without the hosted keys
+      // Plans, checkout and Polar's payment notices. Without the hosted keys
       // this answers 404 like server.js, which the app reads as "no accounts".
       const billing = guarded(async (req, res) => {
         if (!hosted) {
@@ -116,7 +116,7 @@ function llmProxyDevMiddleware(mode) {
         sendWebResponse(res, response, {}, '[billing]')
       })
       server.middlewares.use('/api/billing', billing)
-      server.middlewares.use('/api/webhooks/creem', billing)
+      server.middlewares.use('/api/webhooks/polar', billing)
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403

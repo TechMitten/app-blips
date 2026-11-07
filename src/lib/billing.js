@@ -39,7 +39,7 @@ export async function fetchBillingMe() {
   }
 }
 
-// Opens Creem's hosted checkout. Returns the URL rather than navigating so
+// Opens Polar's hosted checkout. Returns the URL rather than navigating so
 // callers can decide (the desktop app may want to open it in the browser).
 export async function createCheckoutSession(planId) {
   const res = await fetch('/api/billing/checkout', await withAuth({
@@ -52,7 +52,7 @@ export async function createCheckoutSession(planId) {
 }
 
 // Cancels the plan at the end of the paid period. Returns the ISO date it
-// ends (or null if Creem didn't say); throws with the server's message.
+// ends (or null if Polar didn't say); throws with the server's message.
 export async function cancelPlan() {
   const res = await fetch('/api/billing/cancel', await withAuth({ method: 'POST', body: '{}' }));
   const data = await res.json().catch(() => null);
@@ -62,7 +62,7 @@ export async function cancelPlan() {
 
 // Returns true when checkout opened in the person's web browser (the desktop
 // app), where the app stays open and has to notice the payment itself
-// (waitForPlan). Elsewhere the page goes to Creem, which brings it back.
+// (waitForPlan). Elsewhere the page goes to Polar, which brings it back.
 export async function openCheckout(planId) {
   const url = await createCheckoutSession(planId);
   if (isDesktop) {
@@ -75,7 +75,7 @@ export async function openCheckout(planId) {
 }
 
 // After a desktop checkout: re-reads the plan when the person comes back to
-// the window and every few seconds, until Creem's notice has made it active
+// the window and every few seconds, until Polar's notice has made it active
 // (onActive gets the account) or 30 minutes pass. Returns a stop function.
 export function waitForPlan(onActive, { intervalMs = 5000, timeoutMs = 30 * 60 * 1000 } = {}) {
   let stopped = false;

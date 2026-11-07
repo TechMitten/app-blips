@@ -59,9 +59,9 @@ const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key
 rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
 
 // Hosted mode turns this single-user server into a multi-user API: /api/chat
-// requires a Clerk session, picks the model by plan, and (for paid plans)
-// debits Creem build credits. It turns on by itself when Clerk and Creem keys
-// are set (mode.js), so a plain local install stays single-user.
+// requires a Clerk session and an active plan, and picks the model by plan;
+// Polar takes the payments. It turns on by itself when the Clerk key and a
+// Polar token are set (mode.js), so a plain local install stays single-user.
 const hosted = isHosted(process.env);
 // The account store (plans, processed webhooks, sandbox ids) is always open.
 const store = openStore(defaultDatabasePath(process.env));
@@ -130,7 +130,7 @@ const server = createServer((req, res) => {
     else res.destroy();
   };
 
-  if (req.url === '/api/billing' || req.url.startsWith('/api/billing/') || req.url === '/api/webhooks/creem') {
+  if (req.url === '/api/billing' || req.url.startsWith('/api/billing/') || req.url === '/api/webhooks/polar') {
     if (!hosted) {
       sendText(res, 404, 'Hosted billing is not enabled.');
       return;

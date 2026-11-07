@@ -518,8 +518,8 @@ function LegalNote({ action }) {
 
 // The plan path: Clerk sign-in inside onboarding, then the plans. Rendered
 // only with accounts on, since Clerk's components need its provider.
-// Checkout leaves the app for Creem, so setup is marked done first
-// (onCheckout); Creem brings the person back to the app, not to setup. The
+// Checkout leaves the app for Polar, so setup is marked done first
+// (onCheckout); Polar brings the person back to the app, not to setup. The
 // desktop app opens checkout in the browser instead and stays on this step
 // until the plan is active.
 // The plan step's heading and text follow where the person is: signed out
@@ -692,7 +692,7 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
           <span>Checkout opened in your web browser. Finish paying there, then come back: this step updates by itself.</span>
         </p>
       ) : (
-        <p className="onboarding-key-help">Payment opens on Creem’s secure checkout. Cancel anytime.</p>
+        <p className="onboarding-key-help">Payment opens on Polar’s secure checkout. Cancel anytime.</p>
       )}
       <LegalNote action="subscribing" />
     </div>
@@ -924,7 +924,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     await markOnboarded();
     onComplete();
   };
-  // Checkout leaves the app, and Creem returns to the app itself, so setup
+  // Checkout leaves the app, and Polar returns to the app itself, so setup
   // is finished before going.
   const beforeCheckout = async () => {
     keepProfile();

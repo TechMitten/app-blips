@@ -1,15 +1,13 @@
-// Gate for hosted /api/chat: authenticate the Clerk session, resolve the
-// user's plan, apply that plan's model alias, and debit one build credit for
-// paid tiers before the provider is called (refunded if the call fails).
+// Gate for hosted /api/chat: authenticate the Clerk session, require an
+// active plan, apply that plan's model alias, and count builds against the
+// plan's cooldown window (given back if the provider rejects the request).
 //
 // Build vs. non-build: the client marks Ask-mode requests with `ask: true`
-// and error-repair requests with `auto_fix: true`; those are free. Every
-// other request creates a version and costs one credit.
+// and error-repair requests with `auto_fix: true`; those don't count. Every
+// other request creates a version and counts as a build.
 
-import { randomUUID } from 'node:crypto';
 import { PLANS, isPlanId, planModel } from './plans.js';
 import { verifyClerkToken } from './clerk.js';
-import { findCreditAccount, debitCredits, creditCredits } from './creem.js';
 
 const json = (status, body, headers = {}) => new Response(JSON.stringify(body), {
   status,
@@ -73,7 +71,6 @@ export async function gateChat(request, env, store) {
   if (model) payload.hosted_model_override = model;
 
   const isBuild = payload.ask !== true && payload.auto_fix !== true;
-  let charge = null;
   let windowed = false;
 
   if (isBuild) {
@@ -98,32 +95,17 @@ export async function gateChat(request, env, store) {
       }
       windowed = true;
     }
+    // Plans with a monthly credit allowance (Silver, Max) aren't sold yet,
+    // and there's no credit ledger behind them: refuse rather than build
+    // for free. Metering them is work for when they go on sale.
     if (plan.monthlyCredits != null) {
-      if (!account?.creem_customer_id) {
-        return { response: json(402, { error: 'Your plan is not linked to a payment account yet.' }) };
-      }
-      let walletId = account.credit_account_id;
-      if (!walletId) {
-        const wallet = await findCreditAccount(env, account.creem_customer_id).catch(() => null);
-        if (!wallet) return { response: json(402, { error: 'Your credit wallet is not ready yet.' }) };
-        walletId = wallet.id;
-        await store.saveAccount({ userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
-      }
-
-      const reference = `build_${randomUUID()}`;
-      const result = await debitCredits(env, walletId, { amount: 1, reference, idempotencyKey: reference }).catch(() => null);
-      if (!result?.ok) {
-        const insufficient = result?.status === 402 || /insufficient|balance|exceed/i.test(result?.text || '');
-        return {
-          response: json(402, {
-            error: insufficient
-              ? 'You are out of build credits. Upgrade your plan to keep building.'
-              : 'Could not reserve a build credit. Please try again.',
-            code: insufficient ? 'credits_exhausted' : 'credit_error',
-          }),
-        };
-      }
-      charge = { accountId: walletId, amount: 1, reference };
+      if (windowed) await Promise.resolve(store.releaseBuild(userId)).catch(() => {});
+      return {
+        response: json(402, {
+          error: `${plan.name} isn't available yet. Contact support@appblips.com about your plan.`,
+          code: 'plan_unavailable',
+        }),
+      };
     }
   }
 
@@ -132,22 +114,11 @@ export async function gateChat(request, env, store) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return { request: gated, userId, planId, charge, windowed };
+  return { request: gated, userId, planId, windowed };
 }
 
-// A rejected request built nothing: give back its build credit and its slot
-// in the cooldown window.
+// A rejected request built nothing: give back its slot in the cooldown
+// window.
 export async function releaseBuild(env, store, gated) {
   if (gated?.windowed) await Promise.resolve(store.releaseBuild(gated.userId)).catch(() => {});
-  await refundBuildCredit(env, gated?.charge);
-}
-
-// Gives a build credit back when the provider rejects the request outright.
-export async function refundBuildCredit(env, charge) {
-  if (!charge) return;
-  await creditCredits(env, charge.accountId, {
-    amount: charge.amount,
-    reference: `${charge.reference}_refund`,
-    idempotencyKey: `${charge.reference}_refund`,
-  }).catch(() => {});
 }

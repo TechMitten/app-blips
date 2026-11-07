@@ -1,74 +1,87 @@
 // Run with: node testing/testHostedBilling.mjs
 // Covers the hosted billing core without network calls: SQLite store, plan
-// mapping, Creem webhook verification/idempotency, Clerk token verification
-// (against a locally signed token), and the chat gate's model override +
-// credit debit.
+// mapping, Polar webhook signatures, Clerk token verification (against a
+// locally signed token), checkout, cancelling, the webhook's plan updates
+// and the chat gate. Polar's API is faked.
 import assert from 'node:assert/strict';
-import { createHmac, generateKeyPairSync, sign as signJwt } from 'node:crypto';
+import { createHmac, generateKeyPairSync, randomBytes, sign as signJwt } from 'node:crypto';
 import { openStore } from '../electron/server/hosted/store.js';
 import { PLANS, planModel, planForProductId, publicCatalog } from '../electron/server/hosted/plans.js';
-import { verifyCreemSignature } from '../electron/server/hosted/creem.js';
+import { verifyPolarWebhook } from '../electron/server/hosted/polar.js';
 import { verifyClerkToken } from '../electron/server/hosted/clerk.js';
 import { handleBilling } from '../electron/server/hosted/billing.js';
 import { gateChat } from '../electron/server/hosted/chat.js';
 
+const webhookKey = randomBytes(24);
 const env = {
   VITE_CLERK_PUBLISHABLE_KEY: `pk_test_${Buffer.from('clerk.test$').toString('base64')}`,
-  CREEM_SERVER: 'test',
-  CREEM_TEST_API_KEY: 'creem_test_placeholder',
-  CREEM_TEST_WEBHOOK_SECRET: 'whsec_test',
-  CREEM_TEST_PRODUCT_SILVER: 'prod_silver',
-  CREEM_TEST_PRODUCT_MAX: 'prod_max',
+  POLAR_ACCESS_TOKEN: 'polar_oat_placeholder',
+  POLAR_WEBHOOK_SECRET: `whsec_${webhookKey.toString('base64')}`,
+  POLAR_PRODUCT_BASIC: 'prod_basic',
+  POLAR_PRODUCT_SILVER: 'prod_silver',
+  POLAR_PRODUCT_MAX: 'prod_max',
   APPBLIPS_MODEL_BASIC: 'basic-model',
   APPBLIPS_MODEL_SILVER: 'silver-model',
   APPBLIPS_MODEL_MAX: 'max-model',
 };
 
 const realFetch = globalThis.fetch;
-let creemDebitStatus = 200;
+const checkoutCalls = [];
 const cancelCalls = [];
+// Polar's current subscriptions, by id (what GET /subscriptions/{id} returns).
+const subscriptions = new Map();
+const subscription = (id, userId, fields = {}) => {
+  const sub = {
+    id,
+    status: 'active',
+    product_id: 'prod_basic',
+    customer_id: `cust_${userId}`,
+    customer: { id: `cust_${userId}`, external_id: userId },
+    cancel_at_period_end: false,
+    current_period_end: '2026-12-07T00:00:00Z',
+    ends_at: null,
+    ended_at: null,
+    ...fields,
+  };
+  subscriptions.set(id, sub);
+  return sub;
+};
 
-// ---- fake JWKS + Creem API ------------------------------------------------
+// ---- fake JWKS + Polar API --------------------------------------------------
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const publicJwk = { ...publicKey.export({ format: 'jwk' }), kid: 'test-key', alg: 'RS256', use: 'sig' };
+const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
   const href = String(url);
-  if (href === 'https://clerk.test/.well-known/jwks.json') {
-    return new Response(JSON.stringify({ keys: [publicJwk] }), { headers: { 'content-type': 'application/json' } });
+  if (href === 'https://clerk.test/.well-known/jwks.json') return jsonResponse({ keys: [publicJwk] });
+  assert.ok(href.startsWith('https://api.polar.sh/v1/'), `unexpected fetch: ${href}`);
+  assert.equal(init.headers?.authorization, `Bearer ${env.POLAR_ACCESS_TOKEN}`);
+  const path = href.slice('https://api.polar.sh/v1'.length);
+  const method = init.method || 'GET';
+  if (path === '/checkouts/' && method === 'POST') {
+    checkoutCalls.push(JSON.parse(init.body));
+    return jsonResponse({ id: 'chk_1', url: 'https://polar.sh/checkout/chk_1' }, 201);
   }
-  if (href.includes('/customer-credits/accounts?customer_id=')) {
-    return new Response(JSON.stringify({ data: [{ id: 'acct_default', name: 'default', status: 'active' }] }), {
-      headers: { 'content-type': 'application/json' },
-    });
+  if (path.startsWith('/subscriptions/?') && method === 'GET') {
+    const userId = new URLSearchParams(path.split('?')[1]).get('external_customer_id');
+    const items = [...subscriptions.values()].filter((sub) => sub.status === 'active');
+    // Polar filters; the fake lists everyone so a wrong filter would show.
+    return jsonResponse({ items: [...items.filter((sub) => sub.customer.external_id !== userId), ...items.filter((sub) => sub.customer.external_id === userId)] });
   }
-  if (href.includes('/customer-credits/accounts/acct_default/debit')) {
-    return new Response(JSON.stringify(creemDebitStatus === 200 ? { id: 'txn_1' } : { error: 'Insufficient balance' }), {
-      status: creemDebitStatus,
-      headers: { 'content-type': 'application/json' },
-    });
+  const subMatch = path.match(/^\/subscriptions\/([^/?]+)$/);
+  if (subMatch && method === 'GET') {
+    const sub = subscriptions.get(decodeURIComponent(subMatch[1]));
+    return sub ? jsonResponse(sub) : jsonResponse({ error: 'NotFound' }, 404);
   }
-  if (href.includes('/customer-credits/accounts/acct_default/credit')) {
-    return new Response(JSON.stringify({ id: 'txn_2' }), { headers: { 'content-type': 'application/json' } });
+  if (subMatch && method === 'PATCH') {
+    const id = decodeURIComponent(subMatch[1]);
+    cancelCalls.push({ id, body: JSON.parse(init.body) });
+    const sub = subscriptions.get(id);
+    sub.cancel_at_period_end = true;
+    sub.ends_at = sub.current_period_end;
+    return jsonResponse(sub);
   }
-  // Subscription cancel (Settings → Plan): search has no customer filter, so
-  // the fake lists another customer's subscription first.
-  if (href.includes('/subscriptions/search')) {
-    return new Response(JSON.stringify({
-      items: [
-        { id: 'sub_other', status: 'active', customer: { id: 'cust_someone_else' } },
-        { id: 'sub_cancel', status: 'active', customer: { id: 'cust_cancel' } },
-      ],
-      pagination: { next_page: null },
-    }), { headers: { 'content-type': 'application/json' } });
-  }
-  const cancelMatch = href.match(/\/subscriptions\/([^/]+)\/cancel$/);
-  if (cancelMatch) {
-    cancelCalls.push({ id: cancelMatch[1], body: JSON.parse(init.body || '{}') });
-    return new Response(JSON.stringify({ id: cancelMatch[1], status: 'scheduled_cancel', current_period_end_date: '2026-12-07T00:00:00.000Z' }), {
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-  throw new Error(`Unexpected fetch in test: ${href}`);
+  throw new Error(`Unexpected Polar call in test: ${method} ${path}`);
 };
 
 const b64url = (value) => Buffer.from(value).toString('base64url');
@@ -79,6 +92,23 @@ const makeToken = (claims) => {
   const signature = signJwt('sha256', Buffer.from(`${header}.${payload}`), privateKey);
   return `${header}.${payload}.${b64url(signature)}`;
 };
+
+// A Standard Webhooks delivery, signed with `key` (the test secret's key by
+// default).
+let deliveries = 0;
+const signedHeaders = (body, { key = webhookKey, at = Math.floor(Date.now() / 1000), id = `msg_${(deliveries += 1)}` } = {}) => {
+  const signature = createHmac('sha256', key).update(`${id}.${at}.${body}`).digest('base64');
+  return { 'webhook-id': id, 'webhook-timestamp': String(at), 'webhook-signature': `v1,${signature}` };
+};
+const webhook = (event, headers) => {
+  const body = JSON.stringify(event);
+  return new Request('http://localhost/api/webhooks/polar', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(headers || signedHeaders(body)) },
+    body,
+  });
+};
+const sendEvent = (type, sub) => handleBilling(webhook({ type, timestamp: new Date().toISOString(), data: sub }), env, store);
 
 const store = openStore(':memory:');
 
@@ -95,18 +125,25 @@ try {
   // ---- store ----------------------------------------------------------------
   store.saveAccount({ userId: 'user_1', customerId: 'cust_1', plan: 'silver', active: true });
   assert.equal(store.getAccount('user_1').plan, 'silver');
-  assert.equal(store.getAccountByCustomer('cust_1').user_id, 'user_1');
-  store.setPlanByCustomer('cust_1', 'max', true);
+  assert.equal(store.getAccount('user_1').customer_id, 'cust_1');
+  store.setPlan('user_1', 'max', true);
   assert.equal(store.getAccount('user_1').plan, 'max');
-  assert.equal(store.claimEvent('evt_1'), true);
-  assert.equal(store.claimEvent('evt_1'), false, 'duplicate event id was not deduped');
 
   // ---- webhook signature ----------------------------------------------------
-  const raw = JSON.stringify({ id: 'evt_sig' });
-  const good = createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(raw).digest('hex');
-  assert.equal(verifyCreemSignature(raw, good, env.CREEM_TEST_WEBHOOK_SECRET), true);
-  assert.equal(verifyCreemSignature(raw, `${good.slice(0, -2)}00`, env.CREEM_TEST_WEBHOOK_SECRET), false);
-  assert.equal(verifyCreemSignature(raw, good, 'wrong-secret'), false);
+  const raw = JSON.stringify({ type: 'subscription.active' });
+  const good = signedHeaders(raw);
+  const asHeaders = (h) => ({ id: h['webhook-id'], timestamp: h['webhook-timestamp'], signature: h['webhook-signature'] });
+  assert.equal(verifyPolarWebhook(raw, asHeaders(good), env.POLAR_WEBHOOK_SECRET), true);
+  assert.equal(verifyPolarWebhook(`${raw} `, asHeaders(good), env.POLAR_WEBHOOK_SECRET), false, 'changed body accepted');
+  assert.equal(verifyPolarWebhook(raw, { ...asHeaders(good), id: 'msg_other' }, env.POLAR_WEBHOOK_SECRET), false, 'changed id accepted');
+  assert.equal(verifyPolarWebhook(raw, asHeaders(signedHeaders(raw, { key: randomBytes(24) })), env.POLAR_WEBHOOK_SECRET), false, 'wrong key accepted');
+  assert.equal(verifyPolarWebhook(raw, asHeaders(signedHeaders(raw, { at: Math.floor(Date.now() / 1000) - 3600 })), env.POLAR_WEBHOOK_SECRET), false, 'hour-old delivery accepted');
+  assert.equal(verifyPolarWebhook(raw, { ...asHeaders(good), signature: '' }, env.POLAR_WEBHOOK_SECRET), false);
+  // Several signatures (a secret being rotated): any valid one is enough.
+  assert.equal(verifyPolarWebhook(raw, { ...asHeaders(good), signature: `v1,AAAA ${good['webhook-signature']}` }, env.POLAR_WEBHOOK_SECRET), true);
+  // Secrets from before September 2026: the key is the whole string's bytes.
+  const legacySecret = 'whsec_legacy-secret-string';
+  assert.equal(verifyPolarWebhook(raw, asHeaders(signedHeaders(raw, { key: Buffer.from(legacySecret) })), legacySecret), true);
 
   // ---- Clerk token ----------------------------------------------------------
   const token = makeToken();
@@ -120,109 +157,164 @@ try {
   const configBody = await configRes.json();
   assert.deepEqual(configBody.plans.map((plan) => plan.id), ['basic', 'silver', 'max']);
   assert.ok(!JSON.stringify(configBody).includes('model'), 'config leaks model ids');
+  assert.ok(!JSON.stringify(configBody).includes('prod_'), 'config leaks product ids');
   // Only Basic is sold for now; Silver and Max show as coming soon.
   assert.deepEqual(configBody.plans.map((plan) => [plan.id, plan.comingSoon]), [['basic', false], ['silver', true], ['max', true]]);
-  // Basic's $1 price and unlimited builds are beta terms the app must label.
   assert.deepEqual(configBody.plans.map((plan) => [plan.id, plan.betaPricing]), [['basic', true], ['silver', false], ['max', false]]);
 
-  // Checkout refuses a coming-soon plan before ever contacting Creem, so the
-  // tag in the app is not the only thing stopping a purchase.
+  const checkoutReq = (body, auth = `Bearer ${token}`) => handleBilling(new Request('http://localhost/api/billing/checkout', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) },
+    body: JSON.stringify(body),
+  }), env, store);
+
+  // Checkout refuses a coming-soon plan before ever contacting Polar.
   for (const plan of ['silver', 'max']) {
-    const soon = await handleBilling(new Request('http://localhost/api/billing/checkout', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({ plan }),
-    }), env, store);
+    const soon = await checkoutReq({ plan });
     assert.equal(soon.status, 409, `${plan} checkout`);
     assert.equal((await soon.json()).code, 'plan_coming_soon');
   }
+  assert.equal((await checkoutReq({ plan: 'basic' }, null)).status, 401, 'checkout without sign-in');
+  assert.equal(checkoutCalls.length, 0);
+
+  // The customer is always the signed-in Clerk user: nothing in the body
+  // (another user's id, an email) can change who the subscription belongs to.
+  const checkout = await checkoutReq({ plan: 'basic', userId: 'user_victim', external_customer_id: 'user_victim', email: 'victim@example.com' });
+  assert.equal(checkout.status, 200);
+  assert.equal((await checkout.json()).url, 'https://polar.sh/checkout/chk_1');
+  assert.equal(checkoutCalls.length, 1);
+  assert.deepEqual(checkoutCalls[0].products, ['prod_basic']);
+  assert.equal(checkoutCalls[0].external_customer_id, 'user_1');
+  assert.deepEqual(checkoutCalls[0].metadata, { clerk_user_id: 'user_1' });
+  assert.ok(!JSON.stringify(checkoutCalls[0]).includes('victim'), 'request body reached Polar');
+  assert.equal(checkoutCalls[0].success_url, 'http://localhost/?billing=success');
 
   const unauth = await handleBilling(new Request('http://localhost/api/billing/me'), env, store);
   assert.equal(unauth.status, 401);
-
   const me = await handleBilling(new Request('http://localhost/api/billing/me', {
     headers: { authorization: `Bearer ${token}` },
   }), env, store);
   assert.equal(me.status, 200);
   assert.equal((await me.json()).plan, 'max');
 
-  const webhook = (event, signature) => new Request('http://localhost/api/webhooks/creem', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'creem-signature': signature },
-    body: JSON.stringify(event),
-  });
+  // ---- webhooks ---------------------------------------------------------------
+  // Paid: the plan turns on for the Clerk user Polar has as external_id.
+  const paid = subscription('sub_paid', 'user_paid');
+  assert.equal((await sendEvent('subscription.active', paid)).status, 202);
+  assert.equal(store.getAccount('user_paid').active, 1, 'payment did not activate the plan');
+  assert.equal(store.getAccount('user_paid').plan, 'basic');
+  assert.equal(store.getAccount('user_paid').customer_id, 'cust_user_paid');
+  assert.equal(store.getAccount('user_paid').subscription_id, 'sub_paid');
+  // The same delivery again changes nothing.
+  assert.equal((await sendEvent('subscription.active', paid)).status, 202);
+  assert.equal(store.getAccount('user_paid').active, 1);
 
-  const checkoutEvent = {
-    id: 'evt_checkout_1',
-    eventType: 'checkout.completed',
-    object: { customer: { id: 'cust_checkout' }, product: { id: 'prod_silver' }, metadata: { clerk_user_id: 'user_checkout' } },
-  };
-  const checkoutBody = JSON.stringify(checkoutEvent);
-  const checkoutSig = createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(checkoutBody).digest('hex');
-  const checkoutRes = await handleBilling(webhook(checkoutEvent, checkoutSig), env, store);
-  assert.equal(checkoutRes.status, 200);
-  assert.equal(store.getAccount('user_checkout').plan, 'silver');
-  assert.equal(store.getAccount('user_checkout').active, 1, 'checkout did not activate the subscription');
-  assert.equal(store.getAccount('user_checkout').creem_customer_id, 'cust_checkout');
+  // Unsigned, badly signed or replayed-late deliveries change nothing.
+  const forged = subscription('sub_forged', 'user_forged');
+  const forgedBody = JSON.stringify({ type: 'subscription.active', data: forged });
+  for (const headers of [
+    {},
+    { 'webhook-id': 'msg_x', 'webhook-timestamp': String(Math.floor(Date.now() / 1000)), 'webhook-signature': 'v1,AAAA' },
+    signedHeaders(forgedBody, { key: randomBytes(24) }),
+    signedHeaders(forgedBody, { at: Math.floor(Date.now() / 1000) - 3600 }),
+  ]) {
+    const res = await handleBilling(new Request('http://localhost/api/webhooks/polar', { method: 'POST', headers, body: forgedBody }), env, store);
+    assert.equal(res.status, 403);
+  }
+  assert.equal(store.getAccount('user_forged'), null, 'unsigned webhook created an account');
 
-  const replay = await handleBilling(webhook(checkoutEvent, checkoutSig), env, store);
-  assert.equal((await replay.json()).duplicate, true, 'replayed webhook was not treated as duplicate');
+  // The event's own copy is not trusted: what Polar says now wins. An event
+  // claiming the subscription belongs to someone else changes only the real
+  // owner's row.
+  subscription('sub_owned', 'user_owner');
+  await sendEvent('subscription.active', { id: 'sub_owned', status: 'active', customer: { external_id: 'user_attacker' }, product_id: 'prod_max' });
+  assert.equal(store.getAccount('user_attacker'), null, 'event body chose the user');
+  assert.equal(store.getAccount('user_owner').active, 1);
+  assert.equal(store.getAccount('user_owner').plan, 'basic', 'event body chose the plan');
 
-  const canceled = {
-    id: 'evt_cancel_1',
-    eventType: 'subscription.canceled',
-    object: { customer: { id: 'cust_checkout' }, product: { id: 'prod_silver' } },
-  };
-  const canceledBody = JSON.stringify(canceled);
-  await handleBilling(webhook(canceled, createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(canceledBody).digest('hex')), env, store);
-  assert.equal(store.getAccount('user_checkout').plan, 'basic');
-  assert.equal(store.getAccount('user_checkout').active, 0, 'cancellation did not revoke access');
+  // A subscription made outside AppBlips' checkout has no Clerk user: ignored.
+  subscription('sub_manual', null, { customer: { id: 'cust_manual', external_id: null } });
+  assert.equal((await sendEvent('subscription.active', subscriptions.get('sub_manual'))).status, 202);
 
-  const badSig = await handleBilling(webhook({ id: 'evt_bad' }, 'deadbeef'), env, store);
-  assert.equal(badSig.status, 401);
+  // Polar unreachable: 503, so Polar retries the delivery later.
+  assert.equal((await sendEvent('subscription.active', { id: 'sub_missing' })).status, 503);
+
+  // Cancelled for the period end (in Polar's portal): still active, with the date.
+  const portal = subscription('sub_portal', 'user_portal');
+  await sendEvent('subscription.active', portal);
+  portal.cancel_at_period_end = true;
+  portal.ends_at = '2026-12-20T00:00:00Z';
+  await sendEvent('subscription.canceled', portal);
+  assert.equal(store.getAccount('user_portal').active, 1);
+  assert.equal(store.getAccount('user_portal').cancel_at, '2026-12-20T00:00:00Z');
+  // Uncancelled: renews again.
+  portal.cancel_at_period_end = false;
+  portal.ends_at = null;
+  await sendEvent('subscription.uncanceled', portal);
+  assert.equal(store.getAccount('user_portal').cancel_at, null);
+  // Period over: revoked, access stops.
+  portal.status = 'canceled';
+  portal.ended_at = '2026-12-20T00:00:00Z';
+  await sendEvent('subscription.revoked', portal);
+  assert.equal(store.getAccount('user_portal').active, 0, 'revoked subscription kept access');
+
+  // Resubscribed later: a late delivery about the old, ended subscription
+  // must not switch off the new one.
+  const renewed = subscription('sub_portal_2', 'user_portal');
+  await sendEvent('subscription.active', renewed);
+  assert.equal(store.getAccount('user_portal').active, 1);
+  await sendEvent('subscription.revoked', portal);
+  assert.equal(store.getAccount('user_portal').active, 1, 'old subscription ending switched off the new one');
+  assert.equal(store.getAccount('user_portal').subscription_id, 'sub_portal_2');
+
+  // An older "created" delivery arriving after "active" can't undo it, since
+  // the current state is read from Polar.
+  await sendEvent('subscription.created', { ...renewed, status: 'incomplete' });
+  assert.equal(store.getAccount('user_portal').active, 1);
+
+  // Past due: no access until it's paid.
+  const late = subscription('sub_late', 'user_late');
+  await sendEvent('subscription.active', late);
+  late.status = 'past_due';
+  await sendEvent('subscription.past_due', late);
+  assert.equal(store.getAccount('user_late').active, 0);
 
   // ---- chat gate ------------------------------------------------------------
-  const buildRequest = () => new Request('http://localhost/api/chat', {
+  const buildRequest = (bearer = token) => new Request('http://localhost/api/chat', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${bearer}` },
     body: JSON.stringify({ messages: [{ role: 'user', content: 'build me a site' }], user_provider: { id: 'x', model: 'y', apiKey: 'z' } }),
   });
 
-  // user_1 is on Max with a linked customer.
-  assert.equal(store.getAccount('user_1').plan, 'max');
-  store.saveAccount({ userId: 'user_1', customerId: 'cust_1', plan: 'max', active: true });
-
-  const gated = await gateChat(buildRequest(), env, store);
-  assert.ok(gated.request, 'gate rejected a valid build');
-  const gatedBody = JSON.parse(await gated.request.text());
-  assert.equal(gatedBody.hosted_model_override, 'max-model', 'plan model was not applied');
+  // A paid Basic user builds with Basic's model; the client's provider is dropped.
+  const paidGate = await gateChat(buildRequest(makeToken({ sub: 'user_paid' })), env, store);
+  assert.ok(paidGate.request, 'gate rejected a valid build');
+  const gatedBody = JSON.parse(await paidGate.request.text());
+  assert.equal(gatedBody.hosted_model_override, 'basic-model', 'plan model was not applied');
   assert.equal(gatedBody.user_provider, undefined, 'client provider survived the gate');
-  assert.ok(gated.charge, 'paid build was not charged');
+  assert.equal(paidGate.windowed, true, 'build was not counted against the cooldown');
 
-  // Ask-mode and repairs are free.
+  // Ask-mode and repairs don't count as builds.
   const askGate = await gateChat(new Request('http://localhost/api/chat', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${makeToken({ sub: 'user_paid' })}` },
     body: JSON.stringify({ ask: true, messages: [] }),
   }), env, store);
-  assert.equal(askGate.charge, null);
+  assert.ok(askGate.request);
+  assert.equal(askGate.windowed, false);
 
-  // Out of credits -> 402 with a stable code.
-  creemDebitStatus = 402;
-  const broke = await gateChat(buildRequest(), env, store);
-  assert.equal(broke.response.status, 402);
-  assert.equal((await broke.response.json()).code, 'credits_exhausted');
-  creemDebitStatus = 200;
+  // A plan with a monthly credit allowance (not sold yet) can't build for free.
+  assert.equal(store.getAccount('user_1').plan, 'max');
+  const capped = await gateChat(buildRequest(), env, store);
+  assert.equal(capped.response.status, 402);
+  assert.equal((await capped.response.json()).code, 'plan_unavailable');
 
   // No active subscription -> 402, even for Basic.
-  const noSubToken = makeToken({ sub: 'user_no_sub' });
-  const noSub = await gateChat(new Request('http://localhost/api/chat', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${noSubToken}` },
-    body: JSON.stringify({ messages: [] }),
-  }), env, store);
-  assert.equal(noSub.response.status, 402);
-  assert.equal((await noSub.response.json()).code, 'subscription_required');
+  for (const sub of ['user_no_sub', 'user_late']) {
+    const noSub = await gateChat(buildRequest(makeToken({ sub })), env, store);
+    assert.equal(noSub.response.status, 402, sub);
+    assert.equal((await noSub.response.json()).code, 'subscription_required');
+  }
 
   // No session -> 401.
   const anon = await gateChat(new Request('http://localhost/api/chat', {
@@ -244,23 +336,15 @@ try {
   const blocked = store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600000 });
   assert.equal(blocked.allowed, false, 'the 51st build in the window is refused');
   assert.equal(blocked.resetAt, t0 + windowMs, 'unlocks 5 hours after the first build');
-  // A build the provider rejected is given back, so it doesn't use the window.
   store.releaseBuild('user_window');
   assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600001 }).allowed, true);
   assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600002 }).allowed, false);
-  // Once the window has passed, a new one starts with this build.
   assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + windowMs }).allowed, true);
   assert.equal(store.getAccount('user_window').build_window_count, 1);
 
-  // Through the chat gate: the refusal says when building unlocks again.
   store.saveAccount({ userId: 'user_cool', customerId: 'cust_cool', plan: 'basic', active: true });
   for (let i = 0; i < 50; i += 1) store.takeBuild('user_cool', { limit: 50, windowMs });
-  const coolToken = makeToken({ sub: 'user_cool' });
-  const cooled = await gateChat(new Request('http://localhost/api/chat', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${coolToken}` },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'build' }] }),
-  }), env, store);
+  const cooled = await gateChat(buildRequest(makeToken({ sub: 'user_cool' })), env, store);
   assert.equal(cooled.response.status, 429);
   const cooledBody = await cooled.response.json();
   assert.equal(cooledBody.code, 'build_cooldown');
@@ -277,44 +361,31 @@ try {
     headers: { authorization: `Bearer ${makeToken({ sub })}` },
   }), env, store)).json();
 
-  // No active plan: nothing to cancel, and Creem is never called.
-  store.saveAccount({ userId: 'user_noplan', customerId: 'cust_noplan', plan: 'basic', active: false });
-  assert.equal((await cancelReq('user_noplan')).status, 409);
+  // No active plan: nothing to cancel, and Polar is never called.
+  assert.equal((await cancelReq('user_no_sub')).status, 409);
   assert.equal(cancelCalls.length, 0);
 
-  // Subscribed before ids were stored: found by customer, cancelled for the
-  // end of the period (never immediately), and still active until then.
-  store.saveAccount({ userId: 'user_cancel', customerId: 'cust_cancel', plan: 'basic', active: true });
-  const cancelled = await cancelReq('user_cancel');
+  // Cancels the user's own subscription for the end of the period (never
+  // immediately); still active until then.
+  const cancelled = await cancelReq('user_paid');
   assert.equal(cancelled.status, 200);
-  assert.equal((await cancelled.json()).cancelAt, '2026-12-07T00:00:00.000Z');
-  assert.deepEqual(cancelCalls, [{ id: 'sub_cancel', body: { mode: 'scheduled', onExecute: 'cancel' } }]);
-  assert.equal(store.getAccount('user_cancel').subscription_id, 'sub_cancel');
-  const meCancelled = await meFor('user_cancel');
+  assert.equal((await cancelled.json()).cancelAt, '2026-12-07T00:00:00Z');
+  assert.deepEqual(cancelCalls, [{ id: 'sub_paid', body: { cancel_at_period_end: true } }]);
+  const meCancelled = await meFor('user_paid');
   assert.equal(meCancelled.active, true, 'still active until the period ends');
-  assert.equal(meCancelled.cancelAt, '2026-12-07T00:00:00.000Z');
+  assert.equal(meCancelled.cancelAt, '2026-12-07T00:00:00Z');
   // Cancelling again just reports the date.
-  assert.equal((await cancelReq('user_cancel')).status, 200);
+  assert.equal((await cancelReq('user_paid')).status, 200);
   assert.equal(cancelCalls.length, 1);
 
-  // When the period ends Creem sends subscription.canceled: access stops.
-  const endEvent = { id: 'evt_sub_end', eventType: 'subscription.canceled', object: { id: 'sub_cancel', status: 'canceled', customer: { id: 'cust_cancel' }, product: { id: 'prod_basic' } } };
-  const endBody = JSON.stringify(endEvent);
-  const endRes = await handleBilling(webhook(endEvent, createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(endBody).digest('hex')), env, store);
-  assert.equal(endRes.status, 200);
-  assert.equal(store.getAccount('user_cancel').active, 0);
-  assert.equal((await meFor('user_cancel')).cancelAt, null);
+  // No stored subscription id: found by the user's own Clerk id, never
+  // someone else's.
+  subscription('sub_lookup', 'user_lookup');
+  store.saveAccount({ userId: 'user_lookup', plan: 'basic', active: true });
+  assert.equal((await cancelReq('user_lookup')).status, 200);
+  assert.equal(cancelCalls.at(-1).id, 'sub_lookup');
 
-  // Cancelled in Creem's own portal for the period end: the webhook records it.
-  store.saveAccount({ userId: 'user_portal', customerId: 'cust_portal', plan: 'basic', active: true });
-  const schedEvent = { id: 'evt_sched', eventType: 'subscription.scheduled_cancel', object: { id: 'sub_portal', status: 'scheduled_cancel', current_period_end_date: '2026-12-20T00:00:00.000Z', customer: { id: 'cust_portal' } } };
-  const schedBody = JSON.stringify(schedEvent);
-  await handleBilling(webhook(schedEvent, createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(schedBody).digest('hex')), env, store);
-  assert.equal(store.getAccount('user_portal').active, 1);
-  assert.equal(store.getAccount('user_portal').cancel_at, '2026-12-20T00:00:00.000Z');
-  assert.equal(store.getAccount('user_portal').subscription_id, 'sub_portal');
-
-  console.log('Hosted billing checks passed: plans, store, webhooks, Clerk tokens, the chat gate, the build cooldown and cancelling.');
+  console.log('Hosted billing checks passed: plans, store, Polar webhooks and signatures, Clerk tokens, checkout, the chat gate, the build cooldown and cancelling.');
 } finally {
   store.close();
   globalThis.fetch = realFetch;

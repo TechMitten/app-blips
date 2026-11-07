@@ -64,7 +64,7 @@ pinokio/
 appblips.db
 appblips.db-*
 sandbox.md
-# Local AI-assistant config (OpenCode + Creem MCP); keep off GitHub
+# Local AI-assistant config (OpenCode); keep off GitHub
 opencode.json
 # Scratch folder from trying Render Sandboxes; not part of AppBlips
 my-sandbox/

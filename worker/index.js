@@ -1,9 +1,9 @@
 // The online, multi-user side of AppBlips as a Cloudflare Worker. It holds
-// the secret keys (Creem, Render, the server's AI provider) so they never
+// the secret keys (Polar, Render, the server's AI provider) so they never
 // ship in the desktop app, and answers only the hosted routes:
 //   /api/chat             signed-in, subscribed users; the plan picks the model
-//   /api/billing/*        plan status and Creem checkout
-//   /api/webhooks/creem   Creem payment notices (signature-checked)
+//   /api/billing/*        plan status and Polar checkout
+//   /api/webhooks/polar   Polar payment notices (signature-checked)
 //   /api/sandbox/*        the user's Render Sandbox computer
 //   /desktop-sign-in      Google/GitHub sign-in for the desktop app (desktopAuth.js)
 // Bring-your-own-key users never reach it: their app talks to their provider.
@@ -45,7 +45,7 @@ const preflight = (origin) => new Response(null, {
   },
 });
 
-// Where Creem sends the browser after a desktop checkout (billing.js makes
+// Where Polar sends the browser after a desktop checkout (billing.js makes
 // the success URL from this Worker's own address). The app itself notices
 // the payment (waitForPlan in src/lib/billing.js), so this only says to go
 // back to it.
@@ -92,7 +92,7 @@ async function route(request, env, ctx) {
   if (desktopAuth) return desktopAuth;
   const store = d1Store(env.DB);
 
-  if (pathname === '/api/webhooks/creem' || isRoute(pathname, '/api/billing')) {
+  if (pathname === '/api/webhooks/polar' || isRoute(pathname, '/api/billing')) {
     return handleBilling(request, env, store);
   }
 
@@ -116,7 +116,7 @@ async function route(request, env, ctx) {
 export default {
   async fetch(request, env, ctx) {
     if (!isHosted(env)) {
-      return json(503, { error: 'This server is missing its Clerk or Creem key.' });
+      return json(503, { error: 'This server is missing its Clerk key or Polar token.' });
     }
     const origin = request.headers.get('origin');
     if (origin && isForeignOrigin(request, env)) {
