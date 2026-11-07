@@ -4,6 +4,7 @@ import {
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
 import { Show, SignOutButton } from '@clerk/react';
+import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
 import StudioArt from './StudioArt';
@@ -68,6 +69,7 @@ const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-
 const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
 
 export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
+  const accounts = useAccounts();
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -230,18 +232,20 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     <Settings size={17} aria-hidden="true" />
                   </button>
                 )}
-                <Show when="signed-in">
-                  <SignOutButton>
-                    <button
-                      type="button"
-                      aria-label="Sign out"
-                      title="Sign out"
-                      className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                    >
-                      <LogOut size={17} aria-hidden="true" />
-                    </button>
-                  </SignOutButton>
-                </Show>
+                {accounts && (
+                  <Show when="signed-in">
+                    <SignOutButton>
+                      <button
+                        type="button"
+                        aria-label="Sign out"
+                        title="Sign out"
+                        className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                      >
+                        <LogOut size={17} aria-hidden="true" />
+                      </button>
+                    </SignOutButton>
+                  </Show>
+                )}
                 <button
                   type="button"
                   onClick={() => setMenuOpen(true)}
@@ -459,13 +463,15 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 {isDark ? 'Light theme' : 'Dark theme'}
               </button>
             )}
-            <Show when="signed-in">
-              <SignOutButton>
-                <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
-                  <LogOut size={18} aria-hidden="true" /> Sign out
-                </button>
-              </SignOutButton>
-            </Show>
+            {accounts && (
+              <Show when="signed-in">
+                <SignOutButton>
+                  <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
+                    <LogOut size={18} aria-hidden="true" /> Sign out
+                  </button>
+                </SignOutButton>
+              </Show>
+            )}
             <div className="studio-menu-sep" role="separator" />
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <Github size={18} aria-hidden="true" /> GitHub
