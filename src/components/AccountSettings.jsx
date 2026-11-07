@@ -7,12 +7,14 @@ import { AuthButton } from './AccountDialogs';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, SettingRow } from './SettingControls';
 import { deleteAccountOnServer, fetchBillingMe } from '../lib/billing';
 import { useRequestSignOut } from '../lib/accountDialogs';
+import { CancelPlanRow } from './PlanSettings';
 import { logError } from '../lib/errorLog';
 
 // Settings → Account (only where accounts exist, see lib/accounts.js): who is
 // signed in, their plan and how much of the build window (plans.js
 // windowBuilds / windowHours) they've used, their password, the Google /
-// GitHub accounts they sign in with, and deleting the account.
+// GitHub accounts they sign in with. Cancelling the plan and deleting the
+// account live in Settings → Danger Zone (AccountDangerZone below).
 //
 // Password, connected accounts and deleting go through Clerk's
 // useReverification: the instance asks people to prove who they are again
@@ -313,7 +315,7 @@ function ConnectedAccountsRow({ user }) {
 
 const CONFIRM_WORD = 'DELETE';
 
-function DeleteAccountRow({ user, me }) {
+function DeleteAccountRow({ user, me, loading }) {
   const { getToken } = useAuth();
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
@@ -325,6 +327,18 @@ function DeleteAccountRow({ user, me }) {
   // the person needs to confirm who they are, and the hook retries after.
   const deleteOnServer = useReverification(async () => deleteAccountOnServer(await getToken({ skipCache: true })));
   const deleteInClerk = useReverification(() => user.delete());
+
+  // A plan that still renews has to be cancelled first (the row above), so
+  // nobody deletes their account expecting the subscription to go with it
+  // without having seen how cancelling works. A cancelled plan that hasn't
+  // ended yet is fine: deleting just ends it now. Until the plan is known
+  // (loading, or the server couldn't be reached) deleting waits too.
+  const renewing = Boolean(me?.active && !me.cancelAt);
+  const blocked = loading || !me || renewing;
+  let description = 'Permanently delete your AppBlips account and stop your plan. Projects saved on this device stay.';
+  if (loading) description = 'Checking your plan…';
+  else if (!me) description = 'Could not check your plan, so deleting is unavailable for now. Check your internet connection.';
+  else if (renewing) description = `Cancel your ${me.planName} plan above first, then you can delete your account. Projects saved on this device stay.`;
 
   const confirm = async () => {
     setBusy(true);
@@ -351,9 +365,15 @@ function DeleteAccountRow({ user, me }) {
     <SettingRow
       id="set-account-delete"
       title="Delete account"
-      description="Permanently delete your AppBlips account and stop your plan. Projects saved on this device stay."
+      description={description}
     >
-      <button type="button" className={DANGER_BUTTON} onClick={() => { setTyped(''); setError(''); setOpen(true); }}>
+      <button
+          type="button"
+          className={DANGER_BUTTON}
+          disabled={blocked}
+          title={renewing ? 'Cancel your plan first.' : undefined}
+          onClick={() => { setTyped(''); setError(''); setOpen(true); }}
+        >
         <Trash2 size={14} aria-hidden="true" />
         Delete account
       </button>
@@ -374,7 +394,7 @@ function DeleteAccountRow({ user, me }) {
             <li>Your sign-in{user.externalAccounts?.length ? ' and connected accounts' : ''} are deleted. This can’t be undone.</li>
             {me?.active && (
               <li>
-                Your {me.planName} plan stops right away, with no further charges. The rest of this billing period isn’t refunded.
+                Your cancelled {me.planName} plan ends right away{me.cancelAt ? ` instead of on ${longDate(me.cancelAt)}` : ''}. The rest of this billing period isn’t refunded.
               </li>
             )}
             <li>Projects saved on this device stay. You can keep building with your own AI key.</li>
@@ -398,11 +418,10 @@ function DeleteAccountRow({ user, me }) {
   );
 }
 
-export default function AccountSettings({ onOpenPlan }) {
-  const { isLoaded, isSignedIn, user } = useUser();
+// Reads the signed-in account's plan (/api/billing/me) once per mount.
+function useBillingMe(isSignedIn) {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     if (!isSignedIn) return undefined;
     let cancelled = false;
@@ -413,6 +432,34 @@ export default function AccountSettings({ onOpenPlan }) {
     });
     return () => { cancelled = true; };
   }, [isSignedIn]);
+  return { me, setMe, loading };
+}
+
+// Settings → Danger Zone, above deleting projects and the factory reset:
+// cancelling the plan, then deleting the account. Both sit together so the
+// "cancel first" rule (DeleteAccountRow) reads top to bottom, and cancelling
+// unlocks deleting straight away. Signed out, there's nothing to show.
+export function AccountDangerZone() {
+  const { isSignedIn, user } = useUser();
+  const { me, setMe, loading } = useBillingMe(isSignedIn);
+  if (!isSignedIn || !user) return null;
+  return (
+    <>
+      {me?.active && (
+        <CancelPlanRow
+          planName={me.planName}
+          cancelAt={me.cancelAt}
+          onCancelled={(cancelAt) => setMe((current) => ({ ...current, cancelAt }))}
+        />
+      )}
+      <DeleteAccountRow user={user} me={me} loading={loading} />
+    </>
+  );
+}
+
+export default function AccountSettings({ onOpenPlan }) {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { me, loading } = useBillingMe(isSignedIn);
 
   if (!isLoaded) return <p className="p-4 text-sm text-slate-500">Loading account…</p>;
   if (!isSignedIn || !user) {
@@ -436,7 +483,6 @@ export default function AccountSettings({ onOpenPlan }) {
       {me?.active && me.usage && <UsageRow usage={me.usage} />}
       <PasswordRow user={user} />
       <ConnectedAccountsRow user={user} />
-      <DeleteAccountRow user={user} me={me} />
     </>
   );
 }

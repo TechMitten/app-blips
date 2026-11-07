@@ -4,7 +4,24 @@ sidebarTitle: "Settings"
 description: "A complete reference for every user-configurable setting in AppBlips, covering appearance, workspace preferences, and AI behavior options."
 ---
 
-The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Appearance**, **Workspace**, **AI**, **Extensions**, **Tools**, **Plan**, **Data**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+The Settings modal — accessible from the header — gives you control over how AppBlips looks and behaves. It is organized into tabs: **Account** (desktop app only), **Appearance**, **Workspace**, **AI**, **Extensions**, **Tools**, **Plan**, **Data**, **About**, and **Danger Zone**. Every setting is saved on your device and persists across sessions automatically.
+
+---
+
+## Account
+
+Your AppBlips account, in the desktop app. The browser version (from source or Docker) has no accounts, so it has no **Account** tab and Settings opens on **Appearance** instead. See [Plans](/features/plans) for signing in and subscribing.
+
+- **Signed out:** **Your AppBlips account** with a **Sign in** button. Without signing in, AppBlips builds with your own AI key.
+- **Profile:** your name, email, profile picture and the date you joined (**Member since**). Click **Sign out** to sign out. AppBlips asks **Sign out of AppBlips?** first.
+- **Plan:** whether you have a plan, and whether it renews every month or has been cancelled and when it ends. Click **Manage plan** (or **See plans** without a plan) to open the [Plan](#plan) tab.
+- **Builds in this 5-hour window:** with a plan, how many of your builds you've used in the current window, for example **12 of 50 used**, and when it resets. When you've used them all, it says when building unlocks again. Questions in Ask mode and automatic error fixes don't count as builds.
+- **Password:** click **Change password** to change it: type your current password, then the new one twice. Leave **Sign out on my other devices** ticked to sign out everywhere else. If you sign in only with an email code, Google or GitHub, click **Set a password** to add one.
+- **Connected accounts:** the Google or GitHub accounts you sign in with. Click **Disconnect** next to one, then **Disconnect** again to confirm (or **Keep** to stop). That only stops signing in with it; your account, plan and projects stay. If it's your only way to sign in, **Disconnect** is greyed out: set a password first. Signing in with Google or GitHub using the same email connects it.
+
+Changing your password or disconnecting an account may ask you to prove it's you first, for example with your password or a code sent to your email.
+
+To cancel your plan or delete your account, see [Danger Zone](#danger-zone).
 
 ---
 
@@ -235,7 +252,8 @@ Your AppBlips plan, in the desktop app. See [Plans](/features/plans).
 - **Signed out:** **AppBlips plans** with a **Sign in** button. Sign in to subscribe.
 - **Current plan:** your plan and its builds, for example **Basic — unlimited builds while AppBlips is in beta (up to 50 every 5 hours)**, or **No active plan**.
 - **Plans:** each plan with its price and a **Subscribe to** button, which opens checkout in your web browser. Plans not on sale yet say **Coming soon**.
-- **Cancel subscription:** with an active plan. Ends your plan at the end of the period you've paid for. See [Cancel your plan](/features/plans#cancel-your-plan).
+
+To cancel your plan, see [Danger Zone](#danger-zone).
 
 The browser version (from source or Docker) has no plans: the tab says it uses your own AI provider.
 
@@ -279,5 +297,7 @@ Credits for the open source code inside AppBlips.
   These actions are permanent and cannot be undone.
 </Warning>
 
+- **Cancel subscription:** desktop app, signed in with an active plan. Ends your plan at the end of the period you've paid for. See [Cancel your plan](/features/cancel-or-delete#cancel-your-plan).
+- **Delete account:** desktop app, signed in. Permanently deletes your AppBlips account. If your plan still renews, cancel it first. Projects saved on your computer stay. See [Delete your account](/features/cancel-or-delete#delete-your-account).
 - **Delete all saved apps:** removes every saved app with its version history.
 - **Reset app to factory defaults** (the **Factory Reset** button): clears all data, settings, API keys and projects, signs you out of Surge and Pollinations, removes your Pixabay key, and returns AppBlips to the state it was in when you first installed it.

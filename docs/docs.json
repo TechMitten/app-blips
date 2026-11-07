@@ -34,7 +34,8 @@
               "features/publishing",
               "features/showcase",
               "features/importing-sites",
-              "features/plans"
+              "features/plans",
+              "features/cancel-or-delete"
             ]
           },
           {

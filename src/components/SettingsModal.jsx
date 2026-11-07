@@ -10,7 +10,7 @@ import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import PlanSettings from './PlanSettings';
-import AccountSettings from './AccountSettings';
+import AccountSettings, { AccountDangerZone } from './AccountSettings';
 import { useAccounts } from '../lib/accounts';
 import {
   FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
@@ -24,14 +24,16 @@ import { EFFORT_LABELS, nearestLevel, staticReasoningLevels } from '../../electr
 import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Account (signed-in profile, build usage,
-// password, connected accounts, deleting the account; only with accounts, so
+// password, connected accounts; only with accounts, so
 // copies without them open on Appearance), Appearance (theme from useTheme in
 // App, chat font size from useChatFont, build pane side), Workspace (code
 // view, splash), AI (your own AI provider, then reasoning, clarifying
 // questions, review offers), Plan,
 // Connectors (services the AI wires into projects), Tools (built-in extras
 // like SEO and My images, the native connectors), Data (project backup and the desktop projects folder),
-// and About (logo, version, copyright, then the legal links and open source licenses).
+// About (logo, version, copyright, then the legal links and open source licenses),
+// and Danger Zone (cancelling the plan and deleting the account when signed in,
+// deleting all projects, factory reset).
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
@@ -363,6 +365,7 @@ export default function SettingsModal({
 
           {tab === 'danger' && (
             <>
+              {accounts && <AccountDangerZone />}
               <SettingRow
                 id="set-delete-all"
                 title="Delete all saved apps"

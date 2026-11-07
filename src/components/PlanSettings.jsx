@@ -20,7 +20,8 @@ const longDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: '
 
 // Cancel at the end of the paid period, behind a confirmation that says
 // exactly what happens. Once cancelled it says when the plan ends instead.
-function CancelPlanRow({ planName, cancelAt, onCancelled }) {
+// Shown in Settings → Danger Zone (AccountSettings.jsx AccountDangerZone).
+export function CancelPlanRow({ planName, cancelAt, onCancelled }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -306,14 +307,6 @@ export default function PlanSettings() {
           {currentName}
         </span>
       </SettingRow>
-
-      {active && (
-        <CancelPlanRow
-          planName={me.planName}
-          cancelAt={me.cancelAt}
-          onCancelled={(cancelAt) => setMe((current) => ({ ...current, cancelAt }))}
-        />
-      )}
 
       {active && sandboxStatus?.configured && (
         <SandboxComputerSection
