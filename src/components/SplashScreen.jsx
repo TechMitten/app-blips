@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 const splashVideo = '/animatedsplash.mp4';
 
-// The video is silent and fades itself to black in its last 1.5s, so the
+// The video is silent and fades itself to black in its last second, so the
 // splash simply ends when it does; the short fade-out below only hides the
 // final black frame.
 const END_FADE_MS = 300;
 const FADE_IN_MS = 1000;
-// One notch above normal speed. Set at runtime rather than re-encoding, which
-// would cost the video another generation of quality.
-const PLAYBACK_RATE = 1.5;
 // Skipping (button or Esc) uses a quicker fade so it doesn't feel ignored.
 const SKIP_FADE_MS = 500;
 
@@ -67,9 +64,6 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
           muted
           playsInline
           aria-label="AppBlips"
-          onLoadedMetadata={(e) => {
-            e.currentTarget.playbackRate = PLAYBACK_RATE;
-          }}
           // Fade in once frames are actually showing, not while it buffers.
           onPlaying={() => setIsPlaying(true)}
           onEnded={() => endSplash(END_FADE_MS)}
