@@ -11,9 +11,9 @@ import { PLANS, isPlanId, planModel } from './plans.js';
 import { verifyClerkToken } from './clerk.js';
 import { findCreditAccount, debitCredits, creditCredits } from './creem.js';
 
-const json = (status, body) => new Response(JSON.stringify(body), {
+const json = (status, body, headers = {}) => new Response(JSON.stringify(body), {
   status,
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', ...headers },
 });
 
 const planOf = (account) => (account?.plan && isPlanId(account.plan) ? account.plan : 'basic');
@@ -74,10 +74,29 @@ export async function gateChat(request, env, store) {
 
   const isBuild = payload.ask !== true && payload.auto_fix !== true;
   let charge = null;
+  let windowed = false;
 
   if (isBuild) {
     if (!allowBuild(userId)) {
       return { response: json(429, { error: 'You are building very quickly. Please wait a moment and try again.' }) };
+    }
+    // The plan's cooldown (plans.js windowBuilds / windowHours), counted in
+    // the store so it holds across restarts and across Worker instances.
+    if (plan.windowBuilds && plan.windowHours) {
+      const windowMs = plan.windowHours * 60 * 60 * 1000;
+      const window = await store.takeBuild(userId, { limit: plan.windowBuilds, windowMs });
+      if (!window.allowed) {
+        const minutes = Math.max(1, Math.ceil((window.resetAt - Date.now()) / 60000));
+        const wait = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+        return {
+          response: json(429, {
+            error: `You've used your ${plan.windowBuilds} builds for this ${plan.windowHours}-hour window. Building unlocks again in ${wait}.`,
+            code: 'build_cooldown',
+            resetAt: new Date(window.resetAt).toISOString(),
+          }, { 'retry-after': String(minutes * 60) }),
+        };
+      }
+      windowed = true;
     }
     if (plan.monthlyCredits != null) {
       if (!account?.creem_customer_id) {
@@ -113,7 +132,14 @@ export async function gateChat(request, env, store) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return { request: gated, userId, planId, charge };
+  return { request: gated, userId, planId, charge, windowed };
+}
+
+// A rejected request built nothing: give back its build credit and its slot
+// in the cooldown window.
+export async function releaseBuild(env, store, gated) {
+  if (gated?.windowed) await Promise.resolve(store.releaseBuild(gated.userId)).catch(() => {});
+  await refundBuildCredit(env, gated?.charge);
 }
 
 // Gives a build credit back when the provider rejects the request outright.

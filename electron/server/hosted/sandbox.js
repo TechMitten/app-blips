@@ -708,8 +708,17 @@ async function resolveSandboxUser(request, env, store) {
   return { userId, account };
 }
 
-export async function handleSandbox(request, env, store) {
+// The agent computer hasn't been through testing yet, so it is switched off
+// for everyone: every route answers "coming soon", and the app (which only
+// offers the AI the tool after a successful status check) never shows it.
+// Set to true to launch it. Tests pass { enabled: true } to keep covering it.
+export const SANDBOX_AVAILABLE = false;
+
+export async function handleSandbox(request, env, store, { enabled = SANDBOX_AVAILABLE } = {}) {
   const { pathname, searchParams } = new URL(request.url);
+  if (!enabled) {
+    return json(503, { error: 'The agent computer is coming soon.', code: 'sandbox_unavailable' });
+  }
 
   if (pathname === '/api/sandbox/status') {
     if (request.method !== 'GET') return json(405, { error: 'Method not allowed.' });

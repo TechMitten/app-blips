@@ -15,7 +15,7 @@ import { handleSandbox } from './electron/server/hosted/sandbox.js'
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
 import { isHosted } from './electron/server/hosted/mode.js'
 import { handleBilling } from './electron/server/hosted/billing.js'
-import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js'
+import { gateChat, releaseBuild } from './electron/server/hosted/chat.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -95,7 +95,7 @@ function llmProxyDevMiddleware(mode) {
           }
           const response = await handleChatProxy(gated.request, env)
           // A rejected request didn't produce a build; don't charge for it.
-          if (gated.charge && !response.ok) await refundBuildCredit(env, gated.charge)
+          if (!response.ok) await releaseBuild(env, store, gated)
           sendWebResponse(res, response, {}, '[dev-proxy]')
           return
         }

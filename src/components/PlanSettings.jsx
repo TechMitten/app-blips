@@ -13,6 +13,9 @@ import { useAccounts } from '../lib/accounts';
 import { SettingRow, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 
 const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+// " (up to 50 every 5 hours)" for a plan with a build cooldown (plans.js).
+const windowText = (plan) => (plan?.windowBuilds && plan?.windowHours
+  ? ` (up to ${plan.windowBuilds} every ${plan.windowHours} hours)` : '');
 
 function SandboxComputerSection({ sandboxId: initialSandboxId, snapshotId: initialSnapshotId }) {
   const [sandboxId, setSandboxId] = useState(initialSandboxId || null);
@@ -184,7 +187,7 @@ export default function PlanSettings() {
       <SettingRow
         id="set-plan-signin"
         title="AppBlips plans"
-        description="You’re using your own AI key. Sign in to subscribe to a plan: AppBlips runs the AI and you get your own agent computer."
+        description="You’re using your own AI key. Sign in to subscribe to a plan: AppBlips runs the AI, so there’s no API key to set up."
       >
         <SignInButton mode="modal">
           <button type="button" className={PRIMARY_BUTTON}>Sign in</button>
@@ -199,10 +202,11 @@ export default function PlanSettings() {
     ? (config.plans || []).find((plan) => plan.id === currentId)?.priceCents ?? 0
     : -1;
   const currentName = active ? me.planName : 'No active plan';
+  const currentPlan = (config.plans || []).find((plan) => plan.id === currentId);
   const credits = !active
     ? 'Subscribe to start building'
     : me.unlimited
-      ? 'unlimited builds while AppBlips is in beta'
+      ? `unlimited builds while AppBlips is in beta${windowText(currentPlan)}`
       : me.credits == null
         ? '—'
         : `${me.credits} of ${me.monthlyCredits} left this month`;
@@ -250,7 +254,7 @@ export default function PlanSettings() {
 
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {
         const details = plan.monthlyCredits == null
-          ? `unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}`
+          ? `unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}${windowText(plan)}`
           : `${plan.monthlyCredits} build credits monthly`;
         const action = !active ? 'Subscribe' : plan.priceCents > currentPrice ? 'Upgrade' : 'Switch';
         return (

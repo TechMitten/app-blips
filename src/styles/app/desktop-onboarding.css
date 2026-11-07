@@ -433,6 +433,47 @@
 /* Plans not sold yet (plans.js comingSoon): dimmed, with a tag in place of
    the Subscribe button. */
 .onboarding-choice.is-soon .onboarding-choice-body { opacity: .55; }
+/* Plan vs own key, before the choice. A real table (row and column headers)
+   for screen readers; the tick/cross carry words too, not colour alone.
+   Fixed layout so the two option columns share the width evenly instead of
+   the label column taking the slack; the plan column (the first choice on
+   the next step) sits on a faint tinted band. */
+.onboarding-compare { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; line-height: 1.45; }
+.onboarding-compare thead td { width: 21%; }
+.onboarding-compare thead th { width: 39.5%; }
+.onboarding-compare th, .onboarding-compare td { padding: 9px 14px; border-bottom: 1px solid rgb(255 255 255 / 0.2); text-align: left; vertical-align: top; }
+.onboarding-compare tbody tr:last-child > * { border-bottom: 0; }
+.onboarding-compare thead th { padding-top: 12px; padding-bottom: 10px; color: #f5f5f5; font-size: 0.95rem; font-weight: 600; white-space: nowrap; }
+.onboarding-compare thead th svg { display: inline-block; margin-right: 6px; vertical-align: -3px; color: var(--ob-red); }
+.onboarding-compare tbody th { padding-left: 0; color: #a3a3a3; font-weight: 500; }
+.onboarding-compare thead td { padding-left: 0; }
+.onboarding-compare td { color: #e5e5e5; }
+.onboarding-compare tr > :nth-child(2) { background: rgb(255 255 255 / 0.045); }
+.onboarding-compare thead tr > :nth-child(2) { border-radius: 10px 10px 0 0; }
+.onboarding-compare tbody tr:last-child > :nth-child(2) { border-radius: 0 0 10px 10px; }
+.onboarding-compare td.has-mark { display: table-cell; }
+.onboarding-compare td.has-mark > svg { display: inline-block; margin-right: 6px; vertical-align: -2px; }
+.onboarding-compare td.is-yes > svg { color: #86efac; }
+.onboarding-compare td.is-no { color: #8a8a8a; }
+/* Short laptop screens: keep the table and the beta note above the footer. */
+@media (max-height: 800px) and (min-width: 641px) {
+  .onboarding-compare { font-size: 0.84rem; line-height: 1.4; }
+  .onboarding-compare th, .onboarding-compare td { padding-top: 7px; padding-bottom: 7px; }
+  .onboarding-compare + .onboarding-beta-note { margin-top: 10px; padding: 9px 12px; }
+}
+@media (max-width: 640px) {
+  .onboarding-compare { table-layout: auto; }
+  .onboarding-compare thead { display: none; }
+  .onboarding-compare tr { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid rgb(255 255 255 / 0.2); }
+  .onboarding-compare tbody tr:last-child { border-bottom: 0; }
+  .onboarding-compare th, .onboarding-compare td, .onboarding-compare tbody th { width: auto; padding: 0; border: 0; }
+  /* The plan band only makes sense as a column; stacked, it would be strips. */
+  .onboarding-compare tr > :nth-child(2) { background: none; border-radius: 0; }
+  .onboarding-compare tbody th { color: #f5f5f5; font-weight: 600; }
+  .onboarding-compare td::before { display: block; color: #a3a3a3; font-size: 0.78rem; }
+  .onboarding-compare td:nth-of-type(1)::before { content: 'Plan'; }
+  .onboarding-compare td:nth-of-type(2)::before { content: 'Your own key'; }
+}
 .onboarding-beta-tag { display: inline-block; margin-left: 10px; padding: 4px 8px; border: 1px solid rgb(236 100 82 / 0.45); border-radius: 999px; color: #f5a397; font: 600 0.66rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 2px; }
 .onboarding-beta-note { display: flex; gap: 10px; margin-top: 14px; padding: 12px 14px; border: 1px solid rgb(255 255 255 / 0.1); border-left: 3px solid var(--ob-red); border-radius: 10px; color: #c7c7c7; background: rgb(255 255 255 / 0.03); font-size: 0.88rem; line-height: 1.5; }
 .onboarding-beta-note > svg { flex: none; margin-top: 2px; color: var(--ob-red); }

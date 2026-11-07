@@ -31,7 +31,7 @@ import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { handleBilling } from './electron/server/hosted/billing.js';
-import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js';
+import { gateChat, releaseBuild } from './electron/server/hosted/chat.js';
 import { handleSandbox } from './electron/server/hosted/sandbox.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 import { isHosted } from './electron/server/hosted/mode.js';
@@ -157,23 +157,22 @@ const server = createServer((req, res) => {
     }
     const handle = async () => {
       let request = await toChatRequest(req);
-      let charge = null;
+      let gated = null;
       // Signed-in requests are plan users (the app sends a Clerk session only
       // then); everyone else builds with their own saved key, hosted or not.
       if (hosted && request.headers.has('authorization')) {
-        const gated = await gateChat(request, process.env, store);
+        gated = await gateChat(request, process.env, store);
         if (gated.response) {
           sendWebResponse(res, gated.response, SECURITY_HEADERS, '[billing]');
           return;
         }
         request = gated.request;
-        charge = gated.charge;
       } else {
         request = await withSavedProvider(request, keys);
       }
       const response = await handleChatProxy(request, process.env);
       // A rejected request didn't produce a build; don't charge for it.
-      if (charge && !response.ok) await refundBuildCredit(process.env, charge);
+      if (gated && !response.ok) await releaseBuild(process.env, store, gated);
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);

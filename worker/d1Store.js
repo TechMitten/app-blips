@@ -3,6 +3,8 @@
 // returns a Promise; the shared handlers await them either way. The tables
 // are created by worker/migrations, not here.
 
+import { RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from '../electron/server/hosted/buildWindow.js';
+
 const now = () => new Date().toISOString();
 
 export function d1Store(db) {
@@ -67,5 +69,15 @@ export function d1Store(db) {
     return (result.meta?.changes || 0) > 0;
   };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, close: () => {} };
+  // The build cooldown (buildWindow.js); columns from migrations/0002.
+  const takeBuild = async (userId, { limit, windowMs, at = Date.now() }) => {
+    const taken = await db.prepare(TAKE_BUILD_SQL).bind(userId, at - windowMs, at, limit).first();
+    const start = taken ? null : (await db.prepare(WINDOW_START_SQL).bind(userId).first())?.start;
+    return windowResult(taken, start, windowMs);
+  };
+  const releaseBuild = async (userId) => {
+    await db.prepare(RELEASE_BUILD_SQL).bind(userId).run();
+  };
+
+  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, close: () => {} };
 }

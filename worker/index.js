@@ -10,7 +10,7 @@
 
 import { handleChatProxy, isForeignOrigin } from '../electron/server/chatProxy.js';
 import { handleBilling } from '../electron/server/hosted/billing.js';
-import { gateChat, refundBuildCredit } from '../electron/server/hosted/chat.js';
+import { gateChat, releaseBuild } from '../electron/server/hosted/chat.js';
 import { handleSandbox } from '../electron/server/hosted/sandbox.js';
 import { isHosted } from '../electron/server/hosted/mode.js';
 import { d1Store } from './d1Store.js';
@@ -62,7 +62,7 @@ async function route(request, env, ctx) {
     if (gated.response) return gated.response;
     const response = await handleChatProxy(gated.request, env);
     // A rejected request didn't produce a build; don't charge for it.
-    if (gated.charge && !response.ok) ctx.waitUntil(refundBuildCredit(env, gated.charge));
+    if (!response.ok) ctx.waitUntil(releaseBuild(env, store, gated));
     return response;
   }
 

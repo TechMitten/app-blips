@@ -317,22 +317,95 @@ function NameForm({ formRef, onSubmit, name, setName, errors }) {
 // Second slide: the chat avatar and (desktop only) where projects are saved.
 // The folder picker is the same one as Settings → Data, so the main process
 // still decides whether existing projects move.
+// The slide before the choice: what a plan includes next to bringing your own
+// key, so the choice that follows is an informed one. The plan column comes
+// from the live catalog (the first plan on sale), so its price and beta terms
+// always match what checkout sells; text only, no model names (plans.js).
+function CompareForm({ formRef, onSubmit }) {
+  const [plan, setPlan] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchBillingConfig().then((config) => {
+      if (!cancelled) setPlan((config.plans || []).find((entry) => !entry.comingSoon) || null);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const beta = Boolean(plan?.betaPricing);
+  const planCost = plan ? `${planPrice(plan.priceCents)}/month${beta ? ', beta price' : ''}` : 'Monthly subscription';
+  const planBuilds = !plan ? 'Included with your plan'
+    : plan.monthlyCredits == null
+      ? [`Unlimited${beta ? ' during the beta' : ''}`, planWindow(plan)].filter(Boolean).join(', ')
+      : `${plan.monthlyCredits} a month`;
+  // A mark ('yes' | 'no') only where a feature is in one option and not the
+  // other, so the tick and cross point at the real difference.
+  const rows = [
+    { label: 'Cost', plan: planCost, own: 'Free. You pay your AI provider directly.' },
+    { label: 'AI', plan: 'Run by AppBlips. No setup.', own: 'Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter' },
+    { label: 'API key', plan: 'Not needed', own: 'Your own, kept on your computer' },
+    { label: 'Builds', plan: planBuilds, own: 'As many as your provider allows' },
+    // Switched off until tested (sandbox.js SANDBOX_AVAILABLE).
+    { label: 'Agent computer', plan: 'Coming soon', own: 'Not included' },
+    { label: 'Account', plan: 'Sign-in needed', own: 'None needed' },
+  ];
+  const cell = (text, mark) => (
+    <td className={mark ? `has-mark is-${mark}` : undefined}>
+      {mark === 'yes' && <Check size={14} aria-hidden="true" />}
+      {mark === 'no' && <X size={14} aria-hidden="true" />}
+      <span>{text}</span>
+    </td>
+  );
+
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <table className="onboarding-compare">
+        <caption className="sr-only">What a plan includes compared with using your own AI key</caption>
+        <thead>
+          <tr>
+            <td />
+            <th scope="col"><Sparkles size={16} /> {plan ? `${plan.name} plan` : 'AppBlips plan'}</th>
+            <th scope="col"><KeyRound size={16} /> Your own key</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <th scope="row">{row.label}</th>
+              {cell(row.plan, row.planMark)}
+              {cell(row.own, row.ownMark)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {beta && (
+        <p className="onboarding-beta-note">
+          <Info size={16} />
+          <span>
+            <strong>Beta pricing.</strong> The {planPrice(plan.priceCents)}/month price
+            {plan.monthlyCredits == null ? ' and unlimited builds last' : ' lasts'} only while AppBlips is in beta.
+          </span>
+        </p>
+      )}
+    </form>
+  );
+}
+
 // "Use my own AI key", "Subscribe to a plan" or "I already have an account".
 // Only offered when this copy
 // has accounts (lib/accounts.js); otherwise onboarding goes straight to the
 // own-key form, as every local install always has.
 const ACCESS_OPTIONS = [
   {
+    id: 'plan',
+    icon: Sparkles,
+    title: 'Subscribe to a plan',
+    text: 'Sign in and pick a monthly plan. AppBlips runs the AI for you, so there’s no API key to set up.',
+  },
+  {
     id: 'own-key',
     icon: KeyRound,
     title: 'Use my own AI key',
     text: 'Free. Connect Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter with your own API key and pay them directly. No account needed.',
-  },
-  {
-    id: 'plan',
-    icon: Sparkles,
-    title: 'Subscribe to a plan',
-    text: 'Sign in and pick a monthly plan. AppBlips runs the AI for you, and you get your own agent computer, a Linux machine the AI uses to run and test your project.',
   },
   {
     id: 'sign-in',
@@ -383,6 +456,9 @@ function AccessForm({ formRef, onSubmit, access, setAccess }) {
 }
 
 const planPrice = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+// "up to 50 every 5 hours" for a plan with a build cooldown (plans.js).
+const planWindow = (plan) => (plan?.windowBuilds && plan?.windowHours
+  ? `up to ${plan.windowBuilds} every ${plan.windowHours} hours` : '');
 
 // The plan path: Clerk sign-in inside onboarding, then the plans. Rendered
 // only with accounts on, since Clerk's components need its provider.
@@ -451,7 +527,7 @@ function PlanForm({ onReady, onCheckout }) {
               </span>
               <span className="onboarding-choice-text">
                 {plan.monthlyCredits == null
-                  ? `Unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}.`
+                  ? `Unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}${planWindow(plan) ? ` (${planWindow(plan)})` : ''}.`
                   : `${plan.monthlyCredits} build credits a month.`}
               </span>
             </span>
@@ -561,7 +637,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   // changes so unrelated re-renders don't restart the animation.
   const [slide, setSlide] = useState({ step, rank: 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { name: 0, avatar: 1, access: 2, ai: 3, plan: 3 }[step];
+    const rank = { name: 0, avatar: 1, compare: 2, access: 3, ai: 4, plan: 4 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
@@ -634,11 +710,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  // After the avatar: the own-key form, or first the choice when this copy
-  // has accounts.
+  // After the avatar: the own-key form, or, when this copy has accounts, the
+  // plan-vs-own-key comparison and then the choice.
   const continueToAi = () => {
     keepProfile();
-    setStep(accounts ? 'access' : 'ai');
+    setStep(accounts ? 'compare' : 'ai');
   };
   const continueFromAccess = () => {
     const signsIn = SIGN_IN_CHOICES.includes(access);
@@ -707,18 +783,19 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
+  const isCompare = step === 'compare';
   const isAccess = step === 'access';
   const isPlan = step === 'plan';
   const isLast = step === 'ai' || isPlan;
-  const back = { avatar: 'name', access: 'avatar', ai: accounts ? 'access' : 'avatar', plan: 'access' }[step];
-  const stepCount = accounts ? 4 : 3;
-  const stepNumber = { avatar: 2, access: 3, ai: stepCount, plan: stepCount }[step];
+  const back = { avatar: 'name', compare: 'avatar', access: 'compare', ai: accounts ? 'access' : 'avatar', plan: 'access' }[step];
+  const stepCount = accounts ? 5 : 3;
+  const stepNumber = { avatar: 2, compare: 3, access: 4, ai: stepCount, plan: stepCount }[step];
   const goBack = () => {
     setStatus(null);
     if (isPlan) writeResume(null);
     setStep(back);
   };
-  const next = isName ? continueToAvatar : isAvatar ? continueToAi : continueFromAccess;
+  const next = isName ? continueToAvatar : isAvatar ? continueToAi : isCompare ? () => setStep('access') : continueFromAccess;
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -755,6 +832,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Now pick <span className="onboarding-title-accent">your avatar.</span>
               </h1>
+            ) : isCompare ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Two ways to <span className="onboarding-title-accent">power AppBlips.</span>
+              </h1>
             ) : isAccess ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 How should AppBlips <span className="onboarding-title-accent">get its AI?</span>
@@ -778,12 +859,14 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <p>{isDesktop
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
+            ) : isCompare ? (
+              <p>Here’s what each option includes. You’ll choose one on the next step, and you can switch later in Settings.</p>
             ) : isAccess ? (
               <p>Bring your own AI key, let AppBlips run the AI with a monthly plan, or sign in if you already have an account. You can change this later in Settings.</p>
             ) : isPlan && access === 'sign-in' ? (
               <p>Use the account you signed up with. Your plan and build credits come with you. No plan yet? You can choose one after signing in.</p>
             ) : isPlan ? (
-              <p>Your account keeps your plan and build credits. Plans include your own agent computer. Prefer your own key? Press Back.</p>
+              <p>Your account keeps your plan and build credits. Prefer your own key? Press Back.</p>
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter. You can change this later in Settings.</p>
             )}
@@ -798,6 +881,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
               />
+            ) : isCompare ? (
+              <CompareForm formRef={formRef} onSubmit={() => setStep('access')} />
             ) : isAccess ? (
               <AccessForm formRef={formRef} onSubmit={continueFromAccess} {...{ access, setAccess }} />
             ) : isPlan ? (

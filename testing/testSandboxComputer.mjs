@@ -145,7 +145,7 @@ globalThis.fetch = async (url, init = {}) => {
   // Route local /api/sandbox/* calls from client helpers into handleSandbox
   if (href.startsWith('/api/sandbox') || href.startsWith('http://localhost/api/sandbox')) {
     const fullUrl = href.startsWith('/') ? `http://localhost${href}` : href;
-    return handleSandbox(new Request(fullUrl, init), env, store);
+    return handleSandbox(new Request(fullUrl, init), env, store, { enabled: true });
   }
 
   // Fake Render API: POST /v1/sandboxes
@@ -310,6 +310,11 @@ try {
   assert.equal(tarRoundtrip.get('index.html'), '<!doctype html>');
   assert.equal(tarRoundtrip.get(longPath), 'export const ok = true;');
 
+  // ---- 0. Switched off for everyone until it has been tested -------------------
+  const offRes = await handleSandbox(new Request('http://localhost/api/sandbox/status'), env, store);
+  assert.equal(offRes.status, 503);
+  assert.equal((await offRes.json()).code, 'sandbox_unavailable');
+
   // ---- 1. Active subscription & Clerk auth gate -----------------------------
   store.saveAccount({ userId: 'user_1', customerId: 'cust_1', plan: 'basic', active: true });
   store.saveAccount({ userId: 'user_2', customerId: 'cust_2', plan: 'silver', active: true });
@@ -318,7 +323,7 @@ try {
   const unauthRes = await handleSandbox(new Request('http://localhost/api/sandbox/exec', {
     method: 'POST',
     body: JSON.stringify({ command: 'echo hi' }),
-  }), env, store);
+  }), env, store, { enabled: true });
   assert.equal(unauthRes.status, 401);
 
   const inactiveToken = makeToken({ sub: 'user_inactive' });
@@ -326,7 +331,7 @@ try {
     method: 'POST',
     headers: { authorization: `Bearer ${inactiveToken}`, 'content-type': 'application/json' },
     body: JSON.stringify({ command: 'echo hi' }),
-  }), env, store);
+  }), env, store, { enabled: true });
   assert.equal(inactiveRes.status, 402);
   assert.equal((await inactiveRes.json()).code, 'subscription_required');
 
@@ -337,7 +342,7 @@ try {
     const localRes = await handleSandbox(new Request(`http://localhost${path}`, {
       method: path.endsWith('exec') ? 'POST' : 'GET',
       ...(path.endsWith('exec') ? { body: JSON.stringify({ command: 'echo hi' }) } : {}),
-    }), localEnv, store);
+    }), localEnv, store, { enabled: true });
     assert.equal(localRes.status, 403, `${path} without accounts`);
     assert.equal((await localRes.json()).code, 'plan_required');
   }
@@ -436,7 +441,7 @@ try {
     method: 'POST',
     headers: { authorization: `Bearer ${token1}`, 'content-type': 'application/json' },
     body: JSON.stringify({ path: '../etc/passwd', content: 'nope' }),
-  }), env, store);
+  }), env, store, { enabled: true });
   assert.equal(badUpload.status, 502);
 
   // Auto-discovers workspace ID from /v1/owners when RENDER_WORKSPACE_ID is omitted

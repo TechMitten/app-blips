@@ -2,7 +2,7 @@
 //
 // The tiers differ by the model alias the operator configures for them
 // (`APPBLIPS_MODEL_BASIC` / `_SILVER` / `_MAX`) and by a monthly build-credit
-// allowance. Basic is free and unlimited during the beta; Silver and Max are
+// allowance. Basic is unlimited during the beta (within a cooldown window); Silver and Max are
 // capped so credits stay meaningful. No provider or model names live here:
 // the operator sets the aliases in the environment, and the client only ever
 // sees tier names.
@@ -13,8 +13,13 @@ export const PLANS = Object.freeze({
   basic: {
     id: 'basic',
     name: 'Basic',
-    priceCents: 100,
-    monthlyCredits: null, // unlimited during the beta
+    priceCents: 500,
+    monthlyCredits: null, // unlimited during the beta, within the cooldown below
+    // Cooldown: at most this many builds in a window of this many hours,
+    // counted from the first build of the window (chat.js, the store's
+    // takeBuild). Keeps "unlimited" from running up AI costs without a cap.
+    windowBuilds: 50,
+    windowHours: 5,
     modelEnv: 'APPBLIPS_MODEL_BASIC',
     // Price and unlimited builds are beta terms: the app labels them as such
     // wherever the plan is offered. Remove when the beta ends.
@@ -79,4 +84,6 @@ export const publicCatalog = () => PLAN_IDS.map((id) => ({
   monthlyCredits: PLANS[id].monthlyCredits,
   comingSoon: Boolean(PLANS[id].comingSoon),
   betaPricing: Boolean(PLANS[id].betaPricing),
+  windowBuilds: PLANS[id].windowBuilds ?? null,
+  windowHours: PLANS[id].windowHours ?? null,
 }));

@@ -7,6 +7,7 @@
 // still needs no node_modules at runtime.
 
 import { DatabaseSync } from 'node:sqlite';
+import { BUILD_WINDOW_COLUMNS, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from './buildWindow.js';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -46,6 +47,9 @@ export function openStore(file) {
   }
   if (!columns.includes('sandbox_snapshot_id')) {
     db.exec('alter table accounts add column sandbox_snapshot_id text');
+  }
+  for (const [column, sql] of Object.entries(BUILD_WINDOW_COLUMNS)) {
+    if (!columns.includes(column)) db.exec(sql);
   }
 
   const byUser = db.prepare('select * from accounts where user_id = ?');
@@ -122,7 +126,17 @@ export function openStore(file) {
     return result.changes > 0;
   };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, close: () => db.close() };
+  // The build cooldown (buildWindow.js).
+  const takeBuildSql = db.prepare(TAKE_BUILD_SQL);
+  const releaseBuildSql = db.prepare(RELEASE_BUILD_SQL);
+  const windowStartSql = db.prepare(WINDOW_START_SQL);
+  const takeBuild = (userId, { limit, windowMs, at = Date.now() }) => {
+    const taken = takeBuildSql.get(userId, at - windowMs, at, limit);
+    return windowResult(taken, taken ? null : windowStartSql.get(userId)?.start, windowMs);
+  };
+  const releaseBuild = (userId) => { releaseBuildSql.run(userId); };
+
+  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, close: () => db.close() };
 }
 
 export const defaultDatabasePath = (env) => {

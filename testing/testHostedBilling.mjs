@@ -213,7 +213,42 @@ try {
   }), env, store);
   assert.equal(anon.response.status, 401);
 
-  console.log('Hosted billing checks passed: plans, store, webhooks, Clerk tokens, and the chat gate.');
+  // ---- build cooldown (Basic: 50 builds per 5-hour window) -----------------
+  const basic = configBody.plans.find((plan) => plan.id === 'basic');
+  assert.deepEqual([basic.priceCents, basic.windowBuilds, basic.windowHours], [500, 50, 5]);
+  store.saveAccount({ userId: 'user_window', customerId: 'cust_window', plan: 'basic', active: true });
+  const windowMs = 5 * 60 * 60 * 1000;
+  const t0 = Date.UTC(2026, 10, 7, 9, 0, 0);
+  for (let i = 0; i < 50; i += 1) {
+    assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + i * 1000 }).allowed, true, `build ${i + 1}`);
+  }
+  const blocked = store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600000 });
+  assert.equal(blocked.allowed, false, 'the 51st build in the window is refused');
+  assert.equal(blocked.resetAt, t0 + windowMs, 'unlocks 5 hours after the first build');
+  // A build the provider rejected is given back, so it doesn't use the window.
+  store.releaseBuild('user_window');
+  assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600001 }).allowed, true);
+  assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + 3600002 }).allowed, false);
+  // Once the window has passed, a new one starts with this build.
+  assert.equal(store.takeBuild('user_window', { limit: 50, windowMs, at: t0 + windowMs }).allowed, true);
+  assert.equal(store.getAccount('user_window').build_window_count, 1);
+
+  // Through the chat gate: the refusal says when building unlocks again.
+  store.saveAccount({ userId: 'user_cool', customerId: 'cust_cool', plan: 'basic', active: true });
+  for (let i = 0; i < 50; i += 1) store.takeBuild('user_cool', { limit: 50, windowMs });
+  const coolToken = makeToken({ sub: 'user_cool' });
+  const cooled = await gateChat(new Request('http://localhost/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${coolToken}` },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'build' }] }),
+  }), env, store);
+  assert.equal(cooled.response.status, 429);
+  const cooledBody = await cooled.response.json();
+  assert.equal(cooledBody.code, 'build_cooldown');
+  assert.match(cooledBody.error, /50 builds for this 5-hour window\. Building unlocks again in \d+ h \d+ min\./);
+  assert.ok(Number(cooled.response.headers.get('retry-after')) > 0);
+
+  console.log('Hosted billing checks passed: plans, store, webhooks, Clerk tokens, the chat gate and the build cooldown.');
 } finally {
   store.close();
   globalThis.fetch = realFetch;
