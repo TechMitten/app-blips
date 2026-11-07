@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Eye, EyeOff,
   FolderOpen, Info, KeyRound, Laptop, Loader2, Plug, Sparkles, UserRound, X,
 } from 'lucide-react';
-import { SignIn, useAuth } from '@clerk/react';
+import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
 import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
@@ -426,7 +426,7 @@ const ACCESS_OPTIONS = [
     id: 'plan',
     icon: Sparkles,
     title: 'Subscribe to a plan',
-    text: 'Sign in and pick a monthly plan. AppBlips runs the AI for you, so there’s no API key to set up.',
+    text: 'Create an account and pick a monthly plan. AppBlips runs the AI for you, so there’s no API key to set up.',
   },
   {
     id: 'own-key',
@@ -520,8 +520,49 @@ function LegalNote({ action }) {
 // (onCheckout); Creem brings the person back to the app, not to setup. The
 // desktop app opens checkout in the browser instead and stays on this step
 // until the plan is active.
-function PlanForm({ onReady, onCheckout }) {
+// The plan step's heading and text follow where the person is: signed out
+// (create an account, or sign in for "I already have an account"), signed
+// in without a plan (pick one), or signed in with one (nothing left to do).
+// Only rendered with accounts on, inside Clerk's provider.
+function PlanStepTitle({ titleRef, access, planActive }) {
+  const { isSignedIn } = useAuth();
+  const title = planActive
+    ? <>You’re all set. <span className="onboarding-title-accent">Start building.</span></>
+    : isSignedIn
+      ? <>You’re signed in. <span className="onboarding-title-accent">Choose your plan.</span></>
+      : access === 'sign-in'
+        ? <>Welcome back. <span className="onboarding-title-accent">Sign in to continue.</span></>
+        : <>Create your account and <span className="onboarding-title-accent">choose your plan.</span></>;
+  return <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>{title}</h1>;
+}
+
+function PlanStepText({ access, planActive }) {
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
+  const account = email ? `You’re signed in as ${email}. ` : '';
+  if (planActive) return <p>{account}Your plan is active, so AppBlips runs the AI for you. Press Start building to begin.</p>;
+  if (isSignedIn) return <p>{account}Pick a plan to have AppBlips run the AI for you. Prefer your own key? Press Back.</p>;
+  if (access === 'sign-in') return <p>Use the account you signed up with. Your plan and build credits come with you. No plan yet? You can choose one after signing in.</p>;
+  return <p>Your account keeps your plan and build credits. Already have one? Click Sign in below the form. Prefer your own key? Press Back.</p>;
+}
+
+const NO_CLERK_SWITCH_LINK = { elements: { footerAction: { display: 'none' } } };
+
+function PlanForm({ onReady, onCheckout, newAccount }) {
   const { isLoaded, isSignedIn } = useAuth();
+  // "Subscribe to a plan" starts on Clerk's sign-up form, "I already have an
+  // account" on sign-in. Clerk's own "Sign in" / "Sign up" link is hidden: it
+  // goes to Clerk's hosted pages (accounts.appblips.com), which leave the app
+  // (the desktop app opens them in the browser), so our link below swaps the
+  // two forms instead.
+  const [authMode, setAuthMode] = useState(newAccount ? 'sign-up' : 'sign-in');
+  const switchAuthMode = () => {
+    // Each form keeps its steps in the hash (routing="hash"); a fresh form
+    // starts at its first step.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    setAuthMode((mode) => (mode === 'sign-up' ? 'sign-in' : 'sign-up'));
+  };
   const [plans, setPlans] = useState(null);
   const [me, setMe] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -568,7 +609,15 @@ function PlanForm({ onReady, onCheckout }) {
   if (!isSignedIn) {
     return (
       <div className="onboarding-signin">
-        <SignIn routing="hash" />
+        {authMode === 'sign-up'
+          ? <SignUp key="sign-up" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />
+          : <SignIn key="sign-in" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />}
+        <p className="onboarding-auth-switch">
+          {authMode === 'sign-up' ? 'Already have an account?' : 'New to AppBlips?'}{' '}
+          <button type="button" onClick={switchAuthMode}>
+            {authMode === 'sign-up' ? 'Sign in' : 'Create an account'}
+          </button>
+        </p>
         <LegalNote action="signing in or creating an account" />
       </div>
     );
@@ -706,7 +755,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const resumed = accounts ? readResume() : null;
   const resumePlan = SIGN_IN_CHOICES.includes(resumed);
   const [step, setStep] = useState(resumePlan ? 'plan' : 'name');
-  const [access, setAccess] = useState(resumePlan ? resumed : 'own-key');
+  const [access, setAccess] = useState(resumePlan ? resumed : 'plan');
   const [planActive, setPlanActive] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   // Slide direction follows the step order; only updated when the step
@@ -798,6 +847,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const continueFromAccess = () => {
     const signsIn = SIGN_IN_CHOICES.includes(access);
     writeResume(signsIn ? access : null);
+    // Clerk's forms keep their step in the hash (routing="hash"). One left
+    // in the address (an earlier attempt, a reload mid-sign-up) names a step
+    // the new form doesn't have, and Clerk then leaves for its hosted page,
+    // so each visit starts at the form's first screen. A Google/GitHub
+    // return lands on the plan step directly, not through here.
+    if (signsIn && window.location.hash) window.history.replaceState(null, '', window.location.pathname + window.location.search);
     setStep(signsIn ? 'plan' : 'ai');
   };
 
@@ -914,14 +969,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 How should AppBlips <span className="onboarding-title-accent">get its AI?</span>
               </h1>
-            ) : isPlan && access === 'sign-in' ? (
-              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                Welcome back. <span className="onboarding-title-accent">Sign in to continue.</span>
-              </h1>
             ) : isPlan ? (
-              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                Sign in and <span className="onboarding-title-accent">choose your plan.</span>
-              </h1>
+              <PlanStepTitle titleRef={titleRef} access={access} planActive={planActive} />
             ) : (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
@@ -935,10 +984,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 : 'Pick a fun avatar for your chat messages.'}</p>
             ) : isAccess ? (
               <p>Bring your own AI key, let AppBlips run the AI with a monthly plan, or sign in if you already have an account. You can change this later in Settings.</p>
-            ) : isPlan && access === 'sign-in' ? (
-              <p>Use the account you signed up with. Your plan and build credits come with you. No plan yet? You can choose one after signing in.</p>
             ) : isPlan ? (
-              <p>Your account keeps your plan and build credits. Prefer your own key? Press Back.</p>
+              <PlanStepText access={access} planActive={planActive} />
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter. You can change this later in Settings.</p>
             )}
@@ -956,7 +1003,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             ) : isAccess ? (
               <AccessForm formRef={formRef} onSubmit={continueFromAccess} {...{ access, setAccess }} onCompare={() => setCompareOpen(true)} />
             ) : isPlan ? (
-              <PlanForm onReady={setPlanActive} onCheckout={beforeCheckout} />
+              <PlanForm onReady={setPlanActive} onCheckout={beforeCheckout} newAccount={access === 'plan'} />
             ) : (
               <SetupForm
                 formRef={formRef}

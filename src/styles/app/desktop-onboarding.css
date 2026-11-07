@@ -432,6 +432,10 @@
 .onboarding-signin { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 /* Terms and Privacy agreement under sign-in and the plans: readable but
    quiet, with links that look like links (underlined, not colour alone). */
+.onboarding-auth-switch { margin: 0; color: #c7c7c7; font-size: 0.9rem; }
+.onboarding-auth-switch button { padding: 0; border: 0; background: none; color: #f5f5f5; font: inherit; font-weight: 600; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 0.4); text-underline-offset: 3px; cursor: pointer; }
+.onboarding-auth-switch button:hover { text-decoration-color: #ffffff; }
+.onboarding-auth-switch button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; border-radius: 2px; }
 .onboarding-legal { max-width: 420px; margin-top: 4px; color: #a3a3a3; font-size: 0.82rem; line-height: 1.5; text-align: center; }
 .desktop-onboarding-setup .onboarding-legal { max-width: none; margin-top: 8px; text-align: left; }
 .onboarding-legal a { color: #f5f5f5; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 0.4); text-underline-offset: 3px; }
