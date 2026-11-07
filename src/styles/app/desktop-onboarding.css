@@ -581,6 +581,22 @@
 .onboarding-compare-actions .onboarding-next { min-width: 0; height: 46px; padding: 0 22px; }
 .onboarding-compare-actions .onboarding-next:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
 
+/* PlansNotice: the one-time "plans are here" toast for existing own-key
+   users. Literal colours (it lives outside .desktop-onboarding) so it reads
+   the same whatever the app theme. */
+.plans-notice { position: fixed; bottom: 1rem; left: 1rem; z-index: 85; width: calc(100% - 2rem); max-width: 24rem; padding: 14px 16px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 14px; color: #c7c7c7; background: linear-gradient(160deg, #1a1a1a, #101010); box-shadow: inset 0 1px rgb(255 255 255 / 0.06), 0 20px 50px -20px #000; font-size: 0.875rem; }
+.plans-notice-icon { color: #ec6452; }
+.plans-notice-title { color: #f5f5f5; font-weight: 600; }
+.plans-notice-text { margin-top: 2px; color: #b3b3b3; font-size: 0.8rem; line-height: 1.45; }
+.plans-notice-primary, .plans-notice-secondary { height: 34px; padding: 0 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background .18s ease, border-color .18s ease, color .18s ease; }
+.plans-notice-primary { border: 0; color: #0a0a0a; background: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%); }
+.plans-notice-primary:hover { background: #ffffff; }
+.plans-notice-secondary { border: 1px solid rgb(255 255 255 / 0.22); color: #f5f5f5; background: transparent; }
+.plans-notice-secondary:hover { border-color: rgb(255 255 255 / 0.45); background: rgb(255 255 255 / 0.06); }
+.plans-notice-close { flex: none; padding: 4px; border-radius: 6px; color: #8a8a8a; cursor: pointer; }
+.plans-notice-close:hover { color: #f5f5f5; background: rgb(255 255 255 / 0.08); }
+.plans-notice-primary:focus-visible, .plans-notice-secondary:focus-visible, .plans-notice-close:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
 /* The fourth card on the choice step: opens the comparison rather than being
    a choice, so it is dashed and has an arrow instead of a radio mark. */
 .onboarding-choice.is-info { margin-top: 12px; border-style: dashed; background: transparent; }

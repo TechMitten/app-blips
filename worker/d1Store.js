@@ -4,6 +4,7 @@
 // are created by worker/migrations, not here.
 
 import { RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from '../electron/server/hosted/buildWindow.js';
+import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL } from '../electron/server/hosted/subscriptionSql.js';
 
 const now = () => new Date().toISOString();
 
@@ -79,5 +80,13 @@ export function d1Store(db) {
     await db.prepare(RELEASE_BUILD_SQL).bind(userId).run();
   };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, close: () => {} };
+  // The Creem subscription (subscriptionSql.js); columns from migrations/0003.
+  const setSubscriptionId = async (customerId, subscriptionId) => {
+    if (customerId && subscriptionId) await db.prepare(SET_SUBSCRIPTION_ID_SQL).bind(subscriptionId, now(), customerId).run();
+  };
+  const setCancelAt = async (customerId, cancelAt) => {
+    if (customerId) await db.prepare(SET_CANCEL_AT_SQL).bind(cancelAt || null, now(), customerId).run();
+  };
+
+  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => {} };
 }

@@ -8,7 +8,7 @@
 
 import { PLANS, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog } from './plans.js';
 import { verifyClerkToken } from './clerk.js';
-import { createCheckout, findCreditAccount, getCreditBalance, verifyCreemSignature, creemWebhookSecret } from './creem.js';
+import { cancelSubscription, createCheckout, findCreditAccount, findCustomerSubscription, getCreditBalance, verifyCreemSignature, creemWebhookSecret } from './creem.js';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -62,6 +62,8 @@ async function handleMe(request, env, store) {
     monthlyCredits: plan.monthlyCredits,
     sandboxId: account?.sandbox_id || null,
     sandboxSnapshotId: account?.sandbox_snapshot_id || null,
+    // Set after a cancel: the plan stays active until then, with no renewal.
+    cancelAt: account?.active ? account?.cancel_at || null : null,
     plans: publicCatalog(),
   });
 }
@@ -96,6 +98,39 @@ async function handleCheckout(request, env) {
   return json(200, { url });
 }
 
+// Settings → Plan → Cancel subscription. Cancels at the end of the paid
+// period (creem.js cancelSubscription): the plan stays active until then and
+// is switched off by the subscription.canceled webhook when it ends.
+async function handleCancel(request, env, store) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const account = await store.getAccount(auth.userId);
+  if (!account?.active || !account.creem_customer_id) {
+    return json(409, { error: 'You don’t have an active plan to cancel.' });
+  }
+  if (account.cancel_at) return json(200, { cancelAt: account.cancel_at });
+
+  let subscriptionId = account.subscription_id;
+  if (!subscriptionId) {
+    // Subscribed before subscription ids were stored: look it up once.
+    const found = await findCustomerSubscription(env, account.creem_customer_id).catch(() => null);
+    subscriptionId = found?.id || null;
+  }
+  if (!subscriptionId) {
+    return json(404, { error: 'We couldn’t find your subscription. Contact support@appblips.com and we’ll cancel it for you.' });
+  }
+
+  const result = await cancelSubscription(env, subscriptionId).catch(() => null);
+  if (!result?.ok) {
+    return json(502, { error: 'Could not cancel your subscription. Please try again, or contact support@appblips.com.' });
+  }
+  const cancelAt = result.data?.current_period_end_date || null;
+  await store.setSubscriptionId(account.creem_customer_id, subscriptionId);
+  // Unknown end date: still mark it, so Settings shows it as cancelled.
+  await store.setCancelAt(account.creem_customer_id, cancelAt || new Date().toISOString());
+  return json(200, { cancelAt });
+}
+
 async function applyCheckoutCompleted(object, env, store) {
   const customerId = idOf(object.customer);
   const userId = object.metadata?.clerk_user_id || object.metadata?.clerkUserId;
@@ -103,6 +138,9 @@ async function applyCheckoutCompleted(object, env, store) {
   const planId = planForProductId(env, productId) || 'basic';
   if (!userId || !customerId) return;
   await store.saveAccount({ userId, customerId, plan: planId, active: true });
+  // Kept so Settings can cancel it (Creem can't look it up by customer).
+  await store.setSubscriptionId(customerId, idOf(object.subscription));
+  await store.setCancelAt(customerId, null);
 }
 
 async function applySubscription(object, type, env, store) {
@@ -111,13 +149,25 @@ async function applySubscription(object, type, env, store) {
   const productId = idOf(object.product) || object.product_id;
   const planId = planForProductId(env, productId);
 
+  await store.setSubscriptionId(customerId, object.id);
+
+  // subscription.canceled also fires when a scheduled cancel takes effect at
+  // the end of the paid period, so access ends exactly then.
   const ended = ['subscription.canceled', 'subscription.expired', 'subscription.unpaid', 'subscription.paused'].includes(type);
   if (ended) {
     await store.setPlanByCustomer(customerId, 'basic', false);
+    await store.setCancelAt(customerId, null);
+    return;
+  }
+  // Cancelled for the end of the period: still active until then.
+  if (type === 'subscription.scheduled_cancel' || object.status === 'scheduled_cancel') {
+    await store.setCancelAt(customerId, object.current_period_end_date || new Date().toISOString());
     return;
   }
   if (['subscription.active', 'subscription.paid', 'subscription.trialing', 'subscription.update'].includes(type)) {
     await store.setPlanByCustomer(customerId, planId || 'basic', true);
+    // Renewing (or resumed) again: no end date.
+    if (object.status === 'active' || object.status === 'trialing') await store.setCancelAt(customerId, null);
   }
 }
 
@@ -167,6 +217,10 @@ export async function handleBilling(request, env, store) {
   if (pathname === '/api/billing/checkout') {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
     return handleCheckout(request, env);
+  }
+  if (pathname === '/api/billing/cancel') {
+    if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
+    return handleCancel(request, env, store);
   }
   return json(404, { error: 'Not found.' });
 }

@@ -8,6 +8,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { BUILD_WINDOW_COLUMNS, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from './buildWindow.js';
+import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL, SUBSCRIPTION_COLUMNS } from './subscriptionSql.js';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -48,7 +49,7 @@ export function openStore(file) {
   if (!columns.includes('sandbox_snapshot_id')) {
     db.exec('alter table accounts add column sandbox_snapshot_id text');
   }
-  for (const [column, sql] of Object.entries(BUILD_WINDOW_COLUMNS)) {
+  for (const [column, sql] of Object.entries({ ...BUILD_WINDOW_COLUMNS, ...SUBSCRIPTION_COLUMNS })) {
     if (!columns.includes(column)) db.exec(sql);
   }
 
@@ -136,7 +137,17 @@ export function openStore(file) {
   };
   const releaseBuild = (userId) => { releaseBuildSql.run(userId); };
 
-  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, close: () => db.close() };
+  // The Creem subscription (subscriptionSql.js), keyed by Creem customer.
+  const setSubscriptionIdSql = db.prepare(SET_SUBSCRIPTION_ID_SQL);
+  const setCancelAtSql = db.prepare(SET_CANCEL_AT_SQL);
+  const setSubscriptionId = (customerId, subscriptionId) => {
+    if (customerId && subscriptionId) setSubscriptionIdSql.run(subscriptionId, now(), customerId);
+  };
+  const setCancelAt = (customerId, cancelAt) => {
+    if (customerId) setCancelAtSql.run(cancelAt || null, now(), customerId);
+  };
+
+  return { getAccount, getAccountByCustomer, saveAccount, setPlan, setPlanByCustomer, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => db.close() };
 }
 
 export const defaultDatabasePath = (env) => {

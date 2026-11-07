@@ -26,6 +26,7 @@ const env = {
 
 const realFetch = globalThis.fetch;
 let creemDebitStatus = 200;
+const cancelCalls = [];
 
 // ---- fake JWKS + Creem API ------------------------------------------------
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -48,6 +49,24 @@ globalThis.fetch = async (url, init = {}) => {
   }
   if (href.includes('/customer-credits/accounts/acct_default/credit')) {
     return new Response(JSON.stringify({ id: 'txn_2' }), { headers: { 'content-type': 'application/json' } });
+  }
+  // Subscription cancel (Settings → Plan): search has no customer filter, so
+  // the fake lists another customer's subscription first.
+  if (href.includes('/subscriptions/search')) {
+    return new Response(JSON.stringify({
+      items: [
+        { id: 'sub_other', status: 'active', customer: { id: 'cust_someone_else' } },
+        { id: 'sub_cancel', status: 'active', customer: { id: 'cust_cancel' } },
+      ],
+      pagination: { next_page: null },
+    }), { headers: { 'content-type': 'application/json' } });
+  }
+  const cancelMatch = href.match(/\/subscriptions\/([^/]+)\/cancel$/);
+  if (cancelMatch) {
+    cancelCalls.push({ id: cancelMatch[1], body: JSON.parse(init.body || '{}') });
+    return new Response(JSON.stringify({ id: cancelMatch[1], status: 'scheduled_cancel', current_period_end_date: '2026-12-07T00:00:00.000Z' }), {
+      headers: { 'content-type': 'application/json' },
+    });
   }
   throw new Error(`Unexpected fetch in test: ${href}`);
 };
@@ -248,7 +267,54 @@ try {
   assert.match(cooledBody.error, /50 builds for this 5-hour window\. Building unlocks again in \d+ h \d+ min\./);
   assert.ok(Number(cooled.response.headers.get('retry-after')) > 0);
 
-  console.log('Hosted billing checks passed: plans, store, webhooks, Clerk tokens, the chat gate and the build cooldown.');
+  // ---- cancel subscription (Settings → Plan) ---------------------------------
+  const cancelReq = (sub) => handleBilling(new Request('http://localhost/api/billing/cancel', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${makeToken({ sub })}` },
+    body: '{}',
+  }), env, store);
+  const meFor = async (sub) => (await handleBilling(new Request('http://localhost/api/billing/me', {
+    headers: { authorization: `Bearer ${makeToken({ sub })}` },
+  }), env, store)).json();
+
+  // No active plan: nothing to cancel, and Creem is never called.
+  store.saveAccount({ userId: 'user_noplan', customerId: 'cust_noplan', plan: 'basic', active: false });
+  assert.equal((await cancelReq('user_noplan')).status, 409);
+  assert.equal(cancelCalls.length, 0);
+
+  // Subscribed before ids were stored: found by customer, cancelled for the
+  // end of the period (never immediately), and still active until then.
+  store.saveAccount({ userId: 'user_cancel', customerId: 'cust_cancel', plan: 'basic', active: true });
+  const cancelled = await cancelReq('user_cancel');
+  assert.equal(cancelled.status, 200);
+  assert.equal((await cancelled.json()).cancelAt, '2026-12-07T00:00:00.000Z');
+  assert.deepEqual(cancelCalls, [{ id: 'sub_cancel', body: { mode: 'scheduled', onExecute: 'cancel' } }]);
+  assert.equal(store.getAccount('user_cancel').subscription_id, 'sub_cancel');
+  const meCancelled = await meFor('user_cancel');
+  assert.equal(meCancelled.active, true, 'still active until the period ends');
+  assert.equal(meCancelled.cancelAt, '2026-12-07T00:00:00.000Z');
+  // Cancelling again just reports the date.
+  assert.equal((await cancelReq('user_cancel')).status, 200);
+  assert.equal(cancelCalls.length, 1);
+
+  // When the period ends Creem sends subscription.canceled: access stops.
+  const endEvent = { id: 'evt_sub_end', eventType: 'subscription.canceled', object: { id: 'sub_cancel', status: 'canceled', customer: { id: 'cust_cancel' }, product: { id: 'prod_basic' } } };
+  const endBody = JSON.stringify(endEvent);
+  const endRes = await handleBilling(webhook(endEvent, createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(endBody).digest('hex')), env, store);
+  assert.equal(endRes.status, 200);
+  assert.equal(store.getAccount('user_cancel').active, 0);
+  assert.equal((await meFor('user_cancel')).cancelAt, null);
+
+  // Cancelled in Creem's own portal for the period end: the webhook records it.
+  store.saveAccount({ userId: 'user_portal', customerId: 'cust_portal', plan: 'basic', active: true });
+  const schedEvent = { id: 'evt_sched', eventType: 'subscription.scheduled_cancel', object: { id: 'sub_portal', status: 'scheduled_cancel', current_period_end_date: '2026-12-20T00:00:00.000Z', customer: { id: 'cust_portal' } } };
+  const schedBody = JSON.stringify(schedEvent);
+  await handleBilling(webhook(schedEvent, createHmac('sha256', env.CREEM_TEST_WEBHOOK_SECRET).update(schedBody).digest('hex')), env, store);
+  assert.equal(store.getAccount('user_portal').active, 1);
+  assert.equal(store.getAccount('user_portal').cancel_at, '2026-12-20T00:00:00.000Z');
+  assert.equal(store.getAccount('user_portal').subscription_id, 'sub_portal');
+
+  console.log('Hosted billing checks passed: plans, store, webhooks, Clerk tokens, the chat gate, the build cooldown and cancelling.');
 } finally {
   store.close();
   globalThis.fetch = realFetch;

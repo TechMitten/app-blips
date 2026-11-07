@@ -21,6 +21,7 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
+import PlansNotice from './components/PlansNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
@@ -129,6 +130,8 @@ export default function App({ coldStart = false }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Tab to open Settings on (e.g. the hero rail's Extensions link); null = last used.
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
+  // PlansNotice's "See plans": Settings on the Plan tab (sign in, subscribe).
+  const openPlanSettings = () => { setSettingsInitialTab('plan'); setIsSettingsOpen(true); };
   // Desktop first run gets a dedicated introduction and AI setup. The main
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
@@ -2864,6 +2867,7 @@ export default function App({ coldStart = false }) {
         {settingsModal}
         {isDesktop && <DesktopStorageNotice />}
         <UpdateNotice />
+        <PlansNotice onOpenPlans={openPlanSettings} />
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -3025,6 +3029,7 @@ export default function App({ coldStart = false }) {
       )}
 
       <UpdateNotice />
+      <PlansNotice onOpenPlans={openPlanSettings} />
       {isDesktop && <DesktopStorageNotice />}
 
       {isResumingProject ? null : showHero ? (

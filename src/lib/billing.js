@@ -49,6 +49,15 @@ export async function createCheckoutSession(planId) {
   return data.url;
 }
 
+// Cancels the plan at the end of the paid period. Returns the ISO date it
+// ends (or null if Creem didn't say); throws with the server's message.
+export async function cancelPlan() {
+  const res = await fetch('/api/billing/cancel', await withAuth({ method: 'POST', body: '{}' }));
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || 'Could not cancel your subscription.');
+  return data?.cancelAt || null;
+}
+
 export async function openCheckout(planId) {
   const url = await createCheckoutSession(planId);
   window.location.assign(url);

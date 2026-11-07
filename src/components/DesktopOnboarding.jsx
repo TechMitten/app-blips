@@ -8,6 +8,7 @@ import { SignIn, useAuth } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
 import { fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
+import { savePlansIntroSeen } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
@@ -322,7 +323,7 @@ function NameForm({ formRef, onSubmit, name, setName, errors }) {
 // comes from the live catalog (the first plan on sale), so its price and beta
 // terms always match what checkout sells; text only, no model names
 // (plans.js). Its buttons pick an option and close it.
-function CompareModal({ onClose, onChoose }) {
+export function CompareModal({ onClose, onChoose }) {
   const [plan, setPlan] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -729,6 +730,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const formRef = useRef(null);
 
   useEffect(() => { titleRef.current?.focus(); }, [step]);
+  // Reaching the choice means plans have been offered: PlansNotice is only for
+  // people who set up before they existed.
+  useEffect(() => { if (step === 'access') savePlansIntroSeen(); }, [step]);
   useEffect(() => {
     if (isDesktop) desktopBridge.folder.get().then(setFolder).catch((err) => logWarn('Could not read the projects folder location', err));
   }, []);

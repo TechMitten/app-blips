@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
+import { cancelPlan, fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
 import {
   clearSandboxTerminalLog,
   execInSandboxComputer,
@@ -16,6 +16,69 @@ const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 // " (up to 50 every 5 hours)" for a plan with a build cooldown (plans.js).
 const windowText = (plan) => (plan?.windowBuilds && plan?.windowHours
   ? ` (up to ${plan.windowBuilds} every ${plan.windowHours} hours)` : '');
+const longDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+// Cancel at the end of the paid period, behind a confirmation that says
+// exactly what happens. Once cancelled it says when the plan ends instead.
+function CancelPlanRow({ planName, cancelAt, onCancelled }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  if (cancelAt) {
+    return (
+      <SettingRow
+        id="set-plan-cancel"
+        title="Subscription cancelled"
+        description={`Your ${planName} plan ends on ${longDate(cancelAt)}. You won’t be charged again, and you can keep building until then.`}
+      />
+    );
+  }
+
+  const cancel = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      onCancelled((await cancelPlan()) || new Date().toISOString());
+    } catch (err) {
+      setError(err.message || 'Could not cancel your subscription.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SettingRow
+      id="set-plan-cancel"
+      title={confirming ? `Cancel your ${planName} plan?` : 'Cancel subscription'}
+      description={confirming
+        ? 'It stays active until the end of the period you’ve paid for, then stops. You won’t be charged again. Your projects stay as they are.'
+        : 'Stop your plan at the end of the current billing period.'}
+    >
+      <div className="flex flex-col items-end gap-2">
+        {confirming ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => { setConfirming(false); setError(''); }}>
+              Keep my plan
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={cancel}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {busy ? 'Cancelling…' : 'Yes, cancel'}
+            </button>
+          </div>
+        ) : (
+          <button type="button" className={SECONDARY_BUTTON} onClick={() => setConfirming(true)}>
+            Cancel subscription
+          </button>
+        )}
+        {error && <p role="alert" className="max-w-xs text-right text-xs text-red-600">{error}</p>}
+      </div>
+    </SettingRow>
+  );
+}
 
 function SandboxComputerSection({ sandboxId: initialSandboxId, snapshotId: initialSnapshotId }) {
   const [sandboxId, setSandboxId] = useState(initialSandboxId || null);
@@ -233,6 +296,14 @@ export default function PlanSettings() {
           {currentName}
         </span>
       </SettingRow>
+
+      {active && (
+        <CancelPlanRow
+          planName={me.planName}
+          cancelAt={me.cancelAt}
+          onCancelled={(cancelAt) => setMe((current) => ({ ...current, cancelAt }))}
+        />
+      )}
 
       {active && sandboxStatus?.configured && (
         <SandboxComputerSection

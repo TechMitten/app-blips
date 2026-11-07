@@ -164,6 +164,27 @@ export const saveDismissedUpdate = (version) => {
   }
 };
 
+// Whether this person has been shown AppBlips plans: the plan choice in
+// onboarding, or the one-time "plans are here" notice (PlansNotice) that
+// reaches people who set up with their own key before plans existed.
+const PLANS_INTRO_KEY = 'orion-plans-intro-seen';
+
+export const loadPlansIntroSeen = () => {
+  try {
+    return safeStorage('local')?.getItem(PLANS_INTRO_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const savePlansIntroSeen = () => {
+  try {
+    safeStorage('local')?.setItem(PLANS_INTRO_KEY, 'true');
+  } catch {
+    // ignore unavailable storage: the notice may show once more
+  }
+};
+
 export const AUTO_FOLLOW_CODE_KEY = 'orion-auto-follow-code';
 
 // Boolean: whether the Code tab auto-scrolls to follow the latest streamed

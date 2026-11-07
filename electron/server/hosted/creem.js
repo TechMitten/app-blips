@@ -51,6 +51,36 @@ export async function createCheckout(env, { productId, clerkUserId, email, succe
   });
 }
 
+// Cancels at the end of the paid period ("scheduled"): the person keeps the
+// plan they paid for, isn't charged again, and Creem sends
+// subscription.scheduled_cancel now and subscription.canceled when it ends.
+// (Creem's customer portal cancels immediately, so Settings uses this.)
+export async function cancelSubscription(env, subscriptionId) {
+  return creemRequest(env, 'POST', `/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
+    mode: 'scheduled',
+    onExecute: 'cancel',
+  });
+}
+
+// A customer's live subscription, for accounts saved before the webhook
+// stored subscription ids. Creem's search can't filter by customer, so this
+// pages through (bounded) and matches on the customer id.
+const LIVE_STATUSES = ['active', 'trialing', 'past_due', 'scheduled_cancel'];
+export async function findCustomerSubscription(env, customerId, { maxPages = 10 } = {}) {
+  for (let page = 1; page <= maxPages; page += 1) {
+    const res = await creemRequest(env, 'GET', `/subscriptions/search?page_number=${page}&page_size=50`);
+    if (!res.ok) return null;
+    const items = Array.isArray(res.data?.items) ? res.data.items : [];
+    const match = items.find((sub) => {
+      const owner = typeof sub?.customer === 'string' ? sub.customer : sub?.customer?.id;
+      return owner === customerId && LIVE_STATUSES.includes(sub?.status);
+    });
+    if (match) return match;
+    if (!res.data?.pagination?.next_page) return null;
+  }
+  return null;
+}
+
 // The customer's default credit wallet (where plan credit grants land).
 export async function findCreditAccount(env, customerId) {
   const res = await creemRequest(env, 'GET', `/customer-credits/accounts?customer_id=${encodeURIComponent(customerId)}`);
