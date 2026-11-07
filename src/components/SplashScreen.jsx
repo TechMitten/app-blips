@@ -12,7 +12,11 @@ const PLAYBACK_RATE = 1.5;
 // Skipping (button or Esc) uses a quicker fade so it doesn't feel ignored.
 const SKIP_FADE_MS = 500;
 
-export default function SplashScreen({ skip = false }) {
+// `onDone` runs once it has gone (played out, skipped or failed), so the
+// app can keep it from playing again when a different screen mounts its own
+// copy. `aboveSetup` draws it over the first-run setup screen (z-index
+// 1000), which is the first thing a new desktop install shows.
+export default function SplashScreen({ skip = false, onDone, aboveSetup = false }) {
   const [isVisible, setIsVisible] = useState(!skip);
   const [fadeOutMs, setFadeOutMs] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,7 +28,7 @@ export default function SplashScreen({ skip = false }) {
     endedRef.current = true;
     timersRef.current.forEach(clearTimeout);
     setFadeOutMs(duration);
-    timersRef.current = [setTimeout(() => setIsVisible(false), duration)];
+    timersRef.current = [setTimeout(() => { setIsVisible(false); onDone?.(); }, duration)];
   };
   const skipSplash = () => endSplash(SKIP_FADE_MS);
 
@@ -51,7 +55,7 @@ export default function SplashScreen({ skip = false }) {
       className={`fixed inset-0 z-100 flex h-dvh items-center justify-center overflow-hidden bg-black transition-opacity ease-in-out ${
         isFading ? 'opacity-0' : 'opacity-100'
       }`}
-      style={{ transitionDuration: `${fadeOutMs ?? 0}ms` }}
+      style={{ transitionDuration: `${fadeOutMs ?? 0}ms`, ...(aboveSetup ? { zIndex: 1400 } : null) }}
     >
       {/* Capped at 960 CSS px (the video is 2560 wide, so this is sharp even
           on high-DPI screens) so it sits centered instead of filling the

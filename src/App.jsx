@@ -112,6 +112,11 @@ export default function App({ coldStart = false }) {
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
+  // Once per launch: the first screen shown plays it (setup on a new desktop
+  // install, otherwise the studio picker or workspace), and the screens
+  // that follow mount their own copy, which mustn't play it again.
+  const [splashDone, setSplashDone] = useState(false);
+  const endSplash = useCallback(() => setSplashDone(true), []);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [codeAutocomplete, setCodeAutocomplete] = useState(loadCodeAutocomplete);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
@@ -2735,6 +2740,8 @@ export default function App({ coldStart = false }) {
   if (desktopOnboarding) {
     return (
       <>
+      {/* Not on a replay from Settings: the app is already open then. */}
+      {!desktopOnboarding.replay && <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />}
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
         onComplete={() => setDesktopOnboarding(null)}
@@ -2852,7 +2859,7 @@ export default function App({ coldStart = false }) {
   if (showStudioChoice) {
     return (
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-        <SplashScreen skip={skipSplash} />
+        <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
         <StudioChoice
           onSelectStudio={handleChooseStudio}
           onImportSite={() => setIsImportSiteOpen(true)}
@@ -2893,7 +2900,7 @@ export default function App({ coldStart = false }) {
 
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-      <SplashScreen skip={skipSplash} />
+      <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
       {!showHero && !isResumingProject && (
       <Header
         onNewApp={handleNewApp}
