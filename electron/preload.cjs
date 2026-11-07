@@ -18,6 +18,7 @@ if (window.location.protocol === 'appblips:') {
     },
     app: {
       quit: call('desktop:app:quit'),
+      clearSignIns: call('desktop:app:clearSignIns'),
     },
     browser: {
       input: call('desktop:browser:input'),

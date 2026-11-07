@@ -381,7 +381,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-reset-app"
                 title="Reset app to factory defaults"
-                description="Clear all data, settings, API keys, and projects. This resets the entire app to its beginning state."
+                description="Clear all data, settings, API keys, sign-ins, and projects. This resets the entire app to its beginning state."
               >
                 <button
                   type="button"
@@ -490,7 +490,7 @@ export default function SettingsModal({
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
             <span>
-              All apps, history, and settings will be permanently removed. The app will restart. This cannot be undone.
+              All apps, history, and settings will be permanently removed, and you’ll be signed out of AppBlips and every connected service. Your AppBlips account and plan aren’t deleted: sign in again to use them. The app will restart. This cannot be undone.
             </span>
           </div>
         </ConfirmModal>

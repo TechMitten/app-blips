@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { isDesktop, desktopBridge, providerApi } from './lib/desktop';
+import { signOutAccount } from './lib/authToken';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -2713,7 +2714,26 @@ export default function App({ coldStart = false }) {
     // And the Tavily connector's key.
     const tavily = await forgetTavilyKey();
     if (tavily.error) logError('Could not remove the Tavily key during reset', tavily.error);
+    // And the AppBlips account (Clerk). Signing out ends the session on
+    // Clerk's server; on desktop the app's cookies are cleared as well, so
+    // the reset holds even offline. Clerk's own localStorage entries go with
+    // localStorage below.
+    try {
+      await signOutAccount();
+    } catch (err) {
+      logError('Could not sign out of the AppBlips account during reset', err);
+    }
+    if (isDesktop) {
+      try {
+        await desktopBridge.app.clearSignIns();
+      } catch (err) {
+        logError('Could not clear the desktop sign-in data during reset', err);
+      }
+    }
     localStorage.clear();
+    // This tab's leftovers too, such as setup's "reopen on the sign-in step"
+    // note (DesktopOnboarding RESUME_KEY), which would skip setup's start.
+    try { sessionStorage.clear(); } catch { /* storage unavailable */ }
     window.location.reload();
   };
 

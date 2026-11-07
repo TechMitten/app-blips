@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useAuth } from '@clerk/react';
-import { setAuthTokenGetter } from '../lib/authToken';
+import { useAuth, useClerk } from '@clerk/react';
+import { setAccountSignOut, setAuthTokenGetter } from '../lib/authToken';
 import { fetchSandboxStatus, setSandboxComputerEnabled } from '../lib/sandboxComputer';
 import { AccountDialogsProvider } from './AccountDialogs';
 import { useBrowserSignInTickets } from '../lib/browserSignIn';
@@ -13,6 +13,7 @@ import { useBrowserSignInTickets } from '../lib/browserSignIn';
 // with one as a plan user and one without as an own-key user.
 export default function AuthSession({ children }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { signOut } = useClerk();
   // Desktop: finish Google/GitHub sign-ins that came back from the browser.
   useBrowserSignInTickets();
 
@@ -20,6 +21,13 @@ export default function AuthSession({ children }) {
     setAuthTokenGetter(isSignedIn ? getToken : null);
     return () => setAuthTokenGetter(null);
   }, [isSignedIn, getToken]);
+
+  // For Factory Reset (App.jsx handleResetApp), which runs outside React's
+  // Clerk hooks. Signs out without Clerk navigating: the reset reloads.
+  useEffect(() => {
+    setAccountSignOut(() => signOut());
+    return () => setAccountSignOut(null);
+  }, [signOut]);
 
   // The sandbox computer is for signed-in paid plans only; re-ask the server
   // whenever that can have changed, so the AI stops (or starts) being offered

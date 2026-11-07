@@ -8,6 +8,20 @@ export function setAuthTokenGetter(fn) {
   getter = typeof fn === 'function' ? fn : null;
 }
 
+// Factory Reset signs out of the AppBlips account the same way: AuthSession
+// installs Clerk's signOut, and copies without accounts have none.
+let signOutFn = null;
+
+export function setAccountSignOut(fn) {
+  signOutFn = typeof fn === 'function' ? fn : null;
+}
+
+// Resolves once signed out (or when there's no account to sign out of);
+// throws if Clerk couldn't end the session (offline, for example).
+export async function signOutAccount() {
+  if (signOutFn) await signOutFn();
+}
+
 export async function getAuthToken() {
   if (!getter) return null;
   try {

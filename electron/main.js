@@ -327,6 +327,16 @@ function registerIpc() {
   });
 
   handle('desktop:app:quit', () => app.quit());
+  // Factory Reset: forget the AppBlips account sign-in even if Clerk's own
+  // sign-out couldn't reach its server. Its session lives in cookies for
+  // clerk.appblips.com in this session (the page's localStorage is cleared
+  // by the renderer), and a Google/GitHub sign-in still waiting for the
+  // browser must not sign the reset app back in.
+  handle('desktop:app:clearSignIns', async () => {
+    pendingSignIn = null;
+    await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+    return true;
+  });
 }
 
 // ---- Windows & navigation -------------------------------------------------------
