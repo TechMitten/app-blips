@@ -60,11 +60,14 @@ export function isHostedRequest(request, pathname) {
 }
 
 // Only the headers the Worker's handlers read. The Origin is the app's own,
-// which the Worker lists in APPBLIPS_CHAT_ALLOWED_ORIGINS.
+// which the Worker lists in APPBLIPS_CHAT_ALLOWED_ORIGINS. `npm run dev`
+// (vite.config.js) forwards here too, with its own Worker address and no
+// Origin: a server-to-server call, like any other non-browser client, after
+// checking the page's Origin itself.
 const FORWARDED_HEADERS = ['authorization', 'content-type', 'accept'];
 
-export async function forwardToHosted(request, url, appOrigin) {
-  const headers = new Headers({ origin: appOrigin });
+export async function forwardToHosted(request, url, appOrigin, baseUrl = HOSTED_API_URL) {
+  const headers = new Headers(appOrigin ? { origin: appOrigin } : {});
   for (const name of FORWARDED_HEADERS) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
@@ -72,7 +75,7 @@ export async function forwardToHosted(request, url, appOrigin) {
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   let upstream;
   try {
-    upstream = await fetch(`${HOSTED_API_URL}${url.pathname}${url.search}`, {
+    upstream = await fetch(`${baseUrl}${url.pathname}${url.search}`, {
       method: request.method,
       headers,
       body: hasBody ? await request.arrayBuffer() : undefined,

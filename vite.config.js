@@ -17,6 +17,7 @@ import { isHosted } from './electron/server/hosted/mode.js'
 import { handleBilling } from './electron/server/hosted/billing.js'
 import { gateChat, releaseBuild } from './electron/server/hosted/chat.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
+import { forwardToHosted } from './electron/hostedApi.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
 import { licensePlugin } from './scripts/licenses.js'
@@ -80,6 +81,28 @@ function llmProxyDevMiddleware(mode) {
       const hosted = isHosted(env)
       // The account store is always open.
       const store = openStore(defaultDatabasePath(env))
+      // APPBLIPS_API_URL: plans come from that AppBlips Worker instead, as in
+      // the desktop app (electron/hostedApi.js). Polar's payment notices go
+      // to the Worker, so testing sign-in and checkout at dev.appblips.com
+      // needs this to see the plans people actually bought; the local store
+      // above never hears about them.
+      const hostedApiUrl = String(env.APPBLIPS_API_URL || '').trim().replace(/\/+$/, '')
+      // Forwarded calls carry no Origin, so this server turns away other
+      // sites' pages itself: an Origin must name the address it was sent to.
+      const sameOrigin = (req) => {
+        const origin = req.headers.origin
+        if (!origin) return true
+        try { return new URL(origin).host === req.headers.host } catch { return false }
+      }
+      const forwardHosted = async (req, res) => {
+        if (!sameOrigin(req)) {
+          res.statusCode = 403
+          res.end('Requests from other sites are not allowed.')
+          return
+        }
+        const request = await toFetchRequest(req)
+        sendWebResponse(res, await forwardToHosted(request, new URL(request.url), null, hostedApiUrl), {}, '[hosted]')
+      }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -87,6 +110,10 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         // Signed-in requests are plan users; everyone else uses their own key.
+        if (hostedApiUrl && req.headers.authorization) {
+          await forwardHosted(req, res)
+          return
+        }
         if (hosted && req.headers.authorization) {
           const gated = await gateChat(await toChatRequest(req), env, store)
           if (gated.response) {
@@ -107,6 +134,10 @@ function llmProxyDevMiddleware(mode) {
       // Plans, checkout and Polar's payment notices. Without the hosted keys
       // this answers 404 like server.js, which the app reads as "no accounts".
       const billing = guarded(async (req, res) => {
+        if (hostedApiUrl && req.originalUrl?.startsWith('/api/billing')) {
+          await forwardHosted(req, res)
+          return
+        }
         if (!hosted) {
           res.statusCode = 404
           res.end('Hosted billing is not enabled.')
@@ -182,6 +213,11 @@ function llmProxyDevMiddleware(mode) {
       }))
       // Per-user Render Sandbox computer (when RENDER_API_KEY + RENDER_WORKSPACE_ID are set).
       server.middlewares.use('/api/sandbox', guarded(async (req, res) => {
+        // A plan feature, so with APPBLIPS_API_URL it's the Worker's too.
+        if (hostedApiUrl) {
+          await forwardHosted(req, res)
+          return
+        }
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Sandbox access is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
