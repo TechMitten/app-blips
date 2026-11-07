@@ -78,5 +78,10 @@
     "rimraf@6": {
       "glob": "^14.0.3"
     }
+  },
+  "allowScripts": {
+    "electron-winstaller": false,
+    "onnxruntime-node": false,
+    "protobufjs": false
   }
 }
