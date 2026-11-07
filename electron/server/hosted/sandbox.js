@@ -17,6 +17,7 @@
 import { posix } from 'node:path';
 import { verifyClerkToken } from './clerk.js';
 import { validateProjectPath } from '../../../src/lib/codebase/paths.js';
+import { isHosted } from './mode.js';
 
 export const WORKSPACE_ROOT = '/workspace';
 export const DEFAULT_TIMEOUT_SECONDS = 0;
@@ -239,7 +240,7 @@ export async function deleteSandboxSnapshot(env, sandboxGroupId, snapshotId, { s
 // Captures a new filesystem snapshot for the user's sandbox, saves it to SQLite,
 // and deletes the user's superseded snapshot so snapshots never accumulate.
 export async function captureUserSandboxSnapshot(userId, env, store, { signal } = {}) {
-  const account = store?.getAccount(userId) || null;
+  const account = (await store?.getAccount(userId)) || null;
   const previousSnapshotId = account?.sandbox_snapshot_id || null;
   const ensured = await ensureUserSandbox(userId, env, store, { signal });
   const snapRes = await createSandboxSnapshot(env, ensured.sandboxId, {
@@ -251,7 +252,7 @@ export async function captureUserSandboxSnapshot(userId, env, store, { signal } 
   }
   const newSnapshotId = snapRes.data.id;
   const groupId = snapRes.data.sandboxGroupId || String(env?.RENDER_SANDBOX_GROUP_ID || '').trim();
-  store?.setSandbox(userId, { sandboxId: ensured.sandboxId, snapshotId: newSnapshotId });
+  await store?.setSandbox(userId, { sandboxId: ensured.sandboxId, snapshotId: newSnapshotId });
 
   if (previousSnapshotId && previousSnapshotId !== newSnapshotId && groupId) {
     await deleteSandboxSnapshot(env, groupId, previousSnapshotId, { signal }).catch(() => {});
@@ -325,7 +326,7 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
   if (inflight) return inflight;
 
   const task = (async () => {
-    const account = store?.getAccount(userId) || null;
+    const account = (await store?.getAccount(userId)) || null;
     const existingId = account?.sandbox_id || null;
     const snapshotId = account?.sandbox_snapshot_id || null;
     const tier = account?.plan || 'basic';
@@ -343,7 +344,7 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
       } catch (err) {
         if (!err?.ended) throw err;
         // Sandbox ended or was deleted; clear it and create a replacement below.
-        store?.setSandbox(userId, { sandboxId: null });
+        await store?.setSandbox(userId, { sandboxId: null });
       }
     }
 
@@ -352,7 +353,7 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
     // If the saved snapshot expired or was deleted on Render, fall back to a
     // clean base sandbox rather than locking the user out.
     if (!createRes.ok && snapshotId && (createRes.status === 404 || createRes.status === 400 || createRes.status === 409)) {
-      store?.setSandbox(userId, { sandboxId: null, snapshotId: null });
+      await store?.setSandbox(userId, { sandboxId: null, snapshotId: null });
       createRes = await createSandbox(env, { snapshotId: null, tier, signal });
       restoredFromSnapshot = false;
     }
@@ -361,7 +362,7 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
     }
 
     const createdId = createRes.data.id;
-    store?.setSandbox(userId, { sandboxId: createdId });
+    await store?.setSandbox(userId, { sandboxId: createdId });
 
     const running = createRes.data.status === 'running'
       ? createRes.data
@@ -673,8 +674,7 @@ export async function syncFilesFromSandbox(env, sandboxId, { signal } = {}) {
 }
 
 async function resolveSandboxUser(request, env, store) {
-  const hosted = String(env?.APPBLIPS_HOSTED || '') === '1';
-  if (!hosted) {
+  if (!isHosted(env)) {
     return { userId: 'local' };
   }
   const header = request.headers.get('authorization') || '';
@@ -688,7 +688,7 @@ async function resolveSandboxUser(request, env, store) {
     return { response: json(401, { error: 'Your session has expired. Sign in again.' }) };
   }
 
-  const account = store?.getAccount(userId);
+  const account = await store?.getAccount(userId);
   if (!account?.active) {
     return {
       response: json(402, {
@@ -708,7 +708,7 @@ export async function handleSandbox(request, env, store) {
     const configured = renderSandboxConfigured(env);
     const auth = await resolveSandboxUser(request, env, store);
     if (auth.response) return auth.response;
-    const account = store?.getAccount(auth.userId) || null;
+    const account = (await store?.getAccount(auth.userId)) || null;
     return json(200, {
       configured,
       sandboxId: account?.sandbox_id || null,

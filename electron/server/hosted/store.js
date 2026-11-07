@@ -7,11 +7,15 @@
 // still needs no node_modules at runtime.
 
 import { DatabaseSync } from 'node:sqlite';
-import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const now = () => new Date().toISOString();
 
 export function openStore(file) {
+  // Opened on every start, so a data folder that doesn't exist yet must not
+  // stop the server from starting.
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(file);
   db.exec(`
     create table if not exists accounts (

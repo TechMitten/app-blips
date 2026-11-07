@@ -18,6 +18,7 @@
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
+import { isHosted } from './hosted/mode.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -136,7 +137,7 @@ const routeModel = (env, provider, payload) => {
   if (provider.userSupplied) return provider.model;
   // Hosted mode: the plan decides the model (the gate sets this after auth).
   // Ignored outside hosted mode, so a client can't pin a model with it.
-  if (String(env?.APPBLIPS_HOSTED || '') === '1' && payload?.hosted_model_override) {
+  if (isHosted(env) && payload?.hosted_model_override) {
     return String(payload.hosted_model_override);
   }
   if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;

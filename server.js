@@ -32,8 +32,9 @@ import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { handleBilling } from './electron/server/hosted/billing.js';
 import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js';
-import { handleSandbox, renderSandboxConfigured } from './electron/server/hosted/sandbox.js';
+import { handleSandbox } from './electron/server/hosted/sandbox.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
+import { isHosted } from './electron/server/hosted/mode.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
 // settings as real environment variables instead; those win over the file.
@@ -59,9 +60,11 @@ rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() =>
 
 // Hosted mode turns this single-user server into a multi-user API: /api/chat
 // requires a Clerk session, picks the model by plan, and (for paid plans)
-// debits Creem build credits. Off by default so local/desktop use is unchanged.
-const hosted = String(process.env.APPBLIPS_HOSTED || '') === '1';
-const store = (hosted || renderSandboxConfigured(process.env)) ? openStore(defaultDatabasePath(process.env)) : null;
+// debits Creem build credits. It turns on by itself when Clerk and Creem keys
+// are set (mode.js), so a plain local install stays single-user.
+const hosted = isHosted(process.env);
+// The account store (plans, processed webhooks, sandbox ids) is always open.
+const store = openStore(defaultDatabasePath(process.env));
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });

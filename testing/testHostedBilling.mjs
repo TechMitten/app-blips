@@ -19,7 +19,6 @@ const env = {
   CREEM_TEST_WEBHOOK_SECRET: 'whsec_test',
   CREEM_TEST_PRODUCT_SILVER: 'prod_silver',
   CREEM_TEST_PRODUCT_MAX: 'prod_max',
-  APPBLIPS_HOSTED: '1',
   APPBLIPS_MODEL_BASIC: 'basic-model',
   APPBLIPS_MODEL_SILVER: 'silver-model',
   APPBLIPS_MODEL_MAX: 'max-model',

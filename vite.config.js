@@ -11,8 +11,11 @@ import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
-import { handleSandbox, renderSandboxConfigured } from './electron/server/hosted/sandbox.js'
+import { handleSandbox } from './electron/server/hosted/sandbox.js'
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
+import { isHosted } from './electron/server/hosted/mode.js'
+import { handleBilling } from './electron/server/hosted/billing.js'
+import { gateChat, refundBuildCredit } from './electron/server/hosted/chat.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
@@ -71,10 +74,28 @@ function llmProxyDevMiddleware(mode) {
       // or a DNS-rebinding page.
       const keys = createKeyFile({ file: defaultKeyFile(env) })
       const noKeys = { keyFor: () => '', describe: () => ({ id: '', hasKey: false }) }
+      // Same rule as server.js: hosted (Clerk sign-in, plans, the server's AI
+      // key) exactly when the Clerk and Creem keys are set (hosted/mode.js),
+      // so `npm run dev` behaves like `npm start` with the same .env.
+      const hosted = isHosted(env)
+      // The account store is always open.
+      const store = openStore(defaultDatabasePath(env))
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
+          return
+        }
+        if (hosted) {
+          const gated = await gateChat(await toChatRequest(req), env, store)
+          if (gated.response) {
+            sendWebResponse(res, gated.response, {}, '[billing]')
+            return
+          }
+          const response = await handleChatProxy(gated.request, env)
+          // A rejected request didn't produce a build; don't charge for it.
+          if (gated.charge && !response.ok) await refundBuildCredit(env, gated.charge)
+          sendWebResponse(res, response, {}, '[dev-proxy]')
           return
         }
         const allowed = hostAllowed(req.headers.host || '', env)
@@ -82,6 +103,19 @@ function llmProxyDevMiddleware(mode) {
         const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), savedKeys), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
+      // Plans, checkout and Creem's payment notices. Without the hosted keys
+      // this answers 404 like server.js, which the app reads as "no accounts".
+      const billing = guarded(async (req, res) => {
+        if (!hosted) {
+          res.statusCode = 404
+          res.end('Hosted billing is not enabled.')
+          return
+        }
+        const response = await handleBilling(await toFetchRequest(req), env, store)
+        sendWebResponse(res, response, {}, '[billing]')
+      })
+      server.middlewares.use('/api/billing', billing)
+      server.middlewares.use('/api/webhooks/creem', billing)
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
@@ -146,16 +180,13 @@ function llmProxyDevMiddleware(mode) {
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // Per-user Render Sandbox computer (when RENDER_API_KEY + RENDER_WORKSPACE_ID are set).
-      const sandboxStore = (String(env.APPBLIPS_HOSTED || '') === '1' || renderSandboxConfigured(env))
-        ? openStore(defaultDatabasePath(env))
-        : null
       server.middlewares.use('/api/sandbox', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Sandbox access is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleSandbox(await toFetchRequest(req), env, sandboxStore)
+        const response = await handleSandbox(await toFetchRequest(req), env, store)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },
@@ -210,6 +241,18 @@ export default defineConfig(({ mode }) => ({
     // Browser mode keeps the AI provider choice in this origin's localStorage;
     // a silent hop to 5176 when 5175 is busy is a new origin with none saved.
     strictPort: true,
+    // The Cloudflare Tunnel used to test production Clerk sign-in, which
+    // refuses localhost. Only Vite's own host check: the /api routes still
+    // keep saved local keys to localhost (APPBLIPS_ALLOWED_HOSTS), since the
+    // tunnel address is reachable from the internet.
+    allowedHosts: ['dev.appblips.com'],
+    // Vite serves any file under the project to whoever reaches it, and the
+    // tunnel makes that the internet. Its defaults (the first four) cover
+    // .env and certificates; the rest are local files that aren't in the
+    // public repo: the account database and Claude Code settings.
+    fs: {
+      deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '*.db', '*.db-*', '**/.claude/**', '**/pinokio/**'],
+    },
     watch: {
       usePolling: true
     },

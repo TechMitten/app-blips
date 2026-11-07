@@ -56,7 +56,7 @@ export async function gateChat(request, env, store) {
   delete payload.hosted_model_override;
   delete payload.user_provider;
 
-  const account = store.getAccount(userId);
+  const account = await store.getAccount(userId);
   // A subscription is required for any AI access -- including the free
   // beta's Basic plan, which is $1/month.
   if (!account?.active) {
@@ -88,7 +88,7 @@ export async function gateChat(request, env, store) {
         const wallet = await findCreditAccount(env, account.creem_customer_id).catch(() => null);
         if (!wallet) return { response: json(402, { error: 'Your credit wallet is not ready yet.' }) };
         walletId = wallet.id;
-        store.saveAccount({ userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
+        await store.saveAccount({ userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
       }
 
       const reference = `build_${randomUUID()}`;

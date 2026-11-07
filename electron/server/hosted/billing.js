@@ -35,7 +35,7 @@ async function handleMe(request, env, store) {
   const auth = await requireUser(request, env);
   if (auth.response) return auth.response;
 
-  const account = store.getAccount(auth.userId);
+  const account = await store.getAccount(auth.userId);
   const planId = planOf(account);
   const plan = PLANS[planId];
   const unlimited = plan.monthlyCredits == null;
@@ -47,7 +47,7 @@ async function handleMe(request, env, store) {
       const wallet = await findCreditAccount(env, account.creem_customer_id).catch(() => null);
       if (wallet) {
         walletId = wallet.id;
-        store.saveAccount({ userId: auth.userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
+        await store.saveAccount({ userId: auth.userId, customerId: account.creem_customer_id, creditAccountId: walletId, plan: planId });
       }
     }
     if (walletId) credits = await getCreditBalance(env, walletId).catch(() => null);
@@ -93,16 +93,16 @@ async function handleCheckout(request, env) {
   return json(200, { url });
 }
 
-function applyCheckoutCompleted(object, env, store) {
+async function applyCheckoutCompleted(object, env, store) {
   const customerId = idOf(object.customer);
   const userId = object.metadata?.clerk_user_id || object.metadata?.clerkUserId;
   const productId = idOf(object.product) || object.product_id || object.subscription?.product;
   const planId = planForProductId(env, productId) || 'basic';
   if (!userId || !customerId) return;
-  store.saveAccount({ userId, customerId, plan: planId, active: true });
+  await store.saveAccount({ userId, customerId, plan: planId, active: true });
 }
 
-function applySubscription(object, type, env, store) {
+async function applySubscription(object, type, env, store) {
   const customerId = idOf(object.customer);
   if (!customerId) return;
   const productId = idOf(object.product) || object.product_id;
@@ -110,11 +110,11 @@ function applySubscription(object, type, env, store) {
 
   const ended = ['subscription.canceled', 'subscription.expired', 'subscription.unpaid', 'subscription.paused'].includes(type);
   if (ended) {
-    store.setPlanByCustomer(customerId, 'basic', false);
+    await store.setPlanByCustomer(customerId, 'basic', false);
     return;
   }
   if (['subscription.active', 'subscription.paid', 'subscription.trialing', 'subscription.update'].includes(type)) {
-    store.setPlanByCustomer(customerId, planId || 'basic', true);
+    await store.setPlanByCustomer(customerId, planId || 'basic', true);
   }
 }
 
@@ -135,14 +135,14 @@ async function handleWebhook(request, env, store) {
   }
 
   const eventId = event?.id || event?.event_id || event?.data?.id;
-  if (eventId && !store.claimEvent(eventId)) {
+  if (eventId && !(await store.claimEvent(eventId))) {
     return json(200, { received: true, duplicate: true });
   }
 
   const type = event?.eventType || event?.type || '';
   const object = event?.object || event?.data?.object || event?.data || {};
-  if (type === 'checkout.completed') applyCheckoutCompleted(object, env, store);
-  else if (type.startsWith('subscription.')) applySubscription(object, type, env, store);
+  if (type === 'checkout.completed') await applyCheckoutCompleted(object, env, store);
+  else if (type.startsWith('subscription.')) await applySubscription(object, type, env, store);
 
   return json(200, { received: true });
 }

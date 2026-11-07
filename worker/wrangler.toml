@@ -1,0 +1,23 @@
+# The online, multi-user side of AppBlips (see index.js). Deploy from this
+# folder: npx wrangler deploy. Secrets (Creem, Render, the AI provider key) are
+# set with `npx wrangler secret put NAME` and never live in this file.
+name = "appblips-api"
+main = "index.js"
+compatibility_date = "2026-10-01"
+# Buffer and node:crypto/node:path for Clerk token checks, Creem signatures
+# and the sandbox's tar uploads.
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# The desktop app's own origin; it calls this Worker from there.
+APPBLIPS_CHAT_ALLOWED_ORIGINS = "appblips://app"
+CREEM_SERVER = "prod"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "appblips"
+database_id = "c910bde3-a443-453a-b4cf-6dca0c7408a4"
+migrations_dir = "migrations"
+
+[observability]
+enabled = true

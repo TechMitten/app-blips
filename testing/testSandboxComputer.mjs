@@ -35,7 +35,8 @@ import { setAuthTokenGetter } from '../src/lib/authToken.js';
 
 const env = {
   VITE_CLERK_PUBLISHABLE_KEY: `pk_test_${Buffer.from('clerk.test$').toString('base64')}`,
-  APPBLIPS_HOSTED: '1',
+  // A Creem key with the Clerk key turns hosted mode on (hosted/mode.js).
+  CREEM_TEST_API_KEY: 'creem_test_placeholder',
   RENDER_API_KEY: 'rnd_test_secret',
   RENDER_WORKSPACE_ID: 'tea-workspace123',
   RENDER_API_BASE_URL: 'https://api.render.test/v1',
