@@ -2941,6 +2941,8 @@ export default function App({ coldStart = false }) {
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAccount={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
+        onOpenPlans={openPlanSettings}
         onStartTour={startTour}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}

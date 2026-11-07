@@ -5,7 +5,8 @@ import { useRequestSignOut } from '../lib/accountDialogs';
 import { untilText } from '../lib/billing';
 import { useBillingMe } from '../hooks/useBillingMe';
 
-// The studio picker's signed-in state: an account button (picture and first
+// The signed-in account button, in the studio picker's top bar and the
+// workspace header: an account button (picture and first
 // name) that opens a small menu with who is signed in, the plan and
 // its build window, and the account actions. Rendered only inside
 // <Show when="signed-in"> with accounts on, so Clerk's hooks are available.
@@ -143,7 +144,7 @@ export default function StudioAccountMenu({ onOpenAccount, onOpenPlans }) {
   const run = (fn) => () => { close(false); fn?.(); };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="studio-account relative">
       <button
         ref={triggerRef}
         type="button"

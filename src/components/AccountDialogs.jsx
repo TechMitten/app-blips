@@ -1,12 +1,12 @@
 import { cloneElement, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AuthenticateWithRedirectCallback, SignIn, SignInButton, SignUp, SignUpButton, UserButton, useAuth, useClerk } from '@clerk/react';
+import { AuthenticateWithRedirectCallback, SignIn, SignInButton, SignUp, SignUpButton, useAuth, useClerk } from '@clerk/react';
 import { useAccounts } from '../lib/accounts';
 import { Loader2, LogOut } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import Modal, { ModalCloseButton } from './Modal';
 import { logError } from '../lib/errorLog';
-import { OpenSignInContext, RequestSignOutContext, useOpenSignIn, useRequestSignOut } from '../lib/accountDialogs';
+import { OpenSignInContext, RequestSignOutContext, useOpenSignIn } from '../lib/accountDialogs';
 import { canSignInWithBrowser, cancelBrowserSignIn, useBrowserSignInStatus } from '../lib/browserSignIn';
 
 // The account dialogs, held by one provider (mounted by AuthSession) so a
@@ -151,21 +151,6 @@ export function AuthButton({ kind = 'sign-in', children }) {
       openSignIn(kind);
     },
   });
-}
-
-// Clerk's account button, with its menu's own "Sign out" (which signs out at
-// once) swapped for one that asks first.
-const HIDE_CLERK_SIGN_OUT = { elements: { userButtonPopoverActionButton__signOut: { display: 'none' } } };
-
-export function AccountButton() {
-  const requestSignOut = useRequestSignOut();
-  return (
-    <UserButton appearance={HIDE_CLERK_SIGN_OUT}>
-      <UserButton.MenuItems>
-        <UserButton.Action label="Sign out" labelIcon={<LogOut size={15} />} onClick={requestSignOut} />
-      </UserButton.MenuItems>
-    </UserButton>
-  );
 }
 
 // Google/GitHub sign-in on the web: Clerk's pop-up (AuthButton) leaves the

@@ -749,6 +749,27 @@
   --sc-warn: #b45309;
 }
 
+/* The workspace header (always dark) has no .studio-choice around it, so the
+   menu gets the picker's dark values here, and its typeface. */
+.app-header .studio-account {
+  --sc-bg: #080808;
+  --sc-text-strong: #ffffff;
+  --sc-text-muted: rgb(255 255 255 / 0.7);
+  --sc-text-soft: rgb(255 255 255 / 0.65);
+  --sc-line: rgb(255 255 255 / 0.1);
+  --sc-line-strong: rgb(255 255 255 / 0.2);
+  --sc-fill: rgb(255 255 255 / 0.05);
+  --sc-fill-hover: rgb(255 255 255 / 0.1);
+  --sc-ring: rgb(255 255 255 / 0.9);
+  --sc-red: #ec6452;
+  --sc-pop-bg: #121212;
+  --sc-ok: #4ade80;
+  --sc-warn: #fbbf24;
+  font-family: 'Plus Jakarta Sans', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.app-header .studio-account-trigger { height: 2.25rem; }
+.app-header .studio-account-menu { z-index: 60; }
+
 .studio-account-trigger {
   display: inline-flex;
   height: 2.5rem;
@@ -802,10 +823,12 @@
   border: 1px solid currentColor;
   white-space: nowrap;
 }
+/* Active is the normal state: green text only, no pill around it. */
 .studio-status-pill[data-tone="ok"] {
   color: var(--sc-ok);
-  border-color: color-mix(in srgb, var(--sc-ok) 35%, transparent);
-  background-color: color-mix(in srgb, var(--sc-ok) 12%, transparent);
+  border-color: transparent;
+  background-color: transparent;
+  padding-right: 0;
 }
 .studio-status-pill[data-tone="warn"] {
   color: var(--sc-warn);

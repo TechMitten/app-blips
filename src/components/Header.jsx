@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut
+  Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut, UserRound
 } from 'lucide-react';
 import { Show } from '@clerk/react';
-import { AccountButton, AuthButton } from './AccountDialogs';
+import { AuthButton } from './AccountDialogs';
+import StudioAccountMenu from './StudioAccountMenu';
 import { useRequestSignOut } from '../lib/accountDialogs';
 import { useAccounts } from '../lib/accounts';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -28,6 +29,8 @@ export default function Header({
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
+  onOpenAccount,
+  onOpenPlans,
   onStartTour,
   mobileView,
   onMobileViewChange,
@@ -222,8 +225,8 @@ export default function Header({
           </button>
         </div>
 
-        {/* Rank 4: account -- Clerk sign-in when signed out, the profile
-            menu when signed in. Hidden entirely while Clerk loads, and absent
+        {/* Rank 4: account -- Clerk sign-in when signed out, the account
+            menu (the same one as the studio picker's) when signed in. Hidden entirely while Clerk loads, and absent
             on local installs, which have no accounts (lib/accounts.js). */}
         {accounts && (
           <>
@@ -244,11 +247,7 @@ export default function Header({
                 </AuthButton>
               </Show>
               <Show when="signed-in">
-                <AccountButton />
-                <button type="button" onClick={requestSignOut} className="nav-btn nav-ghost nav-btn-icon" data-tip="Sign out" aria-label="Sign out">
-                  <LogOut size={16} />
-                  <span className="hidden xl:inline">Sign out</span>
-                </button>
+                <StudioAccountMenu onOpenAccount={onOpenAccount} onOpenPlans={onOpenPlans} />
               </Show>
             </div>
           </>
@@ -417,10 +416,10 @@ export default function Header({
                     </AuthButton>
                   </Show>
                   <Show when="signed-in">
-                    <div className="mobile-menu-item">
-                      <AccountButton />
+                    <button type="button" onClick={() => runMobileAction(onOpenAccount)} className="mobile-menu-item">
+                      <UserRound size={16} />
                       <span>Account</span>
-                    </div>
+                    </button>
                     <button type="button" onClick={() => { closeMobileMenu(); requestSignOut(); }} className="mobile-menu-item">
                       <LogOut size={16} />
                       <span>Sign out</span>
