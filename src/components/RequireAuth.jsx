@@ -54,7 +54,12 @@ export default function RequireAuth({ children }) {
       </div>
       {showModal && (
         <div
-          className="fixed inset-0 z-200 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm"
+          // Above every app layer, including the first-run setup screen
+          // (z 1000, its pop-ups 1200): the app behind is inert, so a sign-in
+          // card drawn underneath it leaves a screen that ignores all input.
+          // Black, not slate-950: the dark theme flips the slate ramp, which
+          // made slate-950 a light grey wash.
+          className="fixed inset-0 z-1300 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Sign in to AppBlips"
