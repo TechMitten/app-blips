@@ -18,6 +18,9 @@ import {
   sandboxPlanForTier,
 } from '../electron/server/hosted/sandbox.js';
 import { createServer as createViteServer } from 'vite';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   clearSandboxTerminalLog,
   createSandboxBudget,
@@ -451,7 +454,19 @@ try {
   assert.equal(createCalls.at(-1).ownerId, 'tea-autodiscovered');
 
   // ---- 5. Agent awareness & tool usage in Ask mode --------------------------
-  const viteServer = await createViteServer({ configFile: false, server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
+  // Its own throwaway cache: the default (node_modules/.vite) is shared with a
+  // running `npm run dev`, and this server's dependency optimizer would replace
+  // that one's pre-bundled React under it (blank page, "504 Outdated Optimize
+  // Dep" until the dev server restarts). ssrLoadModule needs no pre-bundling.
+  const viteCacheDir = mkdtempSync(join(tmpdir(), 'appblips-sandbox-test-vite-'));
+  const viteServer = await createViteServer({
+    configFile: false,
+    cacheDir: viteCacheDir,
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true },
+    appType: 'custom',
+    logLevel: 'silent',
+  });
   try {
     const { setSandboxComputerEnabled: setSbxEnabled } = await viteServer.ssrLoadModule('/src/lib/sandboxComputer.js');
     const { setAuthTokenGetter: setSsrTokenGetter } = await viteServer.ssrLoadModule('/src/lib/authToken.js');
@@ -475,6 +490,7 @@ try {
     assert.ok(lastChatCalls[0].tools.some((t) => t.function?.name === SANDBOX_EXEC_TOOL_NAME), 'agent tools include run_sandbox_command');
   } finally {
     await viteServer.close();
+    rmSync(viteCacheDir, { recursive: true, force: true });
   }
 
   console.log('Sandbox computer checks passed: tar bulk upload, snapshot cleanup, plan tiers, egress rules, terminal log, agent awareness, and preview file sync.');
