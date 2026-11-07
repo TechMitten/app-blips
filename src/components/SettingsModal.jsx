@@ -23,11 +23,12 @@ import {
 import { EFFORT_LABELS, nearestLevel, staticReasoningLevels } from '../../electron/server/reasoning.js';
 import { CURRENT_VERSION } from '../lib/updates';
 
-// Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
-// font size from useChatFont, build pane side), Workspace (code view, splash),
-// AI (your own AI provider, then reasoning, clarifying questions, review offers),
-// Account (signed-in profile, build usage, password, connected accounts,
-// deleting the account; only with accounts), Plan,
+// Settings modal, split into tabs: Account (signed-in profile, build usage,
+// password, connected accounts, deleting the account; only with accounts, so
+// copies without them open on Appearance), Appearance (theme from useTheme in
+// App, chat font size from useChatFont, build pane side), Workspace (code
+// view, splash), AI (your own AI provider, then reasoning, clarifying
+// questions, review offers), Plan,
 // Connectors (services the AI wires into projects), Tools (built-in extras
 // like SEO and My images, the native connectors), Data (project backup and the desktop projects folder),
 // and About (logo, version, copyright, then the legal links and open source licenses).
@@ -80,10 +81,10 @@ function ReasoningSetting({ value, onChange, reasoning }) {
 const GENERIC_REASONING = { ...staticReasoningLevels(null), providerId: null, model: null };
 
 const TABS = [
+  { id: 'account', label: 'Account', Icon: UserRound },
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
-  { id: 'account', label: 'Account', Icon: UserRound },
   { id: 'plan', label: 'Plan', Icon: CreditCard },
   { id: 'connectors', label: 'Extensions', Icon: Plug },
   { id: 'tools', label: 'Tools', Icon: Wrench },
@@ -101,9 +102,9 @@ const loadTab = (tabs) => {
     // Tabs that were merged into another: API into AI, Legal and Licenses into About.
     const raw = sessionStorage.getItem(TAB_STORAGE_KEY);
     const stored = { api: 'ai', legal: 'about', licenses: 'about' }[raw] || raw;
-    return tabs.some((t) => t.id === stored) ? stored : TABS[0].id;
+    return tabs.some((t) => t.id === stored) ? stored : tabs[0].id;
   } catch {
-    return TABS[0].id;
+    return tabs[0].id;
   }
 };
 

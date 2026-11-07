@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sparkles,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -412,6 +412,19 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
           </span>
         </button>
         </>}
+        {/* Not a button: there's nothing to open yet. Same dashed tile as
+            "Request an extension" so it reads as a placeholder, not a tool. */}
+        {kind === 'tools' && (
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
+              <Sparkles size={20} aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-slate-900">More coming soon</span>
+              <span className="mt-0.5 block text-xs leading-snug text-slate-600">New built-in tools are on the way.</span>
+            </span>
+          </div>
+        )}
       </div>
       {surgeOpen && createPortal(
         <PublishDialog connectOnly onClose={() => setSurgeOpen(false)} />,

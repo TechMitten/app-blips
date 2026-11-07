@@ -322,17 +322,6 @@ export default function PlanSettings() {
         />
       )}
 
-      {/* The current plan or one on offer has beta terms: say so plainly, once,
-          before anyone pays (plans.js betaPricing). */}
-      {(config.plans || []).some((plan) => plan.betaPricing && !plan.comingSoon) && (
-        <p className="mx-4 mb-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-600">
-          <span className="font-semibold text-slate-800">Beta pricing.</span>{' '}
-          {(config.plans || []).filter((plan) => plan.betaPricing && !plan.comingSoon).map((plan) => (
-            `${plan.name}’s ${price(plan.priceCents)}/month price${plan.monthlyCredits == null ? ' and unlimited builds' : ''}`
-          )).join(', ')} last only while AppBlips is in beta. The price and build limits will change when the beta ends.
-        </p>
-      )}
-
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {
         const details = plan.monthlyCredits == null
           ? `unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}${windowText(plan)}`
@@ -369,6 +358,16 @@ export default function PlanSettings() {
         </p>
       )}
       {error && <p role="alert" className="px-4 pb-4 text-sm text-red-600">{error}</p>}
+
+      {/* A plan on offer has beta terms (plans.js betaPricing): one short
+          note at the end, before anyone pays. */}
+      {(config.plans || []).some((plan) => plan.betaPricing && !plan.comingSoon) && (
+        <p className="pt-4 text-xs leading-relaxed text-slate-500">
+          Beta pricing: {(config.plans || []).filter((plan) => plan.betaPricing && !plan.comingSoon).map((plan) => (
+            `${plan.name}’s ${price(plan.priceCents)}/month${plan.monthlyCredits == null ? ' and unlimited builds' : ''}`
+          )).join(', ')} may change when the beta ends.
+        </p>
+      )}
     </>
   );
 }

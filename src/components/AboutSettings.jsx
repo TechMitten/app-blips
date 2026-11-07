@@ -19,6 +19,9 @@ const LEGAL_LINKS = [
   // own client, electron/server/surgeApi.js), so its terms go here, not under
   // Licenses.
   { id: 'legal-surge', title: 'Surge Terms of Service', description: 'Publish puts your sites online with Surge, a hosting service. Surge\u2019s own terms apply to what you publish. No Surge code is included in AppBlips.', why: 'Surge\u2019s own terms apply to what you publish, and they are hosted by Surge.', href: 'https://surge.sh/terms' },
+  // Also a service: plans are paid through Polar's checkout (the server's own
+  // client, electron/server/hosted/polar.js), so no Polar code ships either.
+  { id: 'legal-polar', title: 'Polar Checkout Buyer Terms', description: 'AppBlips plans are paid through Polar, which sells them as the merchant of record. Polar\u2019s buyer terms apply to your payments, refunds and subscription. No Polar code is included in AppBlips.', why: 'Polar\u2019s own terms apply to plan payments, and they are hosted by Polar.', href: 'https://polar.sh/legal/checkout-buyer-terms' },
 ];
 // h3: the dialog's own title is the h2. scroll-mt keeps a heading clear of the panel's top edge after a jump.
 const SECTION_CLASS = 'mt-8 mb-1 scroll-mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500 focus:outline-none';
@@ -51,9 +54,6 @@ export default function AboutSettings() {
       <p className="mt-3 text-sm font-semibold text-slate-700">
         Version {CURRENT_VERSION}
         <span className="font-normal text-slate-500"> · {isDesktop ? 'Desktop app' : 'Browser version'}</span>
-      </p>
-      <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-600">
-        Turn a plain-English prompt into a working app, website or game.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <ConfirmedLink href={WEBSITE_URL} why="To visit the AppBlips website for news, pricing and help." className={SECONDARY_BUTTON}>
