@@ -246,6 +246,11 @@ function ConnectorPrompts({ id, connected, images = [] }) {
 
 const TAB_NAMES = { services: 'Extensions', tools: 'Tools' };
 
+// The dashed tiles (Request an extension, More coming soon): the cards' fill,
+// so they don't show the darker tray behind them, but dashed and flat so
+// they read as something other than a connector.
+const DASHED_TILE = 'flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 bg-surface p-4 text-left dark:border-white/20 dark:bg-[#1f1f1f]';
+
 export default function ConnectorsSettings({ kind = 'services', seoProject = null, galleryProject = null }) {
   const [connectors, setConnectors] = useState(loadConnectors);
   // The open pages, newest last. My images links to Pixabay (a service, from
@@ -401,7 +406,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
         <button
           type="button"
           onClick={() => setRequestOpen(true)}
-          className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4 text-left transition-transform duration-100 active:translate-y-px active:scale-[0.98] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+          className={`${DASHED_TILE} transition-transform duration-100 active:translate-y-px active:scale-[0.98] motion-reduce:active:translate-y-0 motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500`}
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
             <Plus size={20} aria-hidden="true" />
@@ -415,7 +420,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
         {/* Not a button: there's nothing to open yet. Same dashed tile as
             "Request an extension" so it reads as a placeholder, not a tool. */}
         {kind === 'tools' && (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 p-4">
+          <div className={DASHED_TILE}>
             <span className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
               <Sparkles size={20} aria-hidden="true" />
             </span>
