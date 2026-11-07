@@ -7,7 +7,7 @@
 // still needs no node_modules at runtime.
 
 import { DatabaseSync } from 'node:sqlite';
-import { BUILD_WINDOW_COLUMNS, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from './buildWindow.js';
+import { BUILD_WINDOW_COLUMNS, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, takeBuildParams, windowResult } from './buildWindow.js';
 import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL, SUBSCRIPTION_COLUMNS } from './subscriptionSql.js';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -127,11 +127,12 @@ export function openStore(file) {
   const takeBuildSql = db.prepare(TAKE_BUILD_SQL);
   const releaseBuildSql = db.prepare(RELEASE_BUILD_SQL);
   const windowStartSql = db.prepare(WINDOW_START_SQL);
-  const takeBuild = (userId, { limit, windowMs, usageId = null, at = Date.now() }) => {
-    const taken = takeBuildSql.get(userId, at - windowMs, at, limit, usageId);
-    return windowResult(taken, taken ? null : windowStartSql.get(userId)?.start, windowMs);
+  const takeBuild = (userId, options) => {
+    const params = takeBuildParams(userId, options);
+    const taken = takeBuildSql.get(...params);
+    return windowResult(taken, taken ? null : windowStartSql.get(userId), options.windowMs, params[5]);
   };
-  const releaseBuild = (userId, usageId = null) => { releaseBuildSql.run(userId, usageId); };
+  const releaseBuild = (userId, usageId = null, start = null) => { releaseBuildSql.run(userId, usageId, start ?? null); };
 
   // The Polar subscription (subscriptionSql.js), keyed by Clerk user.
   const setSubscriptionIdSql = db.prepare(SET_SUBSCRIPTION_ID_SQL);

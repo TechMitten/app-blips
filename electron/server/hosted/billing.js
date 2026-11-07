@@ -90,6 +90,22 @@ async function handleCheckout(request, env, store) {
   const productId = planProductId(env, planId);
   if (!productId) return json(503, { error: 'That plan is not available yet.' });
 
+  // Not active here, but maybe already paid: Polar's notice can lag the
+  // payment (or have been lost), and meanwhile the app offers checkout again.
+  // A live subscription to this plan is applied now instead of selling a
+  // second one. If Polar can't be read, checkout goes ahead rather than
+  // blocking a purchase on it.
+  if (!account?.active) {
+    const live = await listUserSubscriptions(env, auth.userId).catch(() => null);
+    const existing = live?.find((sub) => sub.product_id === productId);
+    if (existing && (await applySubscription(existing, env, store))) {
+      const synced = await store.getAccount(auth.userId);
+      if (synced?.active) {
+        return json(409, { error: `You already have the ${PLANS[planId].name} plan.`, code: 'already_subscribed' });
+      }
+    }
+  }
+
   const origin = new URL(request.url).origin;
   const successUrl = String(env?.APPBLIPS_BILLING_SUCCESS_URL || '').trim() || `${origin}/?billing=success`;
 

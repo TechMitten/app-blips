@@ -47,7 +47,14 @@ export async function createCheckoutSession(planId) {
     body: JSON.stringify({ plan: planId }),
   }));
   const data = await res.json().catch(() => null);
-  if (!res.ok || !data?.url) throw new Error(data?.error || 'Could not start checkout.');
+  if (!res.ok || !data?.url) {
+    const err = new Error(data?.error || 'Could not start checkout.');
+    // 'already_subscribed': the person already pays for this plan (perhaps
+    // Polar's notice hadn't arrived yet); the server has caught up with it,
+    // so callers re-read the plan instead of showing an error.
+    err.code = data?.code || null;
+    throw err;
+  }
   return data.url;
 }
 

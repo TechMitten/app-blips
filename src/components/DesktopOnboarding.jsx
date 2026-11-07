@@ -621,8 +621,13 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
         setPaying(true);
       }
     } catch (err) {
-      logError(`Could not start checkout (${planId}) from setup`, err);
-      setError(err.message || 'Could not start checkout.');
+      // Already paid for (the plan just hadn't shown yet): show it instead.
+      const account = err.code === 'already_subscribed' ? await fetchBillingMe() : null;
+      if (account?.active) setMe(account);
+      else {
+        logError(`Could not start checkout (${planId}) from setup`, err);
+        setError(err.message || 'Could not start checkout.');
+      }
       setBusy(null);
     }
   };

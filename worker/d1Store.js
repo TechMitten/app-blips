@@ -3,7 +3,7 @@
 // returns a Promise; the shared handlers await them either way. The tables
 // are created by worker/migrations, not here.
 
-import { RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, windowResult } from '../electron/server/hosted/buildWindow.js';
+import { RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, takeBuildParams, windowResult } from '../electron/server/hosted/buildWindow.js';
 import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL } from '../electron/server/hosted/subscriptionSql.js';
 
 const now = () => new Date().toISOString();
@@ -58,14 +58,15 @@ export function d1Store(db) {
     return (result.meta?.changes || 0) > 0;
   };
 
-  // The usage cooldown (buildWindow.js); columns from migrations/0002 and 0005.
-  const takeBuild = async (userId, { limit, windowMs, usageId = null, at = Date.now() }) => {
-    const taken = await db.prepare(TAKE_BUILD_SQL).bind(userId, at - windowMs, at, limit, usageId).first();
-    const start = taken ? null : (await db.prepare(WINDOW_START_SQL).bind(userId).first())?.start;
-    return windowResult(taken, start, windowMs);
+  // The usage cooldown (buildWindow.js); columns from migrations/0002, 0005 and 0006.
+  const takeBuild = async (userId, options) => {
+    const params = takeBuildParams(userId, options);
+    const taken = await db.prepare(TAKE_BUILD_SQL).bind(...params).first();
+    const current = taken ? null : await db.prepare(WINDOW_START_SQL).bind(userId).first();
+    return windowResult(taken, current, options.windowMs, params[5]);
   };
-  const releaseBuild = async (userId, usageId = null) => {
-    await db.prepare(RELEASE_BUILD_SQL).bind(userId, usageId).run();
+  const releaseBuild = async (userId, usageId = null, start = null) => {
+    await db.prepare(RELEASE_BUILD_SQL).bind(userId, usageId ?? null, start ?? null).run();
   };
 
   // The Polar subscription (subscriptionSql.js); columns from migrations/0003.

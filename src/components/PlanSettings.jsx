@@ -325,7 +325,10 @@ function PlanSettingsBody({ accounts, isSignedIn }) {
         setPaying(true);
       }
     } catch (err) {
-      setError(err.message || 'Could not start checkout.');
+      // Already paid for (the plan just hadn't shown yet): show it instead.
+      const account = err.code === 'already_subscribed' ? await fetchBillingMe() : null;
+      if (account?.active) setMe(account);
+      else setError(err.message || 'Could not start checkout.');
       setBusy(null);
     }
   };

@@ -219,6 +219,16 @@ try {
   assert.equal((await checkoutReq({ plan: 'basic' })).status, 200, 'an ended plan can be bought again');
   assert.equal(checkoutCalls.length, 2);
   checkoutCalls.pop();
+
+  // Paid, but Polar's notice hasn't arrived (or was lost): checkout applies
+  // the live subscription instead of selling a second one.
+  subscription('sub_lagging', 'user_lagging');
+  const lagging = await checkoutReq({ plan: 'basic' }, `Bearer ${makeToken({ sub: 'user_lagging' })}`);
+  assert.equal(lagging.status, 409, 'a second checkout started before the webhook arrived');
+  assert.equal((await lagging.json()).code, 'already_subscribed');
+  assert.equal(store.getAccount('user_lagging').active, 1, 'the live subscription was not applied');
+  assert.equal(store.getAccount('user_lagging').subscription_id, 'sub_lagging');
+  assert.equal(checkoutCalls.length, 1);
   store.setPlan('user_1', 'max', true);
 
   const unauth = await handleBilling(new Request('http://localhost/api/billing/me'), env, store);
@@ -363,11 +373,37 @@ try {
   await gateChat(actionRequest({ usage_id: 'bad id!' }), env, store);
   assert.equal(countOf(), 4, 'requests without a valid id count on their own');
 
+  // Ask mode and automatic repairs are free, but they and everything else
+  // stop at the window's request ceiling (50 uses x 40 requests).
+  store.saveAccount({ userId: 'user_flood', customerId: 'cust_flood', plan: 'basic', active: true });
+  const floodRequest = (fields) => new Request('http://localhost/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${makeToken({ sub: 'user_flood' })}` },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'x' }], ...fields }),
+  });
+  const floodLimits = { limit: 50, requestLimit: 2000, windowMs: 5 * 60 * 60 * 1000, counts: false };
+  for (let i = 0; i < 1999; i += 1) assert.equal(store.takeBuild('user_flood', floodLimits).allowed, true);
+  assert.ok((await gateChat(floodRequest({ ask: true }), env, store)).request, 'request 2000 passes');
+  assert.equal(store.getAccount('user_flood').build_window_count, 0, 'free requests used the plan');
+  for (const fields of [{ ask: true }, { automatic_repair: true, usage_id: 'repair-flood' }, { usage_id: 'prompt-flood' }]) {
+    const flooded = await gateChat(floodRequest(fields), env, store);
+    assert.equal(flooded.response?.status, 429, JSON.stringify(fields));
+    const floodedBody = await flooded.response.json();
+    assert.equal(floodedBody.code, 'request_limit');
+    assert.match(floodedBody.error, /in this 5-hour window\. You can continue in \d+ h \d+ min\./);
+  }
+
   // A plan with a monthly credit allowance (not sold yet) can't build for free.
   assert.equal(store.getAccount('user_1').plan, 'max');
   const capped = await gateChat(buildRequest(), env, store);
   assert.equal(capped.response.status, 402);
   assert.equal((await capped.response.json()).code, 'plan_unavailable');
+  const cappedAsk = await gateChat(new Request('http://localhost/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ask: true, messages: [] }),
+  }), env, store);
+  assert.equal(cappedAsk.response?.status, 402, 'an unsold plan got free Ask-mode requests');
 
   // No active subscription -> 402, even for Basic.
   for (const sub of ['user_no_sub', 'user_late']) {

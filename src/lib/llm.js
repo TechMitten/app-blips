@@ -449,9 +449,9 @@ export const requestModelText = async ({
       // balance, busy model, ...) and passes its reason along; only this
       // app's own limiter is "you're sending requests too quickly".
       const errData = await response.json().catch(() => null);
-      // A plan's build cooldown (hosted/chat.js) carries its own message,
-      // with when building unlocks again.
-      const fromProvider = (errData?.source === 'provider' || errData?.code === 'build_cooldown') && typeof errData.error === 'string';
+      // A plan's usage limit or request ceiling (hosted/chat.js) carries its
+      // own message, with when building unlocks again.
+      const fromProvider = (errData?.source === 'provider' || ['build_cooldown', 'request_limit'].includes(errData?.code)) && typeof errData.error === 'string';
       const err = new Error(fromProvider
         ? errData.error
         : retryAfter
