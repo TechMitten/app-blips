@@ -1,8 +1,9 @@
 // Run with: node testing/testHostedBilling.mjs
 // Covers the hosted billing core without network calls: SQLite store, plan
 // mapping, Polar webhook signatures, Clerk token verification (against a
-// locally signed token), checkout, cancelling, the webhook's plan updates
-// and the chat gate. Polar's API is faked.
+// locally signed token), checkout, cancelling, the webhook's plan updates,
+// the chat gate, build usage and deleting an account. Polar's and Clerk's
+// APIs are faked.
 import assert from 'node:assert/strict';
 import { createHmac, generateKeyPairSync, randomBytes, sign as signJwt } from 'node:crypto';
 import { openStore } from '../electron/server/hosted/store.js';
@@ -28,6 +29,8 @@ const env = {
 const realFetch = globalThis.fetch;
 const checkoutCalls = [];
 const cancelCalls = [];
+const revokeCalls = [];
+const clerkDeletes = [];
 // Polar's current subscriptions, by id (what GET /subscriptions/{id} returns).
 const subscriptions = new Map();
 const subscription = (id, userId, fields = {}) => {
@@ -54,6 +57,12 @@ const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), 
 globalThis.fetch = async (url, init = {}) => {
   const href = String(url);
   if (href === 'https://clerk.test/.well-known/jwks.json') return jsonResponse({ keys: [publicJwk] });
+  if (href.startsWith('https://api.clerk.com/v1/users/')) {
+    assert.equal(init.method, 'DELETE');
+    assert.equal(init.headers?.authorization, 'Bearer sk_test_placeholder');
+    clerkDeletes.push(decodeURIComponent(href.slice('https://api.clerk.com/v1/users/'.length)));
+    return jsonResponse({ deleted: true });
+  }
   assert.ok(href.startsWith('https://api.polar.sh/v1/'), `unexpected fetch: ${href}`);
   assert.equal(init.headers?.authorization, `Bearer ${env.POLAR_ACCESS_TOKEN}`);
   const path = href.slice('https://api.polar.sh/v1'.length);
@@ -79,6 +88,14 @@ globalThis.fetch = async (url, init = {}) => {
     const sub = subscriptions.get(id);
     sub.cancel_at_period_end = true;
     sub.ends_at = sub.current_period_end;
+    return jsonResponse(sub);
+  }
+  if (subMatch && method === 'DELETE') {
+    const id = decodeURIComponent(subMatch[1]);
+    revokeCalls.push(id);
+    const sub = subscriptions.get(id);
+    if (!sub) return jsonResponse({ error: 'NotFound' }, 404);
+    Object.assign(sub, { status: 'canceled', ended_at: new Date().toISOString() });
     return jsonResponse(sub);
   }
   throw new Error(`Unexpected Polar call in test: ${method} ${path}`);
@@ -385,7 +402,66 @@ try {
   assert.equal((await cancelReq('user_lookup')).status, 200);
   assert.equal(cancelCalls.at(-1).id, 'sub_lookup');
 
-  console.log('Hosted billing checks passed: plans, store, Polar webhooks and signatures, Clerk tokens, checkout, the chat gate, the build cooldown and cancelling.');
+  // ---- build usage (Settings → Account) --------------------------------------
+  const usageOf = async (sub) => (await meFor(sub)).usage;
+  store.saveAccount({ userId: 'user_usage', plan: 'basic', active: true });
+  assert.deepEqual(await usageOf('user_usage'), { used: 0, limit: 50, resetAt: null, windowHours: 5 }, 'no window yet');
+  const usageStart = Date.now() - 60 * 60 * 1000;
+  for (let i = 0; i < 3; i += 1) store.takeBuild('user_usage', { limit: 50, windowMs, at: usageStart + i });
+  assert.deepEqual(await usageOf('user_usage'), {
+    used: 3, limit: 50, resetAt: new Date(usageStart + windowMs).toISOString(), windowHours: 5,
+  });
+  // A window that has ended shows as unused: the next build starts a new one.
+  store.saveAccount({ userId: 'user_old_window', plan: 'basic', active: true });
+  store.takeBuild('user_old_window', { limit: 50, windowMs, at: Date.now() - windowMs - 1 });
+  assert.deepEqual(await usageOf('user_old_window'), { used: 0, limit: 50, resetAt: null, windowHours: 5 });
+
+  // ---- delete account (Settings → Account) -----------------------------------
+  const deleteReq = (claims, envFor = env) => handleBilling(new Request('http://localhost/api/billing/account', {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${makeToken(claims)}` },
+  }), envFor, store);
+  const fresh = { fva: [2, -1] };
+
+  // Not verified recently (or no claim at all): Clerk's reverification hint,
+  // and nothing is touched.
+  subscription('sub_delete', 'user_delete');
+  store.saveAccount({ userId: 'user_delete', plan: 'basic', active: true });
+  store.setSubscriptionId('user_delete', 'sub_delete');
+  for (const claims of [{ sub: 'user_delete', fva: [45, -1] }, { sub: 'user_delete' }, { sub: 'user_delete', fva: [-1, -1] }]) {
+    const stale = await deleteReq(claims);
+    assert.equal(stale.status, 403);
+    const hint = await stale.json();
+    assert.equal(hint.clerk_error.reason, 'reverification-error');
+    assert.deepEqual(hint.clerk_error.metadata.reverification, { level: 'first_factor', afterMinutes: 10 });
+  }
+  assert.equal(revokeCalls.length, 0);
+  assert.ok(store.getAccount('user_delete'));
+  assert.equal((await handleBilling(new Request('http://localhost/api/billing/account', { method: 'POST' }), env, store)).status, 405);
+
+  // Verified: the plan is revoked now, the row goes, and without
+  // CLERK_SECRET_KEY the app is told to delete the Clerk user itself.
+  const deleted = await deleteReq({ sub: 'user_delete', ...fresh });
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), { deleted: true, clerkDeleted: false });
+  assert.deepEqual(revokeCalls, ['sub_delete']);
+  assert.equal(store.getAccount('user_delete'), null);
+  assert.equal(clerkDeletes.length, 0);
+  // Polar's revoked notice for it doesn't bring the row back.
+  assert.equal((await sendEvent('subscription.revoked', subscriptions.get('sub_delete'))).status, 202);
+  assert.equal(store.getAccount('user_delete'), null);
+
+  // With the secret key (the Worker), the server deletes the Clerk user too.
+  // No plan: nothing to revoke.
+  store.saveAccount({ userId: 'user_free', plan: 'basic', active: false });
+  const withSecret = { ...env, CLERK_SECRET_KEY: 'sk_test_placeholder' };
+  const freeDeleted = await deleteReq({ sub: 'user_free', ...fresh }, withSecret);
+  assert.deepEqual(await freeDeleted.json(), { deleted: true, clerkDeleted: true });
+  assert.deepEqual(clerkDeletes, ['user_free']);
+  assert.deepEqual(revokeCalls, ['sub_delete']);
+  assert.equal(store.getAccount('user_free'), null);
+
+  console.log('Hosted billing checks passed: plans, store, Polar webhooks and signatures, Clerk tokens, checkout, the chat gate, the build cooldown, cancelling, build usage and deleting an account.');
 } finally {
   store.close();
   globalThis.fetch = realFetch;

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info, CreditCard } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info, CreditCard, UserRound } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import ConnectorsSettings from './ConnectorsSettings';
@@ -10,6 +10,8 @@ import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import DesktopProviderSettings from './DesktopProviderSettings';
 import OutputTokenSettings from './OutputTokenSettings';
 import PlanSettings from './PlanSettings';
+import AccountSettings from './AccountSettings';
+import { useAccounts } from '../lib/accounts';
 import {
   FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
@@ -24,6 +26,8 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings modal, split into tabs: Appearance (theme from useTheme in App, chat
 // font size from useChatFont, build pane side), Workspace (code view, splash),
 // AI (your own AI provider, then reasoning, clarifying questions, review offers),
+// Account (signed-in profile, build usage, password, connected accounts,
+// deleting the account; only with accounts), Plan,
 // Connectors (services the AI wires into projects), Tools (built-in extras
 // like SEO and My images, the native connectors), Data (project backup and the desktop projects folder),
 // and About (logo, version, copyright, then the legal links and open source licenses).
@@ -79,6 +83,7 @@ const TABS = [
   { id: 'appearance', label: 'Appearance', Icon: Palette },
   { id: 'workspace', label: 'Workspace', Icon: LayoutGrid },
   { id: 'ai', label: 'AI', Icon: Sparkles },
+  { id: 'account', label: 'Account', Icon: UserRound },
   { id: 'plan', label: 'Plan', Icon: CreditCard },
   { id: 'connectors', label: 'Extensions', Icon: Plug },
   { id: 'tools', label: 'Tools', Icon: Wrench },
@@ -87,13 +92,16 @@ const TABS = [
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
 ];
 const TAB_STORAGE_KEY = 'orion-settings-tab';
+// Account needs sign-in, which only copies with accounts have (lib/accounts.js);
+// Clerk's hooks would throw anywhere else.
+const tabsFor = (accounts) => (accounts ? TABS : TABS.filter((t) => t.id !== 'account'));
 
-const loadTab = () => {
+const loadTab = (tabs) => {
   try {
     // Tabs that were merged into another: API into AI, Legal and Licenses into About.
     const raw = sessionStorage.getItem(TAB_STORAGE_KEY);
     const stored = { api: 'ai', legal: 'about', licenses: 'about' }[raw] || raw;
-    return TABS.some((t) => t.id === stored) ? stored : TABS[0].id;
+    return tabs.some((t) => t.id === stored) ? stored : TABS[0].id;
   } catch {
     return TABS[0].id;
   }
@@ -157,7 +165,9 @@ export default function SettingsModal({
   seoProject = null,
   galleryProject = null,
 }) {
-  const [tab, setTab] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : loadTab()));
+  const accounts = useAccounts();
+  const tabs = tabsFor(accounts);
+  const [tab, setTab] = useState(() => (tabs.some((t) => t.id === initialTab) ? initialTab : loadTab(tabs)));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
   const onCheckUpdatesChange = (enabled) => {
     setCheckUpdates(enabled);
@@ -237,7 +247,7 @@ export default function SettingsModal({
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col sm:flex-row">
-        <TabList tabs={TABS} active={tab} onSelect={selectTab} idPrefix="settings" label="Settings categories" />
+        <TabList tabs={tabs} active={tab} onSelect={selectTab} idPrefix="settings" label="Settings categories" />
 
         <div
           role="tabpanel"
@@ -408,6 +418,7 @@ export default function SettingsModal({
           )}
 
           {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} />}
+          {tab === 'account' && accounts && <AccountSettings onOpenPlan={() => selectTab('plan')} />}
           {tab === 'plan' && <PlanSettings />}
 
           {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} />}

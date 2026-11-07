@@ -143,7 +143,11 @@ export function openStore(file) {
     if (userId) setCancelAtSql.run(cancelAt || null, now(), userId);
   };
 
-  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => db.close() };
+  // Deleting an account (Settings → Account) removes the user's row.
+  const deleteAccountSql = db.prepare('delete from accounts where user_id = ?');
+  const deleteAccount = (userId) => { if (userId) deleteAccountSql.run(userId); };
+
+  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, deleteAccount, close: () => db.close() };
 }
 
 export const defaultDatabasePath = (env) => {

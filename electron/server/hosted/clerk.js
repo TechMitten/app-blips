@@ -65,3 +65,28 @@ export async function verifyClerkToken(token, env) {
 
   return claims;
 }
+
+// Deletes a Clerk user with the Backend API (Settings → Account → Delete
+// account). Needs CLERK_SECRET_KEY, which the AppBlips Worker has; without
+// it this returns { deleted: false } and the app deletes the user itself
+// through Clerk's Frontend API.
+export async function deleteClerkUser(env, userId) {
+  const secret = String(env?.CLERK_SECRET_KEY || '').trim();
+  if (!secret) return { deleted: false };
+  const res = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${secret}` },
+  });
+  // Already gone counts as deleted.
+  if (!res.ok && res.status !== 404) throw new Error(`Clerk refused to delete the user (${res.status}).`);
+  return { deleted: true };
+}
+
+// Whether the session proved who it is (password, email code, Google…)
+// within the last `maxMinutes`, from the token's "fva" claim
+// ([first factor age, second factor age] in minutes, -1 = never). Clerk's
+// own check treats a missing claim as a failure, and so does this.
+export function verifiedRecently(claims, maxMinutes = 10) {
+  const age = Array.isArray(claims?.fva) ? claims.fva[0] : null;
+  return Number.isInteger(age) && age >= 0 && age <= maxMinutes;
+}

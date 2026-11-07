@@ -60,14 +60,26 @@ export async function getSubscription(env, subscriptionId) {
   return polarRequest(env, 'GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
-// The user's live subscription, looked up by their Clerk id, for when the
-// webhook's copy of the id is missing.
-export async function findUserSubscription(env, clerkUserId) {
+// The user's live subscriptions, looked up by their Clerk id (never anyone
+// else's: Polar's filter is checked again here). Null when Polar can't be
+// read.
+export async function listUserSubscriptions(env, clerkUserId) {
   const query = new URLSearchParams({ external_customer_id: clerkUserId, active: 'true', limit: '10' });
   const res = await polarRequest(env, 'GET', `/subscriptions/?${query}`);
   if (!res.ok) return null;
   const items = Array.isArray(res.data?.items) ? res.data.items : [];
-  return items.find((sub) => sub?.customer?.external_id === clerkUserId) || null;
+  return items.filter((sub) => sub?.id && sub?.customer?.external_id === clerkUserId);
+}
+
+// The user's live subscription, for when the webhook's copy of the id is
+// missing.
+export async function findUserSubscription(env, clerkUserId) {
+  return (await listUserSubscriptions(env, clerkUserId))?.[0] || null;
+}
+
+// Ends a subscription now, with no further charges (deleting an account).
+export async function revokeSubscription(env, subscriptionId) {
+  return polarRequest(env, 'DELETE', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
 // Webhook signatures (Standard Webhooks): HMAC-SHA256 over

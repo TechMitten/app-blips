@@ -101,3 +101,20 @@ export function waitForPlan(onActive, { intervalMs = 5000, timeoutMs = 30 * 60 *
   }
   return stop;
 }
+
+// Settings → Account → Delete account: stops the plan and deletes the
+// account on the server (billing.js handleDeleteAccount). Takes the session
+// token itself (fresh, so a just-finished reverification counts). Returns
+// the server's answer: { deleted, clerkDeleted } on success, or Clerk's
+// reverification hint on a 403, which useReverification turns into Clerk's
+// "confirm it's you" prompt before calling again. Throws on anything else.
+export async function deleteAccountOnServer(token) {
+  const res = await fetch('/api/billing/account', {
+    method: 'DELETE',
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  const data = await res.json().catch(() => null);
+  if (res.status === 403 && data?.clerk_error) return data;
+  if (!res.ok) throw new Error(data?.error || 'Could not delete your account.');
+  return data;
+}

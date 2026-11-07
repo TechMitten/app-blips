@@ -7,10 +7,17 @@
 // id, which only a verified Clerk token (requests) or a signed Polar webhook
 // (external_customer_id, set by checkout below) can supply. Nothing is ever
 // looked up by email.
+//
+// Deleting an account (DELETE /api/billing/account, Settings → Account) also
+// lives here because it has to stop the Polar subscription first.
 
 import { PLANS, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog } from './plans.js';
-import { verifyClerkToken } from './clerk.js';
-import { cancelSubscription, createCheckout, findUserSubscription, getSubscription, polarWebhookSecret, verifyPolarWebhook } from './polar.js';
+import { deleteClerkUser, verifiedRecently, verifyClerkToken } from './clerk.js';
+import { windowUsage } from './buildWindow.js';
+import {
+  cancelSubscription, createCheckout, findUserSubscription, getSubscription, listUserSubscriptions,
+  polarWebhookSecret, revokeSubscription, verifyPolarWebhook,
+} from './polar.js';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -23,7 +30,7 @@ async function requireUser(request, env) {
   if (!token) return { response: json(401, { error: 'Sign in to continue.' }) };
   try {
     const claims = await verifyClerkToken(token, env);
-    return { userId: claims.sub };
+    return { userId: claims.sub, claims };
   } catch {
     return { response: json(401, { error: 'Your session has expired. Sign in again.' }) };
   }
@@ -51,6 +58,11 @@ async function handleMe(request, env, store) {
     sandboxSnapshotId: account?.sandbox_snapshot_id || null,
     // Set after a cancel: the plan stays active until then, with no renewal.
     cancelAt: account?.active ? account?.cancel_at || null : null,
+    // The build cooldown so far (plans.js windowBuilds / windowHours):
+    // { used, limit, windowHours, resetAt }, or null for plans without one.
+    usage: plan.windowBuilds && plan.windowHours
+      ? { ...windowUsage(account, { limit: plan.windowBuilds, windowMs: plan.windowHours * 60 * 60 * 1000 }), windowHours: plan.windowHours }
+      : null,
     plans: publicCatalog(),
   });
 }
@@ -120,6 +132,58 @@ async function handleCancel(request, env, store) {
   return json(200, { cancelAt });
 }
 
+// Settings → Account → Delete account. In order, stopping at the first
+// failure so nobody is left paying for an account that's gone:
+//  1. ask Clerk's reverification (the person proves who they are again) if
+//     the session last did so over 10 minutes ago: the app's
+//     useReverification shows Clerk's prompt on this exact 403 and retries;
+//  2. end every live Polar subscription now (revoke, no further charges);
+//  3. forget the user's row here;
+//  4. delete the Clerk user when this server has CLERK_SECRET_KEY (the
+//     Worker does). Otherwise `clerkDeleted: false` and the app deletes the
+//     Clerk user itself.
+const REVERIFY_MINUTES = 10;
+
+async function handleDeleteAccount(request, env, store) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  if (!verifiedRecently(auth.claims, REVERIFY_MINUTES)) {
+    // Clerk's reverificationError shape (@clerk/shared/authorization-errors).
+    return json(403, {
+      clerk_error: {
+        type: 'forbidden',
+        reason: 'reverification-error',
+        metadata: { reverification: { level: 'first_factor', afterMinutes: REVERIFY_MINUTES } },
+      },
+    });
+  }
+
+  const account = await store.getAccount(auth.userId);
+  const live = await listUserSubscriptions(env, auth.userId).catch(() => null);
+  if (live === null) {
+    return json(502, { error: 'Could not reach the payment service to stop your plan, so nothing was deleted. Please try again.' });
+  }
+  const ids = new Set(live.map((sub) => sub.id));
+  if (account?.active && account.subscription_id) ids.add(account.subscription_id);
+  for (const id of ids) {
+    const result = await revokeSubscription(env, id).catch(() => null);
+    // 404: already gone. Anything else leaves the account alone.
+    if (!result?.ok && result?.status !== 404) {
+      console.error('[billing] revoke failed:', result?.status, String(result?.text || '').slice(0, 300));
+      return json(502, { error: 'Could not stop your plan, so nothing was deleted. Please try again, or contact support@appblips.com.' });
+    }
+  }
+
+  await store.deleteAccount(auth.userId);
+  try {
+    const { deleted } = await deleteClerkUser(env, auth.userId);
+    return json(200, { deleted: true, clerkDeleted: deleted });
+  } catch (err) {
+    console.error('[billing] Clerk delete failed:', err?.message || err);
+    return json(502, { error: 'Your plan was stopped, but your sign-in could not be deleted. Please try again, or contact support@appblips.com.' });
+  }
+}
+
 // Polar statuses that still give access. A subscription cancelled for the
 // period end stays "active" (cancel_at_period_end) until it's revoked.
 const LIVE_STATUSES = new Set(['active', 'trialing']);
@@ -141,6 +205,9 @@ async function applySubscription(eventSub, env, store) {
 
   const active = LIVE_STATUSES.has(sub.status) && !sub.ended_at;
   const account = await store.getAccount(userId);
+  // Nothing to switch off, and the user may have deleted their account
+  // (which revokes, and so sends this): don't make a row for them.
+  if (!active && !account) return true;
   // An older subscription ending must not switch off a newer one.
   if (!active && account?.active && account.subscription_id && account.subscription_id !== sub.id) return true;
 
@@ -200,6 +267,10 @@ export async function handleBilling(request, env, store) {
   if (pathname === '/api/billing/checkout') {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
     return handleCheckout(request, env);
+  }
+  if (pathname === '/api/billing/account') {
+    if (request.method !== 'DELETE') return json(405, { error: 'Method not allowed.' });
+    return handleDeleteAccount(request, env, store);
   }
   if (pathname === '/api/billing/cancel') {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });

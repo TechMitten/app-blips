@@ -35,3 +35,16 @@ export const BUILD_WINDOW_COLUMNS = {
 export const windowResult = (taken, start, windowMs) => (taken
   ? { allowed: true }
   : { allowed: false, resetAt: Number(start || 0) + windowMs });
+
+// How much of the window a user has used, for Settings → Account: builds
+// counted so far and when the window ends (null when none is running, so the
+// next build starts a fresh one). Same "still running" test as TAKE_BUILD_SQL.
+export function windowUsage(account, { limit, windowMs }, at = Date.now()) {
+  const start = Number(account?.build_window_start) || 0;
+  const running = start > at - windowMs;
+  return {
+    used: running ? Math.min(Number(account.build_window_count) || 0, limit) : 0,
+    limit,
+    resetAt: running ? new Date(start + windowMs).toISOString() : null,
+  };
+}

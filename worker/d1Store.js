@@ -76,5 +76,10 @@ export function d1Store(db) {
     if (userId) await db.prepare(SET_CANCEL_AT_SQL).bind(cancelAt || null, now(), userId).run();
   };
 
-  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, close: () => {} };
+  // Deleting an account (Settings → Account) removes the user's row.
+  const deleteAccount = async (userId) => {
+    if (userId) await db.prepare('delete from accounts where user_id = ?').bind(userId).run();
+  };
+
+  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, deleteAccount, close: () => {} };
 }
