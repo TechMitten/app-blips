@@ -80,7 +80,7 @@ function UsageMeter({ usage }) {
 
 export default function StudioAccountMenu({ onOpenAccount, onOpenPlans }) {
   const { user } = useUser();
-  const { me, loading } = useBillingMe(true);
+  const { me, loading, refresh } = useBillingMe(true);
   const requestSignOut = useRequestSignOut();
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
@@ -117,6 +117,12 @@ export default function StudioAccountMenu({ onOpenAccount, onOpenPlans }) {
   useEffect(() => {
     if (open) menuRef.current?.querySelector('[role="menuitem"]')?.focus();
   }, [open]);
+
+  // The workspace header keeps this menu mounted across prompts, so usage
+  // is re-read each time it opens rather than only when it first mounted.
+  useEffect(() => {
+    if (open) refresh();
+  }, [open, refresh]);
 
   // Menu keyboard: arrows/Home/End move between items; Tab leaves and closes.
   const onMenuKeyDown = (event) => {
