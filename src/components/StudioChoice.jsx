@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, LogOut, Menu, MonitorSmartphone,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, LogIn, LogOut, Menu, MonitorSmartphone,
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
-import { Show, SignOutButton } from '@clerk/react';
+import { Show, SignInButton } from '@clerk/react';
+import { useRequestSignOut } from '../lib/requestSignOut';
 import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
@@ -137,6 +138,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
   // Runs the action after the panel has started closing, so a modal (Settings)
   // doesn't open over a menu that is still on screen.
   const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
+  const requestSignOut = useRequestSignOut();
 
   const isDark = resolvedTheme === 'dark';
 
@@ -232,18 +234,28 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     <Settings size={17} aria-hidden="true" />
                   </button>
                 )}
+                {/* Signed out: the way back to a plan (or to make an account,
+                    from Clerk's dialog). Labelled, not icon-only, so it's found. */}
+                {accounts && (
+                  <Show when="signed-out">
+                    <SignInButton mode="modal">
+                      <button type="button" className={`${GHOST_BTN} h-9 px-3 max-md:hidden`}>
+                        <LogIn size={17} aria-hidden="true" /> Sign in
+                      </button>
+                    </SignInButton>
+                  </Show>
+                )}
                 {accounts && (
                   <Show when="signed-in">
-                    <SignOutButton>
-                      <button
-                        type="button"
-                        aria-label="Sign out"
-                        title="Sign out"
-                        className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                      >
-                        <LogOut size={17} aria-hidden="true" />
-                      </button>
-                    </SignOutButton>
+                    <button
+                      type="button"
+                      onClick={requestSignOut}
+                      aria-label="Sign out"
+                      title="Sign out"
+                      className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                    >
+                      <LogOut size={17} aria-hidden="true" />
+                    </button>
                   </Show>
                 )}
                 <button
@@ -464,12 +476,19 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
               </button>
             )}
             {accounts && (
-              <Show when="signed-in">
-                <SignOutButton>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
                   <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
-                    <LogOut size={18} aria-hidden="true" /> Sign out
+                    <LogIn size={18} aria-hidden="true" /> Sign in
                   </button>
-                </SignOutButton>
+                </SignInButton>
+              </Show>
+            )}
+            {accounts && (
+              <Show when="signed-in">
+                <button type="button" className={MENU_ITEM} onClick={fromMenu(requestSignOut)}>
+                  <LogOut size={18} aria-hidden="true" /> Sign out
+                </button>
               </Show>
             )}
             <div className="studio-menu-sep" role="separator" />

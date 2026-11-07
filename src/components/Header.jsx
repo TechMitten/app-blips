@@ -5,7 +5,9 @@ import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut
 } from 'lucide-react';
-import { Show, SignInButton, SignUpButton, UserButton, SignOutButton } from '@clerk/react';
+import { Show, SignInButton, SignUpButton } from '@clerk/react';
+import { AccountButton } from './SignOutConfirm';
+import { useRequestSignOut } from '../lib/requestSignOut';
 import { useAccounts } from '../lib/accounts';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
@@ -70,6 +72,7 @@ export default function Header({
   }, [isMobileMenuOpen]);
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const requestSignOut = useRequestSignOut();
 
   const runMobileAction = (action) => {
     closeMobileMenu();
@@ -241,13 +244,11 @@ export default function Header({
                 </SignUpButton>
               </Show>
               <Show when="signed-in">
-                <UserButton afterSignOutUrl="/" />
-                <SignOutButton>
-                  <button type="button" className="nav-btn nav-ghost nav-btn-icon" data-tip="Sign out" aria-label="Sign out">
-                    <LogOut size={16} />
-                    <span className="hidden xl:inline">Sign out</span>
-                  </button>
-                </SignOutButton>
+                <AccountButton />
+                <button type="button" onClick={requestSignOut} className="nav-btn nav-ghost nav-btn-icon" data-tip="Sign out" aria-label="Sign out">
+                  <LogOut size={16} />
+                  <span className="hidden xl:inline">Sign out</span>
+                </button>
               </Show>
             </div>
           </>
@@ -417,15 +418,13 @@ export default function Header({
                   </Show>
                   <Show when="signed-in">
                     <div className="mobile-menu-item">
-                      <UserButton afterSignOutUrl="/" />
+                      <AccountButton />
                       <span>Account</span>
                     </div>
-                    <SignOutButton>
-                      <button type="button" onClick={closeMobileMenu} className="mobile-menu-item">
-                        <LogOut size={16} />
-                        <span>Sign out</span>
-                      </button>
-                    </SignOutButton>
+                    <button type="button" onClick={() => { closeMobileMenu(); requestSignOut(); }} className="mobile-menu-item">
+                      <LogOut size={16} />
+                      <span>Sign out</span>
+                    </button>
                   </Show>
                 </>
               )}

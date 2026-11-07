@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@clerk/react';
 import { setAuthTokenGetter } from '../lib/authToken';
 import { fetchSandboxStatus, setSandboxComputerEnabled } from '../lib/sandboxComputer';
+import { SignOutConfirmProvider } from './SignOutConfirm';
 
 // Shares the Clerk session with non-React code (the chat transport, billing
 // and sandbox helpers). Nothing here forces a sign-in: signing in is how a
@@ -27,5 +28,5 @@ export default function AuthSession({ children }) {
     else setSandboxComputerEnabled(false);
   }, [isLoaded, isSignedIn]);
 
-  return children;
+  return <SignOutConfirmProvider>{children}</SignOutConfirmProvider>;
 }
