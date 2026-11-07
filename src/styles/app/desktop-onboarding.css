@@ -411,6 +411,37 @@
 .onboarding-folder button:focus-visible { outline: 2px solid #ffffff; outline-offset: -2px; }
 .onboarding-key-help.is-error { color: #fca5a5; }
 
+/* "Use my own AI key" / "Subscribe to a plan", and the plan list: cards in
+   the same dark field style as the folder row, white ring when selected
+   (as the avatar grid). */
+.onboarding-choice-list { display: grid; gap: 12px; }
+.onboarding-choice { width: 100%; display: flex; align-items: center; gap: 16px; padding: 16px 18px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 12px; color: #c7c7c7; background: rgb(0 0 0 / 0.35); text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.onboarding-choice:hover { border-color: rgb(255 255 255 / 0.3); }
+.onboarding-choice.is-selected { border-color: #ffffff; background: rgb(255 255 255 / 0.06); }
+.onboarding-choice.is-static { cursor: default; }
+.onboarding-choice.is-static:hover { border-color: rgb(255 255 255 / 0.12); }
+.onboarding-choice:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.onboarding-choice-icon { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; color: #f5f5f5; background: rgb(255 255 255 / 0.08); }
+.onboarding-choice.is-selected .onboarding-choice-icon { color: var(--ob-red); }
+.onboarding-choice-body { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.onboarding-choice-title { color: #f5f5f5; font-size: 1rem; font-weight: 600; }
+.onboarding-choice-text { color: #a3a3a3; font-size: 0.88rem; line-height: 1.45; }
+.onboarding-choice-mark { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / 0.25); border-radius: 50%; color: #0a0a0a; }
+.onboarding-choice.is-selected .onboarding-choice-mark { border-color: #ffffff; background: #ffffff; }
+.onboarding-next.onboarding-plan-button { min-width: 0; height: 40px; flex: none; padding: 0 18px; font-size: 0.92rem; }
+.onboarding-signin { display: flex; justify-content: center; }
+/* Plans not sold yet (plans.js comingSoon): dimmed, with a tag in place of
+   the Subscribe button. */
+.onboarding-choice.is-soon .onboarding-choice-body { opacity: .55; }
+.onboarding-beta-tag { display: inline-block; margin-left: 10px; padding: 4px 8px; border: 1px solid rgb(236 100 82 / 0.45); border-radius: 999px; color: #f5a397; font: 600 0.66rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 2px; }
+.onboarding-beta-note { display: flex; gap: 10px; margin-top: 14px; padding: 12px 14px; border: 1px solid rgb(255 255 255 / 0.1); border-left: 3px solid var(--ob-red); border-radius: 10px; color: #c7c7c7; background: rgb(255 255 255 / 0.03); font-size: 0.88rem; line-height: 1.5; }
+.onboarding-beta-note > svg { flex: none; margin-top: 2px; color: var(--ob-red); }
+.onboarding-beta-note strong { color: #f5f5f5; font-weight: 600; }
+.onboarding-soon-tag { flex: none; padding: 6px 12px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: 999px; color: #c7c7c7; font: 600 0.72rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.onboarding-plan-wait { display: grid; place-items: center; min-height: 160px; color: #a3a3a3; }
+.onboarding-plan-active { display: flex; align-items: center; gap: 10px; color: #f5f5f5; font-size: 1rem; line-height: 1.5; }
+.onboarding-plan-active svg { flex: none; color: #86efac; }
+
 /* AI step: "Test connection" under the model, styled like the folder's
    Change button so it reads as secondary to "Start building". */
 .onboarding-test { display: flex; align-items: center; gap: 14px; }
@@ -549,4 +580,5 @@
   .onboarding-next, .onboarding-next > svg:last-child { transition: none; }
   .onboarding-test-button { transition: none; }
   .desktop-onboarding-setup { animation: none; }
+  .onboarding-choice { transition: none; }
 }

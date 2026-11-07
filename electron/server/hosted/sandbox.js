@@ -674,8 +674,16 @@ export async function syncFilesFromSandbox(env, sandboxId, { signal } = {}) {
 }
 
 async function resolveSandboxUser(request, env, store) {
+  // The sandbox computer is a paid-plan feature: it runs on the operator's
+  // Render account, so a server without accounts (local installs, own-key
+  // users) never hands it out, even with RENDER_API_KEY set.
   if (!isHosted(env)) {
-    return { userId: 'local' };
+    return {
+      response: json(403, {
+        error: 'The agent computer is only available on AppBlips plans.',
+        code: 'plan_required',
+      }),
+    };
   }
   const header = request.headers.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';

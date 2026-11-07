@@ -6,7 +6,7 @@
 // subscriptions. The local store only keeps the Clerk-user <-> Creem-customer
 // link and a webhook idempotency set.
 
-import { PLANS, isPlanId, planForProductId, planProductId, publicCatalog } from './plans.js';
+import { PLANS, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog } from './plans.js';
 import { verifyClerkToken } from './clerk.js';
 import { createCheckout, findCreditAccount, getCreditBalance, verifyCreemSignature, creemWebhookSecret } from './creem.js';
 
@@ -74,6 +74,9 @@ async function handleCheckout(request, env) {
   const planId = body?.plan;
   if (!isPlanId(planId)) {
     return json(400, { error: 'Choose a plan to subscribe to.' });
+  }
+  if (!isPlanOnSale(planId)) {
+    return json(409, { error: `${PLANS[planId].name} is coming soon. Basic is available now.`, code: 'plan_coming_soon' });
   }
   const productId = planProductId(env, planId);
   if (!productId) return json(503, { error: 'That plan is not available yet.' });

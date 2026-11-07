@@ -111,7 +111,12 @@ const withAuth = async (init = {}) => {
 export async function fetchSandboxStatus({ signal } = {}) {
   try {
     const res = await fetch('/api/sandbox/status', await withAuth({ signal }));
-    if (!res.ok) return { configured: false, sandboxId: null, snapshotId: null };
+    // Signed out, no plan, or a server without the sandbox: the AI must stop
+    // being offered the tool, including after a sign-out.
+    if (!res.ok) {
+      sandboxComputerEnabled = false;
+      return { configured: false, sandboxId: null, snapshotId: null };
+    }
     const data = await res.json();
     const configured = Boolean(data?.configured);
     sandboxComputerEnabled = configured;
@@ -121,6 +126,7 @@ export async function fetchSandboxStatus({ signal } = {}) {
       snapshotId: data?.snapshotId || null,
     };
   } catch {
+    sandboxComputerEnabled = false;
     return { configured: false, sandboxId: null, snapshotId: null };
   }
 }

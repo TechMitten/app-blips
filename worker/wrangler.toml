@@ -12,6 +12,10 @@ compatibility_flags = ["nodejs_compat"]
 # The desktop app's own origin; it calls this Worker from there.
 APPBLIPS_CHAT_ALLOWED_ORIGINS = "appblips://app"
 CREEM_SERVER = "prod"
+# DeepSeek (the server's default provider) runs paid chat; its key is the
+# OPENAI_API_KEY secret. Model names aren't secret, so they live here.
+OPENAI_LLM_MODEL = "deepseek-flash"
+APPBLIPS_MODEL_BASIC = "deepseek-flash"
 
 [[d1_databases]]
 binding = "DB"

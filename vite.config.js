@@ -86,7 +86,8 @@ function llmProxyDevMiddleware(mode) {
           res.end('Method not allowed')
           return
         }
-        if (hosted) {
+        // Signed-in requests are plan users; everyone else uses their own key.
+        if (hosted && req.headers.authorization) {
           const gated = await gateChat(await toChatRequest(req), env, store)
           if (gated.response) {
             sendWebResponse(res, gated.response, {}, '[billing]')

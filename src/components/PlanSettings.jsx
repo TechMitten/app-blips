@@ -8,6 +8,8 @@ import {
   snapshotSandboxComputer,
   subscribeSandboxTerminal,
 } from '../lib/sandboxComputer';
+import { SignInButton } from '@clerk/react';
+import { useAccounts } from '../lib/accounts';
 import { SettingRow, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 
 const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
@@ -138,6 +140,7 @@ function SandboxComputerSection({ sandboxId: initialSandboxId, snapshotId: initi
 // Plan and credit status for hosted AppBlips, plus the user's Render Sandbox
 // agent computer controls.
 export default function PlanSettings() {
+  const accounts = useAccounts();
   const [config, setConfig] = useState(null);
   const [me, setMe] = useState(null);
   const [sandboxStatus, setSandboxStatus] = useState(null);
@@ -165,20 +168,28 @@ export default function PlanSettings() {
   }, []);
 
   if (loading) return <p className="p-4 text-sm text-slate-500">Loading plan…</p>;
+  // The agent computer is a paid-plan feature (the server refuses it
+  // elsewhere), so a copy without accounts has nothing to show here.
   if (!config?.hosted) {
     return (
-      <>
-        <p className="p-4 text-sm leading-relaxed text-slate-500">
-          Plans and credits are available on AppBlips Cloud. This install uses your own AI provider,
-          so there is nothing to bill.
-        </p>
-        {sandboxStatus?.configured && (
-          <SandboxComputerSection
-            sandboxId={sandboxStatus.sandboxId}
-            snapshotId={sandboxStatus.snapshotId}
-          />
-        )}
-      </>
+      <p className="p-4 text-sm leading-relaxed text-slate-500">
+        Plans and credits are available on AppBlips Cloud. This install uses your own AI provider,
+        so there is nothing to bill.
+      </p>
+    );
+  }
+  // Signed out: an own-key user. Signing in is how they move to a plan.
+  if (!me && accounts) {
+    return (
+      <SettingRow
+        id="set-plan-signin"
+        title="AppBlips plans"
+        description="You’re using your own AI key. Sign in to subscribe to a plan: AppBlips runs the AI and you get your own agent computer."
+      >
+        <SignInButton mode="modal">
+          <button type="button" className={PRIMARY_BUTTON}>Sign in</button>
+        </SignInButton>
+      </SettingRow>
     );
   }
 
@@ -191,7 +202,7 @@ export default function PlanSettings() {
   const credits = !active
     ? 'Subscribe to start building'
     : me.unlimited
-      ? 'Unlimited during beta'
+      ? 'unlimited builds while AppBlips is in beta'
       : me.credits == null
         ? '—'
         : `${me.credits} of ${me.monthlyCredits} left this month`;
@@ -226,9 +237,20 @@ export default function PlanSettings() {
         />
       )}
 
+      {/* The current plan or one on offer has beta terms: say so plainly, once,
+          before anyone pays (plans.js betaPricing). */}
+      {(config.plans || []).some((plan) => plan.betaPricing && !plan.comingSoon) && (
+        <p className="mx-4 mb-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-600">
+          <span className="font-semibold text-slate-800">Beta pricing.</span>{' '}
+          {(config.plans || []).filter((plan) => plan.betaPricing && !plan.comingSoon).map((plan) => (
+            `${plan.name}’s ${price(plan.priceCents)}/month price${plan.monthlyCredits == null ? ' and unlimited builds' : ''}`
+          )).join(', ')} last only while AppBlips is in beta. The price and build limits will change when the beta ends.
+        </p>
+      )}
+
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {
         const details = plan.monthlyCredits == null
-          ? 'unlimited builds during the beta'
+          ? `unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}`
           : `${plan.monthlyCredits} build credits monthly`;
         const action = !active ? 'Subscribe' : plan.priceCents > currentPrice ? 'Upgrade' : 'Switch';
         return (
@@ -236,16 +258,22 @@ export default function PlanSettings() {
             key={plan.id}
             id={`set-plan-${plan.id}`}
             title={plan.name}
-            description={`${price(plan.priceCents)} per month — ${details}.`}
+            description={`${price(plan.priceCents)} per month${plan.betaPricing ? ' (beta price)' : ''} — ${details}.`}
           >
-            <button
-              type="button"
-              className={PRIMARY_BUTTON}
-              disabled={busy !== null}
-              onClick={() => upgrade(plan.id)}
-            >
-              {busy === plan.id ? 'Opening checkout…' : `${action} to ${plan.name}`}
-            </button>
+            {plan.comingSoon ? (
+              <span className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Coming soon
+              </span>
+            ) : (
+              <button
+                type="button"
+                className={PRIMARY_BUTTON}
+                disabled={busy !== null}
+                onClick={() => upgrade(plan.id)}
+              >
+                {busy === plan.id ? 'Opening checkout…' : `${action} to ${plan.name}`}
+              </button>
+            )}
           </SettingRow>
         );
       })}

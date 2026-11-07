@@ -330,6 +330,18 @@ try {
   assert.equal(inactiveRes.status, 402);
   assert.equal((await inactiveRes.json()).code, 'subscription_required');
 
+  // A server without accounts (local installs, own-key users) never hands
+  // out the computer, even with RENDER_API_KEY set: it is a paid-plan feature.
+  const { CREEM_TEST_API_KEY: _creem, ...localEnv } = env;
+  for (const path of ['/api/sandbox/status', '/api/sandbox/exec']) {
+    const localRes = await handleSandbox(new Request(`http://localhost${path}`, {
+      method: path.endsWith('exec') ? 'POST' : 'GET',
+      ...(path.endsWith('exec') ? { body: JSON.stringify({ command: 'echo hi' }) } : {}),
+    }), localEnv, store);
+    assert.equal(localRes.status, 403, `${path} without accounts`);
+    assert.equal((await localRes.json()).code, 'plan_required');
+  }
+
   // ---- 2. 1:1 User <-> Computer provisioning & isolation -------------------
   const [ensured1a, ensured1b] = await Promise.all([
     ensureUserSandbox('user_1', env, store),

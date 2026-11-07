@@ -158,7 +158,9 @@ const server = createServer((req, res) => {
     const handle = async () => {
       let request = await toChatRequest(req);
       let charge = null;
-      if (hosted) {
+      // Signed-in requests are plan users (the app sends a Clerk session only
+      // then); everyone else builds with their own saved key, hosted or not.
+      if (hosted && request.headers.has('authorization')) {
         const gated = await gateChat(request, process.env, store);
         if (gated.response) {
           sendWebResponse(res, gated.response, SECURITY_HEADERS, '[billing]');

@@ -16,6 +16,9 @@ export const PLANS = Object.freeze({
     priceCents: 100,
     monthlyCredits: null, // unlimited during the beta
     modelEnv: 'APPBLIPS_MODEL_BASIC',
+    // Price and unlimited builds are beta terms: the app labels them as such
+    // wherever the plan is offered. Remove when the beta ends.
+    betaPricing: true,
   },
   silver: {
     id: 'silver',
@@ -23,6 +26,7 @@ export const PLANS = Object.freeze({
     priceCents: 2000,
     monthlyCredits: 100,
     modelEnv: 'APPBLIPS_MODEL_SILVER',
+    comingSoon: true,
   },
   max: {
     id: 'max',
@@ -30,8 +34,14 @@ export const PLANS = Object.freeze({
     priceCents: 10000,
     monthlyCredits: 200,
     modelEnv: 'APPBLIPS_MODEL_MAX',
+    comingSoon: true,
   },
 });
+
+// Shown with a "Coming soon" tag but not sold yet: checkout refuses them, so
+// the tag is not the only thing stopping a purchase. Remove `comingSoon` from
+// a plan to open it.
+export const isPlanOnSale = (id) => isPlanId(id) && !PLANS[id].comingSoon;
 
 export const isPlanId = (id) => Object.prototype.hasOwnProperty.call(PLANS, id);
 
@@ -67,4 +77,6 @@ export const publicCatalog = () => PLAN_IDS.map((id) => ({
   name: PLANS[id].name,
   priceCents: PLANS[id].priceCents,
   monthlyCredits: PLANS[id].monthlyCredits,
+  comingSoon: Boolean(PLANS[id].comingSoon),
+  betaPricing: Boolean(PLANS[id].betaPricing),
 }));

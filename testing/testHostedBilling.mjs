@@ -101,6 +101,22 @@ try {
   const configBody = await configRes.json();
   assert.deepEqual(configBody.plans.map((plan) => plan.id), ['basic', 'silver', 'max']);
   assert.ok(!JSON.stringify(configBody).includes('model'), 'config leaks model ids');
+  // Only Basic is sold for now; Silver and Max show as coming soon.
+  assert.deepEqual(configBody.plans.map((plan) => [plan.id, plan.comingSoon]), [['basic', false], ['silver', true], ['max', true]]);
+  // Basic's $1 price and unlimited builds are beta terms the app must label.
+  assert.deepEqual(configBody.plans.map((plan) => [plan.id, plan.betaPricing]), [['basic', true], ['silver', false], ['max', false]]);
+
+  // Checkout refuses a coming-soon plan before ever contacting Creem, so the
+  // tag in the app is not the only thing stopping a purchase.
+  for (const plan of ['silver', 'max']) {
+    const soon = await handleBilling(new Request('http://localhost/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plan }),
+    }), env, store);
+    assert.equal(soon.status, 409, `${plan} checkout`);
+    assert.equal((await soon.json()).code, 'plan_coming_soon');
+  }
 
   const unauth = await handleBilling(new Request('http://localhost/api/billing/me'), env, store);
   assert.equal(unauth.status, 401);

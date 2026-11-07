@@ -3,8 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-import RequireAuth from './components/RequireAuth.jsx'
-import SubscriptionGate from './components/SubscriptionGate.jsx'
+import AuthSession from './components/AuthSession.jsx'
 import { initDesktopStore } from './lib/desktop'
 import { AccountsContext, CLERK_PUBLISHABLE_KEY, detectAccounts } from './lib/accounts'
 import { beginAppSession } from './lib/config'
@@ -23,19 +22,17 @@ const startAndroidApi = () => (window.Capacitor?.getPlatform?.() === 'android'
 // the synchronous storage helpers see them. Accounts are checked after the
 // Android API is installed, since that is what answers /api/* there.
 Promise.all([initDesktopStore(), startAndroidApi()]).then(detectAccounts).then((accounts) => {
-  const app = (
-    <SubscriptionGate>
-      <App coldStart={coldStart} />
-    </SubscriptionGate>
-  )
+  const app = <App coldStart={coldStart} />
   // Local installs (Pinokio, source, Docker, desktop) never load Clerk: no
-  // sign-in, and /api/chat uses the person's saved keys.
+  // sign-in, and /api/chat uses the person's saved keys. With accounts,
+  // signing in is optional: onboarding asks whether to use an own key or a
+  // plan, and only the plan path signs in.
   createRoot(document.getElementById('root'), reactRootErrorOptions).render(
     <StrictMode>
       <AccountsContext.Provider value={accounts}>
         {accounts ? (
           <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
-            <RequireAuth>{app}</RequireAuth>
+            <AuthSession>{app}</AuthSession>
           </ClerkProvider>
         ) : app}
       </AccountsContext.Provider>
