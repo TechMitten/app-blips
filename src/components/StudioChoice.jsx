@@ -300,19 +300,12 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </p>
               </header>
 
-              {/* The three ways to make something new: a live preview of the
-                  highlighted one above the list (900px+). Hover or focus
-                  previews, click starts. On smaller screens it is just the list. */}
+              {/* The three ways to make something new: the list, with a live
+                  preview of the highlighted one beside it (900px+). Side by
+                  side rather than stacked so the whole picker fits in the
+                  window without scrolling. Hover or focus previews, click
+                  starts. On smaller screens it is just the list. */}
               <div className="studio-panel animate-stagger-3">
-                <div className="studio-stage" data-studio={active}>
-                  <StudioArt key={active} studio={active} />
-                  <div className="studio-stage-foot">
-                    <div key={active} className="studio-stage-copy min-w-0">
-                      <p className="studio-stage-hint studio-text-soft">{activeStudio.tagline}</p>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="studio-list" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown}>
                   {indicator && (
                     <span
@@ -347,6 +340,15 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       <ArrowRight size={18} className="studio-row-arrow shrink-0" aria-hidden="true" />
                     </button>
                   ))}
+                </div>
+
+                <div className="studio-stage" data-studio={active}>
+                  <StudioArt key={active} studio={active} />
+                  <div className="studio-stage-foot">
+                    <div key={active} className="studio-stage-copy min-w-0">
+                      <p className="studio-stage-hint studio-text-soft">{activeStudio.tagline}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 

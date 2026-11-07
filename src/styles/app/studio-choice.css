@@ -353,6 +353,7 @@
     rgb(var(--tint) / 0.04);
 }
 .studio-art svg { display: block; width: 100%; height: 100%; }
+.studio-stage .studio-art svg { position: absolute; inset: 0; }
 
 .art-device { fill: var(--art-device); stroke: var(--art-line); stroke-width: 1.2; }
 .art-panel { fill: var(--art-panel); stroke: var(--art-line); stroke-width: 0.8; }
@@ -458,11 +459,12 @@
 @media (min-width: 900px) and (max-width: 1199px) { .studio-main { padding-inline: 1.5rem; } }
 
 /* The picker: one frosted panel. From 900px, a live preview of the highlighted
-   studio sits above the list of the three studios. */
+   studio sits beside the list of the three studios (not above it: stacked,
+   the page overflowed a laptop-height window). */
 .studio-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  margin-top: clamp(2rem, 7vh, 4.5rem);
+  margin-top: clamp(1rem, 4.5vh, 3rem);
   overflow: hidden;
   border: 1px solid var(--sc-card-line);
   border-top-color: var(--sc-card-top);
@@ -550,6 +552,9 @@
 .studio-stage { display: none; }
 
 @media (min-width: 900px) {
+  /* Wider than the single-column max-w-xl, so the two halves have room. */
+  .studio-main { max-width: 62rem; }
+  .studio-panel { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
   .studio-list { --list-pad: 0.75rem; justify-content: center; }
   .studio-kbd { display: inline-flex; }
   .studio-row-title { font-size: 1.0625rem; }
@@ -559,8 +564,8 @@
     flex-direction: column;
     justify-content: center;
     gap: clamp(0.5rem, 2vh, 1.25rem);
-    padding: clamp(0.75rem, 3vh, 1.75rem);
-    border-bottom: 1px solid var(--sc-line);
+    padding: clamp(0.75rem, 2.5vh, 1.5rem);
+    border-left: 1px solid var(--sc-line);
     background:
       radial-gradient(70% 80% at 50% 0%, color-mix(in srgb, var(--sc-red) 14%, transparent), transparent 70%),
       var(--sc-fill);
@@ -570,8 +575,12 @@
       radial-gradient(70% 80% at 50% 0%, rgb(var(--tint) / 0.16), transparent 70%),
       rgb(var(--tint) / 0.04);
   }
+  /* The art fills whatever height the list gives the panel but adds none of
+     its own (absolute svg, zero flex basis), so the list sets the height. */
   .studio-stage .studio-art {
-    height: clamp(7rem, 26vh, 15rem);
+    position: relative;
+    flex: 1 1 0;
+    min-height: 8rem;
     animation: studio-stage-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .studio-stage-foot {
@@ -605,7 +614,6 @@
   .studio-chips { margin-top: 0.5rem; }
 }
 @media (max-height: 600px) {
-  .studio-stage .studio-art { height: clamp(5rem, 22vh, 8rem); }
   .studio-stage-hint { display: none; }
 }
 
