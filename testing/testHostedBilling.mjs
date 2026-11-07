@@ -206,6 +206,21 @@ try {
   assert.ok(!JSON.stringify(checkoutCalls[0]).includes('victim'), 'request body reached Polar');
   assert.equal(checkoutCalls[0].success_url, 'http://localhost/?billing=success');
 
+  // Already on the plan (also while a cancelled one runs out): no second
+  // subscription, and Polar is never asked.
+  store.setPlan('user_1', 'basic', true);
+  const twice = await checkoutReq({ plan: 'basic' });
+  assert.equal(twice.status, 409, 'second checkout for the same plan');
+  assert.equal((await twice.json()).code, 'already_subscribed');
+  store.setCancelAt('user_1', '2099-01-01T00:00:00.000Z');
+  assert.equal((await checkoutReq({ plan: 'basic' })).status, 409, 'resubscribing while a cancelled plan runs out');
+  store.setCancelAt('user_1', null);
+  store.setPlan('user_1', 'basic', false);
+  assert.equal((await checkoutReq({ plan: 'basic' })).status, 200, 'an ended plan can be bought again');
+  assert.equal(checkoutCalls.length, 2);
+  checkoutCalls.pop();
+  store.setPlan('user_1', 'max', true);
+
   const unauth = await handleBilling(new Request('http://localhost/api/billing/me'), env, store);
   assert.equal(unauth.status, 401);
   const me = await handleBilling(new Request('http://localhost/api/billing/me', {

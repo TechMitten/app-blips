@@ -67,7 +67,7 @@ async function handleMe(request, env, store) {
   });
 }
 
-async function handleCheckout(request, env) {
+async function handleCheckout(request, env, store) {
   const auth = await requireUser(request, env);
   if (auth.response) return auth.response;
 
@@ -78,6 +78,14 @@ async function handleCheckout(request, env) {
   }
   if (!isPlanOnSale(planId)) {
     return json(409, { error: `${PLANS[planId].name} is coming soon. Basic is available now.`, code: 'plan_coming_soon' });
+  }
+  // A second checkout for the plan someone already has would start a second
+  // Polar subscription and charge them twice (the app only offers it when it
+  // couldn't read the plan). Also while a cancelled plan runs out: it is
+  // still paid for until then.
+  const account = await store.getAccount(auth.userId);
+  if (account?.active && planOf(account) === planId) {
+    return json(409, { error: `You already have the ${PLANS[planId].name} plan.`, code: 'already_subscribed' });
   }
   const productId = planProductId(env, planId);
   if (!productId) return json(503, { error: 'That plan is not available yet.' });
@@ -266,7 +274,7 @@ export async function handleBilling(request, env, store) {
   }
   if (pathname === '/api/billing/checkout') {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
-    return handleCheckout(request, env);
+    return handleCheckout(request, env, store);
   }
   if (pathname === '/api/billing/account') {
     if (request.method !== 'DELETE') return json(405, { error: 'Method not allowed.' });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk/react';
 import { cancelPlan, fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
 import {
   clearSandboxTerminalLog,
@@ -208,6 +209,19 @@ function SandboxComputerSection({ sandboxId: initialSandboxId, snapshotId: initi
 // agent computer controls.
 export default function PlanSettings() {
   const accounts = useAccounts();
+  // Clerk's hooks only work inside its provider, which exists only in copies
+  // with accounts; without them nobody is ever signed in.
+  return accounts ? <PlanSettingsWithAccount /> : <PlanSettingsBody accounts={false} isSignedIn={false} />;
+}
+
+function PlanSettingsWithAccount() {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return <p className="p-4 text-sm text-slate-500">Loading plan…</p>;
+  // Keyed by the sign-in, so signing in from this tab starts it fresh.
+  return <PlanSettingsBody key={isSignedIn ? 'in' : 'out'} accounts isSignedIn={isSignedIn} />;
+}
+
+function PlanSettingsBody({ accounts, isSignedIn }) {
   const [config, setConfig] = useState(null);
   const [me, setMe] = useState(null);
   const [sandboxStatus, setSandboxStatus] = useState(null);
@@ -222,6 +236,11 @@ export default function PlanSettings() {
     return waitForPlan((account) => { setMe(account); setPaying(false); });
   }, [paying]);
 
+  // Read again on Try again; a sign-in change remounts this (the key in
+  // PlanSettingsWithAccount). A signed-in account whose plan couldn't be read is not a
+  // plan-less one: offering Subscribe then could charge someone twice.
+  const [meFailed, setMeFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -232,14 +251,16 @@ export default function PlanSettings() {
       if (cancelled) return;
       setConfig(nextConfig);
       setSandboxStatus(nextSandbox);
-      if (nextConfig.hosted) {
-        const nextMe = await fetchBillingMe();
-        if (!cancelled) setMe(nextMe);
-      }
-      if (!cancelled) setLoading(false);
+      let nextMe = null;
+      if (nextConfig.hosted && (isSignedIn || !accounts)) nextMe = await fetchBillingMe();
+      if (cancelled) return;
+      setMe(nextMe);
+      setMeFailed(isSignedIn && !nextMe);
+      setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [accounts, isSignedIn, attempt]);
+  const retry = () => { setLoading(true); setAttempt((n) => n + 1); };
 
   if (loading) return <p className="p-4 text-sm text-slate-500">Loading plan…</p>;
   // The agent computer is a paid-plan feature (the server refuses it
@@ -252,8 +273,21 @@ export default function PlanSettings() {
       </p>
     );
   }
+  if (meFailed) {
+    return (
+      <SettingRow
+        id="set-plan-error"
+        title="Current plan"
+        description="Could not check your plan. Check your internet connection, then try again."
+      >
+        <button type="button" className={SECONDARY_BUTTON} onClick={retry}>
+          Try again
+        </button>
+      </SettingRow>
+    );
+  }
   // Signed out: an own-key user. Signing in is how they move to a plan.
-  if (!me && accounts) {
+  if (accounts && !isSignedIn) {
     return (
       <SettingRow
         id="set-plan-signin"
