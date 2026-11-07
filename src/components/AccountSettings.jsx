@@ -12,7 +12,7 @@ import { CancelPlanRow } from './PlanSettings';
 import { logError } from '../lib/errorLog';
 
 // Settings → Account (only where accounts exist, see lib/accounts.js): who is
-// signed in, their plan and how much of the build window (plans.js
+// signed in, their plan and how much of the usage window (plans.js
 // windowBuilds / windowHours) they've used, their password, the Google /
 // GitHub accounts they sign in with. Cancelling the plan and deleting the
 // account live in Settings → Danger Zone (AccountDangerZone below).
@@ -81,8 +81,8 @@ function PlanRow({ me, loading, onOpenPlan }) {
   );
 }
 
-// The plan's build window: N of 50 used, and when it unlocks. The count only
-// changes when a build runs, so the row re-reads the server on open and
+// The plan's usage window: N of 50 used, and when it unlocks. The count only
+// changes when a prompt runs, so the row re-reads the server on open and
 // just keeps the countdown current while Settings stays open.
 function UsageRow({ usage }) {
   const [now, setNow] = useState(() => Date.now());
@@ -99,15 +99,15 @@ function UsageRow({ usage }) {
   const full = left === 0;
 
   const description = !running
-    ? `Your plan includes up to ${usage.limit} builds every ${usage.windowHours} hours. Your next build starts a new ${usage.windowHours}-hour window.`
+    ? `Your plan includes up to ${usage.limit} uses every ${usage.windowHours} hours. Your next prompt starts a new ${usage.windowHours}-hour window.`
     : full
-      ? `You’ve used all ${usage.limit} builds in this window. Building unlocks again in ${untilText(resetAt - now)}.`
+      ? `You’ve reached your usage limit for this window. You can build again in ${untilText(resetAt - now)}.`
       : `${left} left. This window resets in ${untilText(resetAt - now)}, at ${new Date(resetAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.`;
 
   return (
     <SettingRow
       id="set-account-usage"
-      title={`Builds in this ${usage.windowHours}-hour window`}
+      title={`Usage in this ${usage.windowHours}-hour window`}
       description={description}
       details={(
         <div>
@@ -117,7 +117,7 @@ function UsageRow({ usage }) {
             aria-valuemin={0}
             aria-valuemax={usage.limit}
             aria-valuenow={used}
-            aria-valuetext={`${used} of ${usage.limit} builds used`}
+            aria-valuetext={`${used} of ${usage.limit} used`}
             className="h-2 w-full overflow-hidden rounded-full bg-slate-200"
           >
             <div
@@ -126,7 +126,7 @@ function UsageRow({ usage }) {
             />
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Questions in Ask mode and automatic error fixes don’t count as builds.
+            Each prompt or review counts once, however much work it takes. Questions in Ask mode and automatic error fixes don’t count.
           </p>
         </div>
       )}
@@ -446,7 +446,7 @@ export default function AccountSettings({ onOpenPlan }) {
       <SettingRow
         id="set-account-signin"
         title="Your AppBlips account"
-        description="You’re not signed in, so AppBlips builds with your own AI key. Sign in to see your plan and build usage and to manage your account."
+        description="You’re not signed in, so AppBlips builds with your own AI key. Sign in to see your plan and usage and to manage your account."
       >
         <AuthButton kind="sign-in">
           <button type="button" className={PRIMARY_BUTTON}>Sign in</button>

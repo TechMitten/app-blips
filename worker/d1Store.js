@@ -58,14 +58,14 @@ export function d1Store(db) {
     return (result.meta?.changes || 0) > 0;
   };
 
-  // The build cooldown (buildWindow.js); columns from migrations/0002.
-  const takeBuild = async (userId, { limit, windowMs, at = Date.now() }) => {
-    const taken = await db.prepare(TAKE_BUILD_SQL).bind(userId, at - windowMs, at, limit).first();
+  // The usage cooldown (buildWindow.js); columns from migrations/0002 and 0005.
+  const takeBuild = async (userId, { limit, windowMs, usageId = null, at = Date.now() }) => {
+    const taken = await db.prepare(TAKE_BUILD_SQL).bind(userId, at - windowMs, at, limit, usageId).first();
     const start = taken ? null : (await db.prepare(WINDOW_START_SQL).bind(userId).first())?.start;
     return windowResult(taken, start, windowMs);
   };
-  const releaseBuild = async (userId) => {
-    await db.prepare(RELEASE_BUILD_SQL).bind(userId).run();
+  const releaseBuild = async (userId, usageId = null) => {
+    await db.prepare(RELEASE_BUILD_SQL).bind(userId, usageId).run();
   };
 
   // The Polar subscription (subscriptionSql.js); columns from migrations/0003.

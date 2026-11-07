@@ -23,7 +23,7 @@ import {
 import { EFFORT_LABELS, nearestLevel, staticReasoningLevels } from '../../electron/server/reasoning.js';
 import { CURRENT_VERSION } from '../lib/updates';
 
-// Settings modal, split into tabs: Account (signed-in profile, build usage,
+// Settings modal, split into tabs: Account (signed-in profile, usage,
 // password, connected accounts; only with accounts, so
 // copies without them open on Appearance), Appearance (theme from useTheme in
 // App, chat font size from useChatFont, build pane side), Workspace (code

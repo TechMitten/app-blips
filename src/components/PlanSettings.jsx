@@ -14,9 +14,9 @@ import { useAccounts } from '../lib/accounts';
 import { SettingRow, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 
 const price = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-// " (up to 50 every 5 hours)" for a plan with a build cooldown (plans.js).
+// " (up to 50 uses every 5 hours)" for a plan with a usage cooldown (plans.js).
 const windowText = (plan) => (plan?.windowBuilds && plan?.windowHours
-  ? ` (up to ${plan.windowBuilds} every ${plan.windowHours} hours)` : '');
+  ? ` (up to ${plan.windowBuilds} uses every ${plan.windowHours} hours)` : '');
 const longDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 
 // Cancel at the end of the paid period, behind a confirmation that says
@@ -311,7 +311,7 @@ function PlanSettingsBody({ accounts, isSignedIn }) {
   const credits = !active
     ? 'Subscribe to start building'
     : me.unlimited
-      ? `unlimited builds while AppBlips is in beta${windowText(currentPlan)}`
+      ? `unlimited usage while AppBlips is in beta${windowText(currentPlan)}`
       : me.credits == null
         ? '—'
         : `${me.credits} of ${me.monthlyCredits} left this month`;
@@ -351,8 +351,8 @@ function PlanSettingsBody({ accounts, isSignedIn }) {
 
       {(config.plans || []).filter((plan) => plan.id !== currentId).map((plan) => {
         const details = plan.monthlyCredits == null
-          ? `unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}${windowText(plan)}`
-          : `${plan.monthlyCredits} build credits monthly`;
+          ? `unlimited usage${plan.betaPricing ? ' while AppBlips is in beta' : ''}${windowText(plan)}`
+          : `${plan.monthlyCredits} usage credits monthly`;
         const action = !active ? 'Subscribe' : plan.priceCents > currentPrice ? 'Upgrade' : 'Switch';
         return (
           <SettingRow
@@ -391,7 +391,7 @@ function PlanSettingsBody({ accounts, isSignedIn }) {
       {(config.plans || []).some((plan) => plan.betaPricing && !plan.comingSoon) && (
         <p className="pt-4 text-xs leading-relaxed text-slate-500">
           Beta pricing: {(config.plans || []).filter((plan) => plan.betaPricing && !plan.comingSoon).map((plan) => (
-            `${plan.name}’s ${price(plan.priceCents)}/month${plan.monthlyCredits == null ? ' and unlimited builds' : ''}`
+            `${plan.name}’s ${price(plan.priceCents)}/month${plan.monthlyCredits == null ? ' and unlimited usage' : ''}`
           )).join(', ')} may change when the beta ends.
         </p>
       )}

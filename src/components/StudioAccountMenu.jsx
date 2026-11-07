@@ -8,7 +8,7 @@ import { useBillingMe } from '../hooks/useBillingMe';
 // The signed-in account button, in the studio picker's top bar and the
 // workspace header: an account button (picture and first
 // name) that opens a small menu with who is signed in, the plan and
-// its build window, and the account actions. Rendered only inside
+// its usage window, and the account actions. Rendered only inside
 // <Show when="signed-in"> with accounts on, so Clerk's hooks are available.
 
 const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -53,18 +53,18 @@ function UsageMeter({ usage }) {
   return (
     <div className="studio-account-usage">
       <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="studio-text-soft">Builds</span>
+        <span className="studio-text-soft">Usage</span>
         <span className="studio-text-strong font-semibold tabular-nums">
           {used} <span className="studio-text-soft font-normal">/ {usage.limit}</span>
         </span>
       </div>
       <div
         role="progressbar"
-        aria-label="Builds used in this window"
+        aria-label="Usage in this window"
         aria-valuemin={0}
         aria-valuemax={usage.limit}
         aria-valuenow={used}
-        aria-valuetext={`${used} of ${usage.limit} builds used`}
+        aria-valuetext={`${used} of ${usage.limit} used`}
         className="studio-account-bar"
       >
         <span data-level={full ? 'full' : percent >= 80 ? 'high' : 'ok'} style={{ width: `${percent}%` }} />
@@ -72,7 +72,7 @@ function UsageMeter({ usage }) {
       <p className="studio-text-soft text-[11px] leading-snug">
         {running
           ? `Resets in ${untilText(resetAt - now)}.`
-          : `Up to ${usage.limit} builds every ${usage.windowHours} hours.`}
+          : `Up to ${usage.limit} uses every ${usage.windowHours} hours.`}
       </p>
     </div>
   );

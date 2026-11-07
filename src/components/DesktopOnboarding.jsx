@@ -402,7 +402,7 @@ export function CompareModal({ onClose, onChoose }) {
           <Info size={16} />
           <span>
             <strong>Beta pricing.</strong> The {planPrice(plan.priceCents)}/month price
-            {plan.monthlyCredits == null ? ' and unlimited builds last' : ' lasts'} only while AppBlips is in beta.
+            {plan.monthlyCredits == null ? ' and unlimited usage last' : ' lasts'} only while AppBlips is in beta.
           </span>
         </p>
       )}
@@ -440,7 +440,7 @@ const ACCESS_OPTIONS = [
     id: 'sign-in',
     icon: UserRound,
     title: 'I already have an account',
-    text: 'Sign in to pick up your plan and build credits. No plan on your account yet? You can choose one after signing in.',
+    text: 'Sign in to pick up your plan and usage. No plan on your account yet? You can choose one after signing in.',
   },
 ];
 // Both account choices lead to the same sign-in step; only its wording differs.
@@ -496,9 +496,9 @@ function AccessForm({ formRef, onSubmit, access, setAccess, onCompare }) {
 }
 
 const planPrice = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-// "up to 50 every 5 hours" for a plan with a build cooldown (plans.js).
+// "up to 50 uses every 5 hours" for a plan with a usage cooldown (plans.js).
 const planWindow = (plan) => (plan?.windowBuilds && plan?.windowHours
-  ? `up to ${plan.windowBuilds} every ${plan.windowHours} hours` : '');
+  ? `up to ${plan.windowBuilds} uses every ${plan.windowHours} hours` : '');
 
 // The AppBlips Terms and Privacy Policy live on the landing site (the
 // AppBlips-Landing project), the same pages the studio picker's footer links.
@@ -545,8 +545,8 @@ function PlanStepText({ access, planActive }) {
   const account = email ? `You’re signed in as ${email}. ` : '';
   if (planActive) return <p>{account}Your plan is active, so AppBlips runs the AI for you. Press Start building to begin.</p>;
   if (isSignedIn) return <p>{account}Pick a plan to have AppBlips run the AI for you. Prefer your own key? Press Back.</p>;
-  if (access === 'sign-in') return <p>Use the account you signed up with. Your plan and build credits come with you. No plan yet? You can choose one after signing in.</p>;
-  return <p>Your account keeps your plan and build credits. Already have one? Click Sign in below the form. Prefer your own key? Press Back.</p>;
+  if (access === 'sign-in') return <p>Use the account you signed up with. Your plan and usage come with you. No plan yet? You can choose one after signing in.</p>;
+  return <p>Your account keeps your plan and usage. Already have one? Click Sign in below the form. Prefer your own key? Press Back.</p>;
 }
 
 // Signed in already (an earlier setup, or the plan step): a way out of that
@@ -678,8 +678,8 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
               </span>
               <span className="onboarding-choice-text">
                 {plan.monthlyCredits == null
-                  ? `Unlimited builds${plan.betaPricing ? ' while AppBlips is in beta' : ''}${planWindow(plan) ? ` (${planWindow(plan)})` : ''}.`
-                  : `${plan.monthlyCredits} build credits a month.`}
+                  ? `Unlimited usage${plan.betaPricing ? ' while AppBlips is in beta' : ''}${planWindow(plan) ? ` (${planWindow(plan)})` : ''}.`
+                  : `${plan.monthlyCredits} usage credits a month.`}
               </span>
             </span>
             {plan.comingSoon ? (
@@ -698,8 +698,8 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
           <Info size={16} />
           <span>
             <strong>Beta pricing.</strong> {betaPlan.name}’s {planPrice(betaPlan.priceCents)}/month price
-            {betaPlan.monthlyCredits == null ? ' and unlimited builds last' : ' lasts'} only while AppBlips is in beta.
-            The price and build limits will change when the beta ends.
+            {betaPlan.monthlyCredits == null ? ' and unlimited usage last' : ' lasts'} only while AppBlips is in beta.
+            The price and usage limits will change when the beta ends.
           </span>
         </p>
       )}

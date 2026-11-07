@@ -10,6 +10,7 @@ import {
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
+import { markAutomaticRepair, usageFields } from './usage';
 import { getAuthToken, hasAuthSession } from './authToken';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
@@ -406,14 +407,17 @@ export const requestModelText = async ({
     if (reasoningEffort !== null) bodyObj.reasoning_effort = reasoningEffort;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
-    // Signals an error-repair request to the proxy, which pins temperature to
-    // 0.0 for deterministic fixes regardless of OPENAI_LLM_TEMPERATURE.
+    // Asks the proxy to pin temperature to 0.0 for deterministic edits and
+    // fixes regardless of OPENAI_LLM_TEMPERATURE. It doesn't affect usage.
     if (forceTemperatureZero) bodyObj.auto_fix = true;
     // The device's optional output limits apply to all calls, including code
     // reviews, repairs, and codebase builds. Empty settings use provider defaults.
     const maxTokens = loadOutputTokenLimit(askMode);
     if (maxTokens != null) bodyObj.max_tokens = maxTokens;
     if (askMode) bodyObj.ask = true;
+    // Hosted plans count usage per action, not per request (usage.js).
+    // Without a sign-in nothing is counted, so the fields stay off.
+    if (authToken) Object.assign(bodyObj, usageFields(signal));
 
     // The user's own provider rides along with the request, added only to the
     // wire copy so a typed key never lands in bodyObj. The Settings "Test
@@ -872,6 +876,7 @@ const generateAppCodeCore = async (
   // on the page, which is not a request to use one.
   galleryCheckPrompt = null
 ) => {
+  if (isAutoFix) markAutomaticRepair(signal);
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
   // Every code-writing call (build, edits, syntax/link/auto-fix repairs)

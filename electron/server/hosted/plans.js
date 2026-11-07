@@ -15,13 +15,13 @@ export const PLANS = Object.freeze({
     name: 'Basic',
     priceCents: 500,
     monthlyCredits: null, // unlimited during the beta, within the cooldown below
-    // Cooldown: at most this many builds in a window of this many hours,
-    // counted from the first build of the window (chat.js, the store's
+    // Cooldown: at most this many uses in a window of this many hours,
+    // counted from the first use of the window (chat.js, the store's
     // takeBuild). Keeps "unlimited" from running up AI costs without a cap.
     windowBuilds: 50,
     windowHours: 5,
     modelEnv: 'APPBLIPS_MODEL_BASIC',
-    // Price and unlimited builds are beta terms: the app labels them as such
+    // Price and unlimited usage are beta terms: the app labels them as such
     // wherever the plan is offered. Remove when the beta ends.
     betaPricing: true,
   },

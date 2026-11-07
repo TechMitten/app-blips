@@ -1,7 +1,7 @@
 // Small SQLite store for hosted billing. It holds only what Polar and Clerk
 // don't: the link between a Clerk user and their Polar customer and
 // subscription, the user's current plan (kept current by Polar webhooks),
-// their build cooldown and their sandbox.
+// their usage cooldown and their sandbox.
 //
 // Uses Node's built-in node:sqlite (Node 22.5+), so the Docker server bundle
 // still needs no node_modules at runtime.
@@ -123,15 +123,15 @@ export function openStore(file) {
     return result.changes > 0;
   };
 
-  // The build cooldown (buildWindow.js).
+  // The usage cooldown (buildWindow.js).
   const takeBuildSql = db.prepare(TAKE_BUILD_SQL);
   const releaseBuildSql = db.prepare(RELEASE_BUILD_SQL);
   const windowStartSql = db.prepare(WINDOW_START_SQL);
-  const takeBuild = (userId, { limit, windowMs, at = Date.now() }) => {
-    const taken = takeBuildSql.get(userId, at - windowMs, at, limit);
+  const takeBuild = (userId, { limit, windowMs, usageId = null, at = Date.now() }) => {
+    const taken = takeBuildSql.get(userId, at - windowMs, at, limit, usageId);
     return windowResult(taken, taken ? null : windowStartSql.get(userId)?.start, windowMs);
   };
-  const releaseBuild = (userId) => { releaseBuildSql.run(userId); };
+  const releaseBuild = (userId, usageId = null) => { releaseBuildSql.run(userId, usageId); };
 
   // The Polar subscription (subscriptionSql.js), keyed by Clerk user.
   const setSubscriptionIdSql = db.prepare(SET_SUBSCRIPTION_ID_SQL);

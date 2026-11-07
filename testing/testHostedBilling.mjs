@@ -335,6 +335,34 @@ try {
   assert.ok(askGate.request);
   assert.equal(askGate.windowed, false);
 
+  // Usage counts once per action: every request of a prompt shares a usage id.
+  store.saveAccount({ userId: 'user_actions', customerId: 'cust_actions', plan: 'basic', active: true });
+  const actionRequest = (fields) => new Request('http://localhost/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${makeToken({ sub: 'user_actions' })}` },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'x' }], ...fields }),
+  });
+  const countOf = () => store.getAccount('user_actions').build_window_count;
+  const first = await gateChat(actionRequest({ usage_id: 'prompt-0001' }), env, store);
+  assert.equal(first.windowed, true);
+  const firstBody = JSON.parse(await first.request.text());
+  assert.equal(firstBody.usage_id, undefined, 'usage fields are not passed on');
+  // Tool turns send auto_fix (temperature only): still part of the same action.
+  for (const fields of [{ usage_id: 'prompt-0001' }, { usage_id: 'prompt-0001', auto_fix: true }]) {
+    const followUp = await gateChat(actionRequest(fields), env, store);
+    assert.ok(followUp.request);
+    assert.equal(followUp.windowed, false, 'a follow-up request has nothing to give back');
+  }
+  assert.equal(countOf(), 1, 'one prompt, one use');
+  await gateChat(actionRequest({ usage_id: 'prompt-0002', auto_fix: true }), env, store);
+  assert.equal(countOf(), 2, 'auto_fix alone no longer makes a request free');
+  const repair = await gateChat(actionRequest({ usage_id: 'repair-0001', automatic_repair: true }), env, store);
+  assert.equal(repair.windowed, false);
+  assert.equal(JSON.parse(await repair.request.text()).automatic_repair, undefined);
+  await gateChat(actionRequest({}), env, store);
+  await gateChat(actionRequest({ usage_id: 'bad id!' }), env, store);
+  assert.equal(countOf(), 4, 'requests without a valid id count on their own');
+
   // A plan with a monthly credit allowance (not sold yet) can't build for free.
   assert.equal(store.getAccount('user_1').plan, 'max');
   const capped = await gateChat(buildRequest(), env, store);
@@ -380,7 +408,7 @@ try {
   assert.equal(cooled.response.status, 429);
   const cooledBody = await cooled.response.json();
   assert.equal(cooledBody.code, 'build_cooldown');
-  assert.match(cooledBody.error, /50 builds for this 5-hour window\. Building unlocks again in \d+ h \d+ min\./);
+  assert.match(cooledBody.error, /usage limit for this 5-hour window\. You can build again in \d+ h \d+ min\./);
   assert.ok(Number(cooled.response.headers.get('retry-after')) > 0);
 
   // ---- cancel subscription (Settings → Plan) ---------------------------------

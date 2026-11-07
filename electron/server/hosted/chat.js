@@ -1,12 +1,17 @@
 // Gate for hosted /api/chat: authenticate the Clerk session, require an
-// active plan, apply that plan's model alias, and count builds against the
+// active plan, apply that plan's model alias, and count usage against the
 // plan's cooldown window (given back if the provider rejects the request).
 //
-// Build vs. non-build: the client marks Ask-mode requests with `ask: true`
-// and error-repair requests with `auto_fix: true`; those don't count. Every
-// other request creates a version and counts as a build.
+// What counts: one use per user action (a prompt, a review), not per AI
+// request. The client tags every request of an action with the same random
+// `usage_id`, and only the first one counts (buildWindow.js). Ask-mode
+// requests (`ask: true`) and the app's automatic repairs of a build's errors
+// (`automatic_repair: true`) don't count. `auto_fix` only pins temperature
+// (chatProxy.js) and says nothing about usage: tool turns of a normal build
+// send it too.
 
 import { PLANS, isPlanId, planModel } from './plans.js';
+import { usageIdOf } from './buildWindow.js';
 import { verifyClerkToken } from './clerk.js';
 
 const json = (status, body, headers = {}) => new Response(JSON.stringify(body), {
@@ -17,11 +22,16 @@ const json = (status, body, headers = {}) => new Response(JSON.stringify(body), 
 const planOf = (account) => (account?.plan && isPlanId(account.plan) ? account.plan : 'basic');
 
 // A light per-user ceiling so "unlimited" during the beta still has a floor.
+// Counted per action like the cooldown: a repeat of the user's latest usage
+// id passes without counting.
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_BUILDS_PER_WINDOW = 60;
 const buildWindows = new Map();
+const lastUsageIds = new Map();
 
-function allowBuild(userId) {
+function allowBuild(userId, usageId) {
+  if (usageId && lastUsageIds.get(userId) === usageId) return true;
+  lastUsageIds.set(userId, usageId);
   const now = Date.now();
   const recent = (buildWindows.get(userId) || []).filter((at) => now - at < WINDOW_MS);
   if (recent.length >= MAX_BUILDS_PER_WINDOW) return false;
@@ -70,36 +80,40 @@ export async function gateChat(request, env, store) {
   const model = planModel(env, planId);
   if (model) payload.hosted_model_override = model;
 
-  const isBuild = payload.ask !== true && payload.auto_fix !== true;
+  const usageId = usageIdOf(payload.usage_id);
+  const isBuild = payload.ask !== true && payload.automatic_repair !== true;
+  delete payload.usage_id;
+  delete payload.automatic_repair;
   let windowed = false;
 
   if (isBuild) {
-    if (!allowBuild(userId)) {
+    if (!allowBuild(userId, usageId)) {
       return { response: json(429, { error: 'You are building very quickly. Please wait a moment and try again.' }) };
     }
     // The plan's cooldown (plans.js windowBuilds / windowHours), counted in
     // the store so it holds across restarts and across Worker instances.
     if (plan.windowBuilds && plan.windowHours) {
       const windowMs = plan.windowHours * 60 * 60 * 1000;
-      const window = await store.takeBuild(userId, { limit: plan.windowBuilds, windowMs });
+      const window = await store.takeBuild(userId, { limit: plan.windowBuilds, windowMs, usageId });
       if (!window.allowed) {
         const minutes = Math.max(1, Math.ceil((window.resetAt - Date.now()) / 60000));
         const wait = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
         return {
           response: json(429, {
-            error: `You've used your ${plan.windowBuilds} builds for this ${plan.windowHours}-hour window. Building unlocks again in ${wait}.`,
+            error: `You've reached your usage limit for this ${plan.windowHours}-hour window. You can build again in ${wait}.`,
             code: 'build_cooldown',
             resetAt: new Date(window.resetAt).toISOString(),
           }, { 'retry-after': String(minutes * 60) }),
         };
       }
-      windowed = true;
+      // Only the request that counted the action gives it back on failure.
+      windowed = window.counted;
     }
     // Plans with a monthly credit allowance (Silver, Max) aren't sold yet,
     // and there's no credit ledger behind them: refuse rather than build
     // for free. Metering them is work for when they go on sale.
     if (plan.monthlyCredits != null) {
-      if (windowed) await Promise.resolve(store.releaseBuild(userId)).catch(() => {});
+      if (windowed) await Promise.resolve(store.releaseBuild(userId, usageId)).catch(() => {});
       return {
         response: json(402, {
           error: `${plan.name} isn't available yet. Contact support@appblips.com about your plan.`,
@@ -114,11 +128,11 @@ export async function gateChat(request, env, store) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return { request: gated, userId, planId, windowed };
+  return { request: gated, userId, planId, windowed, usageId };
 }
 
-// A rejected request built nothing: give back its slot in the cooldown
-// window.
+// A rejected request built nothing: give back its action's use in the
+// cooldown window, if this was the request that counted it.
 export async function releaseBuild(env, store, gated) {
-  if (gated?.windowed) await Promise.resolve(store.releaseBuild(gated.userId)).catch(() => {});
+  if (gated?.windowed) await Promise.resolve(store.releaseBuild(gated.userId, gated.usageId)).catch(() => {});
 }

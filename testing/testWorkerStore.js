@@ -122,13 +122,13 @@ try {
 
   // Build cooldown: 2 builds per 1000 ms window.
   const limits = (at) => ({ limit: 2, windowMs: 1000, at });
-  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_000))), { allowed: true });
-  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_100))), { allowed: true });
+  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_000))), { allowed: true, counted: true });
+  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_100))), { allowed: true, counted: true });
   assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_200))), { allowed: false, resetAt: 11_000 });
   await both((s) => s.releaseBuild('u1'));
-  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_300))), { allowed: true }, 'a released build can be used again');
+  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_300))), { allowed: true, counted: true }, 'a released build can be used again');
   assert.deepEqual(await both((s) => s.takeBuild('u1', limits(10_400))), { allowed: false, resetAt: 11_000 });
-  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(11_000))), { allowed: true }, 'a new window starts');
+  assert.deepEqual(await both((s) => s.takeBuild('u1', limits(11_000))), { allowed: true, counted: true }, 'a new window starts');
   assert.equal((await row('u1')).build_window_count, 1);
   // Releasing never goes below zero.
   await both((s) => s.releaseBuild('u1'));
@@ -136,6 +136,31 @@ try {
   assert.equal((await row('u1')).build_window_count, 0);
   // No account row: no build (the gate creates the row first).
   assert.equal((await both((s) => s.takeBuild('ghost', limits(10_000)))).allowed, false);
+
+  // Usage ids: one count per action, however many requests it makes.
+  const tagged = (at, usageId) => ({ ...limits(at), usageId });
+  await both((s) => s.saveAccount({ userId: 'u4', active: true }));
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_000, 'action-a1'))), { allowed: true, counted: true });
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_010, 'action-a1'))), { allowed: true, counted: false }, 'a follow-up request is free');
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_020, 'action-b1'))), { allowed: true, counted: true });
+  assert.equal((await row('u4')).build_window_count, 2);
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_030, 'action-b1'))), { allowed: true, counted: false }, 'an action can finish at the limit');
+  assert.equal((await both((s) => s.takeBuild('u4', tagged(20_040, 'action-c1')))).allowed, false, 'a new action at the limit is refused');
+  // Giving back b1 forgets its id, so its retry counts again (once in all).
+  await both((s) => s.releaseBuild('u4', 'action-b1'));
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_050, 'action-b1'))), { allowed: true, counted: true });
+  assert.equal((await row('u4')).build_window_count, 2);
+  // A release for an older action leaves the latest id alone.
+  await both((s) => s.releaseBuild('u4', 'action-a1'));
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(20_060, 'action-b1'))), { allowed: true, counted: false });
+  // Without an id every request counts.
+  assert.deepEqual(await both((s) => s.takeBuild('u4', limits(20_070))), { allowed: true, counted: true });
+  assert.equal((await both((s) => s.takeBuild('u4', limits(20_080)))).allowed, false);
+  // An action still running when its window ends doesn't count in the next.
+  await both((s) => s.takeBuild('u4', tagged(30_000, 'action-d1')));
+  assert.deepEqual(await both((s) => s.takeBuild('u4', tagged(31_500, 'action-d1'))), { allowed: true, counted: false });
+  assert.equal((await row('u4')).build_window_count, 0);
+  assert.equal((await row('u4')).build_window_start, 31_500);
 
   await both((s) => s.setSubscriptionId('u1', 'sub_1'));
   await both((s) => s.setSubscriptionId('u1', ''));

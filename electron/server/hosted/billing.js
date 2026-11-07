@@ -58,7 +58,7 @@ async function handleMe(request, env, store) {
     sandboxSnapshotId: account?.sandbox_snapshot_id || null,
     // Set after a cancel: the plan stays active until then, with no renewal.
     cancelAt: account?.active ? account?.cancel_at || null : null,
-    // The build cooldown so far (plans.js windowBuilds / windowHours):
+    // The usage cooldown so far (plans.js windowBuilds / windowHours):
     // { used, limit, windowHours, resetAt }, or null for plans without one.
     usage: plan.windowBuilds && plan.windowHours
       ? { ...windowUsage(account, { limit: plan.windowBuilds, windowMs: plan.windowHours * 60 * 60 * 1000 }), windowHours: plan.windowHours }
