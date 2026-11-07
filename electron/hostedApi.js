@@ -99,22 +99,47 @@ export async function forwardToHosted(request, url, appOrigin, baseUrl = HOSTED_
   return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: out });
 }
 
+// Clerk keeps the sign-in in cookies marked SameSite=Lax, which the browser
+// only sends to clerk.appblips.com from appblips.com pages. appblips://app
+// is another site, so without this the session's first token works and
+// every refresh after it (about a minute later) is refused with a 401.
+// SameSite=None needs Secure, which Clerk's cookies already have; others
+// are left alone.
+export function crossSiteCookie(cookie) {
+  const value = String(cookie);
+  if (!/;\s*Secure\s*(?:;|$)/i.test(value)) return value;
+  if (/;\s*SameSite=/i.test(value)) return value.replace(/;\s*SameSite=(?:Lax|Strict)\b/i, '; SameSite=None');
+  return `${value}; SameSite=None`;
+}
+
+const headerKey = (headers, name) => Object.keys(headers).find((key) => key.toLowerCase() === name);
+
 // Lets Clerk's sign-in run on appblips://app: requests to Clerk's API carry
-// the site's Origin instead, and the answer's CORS header names the app
-// again so the renderer may read it. Limited to Clerk's own host, and only
-// for requests the app page itself makes.
+// the site's Origin instead, the answer's CORS header names the app again so
+// the renderer may read it, and Clerk's cookies are sent from the app (see
+// crossSiteCookie). Limited to Clerk's own host. Only requests the app page
+// itself makes carry the cookies: anything else (a preview frame's opaque
+// origin, a page in the embedded browser) gets them removed, so generated
+// code can't act with the person's sign-in.
 export function allowClerkFromApp(session, appOrigin) {
   const filter = { urls: [`https://${CLERK_FAPI_HOST}/*`] };
   session.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     const headers = { ...details.requestHeaders };
-    const key = Object.keys(headers).find((name) => name.toLowerCase() === 'origin');
-    if (key && headers[key] === appOrigin) headers[key] = CLERK_SITE_ORIGIN;
+    const key = headerKey(headers, 'origin');
+    if (key && headers[key] === appOrigin) {
+      headers[key] = CLERK_SITE_ORIGIN;
+    } else {
+      const cookie = headerKey(headers, 'cookie');
+      if (cookie) delete headers[cookie];
+    }
     callback({ requestHeaders: headers });
   });
   session.webRequest.onHeadersReceived(filter, (details, callback) => {
     const headers = { ...details.responseHeaders };
-    const key = Object.keys(headers).find((name) => name.toLowerCase() === 'access-control-allow-origin');
+    const key = headerKey(headers, 'access-control-allow-origin');
     if (key && headers[key]?.[0] === CLERK_SITE_ORIGIN) headers[key] = [appOrigin];
+    const cookies = headerKey(headers, 'set-cookie');
+    if (cookies) headers[cookies] = headers[cookies].map(crossSiteCookie);
     callback({ responseHeaders: headers });
   });
 }

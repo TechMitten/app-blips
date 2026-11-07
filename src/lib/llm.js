@@ -10,7 +10,7 @@ import {
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
-import { getAuthToken } from './authToken';
+import { getAuthToken, hasAuthSession } from './authToken';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
@@ -57,6 +57,9 @@ import {
   buildGameInitialGenerationPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
+
+// A signed-in plan user whose session couldn't be confirmed (llm requests).
+const SIGN_IN_PROBLEM = 'Could not confirm your AppBlips sign-in. Check your internet connection, then try again. If it keeps happening, sign out and sign in again.';
 
 // The studio's lowercase noun, used in prompts, labels and error copy. Games
 // ride the same single-file pipeline as apps -- only the prompts differ.
@@ -387,7 +390,13 @@ export const requestModelText = async ({
       'Content-Type': 'application/json',
     };
     const authToken = await getAuthToken();
-    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    } else if (hasAuthSession()) {
+      const err = new Error(SIGN_IN_PROBLEM);
+      err.isNonRetryable = true;
+      throw err;
+    }
 
     const bodyObj = {
       stream: !!onChunk,
@@ -421,7 +430,13 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
-      throw new Error('The AI provider rejected the request. Check the provider and key in Settings → AI.');
+      // With a sign-in token the 401 is AppBlips refusing the session, not
+      // the person's AI provider refusing their key.
+      const err = new Error(authToken
+        ? SIGN_IN_PROBLEM
+        : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
+      err.isNonRetryable = true;
+      throw err;
     }
 
     if (response.status === 429) {

@@ -22,6 +22,12 @@ export async function signOutAccount() {
   if (signOutFn) await signOutFn();
 }
 
+// True while someone is signed in to an AppBlips account (AuthSession
+// installs the getter only then). A signed-in person whose token can't be
+// had must not quietly fall back to the own-key path: they'd get "no AI
+// provider is configured" instead of being told to sign in again.
+export const hasAuthSession = () => getter !== null;
+
 export async function getAuthToken() {
   if (!getter) return null;
   try {
