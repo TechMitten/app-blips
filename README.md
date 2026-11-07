@@ -124,7 +124,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 ### 1. Desktop App (Windows & Linux)
 - **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (signed by Microsoft with automatic updates).
 - **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. Debian/Ubuntu users can also add the [AppBlips package source](https://docs.appblips.com/quickstart-desktop) to update with `sudo apt upgrade`. *(For AppImage: right-click → Properties → allow executing as a program).*
-- **macOS:** No native installer yet—use Docker or run from source below.
+- **macOS:** Install with one click through **[Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio)**, then click **Install**, **Start** and **Open AppBlips** in Pinokio. It runs the browser version with your own API key (plans are in the Windows and Linux desktop app only). You can also use Docker or run from source below.
 
 > **First run:** Choose where to save your projects, then paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). Keys are encrypted using your OS system keychain.
 
