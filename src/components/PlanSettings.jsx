@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cancelPlan, fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
+import { cancelPlan, fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
 import {
   clearSandboxTerminalLog,
   execInSandboxComputer,
@@ -213,6 +213,13 @@ export default function PlanSettings() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Desktop: checkout is open in the browser; the plan shows here once paid.
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    if (!paying) return undefined;
+    return waitForPlan((account) => { setMe(account); setPaying(false); });
+  }, [paying]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,7 +285,10 @@ export default function PlanSettings() {
     setBusy(planId);
     setError('');
     try {
-      await openCheckout(planId);
+      if (await openCheckout(planId)) {
+        setBusy(null);
+        setPaying(true);
+      }
     } catch (err) {
       setError(err.message || 'Could not start checkout.');
       setBusy(null);
@@ -353,6 +363,11 @@ export default function PlanSettings() {
         );
       })}
 
+      {paying && (
+        <p role="status" className="px-4 pb-2 text-sm text-slate-600">
+          Checkout opened in your web browser. Finish paying there; your plan shows here as soon as it goes through.
+        </p>
+      )}
       {error && <p role="alert" className="px-4 pb-4 text-sm text-red-600">{error}</p>}
     </>
   );

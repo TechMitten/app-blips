@@ -31,6 +31,7 @@ import { handleSeoScanApi } from './server/seoScanApi.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
+import { allowClerkFromApp, forwardToHosted, isHostedRequest } from './hostedApi.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -192,6 +193,11 @@ async function handleAppRequest(request) {
   }
   if (url.host !== 'app') return new Response('Not found', { status: 404 });
   try {
+    // Plans (sign-in, checkout, plan AI) are answered by the Worker
+    // (hostedApi.js); own-key chat stays here.
+    if (isHostedRequest(request, url.pathname)) {
+      return withSecurityHeaders(await forwardToHosted(request, url, APP_ORIGIN));
+    }
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -519,6 +525,7 @@ app.whenReady().then(() => {
   });
 
   protocol.handle(SCHEME, handleAppRequest);
+  allowClerkFromApp(session.defaultSession, APP_ORIGIN);
   registerIpc();
   buildMenu();
 

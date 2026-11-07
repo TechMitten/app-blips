@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import AuthSession from './components/AuthSession.jsx'
-import { initDesktopStore } from './lib/desktop'
+import { initDesktopStore, isDesktop } from './lib/desktop'
 import { AccountsContext, CLERK_PUBLISHABLE_KEY, detectAccounts } from './lib/accounts'
 import { beginAppSession } from './lib/config'
 import { installGlobalErrorLogging, logError, reactRootErrorOptions } from './lib/errorLog'
@@ -21,9 +21,17 @@ const startAndroidApi = () => (window.Capacitor?.getPlatform?.() === 'android'
 // The desktop app loads saved projects from disk before the first render, so
 // the synchronous storage helpers see them. Accounts are checked after the
 // Android API is installed, since that is what answers /api/* there.
+// Google and GitHub sign-in leave the page for the provider and come back to
+// a web address; the desktop app's appblips://app page can't be returned to
+// from the browser that would open, so the desktop app offers email sign-in
+// only (Clerk's own social buttons and the "or" line are hidden).
+const DESKTOP_CLERK_APPEARANCE = {
+  elements: { socialButtonsRoot: { display: 'none' }, dividerRow: { display: 'none' } },
+}
+
 Promise.all([initDesktopStore(), startAndroidApi()]).then(detectAccounts).then((accounts) => {
   const app = <App coldStart={coldStart} />
-  // Local installs (Pinokio, source, Docker, desktop) never load Clerk: no
+  // Local installs (Pinokio, source, Docker, Android) never load Clerk: no
   // sign-in, and /api/chat uses the person's saved keys. With accounts,
   // signing in is optional: onboarding asks whether to use an own key or a
   // plan, and only the plan path signs in.
@@ -31,7 +39,7 @@ Promise.all([initDesktopStore(), startAndroidApi()]).then(detectAccounts).then((
     <StrictMode>
       <AccountsContext.Provider value={accounts}>
         {accounts ? (
-          <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+          <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/" appearance={isDesktop ? DESKTOP_CLERK_APPEARANCE : undefined}>
             <AuthSession>{app}</AuthSession>
           </ClerkProvider>
         ) : app}

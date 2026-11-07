@@ -7,7 +7,7 @@ import {
 import { SignIn, useAuth } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
-import { fetchBillingConfig, fetchBillingMe, openCheckout } from '../lib/billing';
+import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
 import { savePlansIntroSeen } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
@@ -517,13 +517,22 @@ function LegalNote({ action }) {
 // The plan path: Clerk sign-in inside onboarding, then the plans. Rendered
 // only with accounts on, since Clerk's components need its provider.
 // Checkout leaves the app for Creem, so setup is marked done first
-// (onCheckout); Creem brings the person back to the app, not to setup.
+// (onCheckout); Creem brings the person back to the app, not to setup. The
+// desktop app opens checkout in the browser instead and stays on this step
+// until the plan is active.
 function PlanForm({ onReady, onCheckout }) {
   const { isLoaded, isSignedIn } = useAuth();
   const [plans, setPlans] = useState(null);
   const [me, setMe] = useState(null);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
+  // Desktop: checkout is open in the browser and setup waits for the plan.
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    if (!paying) return undefined;
+    return waitForPlan((account) => { setMe(account); setPaying(false); });
+  }, [paying]);
 
   useEffect(() => {
     if (!isSignedIn) return undefined;
@@ -544,7 +553,10 @@ function PlanForm({ onReady, onCheckout }) {
     setError('');
     try {
       await onCheckout();
-      await openCheckout(planId);
+      if (await openCheckout(planId)) {
+        setBusy(null);
+        setPaying(true);
+      }
     } catch (err) {
       logError(`Could not start checkout (${planId}) from setup`, err);
       setError(err.message || 'Could not start checkout.');
@@ -608,7 +620,14 @@ function PlanForm({ onReady, onCheckout }) {
         </p>
       )}
       {error && <p className="onboarding-field-error" role="alert"><CircleAlert size={15} /> {error}</p>}
-      <p className="onboarding-key-help">Payment opens on Creem’s secure checkout. Cancel anytime.</p>
+      {paying ? (
+        <p className="onboarding-plan-waiting" role="status">
+          <Loader2 className="animate-spin" size={16} />
+          <span>Checkout opened in your web browser. Finish paying there, then come back: this step updates by itself.</span>
+        </p>
+      ) : (
+        <p className="onboarding-key-help">Payment opens on Creem’s secure checkout. Cancel anytime.</p>
+      )}
       <LegalNote action="subscribing" />
     </div>
   );

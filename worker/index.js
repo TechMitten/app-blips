@@ -42,10 +42,48 @@ const preflight = (origin) => new Response(null, {
   },
 });
 
+// Where Creem sends the browser after a desktop checkout (billing.js makes
+// the success URL from this Worker's own address). The app itself notices
+// the payment (waitForPlan in src/lib/billing.js), so this only says to go
+// back to it.
+const CHECKOUT_DONE_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment received · AppBlips</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; box-sizing: border-box;
+    background: #0a0a0a; color: #f5f5f5; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 420px; text-align: center; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  p { margin: 0; color: #c7c7c7; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Payment received</h1>
+  <p>Thanks for subscribing. You can close this tab and go back to AppBlips: your plan appears there within a few seconds.</p>
+</main>
+</body>
+</html>`;
+
+const checkoutDone = () => new Response(CHECKOUT_DONE_PAGE, {
+  status: 200,
+  headers: {
+    'content-type': 'text/html; charset=utf-8',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+  },
+});
+
 const isRoute = (pathname, base) => pathname === base || pathname.startsWith(`${base}/`);
 
 async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
+  if (pathname === '/' && request.method === 'GET') return checkoutDone();
   const store = d1Store(env.DB);
 
   if (pathname === '/api/webhooks/creem' || isRoute(pathname, '/api/billing')) {
