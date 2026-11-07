@@ -1,14 +1,12 @@
 import { cloneElement, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignIn, SignInButton, SignUp, SignUpButton, UserButton, useAuth, useClerk } from '@clerk/react';
-import { Github, Loader2, LogOut } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import Modal, { ModalCloseButton } from './Modal';
 import { logError } from '../lib/errorLog';
 import { OpenSignInContext, RequestSignOutContext, useOpenSignIn, useRequestSignOut } from '../lib/accountDialogs';
-import {
-  canSignInWithBrowser, cancelBrowserSignIn, startBrowserSignIn, useBrowserSignInStatus,
-} from '../lib/browserSignIn';
+import { canSignInWithBrowser, cancelBrowserSignIn, useBrowserSignInStatus } from '../lib/browserSignIn';
 
 // The account dialogs, held by one provider (mounted by AuthSession) so a
 // button inside a menu that closes on click (the mobile menus) can still
@@ -16,9 +14,10 @@ import {
 // - "Sign out of AppBlips?": every Sign out asks first, since signing out
 //   quietly moves the person from their plan to their own AI key, and it's
 //   easy to do by accident from an icon-only button.
-// - The desktop app's sign-in dialog: Clerk's email form plus Google and
-//   GitHub, which go through the web browser (lib/browserSignIn.js). Clerk's
-//   own pop-up would offer Google/GitHub buttons that can't work there.
+// - The desktop app's sign-in dialog: Clerk's form, whose Google and GitHub
+//   buttons go through the web browser there (lib/browserSignIn.js), with
+//   how that's going shown under it. Clerk's own pop-up has no room for that
+//   and its switch link leaves the app.
 
 export function AccountDialogsProvider({ children }) {
   const { signOut } = useClerk();
@@ -53,6 +52,7 @@ export function AccountDialogsProvider({ children }) {
         {signOutOpen && createPortal(
           <ConfirmModal
             title="Sign out of AppBlips?"
+            zIndex={1300} // above setup (onboarding), where it can be asked for too
             onClose={() => { if (!busy) setSignOutOpen(false); }}
             onConfirm={confirmSignOut}
             confirmLabel="Sign out"
@@ -94,11 +94,11 @@ function DesktopSignInDialog({ kind, onClose }) {
         <ModalCloseButton onClick={onClose} />
       </div>
       <div className="flex flex-col items-center gap-4 px-5 pb-5 pt-3">
-        <BrowserSignInButtons />
         {/* virtual routing: the form's own steps stay inside the dialog. */}
         {signingUp
           ? <SignUp key="sign-up" routing="virtual" appearance={NO_CLERK_SWITCH_LINK} />
           : <SignIn key="sign-in" routing="virtual" appearance={NO_CLERK_SWITCH_LINK} />}
+        <BrowserSignInStatus />
         <p className="text-sm text-slate-600">
           {signingUp ? 'Already have an account?' : 'New to AppBlips?'}{' '}
           <button type="button" className="font-semibold text-slate-900 underline underline-offset-2" onClick={() => setMode(signingUp ? 'sign-in' : 'sign-up')}>
@@ -110,54 +110,27 @@ function DesktopSignInDialog({ kind, onClose }) {
   );
 }
 
-const GoogleIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
-    <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-    <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 38.2 44 33 44 24c0-1.3-.1-2.4-.4-3.5z" />
-  </svg>
-);
-
-const PROVIDERS = [
-  { id: 'google', label: 'Google', Icon: GoogleIcon },
-  { id: 'github', label: 'GitHub', Icon: () => <Github size={16} aria-hidden="true" /> },
-];
-
-// Desktop only: Google and GitHub through the web browser. `variant` picks
+// Desktop only: how a Google/GitHub sign-in in the web browser is going
+// (started from Clerk's own buttons, lib/browserSignIn.js). `variant` picks
 // the onboarding look (always dark) or the app's theme.
-export function BrowserSignInButtons({ variant = 'app' }) {
+export function BrowserSignInStatus({ variant = 'app' }) {
   const status = useBrowserSignInStatus();
-  if (!canSignInWithBrowser) return null;
-  const busy = status.kind === 'waiting' || status.kind === 'finishing';
+  if (!canSignInWithBrowser || status.kind === 'idle') return null;
   const onboarding = variant === 'onboarding';
-  const buttonClass = onboarding
-    ? 'onboarding-social-button'
-    : 'inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60';
   const noteClass = onboarding ? 'onboarding-social-note' : 'text-center text-sm leading-relaxed text-slate-600';
+  if (status.kind === 'error') {
+    return <p className={onboarding ? 'onboarding-social-note is-error' : 'text-center text-sm leading-relaxed text-red-600'} role="alert">{status.message}</p>;
+  }
   return (
-    <div className={onboarding ? 'onboarding-social' : 'flex w-full flex-col gap-2'}>
-      <div className={onboarding ? 'onboarding-social-row' : 'flex gap-2'}>
-        {PROVIDERS.map(({ id, label, Icon }) => (
-          <button key={id} type="button" className={buttonClass} disabled={busy} aria-label={`Continue with ${label}`} onClick={() => startBrowserSignIn(id)}>
-            <Icon /> {label}
-          </button>
-        ))}
-      </div>
-      {status.kind === 'waiting' && (
-        <p className={noteClass} role="status">
-          <Loader2 className="inline animate-spin align-[-3px]" size={15} /> Finish signing in in your web browser, then come back here.{' '}
+    <p className={noteClass} role="status">
+      <Loader2 className="inline animate-spin align-[-3px]" size={15} />{' '}
+      {status.kind === 'finishing' ? 'Signing you in…' : (
+        <>
+          Finish signing in with {status.provider === 'github' ? 'GitHub' : 'Google'} in your web browser, then come back here.{' '}
           <button type="button" className="underline underline-offset-2" onClick={cancelBrowserSignIn}>Cancel</button>
-        </p>
+        </>
       )}
-      {status.kind === 'finishing' && (
-        <p className={noteClass} role="status"><Loader2 className="inline animate-spin align-[-3px]" size={15} /> Signing you in…</p>
-      )}
-      {status.kind === 'error' && (
-        <p className={onboarding ? 'onboarding-social-note is-error' : 'text-center text-sm leading-relaxed text-red-600'} role="alert">{status.message}</p>
-      )}
-      <p className={onboarding ? 'onboarding-social-or' : 'text-center text-xs uppercase tracking-wide text-slate-400'}>or use your email</p>
-    </div>
+    </p>
   );
 }
 
