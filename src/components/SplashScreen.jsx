@@ -53,36 +53,45 @@ export default function SplashScreen({ skip = false }) {
       }`}
       style={{ transitionDuration: `${fadeOutMs ?? 0}ms` }}
     >
-      <video
-        src={splashVideo}
-        autoPlay
-        muted
-        playsInline
-        aria-label="AppBlips"
-        onLoadedMetadata={(e) => {
-          e.currentTarget.playbackRate = PLAYBACK_RATE;
-        }}
-        // Fade in once frames are actually showing, not while it buffers.
-        onPlaying={() => setIsPlaying(true)}
-        onEnded={() => endSplash(END_FADE_MS)}
-        // A missing or undecodable video shouldn't leave a black screen up.
-        onError={skipSplash}
-        // Capped at 960 CSS px (the video is 2560 wide, so this is sharp even
-        // on high-DPI screens) so it sits centered instead of filling the
-        // window; smaller screens scale it down.
-        className={`max-h-full w-full max-w-[960px] object-contain transition-opacity ease-in-out ${
-          isPlaying ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{
-          transitionDuration: `${FADE_IN_MS}ms`,
-          // The video's grey haze would show as a box on the black backdrop
-          // when it doesn't fill the screen. closest-side makes the mask fully
-          // transparent at the middle of every edge (the default reached only
-          // the corners, leaving visible edges), so it blends seamlessly.
-          maskImage: 'radial-gradient(ellipse closest-side, black 70%, transparent 100%)',
-          WebkitMaskImage: 'radial-gradient(ellipse closest-side, black 70%, transparent 100%)'
-        }}
-      />
+      {/* Capped at 960 CSS px (the video is 2560 wide, so this is sharp even
+          on high-DPI screens) so it sits centered instead of filling the
+          window; smaller screens scale it down. */}
+      <div className="relative max-h-full w-full max-w-[960px]">
+        <video
+          src={splashVideo}
+          autoPlay
+          muted
+          playsInline
+          aria-label="AppBlips"
+          onLoadedMetadata={(e) => {
+            e.currentTarget.playbackRate = PLAYBACK_RATE;
+          }}
+          // Fade in once frames are actually showing, not while it buffers.
+          onPlaying={() => setIsPlaying(true)}
+          onEnded={() => endSplash(END_FADE_MS)}
+          // A missing or undecodable video shouldn't leave a black screen up.
+          onError={skipSplash}
+          className={`block max-h-dvh w-full object-contain transition-opacity ease-in-out ${
+            isPlaying ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ transitionDuration: `${FADE_IN_MS}ms` }}
+        />
+        {/* The video's grey haze would show as a box on the black backdrop
+            when it doesn't fill the screen, so its edges fade to black. This
+            is a black overlay rather than a mask-image on the video: Chromium
+            re-applies a mask on every decoded frame and sometimes paints a
+            frame unmasked, which made the edges flicker during playback. On
+            the black backdrop the result looks the same. closest-side makes
+            it fully black at the middle of every edge (the default reached
+            only the corners, leaving visible edges). */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse closest-side, transparent 70%, black 100%)'
+          }}
+        />
+      </div>
       <button
         type="button"
         onClick={skipSplash}
