@@ -12,6 +12,38 @@
 // `wrangler dev` (http://127.0.0.1:8787), for testing.
 export const HOSTED_API_URL = String(process.env.APPBLIPS_API_URL || 'https://appblips-api.islandapps.workers.dev').replace(/\/+$/, '');
 
+// The browser sign-in page for Google and GitHub (worker/desktopAuth.js). It
+// has to be on an appblips.com address for Clerk; APPBLIPS_AUTH_URL points
+// a terminal-launched app elsewhere for testing.
+const AUTH_SITE_URL = String(process.env.APPBLIPS_AUTH_URL || 'https://auth.appblips.com').replace(/\/+$/, '');
+const SIGN_IN_PROVIDERS = new Set(['google', 'github']);
+
+export function browserSignInUrl(state, provider) {
+  const params = new URLSearchParams({ state });
+  if (SIGN_IN_PROVIDERS.has(provider)) params.set('provider', provider);
+  return `${AUTH_SITE_URL}/desktop-sign-in?${params}`;
+}
+
+// The appblips://auth?ticket=…&state=… link among a launch's arguments (the
+// OS passes it to the second instance), or null. Shapes are checked here;
+// main.js checks the state against the sign-in it started.
+export function readSignInLink(argv) {
+  for (const arg of Array.isArray(argv) ? argv : []) {
+    if (typeof arg !== 'string' || !arg.startsWith('appblips://auth')) continue;
+    let url;
+    try {
+      url = new URL(arg);
+    } catch {
+      continue;
+    }
+    if (url.host !== 'auth') continue;
+    const ticket = url.searchParams.get('ticket') || '';
+    const state = url.searchParams.get('state') || '';
+    if (/^[A-Za-z0-9._-]{20,4096}$/.test(ticket) && /^[A-Za-z0-9_-]{32,128}$/.test(state)) return { ticket, state };
+  }
+  return null;
+}
+
 // Clerk's production Frontend API, named by the publishable key that the
 // renderer is built with (src/lib/accounts.js).
 const CLERK_FAPI_HOST = 'clerk.appblips.com';

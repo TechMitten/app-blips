@@ -8,6 +8,13 @@ compatibility_date = "2026-10-01"
 # and the sandbox's tar uploads.
 compatibility_flags = ["nodejs_compat"]
 
+# auth.appblips.com: the desktop app's browser sign-in page (desktopAuth.js)
+# must be on an appblips.com address, since Clerk's production instance
+# refuses other origins. Deploying creates its DNS record and certificate.
+# The workers.dev address stays for the API the desktop app already uses.
+workers_dev = true
+routes = [{ pattern = "auth.appblips.com", custom_domain = true }]
+
 [vars]
 # The desktop app's own origin; it calls this Worker from there.
 APPBLIPS_CHAT_ALLOWED_ORIGINS = "appblips://app"

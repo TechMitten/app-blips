@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useAuth } from '@clerk/react';
 import { setAuthTokenGetter } from '../lib/authToken';
 import { fetchSandboxStatus, setSandboxComputerEnabled } from '../lib/sandboxComputer';
-import { SignOutConfirmProvider } from './SignOutConfirm';
+import { AccountDialogsProvider } from './AccountDialogs';
+import { useBrowserSignInTickets } from '../lib/browserSignIn';
 
 // Shares the Clerk session with non-React code (the chat transport, billing
 // and sandbox helpers). Nothing here forces a sign-in: signing in is how a
@@ -12,6 +13,8 @@ import { SignOutConfirmProvider } from './SignOutConfirm';
 // with one as a plan user and one without as an own-key user.
 export default function AuthSession({ children }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  // Desktop: finish Google/GitHub sign-ins that came back from the browser.
+  useBrowserSignInTickets();
 
   useEffect(() => {
     setAuthTokenGetter(isSignedIn ? getToken : null);
@@ -28,5 +31,5 @@ export default function AuthSession({ children }) {
     else setSandboxComputerEnabled(false);
   }, [isLoaded, isSignedIn]);
 
-  return <SignOutConfirmProvider>{children}</SignOutConfirmProvider>;
+  return <AccountDialogsProvider>{children}</AccountDialogsProvider>;
 }

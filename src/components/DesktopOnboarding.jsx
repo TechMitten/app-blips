@@ -7,6 +7,7 @@ import {
 import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
+import { BrowserSignInButtons } from './AccountDialogs';
 import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
 import { savePlansIntroSeen } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
@@ -609,6 +610,7 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
   if (!isSignedIn) {
     return (
       <div className="onboarding-signin">
+        <BrowserSignInButtons variant="onboarding" />
         {authMode === 'sign-up'
           ? <SignUp key="sign-up" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />
           : <SignIn key="sign-in" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />}

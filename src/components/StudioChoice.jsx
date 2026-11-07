@@ -3,8 +3,9 @@ import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, LogIn, LogOut, Menu, MonitorSmartphone,
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
-import { Show, SignInButton } from '@clerk/react';
-import { useRequestSignOut } from '../lib/requestSignOut';
+import { Show } from '@clerk/react';
+import { AuthButton } from './AccountDialogs';
+import { useRequestSignOut } from '../lib/accountDialogs';
 import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
@@ -238,11 +239,11 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                     from Clerk's dialog). Labelled, not icon-only, so it's found. */}
                 {accounts && (
                   <Show when="signed-out">
-                    <SignInButton mode="modal">
+                    <AuthButton kind="sign-in">
                       <button type="button" className={`${GHOST_BTN} h-9 px-3 max-md:hidden`}>
                         <LogIn size={17} aria-hidden="true" /> Sign in
                       </button>
-                    </SignInButton>
+                    </AuthButton>
                   </Show>
                 )}
                 {accounts && (
@@ -477,11 +478,11 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
             )}
             {accounts && (
               <Show when="signed-out">
-                <SignInButton mode="modal">
+                <AuthButton kind="sign-in">
                   <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
                     <LogIn size={18} aria-hidden="true" /> Sign in
                   </button>
-                </SignInButton>
+                </AuthButton>
               </Show>
             )}
             {accounts && (

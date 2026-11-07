@@ -68,3 +68,5 @@ sandbox.md
 opencode.json
 # Scratch folder from trying Render Sandboxes; not part of AppBlips
 my-sandbox/
+# Wrangler's local state from `wrangler dev` (local D1 copy, temp builds)
+.wrangler/

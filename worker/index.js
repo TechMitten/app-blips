@@ -5,6 +5,7 @@
 //   /api/billing/*        plan status and Creem checkout
 //   /api/webhooks/creem   Creem payment notices (signature-checked)
 //   /api/sandbox/*        the user's Render Sandbox computer
+//   /desktop-sign-in      Google/GitHub sign-in for the desktop app (desktopAuth.js)
 // Bring-your-own-key users never reach it: their app talks to their provider.
 // Same handlers as server.js; only the store (D1) and CORS are Worker-specific.
 
@@ -14,6 +15,8 @@ import { gateChat, releaseBuild } from '../electron/server/hosted/chat.js';
 import { handleSandbox } from '../electron/server/hosted/sandbox.js';
 import { isHosted } from '../electron/server/hosted/mode.js';
 import { d1Store } from './d1Store.js';
+import { handleDesktopAuth } from './desktopAuth.js';
+import { verifyClerkToken } from '../electron/server/hosted/clerk.js';
 
 const json = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -84,6 +87,9 @@ const isRoute = (pathname, base) => pathname === base || pathname.startsWith(`${
 async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   if (pathname === '/' && request.method === 'GET') return checkoutDone();
+  // Google/GitHub sign-in for the desktop app, through the browser.
+  const desktopAuth = handleDesktopAuth(request, env, verifyClerkToken);
+  if (desktopAuth) return desktopAuth;
   const store = d1Store(env.DB);
 
   if (pathname === '/api/webhooks/creem' || isRoute(pathname, '/api/billing')) {

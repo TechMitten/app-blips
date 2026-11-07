@@ -8,7 +8,7 @@ import {
   snapshotSandboxComputer,
   subscribeSandboxTerminal,
 } from '../lib/sandboxComputer';
-import { SignInButton } from '@clerk/react';
+import { AuthButton } from './AccountDialogs';
 import { useAccounts } from '../lib/accounts';
 import { SettingRow, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 
@@ -259,9 +259,9 @@ export default function PlanSettings() {
         title="AppBlips plans"
         description="You’re using your own AI key. Sign in to subscribe to a plan: AppBlips runs the AI, so there’s no API key to set up."
       >
-        <SignInButton mode="modal">
+        <AuthButton kind="sign-in">
           <button type="button" className={PRIMARY_BUTTON}>Sign in</button>
-        </SignInButton>
+        </AuthButton>
       </SettingRow>
     );
   }

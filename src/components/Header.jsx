@@ -5,9 +5,9 @@ import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
   Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut
 } from 'lucide-react';
-import { Show, SignInButton, SignUpButton } from '@clerk/react';
-import { AccountButton } from './SignOutConfirm';
-import { useRequestSignOut } from '../lib/requestSignOut';
+import { Show } from '@clerk/react';
+import { AccountButton, AuthButton } from './AccountDialogs';
+import { useRequestSignOut } from '../lib/accountDialogs';
 import { useAccounts } from '../lib/accounts';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
@@ -230,18 +230,18 @@ export default function Header({
             <span className="chrome-divider" aria-hidden="true" />
             <div className="nav-rank">
               <Show when="signed-out">
-                <SignInButton mode="modal">
+                <AuthButton kind="sign-in">
                   <button type="button" className="nav-btn nav-ghost" data-tip="Sign in">
                     <LogIn size={16} />
                     <span>Sign in</span>
                   </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
+                </AuthButton>
+                <AuthButton kind="sign-up">
                   <button type="button" className="nav-btn nav-btn-secondary" data-tip="Create an account">
                     <UserPlus size={16} />
                     <span>Sign up</span>
                   </button>
-                </SignUpButton>
+                </AuthButton>
               </Show>
               <Show when="signed-in">
                 <AccountButton />
@@ -403,18 +403,18 @@ export default function Header({
               {accounts && (
                 <>
                   <Show when="signed-out">
-                    <SignInButton mode="modal">
+                    <AuthButton kind="sign-in">
                       <button type="button" onClick={closeMobileMenu} className="mobile-menu-item">
                         <LogIn size={16} />
                         <span>Sign in</span>
                       </button>
-                    </SignInButton>
-                    <SignUpButton mode="modal">
+                    </AuthButton>
+                    <AuthButton kind="sign-up">
                       <button type="button" onClick={closeMobileMenu} className="mobile-menu-item mobile-menu-item-primary">
                         <UserPlus size={16} />
                         <span>Sign up</span>
                       </button>
-                    </SignUpButton>
+                    </AuthButton>
                   </Show>
                   <Show when="signed-in">
                     <div className="mobile-menu-item">

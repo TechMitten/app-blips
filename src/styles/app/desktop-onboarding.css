@@ -432,6 +432,17 @@
 .onboarding-signin { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 /* Terms and Privacy agreement under sign-in and the plans: readable but
    quiet, with links that look like links (underlined, not colour alone). */
+.onboarding-social { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+.onboarding-social-row { display: flex; gap: 10px; }
+.onboarding-social-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: 10px; color: #f5f5f5; background: rgb(255 255 255 / 0.04); font: 600 0.88rem/1 inherit; cursor: pointer; transition: background .15s, border-color .15s; }
+.onboarding-social-button:hover:not(:disabled) { border-color: rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.08); }
+.onboarding-social-button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.onboarding-social-button:disabled { cursor: progress; opacity: .6; }
+.onboarding-social-note { margin: 0; color: #c7c7c7; font-size: 0.85rem; line-height: 1.5; text-align: center; }
+.onboarding-social-note.is-error { color: #fca5a5; }
+.onboarding-social-note button { padding: 0; border: 0; color: #f5f5f5; background: none; font: inherit; cursor: pointer; }
+.onboarding-social-or { margin: 2px 0 0; color: #8a8a8a; font-size: 0.72rem; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+@media (max-width: 480px) { .onboarding-social-row { flex-direction: column; } }
 .onboarding-auth-switch { margin: 0; color: #c7c7c7; font-size: 0.9rem; }
 .onboarding-auth-switch button { padding: 0; border: 0; background: none; color: #f5f5f5; font: inherit; font-weight: 600; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 0.4); text-underline-offset: 3px; cursor: pointer; }
 .onboarding-auth-switch button:hover { text-decoration-color: #ffffff; }

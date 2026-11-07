@@ -20,6 +20,12 @@ files:
   - package.json
   - "!**/node_modules/**"
 npmRebuild: false
+# appblips:// links open the app: the browser sign-in for Google and GitHub
+# comes back that way (electron/hostedApi.js). Declared in the Store
+# package's manifest and the .deb's desktop file.
+protocols:
+  - name: AppBlips sign-in
+    schemes: [appblips]
 nodeGypRebuild: false
 win:
   icon: build/icon.png
