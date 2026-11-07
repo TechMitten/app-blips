@@ -76,6 +76,10 @@ These give the server its own provider. It's used whenever **Settings → AI** h
   The folder where the server saves the API key you enter under **Settings → AI** (in a file only you can read). Defaults to `.appblips` in your home folder. The Docker image uses `/data`, which `docker-compose.yml` keeps in the `appblips-data` volume.
 </ParamField>
 
+## Accounts and plans
+
+AppBlips has no accounts unless you set them up. If your `.env` contains both a Clerk publishable key (`VITE_CLERK_PUBLISHABLE_KEY`) and a Creem API key (`CREEM_API_KEY`, or `CREEM_TEST_API_KEY` when `CREEM_SERVER` isn't `prod`), the server turns on sign-in and paid plans by itself: signed-in subscribers build with the server's AI provider, and everyone else keeps using their own key. There is no separate switch. For a normal install, leave both keys out.
+
 ## Example `.env` files
 
 <CodeGroup>

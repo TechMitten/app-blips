@@ -63,17 +63,41 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key** — Connect your own API keys. AppBlips itself is free; your provider bills you for what you use.
+- **Bring Your Own Key** — Connect your own API key from Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter, and check it with **Test connection** before saving. **Reasoning** offers exactly the levels your model supports. AppBlips itself is free; your provider bills you for what you use.
 - **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
-- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
-- **Built-in Showcase** — Browse community websites and games directly inside the app (even offline), and submit your own published creations.
+- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon, an optional prompt that lets visitors install the site as an app, and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
+- **Built-in SEO** — Turn on SEO for a project in **Settings → Tools**, answer a few plain questions, and the AI adds search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **Built-in Showcase** — Click **Explore** to browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
-<summary><strong>🎉 What's New in v0.1.24 (Click to expand)</strong></summary>
+<summary><strong>🎉 What's New in v0.1.25 (Click to expand)</strong></summary>
 <br />
+
+### v0.1.25
+
+**New**
+- **Install a published site as an app:** tick **Prompt visitors to install as an app** in **Publish** and visitors can add your site to their phone or computer with its own icon.
+- **Test connection:** first-run setup has a **Test connection** button under the model, so you can check your provider, key and model before saving them.
+- **Reasoning levels for your model:** **Settings → AI → Reasoning** offers exactly the levels your provider and model accept (from **Off** up to **Max**), and the build progress shows a **Reasoning** step while the model thinks.
+- **Settings → Tools:** SEO and My images have their own tab. SEO is switched on for each project separately.
+
+**Improved**
+- **Tidier Settings:** your AI provider, key and model are at the top of **Settings → AI**; legal links and licenses are at the bottom of **Settings → About**; **Connectors** is now **Extensions**.
+- **No provider is picked for you:** setup and **Settings → AI** start on **Select a provider** (Anthropic is marked as recommended).
+- **Your saved API key is protected:** it never appears on screen, and AppBlips asks **Replace saved API key?** before you type over it.
+- **Code Review is now Review**, and **Replay onboarding** works in the browser version too.
+- **LM Studio and Ollama removed:** AppBlips works with Anthropic, OpenAI, Gemini, DeepSeek and OpenRouter, each with an API key.
+
+**Look and feel**
+- A redesigned studio picker: the live preview sits beside the studios on wider screens, phones get a slide-out menu, and **Showcase** is now **Explore**.
+- A smaller wordmark, readable badges in the dark theme, and no more flickering splash-video edges.
+
+**For developers**
+- Electron 44.10.1 (Chromium security fixes) and updated dependencies.
+- A self-hosted server turns on sign-in and paid plans by itself when its `.env` has both a Clerk key and a Creem key; `APPBLIPS_HOSTED` is gone. Without those keys nothing changes.
 
 ### v0.1.24
 
@@ -89,19 +113,6 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 
 **Look and feel**
 - The buttons on the building screen (app header, Build panel, preview toolbar, embedded browser and click-to-edit bar) now look like raised keys that lift on hover and press down when clicked, with selected options shown held down. Works in light and dark themes and on phones.
-
-### v0.1.22 and v0.1.23
-
-**New**
-- **Tavily web search connector:** add your own Tavily key in **Settings → Connectors** and the AI can search the web while it builds, for facts it doesn't know (a real business's address and opening hours, current news, how to use a service) instead of guessing. Tavily's free plan includes 1,000 searches a month.
-
-**Improved**
-- **Bring your own key only:** AppBlips AI Credits have been removed. Builds always use the AI provider you set up in **Settings**, and AppBlips itself is free. First-run setup is now three short steps (name, avatar, AI provider), and **Settings → Account & Usage** and the credits badge in the Build pane are gone. Any credits sign-in saved by an older version is deleted on startup.
-- **Your AI model's own safeguards only:** AppBlips no longer adds its own content rules on top of the model you choose, and Pixabay search no longer forces safe search. Refusals from your provider still show as before.
-- The Showcase uses lightweight still thumbnails, so browsing it uses less memory and CPU.
-
-**For developers**
-- Updated build tools and dependencies (Electron Builder, Capacitor CLI, ESLint, minimatch, glob) to fix known security issues.
 
 *For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
 </details>

@@ -6,6 +6,54 @@ rss: true
 
 Each entry lists what changed in that version of AppBlips, newest first. To get the latest version, see [Install the desktop app](/quickstart-desktop) or [Run from source](/quickstart-source). Downloads for every release are on [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
+<Update label="0.1.25" description="November 7, 2026" tags={["New", "Improved", "Look and feel", "For developers"]}>
+  ## New
+
+  - **Install a published site as an app.** Tick **Prompt visitors to install as an app** in **Publish** and visitors can add your site to their phone or computer with its own icon. See [Publishing](/features/publishing).
+  - **Test connection.** First-run setup has a **Test connection** button under the model. It checks your provider, key and model before you save them, and shows **Connected** or **Connection failed**.
+  - **Reasoning levels for your model.** **Settings → AI → Reasoning** offers exactly the levels your provider and model accept (from **Off** up to **Max**), instead of the same three for everyone. While a build runs, the progress list shows a **Reasoning** step when the model is thinking.
+  - **Settings → Tools.** SEO and My images are built into AppBlips, so they have their own **Tools** tab. SEO is now switched on for each project separately, and stays off until you turn it on in that project.
+
+  ## Improved
+
+  - **Tidier Settings.** Your AI provider, key and model are at the top of **Settings → AI**, so there is no separate API tab. Legal links and open source licenses are at the bottom of **Settings → About**. **Connectors** is now called **Extensions**.
+  - **No provider is picked for you.** Setup and **Settings → AI** start on **Select a provider** until you choose one. Anthropic is marked as recommended.
+  - **Your saved API key is protected.** It never appears on screen, and AppBlips asks **Replace saved API key?** before you type over it.
+  - **Code Review is now Review**, with a shorter description.
+  - **Replay onboarding** is available in the browser version too, not only the desktop app. Nothing is reset when you replay it.
+  - **LM Studio and Ollama removed.** AppBlips works with Anthropic, OpenAI, Gemini, DeepSeek and OpenRouter, each with an API key. If you had LM Studio or Ollama set up, AppBlips asks you to choose a provider again.
+
+  ## Look and feel
+
+  - **A redesigned studio picker.** The live preview sits beside the list of studios on wider screens, so the page fits a laptop window without scrolling. On phones, the header has a menu button that opens a slide-out menu. **Showcase** is now **Explore**, and the Ask mode title reads "Ask AI any question."
+  - The AppBlips wordmark next to the app icon is smaller.
+  - Badges and status labels (such as **Beta**, **Coming soon** and **Connected**) are readable in the dark theme.
+  - The splash video's edges no longer flicker while it plays.
+
+  ## For developers
+
+  - Updated Electron to 44.10.1 for Chromium security fixes, plus React, Tailwind, Capacitor and other dependencies.
+  - A self-hosted server turns on sign-in and paid plans by itself when its `.env` has both a Clerk key and a Creem key, and the `APPBLIPS_HOSTED` setting is gone. See [Configuration](/self-hosting/configuration#accounts-and-plans). Without those keys nothing changes.
+</Update>
+
+<Update label="0.1.24" description="November 2, 2026" tags={["New", "Improved", "Look and feel"]}>
+  ## New
+
+  - **Edit code by hand.** Open the **Code** tab (or **Files** for an imported project), click **Edit** and type your own changes. Save with the **Save** button or **Ctrl+S**: each save is a normal version, so undo and history work as usual. Unsaved changes are kept if you switch to the Preview tab, and AppBlips asks before you switch page or file.
+  - **Code autocomplete.** While you edit, suggested words appear under the cursor (words from your file, plus JavaScript, CSS and HTML names). Use the arrow keys to pick, **Enter** or **Tab** to insert, or **Esc** to close. Suggestions are worked out on your computer; the AI is never called. Switch it off in **Settings → Workspace → Code autocomplete**.
+
+  ## Improved
+
+  - **Your own edits stay yours.** If code you saved by hand has an error, AppBlips shows the error and its line in the chat instead of having the AI rewrite your change. Saving again clears it.
+  - **Clearer updates for Linux .deb installs.** The update notice and **Settings → Check** show the right steps for how you installed AppBlips, with a command to copy.
+  - **Desktop preview opens full size.** The framed desktop window is one click away on the **Full size** toggle.
+  - **Agent computer removed.** The AI no longer runs npm on computer.appblips.com, so nothing is sent there, and the **Agent computer** switch is gone from **Settings → Connectors**. For imported sites, the AI edits `package.json` itself and AppBlips' built-in build check tests the result.
+
+  ## Look and feel
+
+  - The buttons on the building screen now look like raised keys that lift on hover and press down when clicked, in light and dark themes and on phones.
+</Update>
+
 <Update label="0.1.23" description="November 2, 2026" tags={["For developers"]}>
   ## For developers
 
