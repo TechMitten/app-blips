@@ -429,7 +429,14 @@
 .onboarding-choice-mark { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / 0.25); border-radius: 50%; color: #0a0a0a; }
 .onboarding-choice.is-selected .onboarding-choice-mark { border-color: #ffffff; background: #ffffff; }
 .onboarding-next.onboarding-plan-button { min-width: 0; height: 40px; flex: none; padding: 0 18px; font-size: 0.92rem; }
-.onboarding-signin { display: flex; justify-content: center; }
+.onboarding-signin { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+/* Terms and Privacy agreement under sign-in and the plans: readable but
+   quiet, with links that look like links (underlined, not colour alone). */
+.onboarding-legal { max-width: 420px; margin-top: 4px; color: #a3a3a3; font-size: 0.82rem; line-height: 1.5; text-align: center; }
+.desktop-onboarding-setup .onboarding-legal { max-width: none; margin-top: 8px; text-align: left; }
+.onboarding-legal a { color: #f5f5f5; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 0.4); text-underline-offset: 3px; }
+.onboarding-legal a:hover { text-decoration-color: #ffffff; }
+.onboarding-legal a:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; border-radius: 2px; }
 /* Plans not sold yet (plans.js comingSoon): dimmed, with a tag in place of
    the Subscribe button. */
 .onboarding-choice.is-soon .onboarding-choice-body { opacity: .55; }
@@ -559,6 +566,27 @@
 .onboarding-info-modal p { font-size: 0.95rem; line-height: 1.55; }
 .onboarding-info-modal .onboarding-next { align-self: flex-end; min-width: 0; height: 44px; margin-top: 8px; padding: 0 22px; }
 .onboarding-info-modal .onboarding-next:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+/* "Compare the options" pop-up (CompareModal), also portaled to <body>: it
+   re-declares the one onboarding token its contents use. Scrolls inside
+   itself on short screens instead of running off them. */
+.onboarding-compare-modal { --ob-red: #ec6452; --ob-soft: rgb(255 255 255 / 0.055); width: min(760px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 24px 26px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 18px; color: #c7c7c7; background: linear-gradient(160deg, #1a1a1a, #101010); box-shadow: inset 0 1px rgb(255 255 255 / 0.06), 0 30px 70px -30px #000; font-family: 'Plus Jakarta Sans', 'Poppins', system-ui, sans-serif; }
+.onboarding-compare-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.onboarding-compare-head h2 { color: #f5f5f5; font-size: 1.25rem; font-weight: 650; letter-spacing: -0.01em; }
+.onboarding-compare-close { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: #a3a3a3; cursor: pointer; transition: background .18s ease, color .18s ease; }
+.onboarding-compare-close:hover { color: #f5f5f5; background: rgb(255 255 255 / 0.08); }
+.onboarding-compare-close:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.onboarding-compare-modal .onboarding-beta-note { margin-top: 0; }
+.onboarding-compare-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 20px; padding-top: 4px; }
+.onboarding-compare-actions .onboarding-next { min-width: 0; height: 46px; padding: 0 22px; }
+.onboarding-compare-actions .onboarding-next:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+/* The fourth card on the choice step: opens the comparison rather than being
+   a choice, so it is dashed and has an arrow instead of a radio mark. */
+.onboarding-choice.is-info { margin-top: 12px; border-style: dashed; background: transparent; }
+.onboarding-choice.is-info:hover { background: rgb(255 255 255 / 0.04); }
+.onboarding-choice-go { flex: none; color: #a3a3a3; transition: transform .18s ease, color .18s ease; }
+.onboarding-choice.is-info:hover .onboarding-choice-go { color: #f5f5f5; transform: translateX(3px); }
 
 @keyframes onboarding-slide-forward { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes onboarding-slide-back { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: translateX(0); } }
