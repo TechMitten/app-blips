@@ -27,14 +27,24 @@ Here are quick answers to the most common questions about AppBlips — what it c
     You can use your own Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter API key. Open **Settings → AI**, choose your provider and model, and enter its key if required. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
   </Accordion>
 
+  <Accordion title="Do I need a plan or an API key?">
+    One or the other. In the desktop app, you can subscribe to an AppBlips plan, and AppBlips runs the AI for you with no API key. Or you can use your own API key from an AI provider for free, and the provider bills you. See [Plans](/features/plans). The browser version (from source or Docker) always uses your own key.
+  </Accordion>
+
+  <Accordion title="How do I cancel my plan?">
+    Open **Settings → Plan**, click **Cancel subscription**, then **Yes, cancel**. Your plan stays active until the end of the period you've paid for, and you won't be charged again. See [Cancel your plan](/features/plans#cancel-your-plan).
+  </Accordion>
+
   <Accordion title="What happens to my API key?">
     In the desktop app, your API key is encrypted with your system keychain and stays on your computer. It is used only by the app's background process when it calls your AI provider. In the browser version (run from source or Docker), AppBlips' own server on your computer saves it in a file only you can read, never in your browser. In every version, it is never embedded in generated app code and never included in any exported HTML file.
   </Accordion>
 
   <Accordion title="What does AppBlips connect to?">
-    AppBlips has no account and no cloud of its own. It connects to:
+    It connects to:
 
-    - **Your AI provider** (the one in **Settings → AI**): your prompts, your project's code and any images you attach are sent there to build your app.
+    - **Your AI provider** (the one in **Settings → AI**), when you build with your own key: your prompts, your project's code and any images you attach are sent there to build your app.
+    - **AppBlips' server and Clerk:** desktop app only. When it starts, the app asks AppBlips' server (on Cloudflare) whether plans are available, and loads the sign-in form from Clerk, AppBlips' sign-in service, whether or not you sign in. Signed in, the app sends your plan's build requests to AppBlips' server, which passes them on to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). Google and GitHub sign-in open `auth.appblips.com` in your web browser. See [Plans](/features/plans#your-data-on-a-plan).
+    - **Creem:** only when you subscribe. Checkout opens Creem's payment page in your web browser.
     - **GitHub:** to check for new versions, when the app starts and every hour while it's open. The desktop app also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Microsoft Store version gets updates from the Store instead (it still checks GitHub so it can tell you a new version is out).
     - **Google Fonts:** for the fonts AppBlips itself uses.
     - **Hugging Face:** only when you build AppBlips from source or with Docker, to download the voice-input speech model once. The desktop app already includes it.

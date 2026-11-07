@@ -1,0 +1,131 @@
+---
+title: "AppBlips plans"
+sidebarTitle: "Plans"
+description: "Build without an API key: what the Basic plan includes, how to subscribe, sign in and cancel, and how a plan compares with using your own AI key."
+---
+
+AppBlips needs an AI to build your apps. You can get it in one of two ways:
+
+- **Subscribe to a plan:** AppBlips runs the AI for you. There's no API key to set up, and you pay AppBlips a monthly price.
+- **Use your own AI key:** free with AppBlips. You connect your own account with an AI provider, such as Anthropic or OpenAI, and the provider bills you for what you use. See [Set up your AI provider](/quickstart-desktop#set-up-your-ai-provider).
+
+An API key is a password-like code from an AI provider that lets AppBlips use the AI on your account. With a plan you don't need one.
+
+<Note>
+  Plans are available in the [desktop app](/quickstart-desktop) only. The browser version (from source or Docker) always uses your own AI key.
+</Note>
+
+## What a plan includes
+
+**Basic** is the plan on sale now:
+
+- **Price:** $5 a month. This is a beta price.
+- **Builds:** unlimited while AppBlips is in beta, up to 50 every 5 hours.
+- **AI:** run by AppBlips. No setup, and no bill from an AI provider.
+
+**Silver** and **Max** are marked **Coming soon**. The **agent computer**, a computer in the cloud that the AI can use while it builds, is also coming soon for plans. Neither can be bought yet.
+
+<Warning>
+  The $5 price and unlimited builds last only while AppBlips is in beta. The price and build limits will change when the beta ends.
+</Warning>
+
+### If you reach the build limit
+
+After 50 builds in 5 hours, the chat shows a message like:
+
+> You've used your 50 builds for this 5-hour window. Building unlocks again in 1 h 40 min.
+
+Wait until the time it gives, then build again. Your projects and chat are kept in the meantime.
+
+## Plan or your own key?
+
+| | Plan | Your own key |
+|---|---|---|
+| **Cost** | $5/month (beta price) | Free; you pay your AI provider |
+| **AI** | Run by AppBlips | Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter |
+| **API key** | Not needed | Your own, kept on your computer |
+| **Account** | Sign-in needed | None needed |
+
+To see this comparison in the app, click **Not sure? Compare the options** on the setup screen titled **How should AppBlips get its AI?**
+
+## Subscribe to a plan
+
+You can subscribe when you first set up AppBlips, or later from Settings.
+
+<Tabs>
+  <Tab title="During setup">
+    <Steps>
+      <Step title="Choose a plan">
+        On the screen titled **How should AppBlips get its AI?**, **Subscribe to a plan** is selected already. Click **Continue**.
+      </Step>
+      <Step title="Create your account">
+        Type your email and a password, then click **Continue** and follow the steps (Clerk, the sign-in service AppBlips uses, may email you a code). To use Google or GitHub instead, see [Sign in with Google or GitHub](#sign-in-with-google-or-github). Already have an account? Click **Sign in** below the form.
+      </Step>
+      <Step title="Subscribe">
+        Click **Subscribe** next to **Basic**. Checkout opens in your web browser, on Creem's secure payment page.
+      </Step>
+      <Step title="Pay, then come back">
+        Finish paying in your browser, then go back to AppBlips. Within a few seconds it shows **You're all set. Start building.**
+      </Step>
+      <Step title="Start building">
+        Click **Start building**.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="From Settings">
+    <Steps>
+      <Step title="Open the Plan tab">
+        Open **Settings → Plan**.
+      </Step>
+      <Step title="Sign in">
+        If you aren't signed in, click **Sign in** and sign in or create an account.
+      </Step>
+      <Step title="Subscribe">
+        Click **Subscribe to Basic**. Checkout opens in your web browser.
+      </Step>
+      <Step title="Pay, then come back">
+        Finish paying there, then go back to AppBlips. **Current plan** changes to **Basic** within a few seconds.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+If you set up AppBlips with your own key before plans existed, it shows a one-time notice, **New: AppBlips plans**. Click **See plans** to open **Settings → Plan**, or **Compare options** to see the comparison.
+
+## Sign in and out
+
+Your plan belongs to your account, so sign in on each computer where you want to use it.
+
+- **Sign in:** click **Sign in** at the top of the screen (on the studio picker or in the workspace header), or in **Settings → Plan**.
+- **Sign out:** click **Sign out** at the top of the screen, or in the menu under your profile picture. AppBlips asks **Sign out of AppBlips?** first. Click **Sign out** to confirm.
+
+While you're signed out, AppBlips builds with your own AI key, if you've set one up. Your projects stay on your computer either way.
+
+AppBlips checks for plans when it starts, so it needs an internet connection then. Started offline, it uses your own AI key until you restart it online.
+
+### Sign in with Google or GitHub
+
+1. Click **Google** or **GitHub** in the sign-in form.
+2. Your web browser opens. Sign in to Google or GitHub there.
+3. When the browser asks to open AppBlips, click **Open AppBlips** (the exact wording depends on your browser).
+4. Go back to AppBlips. It signs you in.
+
+Google and GitHub sign-in finish in your browser because they can't run inside an app window. Your browser doesn't stay signed in afterwards.
+
+## Cancel your plan
+
+1. Open **Settings → Plan**.
+2. Click **Cancel subscription**.
+3. Read **Cancel your Basic plan?** and click **Yes, cancel**. To keep it, click **Keep my plan**.
+
+Your plan stays active until the end of the period you've paid for, and you won't be charged again. **Settings → Plan** then shows **Subscription cancelled** and the date your plan ends. Your projects stay as they are.
+
+## Your data on a plan
+
+With a plan, your build requests go to AppBlips' server instead of to an AI provider of your choosing. The server checks your plan and passes each request to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). Your prompts, your project's code and any images you attach go there to build your app, as they would go to your own provider.
+
+Payments are handled by [Creem](https://www.creem.io), and sign-in by [Clerk](https://clerk.com). AppBlips never sees your card details.
+
+By signing in or subscribing, you agree to the [Terms of Service](https://www.appblips.com/terms) and [Privacy Policy](https://www.appblips.com/privacy).
+
+Questions about billing? Email [support@appblips.com](mailto:support@appblips.com).
