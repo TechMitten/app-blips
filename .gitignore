@@ -63,3 +63,4 @@ pinokio/
 # Hosted billing store (SQLite)
 appblips.db
 appblips.db-*
+sandbox.md
