@@ -2765,7 +2765,11 @@ export default function App({ coldStart = false }) {
       {!desktopOnboarding.replay && <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />}
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
-        onComplete={() => setDesktopOnboarding(null)}
+        onComplete={(next) => {
+          setDesktopOnboarding(null);
+          // A returning plan user's sign-in ends on Settings → Account.
+          if (next?.openSettings) { setSettingsInitialTab(next.openSettings); setIsSettingsOpen(true); }
+        }}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
       />
       <UpdateNotice aboveOverlay />

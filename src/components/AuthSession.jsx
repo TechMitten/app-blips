@@ -17,10 +17,13 @@ export default function AuthSession({ children }) {
   // Desktop: finish Google/GitHub sign-ins that came back from the browser.
   useBrowserSignInTickets();
 
-  useEffect(() => {
-    setAuthTokenGetter(isSignedIn ? getToken : null);
-    return () => setAuthTokenGetter(null);
-  }, [isSignedIn, getToken]);
+  // Installed while rendering, not in an effect: children's effects run
+  // before this component's, and onboarding's plan step asks for the plan in
+  // its first effect after a sign-in. Done from an effect, that request went
+  // without the token, was refused, and a paying person was offered
+  // Subscribe. Setting it again with the same values is harmless.
+  setAuthTokenGetter(isSignedIn ? getToken : null);
+  useEffect(() => () => setAuthTokenGetter(null), []);
 
   // For Factory Reset (App.jsx handleResetApp), which runs outside React's
   // Clerk hooks. Signs out without Clerk navigating: the reset reloads.

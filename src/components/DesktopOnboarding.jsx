@@ -591,6 +591,11 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
     return waitForPlan((account) => { setMe(account); setPaying(false); });
   }, [paying]);
 
+  // fetchBillingMe gives null when the plan couldn't be read (offline, a
+  // refused sign-in). That isn't "no plan": offering Subscribe then could
+  // charge someone who already pays, so it says so and offers a retry.
+  const [meFailed, setMeFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!isSignedIn) return undefined;
     let cancelled = false;
@@ -598,9 +603,10 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
       if (cancelled) return;
       setPlans(config.plans || []);
       setMe(account);
+      setMeFailed(!account);
     });
     return () => { cancelled = true; };
-  }, [isSignedIn]);
+  }, [isSignedIn, attempt]);
 
   const active = Boolean(me?.active);
   useEffect(() => { onReady(active); }, [active, onReady]);
@@ -640,6 +646,18 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
     );
   }
   if (!plans) return <div className="onboarding-plan-wait"><Loader2 className="animate-spin" size={22} /></div>;
+  if (meFailed) {
+    return (
+      <div className="desktop-onboarding-setup">
+        <p className="onboarding-field-error" role="alert">
+          <CircleAlert size={15} /> Could not check your plan. Check your internet connection, then try again.
+        </p>
+        <button type="button" className="onboarding-next" onClick={() => { setPlans(null); setAttempt((n) => n + 1); }}>
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (active) {
     return (
       <div className="desktop-onboarding-setup">
@@ -792,10 +810,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   // change reloads the app once setup is over (it won't show again then: the
   // AI setup or the skip is saved first).
   const [folderChanged, setFolderChanged] = useState(false);
-  const leave = (done) => () => {
+  const leave = (done) => (...args) => {
     writeResume(null);
     if (folderChanged) window.location.reload();
-    else done?.();
+    else done?.(...args);
   };
   const onComplete = leave(finishSetup);
   const onExit = exitSetup ? leave(exitSetup) : null;
@@ -924,6 +942,20 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     await markOnboarded();
     onComplete();
   };
+  // "I already have an account" and the account already has a plan: there's
+  // nothing left to choose, so setup ends and Settings → Account opens to
+  // show the plan and usage.
+  const returningWithPlan = step === 'plan' && access === 'sign-in' && planActive;
+  useEffect(() => {
+    if (!returningWithPlan) return;
+    (async () => {
+      keepProfile();
+      await markOnboarded();
+      onComplete({ openSettings: 'account' });
+    })();
+    // Runs once when the plan shows up active; the handlers are recreated each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returningWithPlan]);
   // Checkout leaves the app, and Polar returns to the app itself, so setup
   // is finished before going.
   const beforeCheckout = async () => {
