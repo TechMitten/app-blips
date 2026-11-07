@@ -18,11 +18,12 @@ export default function ConfirmModal({
   confirmDisabled = false,
   confirmClass,
   icon: Icon,
+  zIndex = 70,
   children,
 }) {
   return (
     <Modal
-      zIndex={70}
+      zIndex={zIndex}
       cardClass="w-full max-w-md xl:max-w-lg 2xl:max-w-xl bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]"
     >
       <div className="shrink-0 px-6 py-5 border-b border-slate-100 flex items-center justify-between">

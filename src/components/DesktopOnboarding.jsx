@@ -2,12 +2,13 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Eye, EyeOff,
-  FolderOpen, Info, KeyRound, Laptop, Loader2, Plug, Sparkles, UserRound, X,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, LogOut, Plug, Sparkles, UserRound, X,
 } from 'lucide-react';
 import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
-import { BrowserSignInButtons } from './AccountDialogs';
+import { BrowserSignInStatus } from './AccountDialogs';
+import { useRequestSignOut } from '../lib/accountDialogs';
 import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
 import { savePlansIntroSeen } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
@@ -548,6 +549,20 @@ function PlanStepText({ access, planActive }) {
   return <p>Your account keeps your plan and build credits. Already have one? Click Sign in below the form. Prefer your own key? Press Back.</p>;
 }
 
+// Signed in already (an earlier setup, or the plan step): a way out of that
+// account from setup itself, through the usual "Sign out of AppBlips?"
+// dialog. Only rendered with accounts on, inside Clerk's provider.
+function OnboardingSignOut() {
+  const { isSignedIn } = useAuth();
+  const requestSignOut = useRequestSignOut();
+  if (!isSignedIn) return null;
+  return (
+    <button type="button" className="onboarding-exit" onClick={requestSignOut}>
+      <LogOut size={15} /> Sign out
+    </button>
+  );
+}
+
 const NO_CLERK_SWITCH_LINK = { elements: { footerAction: { display: 'none' } } };
 
 function PlanForm({ onReady, onCheckout, newAccount }) {
@@ -610,10 +625,10 @@ function PlanForm({ onReady, onCheckout, newAccount }) {
   if (!isSignedIn) {
     return (
       <div className="onboarding-signin">
-        <BrowserSignInButtons variant="onboarding" />
         {authMode === 'sign-up'
           ? <SignUp key="sign-up" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />
           : <SignIn key="sign-in" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />}
+        <BrowserSignInStatus variant="onboarding" />
         <p className="onboarding-auth-switch">
           {authMode === 'sign-up' ? 'Already have an account?' : 'New to AppBlips?'}{' '}
           <button type="button" onClick={switchAuthMode}>
@@ -941,13 +956,16 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             <img src="/favicon.svg" alt="" aria-hidden="true" className="onboarding-brand-icon" />
             <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
           </div>
-          {onExit ? (
-            <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
-              Exit setup <X size={15} />
-            </button>
-          ) : (
-            <span><Laptop size={20} /> {isDesktop ? 'Desktop setup' : 'Setup'}</span>
-          )}
+          <div className="onboarding-topbar-actions">
+            {accounts && <OnboardingSignOut />}
+            {onExit ? (
+              <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
+                Exit setup <X size={15} />
+              </button>
+            ) : (
+              <span><Laptop size={20} /> {isDesktop ? 'Desktop setup' : 'Setup'}</span>
+            )}
+          </div>
         </header>
 
         <div className="onboarding-stage" key={step} data-dir={slide.dir}>
