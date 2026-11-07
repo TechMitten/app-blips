@@ -22,6 +22,7 @@ import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import PlansNotice from './components/PlansNotice';
+import { SignInCallback } from './components/AccountDialogs';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
@@ -2875,6 +2876,7 @@ export default function App({ coldStart = false }) {
         {isDesktop && <DesktopStorageNotice />}
         <UpdateNotice />
         <PlansNotice onOpenPlans={openPlanSettings} />
+        <SignInCallback />
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -3037,6 +3039,7 @@ export default function App({ coldStart = false }) {
 
       <UpdateNotice />
       <PlansNotice onOpenPlans={openPlanSettings} />
+      <SignInCallback />
       {isDesktop && <DesktopStorageNotice />}
 
       {isResumingProject ? null : showHero ? (

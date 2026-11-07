@@ -1,6 +1,7 @@
 import { cloneElement, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { SignIn, SignInButton, SignUp, SignUpButton, UserButton, useAuth, useClerk } from '@clerk/react';
+import { AuthenticateWithRedirectCallback, SignIn, SignInButton, SignUp, SignUpButton, UserButton, useAuth, useClerk } from '@clerk/react';
+import { useAccounts } from '../lib/accounts';
 import { Loader2, LogOut } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import Modal, { ModalCloseButton } from './Modal';
@@ -165,4 +166,17 @@ export function AccountButton() {
       </UserButton.MenuItems>
     </UserButton>
   );
+}
+
+// Google/GitHub sign-in on the web: Clerk's pop-up (AuthButton) leaves the
+// page and comes back to it at #/sso-callback, where something has to finish
+// the sign-in. The pop-up is gone by then, so without this the person lands
+// on the studio picker still signed out. Setup's own form finishes its
+// returns (DesktopOnboarding reopens on the plan step), so App renders this
+// only outside setup. The desktop app never comes back here: its Google and
+// GitHub sign-in goes through the web browser (lib/browserSignIn.js).
+export function SignInCallback() {
+  const accounts = useAccounts();
+  if (!accounts || !window.location.hash.startsWith('#/sso-callback')) return null;
+  return <AuthenticateWithRedirectCallback signInFallbackRedirectUrl="/" signUpFallbackRedirectUrl="/" />;
 }
